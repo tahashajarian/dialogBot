@@ -14,17 +14,15 @@ function normalizeLang(code) {
 }
 
 function detectLanguage(ctx) {
-  // 1. زبان ذخیره شده
+  
   if (ctx.user?.lang && SUPPORTED_LANGS.includes(ctx.user.lang)) {
     return ctx.user.lang;
   }
 
-  // 2. زبان پلتفرم (تلگرام)
   const detected = normalizeLang(ctx.languageCode);
 
   if (detected) return detected;
 
-  // 3. fallback
   return "fa";
 }
 

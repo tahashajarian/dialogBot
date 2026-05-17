@@ -30,7 +30,6 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
 
     if (!selected) {
-      // داده خراب یا دستکاری شده
       try {
         return await ctx.editMessageText(messages[lang].unknownAction);
       } catch {
@@ -38,7 +37,6 @@ async function handleCallback(ctx) {
       }
     }
 
-    // اینجا باید user موجود باشه، وگرنه کل معماری ایراد داره
     const userId = ctx.user?.userId;
     if (!userId) {
       try {
