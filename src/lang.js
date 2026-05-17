@@ -1,9 +1,10 @@
-const { getUser, saveUser } = require("./storage");
+const { setUserLang } = require("./services/users");
 
 const SUPPORTED_LANGS = ["fa", "en"];
 
 function normalizeLang(code) {
   if (!code) return null;
+
   const lower = String(code).toLowerCase();
 
   if (lower.startsWith("fa")) return "fa";
@@ -13,22 +14,27 @@ function normalizeLang(code) {
 }
 
 function detectLanguage(ctx) {
-  const stored = getUser(ctx.userId);
-  if (stored?.lang && SUPPORTED_LANGS.includes(stored.lang)) {
-    return stored.lang;
+  // 1. زبان ذخیره شده
+  if (ctx.user?.lang && SUPPORTED_LANGS.includes(ctx.user.lang)) {
+    return ctx.user.lang;
   }
 
+  // 2. زبان پلتفرم (تلگرام)
   const detected = normalizeLang(ctx.languageCode);
+
   if (detected) return detected;
 
+  // 3. fallback
   return "fa";
 }
 
-function setLanguage(userId, lang) {
+async function setLanguage(userId, lang) {
   const normalized = normalizeLang(lang);
+
   if (!normalized) return false;
 
-  saveUser(userId, { lang: normalized });
+  await setUserLang(userId, normalized);
+
   return true;
 }
 
@@ -36,5 +42,5 @@ module.exports = {
   detectLanguage,
   setLanguage,
   normalizeLang,
-  SUPPORTED_LANGS,
+  SUPPORTED_LANGS
 };

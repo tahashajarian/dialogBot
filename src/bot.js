@@ -35,13 +35,9 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[userLang].mainMenu, mainMenuKeyboard(userLang));
   }
 
-  if (!userLang) {
-    return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
-  }
-
-  return ctx.reply(messages[userLang].maintenance, mainMenuKeyboard(userLang));
+  return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));
 }
 
 module.exports = {
-  handleUpdate,
+  handleUpdate
 };
