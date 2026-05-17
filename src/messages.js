@@ -6,10 +6,8 @@ module.exports = {
     languageChanged: "✅ زبان با موفقیت به فارسی تغییر کرد.",
     unknownAction: "این عملیات شناخته‌شده نیست.",
     mainMenu: "یکی از گزینه‌ها رو انتخاب کن:",
-    buttons: {
-      language: "🌐 تغییر زبان",
-      back: "🔙 بازگشت",
-    },
+    language: "🌐 تغییر زبان",
+    profile: "👤 پروفایل"
   },
 
   en: {
@@ -19,9 +17,7 @@ module.exports = {
     languageChanged: "✅ Language changed to English successfully.",
     unknownAction: "Unknown action.",
     mainMenu: "Choose one of the options:",
-    buttons: {
-      language: "🌐 Change language",
-      back: "🔙 Back",
-    },
+    language: "🌐 Change language",
+    profile: "👤 Profile"
   },
 };

@@ -1,6 +1,7 @@
 const messages = require("./messages");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const { mainMenuKeyboard, languageKeyboard } = require("./keyboards");
+const { callBacks } = require("./constances");
 
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
@@ -12,18 +13,18 @@ async function handleCallback(ctx) {
   }
 
   // menu routes
-  if (data === "menu:main") {
+  if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
-  if (data === "menu:language") {
+  if (data === callBacks.language) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
   }
 
   // language routes
-  if (data.startsWith("lang:set:")) {
+  if (data.startsWith(callBacks.langSet)) {
     const raw = data.split(":")[2];
     const selected = normalizeLang(raw); // fa/en
 

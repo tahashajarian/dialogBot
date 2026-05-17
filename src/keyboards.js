@@ -1,3 +1,4 @@
+const { callBacks } = require("./constances");
 const messages = require("./messages");
 
 function inlineKeyboard(rows) {
@@ -12,8 +13,14 @@ function mainMenuKeyboard(lang) {
   return inlineKeyboard([
     [
       {
-        text: messages[lang].buttons.language,
-        callback_data: "menu:language",
+        text: messages[lang].language,
+        callback_data: callBacks.language,
+      },
+    ],
+    [
+      {
+        text: messages[lang].profile,
+        callback_data: callBacks.profile,
       },
     ],
   ]);
@@ -22,10 +29,10 @@ function mainMenuKeyboard(lang) {
 function languageKeyboard() {
   return inlineKeyboard([
     [
-      { text: "🇮🇷 فارسی", callback_data: "lang:set:fa" },
-      { text: "🇬🇧 English", callback_data: "lang:set:en" },
+      { text: "🇮🇷 فارسی", callback_data: callBacks.langSetFa },
+      { text: "🇬🇧 English", callback_data:  callBacks.langSetEn},
     ],
-    [{ text: "🔙 Back", callback_data: "menu:main" }],
+    [{ text: "🔙 Back", callback_data: callBacks.menuMain  }],
   ]);
 }
 
