@@ -1,0 +1,24 @@
+{
+  "name": "dialogBot",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --no-deprecation index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.16.1",
+    "dotenv": "^17.4.2",
+    "mongoose": "^9.6.2",
+    "openai": "^6.37.0",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
