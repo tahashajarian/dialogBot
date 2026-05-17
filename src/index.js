@@ -3,7 +3,7 @@ require("dotenv").config();
 const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { handleUpdate } = require("./bot");
-const { getUser } = require("./services/users");
+const { getOrCreateUser } = require("./services/users");
 
 const bot = new Telegraf(process.env.BOT_TOKEN, {
   telegram: {
@@ -14,6 +14,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN, {
 function createAppContext(ctx, user) {
   return {
     user,
+    userId: user?.userId,
     languageCode: ctx.from?.language_code,
     text: ctx.message?.text,
     callbackData: ctx.callbackQuery?.data,
@@ -25,9 +26,8 @@ function createAppContext(ctx, user) {
 }
 
 async function processUpdate(ctx) {
-  const userId = ctx.from.id;
 
-  const user = await getUser(userId);
+  const user = await getOrCreateUser(ctx.from);
 
   const appCtx = createAppContext(ctx, user);
 

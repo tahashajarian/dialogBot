@@ -1,5 +1,5 @@
 const messages = require("./messages");
-const { setLanguage, detectLanguage } = require("./lang");
+const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const { mainMenuKeyboard, languageKeyboard } = require("./keyboards");
 
 async function handleCallback(ctx) {
@@ -24,30 +24,51 @@ async function handleCallback(ctx) {
 
   // language routes
   if (data.startsWith("lang:set:")) {
-    const selected = data.split(":")[2];
-    const ok = setLanguage(ctx.userId, selected);
+    const raw = data.split(":")[2];
+    const selected = normalizeLang(raw); // fa/en
 
     await ctx.answerCb?.();
 
-    if (!ok) {
+    if (!selected) {
+      // داده خراب یا دستکاری شده
       try {
         return await ctx.editMessageText(messages[lang].unknownAction);
-      } catch (err) {
+      } catch {
         return await ctx.reply(messages[lang].unknownAction);
       }
     }
 
-    const newLang = detectLanguage({ ...ctx, languageCode: selected });
+    // اینجا باید user موجود باشه، وگرنه کل معماری ایراد داره
+    const userId = ctx.user?.userId;
+    if (!userId) {
+      try {
+        return await ctx.editMessageText(messages[lang].unknownAction);
+      } catch {
+        return await ctx.reply(messages[lang].unknownAction);
+      }
+    }
+
+    const ok = await setLanguage(userId, selected); // DB update + normalize inside too
+    if (!ok) {
+      try {
+        return await ctx.editMessageText(messages[lang].unknownAction);
+      } catch {
+        return await ctx.reply(messages[lang].unknownAction);
+      }
+    }
+
+    const newLang = selected;
 
     try {
-      return await ctx.editMessageText(
+      // Telegraf editMessageText: (text, extra)
+      return await ctx.editMessage(
         messages[newLang].languageChanged,
-        mainMenuKeyboard(newLang),
+        mainMenuKeyboard(newLang)
       );
-    } catch (err) {
+    } catch {
       return await ctx.reply(
         messages[newLang].languageChanged,
-        mainMenuKeyboard(newLang),
+        mainMenuKeyboard(newLang)
       );
     }
   }
@@ -56,6 +77,4 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
-module.exports = {
-  handleCallback,
-};
+module.exports = { handleCallback };

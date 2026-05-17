@@ -1,23 +1,28 @@
 const User = require("../models/user");
 
-async function getUser(userId) {
-  let user = await User.findOne({ userId });
+async function getOrCreateUser(from) {
+  if (!from) return null;
+
+  let user = await User.findOne({ userId: from.id });
 
   if (!user) {
-    user = await User.create({ userId });
+    user = await User.create({
+      userId: from.id,
+      username: from.username,
+      firstName: from.first_name,
+      lang: "fa",
+    });
   }
 
   return user;
 }
 
-async function setUserLang(userId, lang) {
-  await User.updateOne(
+async function updateLanguage(userId, newLang) {
+  return await User.findOneAndUpdate(
     { userId },
-    { $set: { lang } }
+    { lang: newLang },
+    { returnDocument: "after" },
   );
 }
 
-module.exports = {
-  getUser,
-  setUserLang
-};
+module.exports = { getOrCreateUser, updateLanguage };

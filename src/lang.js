@@ -1,4 +1,4 @@
-const { setUserLang } = require("./services/users");
+const { updateLanguage } = require("./services/users");
 
 const SUPPORTED_LANGS = ["fa", "en"];
 
@@ -33,7 +33,7 @@ async function setLanguage(userId, lang) {
 
   if (!normalized) return false;
 
-  await setUserLang(userId, normalized);
+  await updateLanguage(userId, normalized);
 
   return true;
 }
