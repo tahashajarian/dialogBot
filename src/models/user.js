@@ -7,6 +7,7 @@ const UserSchema = new mongoose.Schema({
   profileName: String,
   city: String,
   age: Number,
+  petPreference: String,
   photoFileId: String,
   lang: { type: String, default: "fa" },
   state: { type: String, default: "idle" },

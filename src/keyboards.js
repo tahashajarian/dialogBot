@@ -36,6 +36,9 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
     ],
     [
+      { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
+    ],
+    [
       { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
     ],
   ];
@@ -59,19 +62,23 @@ function cancelEditKeyboard(lang) {
   ]);
 }
 
+function ltrText(value) {
+  return `\u2066${value}\u2069`;
+}
+
 function ageKeyboard(lang) {
   const ranges = [];
   for (let start = 10; start <= 70; start += 10) {
     const end = Math.min(start + 9, 70);
     ranges.push({
-      text: `${start}-${end}`,
+      text: ltrText(`${start}-${end}`),
       callback_data: `${callBacks.profileAgeRangeSet}${start}`,
     });
   }
 
   const rows = [];
   for (let index = 0; index < ranges.length; index += 3) {
-    rows.push(ranges.slice(index, index + 3));
+    rows.push(ranges.slice(index, index + 3).reverse());
   }
 
   rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
@@ -85,18 +92,36 @@ function ageRangeKeyboard(lang, startAge) {
   const ages = [];
 
   for (let age = rangeStart; age <= rangeEnd; age += 1) {
-    ages.push({ text: String(age), callback_data: `${callBacks.profileAgeSet}${age}` });
+    ages.push({ text: ltrText(String(age)), callback_data: `${callBacks.profileAgeSet}${age}` });
   }
 
   const rows = [];
   for (let index = 0; index < ages.length; index += 5) {
-    rows.push(ages.slice(index, index + 5));
+    rows.push(ages.slice(index, index + 5).reverse());
   }
 
   rows.push([{ text: "↩️", callback_data: callBacks.profileAgeRangeBack }]);
   rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
 
   return inlineKeyboard(rows);
+}
+
+function petPreferenceKeyboard(lang) {
+  return inlineKeyboard([
+    [
+      { text: messages[lang].petOptionAny, callback_data: `${callBacks.profilePetSet}any` },
+      { text: messages[lang].petOptionNone, callback_data: `${callBacks.profilePetSet}none` },
+    ],
+    [
+      { text: messages[lang].petOptionCat, callback_data: `${callBacks.profilePetSet}cat` },
+      { text: messages[lang].petOptionDog, callback_data: `${callBacks.profilePetSet}dog` },
+    ],
+    [
+      { text: messages[lang].petOptionBird, callback_data: `${callBacks.profilePetSet}bird` },
+      { text: messages[lang].petOptionSmallPets, callback_data: `${callBacks.profilePetSet}small_pets` },
+    ],
+    [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
+  ]);
 }
 
 function languageKeyboard() {
@@ -116,5 +141,6 @@ module.exports = {
   cancelEditKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
+  petPreferenceKeyboard,
   languageKeyboard,
 };

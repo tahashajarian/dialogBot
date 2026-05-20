@@ -1,7 +1,7 @@
 const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, petPreferenceKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { callBacks } = require("./constances");
 const { updateProfileField, updateUserState } = require("./services/users");
 
@@ -48,6 +48,30 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_age");
     return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
+  }
+
+  if (data === callBacks.profileEditPetPreference) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_pet_preference");
+    return ctx.reply(messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
+  }
+
+  if (data.startsWith(callBacks.profilePetSet)) {
+    const petPreference = data.replace(callBacks.profilePetSet, "");
+    const allowedPetPreferences = new Set(["any", "none", "cat", "dog", "bird", "small_pets"]);
+
+    await ctx.answerCb?.();
+
+    if (!allowedPetPreferences.has(petPreference)) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await updateProfileField(ctx.userId, "petPreference", petPreference);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.petPreference = petPreference;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, lang, updatedUser);
   }
 
   if (data.startsWith(callBacks.profileAgeRangeSet)) {
@@ -170,7 +194,16 @@ async function handleCallback(ctx) {
 function getProfileText(user, lang) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
-  const age = Number.isFinite(user?.age) ? String(user.age) : "—";
+  const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
+  const petPreferenceMap = {
+    any: messages[lang].petOptionAny,
+    none: messages[lang].petOptionNone,
+    cat: messages[lang].petOptionCat,
+    dog: messages[lang].petOptionDog,
+    bird: messages[lang].petOptionBird,
+    small_pets: messages[lang].petOptionSmallPets,
+  };
+  const petPreference = petPreferenceMap[user?.petPreference] || "—";
 
   if (lang === "fa") {
     return [
@@ -179,6 +212,7 @@ function getProfileText(user, lang) {
       `👤 نام: ${displayName}`,
       `🏙 شهر: ${city}`,
       `🎂 سن: ${age}`,
+      `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     ].join("\n");
   }
 
@@ -188,6 +222,7 @@ function getProfileText(user, lang) {
     `👤 ${messages[lang].profileName}: ${displayName}`,
     `🏙 ${messages[lang].profileCity}: ${city}`,
     `🎂 ${messages[lang].profileAge}: ${age}`,
+    `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
   ].join("\n");
 }
 

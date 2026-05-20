@@ -2,7 +2,7 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, petPreferenceKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { updateProfileField, updateUserState } = require("./services/users");
 const { callBacks } = require("./constances");
 
@@ -79,6 +79,10 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintAge, ageKeyboard(lang));
   }
 
+  if (state === "editing_pet_preference") {
+    return ctx.reply(messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
+  }
+
   if (text === "/start") {
     await ctx.reply(messages[lang].welcome);
 
@@ -120,7 +124,16 @@ async function handleUpdate(ctx) {
 function getProfileText(user, lang) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
-  const age = Number.isFinite(user?.age) ? String(user.age) : "—";
+  const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
+  const petPreferenceMap = {
+    any: messages[lang].petOptionAny,
+    none: messages[lang].petOptionNone,
+    cat: messages[lang].petOptionCat,
+    dog: messages[lang].petOptionDog,
+    bird: messages[lang].petOptionBird,
+    small_pets: messages[lang].petOptionSmallPets,
+  };
+  const petPreference = petPreferenceMap[user?.petPreference] || "—";
 
   if (lang === "fa") {
     return [
@@ -129,6 +142,7 @@ function getProfileText(user, lang) {
       `👤 نام: ${displayName}`,
       `🏙 شهر: ${city}`,
       `🎂 سن: ${age}`,
+      `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     ].join("\n");
   }
 
@@ -138,6 +152,7 @@ function getProfileText(user, lang) {
     `👤 ${messages[lang].profileName}: ${displayName}`,
     `🏙 ${messages[lang].profileCity}: ${city}`,
     `🎂 ${messages[lang].profileAge}: ${age}`,
+    `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
   ].join("\n");
 }
 
