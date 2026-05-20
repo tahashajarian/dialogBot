@@ -16,10 +16,12 @@ function createAppContext(ctx, user) {
     user,
     userId: user?.userId,
     languageCode: ctx.from?.language_code,
+    message: ctx.message,
     text: ctx.message?.text,
     callbackData: ctx.callbackQuery?.data,
 
     reply: (...args) => ctx.reply(...args),
+    replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
     answerCb: (text) => ctx.answerCbQuery(text).catch(() => {}),
     editMessage: (...args) => ctx.editMessageText(...args)
   };
@@ -35,6 +37,8 @@ async function processUpdate(ctx) {
 }
 
 bot.on("text", processUpdate);
+bot.on("photo", processUpdate);
+bot.on("document", processUpdate);
 bot.on("callback_query", processUpdate);
 
 (async () => {

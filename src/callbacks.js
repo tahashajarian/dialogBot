@@ -1,7 +1,11 @@
 const messages = require("./messages");
+const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { mainMenuKeyboard, languageKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { callBacks } = require("./constances");
+const { updateProfileField, updateUserState } = require("./services/users");
+
+const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
@@ -21,6 +25,93 @@ async function handleCallback(ctx) {
   if (data === callBacks.language) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
+  }
+
+  if (data === callBacks.profile) {
+    await ctx.answerCb?.();
+    return sendProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileEditName) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_name");
+    return ctx.reply(messages[lang].profileAskName, cancelEditKeyboard(lang));
+  }
+
+  if (data === callBacks.profileEditCity) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_city");
+    return ctx.reply(messages[lang].profileAskCity, cancelEditKeyboard(lang));
+  }
+
+  if (data === callBacks.profileEditAge) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_age");
+    return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
+  }
+
+  if (data.startsWith(callBacks.profileAgeRangeSet)) {
+    const startAge = Number(data.replace(callBacks.profileAgeRangeSet, ""));
+
+    await ctx.answerCb?.();
+
+    if (!Number.isInteger(startAge) || startAge < 10 || startAge > 70 || startAge % 10 !== 0) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    return ctx.reply(messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
+  }
+
+  if (data === callBacks.profileAgeRangeBack) {
+    await ctx.answerCb?.();
+    return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
+  }
+
+  if (data.startsWith(callBacks.profileAgeSet)) {
+    const age = Number(data.replace(callBacks.profileAgeSet, ""));
+
+    await ctx.answerCb?.();
+
+    if (!Number.isInteger(age) || age < 10 || age > 70) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await updateProfileField(ctx.userId, "age", age);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.age = age;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, lang, updatedUser);
+  }
+
+  if (data === callBacks.profileEditPhoto) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_photo");
+    return ctx.reply(messages[lang].profileAskPhoto, cancelEditKeyboard(lang));
+  }
+
+  if (data === callBacks.profileResetPhoto) {
+    await ctx.answerCb?.();
+    await updateProfileField(ctx.userId, "photoFileId", null);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.photoFileId = null;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, lang, updatedUser);
+  }
+
+  if (data === callBacks.profileCancelEdit) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.state = "idle";
+    return sendProfile(ctx, lang, updatedUser);
+  }
+
+  if (data === callBacks.profileBack) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   // language routes
@@ -76,4 +167,63 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
+function getProfileText(user, lang) {
+  const displayName = user?.profileName || user?.firstName || "—";
+  const city = user?.city || "—";
+  const age = Number.isFinite(user?.age) ? String(user.age) : "—";
+
+  if (lang === "fa") {
+    return [
+      `🌸 ${messages[lang].profileTitle}`,
+      `━━━━━━━━━━━━━━`,
+      `👤 نام: ${displayName}`,
+      `🏙 شهر: ${city}`,
+      `🎂 سن: ${age}`,
+    ].join("\n");
+  }
+
+  return [
+    `👤 ${messages[lang].profileTitle}`,
+    `━━━━━━━━━━━━━━`,
+    `👤 ${messages[lang].profileName}: ${displayName}`,
+    `🏙 ${messages[lang].profileCity}: ${city}`,
+    `🎂 ${messages[lang].profileAge}: ${age}`,
+  ].join("\n");
+}
+
+async function sendProfile(ctx, lang, user = ctx.user) {
+  const hasCustomPhoto = user?.photoFileId;
+
+  if (hasCustomPhoto) {
+    try {
+      return await ctx.replyWithPhoto(user.photoFileId, {
+        caption: getProfileText(user, lang),
+        ...profileKeyboard(lang, hasCustomPhoto),
+      });
+    } catch {
+      return ctx.reply(getProfileText(user, lang), profileKeyboard(lang, hasCustomPhoto));
+    }
+  }
+
+  try {
+    return await ctx.replyWithPhoto(
+      { source: DEFAULT_PROFILE_PHOTO },
+      {
+        caption: getProfileText(user, lang),
+        ...profileKeyboard(lang, hasCustomPhoto),
+      }
+    );
+  } catch {
+    return ctx.reply(getProfileText(user, lang), profileKeyboard(lang, hasCustomPhoto));
+  }
+}
+
 module.exports = { handleCallback };
+
+function toPlainUser(user) {
+  if (!user) return {};
+  if (typeof user.toObject === "function") {
+    return user.toObject();
+  }
+  return { ...user };
+}

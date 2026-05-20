@@ -10,6 +10,8 @@ async function getOrCreateUser(from) {
       userId: from.id,
       username: from.username,
       firstName: from.first_name,
+      profileName: from.first_name,
+      age: null,
       lang: "fa",
     });
   }
@@ -25,4 +27,20 @@ async function updateLanguage(userId, newLang) {
   );
 }
 
-module.exports = { getOrCreateUser, updateLanguage };
+async function updateProfileField(userId, field, value) {
+  return await User.findOneAndUpdate(
+    { userId },
+    { [field]: value },
+    { returnDocument: "after" },
+  );
+}
+
+async function updateUserState(userId, state) {
+  return await User.findOneAndUpdate(
+    { userId },
+    { state },
+    { returnDocument: "after" },
+  );
+}
+
+module.exports = { getOrCreateUser, updateLanguage, updateProfileField, updateUserState };
