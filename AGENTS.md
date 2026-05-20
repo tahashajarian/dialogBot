@@ -13,7 +13,7 @@
 
 ## Bot Behavior Notes
 - The bot uses stored user state in MongoDB for profile edits.
-- Profile fields currently include language, name, city, age, pet preference, and photo.
+- Profile fields currently include language, name, city, age, pet preference, location, and photo.
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.

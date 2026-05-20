@@ -8,6 +8,13 @@ const UserSchema = new mongoose.Schema({
   city: String,
   age: Number,
   petPreference: String,
+  location: {
+    latitude: Number,
+    longitude: Number,
+    accuracy: Number,
+    city: String,
+    sharedAt: Date,
+  },
   photoFileId: String,
   lang: { type: String, default: "fa" },
   state: { type: String, default: "idle" },

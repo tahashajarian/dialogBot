@@ -36,9 +36,7 @@ async function processUpdate(ctx) {
   return handleUpdate(appCtx);
 }
 
-bot.on("text", processUpdate);
-bot.on("photo", processUpdate);
-bot.on("document", processUpdate);
+bot.on("message", processUpdate);
 bot.on("callback_query", processUpdate);
 
 (async () => {

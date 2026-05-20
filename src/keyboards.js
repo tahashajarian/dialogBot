@@ -39,6 +39,9 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
     ],
     [
+      { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
+    ],
+    [
       { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
     ],
   ];
@@ -124,6 +127,29 @@ function petPreferenceKeyboard(lang) {
   ]);
 }
 
+function locationKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: messages[lang].profileLocationButton,
+            request_location: true,
+          },
+        ],
+        [
+          {
+            text: messages[lang].cancelEdit,
+          },
+        ],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+      selective: true,
+    },
+  };
+}
+
 function languageKeyboard() {
   return inlineKeyboard([
     [
@@ -142,5 +168,6 @@ module.exports = {
   ageKeyboard,
   ageRangeKeyboard,
   petPreferenceKeyboard,
+  locationKeyboard,
   languageKeyboard,
 };

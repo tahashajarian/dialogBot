@@ -1,7 +1,7 @@
 const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, petPreferenceKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { callBacks } = require("./constances");
 const { updateProfileField, updateUserState } = require("./services/users");
 
@@ -54,6 +54,12 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_pet_preference");
     return ctx.reply(messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
+  }
+
+  if (data === callBacks.profileEditLocation) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_location");
+    return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
@@ -127,6 +133,9 @@ async function handleCallback(ctx) {
   if (data === callBacks.profileCancelEdit) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
+    await ctx.reply(messages[lang].cancelMessage, {
+      reply_markup: { remove_keyboard: true },
+    });
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     return sendProfile(ctx, lang, updatedUser);
@@ -204,6 +213,9 @@ function getProfileText(user, lang) {
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
+  const locationText = user?.location
+    ? (user.location.city || messages[lang].locationSet)
+    : messages[lang].locationMissing;
 
   if (lang === "fa") {
     return [
@@ -213,6 +225,7 @@ function getProfileText(user, lang) {
       `🏙 شهر: ${city}`,
       `🎂 سن: ${age}`,
       `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
+      `📍 ${messages[lang].profileLocation}: ${locationText}`,
     ].join("\n");
   }
 
@@ -223,6 +236,7 @@ function getProfileText(user, lang) {
     `🏙 ${messages[lang].profileCity}: ${city}`,
     `🎂 ${messages[lang].profileAge}: ${age}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
+    `📍 ${messages[lang].profileLocation}: ${locationText}`,
   ].join("\n");
 }
 

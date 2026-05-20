@@ -2,8 +2,9 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, petPreferenceKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { updateProfileField, updateUserState } = require("./services/users");
+const { resolveCityByCoordinates } = require("./services/location");
 const { callBacks } = require("./constances");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -23,6 +24,11 @@ async function handleUpdate(ctx) {
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
+    if (state === "editing_location") {
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
+    }
     return sendProfile(ctx, updatedUser, lang, userLang || lang);
   }
 
@@ -71,6 +77,27 @@ async function handleUpdate(ctx) {
     return sendProfile(ctx, updatedUser, lang, userLang || lang);
   }
 
+  if (state === "editing_location" && ctx.message?.location) {
+    const location = {
+      latitude: ctx.message.location.latitude,
+      longitude: ctx.message.location.longitude,
+      accuracy: ctx.message.location.horizontal_accuracy || null,
+      city: null,
+      sharedAt: new Date(),
+    };
+
+    await updateProfileField(ctx.userId, "location", location);
+    await updateUserState(ctx.userId, "idle");
+    enrichUserLocationCityInBackground(ctx.userId, location);
+    await ctx.reply(messages[lang].profileUpdated, {
+      reply_markup: { remove_keyboard: true },
+    });
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.location = location;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+  }
+
   if (state === "editing_photo") {
     return ctx.reply(messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
   }
@@ -81,6 +108,20 @@ async function handleUpdate(ctx) {
 
   if (state === "editing_pet_preference") {
     return ctx.reply(messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
+  }
+
+  if (state === "editing_location") {
+    if (text === messages[lang].cancelEdit) {
+      await updateUserState(ctx.userId, "idle");
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
+      const updatedUser = toPlainUser(ctx.user);
+      updatedUser.state = "idle";
+      return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    }
+
+    return ctx.reply(messages[lang].profileEditHintLocation, locationKeyboard(lang));
   }
 
   if (text === "/start") {
@@ -134,6 +175,9 @@ function getProfileText(user, lang) {
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
+  const locationText = user?.location
+    ? (user.location.city || messages[lang].locationSet)
+    : messages[lang].locationMissing;
 
   if (lang === "fa") {
     return [
@@ -143,6 +187,7 @@ function getProfileText(user, lang) {
       `🏙 شهر: ${city}`,
       `🎂 سن: ${age}`,
       `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
+      `📍 ${messages[lang].profileLocation}: ${locationText}`,
     ].join("\n");
   }
 
@@ -153,6 +198,7 @@ function getProfileText(user, lang) {
     `🏙 ${messages[lang].profileCity}: ${city}`,
     `🎂 ${messages[lang].profileAge}: ${age}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
+    `📍 ${messages[lang].profileLocation}: ${locationText}`,
   ].join("\n");
 }
 
@@ -193,4 +239,18 @@ function toPlainUser(user) {
     return user.toObject();
   }
   return { ...user };
+}
+
+async function enrichUserLocationCityInBackground(userId, location) {
+  try {
+    const resolvedCity = await resolveCityByCoordinates(location.latitude, location.longitude);
+    if (!resolvedCity) return;
+
+    await updateProfileField(userId, "location", {
+      ...location,
+      city: resolvedCity,
+    });
+  } catch {
+    // keep fast path stable; silently ignore background failures
+  }
 }
