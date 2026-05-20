@@ -62,6 +62,12 @@ async function handleCallback(ctx) {
     return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
+  if (data === callBacks.profileEditBio) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_bio");
+    return ctx.reply(messages[lang].profileAskBio, cancelEditKeyboard(lang));
+  }
+
   if (data.startsWith(callBacks.profilePetSet)) {
     const petPreference = data.replace(callBacks.profilePetSet, "");
     const allowedPetPreferences = new Set(["any", "none", "cat", "dog", "bird", "small_pets"]);
@@ -213,6 +219,7 @@ function getProfileText(user, lang) {
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
+  const bio = user?.bio || messages[lang].bioMissing;
   const locationText = user?.location
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
@@ -226,6 +233,7 @@ function getProfileText(user, lang) {
       `🎂 سن: ${age}`,
       `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
       `📍 ${messages[lang].profileLocation}: ${locationText}`,
+      `📝 ${messages[lang].profileBio}: ${bio}`,
     ].join("\n");
   }
 
@@ -237,6 +245,7 @@ function getProfileText(user, lang) {
     `🎂 ${messages[lang].profileAge}: ${age}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
+    `📝 ${messages[lang].profileBio}: ${bio}`,
   ].join("\n");
 }
 

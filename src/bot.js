@@ -8,6 +8,7 @@ const { resolveCityByCoordinates } = require("./services/location");
 const { callBacks } = require("./constances");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
+const MAX_BIO_LENGTH = 120;
 
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
@@ -124,6 +125,23 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintLocation, locationKeyboard(lang));
   }
 
+  if (state === "editing_bio" && text) {
+    if (text.startsWith("/")) {
+      return ctx.reply(messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
+    }
+
+    if (text.length > MAX_BIO_LENGTH) {
+      return ctx.reply(messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
+    }
+
+    await updateProfileField(ctx.userId, "bio", text);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.bio = text;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+  }
+
   if (text === "/start") {
     await ctx.reply(messages[lang].welcome);
 
@@ -175,6 +193,7 @@ function getProfileText(user, lang) {
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
+  const bio = user?.bio || messages[lang].bioMissing;
   const locationText = user?.location
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
@@ -188,6 +207,7 @@ function getProfileText(user, lang) {
       `🎂 سن: ${age}`,
       `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
       `📍 ${messages[lang].profileLocation}: ${locationText}`,
+      `📝 ${messages[lang].profileBio}: ${bio}`,
     ].join("\n");
   }
 
@@ -199,6 +219,7 @@ function getProfileText(user, lang) {
     `🎂 ${messages[lang].profileAge}: ${age}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
+    `📝 ${messages[lang].profileBio}: ${bio}`,
   ].join("\n");
 }
 

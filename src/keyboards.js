@@ -42,6 +42,9 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
     ],
     [
+      { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
+    ],
+    [
       { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
     ],
   ];

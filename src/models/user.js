@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
   city: String,
   age: Number,
   petPreference: String,
+  bio: String,
   location: {
     latitude: Number,
     longitude: Number,

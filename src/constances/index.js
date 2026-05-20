@@ -7,6 +7,7 @@ module.exports = {
     profileEditAge: "profile:edit:age",
     profileEditPetPreference: "profile:edit:pet:preference",
     profileEditLocation: "profile:edit:location",
+    profileEditBio: "profile:edit:bio",
     profileLocationSet: "profile:location:set",
     profilePetSet: "profile:pet:set:",
     profileAgeRangeSet: "profile:age:range:set:",
