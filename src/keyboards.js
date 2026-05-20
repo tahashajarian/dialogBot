@@ -109,16 +109,16 @@ function ageRangeKeyboard(lang, startAge) {
 function petPreferenceKeyboard(lang) {
   return inlineKeyboard([
     [
-      { text: messages[lang].petOptionAny, callback_data: `${callBacks.profilePetSet}any` },
-      { text: messages[lang].petOptionNone, callback_data: `${callBacks.profilePetSet}none` },
+      { text: messages[lang].petOptionAnyButton, callback_data: `${callBacks.profilePetSet}any` },
+      { text: messages[lang].petOptionNoneButton, callback_data: `${callBacks.profilePetSet}none` },
     ],
     [
-      { text: messages[lang].petOptionCat, callback_data: `${callBacks.profilePetSet}cat` },
-      { text: messages[lang].petOptionDog, callback_data: `${callBacks.profilePetSet}dog` },
+      { text: messages[lang].petOptionCatButton, callback_data: `${callBacks.profilePetSet}cat` },
+      { text: messages[lang].petOptionDogButton, callback_data: `${callBacks.profilePetSet}dog` },
     ],
     [
-      { text: messages[lang].petOptionBird, callback_data: `${callBacks.profilePetSet}bird` },
-      { text: messages[lang].petOptionSmallPets, callback_data: `${callBacks.profilePetSet}small_pets` },
+      { text: messages[lang].petOptionBirdButton, callback_data: `${callBacks.profilePetSet}bird` },
+      { text: messages[lang].petOptionSmallPetsButton, callback_data: `${callBacks.profilePetSet}small_pets` },
     ],
     [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
   ]);

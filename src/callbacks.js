@@ -196,12 +196,12 @@ function getProfileText(user, lang) {
   const city = user?.city || "—";
   const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
   const petPreferenceMap = {
-    any: messages[lang].petOptionAny,
-    none: messages[lang].petOptionNone,
-    cat: messages[lang].petOptionCat,
-    dog: messages[lang].petOptionDog,
-    bird: messages[lang].petOptionBird,
-    small_pets: messages[lang].petOptionSmallPets,
+    any: messages[lang].petOptionAnyDisplay,
+    none: messages[lang].petOptionNoneDisplay,
+    cat: messages[lang].petOptionCatDisplay,
+    dog: messages[lang].petOptionDogDisplay,
+    bird: messages[lang].petOptionBirdDisplay,
+    small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
 
