@@ -26,6 +26,12 @@ bot.catch((err) => {
 });
 
 function createAppContext(ctx, user) {
+  const resolveChatId = () => (
+    ctx.chat?.id ||
+    ctx.callbackQuery?.message?.chat?.id ||
+    ctx.message?.chat?.id
+  );
+
   return {
     user,
     userId: user?.userId,
@@ -37,7 +43,73 @@ function createAppContext(ctx, user) {
     reply: (...args) => ctx.reply(...args),
     replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
     answerCb: (text) => ctx.answerCbQuery(text).catch(() => {}),
-    editMessage: (...args) => ctx.editMessageText(...args)
+    editMessage: (...args) => ctx.editMessageText(...args),
+    pinMessage: async (messageId) => {
+      const chatId = resolveChatId();
+      if (!chatId) return false;
+
+      let lastError = null;
+      if (typeof ctx.pinChatMessage === "function") {
+        try {
+          await ctx.pinChatMessage(messageId, { disable_notification: true });
+          return true;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (ctx.telegram?.pinChatMessage) {
+        try {
+          await ctx.telegram.pinChatMessage(chatId, messageId, { disable_notification: true });
+          return true;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (lastError) {
+        console.error("Failed to pin chat message:", {
+          chatId,
+          messageId,
+          error: lastError?.message || lastError,
+        });
+      }
+
+      return false;
+    },
+    unpinMessage: async (messageId) => {
+      const chatId = resolveChatId();
+      if (!chatId) return false;
+
+      let lastError = null;
+      if (typeof ctx.unpinChatMessage === "function") {
+        try {
+          await ctx.unpinChatMessage(messageId);
+          return true;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (ctx.telegram?.unpinChatMessage) {
+        try {
+          await ctx.telegram.unpinChatMessage(chatId, messageId);
+          return true;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (lastError) {
+        console.error("Failed to unpin chat message:", {
+          chatId,
+          messageId,
+          error: lastError?.message || lastError,
+        });
+      }
+
+      return false;
+    },
   };
 }
 

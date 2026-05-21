@@ -43,7 +43,29 @@ function getModeInstruction(mode, lang) {
   return `Subject is random lifestyle suggestions. Reply in ${language}. Keep it short and useful.`;
 }
 
-async function getAiAssistantReply({ mode, lang, userText }) {
+function buildUserContext({ personalized, topTenItems = [], watchlistItems = [] }) {
+  if (!personalized) {
+    return "";
+  }
+
+  const topTen = topTenItems.length
+    ? topTenItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "None";
+  const watchlist = watchlistItems.length
+    ? watchlistItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "None";
+
+  return `\nUser top 10:\n${topTen}\n\nUser watchlist:\n${watchlist}`;
+}
+
+async function getAiAssistantReply({
+  mode,
+  lang,
+  userText,
+  topTenItems = [],
+  watchlistItems = [],
+  personalized = false,
+}) {
   const input = normalizeInput(userText);
   if (!input) {
     return { ok: false, reason: "empty_input" };
@@ -64,9 +86,16 @@ async function getAiAssistantReply({ mode, lang, userText }) {
           "Keep responses very short and cheap.",
           "Use plain text only.",
           "Do not exceed 30 words.",
+          personalized
+            ? "Recommend items similar to the user's top 10 and avoid repeating exact watchlist items."
+            : "",
           getModeInstruction(mode, lang),
         ].join(" "),
-        input: `Subject: ${mode}\nUser message: ${input}`,
+        input: `Subject: ${mode}\nUser message: ${input}${buildUserContext({
+          personalized,
+          topTenItems,
+          watchlistItems,
+        })}`,
       }),
       new Promise((_, reject) => {
         setTimeout(() => reject(new Error("ai_timeout")), REQUEST_TIMEOUT_MS);

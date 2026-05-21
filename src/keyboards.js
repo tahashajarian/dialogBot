@@ -84,6 +84,48 @@ function aiChatBackKeyboard(lang) {
   };
 }
 
+function aiSectionKeyboard(lang) {
+  return aiSectionKeyboardForSection(lang, "movies");
+}
+
+function aiSectionKeyboardForSection(lang, section) {
+  const listButtonText = section === "movies"
+    ? messages[lang].aiSectionListButtonMovies
+    : section === "music"
+      ? messages[lang].aiSectionListButtonMusic
+      : section === "books"
+        ? messages[lang].aiSectionListButtonBooks
+        : messages[lang].aiSectionListButtonRandom;
+
+  return {
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: listButtonText,
+          },
+          {
+            text: messages[lang].aiSectionTopTenButton,
+          },
+        ],
+        [
+          {
+            text: messages[lang].aiSectionSuggestButton,
+          },
+        ],
+        [
+          {
+            text: messages[lang].aiBack,
+          },
+        ],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
+}
+
 function profileKeyboard(lang, hasPhoto = false) {
   const rows = [
     [
@@ -242,6 +284,8 @@ module.exports = {
   mainMenuKeyboard,
   aiAssistantKeyboard,
   aiChatBackKeyboard,
+  aiSectionKeyboard,
+  aiSectionKeyboardForSection,
   profileKeyboard,
   cancelEditKeyboard,
   ageKeyboard,

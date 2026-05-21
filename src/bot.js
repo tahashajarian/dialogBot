@@ -12,9 +12,16 @@ const {
   petPreferenceKeyboard,
   locationKeyboard,
   cancelEditKeyboard,
-  aiChatBackKeyboard,
+  aiSectionKeyboardForSection,
 } = require("./keyboards");
-const { updateProfileField, updateUserState } = require("./services/users");
+const {
+  updateProfileField,
+  updateUserState,
+  addAiListItem,
+  removeAiListItem,
+  normalizeAiListItem,
+  normalizeAiListItems,
+} = require("./services/users");
 const { resolveCityByCoordinates } = require("./services/location");
 const { getAiAssistantReply } = require("./services/ai");
 const {
@@ -23,12 +30,39 @@ const {
   isValidTextInput,
   toPlainUser,
 } = require("./services/profile");
+const {
+  getAiSectionFromState,
+  getSectionLabel,
+  getSectionListButtonLabel,
+  getSectionListLabel,
+  clearAiSectionPin,
+} = require("./services/ai-section");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const FIELD_LIMITS = {
   profileName: 30,
   city: 30,
   bio: 120,
+};
+const AI_WATCHLIST_LIMIT = 50;
+const AI_TOP_TEN_LIMIT = 10;
+const AI_SECTION_FIELDS = {
+  movies: {
+    watchlistField: "aiWatchlistMovies",
+    topTenField: "aiTopTenMovies",
+  },
+  music: {
+    watchlistField: "aiWatchlistMusic",
+    topTenField: "aiTopTenMusic",
+  },
+  books: {
+    watchlistField: "aiWatchlistBooks",
+    topTenField: "aiTopTenBooks",
+  },
+  random: {
+    watchlistField: "aiWatchlistRandom",
+    topTenField: "aiTopTenRandom",
+  },
 };
 
 function normalizeKeyboardText(value) {
@@ -58,6 +92,52 @@ function isAiBackText(text) {
   return plainText === "back" || plainText === "بازگشت";
 }
 
+function isAiListText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  const plainText = normalizedText
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .toLowerCase()
+    .trim();
+
+  return plainText === "list" || plainText === "لیست";
+}
+
+function formatAiItemsList(title, items, emptyText) {
+  if (!items.length) {
+    return emptyText;
+  }
+
+  const lines = items.map((item, index) => `${index + 1}. ${item}`);
+  return `${title}\n${lines.join("\n")}`;
+}
+
+function isAiSectionListText(text, section) {
+  const normalizedText = normalizeKeyboardText(text);
+  const labels = [
+    getSectionListButtonLabel(messages, "fa", section),
+    getSectionListButtonLabel(messages, "en", section),
+  ].map(normalizeKeyboardText);
+  return labels.includes(normalizedText);
+}
+
+function isAiSectionTopTenText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  const labels = [
+    messages.fa.aiSectionTopTenButton,
+    messages.en.aiSectionTopTenButton,
+  ].map(normalizeKeyboardText);
+  return labels.includes(normalizedText);
+}
+
+function isAiSectionSuggestText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  const labels = [
+    messages.fa.aiSectionSuggestButton,
+    messages.en.aiSectionSuggestButton,
+  ].map(normalizeKeyboardText);
+  return labels.includes(normalizedText);
+}
+
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
@@ -71,7 +151,16 @@ async function handleUpdate(ctx) {
   const keyboardLang = userLang || lang;
 
   if (text === "/cancel") {
+    const aiSection = getAiSectionFromState(state);
     await updateUserState(ctx.userId, "idle");
+    if (aiSection) {
+      await clearAiSectionPin({ ctx, updateProfileField });
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
+      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    }
+
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     if (state === "editing_location") {
@@ -164,6 +253,146 @@ async function handleUpdate(ctx) {
   }
 
   if (
+    state === "ai_manage_movies_watchlist" ||
+    state === "ai_manage_movies_top_ten" ||
+    state === "ai_manage_music_watchlist" ||
+    state === "ai_manage_music_top_ten" ||
+    state === "ai_manage_books_watchlist" ||
+    state === "ai_manage_books_top_ten" ||
+    state === "ai_manage_random_watchlist" ||
+    state === "ai_manage_random_top_ten"
+  ) {
+    if (isAiBackText(text)) {
+      await updateUserState(ctx.userId, "idle");
+      await clearAiSectionPin({ ctx, updateProfileField });
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
+      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    }
+
+    const section = getAiSectionFromState(state);
+    const sectionFields = AI_SECTION_FIELDS[section];
+    const sectionLabel = getSectionLabel(messages, lang, section);
+    const listLabel = getSectionListLabel(messages, lang, section);
+    const isWatchlist = state.endsWith("_watchlist");
+    const field = isWatchlist ? sectionFields.watchlistField : sectionFields.topTenField;
+    const topTenItems = normalizeAiListItems(ctx.user?.[sectionFields.topTenField] || []);
+    const watchlistItems = normalizeAiListItems(ctx.user?.[sectionFields.watchlistField] || []);
+    const title = (isWatchlist ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
+      .replace("{section}", sectionLabel)
+      .replace("{listName}", listLabel);
+    const emptyText = (isWatchlist ? messages[lang].aiWatchlistEmpty : messages[lang].aiTopTenEmpty)
+      .replace("{section}", sectionLabel)
+      .replace("{listName}", listLabel);
+    const currentItems = normalizeAiListItems(ctx.user?.[field] || []);
+
+    if (isAiSectionListText(text, section)) {
+      const nextState = `ai_manage_${section}_watchlist`;
+      await updateUserState(ctx.userId, nextState);
+      return ctx.reply(
+        messages[lang].aiWatchlistManageReady
+          .replace("{section}", sectionLabel)
+          .replace("{listName}", listLabel),
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    if (isAiSectionTopTenText(text)) {
+      const nextState = `ai_manage_${section}_top_ten`;
+      await updateUserState(ctx.userId, nextState);
+      return ctx.reply(
+        messages[lang].aiTopTenManageReady.replace("{section}", sectionLabel),
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    if (isAiSectionSuggestText(text)) {
+      if (topTenItems.length < AI_TOP_TEN_LIMIT) {
+        return ctx.reply(
+          messages[lang].aiSuggestNeedTopTen
+            .replace("{section}", sectionLabel)
+            .replace("{count}", String(topTenItems.length)),
+          aiSectionKeyboardForSection(lang, section)
+        );
+      }
+
+      const aiResult = await getAiAssistantReply({
+        mode: section,
+        lang,
+        userText: section === "random" ? "Suggest for me" : `Suggest a new ${section}`,
+        topTenItems,
+        watchlistItems,
+        personalized: true,
+      });
+
+      if (aiResult.ok) {
+        return ctx.reply(aiResult.text, aiSectionKeyboardForSection(lang, section));
+      }
+
+      return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
+    }
+
+    if (isAiListText(text)) {
+      return ctx.reply(
+        formatAiItemsList(title, currentItems, emptyText),
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    if (text.startsWith("+")) {
+      const item = normalizeAiListItem(text.slice(1));
+      if (!item) {
+        return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
+      }
+
+      const result = await addAiListItem(
+        ctx.userId,
+        field,
+        item,
+        isWatchlist ? AI_WATCHLIST_LIMIT : AI_TOP_TEN_LIMIT
+      );
+
+      if (!result.ok) {
+        if (result.reason === "exists") {
+          return ctx.reply(messages[lang].aiListAlreadyExists, aiSectionKeyboardForSection(lang, section));
+        }
+        if (result.reason === "limit" && !isWatchlist) {
+          return ctx.reply(messages[lang].aiTopTenLimitReached, aiSectionKeyboardForSection(lang, section));
+        }
+        return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
+      }
+
+      return ctx.reply(
+        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText)}`,
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    if (text.startsWith("-")) {
+      const item = normalizeAiListItem(text.slice(1));
+      if (!item) {
+        return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
+      }
+
+      const result = await removeAiListItem(ctx.userId, field, item);
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          return ctx.reply(messages[lang].aiListNotFound, aiSectionKeyboardForSection(lang, section));
+        }
+        return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
+      }
+
+      return ctx.reply(
+        `${messages[lang].aiListRemoved}\n${formatAiItemsList(title, result.items, emptyText)}`,
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
+  }
+
+  if (
     state === "ai_chat_movies" ||
     state === "ai_chat_music" ||
     state === "ai_chat_books" ||
@@ -171,10 +400,65 @@ async function handleUpdate(ctx) {
   ) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
+      await clearAiSectionPin({ ctx, updateProfileField });
       await ctx.reply(messages[lang].cancelMessage, {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    }
+
+    const section = getAiSectionFromState(state);
+    const sectionLabel = getSectionLabel(messages, lang, section);
+    const listLabel = getSectionListLabel(messages, lang, section);
+
+    if (isAiSectionListText(text, section)) {
+      const nextState = `ai_manage_${section}_watchlist`;
+      await updateUserState(ctx.userId, nextState);
+      return ctx.reply(
+        messages[lang].aiWatchlistManageReady
+          .replace("{section}", sectionLabel)
+          .replace("{listName}", listLabel),
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    if (isAiSectionTopTenText(text)) {
+      const nextState = `ai_manage_${section}_top_ten`;
+      await updateUserState(ctx.userId, nextState);
+      return ctx.reply(
+        messages[lang].aiTopTenManageReady.replace("{section}", sectionLabel),
+        aiSectionKeyboardForSection(lang, section)
+      );
+    }
+
+    const sectionFields = AI_SECTION_FIELDS[section];
+    const topTenItems = normalizeAiListItems(ctx.user?.[sectionFields.topTenField] || []);
+    const watchlistItems = normalizeAiListItems(ctx.user?.[sectionFields.watchlistField] || []);
+
+    if (isAiSectionSuggestText(text)) {
+      if (topTenItems.length < AI_TOP_TEN_LIMIT) {
+        return ctx.reply(
+          messages[lang].aiSuggestNeedTopTen
+            .replace("{section}", sectionLabel)
+            .replace("{count}", String(topTenItems.length)),
+          aiSectionKeyboardForSection(lang, section)
+        );
+      }
+
+      const aiResult = await getAiAssistantReply({
+        mode: section,
+        lang,
+        userText: section === "random" ? "Suggest for me" : `Suggest a new ${section}`,
+        topTenItems,
+        watchlistItems,
+        personalized: true,
+      });
+
+      if (aiResult.ok) {
+        return ctx.reply(aiResult.text, aiSectionKeyboardForSection(lang, section));
+      }
+
+      return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
     }
 
     const mode = state === "ai_chat_movies"
@@ -183,19 +467,22 @@ async function handleUpdate(ctx) {
         ? "music"
         : state === "ai_chat_books"
           ? "books"
-        : "random";
+            : "random";
 
     const aiResult = await getAiAssistantReply({
       mode,
       lang,
       userText: text,
+      topTenItems: [],
+      watchlistItems: [],
+      personalized: false,
     });
 
     if (aiResult.ok) {
-      return ctx.reply(aiResult.text, aiChatBackKeyboard(lang));
+      return ctx.reply(aiResult.text, aiSectionKeyboardForSection(lang, section));
     }
 
-    return ctx.reply(messages[lang].aiTemporaryUnavailable, aiChatBackKeyboard(lang));
+    return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
   }
 
   if (state === "editing_age") {
