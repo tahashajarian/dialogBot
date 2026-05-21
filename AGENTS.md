@@ -12,7 +12,7 @@
 - Preserve the existing style and naming unless a change is required.
 
 ## Bot Behavior Notes
-- The bot uses stored user state in MongoDB for profile edits.
+- The bot uses stored user state in MongoDB for profile edits and AI section state.
 - Profile fields currently include language, name, city, age, gender, pet, bio, location, and photo.
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
@@ -20,8 +20,12 @@
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - AI assistant menu includes movies, music, books, and random sections.
-- In AI sections, users stay in chat state until pressing the bottom back button.
-- AI section back should return users to AI assistant menu (not main menu).
+- In AI sections, users stay in chat state until pressing the bottom text back button.
+- Bottom AI-section back returns users to the AI assistant menu; the inline AI assistant back button returns to the main menu.
+- Pin/unpin flows must use the active chat id and must not swallow API errors silently.
+- Only persist a pinned message id after the pin request succeeds.
+- If Bale pinning fails, log the chat id, message id, and error so the cause is visible.
+- Prefer Bale/Telegraf docs for API-shape assumptions before changing helper signatures.
 
 ## Data Model Notes
 - User schema lives in `src/models/user.js`.
@@ -30,6 +34,7 @@
   - `src/models/user.js`
   - `src/messages.js`
   - `src/keyboards.js`
+  - `src/services/profile.js`
   - `src/bot.js`
   - `src/callbacks.js`
 
