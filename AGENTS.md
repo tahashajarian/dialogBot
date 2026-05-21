@@ -17,6 +17,7 @@
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
+- Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 
 ## Data Model Notes
 - User schema lives in `src/models/user.js`.

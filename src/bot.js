@@ -8,7 +8,11 @@ const { resolveCityByCoordinates } = require("./services/location");
 const { callBacks } = require("./constances");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
-const MAX_BIO_LENGTH = 120;
+const FIELD_LIMITS = {
+  profileName: 30,
+  city: 30,
+  bio: 120,
+};
 
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
@@ -38,6 +42,10 @@ async function handleUpdate(ctx) {
       return ctx.reply(messages[lang].profileEditHintName, cancelEditKeyboard(lang));
     }
 
+    if (!isValidTextInput(text, FIELD_LIMITS.profileName)) {
+      return ctx.reply(`${messages[lang].profileNameTooLong}\n${messages[lang].profileEditHintName}`, cancelEditKeyboard(lang));
+    }
+
     await updateProfileField(ctx.userId, "profileName", text);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -49,6 +57,10 @@ async function handleUpdate(ctx) {
   if (state === "editing_city" && text) {
     if (text.startsWith("/")) {
       return ctx.reply(messages[lang].profileEditHintCity, cancelEditKeyboard(lang));
+    }
+
+    if (!isValidTextInput(text, FIELD_LIMITS.city)) {
+      return ctx.reply(`${messages[lang].profileCityTooLong}\n${messages[lang].profileEditHintCity}`, cancelEditKeyboard(lang));
     }
 
     await updateProfileField(ctx.userId, "city", text);
@@ -130,8 +142,8 @@ async function handleUpdate(ctx) {
       return ctx.reply(messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
     }
 
-    if (text.length > MAX_BIO_LENGTH) {
-      return ctx.reply(messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
+    if (!isValidTextInput(text, FIELD_LIMITS.bio)) {
+      return ctx.reply(`${messages[lang].profileBioTooLong}\n${messages[lang].profileEditHintBio}`, cancelEditKeyboard(lang));
     }
 
     await updateProfileField(ctx.userId, "bio", text);
@@ -274,4 +286,12 @@ async function enrichUserLocationCityInBackground(userId, location) {
   } catch {
     // keep fast path stable; silently ignore background failures
   }
+}
+
+function isValidTextInput(text, maxLength) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (!normalized) return false;
+  if (normalized.length > maxLength) return false;
+  if (/[<>]/.test(normalized)) return false;
+  return true;
 }

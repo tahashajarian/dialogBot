@@ -6,6 +6,11 @@ const { callBacks } = require("./constances");
 const { updateProfileField, updateUserState } = require("./services/users");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
+const FIELD_LIMITS = {
+  profileName: 30,
+  city: 30,
+  bio: 120,
+};
 
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
@@ -66,6 +71,12 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_bio");
     return ctx.reply(messages[lang].profileAskBio, cancelEditKeyboard(lang));
+  }
+
+  if (data === callBacks.profileEditLocation) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_location");
+    return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
@@ -206,6 +217,14 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
+function isValidTextInput(text, maxLength) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (!normalized) return false;
+  if (normalized.length > maxLength) return false;
+  if (/[<>]/.test(normalized)) return false;
+  return true;
+}
+
 function getProfileText(user, lang) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
@@ -284,4 +303,12 @@ function toPlainUser(user) {
     return user.toObject();
   }
   return { ...user };
+}
+
+function isValidTextInput(text, maxLength) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (!normalized) return false;
+  if (normalized.length > maxLength) return false;
+  if (/[<>]/.test(normalized)) return false;
+  return true;
 }
