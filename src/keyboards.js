@@ -77,8 +77,8 @@ function ltrText(value) {
 
 function ageKeyboard(lang) {
   const ranges = [];
-  for (let start = 10; start <= 70; start += 10) {
-    const end = Math.min(start + 9, 70);
+  for (let start = 10; start <= 79; start += 10) {
+    const end = Math.min(start + 9, 79);
     ranges.push({
       text: ltrText(`${start}-${end}`),
       callback_data: `${callBacks.profileAgeRangeSet}${start}`,
@@ -96,8 +96,8 @@ function ageKeyboard(lang) {
 }
 
 function ageRangeKeyboard(lang, startAge) {
-  const rangeStart = Math.max(10, Math.min(Number(startAge) || 10, 70));
-  const rangeEnd = Math.min(rangeStart + 9, 70);
+  const rangeStart = Math.max(10, Math.min(Number(startAge) || 10, 79));
+  const rangeEnd = Math.min(rangeStart + 9, 79);
   const ages = [];
 
   for (let age = rangeStart; age <= rangeEnd; age += 1) {

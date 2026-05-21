@@ -140,7 +140,7 @@ async function handleCallback(ctx) {
     if (
       !Number.isInteger(startAge) ||
       startAge < 10 ||
-      startAge > 70 ||
+      startAge > 79 ||
       startAge % 10 !== 0
     ) {
       return ctx.reply(messages[lang].unknownAction);
@@ -159,7 +159,7 @@ async function handleCallback(ctx) {
 
     await ctx.answerCb?.();
 
-    if (!Number.isInteger(age) || age < 10 || age > 70) {
+    if (!Number.isInteger(age) || age < 10 || age > 79) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
