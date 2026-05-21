@@ -2,6 +2,12 @@ module.exports = {
   callBacks: {
     language: "menu:language",
     profile: "menu:profile",
+    aiAssistant: "menu:ai:assistant",
+    aiSuggestMovies: "ai:suggest:movies",
+    aiSuggestMusic: "ai:suggest:music",
+    aiSuggestBooks: "ai:suggest:books",
+    aiSuggestRandom: "ai:suggest:random",
+    aiBack: "ai:back",
     profileEditName: "profile:edit:name",
     profileEditCity: "profile:edit:city",
     profileEditAge: "profile:edit:age",

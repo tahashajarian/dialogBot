@@ -4,6 +4,8 @@ const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const {
   mainMenuKeyboard,
   languageKeyboard,
+  aiAssistantKeyboard,
+  aiChatBackKeyboard,
   profileKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
@@ -41,6 +43,44 @@ async function handleCallback(ctx) {
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
     return sendProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.aiAssistant) {
+    await ctx.answerCb?.();
+    return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+  }
+
+  if (data === callBacks.aiSuggestMovies) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "ai_chat_movies");
+    return ctx.reply(messages[lang].aiMoviesChatReady, aiChatBackKeyboard(lang));
+  }
+
+  if (data === callBacks.aiSuggestMusic) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "ai_chat_music");
+    return ctx.reply(messages[lang].aiMusicChatReady, aiChatBackKeyboard(lang));
+  }
+
+  if (data === callBacks.aiSuggestBooks) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "ai_chat_books");
+    return ctx.reply(messages[lang].aiBooksChatReady, aiChatBackKeyboard(lang));
+  }
+
+  if (data === callBacks.aiSuggestRandom) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "ai_chat_random");
+    return ctx.reply(messages[lang].aiRandomChatReady, aiChatBackKeyboard(lang));
+  }
+
+  if (data === callBacks.aiBack) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(messages[lang].cancelMessage, {
+      reply_markup: { remove_keyboard: true },
+    });
+    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   if (data === callBacks.profileEditName) {

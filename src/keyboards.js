@@ -23,7 +23,65 @@ function mainMenuKeyboard(lang) {
         callback_data: callBacks.profile,
       },
     ],
+    [
+      {
+        text: messages[lang].aiAssistant,
+        callback_data: callBacks.aiAssistant,
+      },
+    ],
   ]);
+}
+
+function aiAssistantKeyboard(lang) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].aiSuggestMovies,
+        callback_data: callBacks.aiSuggestMovies,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiSuggestMusic,
+        callback_data: callBacks.aiSuggestMusic,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiSuggestBooks,
+        callback_data: callBacks.aiSuggestBooks,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiSuggestRandom,
+        callback_data: callBacks.aiSuggestRandom,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiBack,
+        callback_data: callBacks.aiBack,
+      },
+    ],
+  ]);
+}
+
+function aiChatBackKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: messages[lang].aiBack,
+          },
+        ],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
 }
 
 function profileKeyboard(lang, hasPhoto = false) {
@@ -182,6 +240,8 @@ function languageKeyboard() {
 module.exports = {
   inlineKeyboard,
   mainMenuKeyboard,
+  aiAssistantKeyboard,
+  aiChatBackKeyboard,
   profileKeyboard,
   cancelEditKeyboard,
   ageKeyboard,

@@ -1,7 +1,7 @@
 # Repository Guidance
 
 ## Project Overview
-- This repo contains a Telegram bot built with Node.js, Telegraf, and MongoDB.
+- This repo contains a Bale bot (Telegraf-compatible API) built with Node.js and MongoDB.
 - Main entry point: `src/index.js`.
 - Bot routing lives in `src/bot.js` and `src/callbacks.js`.
 
@@ -19,6 +19,9 @@
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
+- AI assistant menu includes movies, music, books, and random sections.
+- In AI sections, users stay in chat state until pressing the bottom back button.
+- AI section back should return users to AI assistant menu (not main menu).
 
 ## Data Model Notes
 - User schema lives in `src/models/user.js`.
@@ -38,3 +41,12 @@
 - Do not hardcode secrets.
 - Keep environment-specific values in `.env`.
 - Do not delete user data unless the task explicitly asks for it.
+
+## Environment Contract
+- This bot runs on Bale via Telegraf-compatible API.
+- `API_ROOT` is reserved for Bale Bot API root (`Telegraf` `telegram.apiRoot`).
+- `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
+- `API_KEY` (or `OPENAI_API_KEY`) is used for GapGPT/OpenAI-compatible auth.
+- `MODEL_NAME` (or `OPENAI_MODEL`) controls AI model selection.
+- Never reuse or swap `API_ROOT` and `API_BASE_URL`.
+- Keep Bale and AI endpoint configuration separate to avoid launch failures.

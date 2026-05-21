@@ -5,10 +5,24 @@ const connectDB = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser } = require("./services/users");
 
-const bot = new Telegraf(process.env.BOT_TOKEN, {
-  telegram: {
-    apiRoot: process.env.API_ROOT
-  }
+function resolveBaleApiRoot() {
+  return (process.env.API_ROOT || "").trim() || null;
+}
+
+const baleApiRoot = resolveBaleApiRoot();
+const bot = new Telegraf(
+  process.env.BOT_TOKEN,
+  baleApiRoot
+    ? {
+      telegram: {
+        apiRoot: baleApiRoot,
+      },
+    }
+    : undefined,
+);
+
+bot.catch((err) => {
+  console.error("Bot update error:", err);
 });
 
 function createAppContext(ctx, user) {
@@ -40,8 +54,26 @@ bot.on("message", processUpdate);
 bot.on("callback_query", processUpdate);
 
 (async () => {
-  await connectDB();
-  bot.launch();
+  try {
+    await connectDB();
+    await bot.telegram.getMe();
 
-  console.log("Bot started");
+    try {
+      await bot.telegram.deleteWebhook();
+    } catch (deleteWebhookError) {
+      console.warn("deleteWebhook failed; continuing with polling mode.");
+      console.warn(deleteWebhookError?.message || deleteWebhookError);
+    }
+
+    const pollingLoop = bot.startPolling();
+    console.log("Bot started");
+
+    pollingLoop.catch((pollingError) => {
+      console.error("Polling stopped with error:", pollingError);
+      process.exit(1);
+    });
+  } catch (error) {
+    console.error("Bot startup failed:", error);
+    process.exit(1);
+  }
 })();

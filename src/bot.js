@@ -5,15 +5,18 @@ const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
   languageKeyboard,
+  aiAssistantKeyboard,
   profileKeyboard,
   ageKeyboard,
   genderKeyboard,
   petPreferenceKeyboard,
   locationKeyboard,
   cancelEditKeyboard,
+  aiChatBackKeyboard,
 } = require("./keyboards");
 const { updateProfileField, updateUserState } = require("./services/users");
 const { resolveCityByCoordinates } = require("./services/location");
+const { getAiAssistantReply } = require("./services/ai");
 const {
   saveLocationProfile,
   sendProfileMessage,
@@ -27,6 +30,33 @@ const FIELD_LIMITS = {
   city: 30,
   bio: 120,
 };
+
+function normalizeKeyboardText(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\uFE0F/g, "")
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "");
+}
+
+function isAiBackText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  const backLabels = [
+    messages.fa.aiBack,
+    messages.en.aiBack,
+  ].map(normalizeKeyboardText);
+
+  if (backLabels.includes(normalizedText)) {
+    return true;
+  }
+
+  const plainText = normalizedText
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .toLowerCase()
+    .trim();
+
+  return plainText === "back" || plainText === "بازگشت";
+}
 
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
@@ -133,6 +163,41 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
   }
 
+  if (
+    state === "ai_chat_movies" ||
+    state === "ai_chat_music" ||
+    state === "ai_chat_books" ||
+    state === "ai_chat_random"
+  ) {
+    if (isAiBackText(text)) {
+      await updateUserState(ctx.userId, "idle");
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
+      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    }
+
+    const mode = state === "ai_chat_movies"
+      ? "movies"
+      : state === "ai_chat_music"
+        ? "music"
+        : state === "ai_chat_books"
+          ? "books"
+        : "random";
+
+    const aiResult = await getAiAssistantReply({
+      mode,
+      lang,
+      userText: text,
+    });
+
+    if (aiResult.ok) {
+      return ctx.reply(aiResult.text, aiChatBackKeyboard(lang));
+    }
+
+    return ctx.reply(messages[lang].aiTemporaryUnavailable, aiChatBackKeyboard(lang));
+  }
+
   if (state === "editing_age") {
     return ctx.reply(messages[lang].profileEditHintAge, ageKeyboard(lang));
   }
@@ -180,7 +245,13 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/start") {
-    await ctx.reply(messages[lang].welcome);
+    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
+    const userName = rawUserName.trim().replace(/\s+/g, " ");
+    const welcomeMessage = userName
+      ? messages[lang].welcomeWithName.replace("{name}", userName)
+      : messages[lang].welcome;
+
+    await ctx.reply(welcomeMessage);
 
     if (!userLang) {
       return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
