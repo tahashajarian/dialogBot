@@ -1,16 +1,22 @@
 const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, genderKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
+const {
+  mainMenuKeyboard,
+  languageKeyboard,
+  profileKeyboard,
+  ageKeyboard,
+  ageRangeKeyboard,
+  genderKeyboard,
+  petPreferenceKeyboard,
+  locationKeyboard,
+  cancelEditKeyboard,
+} = require("./keyboards");
 const { callBacks } = require("./constances");
 const { updateProfileField, updateUserState } = require("./services/users");
+const { sendProfileMessage, toPlainUser } = require("./services/profile");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
-const FIELD_LIMITS = {
-  profileName: 30,
-  city: 30,
-  bio: 120,
-};
 
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
@@ -81,7 +87,11 @@ async function handleCallback(ctx) {
 
   if (data.startsWith(callBacks.profileGenderSet)) {
     const gender = data.replace(callBacks.profileGenderSet, "");
-    const allowedGenders = new Set(["female", "male", "other"]);
+    const allowedGenders = new Set([
+      "female",
+      "male",
+      "other",
+    ]);
 
     await ctx.answerCb?.();
 
@@ -99,7 +109,14 @@ async function handleCallback(ctx) {
 
   if (data.startsWith(callBacks.profilePetSet)) {
     const petPreference = data.replace(callBacks.profilePetSet, "");
-    const allowedPetPreferences = new Set(["any", "none", "cat", "dog", "bird", "small_pets"]);
+    const allowedPetPreferences = new Set([
+      "any",
+      "none",
+      "cat",
+      "dog",
+      "bird",
+      "small_pets",
+    ]);
 
     await ctx.answerCb?.();
 
@@ -120,7 +137,12 @@ async function handleCallback(ctx) {
 
     await ctx.answerCb?.();
 
-    if (!Number.isInteger(startAge) || startAge < 10 || startAge > 70 || startAge % 10 !== 0) {
+    if (
+      !Number.isInteger(startAge) ||
+      startAge < 10 ||
+      startAge > 70 ||
+      startAge % 10 !== 0
+    ) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
@@ -235,79 +257,15 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
-function getProfileText(user, lang) {
-  const displayName = user?.profileName || user?.firstName || "—";
-  const city = user?.city || "—";
-  const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
-  const genderMap = {
-    female: messages[lang].genderOptionFemaleDisplay,
-    male: messages[lang].genderOptionMaleDisplay,
-    other: messages[lang].genderOptionOtherDisplay,
-  };
-  const gender = genderMap[user?.gender] || messages[lang].genderMissing;
-  const petPreferenceMap = {
-    any: messages[lang].petOptionAnyDisplay,
-    none: messages[lang].petOptionNoneDisplay,
-    cat: messages[lang].petOptionCatDisplay,
-    dog: messages[lang].petOptionDogDisplay,
-    bird: messages[lang].petOptionBirdDisplay,
-    small_pets: messages[lang].petOptionSmallPetsDisplay,
-  };
-  const petPreference = petPreferenceMap[user?.petPreference] || "—";
-  const bio = user?.bio || messages[lang].bioMissing;
-  const locationText = user?.location
-    ? (user.location.city || messages[lang].locationSet)
-    : messages[lang].locationMissing;
-
-  const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
-  const genderIcon = "⚧️";
-
-  return [
-    `${titleIcon} ${messages[lang].profileTitle}`,
-    `━━━━━━━━━━━━━━`,
-    lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
-    lang === "fa" ? `🏙 شهر: ${city}` : `🏙 ${messages[lang].profileCity}: ${city}`,
-    lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`,
-    `${genderIcon} ${messages[lang].profileGender}: ${gender}`,
-    `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
-    `📍 ${messages[lang].profileLocation}: ${locationText}`,
-    `📝 ${messages[lang].profileBio}: ${bio}`,
-  ].join("\n");
-}
-
 async function sendProfile(ctx, lang, user = ctx.user) {
-  const hasCustomPhoto = user?.photoFileId;
-
-  if (hasCustomPhoto) {
-    try {
-      return await ctx.replyWithPhoto(user.photoFileId, {
-        caption: getProfileText(user, lang),
-        ...profileKeyboard(lang, hasCustomPhoto),
-      });
-    } catch {
-      return ctx.reply(getProfileText(user, lang), profileKeyboard(lang, hasCustomPhoto));
-    }
-  }
-
-  try {
-    return await ctx.replyWithPhoto(
-      { source: DEFAULT_PROFILE_PHOTO },
-      {
-        caption: getProfileText(user, lang),
-        ...profileKeyboard(lang, hasCustomPhoto),
-      }
-    );
-  } catch {
-    return ctx.reply(getProfileText(user, lang), profileKeyboard(lang, hasCustomPhoto));
-  }
+  return sendProfileMessage({
+    ctx,
+    user,
+    lang,
+    keyboard: profileKeyboard(lang, Boolean(user?.photoFileId)),
+    messages,
+    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+  });
 }
 
 module.exports = { handleCallback };
-
-function toPlainUser(user) {
-  if (!user) return {};
-  if (typeof user.toObject === "function") {
-    return user.toObject();
-  }
-  return { ...user };
-}

@@ -2,10 +2,24 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, genderKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
+const {
+  mainMenuKeyboard,
+  languageKeyboard,
+  profileKeyboard,
+  ageKeyboard,
+  genderKeyboard,
+  petPreferenceKeyboard,
+  locationKeyboard,
+  cancelEditKeyboard,
+} = require("./keyboards");
 const { updateProfileField, updateUserState } = require("./services/users");
 const { resolveCityByCoordinates } = require("./services/location");
-const { callBacks } = require("./constances");
+const {
+  saveLocationProfile,
+  sendProfileMessage,
+  isValidTextInput,
+  toPlainUser,
+} = require("./services/profile");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const FIELD_LIMITS = {
@@ -24,6 +38,7 @@ async function handleUpdate(ctx) {
 
   const userLang = ctx.user?.lang;
   const state = ctx.user?.state || "idle";
+  const keyboardLang = userLang || lang;
 
   if (text === "/cancel") {
     await updateUserState(ctx.userId, "idle");
@@ -34,7 +49,7 @@ async function handleUpdate(ctx) {
         reply_markup: { remove_keyboard: true },
       });
     }
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_name" && text) {
@@ -43,7 +58,10 @@ async function handleUpdate(ctx) {
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.profileName)) {
-      return ctx.reply(`${messages[lang].profileNameTooLong}\n${messages[lang].profileEditHintName}`, cancelEditKeyboard(lang));
+      return ctx.reply(
+        `${messages[lang].profileNameTooLong}\n${messages[lang].profileEditHintName}`,
+        cancelEditKeyboard(lang)
+      );
     }
 
     await updateProfileField(ctx.userId, "profileName", text);
@@ -51,7 +69,7 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.profileName = text;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_city" && text) {
@@ -60,7 +78,10 @@ async function handleUpdate(ctx) {
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.city)) {
-      return ctx.reply(`${messages[lang].profileCityTooLong}\n${messages[lang].profileEditHintCity}`, cancelEditKeyboard(lang));
+      return ctx.reply(
+        `${messages[lang].profileCityTooLong}\n${messages[lang].profileEditHintCity}`,
+        cancelEditKeyboard(lang)
+      );
     }
 
     await updateProfileField(ctx.userId, "city", text);
@@ -68,7 +89,7 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.city = text;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_photo" && ctx.message?.photo?.length) {
@@ -78,7 +99,7 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = photo.file_id;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_photo" && ctx.message?.document?.file_id) {
@@ -87,28 +108,25 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = ctx.message.document.file_id;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_location" && ctx.message?.location) {
-    const location = {
-      latitude: ctx.message.location.latitude,
-      longitude: ctx.message.location.longitude,
-      accuracy: ctx.message.location.horizontal_accuracy || null,
-      city: null,
-      sharedAt: new Date(),
-    };
+    const location = await saveLocationProfile({
+      userId: ctx.userId,
+      locationMessage: ctx.message.location,
+      updateProfileField,
+      updateUserState,
+      resolveCityByCoordinates,
+    });
 
-    await updateProfileField(ctx.userId, "location", location);
-    await updateUserState(ctx.userId, "idle");
-    enrichUserLocationCityInBackground(ctx.userId, location);
     await ctx.reply(messages[lang].profileUpdated, {
       reply_markup: { remove_keyboard: true },
     });
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.location = location;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_photo") {
@@ -135,7 +153,7 @@ async function handleUpdate(ctx) {
       });
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
-      return sendProfile(ctx, updatedUser, lang, userLang || lang);
+      return sendProfile(ctx, updatedUser, lang, keyboardLang);
     }
 
     return ctx.reply(messages[lang].profileEditHintLocation, locationKeyboard(lang));
@@ -147,7 +165,10 @@ async function handleUpdate(ctx) {
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.bio)) {
-      return ctx.reply(`${messages[lang].profileBioTooLong}\n${messages[lang].profileEditHintBio}`, cancelEditKeyboard(lang));
+      return ctx.reply(
+        `${messages[lang].profileBioTooLong}\n${messages[lang].profileEditHintBio}`,
+        cancelEditKeyboard(lang)
+      );
     }
 
     await updateProfileField(ctx.userId, "bio", text);
@@ -155,7 +176,7 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.bio = text;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (text === "/start") {
@@ -181,7 +202,7 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/profile") {
-    return sendProfile(ctx, ctx.user || {}, lang, userLang || lang);
+    return sendProfile(ctx, ctx.user || {}, lang, keyboardLang);
   }
 
   if (text === "/resetphoto") {
@@ -190,109 +211,23 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = null;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, userLang || lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));
 }
 
-function getProfileText(user, lang) {
-  const displayName = user?.profileName || user?.firstName || "—";
-  const city = user?.city || "—";
-  const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
-  const genderMap = {
-    female: messages[lang].genderOptionFemaleDisplay,
-    male: messages[lang].genderOptionMaleDisplay,
-    other: messages[lang].genderOptionOtherDisplay,
-  };
-  const gender = genderMap[user?.gender] || messages[lang].genderMissing;
-  const petPreferenceMap = {
-    any: messages[lang].petOptionAnyDisplay,
-    none: messages[lang].petOptionNoneDisplay,
-    cat: messages[lang].petOptionCatDisplay,
-    dog: messages[lang].petOptionDogDisplay,
-    bird: messages[lang].petOptionBirdDisplay,
-    small_pets: messages[lang].petOptionSmallPetsDisplay,
-  };
-  const petPreference = petPreferenceMap[user?.petPreference] || "—";
-  const bio = user?.bio || messages[lang].bioMissing;
-  const locationText = user?.location
-    ? (user.location.city || messages[lang].locationSet)
-    : messages[lang].locationMissing;
-
-  const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
-  const genderIcon = "⚧️";
-
-  return [
-    `${titleIcon} ${messages[lang].profileTitle}`,
-    `━━━━━━━━━━━━━━`,
-    lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
-    lang === "fa" ? `🏙 شهر: ${city}` : `🏙 ${messages[lang].profileCity}: ${city}`,
-    lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`,
-    `${genderIcon} ${messages[lang].profileGender}: ${gender}`,
-    `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
-    `📍 ${messages[lang].profileLocation}: ${locationText}`,
-    `📝 ${messages[lang].profileBio}: ${bio}`,
-  ].join("\n");
-}
-
 async function sendProfile(ctx, user, lang, keyboardLang) {
-  const hasCustomPhoto = user?.photoFileId;
-
-  if (hasCustomPhoto) {
-    try {
-      return await ctx.replyWithPhoto(user.photoFileId, {
-        caption: getProfileText(user, lang),
-        ...profileKeyboard(keyboardLang, hasCustomPhoto),
-      });
-    } catch {
-      return ctx.reply(getProfileText(user, lang), profileKeyboard(keyboardLang, hasCustomPhoto));
-    }
-  }
-
-  try {
-    return await ctx.replyWithPhoto(
-      { source: DEFAULT_PROFILE_PHOTO },
-      {
-        caption: getProfileText(user, lang),
-        ...profileKeyboard(keyboardLang, hasCustomPhoto),
-      }
-    );
-  } catch {
-    return ctx.reply(getProfileText(user, lang), profileKeyboard(keyboardLang, hasCustomPhoto));
-  }
+  return sendProfileMessage({
+    ctx,
+    user,
+    lang,
+    keyboard: profileKeyboard(keyboardLang, Boolean(user?.photoFileId)),
+    messages,
+    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+  });
 }
 
 module.exports = {
-  handleUpdate
+  handleUpdate,
 };
-
-function toPlainUser(user) {
-  if (!user) return {};
-  if (typeof user.toObject === "function") {
-    return user.toObject();
-  }
-  return { ...user };
-}
-
-async function enrichUserLocationCityInBackground(userId, location) {
-  try {
-    const resolvedCity = await resolveCityByCoordinates(location.latitude, location.longitude);
-    if (!resolvedCity) return;
-
-    await updateProfileField(userId, "location", {
-      ...location,
-      city: resolvedCity,
-    });
-  } catch {
-    // keep fast path stable; silently ignore background failures
-  }
-}
-
-function isValidTextInput(text, maxLength) {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (!normalized) return false;
-  if (normalized.length > maxLength) return false;
-  if (/[<>]/.test(normalized)) return false;
-  return true;
-}

@@ -18,6 +18,7 @@
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
+- Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 
 ## Data Model Notes
 - User schema lives in `src/models/user.js`.
