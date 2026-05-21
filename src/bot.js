@@ -2,7 +2,7 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, genderKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { updateProfileField, updateUserState } = require("./services/users");
 const { resolveCityByCoordinates } = require("./services/location");
 const { callBacks } = require("./constances");
@@ -119,6 +119,10 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintAge, ageKeyboard(lang));
   }
 
+  if (state === "editing_gender") {
+    return ctx.reply(messages[lang].profileEditHintGender, genderKeyboard(lang));
+  }
+
   if (state === "editing_pet_preference") {
     return ctx.reply(messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
   }
@@ -196,6 +200,12 @@ function getProfileText(user, lang) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
   const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
+  const genderMap = {
+    female: messages[lang].genderOptionFemaleDisplay,
+    male: messages[lang].genderOptionMaleDisplay,
+    other: messages[lang].genderOptionOtherDisplay,
+  };
+  const gender = genderMap[user?.gender] || messages[lang].genderMissing;
   const petPreferenceMap = {
     any: messages[lang].petOptionAnyDisplay,
     none: messages[lang].petOptionNoneDisplay,
@@ -210,25 +220,16 @@ function getProfileText(user, lang) {
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
 
-  if (lang === "fa") {
-    return [
-      `🌸 ${messages[lang].profileTitle}`,
-      `━━━━━━━━━━━━━━`,
-      `👤 نام: ${displayName}`,
-      `🏙 شهر: ${city}`,
-      `🎂 سن: ${age}`,
-      `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
-      `📍 ${messages[lang].profileLocation}: ${locationText}`,
-      `📝 ${messages[lang].profileBio}: ${bio}`,
-    ].join("\n");
-  }
+  const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
+  const genderIcon = "⚧️";
 
   return [
-    `👤 ${messages[lang].profileTitle}`,
+    `${titleIcon} ${messages[lang].profileTitle}`,
     `━━━━━━━━━━━━━━`,
-    `👤 ${messages[lang].profileName}: ${displayName}`,
-    `🏙 ${messages[lang].profileCity}: ${city}`,
-    `🎂 ${messages[lang].profileAge}: ${age}`,
+    lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
+    lang === "fa" ? `🏙 شهر: ${city}` : `🏙 ${messages[lang].profileCity}: ${city}`,
+    lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`,
+    `${genderIcon} ${messages[lang].profileGender}: ${gender}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,

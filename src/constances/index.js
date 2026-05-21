@@ -5,6 +5,8 @@ module.exports = {
     profileEditName: "profile:edit:name",
     profileEditCity: "profile:edit:city",
     profileEditAge: "profile:edit:age",
+    profileEditGender: "profile:edit:gender",
+    profileGenderSet: "profile:gender:set:",
     profileEditPetPreference: "profile:edit:pet:preference",
     profileEditLocation: "profile:edit:location",
     profileEditBio: "profile:edit:bio",

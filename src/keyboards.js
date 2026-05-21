@@ -36,6 +36,9 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
     ],
     [
+      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
+    ],
+    [
       { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
     ],
     [
@@ -130,6 +133,19 @@ function petPreferenceKeyboard(lang) {
   ]);
 }
 
+function genderKeyboard(lang) {
+  return inlineKeyboard([
+    [
+      { text: messages[lang].genderOptionFemaleButton, callback_data: `${callBacks.profileGenderSet}female` },
+      { text: messages[lang].genderOptionMaleButton, callback_data: `${callBacks.profileGenderSet}male` },
+    ],
+    [
+      { text: messages[lang].genderOptionOtherButton, callback_data: `${callBacks.profileGenderSet}other` },
+    ],
+    [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
+  ]);
+}
+
 function locationKeyboard(lang) {
   return {
     reply_markup: {
@@ -170,6 +186,7 @@ module.exports = {
   cancelEditKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
+  genderKeyboard,
   petPreferenceKeyboard,
   locationKeyboard,
   languageKeyboard,

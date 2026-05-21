@@ -1,7 +1,7 @@
 const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
+const { mainMenuKeyboard, languageKeyboard, profileKeyboard, ageKeyboard, ageRangeKeyboard, genderKeyboard, petPreferenceKeyboard, locationKeyboard, cancelEditKeyboard } = require("./keyboards");
 const { callBacks } = require("./constances");
 const { updateProfileField, updateUserState } = require("./services/users");
 
@@ -55,16 +55,16 @@ async function handleCallback(ctx) {
     return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
+  if (data === callBacks.profileEditGender) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_gender");
+    return ctx.reply(messages[lang].profileAskGender, genderKeyboard(lang));
+  }
+
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_pet_preference");
     return ctx.reply(messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
-  }
-
-  if (data === callBacks.profileEditLocation) {
-    await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_location");
-    return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
   if (data === callBacks.profileEditBio) {
@@ -77,6 +77,24 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_location");
     return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
+  }
+
+  if (data.startsWith(callBacks.profileGenderSet)) {
+    const gender = data.replace(callBacks.profileGenderSet, "");
+    const allowedGenders = new Set(["female", "male", "other"]);
+
+    await ctx.answerCb?.();
+
+    if (!allowedGenders.has(gender)) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await updateProfileField(ctx.userId, "gender", gender);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.gender = gender;
+    updatedUser.state = "idle";
+    return sendProfile(ctx, lang, updatedUser);
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
@@ -217,18 +235,16 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
-function isValidTextInput(text, maxLength) {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (!normalized) return false;
-  if (normalized.length > maxLength) return false;
-  if (/[<>]/.test(normalized)) return false;
-  return true;
-}
-
 function getProfileText(user, lang) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
   const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
+  const genderMap = {
+    female: messages[lang].genderOptionFemaleDisplay,
+    male: messages[lang].genderOptionMaleDisplay,
+    other: messages[lang].genderOptionOtherDisplay,
+  };
+  const gender = genderMap[user?.gender] || messages[lang].genderMissing;
   const petPreferenceMap = {
     any: messages[lang].petOptionAnyDisplay,
     none: messages[lang].petOptionNoneDisplay,
@@ -243,25 +259,16 @@ function getProfileText(user, lang) {
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
 
-  if (lang === "fa") {
-    return [
-      `🌸 ${messages[lang].profileTitle}`,
-      `━━━━━━━━━━━━━━`,
-      `👤 نام: ${displayName}`,
-      `🏙 شهر: ${city}`,
-      `🎂 سن: ${age}`,
-      `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
-      `📍 ${messages[lang].profileLocation}: ${locationText}`,
-      `📝 ${messages[lang].profileBio}: ${bio}`,
-    ].join("\n");
-  }
+  const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
+  const genderIcon = "⚧️";
 
   return [
-    `👤 ${messages[lang].profileTitle}`,
+    `${titleIcon} ${messages[lang].profileTitle}`,
     `━━━━━━━━━━━━━━`,
-    `👤 ${messages[lang].profileName}: ${displayName}`,
-    `🏙 ${messages[lang].profileCity}: ${city}`,
-    `🎂 ${messages[lang].profileAge}: ${age}`,
+    lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
+    lang === "fa" ? `🏙 شهر: ${city}` : `🏙 ${messages[lang].profileCity}: ${city}`,
+    lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`,
+    `${genderIcon} ${messages[lang].profileGender}: ${gender}`,
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,
@@ -303,12 +310,4 @@ function toPlainUser(user) {
     return user.toObject();
   }
   return { ...user };
-}
-
-function isValidTextInput(text, maxLength) {
-  const normalized = text.trim().replace(/\s+/g, " ");
-  if (!normalized) return false;
-  if (normalized.length > maxLength) return false;
-  if (/[<>]/.test(normalized)) return false;
-  return true;
 }
