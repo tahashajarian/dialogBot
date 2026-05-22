@@ -47,25 +47,68 @@ function normalizeAiListItem(value) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
+function normalizeAiListComment(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
+}
+
 function normalizeAiListItems(items = []) {
   const unique = new Set();
   const normalized = [];
 
   for (const item of items) {
-    const clean = normalizeAiListItem(item);
-    if (!clean) continue;
-    const key = clean.toLowerCase();
+    const titleSource = typeof item === "string" ? item : item?.title;
+    const commentSource = typeof item === "string" ? "" : item?.comment;
+    const title = normalizeAiListItem(titleSource);
+    const comment = normalizeAiListComment(commentSource);
+    if (!title) continue;
+    const key = title.toLowerCase();
     if (unique.has(key)) continue;
     unique.add(key);
-    normalized.push(clean);
+    normalized.push({ title, comment });
   }
 
   return normalized;
 }
 
-async function addAiListItem(userId, field, item, maxItems) {
-  const cleanItem = normalizeAiListItem(item);
-  if (!cleanItem) {
+const AI_SECTIONS = ["movies", "music", "books", "random"];
+const LEGACY_FIELDS = {
+  movies: { watchlist: "aiWatchlistMovies", topTen: "aiTopTenMovies" },
+  music: { watchlist: "aiWatchlistMusic", topTen: "aiTopTenMusic" },
+  books: { watchlist: "aiWatchlistBooks", topTen: "aiTopTenBooks" },
+  random: { watchlist: "aiWatchlistRandom", topTen: "aiTopTenRandom" },
+};
+
+function getLegacyAiListItems(user, section, listType) {
+  const field = LEGACY_FIELDS[section]?.[listType];
+  if (!field) return [];
+  return normalizeAiListItems(user?.[field] || []);
+}
+
+function hasStructuredAiList(user, section, listType) {
+  return Array.isArray(user?.aiLists?.[section]?.[listType]);
+}
+
+function getAiListItemsFromUser(user, section, listType) {
+  const legacyItems = getLegacyAiListItems(user, section, listType);
+
+  if (hasStructuredAiList(user, section, listType)) {
+    const structuredItems = normalizeAiListItems(user?.aiLists?.[section]?.[listType] || []);
+    if (structuredItems.length > 0 || legacyItems.length === 0) {
+      return structuredItems;
+    }
+  }
+
+  return legacyItems;
+}
+
+function getAiListTitlesFromUser(user, section, listType) {
+  return getAiListItemsFromUser(user, section, listType).map((entry) => entry.title);
+}
+
+async function addAiListItem(userId, section, listType, item, maxItems) {
+  const title = normalizeAiListItem(item?.title || item);
+  const comment = normalizeAiListComment(item?.comment);
+  if (!title) {
     return { ok: false, reason: "empty" };
   }
 
@@ -74,8 +117,8 @@ async function addAiListItem(userId, field, item, maxItems) {
     return { ok: false, reason: "missing_user" };
   }
 
-  const current = normalizeAiListItems(user[field] || []);
-  const exists = current.some((entry) => entry.toLowerCase() === cleanItem.toLowerCase());
+  const current = getAiListItemsFromUser(user, section, listType);
+  const exists = current.some((entry) => entry.title.toLowerCase() === title.toLowerCase());
   if (exists) {
     return { ok: false, reason: "exists", items: current };
   }
@@ -84,12 +127,12 @@ async function addAiListItem(userId, field, item, maxItems) {
     return { ok: false, reason: "limit", items: current };
   }
 
-  const updated = [...current, cleanItem];
-  await updateProfileField(userId, field, updated);
+  const updated = [...current, { title, comment }];
+  await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
   return { ok: true, items: updated };
 }
 
-async function removeAiListItem(userId, field, item) {
+async function removeAiListItem(userId, section, listType, item) {
   const cleanItem = normalizeAiListItem(item);
   if (!cleanItem) {
     return { ok: false, reason: "empty" };
@@ -100,17 +143,18 @@ async function removeAiListItem(userId, field, item) {
     return { ok: false, reason: "missing_user" };
   }
 
-  const current = normalizeAiListItems(user[field] || []);
-  const updated = current.filter((entry) => entry.toLowerCase() !== cleanItem.toLowerCase());
+  const current = getAiListItemsFromUser(user, section, listType);
+  const updated = current.filter((entry) => entry.title.toLowerCase() !== cleanItem.toLowerCase());
   if (updated.length === current.length) {
     return { ok: false, reason: "not_found", items: current };
   }
 
-  await updateProfileField(userId, field, updated);
+  await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
   return { ok: true, items: updated };
 }
 
 module.exports = {
+  AI_SECTIONS,
   getOrCreateUser,
   updateLanguage,
   updateProfileField,
@@ -118,5 +162,8 @@ module.exports = {
   addAiListItem,
   removeAiListItem,
   normalizeAiListItem,
+  normalizeAiListComment,
   normalizeAiListItems,
+  getAiListItemsFromUser,
+  getAiListTitlesFromUser,
 };

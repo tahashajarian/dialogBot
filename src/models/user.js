@@ -1,5 +1,22 @@
 const mongoose = require("mongoose");
 
+const AiListItemSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  comment: { type: String, default: "" },
+}, { _id: false });
+
+const AiSectionListsSchema = new mongoose.Schema({
+  watchlist: { type: [AiListItemSchema], default: [] },
+  topTen: { type: [AiListItemSchema], default: [] },
+}, { _id: false });
+
+const AiListsSchema = new mongoose.Schema({
+  movies: { type: AiSectionListsSchema, default: () => ({}) },
+  music: { type: AiSectionListsSchema, default: () => ({}) },
+  books: { type: AiSectionListsSchema, default: () => ({}) },
+  random: { type: AiSectionListsSchema, default: () => ({}) },
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   userId: { type: Number, required: true, unique: true },
   username: String,
@@ -18,6 +35,7 @@ const UserSchema = new mongoose.Schema({
     sharedAt: Date,
   },
   photoFileId: String,
+  aiLists: { type: AiListsSchema, default: () => ({}) },
   aiWatchlistMovies: { type: [String], default: [] },
   aiTopTenMovies: { type: [String], default: [] },
   aiWatchlistMusic: { type: [String], default: [] },

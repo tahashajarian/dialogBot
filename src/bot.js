@@ -20,7 +20,9 @@ const {
   addAiListItem,
   removeAiListItem,
   normalizeAiListItem,
-  normalizeAiListItems,
+  normalizeAiListComment,
+  getAiListItemsFromUser,
+  getAiListTitlesFromUser,
 } = require("./services/users");
 const { resolveCityByCoordinates } = require("./services/location");
 const { getAiAssistantReply } = require("./services/ai");
@@ -44,26 +46,8 @@ const FIELD_LIMITS = {
   city: 30,
   bio: 120,
 };
-const AI_WATCHLIST_LIMIT = 50;
+const AI_WATCHLIST_LIMIT = 10;
 const AI_TOP_TEN_LIMIT = 10;
-const AI_SECTION_FIELDS = {
-  movies: {
-    watchlistField: "aiWatchlistMovies",
-    topTenField: "aiTopTenMovies",
-  },
-  music: {
-    watchlistField: "aiWatchlistMusic",
-    topTenField: "aiTopTenMusic",
-  },
-  books: {
-    watchlistField: "aiWatchlistBooks",
-    topTenField: "aiTopTenBooks",
-  },
-  random: {
-    watchlistField: "aiWatchlistRandom",
-    topTenField: "aiTopTenRandom",
-  },
-};
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -107,8 +91,39 @@ function formatAiItemsList(title, items, emptyText) {
     return emptyText;
   }
 
-  const lines = items.map((item, index) => `${index + 1}. ${item}`);
+  const lines = items.map((item, index) => {
+    if (item?.comment) {
+      return `${index + 1}. ${item.title} — ${item.comment}`;
+    }
+    return `${index + 1}. ${item.title}`;
+  });
   return `${title}\n${lines.join("\n")}`;
+}
+
+function parseAiListInput(text) {
+  const raw = String(text || "").trim();
+  if (!raw.startsWith("+")) {
+    return null;
+  }
+
+  const body = raw.slice(1).trim();
+  if (!body) {
+    return { title: "", comment: "" };
+  }
+
+  const separatorMatch = body.match(/\s[-—|]\s/);
+  if (!separatorMatch) {
+    return { title: body, comment: "" };
+  }
+
+  const separator = separatorMatch[0];
+  const [titlePart, ...restParts] = body.split(separator);
+  const commentPart = restParts.join(separator).trim();
+
+  return {
+    title: titlePart.trim(),
+    comment: commentPart,
+  };
 }
 
 function isAiSectionListText(text, section) {
@@ -272,20 +287,19 @@ async function handleUpdate(ctx) {
     }
 
     const section = getAiSectionFromState(state);
-    const sectionFields = AI_SECTION_FIELDS[section];
     const sectionLabel = getSectionLabel(messages, lang, section);
     const listLabel = getSectionListLabel(messages, lang, section);
     const isWatchlist = state.endsWith("_watchlist");
-    const field = isWatchlist ? sectionFields.watchlistField : sectionFields.topTenField;
-    const topTenItems = normalizeAiListItems(ctx.user?.[sectionFields.topTenField] || []);
-    const watchlistItems = normalizeAiListItems(ctx.user?.[sectionFields.watchlistField] || []);
+    const listType = isWatchlist ? "watchlist" : "topTen";
+    const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
+    const watchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
     const title = (isWatchlist ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
       .replace("{section}", sectionLabel)
       .replace("{listName}", listLabel);
     const emptyText = (isWatchlist ? messages[lang].aiWatchlistEmpty : messages[lang].aiTopTenEmpty)
       .replace("{section}", sectionLabel)
       .replace("{listName}", listLabel);
-    const currentItems = normalizeAiListItems(ctx.user?.[field] || []);
+    const currentItems = getAiListItemsFromUser(ctx.user, section, listType);
 
     if (isAiSectionListText(text, section)) {
       const nextState = `ai_manage_${section}_watchlist`;
@@ -321,8 +335,8 @@ async function handleUpdate(ctx) {
         mode: section,
         lang,
         userText: section === "random" ? "Suggest for me" : `Suggest a new ${section}`,
-        topTenItems,
-        watchlistItems,
+        topTenItems: topTenItems.map((entry) => entry.title),
+        watchlistItems: watchlistItems.map((entry) => entry.title),
         personalized: true,
       });
 
@@ -341,15 +355,18 @@ async function handleUpdate(ctx) {
     }
 
     if (text.startsWith("+")) {
-      const item = normalizeAiListItem(text.slice(1));
+      const parsed = parseAiListInput(text);
+      const item = normalizeAiListItem(parsed?.title);
+      const comment = normalizeAiListComment(parsed?.comment);
       if (!item) {
         return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
       }
 
       const result = await addAiListItem(
         ctx.userId,
-        field,
-        item,
+        section,
+        listType,
+        { title: item, comment },
         isWatchlist ? AI_WATCHLIST_LIMIT : AI_TOP_TEN_LIMIT
       );
 
@@ -357,7 +374,7 @@ async function handleUpdate(ctx) {
         if (result.reason === "exists") {
           return ctx.reply(messages[lang].aiListAlreadyExists, aiSectionKeyboardForSection(lang, section));
         }
-        if (result.reason === "limit" && !isWatchlist) {
+        if (result.reason === "limit") {
           return ctx.reply(messages[lang].aiTopTenLimitReached, aiSectionKeyboardForSection(lang, section));
         }
         return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
@@ -375,7 +392,7 @@ async function handleUpdate(ctx) {
         return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
       }
 
-      const result = await removeAiListItem(ctx.userId, field, item);
+      const result = await removeAiListItem(ctx.userId, section, listType, item);
       if (!result.ok) {
         if (result.reason === "not_found") {
           return ctx.reply(messages[lang].aiListNotFound, aiSectionKeyboardForSection(lang, section));
@@ -431,9 +448,8 @@ async function handleUpdate(ctx) {
       );
     }
 
-    const sectionFields = AI_SECTION_FIELDS[section];
-    const topTenItems = normalizeAiListItems(ctx.user?.[sectionFields.topTenField] || []);
-    const watchlistItems = normalizeAiListItems(ctx.user?.[sectionFields.watchlistField] || []);
+    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+    const watchlistItems = getAiListTitlesFromUser(ctx.user, section, "watchlist");
 
     if (isAiSectionSuggestText(text)) {
       if (topTenItems.length < AI_TOP_TEN_LIMIT) {

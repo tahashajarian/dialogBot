@@ -20,6 +20,9 @@
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - AI assistant menu includes movies, music, books, and random sections.
+- AI lists are stored under `aiLists.{section}.{listType}` with item objects: `{ title, comment }`.
+- Both watchlist and topTen are capped at 10 items per section.
+- Use `scripts/migrate-ai-lists.js` to move legacy flat lists into `aiLists`, and `scripts/rollback-ai-lists.js` to restore legacy fields if needed.
 - In AI sections, users stay in chat state until pressing the bottom text back button.
 - Bottom AI-section back returns users to the AI assistant menu; the inline AI assistant back button returns to the main menu.
 - Pin/unpin flows must use the active chat id and must not swallow API errors silently.
@@ -30,6 +33,7 @@
 ## Data Model Notes
 - User schema lives in `src/models/user.js`.
 - Update `src/services/users.js` when adding or changing user fields or state helpers.
+- Keep AI list access centralized in `src/services/users.js` helpers (`getAiListItemsFromUser`, `addAiListItem`, `removeAiListItem`).
 - If a new profile field is added, update:
   - `src/models/user.js`
   - `src/messages.js`
