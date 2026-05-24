@@ -26,11 +26,65 @@ bot.catch((err) => {
 });
 
 function createAppContext(ctx, user) {
+  const PIN_OPERATION_TIMEOUT_MS = 2500;
+  const PIN_RETRY_DELAY_MS = 400;
+
   const resolveChatId = () => (
     ctx.chat?.id ||
     ctx.callbackQuery?.message?.chat?.id ||
     ctx.message?.chat?.id
   );
+
+  const callTelegramApiWithTimeout = async (method, payload, timeoutMs) => {
+    if (!ctx.telegram?.callApi) {
+      return false;
+    }
+
+    const supportsAbortController = typeof AbortController !== "undefined";
+    const abortController = supportsAbortController ? new AbortController() : null;
+    const callPromise = ctx.telegram.callApi(
+      method,
+      payload,
+      abortController ? { signal: abortController.signal } : undefined,
+    );
+    let timeoutId = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        abortController?.abort();
+        reject(new Error(`${method} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
+    try {
+      await Promise.race([callPromise, timeoutPromise]);
+      return true;
+    } finally {
+      clearTimeout(timeoutId);
+      callPromise.catch(() => {});
+    }
+  };
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const getErrorCode = (error) => Number(
+    error?.code ||
+    error?.response?.error_code ||
+    error?.response?.data?.error_code,
+  );
+  const getErrorDescription = (error) => (
+    error?.description ||
+    error?.response?.description ||
+    error?.response?.data?.description
+  );
+  const getErrorText = (error) => (
+    error?.message ||
+    error?.response?.data?.error ||
+    error
+  );
+  const isRetriablePinError = (error) => {
+    const code = getErrorCode(error);
+    const text = String(error?.message || "").toLowerCase();
+    return code === 500 || text.includes("internal server error") || text.includes("timed out");
+  };
 
   return {
     user,
@@ -46,69 +100,77 @@ function createAppContext(ctx, user) {
     editMessage: (...args) => ctx.editMessageText(...args),
     pinMessage: async (messageId) => {
       const chatId = resolveChatId();
-      if (!chatId) return false;
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
+      }
 
       let lastError = null;
-      if (typeof ctx.pinChatMessage === "function") {
+      const pinPayloads = [
+        {
+          chat_id: chatId,
+          message_id: normalizedMessageId,
+        },
+        {
+          chat_id: String(chatId),
+          message_id: String(normalizedMessageId),
+        },
+      ];
+
+      for (let attempt = 0; attempt < pinPayloads.length; attempt += 1) {
+        if (attempt > 0) {
+          await sleep(PIN_RETRY_DELAY_MS);
+        }
+
         try {
-          await ctx.pinChatMessage(messageId, { disable_notification: true });
-          return true;
+          return await callTelegramApiWithTimeout(
+            "pinChatMessage",
+            pinPayloads[attempt],
+            PIN_OPERATION_TIMEOUT_MS,
+          );
         } catch (error) {
           lastError = error;
+          if (!isRetriablePinError(error) || attempt >= pinPayloads.length - 1) {
+            break;
+          }
         }
       }
 
-      if (ctx.telegram?.pinChatMessage) {
-        try {
-          await ctx.telegram.pinChatMessage(chatId, messageId, { disable_notification: true });
-          return true;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (lastError) {
-        console.error("Failed to pin chat message:", {
-          chatId,
-          messageId,
-          error: lastError?.message || lastError,
-        });
-      }
-
+      console.error("Failed to pin chat message:", {
+        chatId,
+        messageId: normalizedMessageId,
+        code: getErrorCode(lastError),
+        description: getErrorDescription(lastError),
+        error: getErrorText(lastError),
+      });
       return false;
     },
     unpinMessage: async (messageId) => {
       const chatId = resolveChatId();
-      if (!chatId) return false;
-
-      let lastError = null;
-      if (typeof ctx.unpinChatMessage === "function") {
-        try {
-          await ctx.unpinChatMessage(messageId);
-          return true;
-        } catch (error) {
-          lastError = error;
-        }
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
       }
 
-      if (ctx.telegram?.unpinChatMessage) {
-        try {
-          await ctx.telegram.unpinChatMessage(chatId, messageId);
-          return true;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (lastError) {
+      try {
+        return await callTelegramApiWithTimeout(
+          "unpinChatMessage",
+          {
+            chat_id: chatId,
+            message_id: normalizedMessageId,
+          },
+          PIN_OPERATION_TIMEOUT_MS,
+        );
+      } catch (error) {
         console.error("Failed to unpin chat message:", {
           chatId,
-          messageId,
-          error: lastError?.message || lastError,
+          messageId: normalizedMessageId,
+          code: getErrorCode(error),
+          description: getErrorDescription(error),
+          error: getErrorText(error),
         });
+        return false;
       }
-
-      return false;
     },
   };
 }

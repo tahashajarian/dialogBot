@@ -12,6 +12,7 @@
 - Preserve the existing style and naming unless a change is required.
 
 ## Bot Behavior Notes
+- Bale docs reference: https://docs.bale.ai/
 - The bot uses stored user state in MongoDB for profile edits and AI section state.
 - Profile fields currently include language, name, city, age, gender, pet, bio, location, and photo.
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
