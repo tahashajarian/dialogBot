@@ -2,7 +2,11 @@ function getAiSectionFromState(state) {
   if (
     state === "ai_chat_movies" ||
     state === "ai_manage_movies_watchlist" ||
-    state === "ai_manage_movies_top_ten"
+    state === "ai_manage_movies_top_ten" ||
+    state === "ai_manage_movies_watchlist_add_input" ||
+    state === "ai_manage_movies_top_ten_add_input" ||
+    state === "ai_manage_movies_watchlist_comment_input" ||
+    state === "ai_manage_movies_top_ten_comment_input"
   ) {
     return "movies";
   }
@@ -10,7 +14,11 @@ function getAiSectionFromState(state) {
   if (
     state === "ai_chat_music" ||
     state === "ai_manage_music_watchlist" ||
-    state === "ai_manage_music_top_ten"
+    state === "ai_manage_music_top_ten" ||
+    state === "ai_manage_music_watchlist_add_input" ||
+    state === "ai_manage_music_top_ten_add_input" ||
+    state === "ai_manage_music_watchlist_comment_input" ||
+    state === "ai_manage_music_top_ten_comment_input"
   ) {
     return "music";
   }
@@ -18,7 +26,11 @@ function getAiSectionFromState(state) {
   if (
     state === "ai_chat_books" ||
     state === "ai_manage_books_watchlist" ||
-    state === "ai_manage_books_top_ten"
+    state === "ai_manage_books_top_ten" ||
+    state === "ai_manage_books_watchlist_add_input" ||
+    state === "ai_manage_books_top_ten_add_input" ||
+    state === "ai_manage_books_watchlist_comment_input" ||
+    state === "ai_manage_books_top_ten_comment_input"
   ) {
     return "books";
   }
@@ -26,7 +38,11 @@ function getAiSectionFromState(state) {
   if (
     state === "ai_chat_random" ||
     state === "ai_manage_random_watchlist" ||
-    state === "ai_manage_random_top_ten"
+    state === "ai_manage_random_top_ten" ||
+    state === "ai_manage_random_watchlist_add_input" ||
+    state === "ai_manage_random_top_ten_add_input" ||
+    state === "ai_manage_random_watchlist_comment_input" ||
+    state === "ai_manage_random_top_ten_comment_input"
   ) {
     return "random";
   }
@@ -53,6 +69,22 @@ function getSectionListLabel(messages, lang, section) {
   if (section === "music") return messages[lang].aiSectionListLabelMusic;
   if (section === "books") return messages[lang].aiSectionListLabelBooks;
   return messages[lang].aiSectionListLabelRandom;
+}
+
+function getTasteLabelTitle(messages, lang, section, labelKey) {
+  const key = `aiTasteLabelTitle_${section}_${labelKey}`;
+  if (messages?.[lang]?.[key]) {
+    return messages[lang][key];
+  }
+  return messages[lang]?.aiTasteLabelTitleFallback || "Taste Explorer";
+}
+
+function getTasteLabelStyleHint(messages, lang, section, labelKey) {
+  const key = `aiTasteLabelStyle_${section}_${labelKey}`;
+  if (messages?.[lang]?.[key]) {
+    return messages[lang][key];
+  }
+  return messages[lang]?.aiTasteLabelStyleFallback || "";
 }
 
 async function clearAiSectionPin({ ctx, updateProfileField }) {
@@ -100,6 +132,8 @@ module.exports = {
   getSectionLabel,
   getSectionListButtonLabel,
   getSectionListLabel,
+  getTasteLabelTitle,
+  getTasteLabelStyleHint,
   clearAiSectionPin,
   pinAiSectionTitle,
 };

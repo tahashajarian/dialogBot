@@ -1,2 +1,3 @@
 node_modules
 .env
+data/ai-feedback-cache.json

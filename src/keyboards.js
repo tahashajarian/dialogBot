@@ -126,6 +126,186 @@ function aiSectionKeyboardForSection(lang, section) {
   };
 }
 
+function aiSuggestionAddKeyboard(lang, section) {
+  const doneButtonText = section === "music"
+    ? messages[lang].aiSuggestionAddDoneButtonMusic
+    : section === "books"
+      ? messages[lang].aiSuggestionAddDoneButtonBooks
+      : section === "random"
+        ? messages[lang].aiSuggestionAddDoneButtonRandom
+        : messages[lang].aiSuggestionAddDoneButtonMovies;
+
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].aiSuggestionAddToListButton,
+        callback_data: `${callBacks.aiSectionAddSuggestion}${section}`,
+      },
+      {
+        text: doneButtonText,
+        callback_data: `${callBacks.aiSectionAddSuggestionDone}${section}`,
+      },
+    ],
+  ]);
+}
+
+function getSectionStatusLabels(lang, section) {
+  if (section === "music") {
+    return {
+      done: messages[lang].aiListManageShowWatchedMusic || messages[lang].aiListManageShowWatched,
+      pending: messages[lang].aiListManageShowNotWatchedMusic || messages[lang].aiListManageShowNotWatched,
+    };
+  }
+
+  if (section === "books") {
+    return {
+      done: messages[lang].aiListManageShowWatchedBooks || messages[lang].aiListManageShowWatched,
+      pending: messages[lang].aiListManageShowNotWatchedBooks || messages[lang].aiListManageShowNotWatched,
+    };
+  }
+
+  if (section === "random") {
+    return {
+      done: messages[lang].aiListManageShowWatchedRandom || messages[lang].aiListManageShowWatched,
+      pending: messages[lang].aiListManageShowNotWatchedRandom || messages[lang].aiListManageShowNotWatched,
+    };
+  }
+
+  return {
+    done: messages[lang].aiListManageShowWatchedMovies || messages[lang].aiListManageShowWatched,
+    pending: messages[lang].aiListManageShowNotWatchedMovies || messages[lang].aiListManageShowNotWatched,
+  };
+}
+
+function aiListManageMenuKeyboard(lang, section, listType) {
+  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+  const rows = [
+    [
+      {
+        text: messages[lang].aiListManageShow,
+        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}`,
+      },
+      {
+        text: messages[lang].aiListManageAdd,
+        callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiListManageRemove,
+        callback_data: `${callBacks.aiListManageRemovePicker}${section}:${listTypeToken}`,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiListManageComment,
+        callback_data: `${callBacks.aiListManageCommentPicker}${section}:${listTypeToken}`,
+      },
+    ],
+  ];
+
+  if (listType === "watchlist") {
+    const statusLabels = getSectionStatusLabels(lang, section);
+    rows.push([
+      {
+        text: messages[lang].aiListManageToggleWatched,
+        callback_data: `${callBacks.aiListManageTogglePicker}${section}:${listTypeToken}`,
+      },
+    ]);
+    rows.push([
+      {
+        text: messages[lang].aiListManageMoveToTopTen,
+        callback_data: `${callBacks.aiListManagePromotePicker}${section}:${listTypeToken}`,
+      },
+    ]);
+    rows.push([
+      {
+        text: statusLabels.done,
+        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:watched`,
+      },
+      {
+        text: statusLabels.pending,
+        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:not_watched`,
+      },
+    ]);
+  }
+
+  rows.push([
+    {
+      text: messages[lang].aiBack,
+      callback_data: `${callBacks.aiListManageBack}${section}`,
+    },
+  ]);
+
+  return inlineKeyboard(rows);
+}
+
+function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
+  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+  const rows = items.map((entry, index) => ([
+    {
+      text: `❌ ${index + 1}. ${entry.title}`,
+      callback_data: `${callBacks.aiListManageRemoveItem}${section}:${listTypeToken}:${index}`,
+    },
+  ]));
+
+  rows.push([
+    {
+      text: messages[lang].aiBack,
+      callback_data: `${callBacks.aiListManageMenu}${section}:${listTypeToken}`,
+    },
+  ]);
+
+  return inlineKeyboard(rows);
+}
+
+function aiListCancelAddKeyboard(lang, section, listType) {
+  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].cancelEdit,
+        callback_data: `${callBacks.aiListManageCancelAdd}${section}:${listTypeToken}`,
+      },
+    ],
+  ]);
+}
+
+function aiListActionItemsKeyboard(lang, section, listType, action, items = []) {
+  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+  const rows = items.map((entry, index) => ([
+    {
+      text: `${index + 1}. ${entry.title}`,
+      callback_data: action === "toggle"
+        ? `${callBacks.aiListManageToggleItem}${section}:${listTypeToken}:${index}`
+        : action === "promote"
+          ? `${callBacks.aiListManagePromoteItem}${section}:${listTypeToken}:${index}`
+          : `${callBacks.aiListManageCommentItem}${section}:${listTypeToken}:${index}`,
+    },
+  ]));
+
+  rows.push([
+    {
+      text: messages[lang].aiBack,
+      callback_data: `${callBacks.aiListManageMenu}${section}:${listTypeToken}`,
+    },
+  ]);
+
+  return inlineKeyboard(rows);
+}
+
+function aiListCancelCommentKeyboard(lang, section, listType) {
+  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].cancelEdit,
+        callback_data: `${callBacks.aiListManageCancelComment}${section}:${listTypeToken}`,
+      },
+    ],
+  ]);
+}
+
 function profileKeyboard(lang, hasPhoto = false) {
   const rows = [
     [
@@ -286,6 +466,12 @@ module.exports = {
   aiChatBackKeyboard,
   aiSectionKeyboard,
   aiSectionKeyboardForSection,
+  aiSuggestionAddKeyboard,
+  aiListManageMenuKeyboard,
+  aiListRemoveItemsKeyboard,
+  aiListCancelAddKeyboard,
+  aiListActionItemsKeyboard,
+  aiListCancelCommentKeyboard,
   profileKeyboard,
   cancelEditKeyboard,
   ageKeyboard,

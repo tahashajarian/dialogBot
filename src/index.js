@@ -4,9 +4,29 @@ const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser } = require("./services/users");
+const DEFAULT_ALLOWED_USERNAMES = ["taha_shj"];
 
 function resolveBaleApiRoot() {
   return (process.env.API_ROOT || "").trim() || null;
+}
+
+function normalizeUsername(value) {
+  return String(value || "").trim().replace(/^@+/, "").toLowerCase();
+}
+
+function resolveAllowedUsernames() {
+  const fromEnv = String(process.env.ALLOWED_USERNAMES || "").trim();
+  const source = fromEnv ? fromEnv.split(",") : DEFAULT_ALLOWED_USERNAMES;
+  const normalized = source
+    .map((value) => normalizeUsername(value))
+    .filter(Boolean);
+  return new Set(normalized);
+}
+
+const ALLOWED_USERNAMES = resolveAllowedUsernames();
+
+function isAllowedUser(from) {
+  return ALLOWED_USERNAMES.has(normalizeUsername(from?.username));
 }
 
 const baleApiRoot = resolveBaleApiRoot();
@@ -176,6 +196,13 @@ function createAppContext(ctx, user) {
 }
 
 async function processUpdate(ctx) {
+  if (!isAllowedUser(ctx.from)) {
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery("go away it's not ready yet!").catch(() => {});
+    }
+    await ctx.reply("go away it's not ready yet!").catch(() => {});
+    return;
+  }
 
   const user = await getOrCreateUser(ctx.from);
 

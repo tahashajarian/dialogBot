@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const AiListItemSchema = new mongoose.Schema({
   title: { type: String, required: true },
   comment: { type: String, default: "" },
+  watched: { type: Boolean, default: false },
 }, { _id: false });
 
 const AiSectionListsSchema = new mongoose.Schema({
@@ -15,6 +16,20 @@ const AiListsSchema = new mongoose.Schema({
   music: { type: AiSectionListsSchema, default: () => ({}) },
   books: { type: AiSectionListsSchema, default: () => ({}) },
   random: { type: AiSectionListsSchema, default: () => ({}) },
+}, { _id: false });
+
+const AiTasteSectionSchema = new mongoose.Schema({
+  labelKey: { type: String, default: "" },
+  confidence: { type: Number, default: 0 },
+  sampleCount: { type: Number, default: 0 },
+  updatedAt: Date,
+}, { _id: false });
+
+const AiTasteSchema = new mongoose.Schema({
+  movies: { type: AiTasteSectionSchema, default: () => ({}) },
+  music: { type: AiTasteSectionSchema, default: () => ({}) },
+  books: { type: AiTasteSectionSchema, default: () => ({}) },
+  random: { type: AiTasteSectionSchema, default: () => ({}) },
 }, { _id: false });
 
 const UserSchema = new mongoose.Schema({
@@ -36,6 +51,7 @@ const UserSchema = new mongoose.Schema({
   },
   photoFileId: String,
   aiLists: { type: AiListsSchema, default: () => ({}) },
+  aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiWatchlistMovies: { type: [String], default: [] },
   aiTopTenMovies: { type: [String], default: [] },
   aiWatchlistMusic: { type: [String], default: [] },
@@ -46,6 +62,8 @@ const UserSchema = new mongoose.Schema({
   aiTopTenRandom: { type: [String], default: [] },
   aiSectionPinnedMessageId: Number,
   aiSectionPinnedSection: String,
+  aiSectionPendingCommentItem: String,
+  aiSectionPendingCommentListType: String,
   lang: { type: String, default: "fa" },
   state: { type: String, default: "idle" },
   createdAt: { type: Date, default: Date.now },

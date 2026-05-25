@@ -21,8 +21,18 @@
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - AI assistant menu includes movies, music, books, and random sections.
-- AI lists are stored under `aiLists.{section}.{listType}` with item objects: `{ title, comment }`.
-- Both watchlist and topTen are capped at 10 items per section.
+- AI lists are stored under `aiLists.{section}.{listType}` with item objects: `{ title, comment, watched }`.
+- `watchlist` is capped at 100 items per section; `topTen` is capped at 10 items per section.
+- Watchlist supports section-aware status wording (movies: watched, music: listened, books: read, random: done).
+- Watchlist includes inline actions for status toggle, comment edit, and move-to-top-ten (if topTen has room).
+- TopTen items also support comment edit.
+- Suggestions in AI sections return exactly one item plus a very short reason.
+- Suggestion cards include:
+  - add to watchlist (opens watchlist manage menu after add)
+  - add as done/watched/read/listened (stays in section and sends next suggestion)
+- Suggestion reasons are saved as item comments when adding from suggestion buttons.
+- Users are not forced to fill topTen before receiving suggestions; topTen completion is optional for better accuracy.
+- TopTen collector flow still supports `+`/`-` text actions when users choose to curate topTen directly.
 - Use `scripts/migrate-ai-lists.js` to move legacy flat lists into `aiLists`, and `scripts/rollback-ai-lists.js` to restore legacy fields if needed.
 - In AI sections, users stay in chat state until pressing the bottom text back button.
 - Bottom AI-section back returns users to the AI assistant menu; the inline AI assistant back button returns to the main menu.
