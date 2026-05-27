@@ -2,12 +2,15 @@ const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const { getAiSingleSuggestion } = require("./services/ai");
+const { startAiPlaceholder } = require("./services/ai-placeholder");
 const {
   mainMenuKeyboard,
   languageKeyboard,
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionNextKeyboard,
+  aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
   aiListCancelAddKeyboard,
@@ -91,6 +94,56 @@ function getSectionReadyMessage(lang, section) {
   return messages[lang].aiRandomChatReady;
 }
 
+function formatTopTenItemsList(title, items, emptyText) {
+  if (!items.length) {
+    return emptyText;
+  }
+
+  return `${title}\n${items.map((entry, index) => `${index + 1}. ${entry.title}`).join("\n")}`;
+}
+
+function buildTopTenListMessage(ctx, lang, section) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
+  const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
+  const items = getAiListItemsFromUser(ctx.user, section, "topTen");
+  return formatTopTenItemsList(title, items, emptyText);
+}
+
+async function buildTopTenSectionMessage(ctx, lang, section) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const items = getAiListItemsFromUser(ctx.user, section, "topTen");
+  const topTenTitles = items.map((entry) => entry.title);
+  const progress = getTasteProgressStatus(section, topTenTitles.length);
+
+  if (!progress.labelReady) {
+    return [
+      getSectionReadyMessage(lang, section),
+      messages[lang].aiSectionCollectTopTenPrompt
+        .replace("{section}", sectionLabel)
+        .replace("{count}", String(progress.count))
+        .replace("{goal}", String(progress.goal)),
+    ].join("\n\n");
+  }
+
+  let taste = getAiTasteFromUser(ctx.user, section);
+  if (!taste.labelKey) {
+    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
+    taste = syncedTaste.ok ? syncedTaste.taste : inferTasteLabel(section, topTenTitles);
+  }
+
+  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+  const styleHint = getTasteLabelStyleHint(messages, lang, section, taste.labelKey);
+
+  return [
+    getSectionReadyMessage(lang, section),
+    messages[lang].aiTasteLabelKnownIntro
+      .replace("{section}", sectionLabel)
+      .replace("{label}", labelTitle),
+    messages[lang].aiTasteStyleHintIntro.replace("{style}", styleHint),
+  ].join("\n\n");
+}
+
 async function sendFollowupSuggestion({
   ctx,
   lang,
@@ -103,6 +156,11 @@ async function sendFollowupSuggestion({
     ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
     : "";
 
+  const placeholder = await startAiPlaceholder(ctx, [
+    messages[lang].aiThinking,
+    messages[lang].aiThinkingStill,
+    messages[lang].aiThinkingAlmost,
+  ]);
   const suggestionResult = await getAiSingleSuggestion({
     mode: section,
     lang,
@@ -114,11 +172,11 @@ async function sendFollowupSuggestion({
   });
 
   if (!suggestionResult.ok || !suggestionResult.title) {
-    return null;
+    return placeholder.finish(messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable);
   }
 
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
-  return ctx.reply(
+  return placeholder.finish(
     `${suggestionResult.title}\n${suggestionResult.reason || messages[lang].aiSuggestionFallbackTitle}`,
     aiSuggestionAddKeyboard(lang, section),
   );
@@ -154,6 +212,20 @@ function getWatchStatusCopy(lang, section) {
     doneText: messages[lang].aiWatchlistWatchedOnMovies || messages[lang].aiWatchlistWatchedOn,
     pendingText: messages[lang].aiWatchlistWatchedOffMovies || messages[lang].aiWatchlistWatchedOff,
   };
+}
+
+function getSuggestionDoneCompliment(lang, section) {
+  if (section === "music") return messages[lang].aiSuggestionDoneComplimentMusic;
+  if (section === "books") return messages[lang].aiSuggestionDoneComplimentBooks;
+  if (section === "random") return messages[lang].aiSuggestionDoneComplimentRandom;
+  return messages[lang].aiSuggestionDoneComplimentMovies;
+}
+
+function getSuggestionAddedDoneMessage(lang, section) {
+  if (section === "music") return messages[lang].aiSuggestionAddedDoneMusic || messages[lang].aiSuggestionAddedDone;
+  if (section === "books") return messages[lang].aiSuggestionAddedDoneBooks || messages[lang].aiSuggestionAddedDone;
+  if (section === "random") return messages[lang].aiSuggestionAddedDoneRandom || messages[lang].aiSuggestionAddedDone;
+  return messages[lang].aiSuggestionAddedDoneMovies || messages[lang].aiSuggestionAddedDone;
 }
 
 async function getAiSectionEntryMessage(ctx, lang, section) {
@@ -237,8 +309,16 @@ async function handleCallback(ctx) {
       ? messages[lang].aiWatchlistTitle.replace("{section}", sectionLabel).replace("{listName}", listLabel)
       : messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
 
+    if (listType === "topTen") {
+      await ctx.reply(buildTopTenListMessage(ctx, lang, section));
+    }
+
+    const menuText = listType === "topTen"
+      ? `${await buildTopTenSectionMessage(ctx, lang, section)}\n\n${messages[lang].aiListManageInlineMenu.replace("{title}", title)}`
+      : messages[lang].aiListManageInlineMenu.replace("{title}", title);
+
     return ctx.reply(
-      messages[lang].aiListManageInlineMenu.replace("{title}", title),
+      menuText,
       aiListManageMenuKeyboard(lang, section, listType),
     );
   }
@@ -558,6 +638,27 @@ async function handleCallback(ctx) {
     return ctx.reply(messages[lang].aiSectionBackToChat, aiSectionKeyboardForSection(lang, section));
   }
 
+  if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiSectionAnotherSuggestion, "").trim();
+    if (!section) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    const sentSuggestion = await sendFollowupSuggestion({
+      ctx,
+      lang,
+      section,
+      watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
+    });
+
+    if (sentSuggestion) {
+      return sentSuggestion;
+    }
+
+    return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
+  }
+
   if (data.startsWith(callBacks.aiSectionAddSuggestion) || data.startsWith(callBacks.aiSectionAddSuggestionDone)) {
     await ctx.answerCb?.();
     const markDone = data.startsWith(callBacks.aiSectionAddSuggestionDone);
@@ -597,24 +698,18 @@ async function handleCallback(ctx) {
 
     clearPendingSuggestion(ctx.userId, section);
     if (!markDone) {
-      await updateUserState(ctx.userId, `ai_manage_${section}_watchlist`);
+      await updateUserState(ctx.userId, `ai_chat_${section}`);
       return ctx.reply(
         messages[lang].aiSuggestionAdded,
-        aiListManageMenuKeyboard(lang, section, "watchlist"),
+        aiSuggestionAddedOptionsKeyboard(lang, section),
       );
     }
 
-    await ctx.reply(messages[lang].aiSuggestionAddedDone);
-    const sentFollowup = await sendFollowupSuggestion({
-      ctx,
-      lang,
-      section,
-      watchlistItems: result.items.map((entry) => entry.title),
-    });
-    if (sentFollowup) {
-      return sentFollowup;
-    }
-    return ctx.reply(messages[lang].aiSectionBackToChat, aiSectionKeyboardForSection(lang, section));
+    await updateUserState(ctx.userId, `ai_chat_${section}`);
+    return ctx.reply(
+      `${getSuggestionDoneCompliment(lang, section)}\n${getSuggestionAddedDoneMessage(lang, section)}`,
+      aiSuggestionNextKeyboard(lang, section),
+    );
   }
 
   if (data === callBacks.aiSuggestMovies) {

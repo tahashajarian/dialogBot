@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --no-deprecation ./src/index.js",
+    "validate:translations": "node ./scripts/validate-translations.js",
     "migrate:ai-lists:dry": "node ./scripts/migrate-ai-lists.js",
     "migrate:ai-lists": "node ./scripts/migrate-ai-lists.js --apply",
     "migrate:ai-lists:clear-legacy": "node ./scripts/migrate-ai-lists.js --apply --clear-legacy",

@@ -149,6 +149,32 @@ function aiSuggestionAddKeyboard(lang, section) {
   ]);
 }
 
+function aiSuggestionNextKeyboard(lang, section) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].aiSuggestionAnotherButton,
+        callback_data: `${callBacks.aiSectionAnotherSuggestion}${section}`,
+      },
+    ],
+  ]);
+}
+
+function aiSuggestionAddedOptionsKeyboard(lang, section) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].aiSuggestionGoToListButton,
+        callback_data: `${callBacks.aiListManageShow}${section}:watchlist`,
+      },
+      {
+        text: messages[lang].aiSuggestionAnotherButton,
+        callback_data: `${callBacks.aiSectionAnotherSuggestion}${section}`,
+      },
+    ],
+  ]);
+}
+
 function getSectionStatusLabels(lang, section) {
   if (section === "music") {
     return {
@@ -467,6 +493,8 @@ module.exports = {
   aiSectionKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionNextKeyboard,
+  aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
   aiListCancelAddKeyboard,

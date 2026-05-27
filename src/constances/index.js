@@ -9,6 +9,7 @@ module.exports = {
     aiSuggestRandom: "ai:suggest:random",
     aiSectionAddSuggestion: "ai:section:add-suggestion:",
     aiSectionAddSuggestionDone: "ai:section:add-suggestion-done:",
+    aiSectionAnotherSuggestion: "ai:section:another-suggestion:",
     aiBack: "ai:back",
     aiListManageMenu: "ai:list:menu:",
     aiListManageAdd: "ai:list:add:",

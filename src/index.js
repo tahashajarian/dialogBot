@@ -118,6 +118,55 @@ function createAppContext(ctx, user) {
     replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
     answerCb: (text) => ctx.answerCbQuery(text).catch(() => {}),
     editMessage: (...args) => ctx.editMessageText(...args),
+    editMessageText: async (messageId, text, extra = {}) => {
+      const chatId = resolveChatId();
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
+      }
+
+      try {
+        return await callTelegramApiWithTimeout(
+          "editMessageText",
+          {
+            chat_id: chatId,
+            message_id: normalizedMessageId,
+            text,
+            ...extra,
+          },
+          PIN_OPERATION_TIMEOUT_MS,
+        );
+      } catch (error) {
+        console.warn("Failed to edit bot message:", {
+          chatId,
+          messageId: normalizedMessageId,
+          code: getErrorCode(error),
+          description: getErrorDescription(error),
+          error: getErrorText(error),
+        });
+        return false;
+      }
+    },
+    deleteMessage: async (messageId) => {
+      const chatId = resolveChatId();
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
+      }
+
+      try {
+        return await callTelegramApiWithTimeout(
+          "deleteMessage",
+          {
+            chat_id: chatId,
+            message_id: normalizedMessageId,
+          },
+          PIN_OPERATION_TIMEOUT_MS,
+        );
+      } catch {
+        return false;
+      }
+    },
     pinMessage: async (messageId) => {
       const chatId = resolveChatId();
       const normalizedMessageId = Number(messageId);
