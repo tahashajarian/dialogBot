@@ -211,12 +211,12 @@ function aiListManageMenuKeyboard(lang, section, listType) {
         text: messages[lang].aiListManageShow,
         callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}`,
       },
+    ],
+    [
       {
         text: messages[lang].aiListManageAdd,
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
       },
-    ],
-    [
       {
         text: messages[lang].aiListManageRemove,
         callback_data: `${callBacks.aiListManageRemovePicker}${section}:${listTypeToken}`,

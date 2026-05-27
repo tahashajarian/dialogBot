@@ -38,15 +38,12 @@ const {
   syncAiTasteForSection,
   getAiListTitlesFromUser,
   getAiTasteFromUser,
-  getTasteProgressStatus,
-  inferTasteLabel,
 } = require("./services/users");
 const { sendProfileMessage, toPlainUser } = require("./services/profile");
 const {
   clearAiSectionPin,
   pinAiSectionTitle,
   getSectionLabel,
-  getTasteLabelTitle,
   getTasteLabelStyleHint,
 } = require("./services/ai-section");
 const {
@@ -87,13 +84,6 @@ function formatListWithWatched({ title, items, emptyText }) {
   return `${title}\n${lines.join("\n")}`;
 }
 
-function getSectionReadyMessage(lang, section) {
-  if (section === "movies") return messages[lang].aiMoviesChatReady;
-  if (section === "music") return messages[lang].aiMusicChatReady;
-  if (section === "books") return messages[lang].aiBooksChatReady;
-  return messages[lang].aiRandomChatReady;
-}
-
 function formatTopTenItemsList(title, items, emptyText) {
   if (!items.length) {
     return emptyText;
@@ -108,40 +98,6 @@ function buildTopTenListMessage(ctx, lang, section) {
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
   const items = getAiListItemsFromUser(ctx.user, section, "topTen");
   return formatTopTenItemsList(title, items, emptyText);
-}
-
-async function buildTopTenSectionMessage(ctx, lang, section) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
-  const items = getAiListItemsFromUser(ctx.user, section, "topTen");
-  const topTenTitles = items.map((entry) => entry.title);
-  const progress = getTasteProgressStatus(section, topTenTitles.length);
-
-  if (!progress.labelReady) {
-    return [
-      getSectionReadyMessage(lang, section),
-      messages[lang].aiSectionCollectTopTenPrompt
-        .replace("{section}", sectionLabel)
-        .replace("{count}", String(progress.count))
-        .replace("{goal}", String(progress.goal)),
-    ].join("\n\n");
-  }
-
-  let taste = getAiTasteFromUser(ctx.user, section);
-  if (!taste.labelKey) {
-    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-    taste = syncedTaste.ok ? syncedTaste.taste : inferTasteLabel(section, topTenTitles);
-  }
-
-  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
-  const styleHint = getTasteLabelStyleHint(messages, lang, section, taste.labelKey);
-
-  return [
-    getSectionReadyMessage(lang, section),
-    messages[lang].aiTasteLabelKnownIntro
-      .replace("{section}", sectionLabel)
-      .replace("{label}", labelTitle),
-    messages[lang].aiTasteStyleHintIntro.replace("{style}", styleHint),
-  ].join("\n\n");
 }
 
 async function sendFollowupSuggestion({
@@ -228,34 +184,14 @@ function getSuggestionAddedDoneMessage(lang, section) {
   return messages[lang].aiSuggestionAddedDoneMovies || messages[lang].aiSuggestionAddedDone;
 }
 
+function getNeedTopTenMessage(lang, section) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  return messages[lang].aiSectionSuggestNeedTopTenItem.replace("{section}", sectionLabel);
+}
+
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
-  const progress = getTasteProgressStatus(section, topTenItems.length);
-
-  if (!progress.labelReady) {
-    return messages[lang].aiSectionCollectTopTenPrompt
-      .replace("{section}", sectionLabel)
-      .replace("{count}", String(progress.count))
-      .replace("{goal}", String(progress.goal));
-  }
-
-  let taste = getAiTasteFromUser(ctx.user, section);
-  if (!taste.labelKey) {
-    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-    taste = syncedTaste.ok ? syncedTaste.taste : inferTasteLabel(section, topTenItems);
-  }
-
-  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
-  const styleHint = getTasteLabelStyleHint(messages, lang, section, taste.labelKey);
-
-  return [
-    getSectionReadyMessage(lang, section),
-    messages[lang].aiTasteLabelKnownIntro
-      .replace("{section}", sectionLabel)
-      .replace("{label}", labelTitle),
-    messages[lang].aiTasteStyleHintIntro.replace("{style}", styleHint),
-  ].join("\n");
+  return messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
 }
 
 async function handleCallback(ctx) {
@@ -314,7 +250,7 @@ async function handleCallback(ctx) {
     }
 
     const menuText = listType === "topTen"
-      ? `${await buildTopTenSectionMessage(ctx, lang, section)}\n\n${messages[lang].aiListManageInlineMenu.replace("{title}", title)}`
+      ? messages[lang].aiTopTenManageInlineEntry
       : messages[lang].aiListManageInlineMenu.replace("{title}", title);
 
     return ctx.reply(
@@ -643,6 +579,11 @@ async function handleCallback(ctx) {
     const section = data.replace(callBacks.aiSectionAnotherSuggestion, "").trim();
     if (!section) {
       return ctx.reply(messages[lang].unknownAction);
+    }
+
+    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+    if (topTenItems.length < 3) {
+      return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
     }
 
     const sentSuggestion = await sendFollowupSuggestion({

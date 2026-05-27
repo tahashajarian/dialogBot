@@ -355,7 +355,7 @@ function getModeInstruction(mode, lang) {
     return `Subject is books. Reply in ${language}. Keep it short and useful.`;
   }
 
-  return `Subject is random lifestyle suggestions. Reply in ${language}. Keep it short and useful.`;
+  return `Subject is other interests such as games, chess, travel, food, sports, hobbies, and lifestyle. Reply in ${language}. Keep it short and useful.`;
 }
 
 function normalizeSuggestionTitle(text) {

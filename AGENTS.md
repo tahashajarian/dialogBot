@@ -28,10 +28,17 @@
 - TopTen items also support comment edit.
 - Suggestions in AI sections return exactly one item plus a very short reason.
 - Suggestion cards include:
-  - add to watchlist (opens watchlist manage menu after add)
-  - add as done/watched/read/listened (stays in section and sends next suggestion)
+  - add to watchlist (confirms add, then shows inline buttons for going to the list or getting another suggestion)
+  - add as done/watched/read/listened (confirms with section-aware wording, then shows an inline button for another suggestion)
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
-- Users are not forced to fill topTen before receiving suggestions; topTen completion is optional for better accuracy.
+- Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button.
+- AI calls should show a placeholder message, update it through staged "thinking" copy if delayed, then edit that same message into the final response when possible.
+- If AI returns no usable response, show a clear retry/other-section fallback message.
+- Users are not forced to complete topTen before receiving suggestions, but they must add at least three topTen items in that section before suggestions are allowed.
+- AI section entry should be a guided hub message, not an open chat prompt: tell users their section taste is not known yet, encourage filling topTen, and direct them to bottom buttons.
+- Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
+- When a user enters topTen in any section, send the current topTen list as a separate message before the section/manage description and inline buttons.
+- TopTen menus should still keep the "show all" action even though the list is also shown on entry.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate topTen directly.
 - Use `scripts/migrate-ai-lists.js` to move legacy flat lists into `aiLists`, and `scripts/rollback-ai-lists.js` to restore legacy fields if needed.
 - In AI sections, users stay in chat state until pressing the bottom text back button.
@@ -55,6 +62,7 @@
 
 ## Validation
 - Prefer a quick syntax or runtime check after edits when available.
+- Run `npm.cmd run validate:translations` on Windows after changing `src/messages.js`, translation keys, or direct `messages[lang].key` usage.
 - If `node` or `npm` is unavailable in the environment, mention that in the handoff.
 
 ## Safety

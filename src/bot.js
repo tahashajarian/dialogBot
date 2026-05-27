@@ -234,49 +234,30 @@ async function resolveSectionTasteContext({ ctx, lang, section, topTenItems }) {
   };
 }
 
-async function buildTopTenSectionMessage({ ctx, lang, section }) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
-  const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
-  const topTenItems = topTenEntries.map((entry) => entry.title);
-  const tasteContext = await resolveSectionTasteContext({
-    ctx,
-    lang,
-    section,
-    topTenItems,
-  });
-  const readyMessage = section === "movies"
-    ? messages[lang].aiMoviesChatReady
-    : section === "music"
-      ? messages[lang].aiMusicChatReady
-      : section === "books"
-        ? messages[lang].aiBooksChatReady
-        : messages[lang].aiRandomChatReady;
-
-  if (!tasteContext.progress.labelReady) {
-    return [
-      readyMessage,
-      messages[lang].aiSectionCollectTopTenPrompt
-        .replace("{section}", sectionLabel)
-        .replace("{count}", String(tasteContext.progress.count))
-        .replace("{goal}", String(tasteContext.progress.goal)),
-    ].join("\n\n");
-  }
-
-  return [
-    readyMessage,
-    messages[lang].aiTasteLabelKnownIntro
-      .replace("{section}", sectionLabel)
-      .replace("{label}", tasteContext.labelTitle),
-    messages[lang].aiTasteStyleHintIntro.replace("{style}", tasteContext.styleHint),
-  ].join("\n\n");
-}
-
 function buildTopTenListMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
   return formatAiItemsList(title, topTenEntries, emptyText);
+}
+
+function buildWatchlistMessage({ ctx, lang, section }) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const listLabel = getSectionListLabel(messages, lang, section);
+  const entries = getAiListItemsFromUser(ctx.user, section, "watchlist");
+  const title = messages[lang].aiWatchlistTitle
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+  const emptyText = messages[lang].aiWatchlistEmpty
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+  return formatAiItemsList(title, entries, emptyText);
+}
+
+function getNeedTopTenMessage(lang, section) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  return messages[lang].aiSectionSuggestNeedTopTenItem.replace("{section}", sectionLabel);
 }
 
 async function sendSingleSectionSuggestion({
@@ -467,6 +448,7 @@ async function handleUpdate(ctx) {
     if (isAiSectionListText(text, section)) {
       const nextState = `ai_manage_${section}_watchlist`;
       await updateUserState(ctx.userId, nextState);
+      await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
       return ctx.reply(
         messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
         aiListManageMenuKeyboard(lang, section, "watchlist")
@@ -476,15 +458,18 @@ async function handleUpdate(ctx) {
     if (isAiSectionTopTenText(text)) {
       const nextState = `ai_manage_${section}_top_ten`;
       await updateUserState(ctx.userId, nextState);
-      const topTenSectionMessage = await buildTopTenSectionMessage({ ctx, lang, section });
       await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
       return ctx.reply(
-        `${topTenSectionMessage}\n\n${messages[lang].aiListManageInlineEntry.replace("{listName}", messages[lang].aiSectionTopTenButton)}`,
+        messages[lang].aiTopTenManageInlineEntry,
         aiListManageMenuKeyboard(lang, section, "topTen"),
       );
     }
 
     if (isAiSectionSuggestText(text)) {
+      if (topTenTitles.length < 3) {
+        return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
+      }
+
       return sendSingleSectionSuggestion({
         ctx,
         lang,
@@ -611,12 +596,12 @@ async function handleUpdate(ctx) {
     }
 
     const section = getAiSectionFromState(state);
-    const sectionLabel = getSectionLabel(messages, lang, section);
     const listLabel = getSectionListLabel(messages, lang, section);
 
     if (isAiSectionListText(text, section)) {
       const nextState = `ai_manage_${section}_watchlist`;
       await updateUserState(ctx.userId, nextState);
+      await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
       return ctx.reply(
         messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
         aiListManageMenuKeyboard(lang, section, "watchlist")
@@ -626,25 +611,28 @@ async function handleUpdate(ctx) {
     if (isAiSectionTopTenText(text)) {
       const nextState = `ai_manage_${section}_top_ten`;
       await updateUserState(ctx.userId, nextState);
-      const topTenSectionMessage = await buildTopTenSectionMessage({ ctx, lang, section });
       await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
       return ctx.reply(
-        `${topTenSectionMessage}\n\n${messages[lang].aiListManageInlineEntry.replace("{listName}", messages[lang].aiSectionTopTenButton)}`,
+        messages[lang].aiTopTenManageInlineEntry,
         aiListManageMenuKeyboard(lang, section, "topTen"),
       );
     }
 
     const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
     const watchlistItems = getAiListTitlesFromUser(ctx.user, section, "watchlist");
-    const tasteContext = await resolveSectionTasteContext({
-      ctx,
-      lang,
-      section,
-      topTenItems,
-    });
-    const { progress } = tasteContext;
 
     if (isAiSectionSuggestText(text)) {
+      if (topTenItems.length < 3) {
+        return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
+      }
+
+      const tasteContext = await resolveSectionTasteContext({
+        ctx,
+        lang,
+        section,
+        topTenItems,
+      });
+
       return sendSingleSectionSuggestion({
         ctx,
         lang,
@@ -655,155 +643,7 @@ async function handleUpdate(ctx) {
       });
     }
 
-    if (isAiListText(text)) {
-      const topTenTitle = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
-      const topTenEmpty = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
-      const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
-      return ctx.reply(
-        formatAiItemsList(topTenTitle, topTenEntries, topTenEmpty),
-        aiSectionKeyboardForSection(lang, section)
-      );
-    }
-
-    const isTopTenCollectorCommand = text.startsWith("+") || text.startsWith("-");
-    if (!progress.labelReady && isTopTenCollectorCommand) {
-      if (text.startsWith("-")) {
-        const itemToRemove = normalizeAiListItem(text.slice(1));
-        if (!itemToRemove) {
-          return ctx.reply(
-            messages[lang].aiSectionCollectTopTenPrompt
-              .replace("{section}", sectionLabel)
-              .replace("{count}", String(progress.count))
-              .replace("{goal}", String(progress.goal)),
-            aiSectionKeyboardForSection(lang, section)
-          );
-        }
-
-        const removed = await removeAiListItem(ctx.userId, section, "topTen", itemToRemove);
-        if (!removed.ok) {
-          return ctx.reply(messages[lang].aiListNotFound, aiSectionKeyboardForSection(lang, section));
-        }
-
-        await syncAiTasteForSection(ctx.userId, section);
-        const nextProgress = getTasteProgressStatus(section, removed.items.length);
-        return ctx.reply(
-          messages[lang].aiTasteTopTenProgress
-            .replace("{section}", sectionLabel)
-            .replace("{count}", String(nextProgress.count))
-            .replace("{goal}", String(nextProgress.goal)),
-          aiSectionKeyboardForSection(lang, section)
-        );
-      }
-
-      const parsedInput = parseAiTopTenCollectorInput(text);
-      const item = normalizeAiListItem(parsedInput?.title);
-      const comment = normalizeAiListComment(parsedInput?.comment);
-
-      if (!item || text.startsWith("/")) {
-        return ctx.reply(
-          messages[lang].aiSectionCollectTopTenPrompt
-            .replace("{section}", sectionLabel)
-            .replace("{count}", String(progress.count))
-            .replace("{goal}", String(progress.goal)),
-          aiSectionKeyboardForSection(lang, section)
-        );
-      }
-
-      const addResult = await addAiListItem(
-        ctx.userId,
-        section,
-        "topTen",
-        { title: item, comment },
-        AI_TOP_TEN_LIMIT
-      );
-
-      if (!addResult.ok) {
-        if (addResult.reason === "exists") {
-          return ctx.reply(
-            messages[lang].aiTasteItemAlreadySent
-              .replace("{count}", String(progress.count))
-              .replace("{goal}", String(progress.goal)),
-            aiSectionKeyboardForSection(lang, section)
-          );
-        }
-
-        if (addResult.reason === "limit") {
-          const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-          const resolvedTaste = syncedTaste.ok
-            ? syncedTaste.taste
-            : inferTasteLabel(section, topTenItems);
-          const labelTitle = getTasteLabelTitle(messages, lang, section, resolvedTaste.labelKey);
-          return ctx.reply(
-            messages[lang].aiTasteLabelKnownIntro
-              .replace("{section}", sectionLabel)
-              .replace("{label}", labelTitle),
-            aiSectionKeyboardForSection(lang, section)
-          );
-        }
-
-        return ctx.reply(messages[lang].aiListInvalidInput, aiSectionKeyboardForSection(lang, section));
-      }
-
-      const nextItems = addResult.items.map((entry) => entry.title);
-      const nextProgress = getTasteProgressStatus(section, nextItems.length);
-      const provisionalTaste = inferTasteLabel(section, nextItems);
-      const provisionalLabel = getTasteLabelTitle(messages, lang, section, provisionalTaste.labelKey);
-
-      if (!nextProgress.labelReady) {
-        const placeholder = await startAiPlaceholder(ctx, [
-          messages[lang].aiThinking,
-          messages[lang].aiThinkingStill,
-          messages[lang].aiThinkingAlmost,
-        ]);
-        const feedbackResult = await getAiTasteItemFeedback({
-          mode: section,
-          lang,
-          item,
-          labelKey: provisionalTaste.labelKey,
-          labelTitle: provisionalLabel,
-        });
-        const feedbackLine = feedbackResult.ok
-          ? feedbackResult.text
-          : messages[lang].aiTasteItemFeedbackFallback
-            .replace("{label}", provisionalLabel)
-            .replace("{item}", item);
-
-        return placeholder.finish(
-          messages[lang].aiTasteItemFeedback
-            .replace("{item}", item)
-            .replace("{count}", String(nextProgress.count))
-            .replace("{goal}", String(nextProgress.goal))
-            .replace("{label}", provisionalLabel)
-            .replace("{feedback}", `${feedbackLine}\n${messages[lang].aiTasteAskNext}`),
-          aiSectionKeyboardForSection(lang, section)
-        );
-      }
-
-      const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-      const finalTaste = syncedTaste.ok ? syncedTaste.taste : provisionalTaste;
-      const finalLabel = getTasteLabelTitle(messages, lang, section, finalTaste.labelKey);
-      const finalStyle = getTasteLabelStyleHint(messages, lang, section, finalTaste.labelKey);
-
-      return ctx.reply(
-        messages[lang].aiTasteLabelUnlockedDetailed
-          .replace("{section}", sectionLabel)
-          .replace("{label}", finalLabel)
-          .replace("{style}", finalStyle)
-          .replace("{count}", String(nextProgress.count))
-          .replace("{goal}", String(nextProgress.goal)),
-        aiSectionKeyboardForSection(lang, section)
-      );
-    }
-
-    return sendSingleSectionSuggestion({
-      ctx,
-      lang,
-      section,
-      topTenItems,
-      watchlistItems,
-      tasteStyleHint: tasteContext.styleHint,
-      userText: text,
-    });
+    return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, section));
   }
 
   if (state === "editing_age") {
