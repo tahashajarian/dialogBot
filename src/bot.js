@@ -417,7 +417,7 @@ async function handleUpdate(ctx) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].aiSectionBackToChat, {
+      await ctx.reply(messages[lang].cancelMessage, {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
@@ -589,7 +589,7 @@ async function handleUpdate(ctx) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].aiSectionBackToChat, {
+      await ctx.reply(messages[lang].cancelMessage, {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));

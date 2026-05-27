@@ -571,7 +571,8 @@ async function handleCallback(ctx) {
     }
 
     await updateUserState(ctx.userId, `ai_chat_${section}`);
-    return ctx.reply(messages[lang].aiSectionBackToChat, aiSectionKeyboardForSection(lang, section));
+    const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
+    return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {
