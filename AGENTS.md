@@ -14,6 +14,7 @@
 ## Bot Behavior Notes
 - Bale docs reference: https://docs.bale.ai/
 - The bot uses stored user state in MongoDB for profile edits and AI section state.
+- Repeated identical user interactions are guarded in `src/services/interaction-guard.js` and applied from `src/index.js`; keep duplicate-tap protection centralized there.
 - Profile fields currently include language, name, city, age, gender, pet, bio, location, and photo.
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
@@ -26,10 +27,12 @@
 - Watchlist supports section-aware status wording (movies: watched, music: listened, books: read, random: done).
 - Watchlist includes inline actions for status toggle, comment edit, and move-to-top-ten (if topTen has room).
 - TopTen items also support comment edit.
+- Taste labels are stored in `aiTaste.{section}` with `labelKey`, `emoji`, confidence, sample count, and updated time; derive translated titles at render time.
 - Suggestions in AI sections return exactly one item plus a very short reason.
 - Pressing the section suggestion button should first show a choice prompt: suggest from Top 10, or collect one short mood/genre note. Do not call AI until the user chooses.
 - The mood/genre suggestion input state should hide the bottom keyboard and provide an inline cancel button; cancel returns to the same section entry message and keyboard.
 - Suggestions should avoid duplicates from the user's topTen, watchlist, and `aiRecentSuggestions`; `aiRecentSuggestions.{section}` is capped at 20 stored titles.
+- Suggestion prompts should send all Top 10 items but only a capped recent slice of watchlist titles (currently 30); local duplicate checks must still use the full watchlist.
 - Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`; failed/no-response suggestion calls should refund the quota slot.
 - Suggestion cards include:
   - add to watchlist (confirms add, then shows inline buttons for going to the list or getting another suggestion)

@@ -4,6 +4,7 @@ const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser } = require("./services/users");
+const { beginInteraction } = require("./services/interaction-guard");
 const DEFAULT_ALLOWED_USERNAMES = ["taha_shj"];
 
 function resolveBaleApiRoot() {
@@ -254,10 +255,26 @@ async function processUpdate(ctx) {
   }
 
   const user = await getOrCreateUser(ctx.from);
-
   const appCtx = createAppContext(ctx, user);
+  const interaction = beginInteraction({
+    userId: user?.userId || ctx.from?.id,
+    callbackData: appCtx.callbackData,
+    text: appCtx.text,
+    state: user?.state || "idle",
+  });
 
-  return handleUpdate(appCtx);
+  if (!interaction.allowed) {
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery().catch(() => {});
+    }
+    return;
+  }
+
+  try {
+    return await handleUpdate(appCtx);
+  } finally {
+    interaction.finish();
+  }
 }
 
 bot.on("message", processUpdate);

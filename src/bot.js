@@ -54,6 +54,7 @@ const {
   getSectionLabel,
   getSectionListButtonLabel,
   getSectionListLabel,
+  getTasteLabelEmoji,
   getTasteLabelTitle,
   getTasteLabelStyleHint,
   clearAiSectionPin,
@@ -70,6 +71,7 @@ const AI_WATCHLIST_LIMIT = 100;
 const AI_TOP_TEN_LIMIT = 10;
 const AI_RECENT_SUGGESTIONS_LIMIT = 20;
 const AI_SUGGESTIONS_PER_HOUR = 10;
+const AI_WATCHLIST_PROMPT_LIMIT = 30;
 const AI_MANAGE_STATE_PATTERN = /^ai_manage_(movies|music|books|random)_(watchlist|top_ten)(?:_(add_input|comment_input))?$/;
 const AI_SUGGEST_CONTEXT_STATE_PATTERN = /^ai_suggest_context_(movies|music|books|random)$/;
 
@@ -192,6 +194,10 @@ function promptSuggestionMode(ctx, lang, section) {
   return ctx.reply(messages[lang].aiSuggestionModePrompt, aiSuggestionModeKeyboard(lang, section));
 }
 
+function getPromptWatchlistItems(watchlistItems = []) {
+  return watchlistItems.slice(-AI_WATCHLIST_PROMPT_LIMIT);
+}
+
 function parseAiTopTenCollectorInput(text) {
   const raw = String(text || "").trim();
   if (!raw) {
@@ -268,6 +274,36 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   return formatAiItemsList(title, topTenEntries, emptyText);
 }
 
+function formatTasteWithStoredEmoji(section, taste, labelTitle) {
+  return `${taste?.emoji || getTasteLabelEmoji(section, taste?.labelKey)} ${labelTitle}`;
+}
+
+async function getTopTenManageEntryMessage(ctx, lang, section) {
+  const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
+  if (topTenItems.length < AI_TOP_TEN_LIMIT) {
+    const peopleHint = topTenItems.length <= 3 ? `\n\n${messages[lang].aiTopTenManagePeopleHint}` : "";
+    if (topTenItems.length >= 3) {
+      const taste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
+      const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+      const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
+      return `${messages[lang].aiTopTenManageInlineEntryWithLabel.replace("{label}", label)}${peopleHint}`;
+    }
+    return `${messages[lang].aiTopTenManageInlineEntry}${peopleHint}`;
+  }
+
+  let taste = getAiTasteFromUser(ctx.user, section);
+  if (!taste.labelKey) {
+    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
+    if (syncedTaste.ok) {
+      taste = syncedTaste.taste;
+    }
+  }
+
+  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+  const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
+  return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
+}
+
 function buildWatchlistMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
@@ -332,18 +368,23 @@ function buildTasteItemFeedbackFallback(lang, item, labelTitle) {
     .replace("{label}", labelTitle || messages[lang].aiTasteLabelTitleFallback);
 }
 
+function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
+  return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
+}
+
 async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
   const count = items.length;
   const goal = AI_TOP_TEN_LIMIT;
   const itemTitles = items.map((entry) => entry.title);
   const inferredTaste = inferTasteLabel(section, itemTitles);
-  const labelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
+  const rawLabelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
+  const labelTitle = formatTasteLabelWithEmoji(section, inferredTaste.labelKey, rawLabelTitle);
   const feedbackResult = await getAiTasteItemFeedback({
     mode: section,
     lang,
     item,
     labelKey: inferredTaste.labelKey,
-    labelTitle,
+    labelTitle: rawLabelTitle,
   });
   const feedback = feedbackResult.ok && feedbackResult.text
     ? feedbackResult.text
@@ -376,7 +417,11 @@ async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
 
   const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
   const resolvedTaste = syncedTaste.ok ? syncedTaste.taste : inferredTaste;
-  const finalLabel = getTasteLabelTitle(messages, lang, section, resolvedTaste.labelKey);
+  const finalLabel = formatTasteWithStoredEmoji(
+    section,
+    resolvedTaste,
+    getTasteLabelTitle(messages, lang, section, resolvedTaste.labelKey),
+  );
   const styleHint = getTasteLabelStyleHint(messages, lang, section, resolvedTaste.labelKey);
   const sectionLabel = getSectionLabel(messages, lang, section);
   const unlockedText = (messages[lang].aiTasteLabelUnlockedDetailed || messages[lang].aiTasteLabelUnlocked)
@@ -429,7 +474,7 @@ async function sendSingleSectionSuggestion({
         ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
         : "Suggest a different item. The previous one was already known.",
       topTenItems,
-      watchlistItems,
+      watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       personalized: true,
       tasteStyleHint,
@@ -582,7 +627,7 @@ async function handleUpdate(ctx) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(messages[lang].aiBackToAssistantMenu, {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
@@ -625,7 +670,7 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, nextState);
       await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
       return ctx.reply(
-        messages[lang].aiTopTenManageInlineEntry,
+        await getTopTenManageEntryMessage(ctx, lang, section),
         aiListManageMenuKeyboard(lang, section, "topTen"),
       );
     }
@@ -721,7 +766,7 @@ async function handleUpdate(ctx) {
       if (text.startsWith("/")) {
         return ctx.reply(
           pendingListType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
-          aiListCancelAddKeyboard(lang, section, pendingListType),
+          aiListCancelCommentKeyboard(lang, section, pendingListType),
         );
       }
 
@@ -797,7 +842,7 @@ async function handleUpdate(ctx) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(messages[lang].aiBackToAssistantMenu, {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
@@ -821,7 +866,7 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, nextState);
       await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
       return ctx.reply(
-        messages[lang].aiTopTenManageInlineEntry,
+        await getTopTenManageEntryMessage(ctx, lang, section),
         aiListManageMenuKeyboard(lang, section, "topTen"),
       );
     }
@@ -915,7 +960,7 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/profile") {
-    return sendProfile(ctx, ctx.user || {}, lang, keyboardLang);
+    return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
   }
 
   if (text === "/resetphoto") {
@@ -930,7 +975,7 @@ async function handleUpdate(ctx) {
   return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));
 }
 
-async function sendProfile(ctx, user, lang, keyboardLang) {
+async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
   return sendProfileMessage({
     ctx,
     user,
@@ -938,6 +983,7 @@ async function sendProfile(ctx, user, lang, keyboardLang) {
     keyboard: profileKeyboard(keyboardLang, Boolean(user?.photoFileId)),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+    loadingText: options.loading ? messages[lang].profileLoading : "",
   });
 }
 

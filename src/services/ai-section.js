@@ -71,6 +71,56 @@ function getSectionListLabel(messages, lang, section) {
   return messages[lang].aiSectionListLabelRandom;
 }
 
+const TASTE_LABEL_EMOJIS = {
+  music: {
+    metalhead: "🤘",
+    rocker: "🎸",
+    pop_lover: "🎤",
+    hiphop_head: "🎧",
+    electronic_fan: "🎛️",
+    classical_soul: "🎼",
+    jazz_vibe: "🎷",
+    indie_spirit: "🌙",
+    eclectic_listener: "🎵",
+  },
+  movies: {
+    sci_fi_explorer: "🚀",
+    action_junkie: "💥",
+    drama_seeker: "🎭",
+    comedy_chaser: "😄",
+    horror_hunter: "🕯️",
+    animation_lover: "✨",
+    arthouse_curious: "🎞️",
+    documentary_mind: "🧠",
+    eclectic_watcher: "🎬",
+  },
+  books: {
+    fantasy_dreamer: "🐉",
+    sci_fi_reader: "🪐",
+    thriller_detective: "🔎",
+    classic_reader: "📜",
+    self_growth: "🌱",
+    romance_reader: "💌",
+    history_buff: "🏛️",
+    non_fiction_curious: "💡",
+    eclectic_reader: "📚",
+  },
+  random: {
+    explorer: "🧭",
+    foodie: "🍜",
+    gamer: "🎮",
+    creator: "🎨",
+    sporty: "🏃",
+    mindful: "🧘",
+    social: "🎉",
+    multi_interest: "🧩",
+  },
+};
+
+function getTasteLabelEmoji(section, labelKey) {
+  return TASTE_LABEL_EMOJIS[section]?.[labelKey] || "🏷";
+}
+
 function getTasteLabelTitle(messages, lang, section, labelKey) {
   const key = `aiTasteLabelTitle_${section}_${labelKey}`;
   if (messages?.[lang]?.[key]) {
@@ -132,6 +182,7 @@ module.exports = {
   getSectionLabel,
   getSectionListButtonLabel,
   getSectionListLabel,
+  getTasteLabelEmoji,
   getTasteLabelTitle,
   getTasteLabelStyleHint,
   clearAiSectionPin,

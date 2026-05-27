@@ -7,6 +7,7 @@ test("infers music label from common song titles", () => {
   const taste = inferTasteLabel("music", ["Enter Sandman", "Master of Puppets", "Metallica"]);
 
   assert.equal(taste.labelKey, "metalhead");
+  assert.equal(taste.emoji, "🤘");
   assert.ok(taste.confidence >= 0.5);
 });
 
@@ -14,6 +15,7 @@ test("infers movie label from common drama titles and misspellings", () => {
   const taste = inferTasteLabel("movies", ["forest gump", "The Green Mile", "Whiplash"]);
 
   assert.equal(taste.labelKey, "drama_seeker");
+  assert.equal(taste.emoji, "🎭");
   assert.ok(taste.confidence >= 0.5);
 });
 
@@ -21,5 +23,6 @@ test("uses default label with lower confidence when no signal matches", () => {
   const taste = inferTasteLabel("movies", ["unknown title one", "unknown title two"]);
 
   assert.equal(taste.labelKey, "eclectic_watcher");
+  assert.equal(taste.emoji, "🎬");
   assert.equal(taste.confidence, 0.45);
 });

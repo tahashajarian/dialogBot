@@ -35,6 +35,7 @@ const {
   addAiRecentSuggestion,
   consumeAiSuggestionQuota,
   refundAiSuggestionQuota,
+  inferTasteLabel,
   getAiListItemsFromUser,
   getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
@@ -50,7 +51,9 @@ const {
   clearAiSectionPin,
   pinAiSectionTitle,
   getSectionLabel,
+  getTasteLabelEmoji,
   getTasteLabelStyleHint,
+  getTasteLabelTitle,
 } = require("./services/ai-section");
 const {
   setPendingSuggestion,
@@ -63,6 +66,8 @@ const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_prof
 const AI_WATCHLIST_LIMIT = 100;
 const AI_RECENT_SUGGESTIONS_LIMIT = 20;
 const AI_SUGGESTIONS_PER_HOUR = 10;
+const AI_TOP_TEN_LIMIT = 10;
+const AI_WATCHLIST_PROMPT_LIMIT = 30;
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -126,6 +131,36 @@ function buildTopTenListMessage(ctx, lang, section) {
   return formatTopTenItemsList(title, items, emptyText);
 }
 
+function formatTasteWithStoredEmoji(section, taste, labelTitle) {
+  return `${taste?.emoji || getTasteLabelEmoji(section, taste?.labelKey)} ${labelTitle}`;
+}
+
+async function getTopTenManageEntryMessage(ctx, lang, section) {
+  const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
+  if (topTenItems.length < AI_TOP_TEN_LIMIT) {
+    const peopleHint = topTenItems.length <= 3 ? `\n\n${messages[lang].aiTopTenManagePeopleHint}` : "";
+    if (topTenItems.length >= 3) {
+      const taste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
+      const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+      const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
+      return `${messages[lang].aiTopTenManageInlineEntryWithLabel.replace("{label}", label)}${peopleHint}`;
+    }
+    return `${messages[lang].aiTopTenManageInlineEntry}${peopleHint}`;
+  }
+
+  let taste = getAiTasteFromUser(ctx.user, section);
+  if (!taste.labelKey) {
+    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
+    if (syncedTaste.ok) {
+      taste = syncedTaste.taste;
+    }
+  }
+
+  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+  const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
+  return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
+}
+
 function formatSuggestionLimitMessage(lang, resetAt) {
   const resetTime = resetAt ? new Date(resetAt).getTime() : Date.now();
   const minutes = Math.max(1, Math.ceil((resetTime - Date.now()) / (60 * 1000)));
@@ -134,6 +169,10 @@ function formatSuggestionLimitMessage(lang, resetAt) {
 
 function promptSuggestionMode(ctx, lang, section) {
   return ctx.reply(messages[lang].aiSuggestionModePrompt, aiSuggestionModeKeyboard(lang, section));
+}
+
+function getPromptWatchlistItems(watchlistItems = []) {
+  return watchlistItems.slice(-AI_WATCHLIST_PROMPT_LIMIT);
 }
 
 async function sendFollowupSuggestion({
@@ -179,7 +218,7 @@ async function sendFollowupSuggestion({
         ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
         : "Suggest a different item. The previous one was already known.",
       topTenItems,
-      watchlistItems,
+      watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       personalized: true,
       tasteStyleHint,
@@ -288,7 +327,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
-    return sendProfile(ctx, lang, ctx.user || {});
+    return sendProfile(ctx, lang, ctx.user || {}, { loading: true });
   }
 
   if (data === callBacks.aiAssistant) {
@@ -322,7 +361,7 @@ async function handleCallback(ctx) {
     }
 
     const menuText = listType === "topTen"
-      ? messages[lang].aiTopTenManageInlineEntry
+      ? await getTopTenManageEntryMessage(ctx, lang, section)
       : messages[lang].aiListManageInlineMenu.replace("{title}", title);
 
     return ctx.reply(
@@ -458,7 +497,13 @@ async function handleCallback(ctx) {
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_comment_input`);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", itemTitle);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", listType);
-    return ctx.reply(
+    const prompt = await ctx.reply(
+      listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
+      { reply_markup: { remove_keyboard: true } },
+    );
+    return editPlaceholder(
+      ctx,
+      prompt,
       listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
       aiListCancelCommentKeyboard(lang, section, listType),
     );
@@ -567,7 +612,13 @@ async function handleCallback(ctx) {
     }
 
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
-    return ctx.reply(
+    const prompt = await ctx.reply(
+      messages[lang].aiListManageAddPrompt,
+      { reply_markup: { remove_keyboard: true } },
+    );
+    return editPlaceholder(
+      ctx,
+      prompt,
       messages[lang].aiListManageAddPrompt,
       aiListCancelAddKeyboard(lang, section, listType),
     );
@@ -835,7 +886,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
     await clearAiSectionPin({ ctx, updateProfileField });
-    await ctx.reply(messages[lang].cancelMessage, {
+    await ctx.reply(messages[lang].aiBackToMainMenu, {
       reply_markup: { remove_keyboard: true },
     });
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
@@ -1055,7 +1106,7 @@ async function handleCallback(ctx) {
   return ctx.reply(messages[lang].unknownAction);
 }
 
-async function sendProfile(ctx, lang, user = ctx.user) {
+async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
   return sendProfileMessage({
     ctx,
     user,
@@ -1063,6 +1114,7 @@ async function sendProfile(ctx, lang, user = ctx.user) {
     keyboard: profileKeyboard(lang, Boolean(user?.photoFileId)),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+    loadingText: options.loading ? messages[lang].profileLoading : "",
   });
 }
 

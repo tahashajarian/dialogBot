@@ -1,4 +1,4 @@
-const { getSectionLabel, getTasteLabelTitle } = require("./ai-section");
+const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 
 function toPlainUser(user) {
   if (!user) return {};
@@ -28,17 +28,15 @@ function getFinalTasteLabels(user, lang, messages) {
     .map(({ key, icon }) => {
       const taste = user?.aiTaste?.[key] || {};
       const labelKey = String(taste?.labelKey || "").trim();
-      const sampleCount = Number(taste?.sampleCount) || 0;
-      const confidence = Number(taste?.confidence) || 0;
 
-      if (!labelKey || sampleCount < 10 || confidence < 0.55) {
+      if (!labelKey) {
         return null;
       }
 
       return {
         icon,
         section: getSectionLabel(messages, lang, key),
-        label: getTasteLabelTitle(messages, lang, key, labelKey),
+        label: `${taste?.emoji || getTasteLabelEmoji(key, labelKey)} ${getTasteLabelTitle(messages, lang, key, labelKey)}`,
       };
     })
     .filter(Boolean);
@@ -52,9 +50,38 @@ function buildTasteLabelsText(user, lang, messages) {
 
   return [
     "",
+    "",
     messages[lang].profileTasteLabelsTitle,
     ...labels.map((entry) => `${entry.icon} ${entry.section}: ${entry.label}`),
   ].join("\n");
+}
+
+function getMessageId(message) {
+  return message?.message_id || message?.messageId;
+}
+
+async function deleteMessageIfPossible(ctx, message) {
+  const messageId = getMessageId(message);
+  if (!messageId || !ctx.deleteMessage) {
+    return;
+  }
+
+  try {
+    await ctx.deleteMessage(messageId);
+  } catch {}
+}
+
+function hasValidLocation(location) {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 }
 
 function buildProfileText(user, lang, messages) {
@@ -77,7 +104,7 @@ function buildProfileText(user, lang, messages) {
   };
   const petPreference = petPreferenceMap[user?.petPreference] || "—";
   const bio = user?.bio || messages[lang].bioMissing;
-  const locationText = user?.location
+  const locationText = hasValidLocation(user?.location)
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
 
@@ -101,9 +128,13 @@ function buildProfileText(user, lang, messages) {
 }
 
 function buildLocationPayload(locationMessage) {
+  if (!hasValidLocation(locationMessage)) {
+    return null;
+  }
+
   return {
-    latitude: locationMessage.latitude,
-    longitude: locationMessage.longitude,
+    latitude: Number(locationMessage.latitude),
+    longitude: Number(locationMessage.longitude),
     accuracy: locationMessage.horizontal_accuracy || null,
     city: null,
     sharedAt: new Date(),
@@ -118,6 +149,9 @@ async function saveLocationProfile({
   resolveCityByCoordinates,
 }) {
   const location = buildLocationPayload(locationMessage);
+  if (!location) {
+    return null;
+  }
 
   await updateProfileField(userId, "location", location);
   await updateUserState(userId, "idle");
@@ -143,31 +177,42 @@ async function sendProfileMessage({
   keyboard,
   messages,
   defaultProfilePhoto,
+  loadingText = "",
 }) {
   const hasCustomPhoto = user?.photoFileId;
   const profileText = buildProfileText(user, lang, messages);
+  const loadingMessage = loadingText ? await ctx.reply(loadingText) : null;
+  let sentProfile;
 
   if (hasCustomPhoto) {
     try {
-      return await ctx.replyWithPhoto(user.photoFileId, {
+      sentProfile = await ctx.replyWithPhoto(user.photoFileId, {
         caption: profileText,
         ...keyboard,
       });
+      await deleteMessageIfPossible(ctx, loadingMessage);
+      return sentProfile;
     } catch {
-      return ctx.reply(profileText, keyboard);
+      sentProfile = await ctx.reply(profileText, keyboard);
+      await deleteMessageIfPossible(ctx, loadingMessage);
+      return sentProfile;
     }
   }
 
   try {
-    return await ctx.replyWithPhoto(
+    sentProfile = await ctx.replyWithPhoto(
       { source: defaultProfilePhoto },
       {
         caption: profileText,
         ...keyboard,
       }
     );
+    await deleteMessageIfPossible(ctx, loadingMessage);
+    return sentProfile;
   } catch {
-    return ctx.reply(profileText, keyboard);
+    sentProfile = await ctx.reply(profileText, keyboard);
+    await deleteMessageIfPossible(ctx, loadingMessage);
+    return sentProfile;
   }
 }
 
@@ -175,6 +220,7 @@ module.exports = {
   buildProfileText,
   buildTasteLabelsText,
   buildLocationPayload,
+  hasValidLocation,
   sendProfileMessage,
   saveLocationProfile,
   isValidTextInput,

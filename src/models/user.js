@@ -20,6 +20,7 @@ const AiListsSchema = new mongoose.Schema({
 
 const AiTasteSectionSchema = new mongoose.Schema({
   labelKey: { type: String, default: "" },
+  emoji: { type: String, default: "" },
   confidence: { type: Number, default: 0 },
   sampleCount: { type: Number, default: 0 },
   updatedAt: Date,

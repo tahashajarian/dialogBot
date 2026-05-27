@@ -1,5 +1,6 @@
 const User = require("../models/user");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
+const { getTasteLabelEmoji } = require("./ai-section");
 
 async function getOrCreateUser(from) {
   if (!from) return null;
@@ -264,10 +265,12 @@ function getAiTasteTopTenFromUser(user, section) {
 function getAiTasteFromUser(user, section) {
   const sectionTaste = user?.aiTaste?.[section] || {};
   const labelKey = String(sectionTaste?.labelKey || "").trim();
+  const emoji = String(sectionTaste?.emoji || "").trim() || (labelKey ? getTasteLabelEmoji(section, labelKey) : "");
   const sampleCount = Number(sectionTaste?.sampleCount) || 0;
   const confidence = Number(sectionTaste?.confidence) || 0;
   return {
     labelKey,
+    emoji,
     sampleCount,
     confidence: Number.isFinite(confidence) ? confidence : 0,
   };
@@ -315,6 +318,7 @@ function inferTasteLabel(section, items = []) {
   if (!topLabel || topScore <= 0) {
     return {
       labelKey: DEFAULT_TASTE_LABEL_BY_SECTION[section] || "eclectic",
+      emoji: getTasteLabelEmoji(section, DEFAULT_TASTE_LABEL_BY_SECTION[section] || "eclectic"),
       confidence: 0.45,
       sampleCount: normalizedItems.length,
     };
@@ -328,6 +332,7 @@ function inferTasteLabel(section, items = []) {
 
   return {
     labelKey: topLabel,
+    emoji: getTasteLabelEmoji(section, topLabel),
     confidence,
     sampleCount: normalizedItems.length,
   };
@@ -366,6 +371,7 @@ async function syncAiTasteForSection(userId, section) {
     };
     if (existingTaste.labelKey) {
       updates[`aiTaste.${section}.labelKey`] = "";
+      updates[`aiTaste.${section}.emoji`] = "";
       updates[`aiTaste.${section}.confidence`] = 0;
     }
     await User.findOneAndUpdate({ userId }, { $set: updates }, { returnDocument: "after" });
@@ -373,6 +379,7 @@ async function syncAiTasteForSection(userId, section) {
       ok: true,
       taste: {
         labelKey: "",
+        emoji: "",
         confidence: 0,
         sampleCount: progress.count,
       },
@@ -386,6 +393,7 @@ async function syncAiTasteForSection(userId, section) {
     {
       $set: {
         [`aiTaste.${section}.labelKey`]: inferred.labelKey,
+        [`aiTaste.${section}.emoji`]: inferred.emoji,
         [`aiTaste.${section}.confidence`]: inferred.confidence,
         [`aiTaste.${section}.sampleCount`]: inferred.sampleCount,
         [`aiTaste.${section}.updatedAt`]: new Date(),
