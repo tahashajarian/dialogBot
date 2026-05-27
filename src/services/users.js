@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
 async function getOrCreateUser(from) {
   if (!from) return null;
@@ -72,36 +73,38 @@ function normalizeAiListItems(items = []) {
 }
 
 const AI_SECTIONS = ["movies", "music", "books", "random"];
+const AI_SUGGESTION_QUOTA_LIMIT = 10;
+const AI_SUGGESTION_QUOTA_WINDOW_MS = 60 * 60 * 1000;
 const TASTE_LABELS_BY_SECTION = {
   music: {
-    metalhead: ["metallica", "megadeth", "slayer", "iron maiden", "pantera", "slipknot", "system of a down", "black sabbath", "judas priest", "anthrax", "opeth", "gojira"],
-    rocker: ["queen", "pink floyd", "nirvana", "radiohead", "led zeppelin", "guns n roses", "foo fighters", "the beatles", "u2", "acdc", "arctic monkeys"],
-    pop_lover: ["taylor swift", "dua lipa", "ed sheeran", "justin bieber", "ariana grande", "the weeknd", "katy perry", "rihanna", "billie eilish", "olivia rodrigo"],
-    hiphop_head: ["drake", "kendrick lamar", "j cole", "eminem", "travis scott", "kanye west", "future", "cardi b", "nas", "tupac", "snoop dogg"],
-    electronic_fan: ["daft punk", "calvin harris", "tiesto", "martin garrix", "deadmau5", "avicii", "skrilllex", "kygo", "swedish house mafia", "alan walker"],
-    classical_soul: ["mozart", "beethoven", "bach", "vivaldi", "chopin", "tchaikovsky", "debussy", "handel", "brahms"],
-    jazz_vibe: ["miles davis", "john coltrane", "ella fitzgerald", "louis armstrong", "charlie parker", "duke ellington", "bill evans"],
-    indie_spirit: ["tame impala", "the strokes", "phoebe bridgers", "bon iver", "the national", "alt-j", "vampire weekend", "mac demarco"],
+    metalhead: ["metallica", "enter sandman", "master of puppets", "nothing else matters", "megadeth", "symphony of destruction", "slayer", "raining blood", "iron maiden", "pantera", "walk", "slipknot", "system of a down", "toxicity", "black sabbath", "judas priest", "anthrax", "opeth", "gojira"],
+    rocker: ["queen", "bohemian rhapsody", "pink floyd", "comfortably numb", "nirvana", "smells like teen spirit", "radiohead", "creep", "led zeppelin", "stairway to heaven", "guns n roses", "sweet child o mine", "foo fighters", "the beatles", "u2", "acdc", "back in black", "arctic monkeys"],
+    pop_lover: ["taylor swift", "blank space", "dua lipa", "levitating", "ed sheeran", "shape of you", "justin bieber", "ariana grande", "the weeknd", "blinding lights", "katy perry", "rihanna", "billie eilish", "bad guy", "olivia rodrigo"],
+    hiphop_head: ["drake", "kendrick lamar", "humble", "j cole", "eminem", "lose yourself", "travis scott", "kanye west", "future", "cardi b", "nas", "tupac", "snoop dogg"],
+    electronic_fan: ["daft punk", "get lucky", "one more time", "calvin harris", "tiesto", "martin garrix", "animals", "deadmau5", "avicii", "levels", "skrilllex", "kygo", "swedish house mafia", "alan walker", "faded"],
+    classical_soul: ["mozart", "beethoven", "fur elise", "moonlight sonata", "bach", "vivaldi", "four seasons", "chopin", "nocturne", "tchaikovsky", "debussy", "clair de lune", "handel", "brahms"],
+    jazz_vibe: ["miles davis", "kind of blue", "john coltrane", "ella fitzgerald", "louis armstrong", "charlie parker", "duke ellington", "bill evans", "take five", "dave brubeck"],
+    indie_spirit: ["tame impala", "the less i know the better", "the strokes", "phoebe bridgers", "bon iver", "skinny love", "the national", "alt-j", "vampire weekend", "mac demarco"],
   },
   movies: {
-    sci_fi_explorer: ["interstellar", "inception", "blade runner", "arrival", "the matrix", "dune", "ex machina", "star wars", "alien"],
-    action_junkie: ["john wick", "mad max", "mission impossible", "die hard", "the dark knight", "gladiator", "top gun", "fast and furious"],
-    drama_seeker: ["the godfather", "shawshank redemption", "parasite", "forrest gump", "a beautiful mind", "spotlight", "moonlight"],
-    comedy_chaser: ["superbad", "the hangover", "mean girls", "step brothers", "groundhog day", "anchorman", "deadpool"],
-    horror_hunter: ["the conjuring", "hereditary", "the exorcist", "insidious", "it", "the shining", "get out"],
-    animation_lover: ["spirited away", "coco", "inside out", "toy story", "up", "zootopia", "finding nemo", "ratatouille"],
-    arthouse_curious: ["amelie", "in the mood for love", "the lobster", "the lighthouse", "persona", "8 1/2", "tokyo story"],
-    documentary_mind: ["planet earth", "free solo", "the social dilemma", "making a murderer", "blackfish", "icarus"],
+    sci_fi_explorer: ["interstellar", "inception", "blade runner", "arrival", "the matrix", "dune", "ex machina", "star wars", "alien", "2001", "minority report", "edge of tomorrow"],
+    action_junkie: ["john wick", "mad max", "mission impossible", "die hard", "the dark knight", "gladiator", "top gun", "fast and furious", "the raid", "terminator", "casino royale", "kill bill"],
+    drama_seeker: ["the godfather", "shawshank redemption", "parasite", "forrest gump", "forest gump", "a beautiful mind", "spotlight", "moonlight", "fight club", "green mile", "whiplash", "pianist", "schindler"],
+    comedy_chaser: ["superbad", "the hangover", "mean girls", "step brothers", "groundhog day", "anchorman", "deadpool", "bridesmaids", "borat", "office space"],
+    horror_hunter: ["the conjuring", "hereditary", "the exorcist", "insidious", "it", "the shining", "get out", "scream", "midsommar", "a quiet place", "sinister"],
+    animation_lover: ["spirited away", "coco", "inside out", "toy story", "up", "zootopia", "finding nemo", "ratatouille", "wall-e", "shrek", "your name"],
+    arthouse_curious: ["amelie", "in the mood for love", "the lobster", "the lighthouse", "persona", "8 1/2", "tokyo story", "stalker", "mulholland drive", "tree of life"],
+    documentary_mind: ["planet earth", "free solo", "the social dilemma", "making a murderer", "blackfish", "icarus", "13th", "inside job", "won't you be my neighbor"],
   },
   books: {
-    fantasy_dreamer: ["harry potter", "lord of the rings", "the hobbit", "wheel of time", "mistborn", "stormlight archive", "game of thrones"],
-    sci_fi_reader: ["dune", "foundation", "neuromancer", "ender's game", "the expanse", "snow crash", "the martian"],
-    thriller_detective: ["gone girl", "the girl with the dragon tattoo", "da vinci code", "sherlock holmes", "big little lies"],
-    classic_reader: ["pride and prejudice", "1984", "to kill a mockingbird", "crime and punishment", "moby dick", "great gatsby"],
-    self_growth: ["atomic habits", "deep work", "the power of habit", "thinking fast and slow", "the subtle art of not giving"],
-    romance_reader: ["me before you", "the notebook", "normal people", "it ends with us", "outlander"],
-    history_buff: ["sapiens", "guns germs and steel", "team of rivals", "the silk roads", "1776"],
-    non_fiction_curious: ["educated", "born a crime", "bad blood", "outliers", "factfulness", "quiet"],
+    fantasy_dreamer: ["harry potter", "lord of the rings", "the hobbit", "wheel of time", "mistborn", "stormlight archive", "game of thrones", "name of the wind", "earthsea", "narnia"],
+    sci_fi_reader: ["dune", "foundation", "neuromancer", "ender's game", "the expanse", "snow crash", "the martian", "three body problem", "hitchhiker", "fahrenheit 451"],
+    thriller_detective: ["gone girl", "the girl with the dragon tattoo", "da vinci code", "sherlock holmes", "big little lies", "silent patient", "agatha christie", "murder on the orient express"],
+    classic_reader: ["pride and prejudice", "1984", "to kill a mockingbird", "crime and punishment", "moby dick", "great gatsby", "anna karenina", "war and peace", "catcher in the rye"],
+    self_growth: ["atomic habits", "deep work", "the power of habit", "thinking fast and slow", "the subtle art of not giving", "7 habits", "mans search for meaning", "rich dad poor dad"],
+    romance_reader: ["me before you", "the notebook", "normal people", "it ends with us", "outlander", "red white royal blue", "beach read", "love hypothesis"],
+    history_buff: ["sapiens", "guns germs and steel", "team of rivals", "the silk roads", "1776", "a people's history", "chernobyl", "emperor of all maladies"],
+    non_fiction_curious: ["educated", "born a crime", "bad blood", "outliers", "factfulness", "quiet", "freakonomics", "into thin air", "when breath becomes air"],
   },
   random: {
     explorer: ["travel", "hiking", "camping", "road trip", "adventure", "backpacking", "mountain", "nature"],
@@ -153,6 +156,102 @@ function getAiListTitlesFromUser(user, section, listType) {
   return getAiListItemsFromUser(user, section, listType).map((entry) => entry.title);
 }
 
+function getAiRecentSuggestionTitlesFromUser(user, section) {
+  return (user?.aiRecentSuggestions?.[section] || [])
+    .map((entry) => normalizeAiListItem(entry))
+    .filter(Boolean);
+}
+
+async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
+  const cleanTitle = normalizeAiListItem(title);
+  if (!cleanTitle) {
+    return { ok: false, reason: "empty" };
+  }
+
+  const user = await User.findOne({ userId });
+  if (!user) {
+    return { ok: false, reason: "missing_user" };
+  }
+
+  const current = getAiRecentSuggestionTitlesFromUser(user, section);
+  const withoutDuplicate = current.filter((entry) => entry.toLowerCase() !== cleanTitle.toLowerCase());
+  const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
+  await updateProfileField(userId, `aiRecentSuggestions.${section}`, updated);
+  return { ok: true, items: updated };
+}
+
+function getRecentSuggestionUsageFromUser(user, section, now = new Date(), windowMs = AI_SUGGESTION_QUOTA_WINDOW_MS) {
+  const cutoff = now.getTime() - windowMs;
+  return (user?.aiSuggestionUsage?.[section] || [])
+    .map((entry) => new Date(entry))
+    .filter((entry) => Number.isFinite(entry.getTime()) && entry.getTime() > cutoff);
+}
+
+async function consumeAiSuggestionQuota(
+  userId,
+  section,
+  limit = AI_SUGGESTION_QUOTA_LIMIT,
+  windowMs = AI_SUGGESTION_QUOTA_WINDOW_MS,
+) {
+  const user = await User.findOne({ userId });
+  if (!user) {
+    return { ok: false, reason: "missing_user" };
+  }
+
+  const now = new Date();
+  const recentUsage = getRecentSuggestionUsageFromUser(user, section, now, windowMs);
+  if (recentUsage.length >= limit) {
+    const oldest = recentUsage.sort((a, b) => a.getTime() - b.getTime())[0];
+    return {
+      ok: false,
+      reason: "limit",
+      count: recentUsage.length,
+      limit,
+      resetAt: new Date(oldest.getTime() + windowMs),
+    };
+  }
+
+  const updatedUsage = [...recentUsage, now];
+  await updateProfileField(userId, `aiSuggestionUsage.${section}`, updatedUsage);
+  return {
+    ok: true,
+    count: updatedUsage.length,
+    limit,
+    resetAt: updatedUsage.length >= limit
+      ? new Date(updatedUsage[0].getTime() + windowMs)
+      : null,
+    consumedAt: now,
+  };
+}
+
+async function refundAiSuggestionQuota(userId, section, consumedAt) {
+  if (!consumedAt) {
+    return { ok: false, reason: "missing_consumed_at" };
+  }
+
+  const user = await User.findOne({ userId });
+  if (!user) {
+    return { ok: false, reason: "missing_user" };
+  }
+
+  const consumedTime = new Date(consumedAt).getTime();
+  let removed = false;
+  const updatedUsage = (user?.aiSuggestionUsage?.[section] || []).filter((entry) => {
+    if (!removed && new Date(entry).getTime() === consumedTime) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+
+  if (!removed) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  await updateProfileField(userId, `aiSuggestionUsage.${section}`, updatedUsage);
+  return { ok: true, items: updatedUsage };
+}
+
 function normalizeTasteItem(value) {
   return normalizeAiListItem(value).slice(0, 60);
 }
@@ -178,6 +277,17 @@ function getAiTasteKeywordsForSection(section) {
   return TASTE_LABELS_BY_SECTION[section] || {};
 }
 
+function matchesTasteKeyword(item, keyword) {
+  const normalizedKeyword = String(keyword || "").toLowerCase().trim();
+  if (!normalizedKeyword) return false;
+
+  if (normalizedKeyword.length <= 2) {
+    return item.split(/\s+/).includes(normalizedKeyword);
+  }
+
+  return item.includes(normalizedKeyword);
+}
+
 function inferTasteLabel(section, items = []) {
   const normalizedItems = items
     .map((item) => normalizeTasteItem(item).toLowerCase())
@@ -192,7 +302,7 @@ function inferTasteLabel(section, items = []) {
 
   for (const item of normalizedItems) {
     for (const [labelKey, keywords] of Object.entries(labels)) {
-      const matched = keywords.some((keyword) => item.includes(String(keyword).toLowerCase()));
+      const matched = keywords.some((keyword) => matchesTasteKeyword(item, keyword));
       if (!matched) continue;
       scores[labelKey] += 1;
       totalMatches += 1;
@@ -304,9 +414,16 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   }
 
   const current = getAiListItemsFromUser(user, section, listType);
-  const exists = current.some((entry) => entry.title.toLowerCase() === title.toLowerCase());
-  if (exists) {
-    return { ok: false, reason: "exists", items: current };
+  const duplicateMatch = getAiListDuplicateMatch(title, current);
+  if (duplicateMatch) {
+    return {
+      ok: false,
+      reason: "exists",
+      items: current,
+      duplicate: duplicateMatch.item,
+      duplicateScore: duplicateMatch.score,
+      duplicateType: duplicateMatch.type,
+    };
   }
 
   if (current.length >= maxItems) {
@@ -442,7 +559,13 @@ async function promoteWatchlistItemToTopTen(userId, section, item, maxTopTenItem
 
   const topTenHasItem = topTenItems.some((entry) => entry.title.toLowerCase() === cleanItem.toLowerCase());
   if (topTenHasItem) {
-    return { ok: false, reason: "exists", watchlistItems, topTenItems };
+    return {
+      ok: false,
+      reason: "exists",
+      duplicate: topTenItems.find((entry) => entry.title.toLowerCase() === cleanItem.toLowerCase()),
+      watchlistItems,
+      topTenItems,
+    };
   }
 
   if (topTenItems.length >= maxTopTenItems) {
@@ -465,6 +588,8 @@ async function promoteWatchlistItemToTopTen(userId, section, item, maxTopTenItem
 
 module.exports = {
   AI_SECTIONS,
+  AI_SUGGESTION_QUOTA_LIMIT,
+  AI_SUGGESTION_QUOTA_WINDOW_MS,
   TASTE_LABELS_BY_SECTION,
   DEFAULT_TASTE_LABEL_BY_SECTION,
   getOrCreateUser,
@@ -476,8 +601,14 @@ module.exports = {
   normalizeAiListItem,
   normalizeAiListComment,
   normalizeAiListItems,
+  getAiListDuplicateMatch,
   getAiListItemsFromUser,
   getAiListTitlesFromUser,
+  getAiRecentSuggestionTitlesFromUser,
+  addAiRecentSuggestion,
+  getRecentSuggestionUsageFromUser,
+  consumeAiSuggestionQuota,
+  refundAiSuggestionQuota,
   getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
   setAiListItemComment,

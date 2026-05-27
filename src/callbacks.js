@@ -2,7 +2,7 @@ const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const { getAiSingleSuggestion } = require("./services/ai");
-const { startAiPlaceholder } = require("./services/ai-placeholder");
+const { startAiPlaceholder, editPlaceholder } = require("./services/ai-placeholder");
 const {
   mainMenuKeyboard,
   languageKeyboard,
@@ -10,6 +10,8 @@ const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
+  aiSuggestionModeKeyboard,
+  aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
@@ -30,6 +32,9 @@ const {
   updateUserState,
   removeAiListItem,
   addAiListItem,
+  addAiRecentSuggestion,
+  consumeAiSuggestionQuota,
+  refundAiSuggestionQuota,
   getAiListItemsFromUser,
   getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
@@ -37,6 +42,7 @@ const {
   promoteWatchlistItemToTopTen,
   syncAiTasteForSection,
   getAiListTitlesFromUser,
+  getAiRecentSuggestionTitlesFromUser,
   getAiTasteFromUser,
 } = require("./services/users");
 const { sendProfileMessage, toPlainUser } = require("./services/profile");
@@ -51,9 +57,12 @@ const {
   getPendingSuggestion,
   clearPendingSuggestion,
 } = require("./services/ai-suggestion-cache");
+const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const AI_WATCHLIST_LIMIT = 100;
+const AI_RECENT_SUGGESTIONS_LIMIT = 20;
+const AI_SUGGESTIONS_PER_HOUR = 10;
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -69,6 +78,19 @@ function normalizeWatchlistFilter(value) {
   if (value === "watched") return "watched";
   if (value === "not_watched") return "not_watched";
   return "all";
+}
+
+function getDuplicateItemTitle(result) {
+  return result?.duplicate?.title || result?.duplicate || "";
+}
+
+function getDuplicateListMessage(lang, result) {
+  const duplicateTitle = getDuplicateItemTitle(result);
+  if (!duplicateTitle) {
+    return messages[lang].aiListAlreadyExists;
+  }
+
+  return messages[lang].aiListDuplicateMatch.replace("{item}", duplicateTitle);
 }
 
 function formatListWithWatched({ title, items, emptyText }) {
@@ -89,7 +111,11 @@ function formatTopTenItemsList(title, items, emptyText) {
     return emptyText;
   }
 
-  return `${title}\n${items.map((entry, index) => `${index + 1}. ${entry.title}`).join("\n")}`;
+  const lines = items.map((entry, index) => {
+    const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
+    return `${index + 1}. ${entry.title}${commentPart}`;
+  });
+  return `${title}\n${lines.join("\n")}`;
 }
 
 function buildTopTenListMessage(ctx, lang, section) {
@@ -100,13 +126,30 @@ function buildTopTenListMessage(ctx, lang, section) {
   return formatTopTenItemsList(title, items, emptyText);
 }
 
+function formatSuggestionLimitMessage(lang, resetAt) {
+  const resetTime = resetAt ? new Date(resetAt).getTime() : Date.now();
+  const minutes = Math.max(1, Math.ceil((resetTime - Date.now()) / (60 * 1000)));
+  return messages[lang].aiSuggestionHourlyLimit.replace("{minutes}", String(minutes));
+}
+
+function promptSuggestionMode(ctx, lang, section) {
+  return ctx.reply(messages[lang].aiSuggestionModePrompt, aiSuggestionModeKeyboard(lang, section));
+}
+
 async function sendFollowupSuggestion({
   ctx,
   lang,
   section,
   watchlistItems = [],
+  userText = "",
 }) {
   const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+  const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
+  const blockedSuggestionItems = [
+    ...topTenItems,
+    ...watchlistItems,
+    ...recentSuggestionItems,
+  ].map((title) => ({ title }));
   const taste = getAiTasteFromUser(ctx.user, section);
   const tasteStyleHint = taste?.labelKey
     ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
@@ -117,20 +160,49 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
   ]);
-  const suggestionResult = await getAiSingleSuggestion({
-    mode: section,
-    lang,
-    userText: section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`,
-    topTenItems,
-    watchlistItems,
-    personalized: true,
-    tasteStyleHint,
-  });
+  const quota = await consumeAiSuggestionQuota(ctx.userId, section, AI_SUGGESTIONS_PER_HOUR);
+  if (!quota.ok) {
+    return placeholder.finish(
+      quota.reason === "limit"
+        ? formatSuggestionLimitMessage(lang, quota.resetAt)
+        : messages[lang].aiTemporaryUnavailable,
+      aiSuggestionNextKeyboard(lang, section),
+    );
+  }
+
+  let suggestionResult = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    suggestionResult = await getAiSingleSuggestion({
+      mode: section,
+      lang,
+      userText: attempt === 0
+        ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
+        : "Suggest a different item. The previous one was already known.",
+      topTenItems,
+      watchlistItems,
+      recentSuggestionItems,
+      personalized: true,
+      tasteStyleHint,
+    });
+
+    if (!suggestionResult.ok || !suggestionResult.title) {
+      break;
+    }
+
+    const duplicateMatch = getAiListDuplicateMatch(suggestionResult.title, blockedSuggestionItems);
+    if (!duplicateMatch) {
+      break;
+    }
+
+    suggestionResult = { ok: false, reason: "duplicate_suggestion" };
+  }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
     return placeholder.finish(messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable);
   }
 
+  await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
   return placeholder.finish(
     `${suggestionResult.title}\n${suggestionResult.reason || messages[lang].aiSuggestionFallbackTitle}`,
@@ -292,9 +364,7 @@ async function handleCallback(ctx) {
         items,
         emptyText: filter === "all" ? emptyText : messages[lang].aiWatchlistFilterEmpty,
       })
-      : (!items.length
-        ? emptyText
-        : `${title}\n${items.map((entry, index) => `${index + 1}. ${entry.title}`).join("\n")}`);
+      : formatTopTenItemsList(title, items, emptyText);
 
     return ctx.reply(listText, aiListManageMenuKeyboard(lang, section, listType));
   }
@@ -459,7 +529,7 @@ async function handleCallback(ctx) {
         return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       if (promoteResult.reason === "exists") {
-        return ctx.reply(messages[lang].aiListAlreadyExists, aiListManageMenuKeyboard(lang, section, "watchlist"));
+        return ctx.reply(getDuplicateListMessage(lang, promoteResult), aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
@@ -468,22 +538,6 @@ async function handleCallback(ctx) {
     return ctx.reply(
       messages[lang].aiWatchlistPromotedToTopTen,
       aiListManageMenuKeyboard(lang, section, "watchlist"),
-    );
-  }
-
-  if (data.startsWith(callBacks.aiListManageAdd)) {
-    await ctx.answerCb?.();
-    const payload = data.replace(callBacks.aiListManageAdd, "");
-    const [section = "", rawListType = ""] = payload.split(":");
-    const listType = normalizeAiListTypeToken(rawListType);
-    if (!section || !listType) {
-      return ctx.reply(messages[lang].unknownAction);
-    }
-
-    await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
-    return ctx.reply(
-      messages[lang].aiListManageAddPrompt,
-      aiListCancelAddKeyboard(lang, section, listType),
     );
   }
 
@@ -500,6 +554,22 @@ async function handleCallback(ctx) {
     return ctx.reply(
       messages[lang].aiListManageAddCanceled,
       aiListManageMenuKeyboard(lang, section, listType),
+    );
+  }
+
+  if (data.startsWith(callBacks.aiListManageAdd)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.aiListManageAdd, "");
+    const [section = "", rawListType = ""] = payload.split(":");
+    const listType = normalizeAiListTypeToken(rawListType);
+    if (!section || !listType) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
+    return ctx.reply(
+      messages[lang].aiListManageAddPrompt,
+      aiListCancelAddKeyboard(lang, section, listType),
     );
   }
 
@@ -587,6 +657,57 @@ async function handleCallback(ctx) {
       return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
     }
 
+    return promptSuggestionMode(ctx, lang, section);
+  }
+
+  if (data.startsWith(callBacks.aiSectionSuggestContextCancel)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiSectionSuggestContextCancel, "").trim();
+    if (!section) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await updateUserState(ctx.userId, `ai_chat_${section}`);
+    const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
+    return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
+  }
+
+  if (data.startsWith(callBacks.aiSectionSuggestWithContext)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiSectionSuggestWithContext, "").trim();
+    if (!section) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+    if (topTenItems.length < 3) {
+      return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
+    }
+
+    await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+    const prompt = await ctx.reply(messages[lang].aiSuggestionContextPrompt, {
+      reply_markup: { remove_keyboard: true },
+    });
+    return editPlaceholder(
+      ctx,
+      prompt,
+      messages[lang].aiSuggestionContextPrompt,
+      aiSuggestionContextCancelKeyboard(lang, section),
+    );
+  }
+
+  if (data.startsWith(callBacks.aiSectionSuggestFromTopTen)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiSectionSuggestFromTopTen, "").trim();
+    if (!section) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+    if (topTenItems.length < 3) {
+      return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
+    }
+
     const sentSuggestion = await sendFollowupSuggestion({
       ctx,
       lang,
@@ -630,7 +751,7 @@ async function handleCallback(ctx) {
 
     if (!result.ok) {
       if (result.reason === "exists") {
-        return ctx.reply(messages[lang].aiSuggestionAlreadyInList, aiSuggestionAddKeyboard(lang, section));
+        return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
       }
       if (result.reason === "limit") {
         return ctx.reply(messages[lang].aiSuggestionListFull, aiListManageMenuKeyboard(lang, section, "watchlist"));

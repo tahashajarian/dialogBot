@@ -160,6 +160,34 @@ function aiSuggestionNextKeyboard(lang, section) {
   ]);
 }
 
+function aiSuggestionModeKeyboard(lang, section) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].aiSuggestionFromTopTenButton,
+        callback_data: `${callBacks.aiSectionSuggestFromTopTen}${section}`,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiSuggestionWithContextButton,
+        callback_data: `${callBacks.aiSectionSuggestWithContext}${section}`,
+      },
+    ],
+  ]);
+}
+
+function aiSuggestionContextCancelKeyboard(lang, section) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].cancelEdit,
+        callback_data: `${callBacks.aiSectionSuggestContextCancel}${section}`,
+      },
+    ],
+  ]);
+}
+
 function aiSuggestionAddedOptionsKeyboard(lang, section) {
   return inlineKeyboard([
     [
@@ -494,6 +522,8 @@ module.exports = {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
+  aiSuggestionModeKeyboard,
+  aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,

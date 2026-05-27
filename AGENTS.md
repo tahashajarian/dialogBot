@@ -27,6 +27,10 @@
 - Watchlist includes inline actions for status toggle, comment edit, and move-to-top-ten (if topTen has room).
 - TopTen items also support comment edit.
 - Suggestions in AI sections return exactly one item plus a very short reason.
+- Pressing the section suggestion button should first show a choice prompt: suggest from Top 10, or collect one short mood/genre note. Do not call AI until the user chooses.
+- The mood/genre suggestion input state should hide the bottom keyboard and provide an inline cancel button; cancel returns to the same section entry message and keyboard.
+- Suggestions should avoid duplicates from the user's topTen, watchlist, and `aiRecentSuggestions`; `aiRecentSuggestions.{section}` is capped at 20 stored titles.
+- Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`; failed/no-response suggestion calls should refund the quota slot.
 - Suggestion cards include:
   - add to watchlist (confirms add, then shows inline buttons for going to the list or getting another suggestion)
   - add as done/watched/read/listened (confirms with section-aware wording, then shows an inline button for another suggestion)

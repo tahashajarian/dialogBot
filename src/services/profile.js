@@ -1,3 +1,5 @@
+const { getSectionLabel, getTasteLabelTitle } = require("./ai-section");
+
 function toPlainUser(user) {
   if (!user) return {};
   if (typeof user.toObject === "function") {
@@ -12,6 +14,47 @@ function isValidTextInput(text, maxLength) {
   if (normalized.length > maxLength) return false;
   if (/[<>]/.test(normalized)) return false;
   return true;
+}
+
+function getFinalTasteLabels(user, lang, messages) {
+  const sections = [
+    { key: "movies", icon: "🎬" },
+    { key: "music", icon: "🎵" },
+    { key: "books", icon: "📚" },
+    { key: "random", icon: "🧩" },
+  ];
+
+  return sections
+    .map(({ key, icon }) => {
+      const taste = user?.aiTaste?.[key] || {};
+      const labelKey = String(taste?.labelKey || "").trim();
+      const sampleCount = Number(taste?.sampleCount) || 0;
+      const confidence = Number(taste?.confidence) || 0;
+
+      if (!labelKey || sampleCount < 10 || confidence < 0.55) {
+        return null;
+      }
+
+      return {
+        icon,
+        section: getSectionLabel(messages, lang, key),
+        label: getTasteLabelTitle(messages, lang, key, labelKey),
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildTasteLabelsText(user, lang, messages) {
+  const labels = getFinalTasteLabels(user, lang, messages);
+  if (!labels.length) {
+    return "";
+  }
+
+  return [
+    "",
+    messages[lang].profileTasteLabelsTitle,
+    ...labels.map((entry) => `${entry.icon} ${entry.section}: ${entry.label}`),
+  ].join("\n");
 }
 
 function buildProfileText(user, lang, messages) {
@@ -40,8 +83,9 @@ function buildProfileText(user, lang, messages) {
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
   const genderIcon = "⚧️";
+  const tasteLabelsText = buildTasteLabelsText(user, lang, messages);
 
-  return [
+  const baseText = [
     `${titleIcon} ${messages[lang].profileTitle}`,
     `━━━━━━━━━━━━━━`,
     lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
@@ -52,6 +96,8 @@ function buildProfileText(user, lang, messages) {
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,
   ].join("\n");
+
+  return `${baseText}${tasteLabelsText}`;
 }
 
 function buildLocationPayload(locationMessage) {
@@ -127,6 +173,7 @@ async function sendProfileMessage({
 
 module.exports = {
   buildProfileText,
+  buildTasteLabelsText,
   buildLocationPayload,
   sendProfileMessage,
   saveLocationProfile,
