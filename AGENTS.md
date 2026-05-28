@@ -10,11 +10,35 @@
 - Prefer fixing the root cause over adding temporary workarounds.
 - Avoid unrelated refactors unless they are needed for the task.
 - Preserve the existing style and naming unless a change is required.
+- Keep bot conversations low-noise: edit an existing bot message when navigating menus if possible, and delete stale inline picker messages after the user chooses an item.
+- Do not delete user messages. Only delete bot messages that are temporary, stale, or invalid after the next action.
+- If an inline message contains item indexes, remove or edit it after a mutating action so old buttons cannot act on shifted indexes.
+- Keep general interaction guarding centralized. Fast repeated taps, repeated callbacks, and duplicated user actions should be filtered before reaching individual feature handlers when possible.
+
+## Reusable Bot UX Rules
+- Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
+- Use callback notifications for lightweight context changes when the platform supports them, but do not rely on them as persistent pinned content.
+- When collecting typed input, hide bottom keyboards and provide one inline cancel button.
+- Cancel/back copy should match the action: "back" should not sound like an operation was canceled unless an input flow was actually canceled.
+- Long-running AI actions should send one placeholder, update that same message through short natural waiting copy, then edit it into the final response when possible.
+- Protect repeated fast taps centrally, not inside every handler.
+- The general guard should be conservative: block obvious duplicate interactions for a short window, but do not block normal follow-up text, different buttons, or intentional repeated actions after the window expires.
+- Keep user-facing AI responses short, warm, and action-oriented; avoid repeating the same progress/count text twice in one response.
+
+## Reusable AI Cost Rules
+- Normalize user text before AI/cache work: lowercase, trim, collapse spaces, remove filler phrases and unnecessary punctuation.
+- Use cache lookup before response generation: exact normalized match, then conservative fuzzy match, then optional embedding/semantic match.
+- Keep fuzzy/semantic thresholds configurable and bias toward avoiding false positives over saving one API call.
+- Store reusable AI responses with original input, normalized input, category, response, embedding when enabled, hit count, and last-used time.
+- Log cache match type (`exact`, `fuzzy`, `semantic`, `new_api_call`) so API reduction can be measured.
+- For recommendation prompts, send only the context the model needs. Prefer full Top 10 plus a capped recent slice of larger lists, while doing duplicate checks locally against the full stored list.
+- Add per-user/per-section rate limits for expensive AI flows.
 
 ## Bot Behavior Notes
 - Bale docs reference: https://docs.bale.ai/
 - The bot uses stored user state in MongoDB for profile edits and AI section state.
 - Repeated identical user interactions are guarded in `src/services/interaction-guard.js` and applied from `src/index.js`; keep duplicate-tap protection centralized there.
+- The interaction guard should fail open if it is unsure, so bot features keep working even if guard state is missing or malformed.
 - Profile fields currently include language, name, city, age, gender, pet, bio, location, and photo.
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
@@ -22,12 +46,16 @@
 - Text inputs should be length-limited and normalized before saving (name/city short, bio longer).
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - AI assistant menu includes movies, music, books, and random sections.
+- AI section entry uses Bale callback notifications (`answerCallbackQuery`) as a temporary top notification with the section name; it is not persistent like a pin.
 - AI lists are stored under `aiLists.{section}.{listType}` with item objects: `{ title, comment, watched }`.
 - `watchlist` is capped at 100 items per section; `topTen` is capped at 10 items per section.
 - Watchlist supports section-aware status wording (movies: watched, music: listened, books: read, random: done).
 - Watchlist includes inline actions for status toggle, comment edit, and move-to-top-ten (if topTen has room).
 - TopTen items also support comment edit.
+- AI list duplicate detection should run across all sections and list types, not just music, and should return match data for better duplicate messages.
 - Taste labels are stored in `aiTaste.{section}` with `labelKey`, `emoji`, confidence, sample count, and updated time; derive translated titles at render time.
+- Taste labels are temporary after 3 TopTen items and stronger after 10; recalculate labels whenever TopTen changes.
+- Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
 - Suggestions in AI sections return exactly one item plus a very short reason.
 - Pressing the section suggestion button should first show a choice prompt: suggest from Top 10, or collect one short mood/genre note. Do not call AI until the user chooses.
 - The mood/genre suggestion input state should hide the bottom keyboard and provide an inline cancel button; cancel returns to the same section entry message and keyboard.
