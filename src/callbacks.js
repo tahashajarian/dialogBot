@@ -412,6 +412,12 @@ async function deleteCallbackMessageIfPossible(ctx) {
   return ctx.deleteMessage(ctx.callbackMessageId);
 }
 
+async function startProfileEdit(ctx, state, prompt, keyboard) {
+  await deleteCallbackMessageIfPossible(ctx);
+  await updateUserState(ctx.userId, state);
+  return ctx.reply(prompt, keyboard);
+}
+
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
   const lang = detectLanguage(ctx);
@@ -1022,44 +1028,47 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileEditName) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_name");
-    return ctx.reply(messages[lang].profileAskName, cancelEditKeyboard(lang));
+    return startProfileEdit(ctx, "editing_name", messages[lang].profileAskName, cancelEditKeyboard(lang));
+  }
+
+  if (data === callBacks.profileToggleDiscoverable) {
+    const nextValue = !ctx.user?.profileDiscoverable;
+    await ctx.answerCb?.(nextValue ? messages[lang].profileDiscoverableOn : messages[lang].profileDiscoverableOff);
+    await deleteCallbackMessageIfPossible(ctx);
+    await updateProfileField(ctx.userId, "profileDiscoverable", nextValue);
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.profileDiscoverable = nextValue;
+    return sendProfile(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileEditCity) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_city");
-    return ctx.reply(messages[lang].profileAskCity, cancelEditKeyboard(lang));
+    return startProfileEdit(ctx, "editing_city", messages[lang].profileAskCity, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileEditAge) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_age");
-    return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
+    return startProfileEdit(ctx, "editing_age", messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
   if (data === callBacks.profileEditGender) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_gender");
-    return ctx.reply(messages[lang].profileAskGender, genderKeyboard(lang));
+    return startProfileEdit(ctx, "editing_gender", messages[lang].profileAskGender, genderKeyboard(lang));
   }
 
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_pet_preference");
-    return ctx.reply(messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
+    return startProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
   }
 
   if (data === callBacks.profileEditBio) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_bio");
-    return ctx.reply(messages[lang].profileAskBio, cancelEditKeyboard(lang));
+    return startProfileEdit(ctx, "editing_bio", messages[lang].profileAskBio, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileEditLocation) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_location");
-    return ctx.reply(messages[lang].profileAskLocation, locationKeyboard(lang));
+    return startProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profileGenderSet)) {
@@ -1150,12 +1159,12 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileEditPhoto) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "editing_photo");
-    return ctx.reply(messages[lang].profileAskPhoto, cancelEditKeyboard(lang));
+    return startProfileEdit(ctx, "editing_photo", messages[lang].profileAskPhoto, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileResetPhoto) {
     await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "photoFileId", null);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -1239,7 +1248,7 @@ async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
     ctx,
     user,
     lang,
-    keyboard: profileKeyboard(lang, Boolean(user?.photoFileId)),
+    keyboard: profileKeyboard(lang, Boolean(user?.photoFileId), Boolean(user?.profileDiscoverable)),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",

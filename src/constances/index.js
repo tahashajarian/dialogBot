@@ -44,6 +44,7 @@ module.exports = {
     profileAgeSet: "profile:age:set:",
     profileEditPhoto: "profile:edit:photo",
     profileResetPhoto: "profile:reset:photo",
+    profileToggleDiscoverable: "profile:toggle:discoverable",
     profileBack: "profile:back",
     profileCancelEdit: "profile:cancel:edit",
     langSetFa: "lang:set:fa",

@@ -44,16 +44,19 @@ function getFinalTasteLabels(user, lang, messages) {
 
 function buildTasteLabelsText(user, lang, messages) {
   const labels = getFinalTasteLabels(user, lang, messages);
-  if (!labels.length) {
-    return "";
-  }
-
-  return [
+  const lines = [
     "",
     "",
     messages[lang].profileTasteLabelsTitle,
-    ...labels.map((entry) => `${entry.icon} ${entry.section}: ${entry.label}`),
-  ].join("\n");
+  ];
+
+  if (!labels.length) {
+    lines.push(messages[lang].profileTasteLabelsEmptyHint);
+    return lines.join("\n");
+  }
+
+  lines.push(...labels.map((entry) => `${entry.icon} ${entry.section}: ${entry.label}`));
+  return lines.join("\n");
 }
 
 function getMessageId(message) {
@@ -107,6 +110,9 @@ function buildProfileText(user, lang, messages) {
   const locationText = hasValidLocation(user?.location)
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
+  const discoveryStatus = user?.profileDiscoverable
+    ? messages[lang].profileDiscoverabilityPublic
+    : messages[lang].profileDiscoverabilityPrivate;
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
   const genderIcon = "⚧️";
@@ -122,6 +128,7 @@ function buildProfileText(user, lang, messages) {
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,
+    messages[lang].profileDiscoverability.replace("{status}", discoveryStatus),
   ].join("\n");
 
   return `${baseText}${tasteLabelsText}`;

@@ -65,6 +65,7 @@ const UserSchema = new mongoose.Schema({
     sharedAt: Date,
   },
   photoFileId: String,
+  profileDiscoverable: { type: Boolean, default: false },
   aiLists: { type: AiListsSchema, default: () => ({}) },
   aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiRecentSuggestions: { type: AiRecentSuggestionsSchema, default: () => ({}) },

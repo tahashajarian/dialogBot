@@ -371,10 +371,13 @@ function aiListCancelCommentKeyboard(lang, section, listType) {
   ]);
 }
 
-function profileKeyboard(lang, hasPhoto = false) {
+function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false) {
   const rows = [
     [
       { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
+    ],
+    [
+      { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
     ],
     [
       { text: messages[lang].profileEditCity, callback_data: callBacks.profileEditCity },
@@ -393,7 +396,10 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
     ],
     [
-      { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
+      {
+        text: isDiscoverable ? messages[lang].profileMakePrivate : messages[lang].profileMakeDiscoverable,
+        callback_data: callBacks.profileToggleDiscoverable,
+      },
     ],
   ];
 
