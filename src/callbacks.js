@@ -84,6 +84,41 @@ function normalizeWatchlistFilter(value) {
   return "all";
 }
 
+function getMessageId(message) {
+  return message?.message_id || message?.messageId;
+}
+
+async function rememberAiListMessage(ctx, section, listType, message) {
+  const messageId = getMessageId(message);
+  if (!messageId) {
+    return;
+  }
+
+  await updateProfileField(ctx.userId, "aiLastListMessageId", messageId);
+  await updateProfileField(ctx.userId, "aiLastListSection", section);
+  await updateProfileField(ctx.userId, "aiLastListType", listType);
+}
+
+async function deleteRememberedAiListMessage(ctx, section, listType) {
+  const messageId = ctx.user?.aiLastListMessageId;
+  if (
+    !messageId ||
+    ctx.user?.aiLastListSection !== section ||
+    ctx.user?.aiLastListType !== listType ||
+    !ctx.deleteMessage
+  ) {
+    return false;
+  }
+
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "aiLastListMessageId", null);
+    await updateProfileField(ctx.userId, "aiLastListSection", "");
+    await updateProfileField(ctx.userId, "aiLastListType", "");
+  }
+  return deleted;
+}
+
 function getDuplicateItemTitle(result) {
   return result?.duplicate?.title || result?.duplicate || "";
 }
@@ -97,15 +132,20 @@ function getDuplicateListMessage(lang, result) {
   return messages[lang].aiListDuplicateMatch.replace("{item}", duplicateTitle);
 }
 
-function formatListWithWatched({ title, items, emptyText }) {
+function toTitleSet(items = []) {
+  return new Set(items.map((entry) => String(entry?.title || entry || "").trim().toLowerCase()).filter(Boolean));
+}
+
+function formatListWithWatched({ title, items, emptyText, topTenTitleSet = new Set() }) {
   if (!items.length) {
     return emptyText;
   }
 
   const lines = items.map((entry, index) => {
     const watchedBadge = entry?.watched ? "✅" : "⬜";
+    const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
     const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
-    return `${index + 1}. ${watchedBadge} ${entry.title}${commentPart}`;
+    return `${index + 1}. ${watchedBadge} ${entry.title}${topTenBadge}${commentPart}`;
   });
   return `${title}\n\n${lines.join("\n")}`;
 }
@@ -154,8 +194,10 @@ function buildTopTenInsightMessage(lang, section, items) {
     .replace("{style}", style || messages[lang].aiTasteLabelStyleFallback);
 }
 
-async function getTopTenManageEntryMessage(ctx, lang, section) {
-  const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
+async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverride = null) {
+  const topTenItems = Array.isArray(topTenItemsOverride)
+    ? topTenItemsOverride
+    : getAiListItemsFromUser(ctx.user, section, "topTen");
   if (topTenItems.length < AI_TOP_TEN_LIMIT) {
     const peopleHint = topTenItems.length <= 3 ? `\n\n${messages[lang].aiTopTenManagePeopleHint}` : "";
     if (topTenItems.length >= 3) {
@@ -422,7 +464,8 @@ async function handleCallback(ctx) {
       : messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
 
     if (listType === "topTen") {
-      await ctx.reply(buildTopTenListMessage(ctx, lang, section));
+      const listMessage = await ctx.reply(buildTopTenListMessage(ctx, lang, section));
+      await rememberAiListMessage(ctx, section, listType, listMessage);
     }
 
     const menuText = listType === "topTen"
@@ -467,10 +510,13 @@ async function handleCallback(ctx) {
         title,
         items,
         emptyText: filter === "all" ? emptyText : messages[lang].aiWatchlistFilterEmpty,
+        topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
       })
       : formatTopTenItemsList(title, items, emptyText);
 
-    return ctx.reply(listText, aiListManageMenuKeyboard(lang, section, listType));
+    const listMessage = await ctx.reply(listText, aiListManageMenuKeyboard(lang, section, listType));
+    await rememberAiListMessage(ctx, section, listType, listMessage);
+    return listMessage;
   }
 
   if (data.startsWith(callBacks.aiTopTenInsight)) {
@@ -621,14 +667,21 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    const watchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
-    if (!watchlistItems.length) {
-      return ctx.reply(messages[lang].aiWatchlistFilterEmpty, aiListManageMenuKeyboard(lang, section, "watchlist"));
+    const watchedItems = getAiListItemsFromUser(ctx.user, section, "watchlist")
+      .filter((entry) => entry?.watched);
+    if (!watchedItems.length) {
+      return ctx.reply(messages[lang].aiWatchlistPromoteDoneOnlyEmpty, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
 
     const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
     if (topTenItems.length >= 10) {
       return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
+    }
+
+    const topTenTitleSet = toTitleSet(topTenItems);
+    const watchlistItems = watchedItems.filter((entry) => !topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()));
+    if (!watchlistItems.length) {
+      return ctx.reply(messages[lang].aiWatchlistPromoteNoEligibleItems, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
 
     return editCallbackMessageOrReply(
@@ -648,7 +701,9 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    const watchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
+    const topTenTitleSet = toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen"));
+    const watchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist")
+      .filter((entry) => entry?.watched && !topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()));
     const itemTitle = watchlistItems[itemIndex]?.title;
     if (!itemTitle) {
       await deleteCallbackMessageIfPossible(ctx);
@@ -662,7 +717,7 @@ async function handleCallback(ctx) {
         return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       if (promoteResult.reason === "exists") {
-        return ctx.reply(getDuplicateListMessage(lang, promoteResult), aiListManageMenuKeyboard(lang, section, "watchlist"));
+        return ctx.reply(messages[lang].aiWatchlistPromoteAlreadyTopTen, aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
@@ -769,9 +824,12 @@ async function handleCallback(ctx) {
       await syncAiTasteForSection(ctx.userId, section);
     }
 
+    await deleteRememberedAiListMessage(ctx, section, listType);
+    const removedText = messages[lang].aiListRemovedNamed.replace("{item}", itemTitle);
+
     if (listType === "topTen") {
       return ctx.reply(
-        await getTopTenManageEntryMessage(ctx, lang, section),
+        `${removedText}\n\n${await getTopTenManageEntryMessage(ctx, lang, section, removeResult.items)}`,
         aiListManageMenuKeyboard(lang, section, listType),
       );
     }
@@ -784,7 +842,7 @@ async function handleCallback(ctx) {
           ? messages[lang].aiSectionListLabelBooks
           : messages[lang].aiSectionListLabelRandom;
     return ctx.reply(
-      messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
+      `${removedText}\n\n${messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel)}`,
       aiListManageMenuKeyboard(lang, section, listType),
     );
   }

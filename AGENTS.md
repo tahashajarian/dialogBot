@@ -13,6 +13,7 @@
 - Keep bot conversations low-noise: edit an existing bot message when navigating menus if possible, and delete stale inline picker messages after the user chooses an item.
 - Do not delete user messages. Only delete bot messages that are temporary, stale, or invalid after the next action.
 - If an inline message contains item indexes, remove or edit it after a mutating action so old buttons cannot act on shifted indexes.
+- When deleting list items, delete the previous bot-sent list display if it is tracked, then confirm the removed item by name before showing the manage buttons again.
 - Keep general interaction guarding centralized. Fast repeated taps, repeated callbacks, and duplicated user actions should be filtered before reaching individual feature handlers when possible.
 
 ## Reusable Bot UX Rules
@@ -51,7 +52,10 @@
 - `watchlist` is capped at 100 items per section; `topTen` is capped at 10 items per section.
 - Watchlist supports section-aware status wording (movies: watched, music: listened, books: read, random: done).
 - Watchlist includes inline actions for status toggle, comment edit, and move-to-top-ten (if topTen has room).
+- Moving a watchlist item to TopTen is non-destructive: keep the item in watchlist, copy it into TopTen, and show a `🏆` badge for watchlist items already present in TopTen.
+- Only completed/watched/read/listened watchlist items should be eligible for move-to-TopTen, and already-TopTen items should be hidden from that picker with a clear message if nothing new is eligible.
 - TopTen items also support comment edit.
+- TopTen includes a cheap "what does my Top 10 say about me?" insight button. Use existing taste label/style data; do not call AI for this insight unless explicitly redesigned later.
 - AI list duplicate detection should run across all sections and list types, not just music, and should return match data for better duplicate messages.
 - Taste labels are stored in `aiTaste.{section}` with `labelKey`, `emoji`, confidence, sample count, and updated time; derive translated titles at render time.
 - Taste labels are temporary after 3 TopTen items and stronger after 10; recalculate labels whenever TopTen changes.
@@ -73,6 +77,8 @@
 - AI section entry should be a guided hub message, not an open chat prompt: tell users their section taste is not known yet, encourage filling topTen, and direct them to bottom buttons.
 - Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
 - When a user enters topTen in any section, send the current topTen list as a separate message before the section/manage description and inline buttons.
+- Track the last bot-sent AI list message (`aiLastListMessageId`, section, type) so stale list displays can be deleted after mutating actions.
+- After a mutation, do not build follow-up copy from stale `ctx.user` when the service already returned updated items; use the updated result to avoid incorrect full/progress messages.
 - TopTen menus should still keep the "show all" action even though the list is also shown on entry.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate topTen directly.
 - Use `scripts/migrate-ai-lists.js` to move legacy flat lists into `aiLists`, and `scripts/rollback-ai-lists.js` to restore legacy fields if needed.

@@ -580,16 +580,14 @@ async function promoteWatchlistItemToTopTen(userId, section, item, maxTopTenItem
     return { ok: false, reason: "top_ten_limit", watchlistItems, topTenItems };
   }
 
-  const nextWatchlist = watchlistItems.filter((entry) => entry.title.toLowerCase() !== cleanItem.toLowerCase());
   const nextTopTen = [...topTenItems, { title: watchlistItem.title, comment: watchlistItem.comment, watched: false }];
 
-  await updateProfileField(userId, `aiLists.${section}.watchlist`, nextWatchlist);
   await updateProfileField(userId, `aiLists.${section}.topTen`, nextTopTen);
 
   return {
     ok: true,
     movedItem: { title: watchlistItem.title, comment: watchlistItem.comment },
-    watchlistItems: nextWatchlist,
+    watchlistItems,
     topTenItems: nextTopTen,
   };
 }

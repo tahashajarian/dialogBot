@@ -112,16 +112,37 @@ function isAiListText(text) {
   return plainText === "list" || plainText === "لیست";
 }
 
-function formatAiItemsList(title, items, emptyText) {
+function getMessageId(message) {
+  return message?.message_id || message?.messageId;
+}
+
+async function rememberAiListMessage(ctx, section, listType, message) {
+  const messageId = getMessageId(message);
+  if (!messageId) {
+    return;
+  }
+
+  await updateProfileField(ctx.userId, "aiLastListMessageId", messageId);
+  await updateProfileField(ctx.userId, "aiLastListSection", section);
+  await updateProfileField(ctx.userId, "aiLastListType", listType);
+}
+
+function toTitleSet(items = []) {
+  return new Set(items.map((entry) => String(entry?.title || entry || "").trim().toLowerCase()).filter(Boolean));
+}
+
+function formatAiItemsList(title, items, emptyText, options = {}) {
   if (!items.length) {
     return emptyText;
   }
 
+  const topTenTitleSet = options.topTenTitleSet || new Set();
   const lines = items.map((item, index) => {
+    const topTenBadge = topTenTitleSet.has(String(item?.title || "").trim().toLowerCase()) ? " 🏆" : "";
     if (item?.comment) {
-      return `${index + 1}. ${item.title} — ${item.comment}`;
+      return `${index + 1}. ${item.title}${topTenBadge} — ${item.comment}`;
     }
-    return `${index + 1}. ${item.title}`;
+    return `${index + 1}. ${item.title}${topTenBadge}`;
   });
   return `${title}\n\n${lines.join("\n")}`;
 }
@@ -308,13 +329,14 @@ function buildWatchlistMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
   const entries = getAiListItemsFromUser(ctx.user, section, "watchlist");
+  const topTenTitleSet = toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen"));
   const title = messages[lang].aiWatchlistTitle
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
   const emptyText = messages[lang].aiWatchlistEmpty
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
-  return formatAiItemsList(title, entries, emptyText);
+  return formatAiItemsList(title, entries, emptyText, { topTenTitleSet });
 }
 
 function getNeedTopTenMessage(lang, section) {
@@ -670,7 +692,8 @@ async function handleUpdate(ctx) {
     if (isAiSectionListText(text, section)) {
       const nextState = `ai_manage_${section}_watchlist`;
       await updateUserState(ctx.userId, nextState);
-      await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
+      const listMessage = await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
+      await rememberAiListMessage(ctx, section, "watchlist", listMessage);
       return ctx.reply(
         messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
         aiListManageMenuKeyboard(lang, section, "watchlist")
@@ -680,7 +703,8 @@ async function handleUpdate(ctx) {
     if (isAiSectionTopTenText(text)) {
       const nextState = `ai_manage_${section}_top_ten`;
       await updateUserState(ctx.userId, nextState);
-      await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
+      const listMessage = await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
+      await rememberAiListMessage(ctx, section, "topTen", listMessage);
       return ctx.reply(
         await getTopTenManageEntryMessage(ctx, lang, section),
         aiListManageMenuKeyboard(lang, section, "topTen"),
@@ -696,8 +720,9 @@ async function handleUpdate(ctx) {
     }
 
     if (isAiListText(text) && !manageState.addInputMode) {
+      const listOptions = isWatchlist ? { topTenTitleSet: toTitleSet(topTenItems) } : {};
       return ctx.reply(
-        formatAiItemsList(title, currentItems, emptyText),
+        formatAiItemsList(title, currentItems, emptyText, listOptions),
         aiSectionKeyboardForSection(lang, section)
       );
     }
@@ -758,7 +783,7 @@ async function handleUpdate(ctx) {
       }
 
       return ctx.reply(
-        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText)}`,
+        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, { topTenTitleSet: toTitleSet(topTenItems) })}`,
         aiListManageMenuKeyboard(lang, section, listType)
       );
     }
@@ -866,7 +891,8 @@ async function handleUpdate(ctx) {
     if (isAiSectionListText(text, section)) {
       const nextState = `ai_manage_${section}_watchlist`;
       await updateUserState(ctx.userId, nextState);
-      await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
+      const listMessage = await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
+      await rememberAiListMessage(ctx, section, "watchlist", listMessage);
       return ctx.reply(
         messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
         aiListManageMenuKeyboard(lang, section, "watchlist")
@@ -876,7 +902,8 @@ async function handleUpdate(ctx) {
     if (isAiSectionTopTenText(text)) {
       const nextState = `ai_manage_${section}_top_ten`;
       await updateUserState(ctx.userId, nextState);
-      await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
+      const listMessage = await ctx.reply(buildTopTenListMessage({ ctx, lang, section }));
+      await rememberAiListMessage(ctx, section, "topTen", listMessage);
       return ctx.reply(
         await getTopTenManageEntryMessage(ctx, lang, section),
         aiListManageMenuKeyboard(lang, section, "topTen"),
