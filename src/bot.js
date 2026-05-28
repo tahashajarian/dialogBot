@@ -123,7 +123,7 @@ function formatAiItemsList(title, items, emptyText) {
     }
     return `${index + 1}. ${item.title}`;
   });
-  return `${title}\n${lines.join("\n")}`;
+  return `${title}\n\n${lines.join("\n")}`;
 }
 
 function parseAiListInput(text) {
@@ -372,6 +372,18 @@ function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
   return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
 }
 
+function formatAiComplimentFeedback(feedback) {
+  return `🤖 ${feedback}`;
+}
+
+function formatSuggestionResultMessage(lang, title, reason) {
+  const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
+  return [
+    messages[lang].aiSuggestionResultTitle.replace("{item}", title),
+    messages[lang].aiSuggestionResultReason.replace("{reason}", cleanReason),
+  ].join("\n\n");
+}
+
 async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
   const count = items.length;
   const goal = AI_TOP_TEN_LIMIT;
@@ -395,7 +407,7 @@ async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
     .replace("{count}", String(count))
     .replace("{goal}", String(goal));
 
-  const responseParts = [feedback];
+  const responseParts = [formatAiComplimentFeedback(feedback)];
 
   if (count >= 3 && count < goal) {
     const preliminaryText = isWeakTasteLabel(section, inferredTaste)
@@ -412,7 +424,7 @@ async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
 
   if (count < goal) {
     responseParts.push(getTopTenNextPrompt(lang, count));
-    return responseParts.join("\n");
+    return responseParts.join("\n\n");
   }
 
   const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
@@ -432,7 +444,7 @@ async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
     .replace("{goal}", String(goal));
 
   responseParts.push(unlockedText);
-  return responseParts.join("\n");
+  return responseParts.join("\n\n");
 }
 
 async function sendSingleSectionSuggestion({
@@ -503,7 +515,7 @@ async function sendSingleSectionSuggestion({
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
   return placeholder.finish(
-    `${suggestionResult.title}\n${suggestionResult.reason || messages[lang].aiSuggestionFallbackTitle}`,
+    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
     aiSuggestionAddKeyboard(lang, section),
   );
 }

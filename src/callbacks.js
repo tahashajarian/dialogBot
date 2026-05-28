@@ -107,7 +107,7 @@ function formatListWithWatched({ title, items, emptyText }) {
     const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
     return `${index + 1}. ${watchedBadge} ${entry.title}${commentPart}`;
   });
-  return `${title}\n${lines.join("\n")}`;
+  return `${title}\n\n${lines.join("\n")}`;
 }
 
 function formatTopTenItemsList(title, items, emptyText) {
@@ -119,7 +119,7 @@ function formatTopTenItemsList(title, items, emptyText) {
     const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
     return `${index + 1}. ${entry.title}${commentPart}`;
   });
-  return `${title}\n${lines.join("\n")}`;
+  return `${title}\n\n${lines.join("\n")}`;
 }
 
 function buildTopTenListMessage(ctx, lang, section) {
@@ -164,6 +164,14 @@ function formatSuggestionLimitMessage(lang, resetAt) {
   const resetTime = resetAt ? new Date(resetAt).getTime() : Date.now();
   const minutes = Math.max(1, Math.ceil((resetTime - Date.now()) / (60 * 1000)));
   return messages[lang].aiSuggestionHourlyLimit.replace("{minutes}", String(minutes));
+}
+
+function formatSuggestionResultMessage(lang, title, reason) {
+  const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
+  return [
+    messages[lang].aiSuggestionResultTitle.replace("{item}", title),
+    messages[lang].aiSuggestionResultReason.replace("{reason}", cleanReason),
+  ].join("\n\n");
 }
 
 function promptSuggestionMode(ctx, lang, section) {
@@ -243,7 +251,7 @@ async function sendFollowupSuggestion({
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
   return placeholder.finish(
-    `${suggestionResult.title}\n${suggestionResult.reason || messages[lang].aiSuggestionFallbackTitle}`,
+    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
     aiSuggestionAddKeyboard(lang, section),
   );
 }
@@ -764,7 +772,7 @@ async function handleCallback(ctx) {
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {
-    await ctx.answerCb?.();
+    await ctx.answerCb?.(messages[lang].aiSuggestionNotification);
     const section = data.replace(callBacks.aiSectionAnotherSuggestion, "").trim();
     if (!section) {
       return ctx.reply(messages[lang].unknownAction);
@@ -795,7 +803,7 @@ async function handleCallback(ctx) {
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestWithContext)) {
-    await ctx.answerCb?.();
+    await ctx.answerCb?.(messages[lang].aiSuggestionContextNotification);
     const section = data.replace(callBacks.aiSectionSuggestWithContext, "").trim();
     if (!section) {
       return ctx.reply(messages[lang].unknownAction);
@@ -819,7 +827,7 @@ async function handleCallback(ctx) {
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestFromTopTen)) {
-    await ctx.answerCb?.();
+    await ctx.answerCb?.(messages[lang].aiSuggestionTopTenNotification);
     const section = data.replace(callBacks.aiSectionSuggestFromTopTen, "").trim();
     if (!section) {
       return ctx.reply(messages[lang].unknownAction);
