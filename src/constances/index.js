@@ -25,6 +25,7 @@ module.exports = {
     aiListManageCommentItem: "ai:list:comment:item:",
     aiListManagePromotePicker: "ai:list:promote:picker:",
     aiListManagePromoteItem: "ai:list:promote:item:",
+    aiTopTenInsight: "ai:top-ten:insight:",
     aiListManageBack: "ai:list:back:",
     aiListManageCancelAdd: "ai:list:add:cancel:",
     aiListManageCancelComment: "ai:list:comment:cancel:",

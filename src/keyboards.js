@@ -286,6 +286,13 @@ function aiListManageMenuKeyboard(lang, section, listType) {
         callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:not_watched`,
       },
     ]);
+  } else {
+    rows.push([
+      {
+        text: messages[lang].aiTopTenInsightButton,
+        callback_data: `${callBacks.aiTopTenInsight}${section}`,
+      },
+    ]);
   }
 
   rows.push([

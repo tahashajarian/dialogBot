@@ -134,6 +134,26 @@ function formatTasteWithStoredEmoji(section, taste, labelTitle) {
   return `${taste?.emoji || getTasteLabelEmoji(section, taste?.labelKey)} ${labelTitle}`;
 }
 
+function buildTopTenInsightMessage(lang, section, items) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const goal = AI_TOP_TEN_LIMIT;
+  if (items.length < goal) {
+    return messages[lang].aiTopTenInsightNeedComplete
+      .replace("{section}", sectionLabel)
+      .replace("{count}", String(items.length))
+      .replace("{goal}", String(goal));
+  }
+
+  const inferredTaste = inferTasteLabel(section, items.map((entry) => entry.title));
+  const labelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
+  const label = formatTasteWithStoredEmoji(section, inferredTaste, labelTitle);
+  const style = getTasteLabelStyleHint(messages, lang, section, inferredTaste.labelKey);
+  return messages[lang].aiTopTenInsightText
+    .replace("{section}", sectionLabel)
+    .replace("{label}", label)
+    .replace("{style}", style || messages[lang].aiTasteLabelStyleFallback);
+}
+
 async function getTopTenManageEntryMessage(ctx, lang, section) {
   const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
   if (topTenItems.length < AI_TOP_TEN_LIMIT) {
@@ -451,6 +471,20 @@ async function handleCallback(ctx) {
       : formatTopTenItemsList(title, items, emptyText);
 
     return ctx.reply(listText, aiListManageMenuKeyboard(lang, section, listType));
+  }
+
+  if (data.startsWith(callBacks.aiTopTenInsight)) {
+    await ctx.answerCb?.(messages[lang].aiTopTenInsightNotification);
+    const section = data.replace(callBacks.aiTopTenInsight, "").trim();
+    if (!section) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    const items = getAiListItemsFromUser(ctx.user, section, "topTen");
+    return ctx.reply(
+      buildTopTenInsightMessage(lang, section, items),
+      aiListManageMenuKeyboard(lang, section, "topTen"),
+    );
   }
 
   if (data.startsWith(callBacks.aiListManageTogglePicker)) {
