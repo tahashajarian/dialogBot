@@ -29,6 +29,18 @@ function mainMenuKeyboard(lang) {
         callback_data: callBacks.aiAssistant,
       },
     ],
+    [
+      {
+        text: messages[lang].discussions,
+        callback_data: callBacks.discussions,
+      },
+    ],
+    [
+      {
+        text: messages[lang].savedProfiles,
+        callback_data: callBacks.savedProfiles,
+      },
+    ],
   ]);
 }
 
@@ -583,6 +595,141 @@ function languageKeyboard() {
   ]);
 }
 
+function discussionsMenuKeyboard(lang, isActiveMember = false) {
+  const rows = [
+    [{ text: messages[lang].discussionActiveList, callback_data: callBacks.discussionListActive }],
+    [{ text: messages[lang].discussionCreate, callback_data: callBacks.discussionCreateStart }],
+    [{ text: messages[lang].discussionMyList, callback_data: callBacks.discussionListMine }],
+  ];
+  if (isActiveMember) {
+    rows.push([{ text: messages[lang].discussionLeave, callback_data: callBacks.discussionLeave }]);
+  }
+  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionItemsKeyboard(lang, discussions = [], prefix) {
+  const rows = discussions.slice(0, 20).map((entry) => ([
+    {
+      text: `💬 ${entry.title}`,
+      callback_data: `${prefix}${entry._id}`,
+    },
+  ]));
+  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionMembersKeyboard(lang, discussion, members, ownerCode) {
+  const rows = [];
+  const profileRows = members
+    .filter((entry) => entry.publicProfileCode)
+    .map((entry) => ([{
+      text: `/${entry.publicProfileCode}`,
+      callback_data: `${callBacks.profileViewByCode}${entry.publicProfileCode}`,
+    }]));
+  rows.push(...profileRows);
+  if (ownerCode) {
+    rows.push([{ text: messages[lang].discussionRemoveMember, callback_data: `${callBacks.discussionRemoveMemberPicker}${discussion._id}` }]);
+  }
+  rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: `${callBacks.discussionOpen}${discussion._id}` }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionCreateDescriptionKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionSkipDescription, callback_data: callBacks.discussionCreateSkipDescription }],
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionCreateCancelKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionJoinRuleKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionJoinRuleOpen, callback_data: callBacks.discussionCreateRuleOpen }],
+    [{ text: messages[lang].discussionJoinRuleTopTen, callback_data: callBacks.discussionCreateRuleTopTen }],
+    [{ text: messages[lang].discussionJoinRuleTaste, callback_data: callBacks.discussionCreateRuleTaste }],
+    [{ text: messages[lang].discussionJoinRuleItem, callback_data: callBacks.discussionCreateRuleItem }],
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionSectionKeyboard(lang, prefix) {
+  return inlineKeyboard([
+    [{ text: messages[lang].aiSuggestMovies, callback_data: `${prefix}movies` }],
+    [{ text: messages[lang].aiSuggestMusic, callback_data: `${prefix}music` }],
+    [{ text: messages[lang].aiSuggestBooks, callback_data: `${prefix}books` }],
+    [{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }],
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionCreateConfirmKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionCreateConfirm, callback_data: callBacks.discussionCreateConfirm }],
+    [{ text: messages[lang].discussionEditTitle, callback_data: callBacks.discussionCreateEditTitle }],
+    [{ text: messages[lang].discussionEditDescription, callback_data: callBacks.discussionCreateEditDescription }],
+    [{ text: messages[lang].discussionEditRule, callback_data: callBacks.discussionCreateEditRule }],
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionSelectTasteKeyboard(lang, section, tasteLabelKey) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionCreateSelectCurrentTaste, callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${tasteLabelKey}` }],
+    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+  ]);
+}
+
+function discussionSelectItemKeyboard(lang, section, items = []) {
+  const rows = items.slice(0, 10).map((entry, index) => ([
+    {
+      text: entry.title,
+      callback_data: `${callBacks.discussionCreateSelectItem}${section}:${index}`,
+    },
+  ]));
+  rows.push([{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
+  const rows = members.map((entry) => ([
+    {
+      text: `${entry.profileName || entry.firstName || "کاربر"}`,
+      callback_data: `${callBacks.discussionRemoveMember}${discussionId}:${entry.userId}`,
+    },
+  ]));
+  rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: `${callBacks.discussionOpen}${discussionId}` }]);
+  return inlineKeyboard(rows);
+}
+
+function profileViewActionsKeyboard(lang, profileCode, isSaved, fromSavedList = false) {
+  const rows = isSaved
+    ? [
+      [{ text: messages[lang].profileUnsaveButton, callback_data: `${callBacks.profileUnsaveByCode}${profileCode}` }],
+    ]
+    : [
+      [{ text: messages[lang].profileSaveButton, callback_data: `${callBacks.profileSaveByCode}${profileCode}` }],
+    ];
+  if (fromSavedList) {
+    rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
+  }
+  return inlineKeyboard(rows);
+}
+
+function savedProfilesListKeyboard(lang, items = []) {
+  const rows = items.map((entry) => ([
+    { text: `${entry.name} — /${entry.code}`, callback_data: `${callBacks.savedProfilesOpen}${entry.code}` },
+    { text: messages[lang].savedProfileRemove, callback_data: `${callBacks.savedProfilesRemove}${entry.code}` },
+  ]));
+  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
+  return inlineKeyboard(rows);
+}
+
 module.exports = {
   inlineKeyboard,
   mainMenuKeyboard,
@@ -610,4 +757,17 @@ module.exports = {
   petPreferenceKeyboard,
   locationKeyboard,
   languageKeyboard,
+  discussionsMenuKeyboard,
+  discussionItemsKeyboard,
+  discussionMembersKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionCreateCancelKeyboard,
+  discussionJoinRuleKeyboard,
+  discussionSectionKeyboard,
+  discussionCreateConfirmKeyboard,
+  discussionSelectTasteKeyboard,
+  discussionSelectItemKeyboard,
+  discussionRemoveMembersKeyboard,
+  profileViewActionsKeyboard,
+  savedProfilesListKeyboard,
 };

@@ -19,6 +19,10 @@ const {
   aiListManageMenuKeyboard,
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionJoinRuleKeyboard,
+  discussionCreateCancelKeyboard,
+  profileViewActionsKeyboard,
 } = require("./keyboards");
 const {
   updateProfileField,
@@ -61,6 +65,8 @@ const {
   clearAiSectionPin,
 } = require("./services/ai-section");
 const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
+const { addRecentMessage, normalizePublicProfileCode } = require("./services/discussions");
+const User = require("./models/user");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const FIELD_LIMITS = {
@@ -128,6 +134,21 @@ async function rememberAiListMessage(ctx, section, listType, message) {
   await updateProfileField(ctx.userId, "aiLastListType", listType);
 }
 
+async function clearRememberedAiListMessage(ctx) {
+  const messageId = Number(ctx.user?.aiLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
+    return false;
+  }
+
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "aiLastListMessageId", null);
+    await updateProfileField(ctx.userId, "aiLastListSection", "");
+    await updateProfileField(ctx.userId, "aiLastListType", "");
+  }
+  return deleted;
+}
+
 function toTitleSet(items = []) {
   return new Set(items.map((entry) => String(entry?.title || entry || "").trim().toLowerCase()).filter(Boolean));
 }
@@ -146,6 +167,12 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
     return `${index + 1}. ${item.title}${topTenBadge}`;
   });
   return `${title}\n\n${lines.join("\n")}`;
+}
+
+function withAiSectionTitle(lang, section, body) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const heading = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
+  return `${heading}\n\n${body}`;
 }
 
 function parseAiListInput(text) {
@@ -293,7 +320,7 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
-  return formatAiItemsList(title, topTenEntries, emptyText);
+  return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText));
 }
 
 function formatTasteWithStoredEmoji(section, taste, labelTitle) {
@@ -337,7 +364,7 @@ function buildWatchlistMessage({ ctx, lang, section }) {
   const emptyText = messages[lang].aiWatchlistEmpty
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
-  return formatAiItemsList(title, entries, emptyText, { topTenTitleSet });
+  return withAiSectionTitle(lang, section, formatAiItemsList(title, entries, emptyText, { topTenTitleSet }));
 }
 
 function getNeedTopTenMessage(lang, section) {
@@ -555,10 +582,34 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
 
+  if (state === "idle" && ctx.user?.activeDiscussionId && text && !text.startsWith("/")) {
+    const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+    const added = await addRecentMessage({
+      discussionId: ctx.user.activeDiscussionId,
+      senderUserId: ctx.userId,
+      senderDisplayName: senderName,
+      text,
+    });
+    if (!added.ok) {
+      return ctx.reply(messages[lang].discussionMessageOnlyText);
+    }
+
+    const inboundText = messages[lang].discussionMessageInbound
+      .replace("{title}", added.discussion.title)
+      .replace("{sender}", senderName || "کاربر")
+      .replace("{text}", String(text).trim());
+
+    await Promise.all(
+      (added.recipients || []).map((recipientUserId) => ctx.sendToUser?.(recipientUserId, inboundText)),
+    );
+    return ctx.reply(messages[lang].discussionMessageSent);
+  }
+
   if (text === "/cancel") {
     const aiSection = getAiSectionFromState(state);
     await updateUserState(ctx.userId, "idle");
     if (aiSection) {
+      await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
       await ctx.reply(messages[lang].cancelMessage, {
         reply_markup: { remove_keyboard: true },
@@ -657,14 +708,35 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
   }
 
+  if (state === "discussion_create_title") {
+    if (!text || text.startsWith("/")) {
+      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+    }
+    const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 80);
+    if (!normalized) {
+      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelKeyboard(lang));
+    }
+    await updateProfileField(ctx.userId, "discussionDraftTitle", normalized);
+    await updateUserState(ctx.userId, "discussion_create_description");
+    return ctx.reply(messages[lang].discussionCreateAskDescription, discussionCreateDescriptionKeyboard(lang));
+  }
+
+  if (state === "discussion_create_description") {
+    if (!text || text.startsWith("/")) {
+      return ctx.reply(messages[lang].discussionCreateAskDescription, discussionCreateDescriptionKeyboard(lang));
+    }
+    const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
+    await updateProfileField(ctx.userId, "discussionDraftDescription", normalized);
+    await updateUserState(ctx.userId, "discussion_create_join_rule");
+    return ctx.reply(messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+  }
+
   const manageState = parseAiManageState(state);
   if (manageState) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
+      await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].aiAssistant, {
-        reply_markup: { remove_keyboard: true },
-      });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
@@ -880,10 +952,8 @@ async function handleUpdate(ctx) {
   ) {
     if (isAiBackText(text)) {
       await updateUserState(ctx.userId, "idle");
+      await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].aiAssistant, {
-        reply_markup: { remove_keyboard: true },
-      });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
@@ -1002,6 +1072,27 @@ async function handleUpdate(ctx) {
 
   if (text === "/profile") {
     return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
+  }
+
+  if (/^\/u_[a-z0-9]+$/i.test(text)) {
+    const code = normalizePublicProfileCode(text);
+    const target = await User.findOne({ publicProfileCode: code });
+    if (!target) {
+      return ctx.reply(messages[lang].profileCodeNotFound);
+    }
+    if (!target.profileDiscoverable) {
+      return ctx.reply(messages[lang].profilePrivateShort);
+    }
+    const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    const isSaved = current.some((entry) => String(entry).toLowerCase() === code.toLowerCase());
+    return sendProfileMessage({
+      ctx,
+      user: target,
+      lang,
+      keyboard: profileViewActionsKeyboard(lang, code, isSaved),
+      messages,
+      defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+    });
   }
 
   if (text === "/resetphoto") {

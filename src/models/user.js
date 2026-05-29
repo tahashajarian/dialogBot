@@ -67,6 +67,33 @@ const UserSchema = new mongoose.Schema({
   photoFileId: String,
   profileDiscoverable: { type: Boolean, default: false },
   showActiveDiscussionOnProfile: { type: Boolean, default: false },
+  publicProfileCode: { type: String, default: "", index: true, sparse: true },
+  activeDiscussionId: { type: mongoose.Schema.Types.ObjectId, ref: "Discussion", default: null },
+  discussionMembershipIds: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Discussion" }],
+    default: [],
+    validate: {
+      validator(value) {
+        return Array.isArray(value) && value.length <= 10;
+      },
+      message: "discussionMembershipIds exceeds membership cap",
+    },
+  },
+  savedProfileCodes: {
+    type: [String],
+    default: [],
+    validate: {
+      validator(value) {
+        return Array.isArray(value) && value.length <= 50;
+      },
+      message: "savedProfileCodes exceeds saved profile cap",
+    },
+  },
+  discussionDraftTitle: { type: String, default: "" },
+  discussionDraftDescription: { type: String, default: "" },
+  discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
+  discussionLastRoomHeaderMessageId: { type: Number, default: null },
+  discussionLastRoomRecentMessageId: { type: Number, default: null },
   aiLists: { type: AiListsSchema, default: () => ({}) },
   aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiRecentSuggestions: { type: AiRecentSuggestionsSchema, default: () => ({}) },
@@ -84,6 +111,7 @@ const UserSchema = new mongoose.Schema({
   aiLastListMessageId: Number,
   aiLastListSection: String,
   aiLastListType: String,
+  aiSectionEntryMessageId: Number,
   aiSectionPendingCommentItem: String,
   aiSectionPendingCommentListType: String,
   lang: { type: String, default: "fa" },

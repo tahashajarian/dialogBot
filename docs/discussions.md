@@ -208,6 +208,7 @@ Buttons:
 ```
 
 Restricted-topic preview is useful because join rules are harder to change mentally after creation.
+At preview step, the creator should be able to edit title, description, or join rule before final confirm.
 
 Label-restricted discussions should use only the creator's existing labels, not the full system label catalog. This prevents random gatekeeping and keeps the room connected to the creator's actual taste.
 
@@ -218,6 +219,12 @@ Item-restricted discussions should use the creator's own TopTen items, especiall
 فقط کسانی که کدنویسی توی تاپ ۱۰ علاقه‌مندی‌هاشونه
 فقط کسانی که قهوه توی تاپ ۱۰ علاقه‌مندی‌هاشونه
 ```
+
+Creator eligibility should be validated before creation confirm wherever possible:
+
+- Completed Top 10 rule: creator must already have 10 items in the chosen section.
+- Taste-label rule: creator must already have an existing label in the chosen section.
+- Top-10-item rule: creator must pick an existing item from their own Top 10.
 
 This rule is more approachable than labels for many users because it gates by a concrete shared interest.
 
@@ -670,6 +677,7 @@ MVP minimum:
 - Closed discussions cannot receive new messages.
 - Owner cannot leave their own open discussion; they must close it.
 - Closing removes the discussion from active listings and member memberships.
+- Closing should notify current members that the discussion was closed.
 - Text only.
 - Profile viewing must respect `profileDiscoverable`.
 
@@ -696,6 +704,15 @@ Do not expose:
 - location
 - private profile fields
 
+## Delivery And Room Messaging
+
+MVP message behavior:
+
+- If a user has `activeDiscussionId` set, normal text messages should be sent to that active discussion.
+- Sending text should append to `recentMessages` (capped to last 10) and be broadcast to current members.
+- Sender should receive a short delivery confirmation.
+- Only text is supported in MVP (no media/voice/files/forwards).
+
 ## Member/Profile Viewing
 
 MVP should allow users to identify who sent a message by display name and view discoverable profiles through the members list.
@@ -709,6 +726,7 @@ Profile-view interaction:
 4. If private, bot says the profile is private.
 
 Bale may not support clickable names in plain bot text, so public profile codes are preferred over inline buttons under every message.
+Implementation note: member lists can include `/u_CODE` buttons and still support manual typed `/u_CODE` lookup.
 
 ## Saved Profiles And Discussion Discovery
 
@@ -755,6 +773,8 @@ Saved profiles main menu:
 1. علی — /u_8K2P
 2. سارا — /u_9Q4M
 ```
+
+Implementation note: saved profiles now appear in main menu and support view/remove actions.
 
 Actions per saved profile:
 

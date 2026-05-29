@@ -4,6 +4,7 @@ const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const { getAiSingleSuggestion, getAiTasteItemFeedback } = require("./services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("./services/ai-placeholder");
 const {
+  inlineKeyboard,
   mainMenuKeyboard,
   languageKeyboard,
   aiAssistantKeyboard,
@@ -27,6 +28,19 @@ const {
   petPreferenceKeyboard,
   locationKeyboard,
   cancelEditKeyboard,
+  discussionsMenuKeyboard,
+  discussionItemsKeyboard,
+  discussionMembersKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionCreateCancelKeyboard,
+  discussionJoinRuleKeyboard,
+  discussionSectionKeyboard,
+  discussionCreateConfirmKeyboard,
+  discussionSelectTasteKeyboard,
+  discussionSelectItemKeyboard,
+  discussionRemoveMembersKeyboard,
+  profileViewActionsKeyboard,
+  savedProfilesListKeyboard,
 } = require("./keyboards");
 const { callBacks } = require("./constances");
 const {
@@ -63,6 +77,30 @@ const {
   clearPendingSuggestion,
 } = require("./services/ai-suggestion-cache");
 const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
+const {
+  getDiscussionErrorMessage,
+  buildDiscussionPreviewText,
+} = require("./services/discussion-ui");
+const { isCodeSaved, buildSavedProfileListItems } = require("./services/saved-profiles-ui");
+const {
+  formatDiscussionRoom,
+  formatRecentDiscussionMessages,
+  formatDiscussionMemberLines,
+} = require("./services/discussion-room-ui");
+const User = require("./models/user");
+const {
+  listActiveDiscussions,
+  listMyDiscussions,
+  joinOrSwitchActiveDiscussion,
+  leaveDiscussionAsMember,
+  closeDiscussionAsOwner,
+  ensurePublicProfileCode,
+  createDiscussion,
+  removeMemberAsOwner,
+  addSavedProfileCode,
+  removeSavedProfileCode,
+  normalizePublicProfileCode,
+} = require("./services/discussions");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const AI_WATCHLIST_LIMIT = 100;
@@ -102,6 +140,24 @@ async function rememberAiListMessage(ctx, section, listType, message) {
   await updateProfileField(ctx.userId, "aiLastListType", listType);
 }
 
+async function replaceRememberedAiListMessage(ctx, section, listType, message) {
+  const currentMessageId = ctx.user?.aiLastListMessageId;
+  const currentSection = ctx.user?.aiLastListSection;
+  const currentListType = ctx.user?.aiLastListType;
+  const nextMessageId = getMessageId(message);
+
+  if (
+    currentMessageId &&
+    ctx.deleteMessage &&
+    (currentSection !== section || currentListType !== listType) &&
+    Number(currentMessageId) !== Number(nextMessageId)
+  ) {
+    await ctx.deleteMessage(currentMessageId);
+  }
+
+  await rememberAiListMessage(ctx, section, listType, message);
+}
+
 async function deleteRememberedAiListMessage(ctx, section, listType) {
   const messageId = ctx.user?.aiLastListMessageId;
   if (
@@ -120,6 +176,123 @@ async function deleteRememberedAiListMessage(ctx, section, listType) {
     await updateProfileField(ctx.userId, "aiLastListType", "");
   }
   return deleted;
+}
+
+async function clearRememberedAiListMessage(ctx) {
+  const messageId = ctx.user?.aiLastListMessageId;
+  if (!messageId || !ctx.deleteMessage) {
+    return false;
+  }
+
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "aiLastListMessageId", null);
+    await updateProfileField(ctx.userId, "aiLastListSection", "");
+    await updateProfileField(ctx.userId, "aiLastListType", "");
+  }
+  return deleted;
+}
+
+async function rememberAiSectionEntryMessage(ctx, message) {
+  const messageId = getMessageId(message);
+  await updateProfileField(ctx.userId, "aiSectionEntryMessageId", messageId || null);
+}
+
+async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.aiSectionEntryMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "aiSectionEntryMessageId", null);
+  }
+  return deleted;
+}
+
+async function clearRememberedDiscussionRoomCards(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const headerId = Number(ctx.user?.discussionLastRoomHeaderMessageId);
+  const recentId = Number(ctx.user?.discussionLastRoomRecentMessageId);
+  const hasTrackedCards = (Number.isInteger(headerId) && headerId > 0) || (Number.isInteger(recentId) && recentId > 0);
+  if (!hasTrackedCards) {
+    return;
+  }
+
+  const ids = [headerId, recentId].filter((id) => Number.isInteger(id) && id > 0 && !keep.has(id));
+
+  if (ctx.deleteMessage) {
+    await Promise.all(ids.map((id) => ctx.deleteMessage(id)));
+  }
+
+  await updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", null);
+  await updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", null);
+}
+
+async function rememberDiscussionRoomCards(ctx, headerMessage, recentMessage) {
+  await updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", getMessageId(headerMessage) || null);
+  await updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", getMessageId(recentMessage) || null);
+}
+
+function shouldKeepDiscussionRoomCardsForCallback(data = "") {
+  return (
+    data === callBacks.discussions ||
+    data === callBacks.discussionListActive ||
+    data === callBacks.discussionListMine ||
+    data === callBacks.discussionCreateStart ||
+    data === callBacks.discussionCreateCancel ||
+    data === callBacks.discussionCreateSkipDescription ||
+    data === callBacks.discussionCreateRuleOpen ||
+    data === callBacks.discussionCreateRuleTopTen ||
+    data === callBacks.discussionCreateRuleTaste ||
+    data === callBacks.discussionCreateRuleItem ||
+    data === callBacks.discussionCreateConfirm ||
+    data === callBacks.discussionCreateEditTitle ||
+    data === callBacks.discussionCreateEditDescription ||
+    data === callBacks.discussionCreateEditRule ||
+    data.startsWith(callBacks.discussionCreateRuleSection) ||
+    data.startsWith(callBacks.discussionCreateSelectTaste) ||
+    data.startsWith(callBacks.discussionCreateSelectItem) ||
+    data.startsWith(callBacks.discussionOpen) ||
+    data.startsWith(callBacks.discussionLeave) ||
+    data.startsWith(callBacks.discussionClose) ||
+    data.startsWith(callBacks.discussionMembers) ||
+    data.startsWith(callBacks.discussionRemoveMemberPicker) ||
+    data.startsWith(callBacks.discussionRemoveMember)
+  );
+}
+
+function shouldKeepAiListTitleForCallback(data = "") {
+  return (
+    data.startsWith(callBacks.aiAssistant) ||
+    data.startsWith(callBacks.aiSuggestMovies) ||
+    data.startsWith(callBacks.aiSuggestMusic) ||
+    data.startsWith(callBacks.aiSuggestBooks) ||
+    data.startsWith(callBacks.aiSuggestRandom) ||
+    data.startsWith(callBacks.aiListManageMenu) ||
+    data.startsWith(callBacks.aiListManageShow) ||
+    data.startsWith(callBacks.aiTopTenInsight) ||
+    data.startsWith(callBacks.aiListManageTogglePicker) ||
+    data.startsWith(callBacks.aiListManageToggleItem) ||
+    data.startsWith(callBacks.aiListManageCommentPicker) ||
+    data.startsWith(callBacks.aiListManageCommentItem) ||
+    data.startsWith(callBacks.aiListManageCancelComment) ||
+    data.startsWith(callBacks.aiListManagePromotePicker) ||
+    data.startsWith(callBacks.aiListManagePromoteItem) ||
+    data.startsWith(callBacks.aiListManageAdd) ||
+    data.startsWith(callBacks.aiListManageCancelAdd) ||
+    data.startsWith(callBacks.aiListManageRemovePicker) ||
+    data.startsWith(callBacks.aiListManageRemoveItem) ||
+    data.startsWith(callBacks.aiListManageBack) ||
+    data.startsWith(callBacks.aiSectionAddSuggestion) ||
+    data.startsWith(callBacks.aiSectionAddSuggestionDone) ||
+    data.startsWith(callBacks.aiSectionAnotherSuggestion) ||
+    data.startsWith(callBacks.aiSectionSuggestFromTopTen) ||
+    data.startsWith(callBacks.aiSectionSuggestWithContext) ||
+    data.startsWith(callBacks.aiSectionSuggestContextCancel) ||
+    data.startsWith(callBacks.aiInterestTopTenChip)
+  );
 }
 
 function getDuplicateItemTitle(result) {
@@ -165,12 +338,37 @@ function formatTopTenItemsList(title, items, emptyText) {
   return `${title}\n\n${lines.join("\n")}`;
 }
 
+function withAiSectionTitle(lang, section, body) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const heading = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
+  return `${heading}\n\n${body}`;
+}
+
 function buildTopTenListMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
   const items = getAiListItemsFromUser(ctx.user, section, "topTen");
-  return formatTopTenItemsList(title, items, emptyText);
+  return withAiSectionTitle(lang, section, formatTopTenItemsList(title, items, emptyText));
+}
+
+function buildWatchlistMessage(ctx, lang, section) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const listLabel = getSectionListLabel(messages, lang, section);
+  const title = messages[lang].aiWatchlistTitle
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+  const emptyText = messages[lang].aiWatchlistEmpty
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+  const items = getAiListItemsFromUser(ctx.user, section, "watchlist");
+  const content = formatListWithWatched({
+    title,
+    items,
+    emptyText,
+    topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
+  });
+  return withAiSectionTitle(lang, section, content);
 }
 
 function formatTasteWithStoredEmoji(section, taste, labelTitle) {
@@ -477,7 +675,9 @@ async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
 
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  return messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
+  const title = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
+  const body = messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
+  return `${title}\n\n${body}`;
 }
 
 function getAiSectionNotificationTitle(lang, section) {
@@ -493,11 +693,15 @@ async function enterAiSection(ctx, lang, section) {
       .replace("{section}", getAiSectionNotificationTitle(lang, section)),
   );
   await updateUserState(ctx.userId, `ai_chat_${section}`);
+  await clearRememberedAiListMessage(ctx);
+  await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
   await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", null);
   await updateProfileField(ctx.userId, "aiSectionPinnedSection", null);
   await deleteCallbackMessageIfPossible(ctx);
   const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
-  return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
+  const sent = await ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
+  await rememberAiSectionEntryMessage(ctx, sent);
+  return sent;
 }
 
 async function editCallbackMessageOrReply(ctx, text, keyboard) {
@@ -525,6 +729,62 @@ async function startProfileEdit(ctx, state, prompt, keyboard) {
   return ctx.reply(prompt, keyboard);
 }
 
+async function sendDiscussionRoom(ctx, lang, discussion) {
+  await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
+  await deleteCallbackMessageIfPossible(ctx);
+  const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
+  const recentMessage = await ctx.reply(
+    formatRecentDiscussionMessages(messages, lang, discussion),
+    discussion.creatorUserId === ctx.userId
+      ? inlineKeyboard([
+        [{ text: messages[lang].discussionMembersTitle, callback_data: `${callBacks.discussionMembers}${discussion._id}` }],
+        [{ text: messages[lang].discussionMyList, callback_data: callBacks.discussionListMine }],
+        [{ text: messages[lang].discussionCloseButton, callback_data: `${callBacks.discussionClose}${discussion._id}` }],
+      ])
+      : inlineKeyboard([
+        [{ text: messages[lang].discussionMembersTitle, callback_data: `${callBacks.discussionMembers}${discussion._id}` }],
+        [{ text: messages[lang].discussionMyList, callback_data: callBacks.discussionListMine }],
+        [{ text: messages[lang].discussionLeave, callback_data: `${callBacks.discussionLeave}${discussion._id}` }],
+      ]),
+  );
+  await rememberDiscussionRoomCards(ctx, headerMessage, recentMessage);
+  return recentMessage;
+}
+
+async function clearDiscussionDraft(userId) {
+  await Promise.all([
+    updateProfileField(userId, "discussionDraftTitle", ""),
+    updateProfileField(userId, "discussionDraftDescription", ""),
+    updateProfileField(userId, "discussionDraftJoinRule", null),
+  ]);
+}
+
+async function notifyDiscussionUsers(ctx, userIds = [], text) {
+  const targets = [...new Set((userIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+  await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
+}
+
+async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false } = {}) {
+  const code = normalizePublicProfileCode(rawCode);
+  if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
+
+  const target = await User.findOne({ publicProfileCode: code });
+  if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
+  if (!target.profileDiscoverable) return ctx.reply(messages[lang].profilePrivateShort);
+
+  const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+  const saved = isCodeSaved(current, code);
+
+  return sendProfileMessage({
+    ctx,
+    user: target,
+    lang,
+    keyboard: profileViewActionsKeyboard(lang, code, saved, fromSavedList),
+    messages,
+    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+  });
+}
+
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
   const lang = detectLanguage(ctx);
@@ -532,6 +792,16 @@ async function handleCallback(ctx) {
   if (!data) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (!shouldKeepAiListTitleForCallback(data)) {
+    await clearRememberedAiListMessage(ctx);
+  }
+  if (!shouldKeepAiListTitleForCallback(data)) {
+    await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
+  }
+  if (!shouldKeepDiscussionRoomCardsForCallback(data)) {
+    await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
   }
 
   // menu routes
@@ -542,17 +812,425 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
+    await clearRememberedAiListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].chooseLanguage, languageKeyboard());
   }
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
+    await clearRememberedAiListMessage(ctx);
+    await deleteCallbackMessageIfPossible(ctx);
     return sendProfile(ctx, lang, ctx.user || {}, { loading: true });
   }
 
   if (data === callBacks.aiAssistant) {
     await ctx.answerCb?.(messages[lang].aiAssistant);
-    return editCallbackMessageOrReply(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    return editCallbackMessageOrReply(
+      ctx,
+      `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`,
+      aiAssistantKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.discussions) {
+    await ctx.answerCb?.();
+    await clearRememberedAiListMessage(ctx);
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionsMenu,
+      discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)),
+    );
+  }
+
+  if (data === callBacks.savedProfiles) {
+    await ctx.answerCb?.();
+    await clearRememberedAiListMessage(ctx);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    if (!codes.length) {
+      return editCallbackMessageOrReply(ctx, messages[lang].savedProfilesEmpty, savedProfilesListKeyboard(lang, []));
+    }
+    const items = await buildSavedProfileListItems({
+      codes,
+      normalizePublicProfileCode,
+      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+        .select("publicProfileCode profileName firstName")
+        .lean(),
+    });
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].savedProfilesTitle,
+      savedProfilesListKeyboard(lang, items),
+    );
+  }
+
+  if (data.startsWith(callBacks.savedProfilesOpen)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesOpen, "");
+    await deleteCallbackMessageIfPossible(ctx);
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
+  }
+
+  if (data.startsWith(callBacks.savedProfilesRemove)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesRemove, "");
+    const removed = await removeSavedProfileCode(ctx.userId, code);
+    if (!removed.ok) {
+      return ctx.reply(removed.reason === "not_found" ? messages[lang].savedProfilesEmpty : messages[lang].unknownAction);
+    }
+    await updateProfileField(ctx.userId, "savedProfileCodes", removed.items || []);
+    const items = await buildSavedProfileListItems({
+      codes: removed.items || [],
+      normalizePublicProfileCode,
+      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+        .select("publicProfileCode profileName firstName")
+        .lean(),
+    });
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].savedProfileRemoved,
+      savedProfilesListKeyboard(lang, items),
+    );
+  }
+
+  if (data === callBacks.discussionListActive) {
+    await ctx.answerCb?.();
+    const result = await listActiveDiscussions({ limit: 20 });
+    if (!result.discussions.length) {
+      return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
+    }
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionActiveList,
+      discussionItemsKeyboard(lang, result.discussions, callBacks.discussionOpen),
+    );
+  }
+
+  if (data === callBacks.discussionListMine) {
+    await ctx.answerCb?.();
+    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
+    if (!result.ok) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+    if (!result.discussions.length) {
+      return editCallbackMessageOrReply(ctx, messages[lang].discussionListMineEmpty, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
+    }
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionMyList,
+      discussionItemsKeyboard(lang, result.discussions, callBacks.discussionOpen),
+    );
+  }
+
+  if (data === callBacks.discussionCreateStart) {
+    await ctx.answerCb?.();
+    await clearDiscussionDraft(ctx.userId);
+    await updateUserState(ctx.userId, "discussion_create_title");
+    await deleteCallbackMessageIfPossible(ctx);
+    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateCancel) {
+    await ctx.answerCb?.();
+    await clearDiscussionDraft(ctx.userId);
+    await updateUserState(ctx.userId, "idle");
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionCreateCanceled, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
+  }
+
+  if (data === callBacks.discussionCreateSkipDescription) {
+    await ctx.answerCb?.();
+    await updateProfileField(ctx.userId, "discussionDraftDescription", "");
+    await updateUserState(ctx.userId, "discussion_create_join_rule");
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateRuleOpen) {
+    await ctx.answerCb?.();
+    const title = (ctx.user?.discussionDraftTitle || "").trim();
+    const description = (ctx.user?.discussionDraftDescription || "").trim();
+    if (!description) {
+      return ctx.reply(messages[lang].discussionOpenNeedsDescription);
+    }
+    const joinRule = { type: "open" };
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", joinRule);
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewText(messages, lang, { ...ctx.user, discussionDraftJoinRule: joinRule }),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.discussionCreateRuleTopTen || data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
+    await ctx.answerCb?.();
+    const type = data === callBacks.discussionCreateRuleTopTen
+      ? "top_ten_completed"
+      : data === callBacks.discussionCreateRuleTaste
+        ? "taste_label"
+        : "top_ten_item";
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", { type });
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionChooseSection,
+      discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCreateRuleSection)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.discussionCreateRuleSection, "");
+    const baseRule = ctx.user?.discussionDraftJoinRule || {};
+    let nextRule = { ...baseRule, section };
+    if (baseRule.type === "taste_label") {
+      const taste = getAiTasteFromUser(ctx.user, section);
+      if (!taste?.labelKey) return ctx.reply(messages[lang].discussionRuleNoEligibleTaste);
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", { ...nextRule, tasteLabelKey: taste.labelKey });
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].discussionChooseTasteLabel,
+        discussionSelectTasteKeyboard(lang, section, taste.labelKey),
+      );
+    }
+    if (baseRule.type === "top_ten_item") {
+      const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
+      if (!topTen.length) return ctx.reply(messages[lang].discussionRuleNoEligibleItem);
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].discussionChooseTopTenItem,
+        discussionSelectItemKeyboard(lang, section, topTen),
+      );
+    }
+    if (baseRule.type === "top_ten_completed") {
+      const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
+      if (topTen.length < 10) return ctx.reply(getDiscussionErrorMessage(messages, lang, "requires_top_ten_completed"));
+    }
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewText(messages, lang, { ...ctx.user, discussionDraftJoinRule: nextRule }),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCreateSelectTaste)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.discussionCreateSelectTaste, "");
+    const [section = "", tasteLabelKey = ""] = payload.split(":");
+    const nextRule = {
+      ...(ctx.user?.discussionDraftJoinRule || {}),
+      type: "taste_label",
+      section,
+      tasteLabelKey,
+    };
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewText(messages, lang, { ...ctx.user, discussionDraftJoinRule: nextRule }),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCreateSelectItem)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.discussionCreateSelectItem, "");
+    const [section = "", itemIndexRaw = ""] = payload.split(":");
+    const itemIndex = Number(itemIndexRaw);
+    const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
+    if (!Number.isInteger(itemIndex) || itemIndex < 0 || !topTen[itemIndex]) {
+      return ctx.reply(getDiscussionErrorMessage(messages, lang, "requires_top_ten_item"));
+    }
+    const nextRule = {
+      ...(ctx.user?.discussionDraftJoinRule || {}),
+      type: "top_ten_item",
+      section,
+      itemTitle: topTen[itemIndex].title,
+    };
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewText(messages, lang, { ...ctx.user, discussionDraftJoinRule: nextRule }),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.discussionCreateEditTitle) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "discussion_create_title");
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateEditDescription) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "discussion_create_description");
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionCreateAskDescription, discussionCreateDescriptionKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateEditRule) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "discussion_create_join_rule");
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateConfirm) {
+    await ctx.answerCb?.();
+    const created = await createDiscussion({
+      creatorUserId: ctx.userId,
+      title: ctx.user?.discussionDraftTitle || "",
+      description: ctx.user?.discussionDraftDescription || "",
+      joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
+    });
+    if (!created.ok) {
+      return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);
+    }
+    await clearDiscussionDraft(ctx.userId);
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(messages[lang].discussionJoined);
+    return sendDiscussionRoom(ctx, lang, created.discussion);
+  }
+
+  if (data.startsWith(callBacks.discussionOpen)) {
+    await ctx.answerCb?.();
+    const discussionId = data.replace(callBacks.discussionOpen, "");
+    const joined = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    if (!joined.ok) {
+      return ctx.reply(getDiscussionErrorMessage(messages, lang, joined.reason));
+    }
+    await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
+    return sendDiscussionRoom(ctx, lang, joined.discussion);
+  }
+
+  if (data === callBacks.discussionLeave || data.startsWith(callBacks.discussionLeave)) {
+    await ctx.answerCb?.();
+    const explicitId = data.startsWith(callBacks.discussionLeave)
+      ? data.replace(callBacks.discussionLeave, "")
+      : "";
+    const discussionId = explicitId || String(ctx.user?.activeDiscussionId || "");
+    if (!discussionId) {
+      return ctx.reply(messages[lang].discussionNotMember);
+    }
+    const left = await leaveDiscussionAsMember(ctx.userId, discussionId);
+    if (!left.ok) {
+      if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
+      return ctx.reply(messages[lang].discussionNotMember);
+    }
+    const discussionTitle = left?.discussionTitle || "";
+    const ownerUserId = Number(left?.creatorUserId);
+    const leaverName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+    if (ownerUserId && ownerUserId !== ctx.userId && discussionTitle) {
+      await notifyDiscussionUsers(
+        ctx,
+        [ownerUserId],
+        messages[lang].discussionLeftNoticeToOwner
+          .replace("{name}", leaverName || "کاربر")
+          .replace("{title}", discussionTitle),
+      );
+    }
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionLeft, discussionsMenuKeyboard(lang, false));
+  }
+
+  if (data.startsWith(callBacks.discussionClose)) {
+    await ctx.answerCb?.();
+    const discussionId = data.replace(callBacks.discussionClose, "");
+    const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
+    if (!closed.ok) {
+      return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
+    }
+    const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
+    await notifyDiscussionUsers(
+      ctx,
+      notifyIds,
+      messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
+    );
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionClosed, discussionsMenuKeyboard(lang, false));
+  }
+
+  if (data.startsWith(callBacks.discussionMembers)) {
+    await ctx.answerCb?.();
+    const discussionId = data.replace(callBacks.discussionMembers, "");
+    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
+    const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
+      .select("userId profileName firstName publicProfileCode")
+      .lean();
+    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
+    const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
+      .select("userId profileName firstName publicProfileCode")
+      .lean();
+    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId);
+    return editCallbackMessageOrReply(
+      ctx,
+      `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
+      discussionMembersKeyboard(lang, opened.discussion, refreshed, opened.discussion.creatorUserId === ctx.userId),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionRemoveMemberPicker)) {
+    await ctx.answerCb?.();
+    const discussionId = data.replace(callBacks.discussionRemoveMemberPicker, "");
+    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
+    if (opened.discussion.creatorUserId !== ctx.userId) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_owner"));
+    const memberUsers = await User.find({
+      userId: {
+        $in: opened.discussion.memberUserIds.filter((id) => id !== ctx.userId),
+      },
+    }).select("userId profileName firstName").lean();
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionRemoveMember,
+      discussionRemoveMembersKeyboard(lang, String(opened.discussion._id), memberUsers),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionRemoveMember)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.discussionRemoveMember, "");
+    const [discussionId = "", memberUserIdRaw = ""] = payload.split(":");
+    const memberUserId = Number(memberUserIdRaw);
+    if (!discussionId || !Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
+    const removed = await removeMemberAsOwner(ctx.userId, discussionId, memberUserId);
+    if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
+    await deleteCallbackMessageIfPossible(ctx);
+    await notifyDiscussionUsers(
+      ctx,
+      [memberUserId],
+      messages[lang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
+    );
+    return ctx.reply(messages[lang].discussionMemberRemoved);
+  }
+
+  if (data.startsWith(callBacks.profileViewByCode)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.profileViewByCode, "");
+    await deleteCallbackMessageIfPossible(ctx);
+    return sendPublicProfileByCode(ctx, lang, code);
+  }
+
+  if (data.startsWith(callBacks.profileSaveByCode)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.profileSaveByCode, "");
+    await deleteCallbackMessageIfPossible(ctx);
+    const saved = await addSavedProfileCode(ctx.userId, code);
+    if (!saved.ok) {
+      if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
+      if (saved.reason === "saved_profiles_limit") return ctx.reply(messages[lang].savedProfilesLimit);
+      return ctx.reply(messages[lang].unknownAction);
+    }
+    await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
+    await ctx.reply(messages[lang].savedProfileSaved);
+    return sendPublicProfileByCode(ctx, lang, code);
+  }
+
+  if (data.startsWith(callBacks.profileUnsaveByCode)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.profileUnsaveByCode, "");
+    await deleteCallbackMessageIfPossible(ctx);
+    const removed = await removeSavedProfileCode(ctx.userId, code);
+    if (!removed.ok) return ctx.reply(messages[lang].unknownAction);
+    await updateProfileField(ctx.userId, "savedProfileCodes", removed.items || []);
+    await ctx.reply(messages[lang].savedProfileRemoved);
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
   }
 
   if (data.startsWith(callBacks.aiListManageMenu)) {
@@ -577,10 +1255,11 @@ async function handleCallback(ctx) {
       ? messages[lang].aiWatchlistTitle.replace("{section}", sectionLabel).replace("{listName}", listLabel)
       : messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
 
-    if (listType === "topTen") {
-      const listMessage = await ctx.reply(buildTopTenListMessage(ctx, lang, section));
-      await rememberAiListMessage(ctx, section, listType, listMessage);
-    }
+    const listText = listType === "topTen"
+      ? buildTopTenListMessage(ctx, lang, section)
+      : buildWatchlistMessage(ctx, lang, section);
+    const listMessage = await ctx.reply(listText);
+    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
 
     const menuText = listType === "topTen"
       ? await getTopTenManageEntryMessage(ctx, lang, section)
@@ -628,9 +1307,10 @@ async function handleCallback(ctx) {
         topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
       })
       : formatTopTenItemsList(title, items, emptyText);
+    const titledListText = withAiSectionTitle(lang, section, listText);
 
-    const listMessage = await ctx.reply(listText, aiListManageMenuKeyboard(lang, section, listType));
-    await rememberAiListMessage(ctx, section, listType, listMessage);
+    const listMessage = await ctx.reply(titledListText, aiListManageMenuKeyboard(lang, section, listType));
+    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
     return listMessage;
   }
 
@@ -1028,9 +1708,13 @@ async function handleCallback(ctx) {
         .replace("{section}", getAiSectionNotificationTitle(lang, section)),
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await clearRememberedAiListMessage(ctx);
+    await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
     const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
-    return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
+    const sent = await ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
+    await rememberAiSectionEntryMessage(ctx, sent);
+    return sent;
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {

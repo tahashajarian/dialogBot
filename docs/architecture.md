@@ -23,6 +23,16 @@
   - `src/bot.js`
   - `src/callbacks.js`
 
+## UI Helper Services
+
+To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI formatting helpers are split into service helpers:
+
+- `src/services/discussion-ui.js` for discussion error/preview copy shaping.
+- `src/services/discussion-room-ui.js` for room header/recent/member line rendering.
+- `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
+
+When adding new discussion/profile UI flows, prefer extending these helpers instead of growing inline formatting logic inside callbacks.
+
 ## Existing Profile Fields
 
 - language

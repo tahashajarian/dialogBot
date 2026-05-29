@@ -101,6 +101,11 @@ function createAppContext(ctx, user) {
     error?.response?.data?.error ||
     error
   );
+  const isMessageNotFoundError = (error) => {
+    const code = getErrorCode(error);
+    const description = String(getErrorDescription(error) || "").toLowerCase();
+    return code === 404 && description.includes("message not found");
+  };
   const isRetriablePinError = (error) => {
     const code = getErrorCode(error);
     const text = String(error?.message || "").toLowerCase();
@@ -119,6 +124,26 @@ function createAppContext(ctx, user) {
     reply: (...args) => ctx.reply(...args),
     replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
     answerCb: (text) => ctx.answerCbQuery(text).catch(() => {}),
+    sendToUser: async (userId, text, extra = {}) => {
+      const targetUserId = Number(userId);
+      if (!Number.isInteger(targetUserId) || targetUserId <= 0 || !ctx.telegram?.callApi) {
+        return false;
+      }
+      try {
+        await callTelegramApiWithTimeout(
+          "sendMessage",
+          {
+            chat_id: targetUserId,
+            text,
+            ...extra,
+          },
+          PIN_OPERATION_TIMEOUT_MS,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
     editMessage: (...args) => ctx.editMessageText(...args),
     editMessageText: async (messageId, text, extra = {}) => {
       const chatId = resolveChatId();
@@ -139,6 +164,9 @@ function createAppContext(ctx, user) {
           PIN_OPERATION_TIMEOUT_MS,
         );
       } catch (error) {
+        if (isMessageNotFoundError(error)) {
+          return false;
+        }
         console.warn("Failed to edit bot message:", {
           chatId,
           messageId: normalizedMessageId,
@@ -281,12 +309,51 @@ async function processUpdate(ctx) {
 bot.on("message", processUpdate);
 bot.on("callback_query", processUpdate);
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retry(fn, {
+  attempts = 4,
+  delayMs = 1500,
+  onRetry = () => {},
+} = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts) break;
+      onRetry(error, attempt, attempts);
+      await sleep(delayMs * attempt);
+    }
+  }
+  throw lastError;
+}
+
 (async () => {
   try {
+    console.log("[startup] connecting database...");
     await connectDB();
-    await bot.telegram.getMe();
+    console.log("[startup] checking bot token/API via getMe...");
+    await retry(
+      () => bot.telegram.getMe(),
+      {
+        attempts: 5,
+        delayMs: 2000,
+        onRetry: (error, attempt, attempts) => {
+          console.warn(
+            `[startup] getMe failed (${attempt}/${attempts - 1} retries used):`,
+            error?.message || error,
+          );
+        },
+      },
+    );
+    console.log("[startup] getMe successful.");
 
     try {
+      console.log("[startup] deleting webhook (polling mode)...");
       await bot.telegram.deleteWebhook();
     } catch (deleteWebhookError) {
       console.warn("deleteWebhook failed; continuing with polling mode.");
@@ -294,7 +361,7 @@ bot.on("callback_query", processUpdate);
     }
 
     const pollingLoop = bot.startPolling();
-    console.log("Bot started");
+    console.log("[startup] bot started in polling mode.");
 
     pollingLoop.catch((pollingError) => {
       console.error("Polling stopped with error:", pollingError);
