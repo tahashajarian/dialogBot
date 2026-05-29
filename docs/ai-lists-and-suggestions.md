@@ -47,8 +47,8 @@
 - TopTen includes a cheap "what does my Top 10 say about me?" insight button.
 - The TopTen insight should use existing taste label/style data; do not call AI for this insight unless explicitly redesigned later.
 - TopTen insight output should be readable:
-  - send a short emoji intro as its own message
-  - then send the label/vibe insight as a separate message with the manage buttons
+  - send a standalone insight message with the emoji intro plus the label/vibe analysis
+  - then send the normal TopTen manage card/buttons as the follow-up message
 
 ## Interests Section
 

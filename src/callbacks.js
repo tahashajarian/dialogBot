@@ -643,9 +643,9 @@ async function handleCallback(ctx) {
 
     const items = getAiListItemsFromUser(ctx.user, section, "topTen");
     await deleteCallbackMessageIfPossible(ctx);
-    await ctx.reply(messages[lang].aiTopTenInsightIntro);
+    await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(lang, section, items)}`);
     return ctx.reply(
-      buildTopTenInsightMessage(lang, section, items),
+      await getTopTenManageEntryMessage(ctx, lang, section, items),
       aiListManageMenuKeyboard(lang, section, "topTen"),
     );
   }
