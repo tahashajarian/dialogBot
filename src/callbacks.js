@@ -1,7 +1,7 @@
 const messages = require("./messages");
 const path = require("path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
-const { getAiSingleSuggestion } = require("./services/ai");
+const { getAiSingleSuggestion, getAiTasteItemFeedback } = require("./services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("./services/ai-placeholder");
 const {
   mainMenuKeyboard,
@@ -16,6 +16,8 @@ const {
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
   aiListCancelAddKeyboard,
+  aiInterestTopTenChipKeyboard,
+  getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
@@ -36,6 +38,7 @@ const {
   consumeAiSuggestionQuota,
   refundAiSuggestionQuota,
   inferTasteLabel,
+  DEFAULT_TASTE_LABEL_BY_SECTION,
   getAiListItemsFromUser,
   getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
@@ -369,6 +372,109 @@ function getNeedTopTenMessage(lang, section) {
   return messages[lang].aiSectionSuggestNeedTopTenItem.replace("{section}", sectionLabel);
 }
 
+function getDuplicateTopTenMessage(lang, result, count) {
+  const duplicateTitle = getDuplicateItemTitle(result);
+  if (!duplicateTitle) {
+    return messages[lang].aiTasteItemAlreadySent
+      .replace("{count}", String(count))
+      .replace("{goal}", String(AI_TOP_TEN_LIMIT));
+  }
+
+  return messages[lang].aiTasteDuplicateMatch
+    .replace("{item}", duplicateTitle)
+    .replace("{count}", String(count))
+    .replace("{goal}", String(AI_TOP_TEN_LIMIT));
+}
+
+function buildTasteItemFeedbackFallback(lang, item, labelTitle) {
+  return messages[lang].aiTasteItemFeedbackFallback
+    .replace("{item}", item)
+    .replace("{label}", labelTitle || messages[lang].aiTasteLabelTitleFallback);
+}
+
+function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
+  return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
+}
+
+function formatAiComplimentFeedback(feedback) {
+  return `🤖 ${feedback}`;
+}
+
+function getTopTenNextPrompt(lang, count) {
+  const key = `aiTasteAskNext_${count}`;
+  return messages[lang][key] || messages[lang].aiTasteAskNext;
+}
+
+function isWeakTasteLabel(section, taste) {
+  return (
+    !taste?.labelKey ||
+    taste.labelKey === DEFAULT_TASTE_LABEL_BY_SECTION[section] ||
+    Number(taste.confidence) < 0.55
+  );
+}
+
+async function buildTopTenSavedMessage({ ctx, lang, section, item, items }) {
+  const count = items.length;
+  const goal = AI_TOP_TEN_LIMIT;
+  const itemTitles = items.map((entry) => entry.title);
+  const inferredTaste = inferTasteLabel(section, itemTitles);
+  const rawLabelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
+  const labelTitle = formatTasteLabelWithEmoji(section, inferredTaste.labelKey, rawLabelTitle);
+  const feedbackResult = await getAiTasteItemFeedback({
+    mode: section,
+    lang,
+    item,
+    labelKey: inferredTaste.labelKey,
+    labelTitle: rawLabelTitle,
+  });
+  const feedback = feedbackResult.ok && feedbackResult.text
+    ? feedbackResult.text
+    : buildTasteItemFeedbackFallback(lang, item, labelTitle);
+  const savedText = messages[lang].aiInterestTopTenChipSaved
+    .replace("{item}", item)
+    .replace("{count}", String(count))
+    .replace("{goal}", String(goal));
+
+  const responseParts = [formatAiComplimentFeedback(feedback)];
+
+  if (count >= 3 && count < goal) {
+    const preliminaryText = isWeakTasteLabel(section, inferredTaste)
+      ? messages[lang].aiTastePreliminaryWeak
+      : messages[lang].aiTastePreliminaryLabel.replace("{label}", labelTitle);
+    responseParts.push(
+      preliminaryText
+        .replace("{count}", String(count))
+        .replace("{goal}", String(goal)),
+    );
+  }
+
+  responseParts.push(savedText);
+
+  if (count < goal) {
+    responseParts.push(getTopTenNextPrompt(lang, count));
+    return responseParts.join("\n\n");
+  }
+
+  const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
+  const resolvedTaste = syncedTaste.ok ? syncedTaste.taste : inferredTaste;
+  const finalLabel = formatTasteWithStoredEmoji(
+    section,
+    resolvedTaste,
+    getTasteLabelTitle(messages, lang, section, resolvedTaste.labelKey),
+  );
+  const styleHint = getTasteLabelStyleHint(messages, lang, section, resolvedTaste.labelKey);
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const unlockedText = (messages[lang].aiTasteLabelUnlockedDetailed || messages[lang].aiTasteLabelUnlocked)
+    .replace("{section}", sectionLabel)
+    .replace("{label}", finalLabel)
+    .replace("{style}", styleHint)
+    .replace("{count}", String(count))
+    .replace("{goal}", String(goal));
+
+  responseParts.push(unlockedText);
+  return responseParts.join("\n\n");
+}
+
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   return messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
@@ -389,6 +495,7 @@ async function enterAiSection(ctx, lang, section) {
   await updateUserState(ctx.userId, `ai_chat_${section}`);
   await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", null);
   await updateProfileField(ctx.userId, "aiSectionPinnedSection", null);
+  await deleteCallbackMessageIfPossible(ctx);
   const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
   return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
 }
@@ -457,6 +564,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     const sectionLabel = getSectionLabel(messages, lang, section);
     const listLabel = section === "movies"
       ? messages[lang].aiSectionListLabelMovies
@@ -494,6 +602,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     const sectionLabel = getSectionLabel(messages, lang, section);
     const listLabel = section === "movies"
       ? messages[lang].aiSectionListLabelMovies
@@ -533,6 +642,8 @@ async function handleCallback(ctx) {
     }
 
     const items = getAiListItemsFromUser(ctx.user, section, "topTen");
+    await deleteCallbackMessageIfPossible(ctx);
+    await ctx.reply(messages[lang].aiTopTenInsightIntro);
     return ctx.reply(
       buildTopTenInsightMessage(lang, section, items),
       aiListManageMenuKeyboard(lang, section, "topTen"),
@@ -658,6 +769,7 @@ async function handleCallback(ctx) {
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
+    await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(
       listType === "topTen" ? messages[lang].aiTopTenCommentCanceled : messages[lang].aiWatchlistCommentCanceled,
       aiListManageMenuKeyboard(lang, section, listType),
@@ -745,6 +857,7 @@ async function handleCallback(ctx) {
     }
 
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
+    await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(
       messages[lang].aiListManageAddCanceled,
       aiListManageMenuKeyboard(lang, section, listType),
@@ -761,16 +874,66 @@ async function handleCallback(ctx) {
     }
 
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
+    const isInterestTopTen = section === "random" && listType === "topTen";
+    await deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
-      messages[lang].aiListManageAddPrompt,
+      isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
       { reply_markup: { remove_keyboard: true } },
     );
     return editPlaceholder(
       ctx,
       prompt,
-      messages[lang].aiListManageAddPrompt,
-      aiListCancelAddKeyboard(lang, section, listType),
+      isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
+      isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, listType),
     );
+  }
+
+  if (data.startsWith(callBacks.aiInterestTopTenChip)) {
+    await ctx.answerCb?.();
+    const chipIndex = Number(data.replace(callBacks.aiInterestTopTenChip, ""));
+    const item = getInterestTopTenChipTitle(chipIndex, lang);
+    if (!item) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+
+    await deleteCallbackMessageIfPossible(ctx);
+
+    const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    const result = await addAiListItem(
+      ctx.userId,
+      "random",
+      "topTen",
+      { title: item, comment: "" },
+      AI_TOP_TEN_LIMIT,
+    );
+
+    if (!result.ok) {
+      if (result.reason === "exists") {
+        return ctx.reply(
+          getDuplicateTopTenMessage(lang, result, currentItems.length),
+          aiListManageMenuKeyboard(lang, "random", "topTen"),
+        );
+      }
+      if (result.reason === "limit") {
+        return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, "random", "topTen"));
+      }
+      return ctx.reply(messages[lang].aiListInvalidInput, aiListManageMenuKeyboard(lang, "random", "topTen"));
+    }
+
+    await updateUserState(ctx.userId, "ai_manage_random_top_ten");
+    const placeholder = await startAiPlaceholder(ctx, [
+      messages[lang].aiThinking,
+      messages[lang].aiThinkingStill,
+      messages[lang].aiThinkingAlmost,
+    ]);
+    const savedText = await buildTopTenSavedMessage({
+      ctx,
+      lang,
+      section: "random",
+      item,
+      items: result.items,
+    });
+    return placeholder.finish(savedText, aiListManageMenuKeyboard(lang, "random", "topTen"));
   }
 
   if (data.startsWith(callBacks.aiListManageRemovePicker)) {
@@ -865,6 +1028,7 @@ async function handleCallback(ctx) {
         .replace("{section}", getAiSectionNotificationTitle(lang, section)),
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await deleteCallbackMessageIfPossible(ctx);
     const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
     return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
   }
@@ -881,6 +1045,7 @@ async function handleCallback(ctx) {
       return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     return promptSuggestionMode(ctx, lang, section);
   }
 
@@ -896,6 +1061,7 @@ async function handleCallback(ctx) {
         .replace("{section}", getAiSectionNotificationTitle(lang, section)),
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await deleteCallbackMessageIfPossible(ctx);
     const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
     return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
   }
@@ -913,6 +1079,7 @@ async function handleCallback(ctx) {
     }
 
     await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+    await deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(messages[lang].aiSuggestionContextPrompt, {
       reply_markup: { remove_keyboard: true },
     });
@@ -936,6 +1103,7 @@ async function handleCallback(ctx) {
       return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     const sentSuggestion = await sendFollowupSuggestion({
       ctx,
       lang,
@@ -969,6 +1137,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].aiSuggestionExpired || messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     const result = await addAiListItem(
       ctx.userId,
       section,
@@ -1085,6 +1254,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "gender", gender);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -1110,6 +1280,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "petPreference", petPreference);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -1132,12 +1303,12 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    return ctx.reply(messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
+    return editCallbackMessageOrReply(ctx, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
   }
 
   if (data === callBacks.profileAgeRangeBack) {
     await ctx.answerCb?.();
-    return ctx.reply(messages[lang].profileAskAge, ageKeyboard(lang));
+    return editCallbackMessageOrReply(ctx, messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profileAgeSet)) {
@@ -1149,6 +1320,7 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "age", age);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -1175,6 +1347,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileCancelEdit) {
     await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible(ctx);
     await updateUserState(ctx.userId, "idle");
     await ctx.reply(messages[lang].cancelMessage, {
       reply_markup: { remove_keyboard: true },
@@ -1187,6 +1360,7 @@ async function handleCallback(ctx) {
   if (data === callBacks.profileBack) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
+    await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 

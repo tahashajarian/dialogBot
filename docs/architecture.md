@@ -1,0 +1,64 @@
+# Architecture Notes
+
+## Project Overview
+
+- This repo contains a Bale bot using a Telegraf-compatible API.
+- Runtime stack: Node.js and MongoDB.
+- Main entry point: `src/index.js`.
+- Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
+- User schema lives in `src/models/user.js`.
+
+## Data Model Rules
+
+- Update `src/services/users.js` when adding or changing user fields or state helpers.
+- Keep AI list access centralized in `src/services/users.js` helpers:
+  - `getAiListItemsFromUser`
+  - `addAiListItem`
+  - `removeAiListItem`
+- If a new profile field is added, update:
+  - `src/models/user.js`
+  - `src/messages.js`
+  - `src/keyboards.js`
+  - `src/services/profile.js`
+  - `src/bot.js`
+  - `src/callbacks.js`
+
+## Existing Profile Fields
+
+- language
+- name
+- city
+- age
+- gender
+- pet
+- bio
+- location
+- photo
+- profile discoverability
+
+## Validation
+
+- Prefer a quick syntax or runtime check after edits when available.
+- Run `npm.cmd run validate:translations` on Windows after changing:
+  - `src/messages.js`
+  - translation keys
+  - direct `messages[lang].key` usage
+- Run `npm.cmd test` when behavior or shared services change.
+- If `node` or `npm` is unavailable in the environment, mention that in the handoff.
+
+## Safety
+
+- Do not hardcode secrets.
+- Keep environment-specific values in `.env`.
+- Do not delete user data unless the task explicitly asks for it.
+- Prefer Bale/Telegraf docs for API-shape assumptions before changing helper signatures.
+
+## Environment Contract
+
+- This bot runs on Bale via Telegraf-compatible API.
+- `API_ROOT` is reserved for Bale Bot API root (`Telegraf` `telegram.apiRoot`).
+- `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
+- `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
+- `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
+- Never reuse or swap `API_ROOT` and `API_BASE_URL`.
+- Keep Bale and AI endpoint configuration separate to avoid launch failures.

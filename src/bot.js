@@ -18,6 +18,7 @@ const {
   aiSuggestionContextCancelKeyboard,
   aiListManageMenuKeyboard,
   aiListCancelAddKeyboard,
+  aiInterestTopTenChipKeyboard,
 } = require("./keyboards");
 const {
   updateProfileField,
@@ -731,9 +732,10 @@ async function handleUpdate(ctx) {
       const item = normalizeAiListItem(text);
       const comment = normalizeAiListComment("");
       if (!item) {
+        const isInterestTopTen = section === "random" && listType === "topTen";
         return ctx.reply(
-          messages[lang].aiListManageAddPrompt,
-          aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
+          isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
+          isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
         );
       }
 

@@ -106,6 +106,9 @@ const TASTE_LABEL_EMOJIS = {
     eclectic_reader: "📚",
   },
   random: {
+    strategy_mind: "♟",
+    tech_minded: "💻",
+    cafe_lover: "☕",
     explorer: "🧭",
     foodie: "🍜",
     gamer: "🎮",

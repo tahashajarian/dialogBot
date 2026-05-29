@@ -13,6 +13,130 @@ const REQUEST_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 8000);
 const FEEDBACK_MAX_OUTPUT_TOKENS = 22;
 const FEEDBACK_MAX_WORDS = 8;
 const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v2";
+const PREDEFINED_TASTE_FEEDBACK = {
+  random: {
+    "شطرنج": {
+      fa: "شطرنج یعنی ذهن دقیق و خوش‌حوصله.",
+      en: "Chess says calm, sharp thinking.",
+    },
+    chess: {
+      fa: "شطرنج یعنی ذهن دقیق و خوش‌حوصله.",
+      en: "Chess says calm, sharp thinking.",
+    },
+    "کدنویسی": {
+      fa: "کدنویسی یعنی ذهنت اهل ساختنه.",
+      en: "Coding means you like building things.",
+    },
+    coding: {
+      fa: "کدنویسی یعنی ذهنت اهل ساختنه.",
+      en: "Coding means you like building things.",
+    },
+    "قهوه": {
+      fa: "قهوه انتخاب آدم‌های اهل مکثه.",
+      en: "Coffee has thoughtful, focused energy.",
+    },
+    coffee: {
+      fa: "قهوه انتخاب آدم‌های اهل مکثه.",
+      en: "Coffee has thoughtful, focused energy.",
+    },
+    "کافه گردی": {
+      fa: "کافه‌گردی یعنی سلیقه‌ات فضا رو می‌فهمه.",
+      en: "Cafes mean you notice good atmosphere.",
+    },
+    cafes: {
+      fa: "کافه‌گردی یعنی سلیقه‌ات فضا رو می‌فهمه.",
+      en: "Cafes mean you notice good atmosphere.",
+    },
+    "گیم": {
+      fa: "گیم یعنی دنبال تجربه و چالشی.",
+      en: "Gaming says you enjoy challenge and flow.",
+    },
+    gaming: {
+      fa: "گیم یعنی دنبال تجربه و چالشی.",
+      en: "Gaming says you enjoy challenge and flow.",
+    },
+    "غذا": {
+      fa: "غذا یعنی سلیقه‌ات با جزئیات زنده‌ست.",
+      en: "Food means your taste notices details.",
+    },
+    food: {
+      fa: "غذا یعنی سلیقه‌ات با جزئیات زنده‌ست.",
+      en: "Food means your taste notices details.",
+    },
+    "سفر": {
+      fa: "سفر یعنی ذهن کنجکاو و باز داری.",
+      en: "Travel says curious, open-minded energy.",
+    },
+    travel: {
+      fa: "سفر یعنی ذهن کنجکاو و باز داری.",
+      en: "Travel says curious, open-minded energy.",
+    },
+    "عکاسی": {
+      fa: "عکاسی یعنی نگاهت قاب و لحظه رو می‌بینه.",
+      en: "Photography means you catch moments well.",
+    },
+    photography: {
+      fa: "عکاسی یعنی نگاهت قاب و لحظه رو می‌بینه.",
+      en: "Photography means you catch moments well.",
+    },
+    "ورزش": {
+      fa: "ورزش یعنی انرژی و نظم قشنگی داری.",
+      en: "Sports says energy with discipline.",
+    },
+    sports: {
+      fa: "ورزش یعنی انرژی و نظم قشنگی داری.",
+      en: "Sports says energy with discipline.",
+    },
+    "هنر": {
+      fa: "هنر یعنی سلیقه‌ات دنبال معنی و فرم می‌گرده.",
+      en: "Art means you care about meaning and form.",
+    },
+    art: {
+      fa: "هنر یعنی سلیقه‌ات دنبال معنی و فرم می‌گرده.",
+      en: "Art means you care about meaning and form.",
+    },
+    "آرامش": {
+      fa: "آرامش یعنی خوب بلدی سرعت دنیا رو کم کنی.",
+      en: "Calm means you know how to slow down.",
+    },
+    calm: {
+      fa: "آرامش یعنی خوب بلدی سرعت دنیا رو کم کنی.",
+      en: "Calm means you know how to slow down.",
+    },
+    "پادکست": {
+      fa: "پادکست یعنی ذهن شنونده و کنجکاوی داری.",
+      en: "Podcast says curious, listening mind.",
+    },
+    podcast: {
+      fa: "پادکست یعنی ذهن شنونده و کنجکاوی داری.",
+      en: "Podcast says curious, listening mind.",
+    },
+    "یوتیوب": {
+      fa: "یوتیوب یعنی همیشه دنبال کشف چیز تازه‌ای.",
+      en: "YouTube says you like discovering new things.",
+    },
+    youtube: {
+      fa: "یوتیوب یعنی همیشه دنبال کشف چیز تازه‌ای.",
+      en: "YouTube says you like discovering new things.",
+    },
+    "طبیعت": {
+      fa: "طبیعت یعنی سلیقه‌ات ریشه و نفس داره.",
+      en: "Nature gives grounded, fresh taste.",
+    },
+    nature: {
+      fa: "طبیعت یعنی سلیقه‌ات ریشه و نفس داره.",
+      en: "Nature gives grounded, fresh taste.",
+    },
+    "آشپزی": {
+      fa: "آشپزی یعنی خلاقیتت طعم و حوصله داره.",
+      en: "Cooking means creative, patient taste.",
+    },
+    cooking: {
+      fa: "آشپزی یعنی خلاقیتت طعم و حوصله داره.",
+      en: "Cooking means creative, patient taste.",
+    },
+  },
+};
 
 let client;
 let aiFeedbackResponseCache = null;
@@ -114,10 +238,21 @@ function buildTasteFeedbackFallback({ lang, labelTitle }) {
 function buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`انتخاب خوش‌سلیقه‌ایه؛ «${shortItem || "این مورد"}» عالیه.`);
+    return limitWords(`جالبه؛ «${shortItem || "این مورد"}» انتخاب باحالیه.`);
   }
 
-  return limitWords(`Great pick; "${shortItem || "that one"}" has taste.`);
+  return limitWords(`Nice one; "${shortItem || "that one"}" is a solid pick.`);
+}
+
+function getPredefinedTasteFeedback({ section, item, lang }) {
+  const sectionFeedback = PREDEFINED_TASTE_FEEDBACK[section];
+  if (!sectionFeedback) return "";
+
+  const normalizedItem = normalizeCacheItem(item);
+  const response = sectionFeedback[normalizedItem];
+  if (!response) return "";
+
+  return response[lang] || response.fa || response.en || "";
 }
 
 async function getEmbedding(openai, input) {
@@ -346,6 +481,21 @@ async function getAiTasteItemFeedback({
     return { ok: false, reason: "empty_input" };
   }
 
+  const predefinedFeedback = getPredefinedTasteFeedback({
+    section,
+    item: normalizedItem,
+    lang,
+  });
+  if (predefinedFeedback) {
+    return {
+      ok: true,
+      text: predefinedFeedback,
+      cached: true,
+      matchType: "predefined",
+      normalizedInput: normalizeCacheItem(normalizedItem),
+    };
+  }
+
   const openai = getClient();
   const language = lang === "fa" ? "Persian" : "English";
   const category = normalizeCategory(section);
@@ -408,7 +558,12 @@ async function getAiTasteItemFeedback({
 
         return { ok: true, text };
       } catch (error) {
-        console.warn("AI taste feedback failed:", error?.message || error);
+        const message = error?.message || String(error);
+        if (message === "ai_feedback_timeout") {
+          console.info("AI taste feedback fallback:", message);
+        } else {
+          console.warn("AI taste feedback failed:", message);
+        }
         return {
           ok: true,
           text: buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem }),

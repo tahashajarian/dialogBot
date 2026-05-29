@@ -108,6 +108,9 @@ const TASTE_LABELS_BY_SECTION = {
     non_fiction_curious: ["educated", "born a crime", "bad blood", "outliers", "factfulness", "quiet", "freakonomics", "into thin air", "when breath becomes air"],
   },
   random: {
+    strategy_mind: ["chess", "شطرنج", "board game", "board games", "strategy", "puzzle", "sudoku", "go game", "ذهنی", "استراتژی", "بازی فکری"],
+    tech_minded: ["coding", "programming", "code", "technology", "tech", "software", "developer", "ai", "gadgets", "کدنویسی", "برنامه نویسی", "برنامه‌نویسی", "تکنولوژی", "فناوری"],
+    cafe_lover: ["cafe", "coffee", "espresso", "latte", "tea", "کافه", "قهوه", "اسپرسو", "لاته", "چای", "کافه گردی", "کافه‌گردی"],
     explorer: ["travel", "hiking", "camping", "road trip", "adventure", "backpacking", "mountain", "nature"],
     foodie: ["cooking", "baking", "restaurant", "food", "coffee", "tea", "dessert", "pizza", "burger", "sushi"],
     gamer: ["game", "gaming", "xbox", "playstation", "nintendo", "steam", "esports", "dota", "fifa", "valorant"],

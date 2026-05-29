@@ -29,6 +29,7 @@ module.exports = {
     aiListManageBack: "ai:list:back:",
     aiListManageCancelAdd: "ai:list:add:cancel:",
     aiListManageCancelComment: "ai:list:comment:cancel:",
+    aiInterestTopTenChip: "ai:interest:top-ten:chip:",
     profileEditName: "profile:edit:name",
     profileEditCity: "profile:edit:city",
     profileEditAge: "profile:edit:age",

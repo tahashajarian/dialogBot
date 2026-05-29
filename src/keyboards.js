@@ -336,6 +336,51 @@ function aiListCancelAddKeyboard(lang, section, listType) {
   ]);
 }
 
+const INTEREST_TOP_TEN_CHIPS = [
+  { emoji: "♟", fa: "شطرنج", en: "Chess" },
+  { emoji: "💻", fa: "کدنویسی", en: "Coding" },
+  { emoji: "☕", fa: "قهوه", en: "Coffee" },
+  { emoji: "🏙", fa: "کافه‌گردی", en: "Cafes" },
+  { emoji: "🎮", fa: "گیم", en: "Gaming" },
+  { emoji: "🍜", fa: "غذا", en: "Food" },
+  { emoji: "✈️", fa: "سفر", en: "Travel" },
+  { emoji: "📸", fa: "عکاسی", en: "Photography" },
+  { emoji: "🏃", fa: "ورزش", en: "Sports" },
+  { emoji: "🎨", fa: "هنر", en: "Art" },
+  { emoji: "🧘", fa: "آرامش", en: "Calm" },
+  { emoji: "🎧", fa: "پادکست", en: "Podcast" },
+  { emoji: "📺", fa: "یوتیوب", en: "YouTube" },
+  { emoji: "🌿", fa: "طبیعت", en: "Nature" },
+  { emoji: "🍳", fa: "آشپزی", en: "Cooking" },
+];
+
+function aiInterestTopTenChipKeyboard(lang) {
+  const rows = [];
+  for (let i = 0; i < INTEREST_TOP_TEN_CHIPS.length; i += 3) {
+    rows.push(INTEREST_TOP_TEN_CHIPS.slice(i, i + 3).map((chip, index) => ({
+      text: `${chip.emoji} ${lang === "fa" ? chip.fa : chip.en}`,
+      callback_data: `${callBacks.aiInterestTopTenChip}${i + index}`,
+    })));
+  }
+
+  rows.push([
+    {
+      text: messages[lang].cancelEdit,
+      callback_data: `${callBacks.aiListManageCancelAdd}random:top_ten`,
+    },
+  ]);
+
+  return inlineKeyboard(rows);
+}
+
+function getInterestTopTenChipTitle(index, lang) {
+  const chip = INTEREST_TOP_TEN_CHIPS[index];
+  if (!chip) {
+    return "";
+  }
+  return lang === "fa" ? chip.fa : chip.en;
+}
+
 function aiListActionItemsKeyboard(lang, section, listType, action, items = []) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = items.map((entry, index) => ([
@@ -545,6 +590,8 @@ module.exports = {
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
   aiListCancelAddKeyboard,
+  aiInterestTopTenChipKeyboard,
+  getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
