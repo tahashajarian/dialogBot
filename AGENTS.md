@@ -31,6 +31,7 @@
 - Keep bot conversations low-noise.
 - Edit existing bot messages when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
+- Delete consumed inline cards before sending a fresh follow-up card/message; edit in place only when the flow is moving to another picker/state in the same card.
 - Do not delete user messages.
 - If an inline message contains item indexes, remove or edit it after mutating actions so old buttons cannot act on shifted indexes.
 - Keep repeated-tap protection centralized in `src/services/interaction-guard.js`.
@@ -43,6 +44,7 @@
 - The internal `random` AI section should be treated as user-facing `🧩 علاقه‌مندی‌ها` / `🧩 Interests`, a first-class broad interests section.
 - AI suggestions should not trigger from free-form AI-section chat text; users should use the section buttons.
 - TopTen/list behavior and AI suggestion rules are documented in `docs/ai-lists-and-suggestions.md`.
+- Known Interests chips should use predefined feedback and the same visible placeholder/save flow as typed TopTen input.
 
 ## Data Model Reminders
 
