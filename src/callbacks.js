@@ -1210,6 +1210,20 @@ async function handleCallback(ctx) {
     return sendProfile(ctx, lang, updatedUser);
   }
 
+  if (data === callBacks.profileToggleActiveDiscussionVisible) {
+    const nextValue = !ctx.user?.showActiveDiscussionOnProfile;
+    await ctx.answerCb?.(
+      nextValue
+        ? messages[lang].profileActiveDiscussionVisibleOn
+        : messages[lang].profileActiveDiscussionVisibleOff,
+    );
+    await deleteCallbackMessageIfPossible(ctx);
+    await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.showActiveDiscussionOnProfile = nextValue;
+    return sendProfile(ctx, lang, updatedUser);
+  }
+
   if (data === callBacks.profileEditCity) {
     await ctx.answerCb?.();
     return startProfileEdit(ctx, "editing_city", messages[lang].profileAskCity, cancelEditKeyboard(lang));
@@ -1422,7 +1436,12 @@ async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
     ctx,
     user,
     lang,
-    keyboard: profileKeyboard(lang, Boolean(user?.photoFileId), Boolean(user?.profileDiscoverable)),
+    keyboard: profileKeyboard(
+      lang,
+      Boolean(user?.photoFileId),
+      Boolean(user?.profileDiscoverable),
+      Boolean(user?.showActiveDiscussionOnProfile),
+    ),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",

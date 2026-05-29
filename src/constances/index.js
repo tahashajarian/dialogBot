@@ -46,6 +46,7 @@ module.exports = {
     profileEditPhoto: "profile:edit:photo",
     profileResetPhoto: "profile:reset:photo",
     profileToggleDiscoverable: "profile:toggle:discoverable",
+    profileToggleActiveDiscussionVisible: "profile:toggle:active-discussion-visible",
     profileBack: "profile:back",
     profileCancelEdit: "profile:cancel:edit",
     langSetFa: "lang:set:fa",

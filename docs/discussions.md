@@ -11,6 +11,7 @@ Discussions are live rooms with short memory.
 - A discussion has a user-created title.
 - A discussion can have an optional short description.
 - Users can be in one active discussion at a time.
+- Users can be members of multiple discussions, but only one discussion is active for sending messages.
 - Each discussion has a maximum of 20 active members in MVP.
 - Messages are broadcast live to current room members.
 - Each discussion keeps only the last 10 messages as recent context.
@@ -69,6 +70,35 @@ Discussion menu:
 ```
 
 Only show `🚪 خروج از بحث` when the user is currently inside a discussion.
+
+Inside an active discussion, use bottom buttons for room actions.
+
+Member buttons:
+
+```text
+👥 اعضا
+📌 بحث‌های من
+🚪 خروج از بحث
+```
+
+Owner buttons:
+
+```text
+👥 اعضا
+📌 بحث‌های من
+🔒 بستن بحث
+```
+
+Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
+The owner should not see `🚪 خروج از بحث` for their own discussion. To stop participating, the owner must close the discussion for everyone. This prevents orphaned ownerless rooms.
+
+`📌 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
+
+Important distinction:
+
+- switching active discussion changes where new text messages go
+- leaving a discussion removes membership
+- going back to other bot sections does not remove membership
 
 ### Create Discussion
 
@@ -208,7 +238,9 @@ If creator has no TopTen items for item-restricted rooms:
 
 When user joins:
 
-- If they are already in another discussion, leave the old discussion automatically.
+- If they are already active in another discussion, switch active discussion to the new one.
+- Do not remove them from the old discussion unless they explicitly leave it.
+- If they already belong to the maximum number of discussions, do not allow joining until they leave one.
 - If the discussion already has 20 active members, do not allow joining.
 - Add the user to current members.
 - Set user's active discussion id.
@@ -240,6 +272,58 @@ If discussion is full:
 این بحث فعلاً پره.
 ظرفیت: ۲۰ نفر
 ```
+
+If user has reached membership limit:
+
+```text
+🤖 فعلاً عضو حداکثر تعداد بحث‌ها هستی.
+
+برای ورود به بحث جدید، اول از یکی از بحث‌های قبلیت خارج شو.
+```
+
+Recommended MVP membership limit:
+
+- max joined/owned discussions per user: 10
+- this keeps navigation manageable and prevents users from quietly accumulating too many stale rooms
+
+### My Discussions / Switching
+
+`📌 بحث‌های من` shows discussions the user owns or has joined.
+
+Example:
+
+```text
+📌 بحث‌های من
+
+✅ بهترین ریف تاریخ؟
+👥 ۳ نفر
+آخرین فعالیت: ۵ دقیقه پیش
+
+💬 فیلمی که همه اشتباه فهمیدن؟
+👥 ۱۲ نفر
+آخرین فعالیت: امروز
+```
+
+Buttons per discussion:
+
+```text
+ورود
+خروج
+```
+
+If owner:
+
+```text
+ورود
+بستن
+```
+
+Owners should see `بستن`, not `خروج`, for discussions they created.
+
+Opening a discussion from this list sets it as `activeDiscussionId` and shows the room info plus last 10 messages.
+
+Leaving a discussion from this list removes membership. If it was the active discussion, clear `activeDiscussionId`.
+For owner-created discussions, this list should offer close instead of leave.
 
 ### Send Message
 
@@ -277,12 +361,93 @@ Other members receive:
 Master of Puppets هنوز بی‌رقیبه.
 ```
 
+Do not attach profile buttons to every received message. That makes the chat noisy and uncomfortable.
+
+Profile viewing should be intentional through the members list.
+
+### Members List And Profile Links
+
+Inside an active discussion, the bottom button `👥 اعضا` shows the current room members.
+
+Example:
+
+```text
+🤖👥 اعضای این بحث
+
+1. علی 👑 صاحب بحث — /u_8K2P
+2. سارا — /u_9Q4M
+3. تو
+```
+
+The profile code acts like a bot command/link. When the user sends or taps `/u_8K2P`, the bot resolves it to that member.
+
+Rules:
+
+- Do not expose raw database ids, Bale user ids, phone numbers, or location.
+- Use a stable short public profile code such as `publicProfileCode`.
+- Public profile codes only reveal a profile if that user's `profileDiscoverable` is true.
+- If the target profile is private, show a short private-profile message.
+- The member list can show all members because MVP room capacity is 20.
+- The current user can be shown as `تو` without a profile link.
+- Mark the discussion owner clearly with `👑 صاحب بحث`.
+
+Private profile response:
+
+```text
+🤖 این کاربر پروفایلش رو خصوصی نگه داشته.
+```
+
+This keeps discussion messages clean while still making profile discovery possible.
+
+### Owner Member Management
+
+The owner can remove members from their own discussion.
+
+In the owner view of `👥 اعضا`, show owner-only remove links/actions next to non-owner members:
+
+```text
+🤖👥 اعضای این بحث
+
+1. علی 👑 صاحب بحث — /u_8K2P
+2. سارا — /u_9Q4M — /remove_9Q4M
+3. رضا — /u_7N1A — /remove_7N1A
+```
+
+Rules:
+
+- Only the owner sees remove actions.
+- Owner cannot remove themselves; they can only close the discussion.
+- Members do not see remove actions.
+- A removed member is removed from `memberIds` and from their discussion memberships.
+- If the removed member's `activeDiscussionId` is this discussion, clear it.
+- Notify the removed member with a short message.
+- Do not expose raw ids in remove links; use the same safe public/member code style.
+
+Remove confirmation for owner:
+
+```text
+✅ سارا از بحث حذف شد.
+```
+
+Removed member notification:
+
+```text
+🤖 از بحث «بهترین ریف تاریخ؟» خارج شدی.
+```
+
+If a non-owner somehow triggers remove:
+
+```text
+🤖 فقط صاحب بحث می‌تونه اعضا رو حذف کنه.
+```
+
 ### Leave Discussion
 
-Leaving:
+Member leaving:
 
 - Remove user from members.
 - Clear user's active discussion id.
+- Remove the discussion from the user's memberships.
 
 Response:
 
@@ -290,7 +455,92 @@ Response:
 🚪 از بحث خارج شدی.
 ```
 
-Joining another discussion automatically leaves the old one.
+Owners cannot leave their own active/open discussion. They can only close it.
+
+If the owner presses a leave-style action on their own discussion:
+
+```text
+🤖 چون این بحث رو تو ساختی، نمی‌تونی فقط ازش خارج بشی.
+برای پایان دادن به بحث، از «بستن بحث» استفاده کن.
+```
+
+Joining another discussion switches the active discussion but does not leave the old one. Leaving is explicit through `🚪 خروج از بحث` or the `خروج` action in `📌 بحث‌های من` for non-owner memberships.
+
+### Close Discussion
+
+Only the owner can close a discussion.
+
+Closing behavior:
+
+- Set discussion status to closed.
+- Notify all current members except the owner.
+- Remove the discussion from active listings.
+- Remove the discussion from all member discussion memberships.
+- Clear `activeDiscussionId` for any user currently active in that discussion.
+- Do not allow new messages or joins.
+- For MVP, closed discussions are not reopened.
+
+Owner response:
+
+```text
+✅ بحث بسته شد.
+```
+
+Member notification:
+
+```text
+🤖 صاحب بحث، این گفتگو رو بست.
+
+💬 «بهترین ریف تاریخ؟»
+
+می‌تونی از بخش بحث‌ها وارد گفتگوی دیگه‌ای بشی.
+```
+
+After close, the room should not appear in `🔥 بحث‌های فعال` or `📌 بحث‌های من`.
+
+## Notifications
+
+Notifications should be useful but quiet.
+
+MVP notifications:
+
+- Notify the owner when someone joins their discussion.
+- Do not notify every member for every message.
+- Do not notify the owner if they are currently active inside that discussion.
+- Include an inline button to open the discussion.
+- Consider a simple mute action per discussion.
+
+Owner join notification:
+
+```text
+🤖 یه نفر وارد بحثت شد.
+
+💬 بهترین ریف تاریخ؟
+👤 سارا وارد شد.
+👥 الان ۳ نفر داخل بحثن.
+```
+
+Buttons:
+
+```text
+ورود به بحث
+بی‌صدا کردن این بحث
+```
+
+Anti-noise rules:
+
+- If multiple users join close together, batch or throttle notifications when possible.
+- Suggested throttle: at most 1 join notification per discussion per 10 minutes.
+- If throttled, the next notification can summarize:
+
+```text
+🤖 چند نفر جدید وارد بحثت شدن.
+
+💬 بهترین ریف تاریخ؟
+👥 الان ۶ نفر داخل بحثن.
+```
+
+Message notifications are not in MVP. They can be added later with careful rules such as mentions, quiet-period summaries, or explicit room subscriptions.
 
 ## Join Rules
 
@@ -394,6 +644,8 @@ Stored inside `recentMessages`, capped at 10:
 ### User Additions
 
 - `activeDiscussionId`
+- `discussionMembershipIds`, capped at 10 in MVP
+- optional muted discussion ids/preferences
 - optional discussion rate-limit metadata
 
 ## Rate Limits
@@ -401,6 +653,7 @@ Stored inside `recentMessages`, capped at 10:
 MVP should include basic limits:
 
 - Max 3 discussions created per user per day.
+- Max 10 discussion memberships per user.
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
@@ -412,12 +665,17 @@ MVP should include basic limits:
 MVP minimum:
 
 - Creator can close their discussion.
+- Closing is owner-only and should be available from the owner's active-discussion bottom button.
+- If a non-owner somehow triggers a close action, reject it safely with a short permission message.
 - Closed discussions cannot receive new messages.
+- Owner cannot leave their own open discussion; they must close it.
+- Closing removes the discussion from active listings and member memberships.
 - Text only.
 - Profile viewing must respect `profileDiscoverable`.
 
 Future:
 
+- Reopen closed discussion.
 - Report discussion.
 - Report message.
 - Admin close/hide tools.
@@ -440,16 +698,77 @@ Do not expose:
 
 ## Member/Profile Viewing
 
-MVP should allow users to identify who sent a message by display name.
+MVP should allow users to identify who sent a message by display name and view discoverable profiles through the members list.
 
-Future/profile-view interaction:
+Profile-view interaction:
 
-1. User selects or clicks a sender/member.
-2. Bot offers a "view profile" action.
+1. User presses `👥 اعضا`.
+2. Bot sends a member list with display names and public profile codes.
+3. User taps/sends a profile code.
 3. If the target user's profile is discoverable, bot shows their profile.
 4. If private, bot says the profile is private.
 
-Open design detail: Bale may not support clickable names in message text, so this may need inline buttons, a member list, or numbered sender/member entries.
+Bale may not support clickable names in plain bot text, so public profile codes are preferred over inline buttons under every message.
+
+## Saved Profiles And Discussion Discovery
+
+Saved profiles are a future/fast-follow social layer, not required for discussion MVP.
+
+Recommended behavior:
+
+- A user can save a discoverable profile privately.
+- Saving is one-way; the saved user is not notified.
+- Saved profiles are not friendships and do not open private chat.
+- Users can remove saved profiles.
+- If a saved profile later becomes private, opening it should show the private-profile message.
+
+Discussion discovery from another user's profile should be privacy-safe.
+
+MVP-safe rule:
+
+- Show discussions created by that user if their profile is discoverable and the discussion is not closed.
+- Do not show all discussions they joined.
+- Do not show membership history.
+- Do not show last seen or activity status.
+
+Active discussion visibility should be opt-in only.
+
+Setting:
+
+```text
+نمایش بحث فعالم روی پروفایل: روشن/خاموش
+```
+
+Rules:
+
+- Default: off.
+- If off, profile viewers cannot see the user's active discussion.
+- If on, profile viewers can see the user's current active discussion on their profile.
+- If the viewer qualifies for the discussion's join rule, show a join action.
+- If the viewer does not qualify, show the lock reason.
+- Never reveal active discussion automatically without this setting.
+- Store this as a user profile setting, e.g. `showActiveDiscussionOnProfile`, default `false`.
+- The profile should show the current setting even before the discussion feature is fully implemented.
+
+Example:
+
+```text
+💬 بحث فعلی علی:
+بهترین ریف تاریخ؟
+
+🔓 می‌تونی وارد بشی
+```
+
+Locked example:
+
+```text
+💬 بحث فعلی علی:
+آلبوم‌های متال برای شروع
+
+🔒 نیازمند: 🤘 متال‌هد
+```
+
+This keeps social discovery possible without turning profile viewing into presence tracking.
 
 ## Open Decisions
 

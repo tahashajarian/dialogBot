@@ -66,6 +66,7 @@ const UserSchema = new mongoose.Schema({
   },
   photoFileId: String,
   profileDiscoverable: { type: Boolean, default: false },
+  showActiveDiscussionOnProfile: { type: Boolean, default: false },
   aiLists: { type: AiListsSchema, default: () => ({}) },
   aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiRecentSuggestions: { type: AiRecentSuggestionsSchema, default: () => ({}) },

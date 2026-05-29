@@ -54,3 +54,4 @@
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
 - Profile discoverability controls profile viewing in social features; keep profiles private by default.
+- Showing a user's active discussion on their profile is a separate opt-in setting. It should be visible as a profile setting even before discussions are fully implemented, but the active room itself must not be exposed unless enabled.

@@ -416,7 +416,7 @@ function aiListCancelCommentKeyboard(lang, section, listType) {
   ]);
 }
 
-function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false) {
+function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsActiveDiscussion = false) {
   const rows = [
     [
       { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
@@ -444,6 +444,14 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false) {
       {
         text: isDiscoverable ? messages[lang].profileMakePrivate : messages[lang].profileMakeDiscoverable,
         callback_data: callBacks.profileToggleDiscoverable,
+      },
+    ],
+    [
+      {
+        text: showsActiveDiscussion
+          ? messages[lang].profileHideActiveDiscussion
+          : messages[lang].profileShowActiveDiscussion,
+        callback_data: callBacks.profileToggleActiveDiscussionVisible,
       },
     ],
   ];

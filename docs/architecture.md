@@ -35,6 +35,9 @@
 - location
 - photo
 - profile discoverability
+- active discussion profile visibility (`showActiveDiscussionOnProfile`)
+
+`showActiveDiscussionOnProfile` is separate from profile discoverability. Profile discoverability controls whether another user can view the profile; active-discussion visibility controls whether the user's current active discussion may be shown on that profile. Both should default to privacy-preserving behavior unless explicitly enabled.
 
 ## Validation
 

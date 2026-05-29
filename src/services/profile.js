@@ -113,6 +113,9 @@ function buildProfileText(user, lang, messages) {
   const discoveryStatus = user?.profileDiscoverable
     ? messages[lang].profileDiscoverabilityPublic
     : messages[lang].profileDiscoverabilityPrivate;
+  const activeDiscussionStatus = user?.showActiveDiscussionOnProfile
+    ? messages[lang].profileActiveDiscussionShown
+    : messages[lang].profileActiveDiscussionHidden;
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
   const genderIcon = "⚧️";
@@ -129,6 +132,7 @@ function buildProfileText(user, lang, messages) {
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,
     messages[lang].profileDiscoverability.replace("{status}", discoveryStatus),
+    messages[lang].profileActiveDiscussionVisibility.replace("{status}", activeDiscussionStatus),
   ].join("\n");
 
   return `${baseText}${tasteLabelsText}`;

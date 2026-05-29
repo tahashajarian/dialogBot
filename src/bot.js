@@ -1021,7 +1021,12 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     ctx,
     user,
     lang,
-    keyboard: profileKeyboard(keyboardLang, Boolean(user?.photoFileId), Boolean(user?.profileDiscoverable)),
+    keyboard: profileKeyboard(
+      keyboardLang,
+      Boolean(user?.photoFileId),
+      Boolean(user?.profileDiscoverable),
+      Boolean(user?.showActiveDiscussionOnProfile),
+    ),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",
