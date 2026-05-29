@@ -712,7 +712,13 @@ Bale may not support clickable names in plain bot text, so public profile codes 
 
 ## Saved Profiles And Discussion Discovery
 
-Saved profiles are a future/fast-follow social layer, not required for discussion MVP.
+Saved profiles are a lightweight social layer connected to discussion profile viewing.
+
+They should have a main-menu entry once discussion profile viewing exists:
+
+```text
+⭐ پروفایل‌های ذخیره‌شده
+```
 
 Recommended behavior:
 
@@ -721,6 +727,51 @@ Recommended behavior:
 - Saved profiles are not friendships and do not open private chat.
 - Users can remove saved profiles.
 - If a saved profile later becomes private, opening it should show the private-profile message.
+- Saved profiles are mainly created after viewing someone through discussions/member lists.
+- Cap saved profiles to keep the feature manageable.
+
+Recommended MVP limit:
+
+- max saved profiles per user: 50
+
+When viewing another user's discoverable profile from a discussion, show:
+
+```text
+⭐ ذخیره پروفایل
+```
+
+If already saved:
+
+```text
+⭐ ذخیره‌شده
+🗑 حذف از ذخیره‌شده‌ها
+```
+
+Saved profiles main menu:
+
+```text
+⭐ پروفایل‌های ذخیره‌شده
+
+1. علی — /u_8K2P
+2. سارا — /u_9Q4M
+```
+
+Actions per saved profile:
+
+```text
+دیدن پروفایل
+حذف
+```
+
+Rules:
+
+- Do not notify someone when their profile is saved or removed.
+- Do not expose raw user ids.
+- Use public profile codes for lookup/display.
+- Saving a profile does not bypass `profileDiscoverable`.
+- If a saved user's profile is now private, show private-profile copy instead of profile details.
+- If a saved user's public code no longer resolves, show a not-found message and let the user remove it.
+- Saved profiles should not show friendship status, online status, or private discussion membership.
 
 Discussion discovery from another user's profile should be privacy-safe.
 

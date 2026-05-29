@@ -36,8 +36,11 @@
 - photo
 - profile discoverability
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
+- future saved profile references, capped at 50 per user
 
 `showActiveDiscussionOnProfile` is separate from profile discoverability. Profile discoverability controls whether another user can view the profile; active-discussion visibility controls whether the user's current active discussion may be shown on that profile. Both should default to privacy-preserving behavior unless explicitly enabled.
+
+Saved profiles, when implemented, should be private one-way bookmarks. They should store references/public profile codes only, not duplicate private profile data.
 
 ## Validation
 
