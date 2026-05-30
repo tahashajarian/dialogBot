@@ -5,7 +5,9 @@ const {
   toSavedProfileListItems,
   isCodeSaved,
   buildSavedProfileListItems,
+  buildSavedProfilesListText,
 } = require("../src/services/saved-profiles-ui");
+const messages = require("../src/messages");
 
 test("toSavedProfileListItems builds stable rows with deduped codes", () => {
   const byCode = new Map([
@@ -40,4 +42,15 @@ test("buildSavedProfileListItems normalizes and hydrates user labels", async () 
     { code: "u_A1", name: "Ali" },
     { code: "u_B2", name: "Sara" },
   ]);
+});
+
+test("buildSavedProfilesListText separates rows with readable action links", () => {
+  const text = buildSavedProfilesListText(messages, "en", [
+    { code: "u_A1", name: "Ali" },
+    { code: "u_B2", name: "Sara" },
+  ]);
+
+  assert.match(text, /⭐ Saved profiles/);
+  assert.match(text, /1\. 👤 Ali\nView profile 👉 \/u_A1/);
+  assert.match(text, /Ali[\s\S]*\n\n2\. 👤 Sara/);
 });

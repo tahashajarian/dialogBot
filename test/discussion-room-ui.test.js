@@ -30,13 +30,14 @@ test("formatRecentDiscussionMessages handles empty and populated lists", () => {
   assert.match(populated, /Ali: Hello/);
 });
 
-test("formatDiscussionMemberLines marks owner with owner badge", () => {
+test("formatDiscussionMemberLines marks host with host badge", () => {
   const lines = formatDiscussionMemberLines(messages, "en", [
     { userId: 10, profileName: "Owner", publicProfileCode: "u_A1" },
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10);
-  assert.match(lines[0], /owner/i);
-  assert.match(lines[1], /u_B2/);
+  assert.match(lines[0], /Owner — ⭐ host/);
+  assert.match(lines[1], /View profile 👉 \/u_B2/);
+  assert.match(lines[1], /Report 👉 \/report_B2/);
 });
 
 test("formatDiscussionMemberLines shows current user without profile code", () => {
@@ -45,5 +46,23 @@ test("formatDiscussionMemberLines shows current user without profile code", () =
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10, 11);
 
-  assert.equal(lines[1], "2. You");
+  assert.equal(lines[1], "2. 👤 You");
+});
+
+test("formatDiscussionMemberLines lets owner remove other members", () => {
+  const lines = formatDiscussionMemberLines(messages, "en", [
+    { userId: 10, profileName: "Owner", publicProfileCode: "u_A1" },
+    { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
+  ], 10, 10);
+
+  assert.match(lines[1], /Remove 👉 \/remove_B2/);
+});
+
+test("formatDiscussionMemberLines separates member blocks with dividers", () => {
+  const lines = formatDiscussionMemberLines(messages, "en", [
+    { userId: 10, profileName: "Owner", publicProfileCode: "u_A1" },
+    { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
+  ], 10, 10);
+
+  assert.match(lines.join("\n"), /You[\s\S]*────────[\s\S]*Member/);
 });

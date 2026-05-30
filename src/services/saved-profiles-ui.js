@@ -31,8 +31,22 @@ async function buildSavedProfileListItems({
   return toSavedProfileListItems(normalized, byCode);
 }
 
+function buildSavedProfilesListText(messages, lang, items = []) {
+  if (!items.length) return messages[lang].savedProfilesEmpty;
+
+  const viewLabel = messages[lang].savedProfileOpen;
+  const lines = items.map((entry, index) => {
+    const command = `/${entry.code}`;
+    const action = lang === "fa" ? `${viewLabel} 👈 ${command}` : `${viewLabel} 👉 ${command}`;
+    return `${index + 1}. 👤 ${entry.name}\n${action}`;
+  });
+
+  return `${messages[lang].savedProfilesTitle}\n\n${lines.join("\n\n")}`;
+}
+
 module.exports = {
   toSavedProfileListItems,
   isCodeSaved,
   buildSavedProfileListItems,
+  buildSavedProfilesListText,
 };

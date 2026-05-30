@@ -87,7 +87,7 @@ function hasValidLocation(location) {
   );
 }
 
-function buildProfileText(user, lang, messages) {
+function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const displayName = user?.profileName || user?.firstName || "—";
   const city = user?.city || "—";
   const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
@@ -121,7 +121,7 @@ function buildProfileText(user, lang, messages) {
   const genderIcon = "⚧️";
   const tasteLabelsText = buildTasteLabelsText(user, lang, messages);
 
-  const baseText = [
+  const lines = [
     `${titleIcon} ${messages[lang].profileTitle}`,
     `━━━━━━━━━━━━━━`,
     lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
@@ -131,9 +131,16 @@ function buildProfileText(user, lang, messages) {
     `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
     `📍 ${messages[lang].profileLocation}: ${locationText}`,
     `📝 ${messages[lang].profileBio}: ${bio}`,
-    messages[lang].profileDiscoverability.replace("{status}", discoveryStatus),
-    messages[lang].profileActiveDiscussionVisibility.replace("{status}", activeDiscussionStatus),
-  ].join("\n");
+  ];
+
+  if (isOwnProfile) {
+    lines.push(
+      messages[lang].profileDiscoverability.replace("{status}", discoveryStatus),
+      messages[lang].profileActiveDiscussionVisibility.replace("{status}", activeDiscussionStatus),
+    );
+  }
+
+  const baseText = lines.join("\n");
 
   return `${baseText}${tasteLabelsText}`;
 }
@@ -189,9 +196,10 @@ async function sendProfileMessage({
   messages,
   defaultProfilePhoto,
   loadingText = "",
+  isOwnProfile = false,
 }) {
   const hasCustomPhoto = user?.photoFileId;
-  const profileText = buildProfileText(user, lang, messages);
+  const profileText = buildProfileText(user, lang, messages, { isOwnProfile });
   const loadingMessage = loadingText ? await ctx.reply(loadingText) : null;
   let sentProfile;
 

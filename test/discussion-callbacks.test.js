@@ -48,6 +48,7 @@ test("discussion preview includes selected top ten item", () => {
 test("discussion list text includes status, count, and rule", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", [{
     title: "Metal room",
+    publicDiscussionCode: "d_AB12",
     listPrefix: "🔒",
     memberUserIds: [1, 2],
     maxMembers: 20,
@@ -57,4 +58,24 @@ test("discussion list text includes status, count, and rule", () => {
   assert.match(text, /🔒 Metal room/);
   assert.match(text, /👥 2\/20/);
   assert.match(text, /Taste label \(music\)/);
+  assert.match(text, /Join 👉 \/d_AB12/);
+});
+
+test("discussion list text separates multiple discussions with dividers", () => {
+  const text = buildDiscussionListText(messages, "en", "Active discussions", [
+    {
+      title: "Metal room",
+      publicDiscussionCode: "d_AB12",
+      memberUserIds: [1],
+      joinRule: { type: "open" },
+    },
+    {
+      title: "Movie room",
+      publicDiscussionCode: "d_CD34",
+      memberUserIds: [1, 2],
+      joinRule: { type: "open" },
+    },
+  ]);
+
+  assert.match(text, /Metal room[\s\S]*────────[\s\S]*Movie room/);
 });

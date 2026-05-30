@@ -595,53 +595,55 @@ function languageKeyboard() {
   ]);
 }
 
-function discussionsMenuKeyboard(lang, isActiveMember = false) {
+function discussionsMenuKeyboard(lang) {
   const rows = [
     [{ text: messages[lang].discussionActiveList, callback_data: callBacks.discussionListActive }],
     [{ text: messages[lang].discussionCreate, callback_data: callBacks.discussionCreateStart }],
     [{ text: messages[lang].discussionMyList, callback_data: callBacks.discussionListMine }],
   ];
-  if (isActiveMember) {
-    rows.push([{ text: messages[lang].discussionLeave, callback_data: callBacks.discussionLeave }]);
-  }
   rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
   return inlineKeyboard(rows);
 }
 
-function discussionItemsKeyboard(lang, discussions = [], prefix) {
-  const rows = discussions.slice(0, 20).map((entry) => ([
-    {
-      text: `${entry.listPrefix || "💬"} ${entry.title}`,
-      callback_data: `${prefix}${entry._id}`,
-    },
-  ]));
-  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
-  return inlineKeyboard(rows);
-}
-
-function myDiscussionItemsKeyboard(lang, discussions = [], currentUserId) {
+function discussionListNavigationKeyboard(lang, {
+  listType = "active",
+  page = 0,
+  totalPages = 1,
+  joinableOnly = false,
+} = {}) {
   const rows = [];
-  for (const entry of discussions.slice(0, 20)) {
-    rows.push([{
-      text: `${entry.listPrefix || "💬"} ${entry.title}`,
-      callback_data: `${callBacks.discussionOpen}${entry._id}`,
-    }]);
-    rows.push([
-      {
-        text: messages[lang].discussionOpenButton,
-        callback_data: `${callBacks.discussionOpen}${entry._id}`,
-      },
-      entry.creatorUserId === currentUserId
-        ? {
-          text: messages[lang].discussionCloseButton,
-          callback_data: `${callBacks.discussionClose}${entry._id}`,
-        }
-        : {
-          text: messages[lang].discussionLeave,
-          callback_data: `${callBacks.discussionLeave}${entry._id}`,
-        },
-    ]);
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  const maxPage = Math.max(0, Number(totalPages || 1) - 1);
+  const listPrefix = listType === "mine" ? callBacks.discussionListMinePage : callBacks.discussionListActivePage;
+  const pageRows = [];
+
+  if (normalizedPage < maxPage) {
+    const nextFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}` : "";
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${listPrefix}${normalizedPage + 1}${nextFilter}`,
+    });
   }
+
+  if (normalizedPage > 0) {
+    const prevFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}` : "";
+    pageRows.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${listPrefix}${normalizedPage - 1}${prevFilter}`,
+    });
+  }
+
+  if (pageRows.length) {
+    rows.push(pageRows);
+  }
+
+  if (listType === "active") {
+    rows.push([{
+      text: joinableOnly ? messages[lang].discussionListShowAll : messages[lang].discussionListOnlyJoinable,
+      callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}`,
+    }]);
+  }
+
   rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
   return inlineKeyboard(rows);
 }
@@ -650,10 +652,10 @@ function discussionRoomKeyboard(lang, isOwner = false) {
   const rows = [
     [
       { text: messages[lang].discussionMembersTitle },
-      { text: messages[lang].discussionMyList },
+      { text: isOwner ? messages[lang].discussionCloseButton : messages[lang].discussionLeave },
     ],
     [
-      { text: isOwner ? messages[lang].discussionCloseButton : messages[lang].discussionLeave },
+      { text: messages[lang].discussionReturnToMenu },
     ],
   ];
 
@@ -665,35 +667,6 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       selective: true,
     },
   };
-}
-
-function discussionMembersKeyboard(lang, discussion, members, ownerCode, currentUserId = null) {
-  const rows = [];
-  const profileRows = members
-    .filter((entry) => entry.publicProfileCode && Number(entry.userId) !== Number(currentUserId))
-    .map((entry) => ([{
-      text: `/${entry.publicProfileCode}`,
-      callback_data: `${callBacks.profileViewByCode}${entry.publicProfileCode}`,
-    }]));
-  rows.push(...profileRows);
-  if (ownerCode) {
-    rows.push([{ text: messages[lang].discussionRemoveMember, callback_data: `${callBacks.discussionRemoveMemberPicker}${discussion._id}` }]);
-  }
-  rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: `${callBacks.discussionOpen}${discussion._id}` }]);
-  return inlineKeyboard(rows);
-}
-
-function discussionCreateDescriptionKeyboard(lang) {
-  return inlineKeyboard([
-    [{ text: messages[lang].discussionSkipDescription, callback_data: callBacks.discussionCreateSkipDescription }],
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-  ]);
-}
-
-function discussionCreateCancelKeyboard(lang) {
-  return inlineKeyboard([
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-  ]);
 }
 
 function discussionCreateCancelReplyKeyboard(lang) {
@@ -846,14 +819,10 @@ module.exports = {
   locationKeyboard,
   languageKeyboard,
   discussionsMenuKeyboard,
-  discussionItemsKeyboard,
-  myDiscussionItemsKeyboard,
+  discussionListNavigationKeyboard,
   discussionRoomKeyboard,
-  discussionMembersKeyboard,
-  discussionCreateDescriptionKeyboard,
   discussionCreateDescriptionReplyKeyboard,
   discussionCreateRequiredDescriptionReplyKeyboard,
-  discussionCreateCancelKeyboard,
   discussionCreateCancelReplyKeyboard,
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,

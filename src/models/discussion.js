@@ -19,15 +19,24 @@ const DiscussionJoinRuleSchema = new mongoose.Schema({
   itemTitle: { type: String, default: "" },
 }, { _id: false });
 
+const DiscussionReportSchema = new mongoose.Schema({
+  reporterUserId: { type: Number, required: true },
+  targetUserId: { type: Number, required: true },
+  status: { type: String, enum: ["open", "reviewed"], default: "open" },
+  createdAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 const DiscussionSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 80 },
   description: { type: String, default: "", trim: true, maxlength: 300 },
+  publicDiscussionCode: { type: String, default: "", index: true, sparse: true },
   creatorUserId: { type: Number, required: true, index: true },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
   memberUserIds: { type: [Number], default: [] },
   maxMembers: { type: Number, default: 20 },
   recentMessages: { type: [DiscussionMessageSchema], default: [] },
+  reports: { type: [DiscussionReportSchema], default: [] },
   replyCount: { type: Number, default: 0 },
   lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },

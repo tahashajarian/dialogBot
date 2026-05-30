@@ -44,6 +44,12 @@
 - Callback notifications are not persistent like a pin.
 - Use callback notifications for lightweight context changes when the platform supports them.
 - If a repeated button press keeps the visible message effectively unchanged, use a short callback notification so the user can tell the tap was handled without adding chat noise.
+- When a command-link action fails from a list, remove or refresh the stale list and show the relevant list again after the bot explanation when practical.
+- For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.
+- Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.
+- Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
+- Temporary keyboard-cleanup messages, such as returning from an active discussion to the discussion menu, should be removed when the user leaves the discussion menu.
+- Profile privacy/discussion-visibility status rows are self-only. Other users viewing a profile should not see those settings.
 
 ## Pinning
 

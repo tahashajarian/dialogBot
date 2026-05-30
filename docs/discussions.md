@@ -65,11 +65,10 @@ Discussion menu:
 🟢 بحث‌های فعال
 ➕ ساخت بحث جدید
 🗂 بحث‌های من
-🚪 خروج از بحث
 ⬅️ برگشت
 ```
 
-Only show `🚪 خروج از بحث` when the user is currently inside a discussion.
+Show `🚪 خروج از بحث` only inside an active room's bottom controls, not in the general discussions menu.
 
 Inside an active discussion, use bottom buttons for room actions.
 
@@ -77,22 +76,22 @@ Member buttons:
 
 ```text
 👥 اعضا
-🗂 بحث‌های من
 🚪 خروج از بحث
+🔙💬 منوی بحث‌ها
 ```
 
 Owner buttons:
 
 ```text
 👥 اعضا
-🗂 بحث‌های من
 🔒 بستن بحث
+🔙💬 منوی بحث‌ها
 ```
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
 The owner should not see `🚪 خروج از بحث` for their own discussion. To stop participating, the owner must close the discussion for everyone. This prevents orphaned ownerless rooms.
 
-`🗂 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
+`🔙💬 منوی بحث‌ها` removes the active room bottom keyboard and returns to the normal discussions menu. From there, `🗂 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
 
 Important distinction:
 
@@ -268,7 +267,7 @@ Example:
 ```text
 💬 وارد بحث «بهترین ریف تاریخ؟» شدی.
 
-آخرین پیام‌ها:
+🤖 آخرین پیام‌ها:
 👤 علی: Master of Puppets هنوز بی‌رقیبه.
 👤 سارا: من Painkiller رو می‌گم.
 
@@ -304,6 +303,8 @@ Recommended MVP membership limit:
 ### My Discussions / Switching
 
 `🗂 بحث‌های من` shows discussions the user owns or has joined.
+Discussion lists should be plain text with bot-command links instead of dense inline button rows.
+Long discussion lists should be paginated, with an inline back button below the text list. Active-discussion lists should also include an inline toggle for showing only discussions the user can currently join.
 
 Example:
 
@@ -313,24 +314,28 @@ Example:
 ✅ بهترین ریف تاریخ؟
 👥 ۳ نفر
 آخرین فعالیت: ۵ دقیقه پیش
+ورود 👈 /d_8K2P
+خروج 👈 /leave_8K2P
 
 💬 فیلمی که همه اشتباه فهمیدن؟
 👥 ۱۲ نفر
 آخرین فعالیت: امروز
+ورود 👈 /d_9Q4M
+بستن 👈 /close_9Q4M
 ```
 
-Buttons per discussion:
+Commands per discussion:
 
 ```text
-ورود
-خروج
+ورود 👈 /d_CODE
+خروج 👈 /leave_CODE
 ```
 
 If owner:
 
 ```text
-ورود
-بستن
+ورود 👈 /d_CODE
+بستن 👈 /close_CODE
 ```
 
 Owners should see `بستن`, not `خروج`, for discussions they created.
@@ -348,21 +353,9 @@ When a user with an active discussion sends normal text:
 - Add it to the discussion's recent messages.
 - Keep only the last 10 messages.
 - Broadcast it to current members except sender.
-- Confirm delivery to sender.
+- Do not send a per-message delivery confirmation to the sender; it makes the chat noisy.
 
-Sender confirmation:
-
-```text
-✅ پیام ارسال شد.
-👥 برای {count} نفر داخل بحث فرستادم.
-```
-
-If there are no other active members:
-
-```text
-🤖 فعلاً کسی داخل این بحث نیست.
-آخرین پیام‌ها برای نفرات بعدی که وارد بشن نمایش داده میشه.
-```
+If there are no other active members, still store the message silently so it appears in recent messages for future members.
 
 Do not say "seen" or "read" unless the platform later provides reliable read receipts.
 
@@ -389,9 +382,19 @@ Example:
 ```text
 🤖👥 اعضای این بحث
 
-1. علی 👑 صاحب بحث — /u_8K2P
-2. سارا — /u_9Q4M
-3. تو
+1. 👤 علی — ⭐ میزبان
+دیدن پروفایل 👈 /u_8K2P
+گزارش 👈 /report_8K2P
+
+────────
+
+2. 👤 سارا
+دیدن پروفایل 👈 /u_9Q4M
+گزارش 👈 /report_9Q4M
+
+────────
+
+3. 👤 تو
 ```
 
 The profile code acts like a bot command/link. When the user sends or taps `/u_8K2P`, the bot resolves it to that member.
@@ -404,7 +407,11 @@ Rules:
 - If the target profile is private, show a short private-profile message.
 - The member list can show all members because MVP room capacity is 20.
 - The current user can be shown as `تو` without a profile link.
-- Mark the discussion owner clearly with `👑 صاحب بحث`.
+- Mark the discussion host clearly with `⭐ میزبان`.
+- Member lists should be plain text command links, not inline button rows.
+- Profile/report/remove actions should use pointer links, matching the discussion list style.
+- Separate member blocks with a simple line divider when multiple members are shown.
+- Users stay inside the discussion after viewing the member list; no back button is needed on the member list.
 
 Private profile response:
 
@@ -418,14 +425,24 @@ This keeps discussion messages clean while still making profile discovery possib
 
 The owner can remove members from their own discussion.
 
-In the owner view of `👥 اعضا`, show owner-only remove links/actions next to non-owner members:
+In the owner view of `👥 اعضا`, show owner-only remove links/actions under non-owner members:
 
 ```text
 🤖👥 اعضای این بحث
 
-1. علی 👑 صاحب بحث — /u_8K2P
-2. سارا — /u_9Q4M — /remove_9Q4M
-3. رضا — /u_7N1A — /remove_7N1A
+1. 👤 علی — ⭐ میزبان
+
+2. 👤 سارا
+دیدن پروفایل 👈 /u_9Q4M
+گزارش 👈 /report_9Q4M
+حذف 👈 /remove_9Q4M
+
+────────
+
+3. 👤 رضا
+دیدن پروفایل 👈 /u_7N1A
+گزارش 👈 /report_7N1A
+حذف 👈 /remove_7N1A
 ```
 
 Rules:
@@ -433,28 +450,43 @@ Rules:
 - Only the owner sees remove actions.
 - Owner cannot remove themselves; they can only close the discussion.
 - Members do not see remove actions.
+- Every user can report another member from the member list.
 - A removed member is removed from `memberIds` and from their discussion memberships.
-- If the removed member's `activeDiscussionId` is this discussion, clear it.
-- Notify the removed member with a short message.
+- If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
+- If the removed member is not currently active in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
 
 Remove confirmation for owner:
 
 ```text
-✅ سارا از بحث حذف شد.
+🤖 عضو از بحث حذف شد.
 ```
 
 Removed member notification:
 
 ```text
-🤖 از بحث «بهترین ریف تاریخ؟» خارج شدی.
+🤖 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
 If a non-owner somehow triggers remove:
 
 ```text
-🤖 فقط صاحب بحث می‌تونه اعضا رو حذف کنه.
+🤖 فقط میزبان بحث می‌تونه اعضا رو حذف کنه.
 ```
+
+Report confirmation:
+
+```text
+🤖 گزارشت ثبت شد. فعالیت این کاربر بررسی میشه.
+```
+
+Reports should store enough data for later review:
+
+- discussion id
+- reporter user id
+- reported/target user id
+- report status
+- created time
 
 ### Leave Discussion
 
@@ -467,8 +499,10 @@ Member leaving:
 Response:
 
 ```text
-🚪 از بحث خارج شدی.
+🤖 از بحث «بهترین ریف تاریخ؟» خارج شدی.
 ```
+
+After this response, remove the room bottom keyboard and show the discussions menu.
 
 Owners cannot leave their own active/open discussion. They can only close it.
 
@@ -504,7 +538,7 @@ Owner response:
 Member notification:
 
 ```text
-🤖 صاحب بحث، این گفتگو رو بست.
+🤖 میزبان بحث، این گفتگو رو بست.
 
 💬 «بهترین ریف تاریخ؟»
 
@@ -815,7 +849,7 @@ Active discussion visibility should be opt-in only.
 Setting:
 
 ```text
-نمایش بحث فعالم روی پروفایل: روشن/خاموش
+نمایش بحث‌های فعال روی پروفایل: روشن/خاموش
 ```
 
 Rules:
@@ -828,6 +862,7 @@ Rules:
 - Never reveal active discussion automatically without this setting.
 - Store this as a user profile setting, e.g. `showActiveDiscussionOnProfile`, default `false`.
 - The profile should show the current setting even before the discussion feature is fully implemented.
+- Show this setting only to the profile owner, not to other users viewing the profile.
 
 Example:
 

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   normalizePublicProfileCode,
+  normalizePublicDiscussionCode,
   validateJoinRulePayload,
   validateJoinRules,
   hasLink,
@@ -26,6 +27,13 @@ test("normalizePublicProfileCode normalizes and validates codes", () => {
   assert.equal(normalizePublicProfileCode(""), "");
 });
 
+test("normalizePublicDiscussionCode normalizes and validates discussion commands", () => {
+  assert.equal(normalizePublicDiscussionCode("d_ab12"), "d_AB12");
+  assert.equal(normalizePublicDiscussionCode("/d_ab12"), "d_AB12");
+  assert.equal(normalizePublicDiscussionCode("u_ab12"), "");
+  assert.equal(normalizePublicDiscussionCode(""), "");
+});
+
 test("validateJoinRulePayload accepts open rule", () => {
   const result = validateJoinRulePayload({ type: "open" });
   assert.equal(result.ok, true);
@@ -36,6 +44,7 @@ test("discussion schema accepts open join rule without section", () => {
   const discussion = new Discussion({
     title: "Open room",
     description: "A public topic",
+    publicDiscussionCode: "d_TEST1",
     creatorUserId: 1,
     joinRule: { type: "open" },
   });

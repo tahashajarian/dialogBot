@@ -18,6 +18,13 @@ function normalizePublicProfileCode(value) {
   return `u_${raw.slice(2).replace(/[^a-z0-9]/gi, "").toUpperCase()}`;
 }
 
+function normalizePublicDiscussionCode(value) {
+  const raw = String(value || "").trim().replace(/^\/+/, "");
+  if (!raw) return "";
+  if (!/^d_/i.test(raw)) return "";
+  return `d_${raw.slice(2).replace(/[^a-z0-9]/gi, "").toUpperCase()}`;
+}
+
 function normalizeDiscussionText(value, maxLength) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
@@ -59,6 +66,44 @@ async function ensurePublicProfileCode(userId) {
   );
 
   return { ok: true, code, user: updated };
+}
+
+async function ensurePublicDiscussionCode(discussion) {
+  const discussionId = discussion?._id || discussion;
+  const current = normalizePublicDiscussionCode(discussion?.publicDiscussionCode);
+  if (current) return { ok: true, code: current, discussion };
+
+  const found = discussion?.title ? discussion : await Discussion.findById(discussionId);
+  if (!found) return { ok: false, reason: "missing_discussion" };
+
+  const existing = normalizePublicDiscussionCode(found.publicDiscussionCode);
+  if (existing) return { ok: true, code: existing, discussion: found };
+
+  let code = "";
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    code = `d_${suffix}`;
+    const exists = await Discussion.exists({ publicDiscussionCode: code });
+    if (!exists) break;
+    code = "";
+  }
+
+  if (!code) return { ok: false, reason: "code_generation_failed" };
+
+  found.publicDiscussionCode = code;
+  await found.save();
+  return { ok: true, code, discussion: found };
+}
+
+async function ensurePublicDiscussionCodes(discussions = []) {
+  await Promise.all((discussions || []).map((discussion) => ensurePublicDiscussionCode(discussion)));
+  return discussions;
+}
+
+async function findDiscussionByPublicCode(code) {
+  const cleanCode = normalizePublicDiscussionCode(code);
+  if (!cleanCode) return null;
+  return Discussion.findOne({ publicDiscussionCode: cleanCode });
 }
 
 function validateJoinRulePayload(joinRule = {}) {
@@ -168,6 +213,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
     replyCount: 0,
     lastActivityAt: new Date(),
   });
+  await ensurePublicDiscussionCode(discussion);
 
   const membershipIds = [...memberships, discussion._id];
   await User.findOneAndUpdate(
@@ -319,7 +365,10 @@ async function closeDiscussionAsOwner(ownerUserId, discussionId) {
 }
 
 async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
-  const discussion = await Discussion.findById(discussionId);
+  const [discussion, memberUser] = await Promise.all([
+    Discussion.findById(discussionId),
+    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang").lean(),
+  ]);
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
@@ -327,6 +376,7 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
 
   const wasMember = discussion.memberUserIds.includes(memberUserId);
   if (!wasMember) return { ok: false, reason: "not_member" };
+  const wasActive = String(memberUser?.activeDiscussionId || "") === String(discussion._id);
 
   discussion.memberUserIds = discussion.memberUserIds.filter((id) => id !== memberUserId);
   discussion.updatedAt = new Date();
@@ -347,7 +397,29 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
     discussionId: discussion._id,
     discussionTitle: discussion.title,
     memberUserId,
+    memberLang: memberUser?.lang || "fa",
+    wasActive,
   };
+}
+
+async function reportDiscussionMember(reporterUserId, discussionId, targetUserId) {
+  const discussion = await Discussion.findById(discussionId);
+  if (!discussion) return { ok: false, reason: "missing_discussion" };
+  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
+  if (!discussion.memberUserIds.includes(reporterUserId)) return { ok: false, reason: "not_member" };
+  if (!discussion.memberUserIds.includes(targetUserId)) return { ok: false, reason: "not_member" };
+  if (Number(reporterUserId) === Number(targetUserId)) return { ok: false, reason: "invalid_report_target" };
+
+  discussion.reports.push({
+    reporterUserId,
+    targetUserId,
+    status: "open",
+    createdAt: new Date(),
+  });
+  discussion.updatedAt = new Date();
+  await discussion.save();
+
+  return { ok: true, discussionId: discussion._id, targetUserId };
 }
 
 function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowMs = DISCUSSION_MESSAGE_WINDOW_MS) {
@@ -459,8 +531,12 @@ module.exports = {
   normalizeTitle,
   normalizeDescription,
   normalizePublicProfileCode,
+  normalizePublicDiscussionCode,
   hasLink,
   ensurePublicProfileCode,
+  ensurePublicDiscussionCode,
+  ensurePublicDiscussionCodes,
+  findDiscussionByPublicCode,
   validateJoinRulePayload,
   validateJoinRules,
   createDiscussion,
@@ -470,6 +546,7 @@ module.exports = {
   leaveDiscussionAsMember,
   closeDiscussionAsOwner,
   removeMemberAsOwner,
+  reportDiscussionMember,
   addRecentMessage,
   addSavedProfileCode,
   removeSavedProfileCode,

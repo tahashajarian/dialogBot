@@ -7,6 +7,8 @@ const {
   mainMenuKeyboard,
   languageKeyboard,
   aiAssistantKeyboard,
+  discussionsMenuKeyboard,
+  discussionListNavigationKeyboard,
   profileKeyboard,
   ageKeyboard,
   genderKeyboard,
@@ -20,9 +22,7 @@ const {
   aiListManageMenuKeyboard,
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
-  myDiscussionItemsKeyboard,
   discussionRoomKeyboard,
-  discussionMembersKeyboard,
   discussionCreateDescriptionReplyKeyboard,
   discussionCreateRequiredDescriptionReplyKeyboard,
   discussionJoinRuleKeyboard,
@@ -75,20 +75,28 @@ const {
   addRecentMessage,
   closeDiscussionAsOwner,
   ensurePublicProfileCode,
+  findDiscussionByPublicCode,
   joinOrSwitchActiveDiscussion,
   leaveDiscussionAsMember,
+  listActiveDiscussions,
   listMyDiscussions,
   normalizePublicProfileCode,
+  removeMemberAsOwner,
+  reportDiscussionMember,
   hasLink,
-  validateJoinRules,
 } = require("./services/discussions");
 const {
   getDiscussionErrorMessage,
-  getDiscussionListPrefix,
+  decorateDiscussionsForList,
+  paginateDiscussions,
   buildDiscussionListText,
   buildDiscussionPreviewText,
 } = require("./services/discussion-ui");
-const { formatDiscussionMemberLines } = require("./services/discussion-room-ui");
+const {
+  formatDiscussionMemberLines,
+  formatDiscussionRoom,
+  formatRecentDiscussionMessages,
+} = require("./services/discussion-room-ui");
 const User = require("./models/user");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -151,7 +159,8 @@ function matchesMessageText(text, keys) {
 }
 
 function isDiscussionMembersText(text) {
-  return matchesMessageText(text, ["discussionMembersTitle"]);
+  const plainText = getPlainKeyboardText(text);
+  return matchesMessageText(text, ["discussionMembersTitle"]) || plainText.includes("اعضا") || plainText.includes("members");
 }
 
 function isDiscussionMyListText(text) {
@@ -159,11 +168,45 @@ function isDiscussionMyListText(text) {
 }
 
 function isDiscussionLeaveText(text) {
-  return matchesMessageText(text, ["discussionLeave"]);
+  const plainText = getPlainKeyboardText(text);
+  return matchesMessageText(text, ["discussionLeave"]) || (plainText.includes("خروج") && plainText.includes("بحث")) || plainText.includes("leave discussion");
 }
 
 function isDiscussionCloseText(text) {
-  return matchesMessageText(text, ["discussionCloseButton"]);
+  const plainText = getPlainKeyboardText(text);
+  return matchesMessageText(text, ["discussionCloseButton"]) || (plainText.includes("بستن") && plainText.includes("بحث")) || plainText.includes("close discussion");
+}
+
+function isDiscussionReturnToMenuText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  const legacyLabels = [
+    "💬 منوی بحث‌ها",
+    "💬 Discussions menu",
+  ].map(normalizeKeyboardText);
+  const plainText = getPlainKeyboardText(text);
+  return (
+    matchesMessageText(text, ["discussionReturnToMenu"]) ||
+    legacyLabels.includes(normalizedText) ||
+    (plainText.includes("منوی") && plainText.includes("بحث")) ||
+    (plainText.includes("discussion") && plainText.includes("menu"))
+  );
+}
+
+function getPlainKeyboardText(text) {
+  return normalizeKeyboardText(text)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
+function isDiscussionBottomControlText(text) {
+  return (
+    isDiscussionReturnToMenuText(text) ||
+    isDiscussionMembersText(text) ||
+    isDiscussionLeaveText(text) ||
+    isDiscussionCloseText(text)
+  );
 }
 
 function getMessageId(message) {
@@ -624,6 +667,20 @@ async function notifyDiscussionUsers(ctx, userIds = [], text) {
   await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
 }
 
+function formatDiscussionLeftMessage(lang, discussionTitle = "") {
+  return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
+}
+
+async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false } = {}) {
+  await ctx.reply(text, removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined);
+  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+}
+
+function normalizeProfileCodeFromActionCommand(value) {
+  const raw = String(value || "").trim().replace(/^\/?(remove|report)_/i, "");
+  return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
+}
+
 async function handleDiscussionBottomButton(ctx, lang, text) {
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
 
@@ -642,7 +699,6 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId);
     return ctx.reply(
       `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
-      discussionMembersKeyboard(lang, opened.discussion, refreshed, opened.discussion.creatorUserId === ctx.userId, ctx.userId),
     );
   }
 
@@ -650,15 +706,18 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const result = await listMyDiscussions(ctx.userId, { limit: 20 });
     if (!result.ok) return ctx.reply(messages[lang].unknownAction);
     if (!result.discussions.length) return ctx.reply(messages[lang].discussionListMineEmpty);
-    const decorated = await Promise.all(result.discussions.map(async (discussion) => {
-      const joinCheck = await validateJoinRules({ user: ctx.user, joinRule: discussion.joinRule });
-      discussion.listPrefix = getDiscussionListPrefix(joinCheck);
-      return discussion;
-    }));
-    return ctx.reply(
-      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated),
-      myDiscussionItemsKeyboard(lang, decorated, ctx.userId),
-    );
+    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
+    const sent = await ctx.reply(buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated));
+    await rememberDiscussionListMessage(ctx, "mine", sent);
+    return sent;
+  }
+
+  if (isDiscussionReturnToMenuText(text)) {
+    const notice = await ctx.reply(messages[lang].discussionReturnedToMenu, {
+      reply_markup: { remove_keyboard: true, selective: false },
+    });
+    await rememberDiscussionMenuNotice(ctx, notice);
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 
   if (isDiscussionLeaveText(text)) {
@@ -682,9 +741,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
       );
     }
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return ctx.reply(messages[lang].discussionLeft, {
-      reply_markup: { remove_keyboard: true },
-    });
+    return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, discussionTitle), { removeKeyboard: true });
   }
 
   if (isDiscussionCloseText(text)) {
@@ -714,6 +771,186 @@ function buildDiscussionPreviewForCurrentDraft(ctx, lang, description) {
   });
 }
 
+async function sendDiscussionRoomFromText(ctx, lang, discussion) {
+  await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
+  return ctx.reply(
+    `${formatRecentDiscussionMessages(messages, lang, discussion)}\n\n${messages[lang].discussionRoomSendHint}`,
+    discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
+  );
+}
+
+async function rememberDiscussionListMessage(ctx, listType, message) {
+  const messageId = getMessageId(message);
+  if (!messageId) return;
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", messageId);
+  await updateProfileField(ctx.userId, "discussionLastListType", listType);
+}
+
+async function clearRememberedDiscussionListMessage(ctx) {
+  const messageId = Number(ctx.user?.discussionLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  }
+  return deleted;
+}
+
+async function rememberDiscussionMenuNotice(ctx, message) {
+  const messageId = getMessageId(message);
+  if (!messageId) return;
+  await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", messageId);
+}
+
+async function clearDiscussionMenuNotice(ctx) {
+  const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+  }
+  return deleted;
+}
+
+async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {
+  const listType = preferredType === "mine" ? "mine" : "active";
+  if (listType === "mine") {
+    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
+    if (!result.ok || !result.discussions.length) {
+      const sentEmpty = await ctx.reply(messages[lang].discussionListMineEmpty);
+      return rememberDiscussionListMessage(ctx, "mine", sentEmpty);
+    }
+    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
+    const paged = paginateDiscussions(decorated, 0);
+    const sent = await ctx.reply(
+      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items),
+      discussionListNavigationKeyboard(lang, {
+        listType: "mine",
+        page: paged.page,
+        totalPages: paged.totalPages,
+      }),
+    );
+    return rememberDiscussionListMessage(ctx, "mine", sent);
+  }
+
+  const result = await listActiveDiscussions({ limit: 100 });
+  if (!result.discussions.length) {
+    const sentEmpty = await ctx.reply(messages[lang].discussionListEmpty);
+    return rememberDiscussionListMessage(ctx, "active", sentEmpty);
+  }
+  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, false);
+  const paged = paginateDiscussions(decorated, 0);
+  const sent = await ctx.reply(
+    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items),
+    discussionListNavigationKeyboard(lang, {
+      listType: "active",
+      page: paged.page,
+      totalPages: paged.totalPages,
+      joinableOnly: false,
+    }),
+  );
+  return rememberDiscussionListMessage(ctx, "active", sent);
+}
+
+async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason) {
+  await clearRememberedDiscussionListMessage(ctx);
+  await ctx.reply(getDiscussionErrorMessage(messages, lang, reason));
+  return sendRememberedDiscussionList(ctx, lang, ctx.user?.discussionLastListType || "active");
+}
+
+async function openDiscussionCommand(ctx, lang, code) {
+  const discussion = await findDiscussionByPublicCode(code);
+  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+
+  const joined = await joinOrSwitchActiveDiscussion(ctx.userId, discussion._id);
+  if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason);
+
+  await clearRememberedDiscussionListMessage(ctx);
+  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
+  return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
+}
+
+async function leaveDiscussionCommand(ctx, lang, code) {
+  const discussion = await findDiscussionByPublicCode(code);
+  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+
+  const left = await leaveDiscussionAsMember(ctx.userId, discussion._id);
+  if (!left.ok) {
+    if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
+    return ctx.reply(getDiscussionErrorMessage(messages, lang, left.reason));
+  }
+  await updateProfileField(ctx.userId, "activeDiscussionId", null);
+  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussionTitle), { removeKeyboard: true });
+}
+
+async function closeDiscussionCommand(ctx, lang, code) {
+  const discussion = await findDiscussionByPublicCode(code);
+  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+
+  const closed = await closeDiscussionAsOwner(ctx.userId, discussion._id);
+  if (!closed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
+  const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
+  await notifyDiscussionUsers(
+    ctx,
+    notifyIds,
+    messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
+  );
+  await updateProfileField(ctx.userId, "activeDiscussionId", null);
+  return ctx.reply(messages[lang].discussionClosed, {
+    reply_markup: { remove_keyboard: true },
+  });
+}
+
+async function sendRemovedActiveMemberNotice(ctx, removed) {
+  if (!removed?.wasActive || !ctx.sendToUser) return;
+  const targetLang = messages[removed.memberLang] ? removed.memberLang : "fa";
+  await ctx.sendToUser(
+    removed.memberUserId,
+    messages[targetLang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
+    { reply_markup: { remove_keyboard: true } },
+  );
+  await ctx.sendToUser(
+    removed.memberUserId,
+    messages[targetLang].discussionsMenu,
+    discussionsMenuKeyboard(targetLang),
+  );
+}
+
+async function removeDiscussionMemberCommand(ctx, lang, text) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+  const code = normalizeProfileCodeFromActionCommand(text);
+  const member = code ? await User.findOne({ publicProfileCode: code }).select("userId").lean() : null;
+  const memberUserId = Number(member?.userId);
+  if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
+
+  const removed = await removeMemberAsOwner(ctx.userId, activeDiscussionId, memberUserId);
+  if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
+
+  await sendRemovedActiveMemberNotice(ctx, removed);
+  return ctx.reply(messages[lang].discussionMemberRemoved);
+}
+
+async function reportDiscussionMemberCommand(ctx, lang, text) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+  const code = normalizeProfileCodeFromActionCommand(text);
+  const member = code ? await User.findOne({ publicProfileCode: code }).select("userId").lean() : null;
+  const memberUserId = Number(member?.userId);
+  if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
+
+  const reported = await reportDiscussionMember(ctx.userId, activeDiscussionId, memberUserId);
+  if (!reported.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, reported.reason));
+  return ctx.reply(messages[lang].discussionReportSent);
+}
+
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
@@ -725,6 +962,10 @@ async function handleUpdate(ctx) {
   const userLang = ctx.user?.lang;
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
+
+  if (text && isDiscussionBottomControlText(text)) {
+    return handleDiscussionBottomButton(ctx, lang, text);
+  }
 
   if (state === "idle" && ctx.user?.activeDiscussionId && text) {
     const handledDiscussionButton = await handleDiscussionBottomButton(ctx, lang, text);
@@ -759,11 +1000,7 @@ async function handleUpdate(ctx) {
     await Promise.all(
       (added.recipients || []).map((recipientUserId) => ctx.sendToUser?.(recipientUserId, inboundText)),
     );
-    const recipientCount = (added.recipients || []).length;
-    const confirmation = recipientCount > 0
-      ? messages[lang].discussionMessageSentToCount.replace("{count}", String(recipientCount))
-      : messages[lang].discussionMessageNoRecipients;
-    return ctx.reply(confirmation, discussionRoomKeyboard(lang, added.discussion.creatorUserId === ctx.userId));
+    return true;
   }
 
   if (text === "/cancel") {
@@ -1263,10 +1500,12 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/lang") {
+    await clearDiscussionMenuNotice(ctx);
     return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
   }
 
   if (text === "/menu") {
+    await clearDiscussionMenuNotice(ctx);
     if (!userLang) {
       return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
     }
@@ -1275,7 +1514,28 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/profile") {
+    await clearDiscussionMenuNotice(ctx);
     return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
+  }
+
+  if (/^\/d_[a-z0-9]+$/i.test(text)) {
+    return openDiscussionCommand(ctx, lang, text);
+  }
+
+  if (/^\/leave_[a-z0-9]+$/i.test(text)) {
+    return leaveDiscussionCommand(ctx, lang, `d_${text.replace(/^\/leave_/i, "")}`);
+  }
+
+  if (/^\/close_[a-z0-9]+$/i.test(text)) {
+    return closeDiscussionCommand(ctx, lang, `d_${text.replace(/^\/close_/i, "")}`);
+  }
+
+  if (/^\/remove_(u_)?[a-z0-9]+$/i.test(text)) {
+    return removeDiscussionMemberCommand(ctx, lang, text);
+  }
+
+  if (/^\/report_(u_)?[a-z0-9]+$/i.test(text)) {
+    return reportDiscussionMemberCommand(ctx, lang, text);
   }
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
@@ -1296,6 +1556,7 @@ async function handleUpdate(ctx) {
       keyboard: profileViewActionsKeyboard(lang, code, isSaved),
       messages,
       defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+      isOwnProfile: false,
     });
   }
 
@@ -1325,6 +1586,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",
+    isOwnProfile: true,
   });
 }
 

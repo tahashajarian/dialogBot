@@ -29,10 +29,8 @@ const {
   locationKeyboard,
   cancelEditKeyboard,
   discussionsMenuKeyboard,
-  discussionItemsKeyboard,
-  myDiscussionItemsKeyboard,
+  discussionListNavigationKeyboard,
   discussionRoomKeyboard,
-  discussionMembersKeyboard,
   discussionCreateDescriptionReplyKeyboard,
   discussionCreateRequiredDescriptionReplyKeyboard,
   discussionCreateCancelReplyKeyboard,
@@ -82,11 +80,12 @@ const {
 const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
 const {
   getDiscussionErrorMessage,
-  getDiscussionListPrefix,
+  decorateDiscussionsForList,
+  paginateDiscussions,
   buildDiscussionListText,
   buildDiscussionPreviewText,
 } = require("./services/discussion-ui");
-const { isCodeSaved, buildSavedProfileListItems } = require("./services/saved-profiles-ui");
+const { isCodeSaved, buildSavedProfileListItems, buildSavedProfilesListText } = require("./services/saved-profiles-ui");
 const {
   formatDiscussionRoom,
   formatRecentDiscussionMessages,
@@ -105,7 +104,6 @@ const {
   addSavedProfileCode,
   removeSavedProfileCode,
   normalizePublicProfileCode,
-  validateJoinRules,
 } = require("./services/discussions");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -241,11 +239,35 @@ async function rememberDiscussionRoomCards(ctx, headerMessage, recentMessage) {
   await updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", getMessageId(recentMessage) || null);
 }
 
+async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    return;
+  }
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", messageId);
+  await updateProfileField(ctx.userId, "discussionLastListType", listType);
+}
+
+async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+  }
+  return deleted;
+}
+
 function shouldKeepDiscussionRoomCardsForCallback(data = "") {
   return (
     data === callBacks.discussions ||
     data === callBacks.discussionListActive ||
     data === callBacks.discussionListMine ||
+    data.startsWith(callBacks.discussionListActivePage) ||
+    data.startsWith(callBacks.discussionListMinePage) ||
     data === callBacks.discussionCreateStart ||
     data === callBacks.discussionCreateCancel ||
     data === callBacks.discussionCreateSkipDescription ||
@@ -312,12 +334,68 @@ function buildDiscussionPreviewForCurrentDraft(ctx, lang, joinRule, description 
   return buildDiscussionPreviewText(messages, lang, draft);
 }
 
-async function decorateDiscussionsForList(user, discussions = []) {
-  return Promise.all((discussions || []).map(async (discussion) => {
-    const joinCheck = await validateJoinRules({ user, joinRule: discussion.joinRule });
-    discussion.listPrefix = getDiscussionListPrefix(joinCheck);
-    return discussion;
-  }));
+async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false) {
+  const result = await listActiveDiscussions({ limit: 100 });
+  if (!result.discussions.length) {
+    await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^🤖\s*/, ""));
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
+  }
+  await ctx.answerCb?.();
+  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
+  const filtered = joinableOnly ? decorated.filter((entry) => entry.isJoinable) : decorated;
+  if (!filtered.length) {
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionListJoinableEmpty,
+      discussionListNavigationKeyboard(lang, {
+        listType: "active",
+        page: 0,
+        totalPages: 1,
+        joinableOnly,
+      }),
+    );
+    await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+    return listMessage;
+  }
+  const paged = paginateDiscussions(filtered, page);
+  const listMessage = await editCallbackMessageOrReply(
+    ctx,
+    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items),
+    discussionListNavigationKeyboard(lang, {
+      listType: "active",
+      page: paged.page,
+      totalPages: paged.totalPages,
+      joinableOnly,
+    }),
+  );
+  await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+  return listMessage;
+}
+
+async function renderMyDiscussionList(ctx, lang, page = 0) {
+  const result = await listMyDiscussions(ctx.userId, { limit: 100 });
+  if (!result.ok) {
+    await ctx.answerCb?.();
+    return ctx.reply(messages[lang].unknownAction);
+  }
+  if (!result.discussions.length) {
+    await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^🤖\s*/, ""));
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionListMineEmpty, discussionsMenuKeyboard(lang));
+  }
+  await ctx.answerCb?.();
+  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
+  const paged = paginateDiscussions(decorated, page);
+  const listMessage = await editCallbackMessageOrReply(
+    ctx,
+    buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items),
+    discussionListNavigationKeyboard(lang, {
+      listType: "mine",
+      page: paged.page,
+      totalPages: paged.totalPages,
+    }),
+  );
+  await rememberDiscussionListMessage(ctx, "mine", ctx.callbackMessageId || listMessage);
+  return listMessage;
 }
 
 async function askDiscussionDescription(ctx, lang, joinRule) {
@@ -791,6 +869,10 @@ async function notifyDiscussionUsers(ctx, userIds = [], text) {
   await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
 }
 
+function formatDiscussionLeftMessage(lang, discussionTitle = "") {
+  return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
+}
+
 async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
@@ -809,6 +891,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     keyboard: profileViewActionsKeyboard(lang, code, saved, fromSavedList),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+    isOwnProfile: false,
   });
 }
 
@@ -829,6 +912,9 @@ async function handleCallback(ctx) {
   }
   if (!shouldKeepDiscussionRoomCardsForCallback(data)) {
     await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
+  }
+  if (!shouldKeepDiscussionRoomCardsForCallback(data)) {
+    await clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]);
   }
 
   // menu routes
@@ -865,7 +951,7 @@ async function handleCallback(ctx) {
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionsMenu,
-      discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)),
+      discussionsMenuKeyboard(lang),
     );
   }
 
@@ -885,7 +971,7 @@ async function handleCallback(ctx) {
     });
     return editCallbackMessageOrReply(
       ctx,
-      messages[lang].savedProfilesTitle,
+      buildSavedProfilesListText(messages, lang, items),
       savedProfilesListKeyboard(lang, items),
     );
   }
@@ -914,43 +1000,30 @@ async function handleCallback(ctx) {
     });
     return editCallbackMessageOrReply(
       ctx,
-      messages[lang].savedProfileRemoved,
+      items.length
+        ? `${messages[lang].savedProfileRemoved}\n\n${buildSavedProfilesListText(messages, lang, items)}`
+        : messages[lang].savedProfileRemoved,
       savedProfilesListKeyboard(lang, items),
     );
   }
 
   if (data === callBacks.discussionListActive) {
-    const result = await listActiveDiscussions({ limit: 20 });
-    if (!result.discussions.length) {
-      await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^🤖\s*/, ""));
-      return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
-    }
-    await ctx.answerCb?.();
-    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
-    return editCallbackMessageOrReply(
-      ctx,
-      buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, decorated),
-      discussionItemsKeyboard(lang, decorated, callBacks.discussionOpen),
-    );
+    return renderActiveDiscussionList(ctx, lang, 0, false);
+  }
+
+  if (data.startsWith(callBacks.discussionListActivePage)) {
+    const payload = data.replace(callBacks.discussionListActivePage, "");
+    const [pageRaw = "0", filter = "all"] = payload.split(":");
+    return renderActiveDiscussionList(ctx, lang, Number(pageRaw), filter === "joinable");
   }
 
   if (data === callBacks.discussionListMine) {
-    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
-    if (!result.ok) {
-      await ctx.answerCb?.();
-      return ctx.reply(messages[lang].unknownAction);
-    }
-    if (!result.discussions.length) {
-      await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^🤖\s*/, ""));
-      return editCallbackMessageOrReply(ctx, messages[lang].discussionListMineEmpty, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
-    }
-    await ctx.answerCb?.();
-    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
-    return editCallbackMessageOrReply(
-      ctx,
-      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated),
-      myDiscussionItemsKeyboard(lang, decorated, ctx.userId),
-    );
+    return renderMyDiscussionList(ctx, lang, 0);
+  }
+
+  if (data.startsWith(callBacks.discussionListMinePage)) {
+    const pageRaw = data.replace(callBacks.discussionListMinePage, "");
+    return renderMyDiscussionList(ctx, lang, Number(pageRaw));
   }
 
   if (data === callBacks.discussionCreateStart) {
@@ -968,7 +1041,7 @@ async function handleCallback(ctx) {
     await ctx.reply(messages[lang].discussionCreateCanceled, {
       reply_markup: { remove_keyboard: true },
     });
-    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang, Boolean(ctx.user?.activeDiscussionId)));
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 
   if (data === callBacks.discussionCreateSkipDescription) {
@@ -1162,7 +1235,11 @@ async function handleCallback(ctx) {
       );
     }
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionLeft, discussionsMenuKeyboard(lang, false));
+    return editCallbackMessageOrReply(
+      ctx,
+      `${formatDiscussionLeftMessage(lang, discussionTitle)}\n\n${messages[lang].discussionsMenu}`,
+      discussionsMenuKeyboard(lang),
+    );
   }
 
   if (data.startsWith(callBacks.discussionClose)) {
@@ -1179,7 +1256,7 @@ async function handleCallback(ctx) {
       messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
     );
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionClosed, discussionsMenuKeyboard(lang, false));
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionClosed, discussionsMenuKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.discussionMembers)) {
@@ -1198,7 +1275,7 @@ async function handleCallback(ctx) {
     return editCallbackMessageOrReply(
       ctx,
       `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
-      discussionMembersKeyboard(lang, opened.discussion, refreshed, opened.discussion.creatorUserId === ctx.userId, ctx.userId),
+      { reply_markup: { inline_keyboard: [] } },
     );
   }
 
@@ -1239,11 +1316,19 @@ async function handleCallback(ctx) {
     const removed = await removeMemberAsOwner(ctx.userId, discussionId, memberUserId);
     if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
     await deleteCallbackMessageIfPossible(ctx);
-    await notifyDiscussionUsers(
-      ctx,
-      [memberUserId],
-      messages[lang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
-    );
+    if (removed.wasActive) {
+      const targetLang = messages[removed.memberLang] ? removed.memberLang : "fa";
+      await ctx.sendToUser?.(
+        memberUserId,
+        messages[targetLang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
+        { reply_markup: { remove_keyboard: true } },
+      );
+      await ctx.sendToUser?.(
+        memberUserId,
+        messages[targetLang].discussionsMenu,
+        discussionsMenuKeyboard(targetLang),
+      );
+    }
     return ctx.reply(messages[lang].discussionMemberRemoved);
   }
 
@@ -1255,18 +1340,18 @@ async function handleCallback(ctx) {
   }
 
   if (data.startsWith(callBacks.profileSaveByCode)) {
-    await ctx.answerCb?.();
     const code = data.replace(callBacks.profileSaveByCode, "");
     await deleteCallbackMessageIfPossible(ctx);
     const saved = await addSavedProfileCode(ctx.userId, code);
     if (!saved.ok) {
+      await ctx.answerCb?.();
       if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
       if (saved.reason === "saved_profiles_limit") return ctx.reply(messages[lang].savedProfilesLimit);
       return ctx.reply(messages[lang].unknownAction);
     }
     await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
-    await ctx.reply(messages[lang].savedProfileSaved);
-    return sendPublicProfileByCode(ctx, lang, code);
+    await ctx.answerCb?.(messages[lang].savedProfileSaved);
+    return ctx.reply(messages[lang].savedProfileSaved);
   }
 
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
@@ -2176,6 +2261,7 @@ async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",
+    isOwnProfile: true,
   });
 }
 
