@@ -20,12 +20,19 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 
-function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId) {
-  return members.map((entry, index) => messages[lang].discussionMembersLine
-    .replace("{index}", String(index + 1))
-    .replace("{name}", entry.profileName || entry.firstName || "کاربر")
-    .replace("{code}", entry.publicProfileCode || messages[lang].discussionMembersPrivateCode)
-    .replace("{owner}", entry.userId === creatorUserId ? ` ${messages[lang].discussionOwnerMark}` : ""));
+function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null) {
+  return members.map((entry, index) => {
+    const isCurrentUser = Number(entry.userId) === Number(currentUserId);
+    if (isCurrentUser) {
+      const owner = entry.userId === creatorUserId ? ` ${messages[lang].discussionOwnerMark}` : "";
+      return `${index + 1}. ${lang === "fa" ? "تو" : "You"}${owner}`;
+    }
+    return messages[lang].discussionMembersLine
+      .replace("{index}", String(index + 1))
+      .replace("{name}", entry.profileName || entry.firstName || "کاربر")
+      .replace("{code}", entry.publicProfileCode || messages[lang].discussionMembersPrivateCode)
+      .replace("{owner}", entry.userId === creatorUserId ? ` ${messages[lang].discussionOwnerMark}` : "");
+  });
 }
 
 module.exports = {

@@ -94,6 +94,7 @@ const UserSchema = new mongoose.Schema({
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
   discussionLastRoomHeaderMessageId: { type: Number, default: null },
   discussionLastRoomRecentMessageId: { type: Number, default: null },
+  discussionMessageUsage: { type: [Date], default: [] },
   aiLists: { type: AiListsSchema, default: () => ({}) },
   aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiRecentSuggestions: { type: AiRecentSuggestionsSchema, default: () => ({}) },

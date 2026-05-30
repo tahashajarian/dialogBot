@@ -3,6 +3,7 @@
 ## Low-Noise Conversation
 
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
+- Bot-authored guidance, empty states, and safe error messages should start with `🤖` so they feel clearly from the bot. Short success confirmations can keep their action/status emoji.
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
@@ -42,6 +43,7 @@
 - AI section entry uses Bale callback notifications (`answerCallbackQuery`) as a temporary top notification with the section name.
 - Callback notifications are not persistent like a pin.
 - Use callback notifications for lightweight context changes when the platform supports them.
+- If a repeated button press keeps the visible message effectively unchanged, use a short callback notification so the user can tell the tap was handled without adding chat noise.
 
 ## Pinning
 

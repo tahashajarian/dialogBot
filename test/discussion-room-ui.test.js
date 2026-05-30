@@ -38,3 +38,12 @@ test("formatDiscussionMemberLines marks owner with owner badge", () => {
   assert.match(lines[0], /owner/i);
   assert.match(lines[1], /u_B2/);
 });
+
+test("formatDiscussionMemberLines shows current user without profile code", () => {
+  const lines = formatDiscussionMemberLines(messages, "en", [
+    { userId: 10, profileName: "Owner", publicProfileCode: "u_A1" },
+    { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
+  ], 10, 11);
+
+  assert.equal(lines[1], "2. You");
+});

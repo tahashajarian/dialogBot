@@ -62,9 +62,9 @@ Discussion menu:
 ```text
 💬 بحث‌ها
 
-🔥 بحث‌های فعال
+🟢 بحث‌های فعال
 ➕ ساخت بحث جدید
-📌 بحث‌های من
+🗂 بحث‌های من
 🚪 خروج از بحث
 ⬅️ برگشت
 ```
@@ -77,7 +77,7 @@ Member buttons:
 
 ```text
 👥 اعضا
-📌 بحث‌های من
+🗂 بحث‌های من
 🚪 خروج از بحث
 ```
 
@@ -85,14 +85,14 @@ Owner buttons:
 
 ```text
 👥 اعضا
-📌 بحث‌های من
+🗂 بحث‌های من
 🔒 بستن بحث
 ```
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
 The owner should not see `🚪 خروج از بحث` for their own discussion. To stop participating, the owner must close the discussion for everyone. This prevents orphaned ownerless rooms.
 
-`📌 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
+`🗂 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
 
 Important distinction:
 
@@ -105,12 +105,14 @@ Important distinction:
 Flow:
 
 1. Ask for title.
-2. Ask for description.
-3. Ask who can join.
-4. If the rule is open, create discussion and auto-join creator.
-5. If the rule is completed Top 10, ask section, verify creator qualifies, show restricted-topic preview, then create and auto-join.
-6. If the rule is taste label, show creator's existing labels, verify selection, show restricted-topic preview, then create and auto-join.
-7. If the rule is specific interest/item, show/select one of creator's TopTen items, verify selection, show restricted-topic preview, then create and auto-join.
+2. Ask who can join.
+3. If the rule is completed Top 10, ask section and verify creator qualifies.
+4. If the rule is taste label, show creator's existing labels and verify selection.
+5. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
+6. Ask for description last.
+7. If the rule is open, require a description before preview.
+8. If the rule is restricted, allow description to be skipped.
+9. Show preview, then create and auto-join creator after confirm.
 
 Limits:
 
@@ -140,29 +142,6 @@ Title validation:
 - reject empty/meaningless titles
 - avoid links in title for MVP
 
-Description prompt:
-
-```text
-یه توضیح کوتاه هم می‌خوای اضافه کنی؟
-```
-
-Buttons:
-
-```text
-رد کردن
-لغو ساخت بحث
-```
-
-The skip button is only valid while creating a restricted discussion. If the user later chooses `🌍 همه`, the bot must require a description before creating the discussion.
-
-For open discussions, description is required because anyone can join and the room needs clear context.
-
-If an open discussion has no description:
-
-```text
-برای بحث‌های عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
-```
-
 Join rule prompt:
 
 ```text
@@ -179,7 +158,36 @@ Buttons:
 لغو
 ```
 
-For open topics, create immediately after rule selection only if description is filled. If description is empty, ask for it before creating.
+Description is collected after the join rule is selected, so the bot can show the right description controls for open vs restricted discussions.
+
+Description prompt:
+
+```text
+یه توضیح کوتاه هم می‌خوای اضافه کنی؟
+```
+
+Restricted discussion buttons:
+
+```text
+رد کردن
+لغو ساخت بحث
+```
+
+Open discussion buttons:
+
+```text
+لغو ساخت بحث
+```
+
+The skip button is only valid while creating a restricted discussion. Open discussions must require a description before preview/creation because anyone can join and the room needs clear context.
+
+If an open discussion has no description:
+
+```text
+برای بحث‌های عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
+```
+
+For open topics, selecting `🌍 همه` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
 
 Room capacity is fixed in MVP:
 
@@ -295,12 +303,12 @@ Recommended MVP membership limit:
 
 ### My Discussions / Switching
 
-`📌 بحث‌های من` shows discussions the user owns or has joined.
+`🗂 بحث‌های من` shows discussions the user owns or has joined.
 
 Example:
 
 ```text
-📌 بحث‌های من
+🗂 بحث‌های من
 
 ✅ بهترین ریف تاریخ؟
 👥 ۳ نفر
@@ -471,7 +479,7 @@ If the owner presses a leave-style action on their own discussion:
 برای پایان دادن به بحث، از «بستن بحث» استفاده کن.
 ```
 
-Joining another discussion switches the active discussion but does not leave the old one. Leaving is explicit through `🚪 خروج از بحث` or the `خروج` action in `📌 بحث‌های من` for non-owner memberships.
+Joining another discussion switches the active discussion but does not leave the old one. Leaving is explicit through `🚪 خروج از بحث` or the `خروج` action in `🗂 بحث‌های من` for non-owner memberships.
 
 ### Close Discussion
 
@@ -503,7 +511,7 @@ Member notification:
 می‌تونی از بخش بحث‌ها وارد گفتگوی دیگه‌ای بشی.
 ```
 
-After close, the room should not appear in `🔥 بحث‌های فعال` or `📌 بحث‌های من`.
+After close, the room should not appear in `🟢 بحث‌های فعال` or `🗂 بحث‌های من`.
 
 ## Notifications
 

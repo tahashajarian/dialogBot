@@ -14,7 +14,7 @@ const DiscussionJoinRuleSchema = new mongoose.Schema({
     default: "open",
     required: true,
   },
-  section: { type: String, enum: ["movies", "music", "books", "random"], default: "" },
+  section: { type: String, enum: ["", "movies", "music", "books", "random"], default: "" },
   tasteLabelKey: { type: String, default: "" },
   itemTitle: { type: String, default: "" },
 }, { _id: false });
@@ -28,6 +28,8 @@ const DiscussionSchema = new mongoose.Schema({
   memberUserIds: { type: [Number], default: [] },
   maxMembers: { type: Number, default: 20 },
   recentMessages: { type: [DiscussionMessageSchema], default: [] },
+  replyCount: { type: Number, default: 0 },
+  lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   closedAt: { type: Date, default: null },

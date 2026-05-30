@@ -2,6 +2,7 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
+const { callBacks } = require("./constances");
 const {
   mainMenuKeyboard,
   languageKeyboard,
@@ -19,9 +20,14 @@ const {
   aiListManageMenuKeyboard,
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
-  discussionCreateDescriptionKeyboard,
+  myDiscussionItemsKeyboard,
+  discussionRoomKeyboard,
+  discussionMembersKeyboard,
+  discussionCreateDescriptionReplyKeyboard,
+  discussionCreateRequiredDescriptionReplyKeyboard,
   discussionJoinRuleKeyboard,
-  discussionCreateCancelKeyboard,
+  discussionCreateConfirmKeyboard,
+  discussionCreateCancelReplyKeyboard,
   profileViewActionsKeyboard,
 } = require("./keyboards");
 const {
@@ -65,7 +71,24 @@ const {
   clearAiSectionPin,
 } = require("./services/ai-section");
 const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
-const { addRecentMessage, normalizePublicProfileCode } = require("./services/discussions");
+const {
+  addRecentMessage,
+  closeDiscussionAsOwner,
+  ensurePublicProfileCode,
+  joinOrSwitchActiveDiscussion,
+  leaveDiscussionAsMember,
+  listMyDiscussions,
+  normalizePublicProfileCode,
+  hasLink,
+  validateJoinRules,
+} = require("./services/discussions");
+const {
+  getDiscussionErrorMessage,
+  getDiscussionListPrefix,
+  buildDiscussionListText,
+  buildDiscussionPreviewText,
+} = require("./services/discussion-ui");
+const { formatDiscussionMemberLines } = require("./services/discussion-room-ui");
 const User = require("./models/user");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -117,6 +140,30 @@ function isAiListText(text) {
     .trim();
 
   return plainText === "list" || plainText === "لیست";
+}
+
+function matchesMessageText(text, keys) {
+  const normalizedText = normalizeKeyboardText(text);
+  return keys
+    .flatMap((key) => [messages.fa[key], messages.en[key]])
+    .map(normalizeKeyboardText)
+    .includes(normalizedText);
+}
+
+function isDiscussionMembersText(text) {
+  return matchesMessageText(text, ["discussionMembersTitle"]);
+}
+
+function isDiscussionMyListText(text) {
+  return matchesMessageText(text, ["discussionMyList"]);
+}
+
+function isDiscussionLeaveText(text) {
+  return matchesMessageText(text, ["discussionLeave"]);
+}
+
+function isDiscussionCloseText(text) {
+  return matchesMessageText(text, ["discussionCloseButton"]);
 }
 
 function getMessageId(message) {
@@ -570,6 +617,103 @@ async function sendSingleSectionSuggestion({
   );
 }
 
+async function notifyDiscussionUsers(ctx, userIds = [], text) {
+  const targets = [...new Set((userIds || [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0))];
+  await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
+}
+
+async function handleDiscussionBottomButton(ctx, lang, text) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+
+  if (isDiscussionMembersText(text)) {
+    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, activeDiscussionId);
+    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
+    const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
+      .select("userId profileName firstName publicProfileCode")
+      .lean();
+    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
+    const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
+      .select("userId profileName firstName publicProfileCode")
+      .lean();
+    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId);
+    return ctx.reply(
+      `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
+      discussionMembersKeyboard(lang, opened.discussion, refreshed, opened.discussion.creatorUserId === ctx.userId, ctx.userId),
+    );
+  }
+
+  if (isDiscussionMyListText(text)) {
+    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
+    if (!result.ok) return ctx.reply(messages[lang].unknownAction);
+    if (!result.discussions.length) return ctx.reply(messages[lang].discussionListMineEmpty);
+    const decorated = await Promise.all(result.discussions.map(async (discussion) => {
+      const joinCheck = await validateJoinRules({ user: ctx.user, joinRule: discussion.joinRule });
+      discussion.listPrefix = getDiscussionListPrefix(joinCheck);
+      return discussion;
+    }));
+    return ctx.reply(
+      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated),
+      myDiscussionItemsKeyboard(lang, decorated, ctx.userId),
+    );
+  }
+
+  if (isDiscussionLeaveText(text)) {
+    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+    const left = await leaveDiscussionAsMember(ctx.userId, activeDiscussionId);
+    if (!left.ok) {
+      if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
+      return ctx.reply(messages[lang].discussionNotMember);
+    }
+    const discussionTitle = left?.discussionTitle || "";
+    const ownerUserId = Number(left?.creatorUserId);
+    const leaverName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+    if (ownerUserId && ownerUserId !== ctx.userId && discussionTitle) {
+      await notifyDiscussionUsers(
+        ctx,
+        [ownerUserId],
+        messages[lang].discussionLeftNoticeToOwner
+          .replace("{name}", leaverName || "کاربر")
+          .replace("{title}", discussionTitle),
+      );
+    }
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    return ctx.reply(messages[lang].discussionLeft, {
+      reply_markup: { remove_keyboard: true },
+    });
+  }
+
+  if (isDiscussionCloseText(text)) {
+    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+    const closed = await closeDiscussionAsOwner(ctx.userId, activeDiscussionId);
+    if (!closed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
+    const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
+    await notifyDiscussionUsers(
+      ctx,
+      notifyIds,
+      messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
+    );
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    return ctx.reply(messages[lang].discussionClosed, {
+      reply_markup: { remove_keyboard: true },
+    });
+  }
+
+  return null;
+}
+
+function buildDiscussionPreviewForCurrentDraft(ctx, lang, description) {
+  return buildDiscussionPreviewText(messages, lang, {
+    ...toPlainUser(ctx.user),
+    discussionDraftDescription: description,
+  });
+}
+
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
@@ -582,6 +726,13 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
 
+  if (state === "idle" && ctx.user?.activeDiscussionId && text) {
+    const handledDiscussionButton = await handleDiscussionBottomButton(ctx, lang, text);
+    if (handledDiscussionButton) {
+      return handledDiscussionButton;
+    }
+  }
+
   if (state === "idle" && ctx.user?.activeDiscussionId && text && !text.startsWith("/")) {
     const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
     const added = await addRecentMessage({
@@ -591,6 +742,12 @@ async function handleUpdate(ctx) {
       text,
     });
     if (!added.ok) {
+      if (added.reason === "message_rate_limit") {
+        return ctx.reply(
+          messages[lang].discussionMessageRateLimit,
+          discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+        );
+      }
       return ctx.reply(messages[lang].discussionMessageOnlyText);
     }
 
@@ -602,7 +759,11 @@ async function handleUpdate(ctx) {
     await Promise.all(
       (added.recipients || []).map((recipientUserId) => ctx.sendToUser?.(recipientUserId, inboundText)),
     );
-    return ctx.reply(messages[lang].discussionMessageSent);
+    const recipientCount = (added.recipients || []).length;
+    const confirmation = recipientCount > 0
+      ? messages[lang].discussionMessageSentToCount.replace("{count}", String(recipientCount))
+      : messages[lang].discussionMessageNoRecipients;
+    return ctx.reply(confirmation, discussionRoomKeyboard(lang, added.discussion.creatorUserId === ctx.userId));
   }
 
   if (text === "/cancel") {
@@ -709,26 +870,69 @@ async function handleUpdate(ctx) {
   }
 
   if (state === "discussion_create_title") {
+    if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionCreateCancel)) {
+      await updateProfileField(ctx.userId, "discussionDraftTitle", "");
+      await updateProfileField(ctx.userId, "discussionDraftDescription", "");
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
+      await updateUserState(ctx.userId, "idle");
+      return ctx.reply(messages[lang].discussionCreateCanceled, {
+        reply_markup: { remove_keyboard: true },
+      });
+    }
     if (!text || text.startsWith("/")) {
-      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelReplyKeyboard(lang));
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 80);
     if (!normalized) {
-      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelKeyboard(lang));
+      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelReplyKeyboard(lang));
+    }
+    if (hasLink(normalized)) {
+      return ctx.reply(messages[lang].discussionInvalidTitleLink, discussionCreateCancelReplyKeyboard(lang));
     }
     await updateProfileField(ctx.userId, "discussionDraftTitle", normalized);
-    await updateUserState(ctx.userId, "discussion_create_description");
-    return ctx.reply(messages[lang].discussionCreateAskDescription, discussionCreateDescriptionKeyboard(lang));
+    await updateUserState(ctx.userId, "discussion_create_join_rule");
+    return ctx.reply(messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
   }
 
   if (state === "discussion_create_description") {
+    const draftRule = ctx.user?.discussionDraftJoinRule || { type: "open" };
+    const isOpenRule = draftRule.type === "open";
+    if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionCreateCancel)) {
+      await updateProfileField(ctx.userId, "discussionDraftTitle", "");
+      await updateProfileField(ctx.userId, "discussionDraftDescription", "");
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
+      await updateUserState(ctx.userId, "idle");
+      return ctx.reply(messages[lang].discussionCreateCanceled, {
+        reply_markup: { remove_keyboard: true },
+      });
+    }
+    if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionSkipDescription)) {
+      if (isOpenRule) {
+        return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateRequiredDescriptionReplyKeyboard(lang));
+      }
+      await updateProfileField(ctx.userId, "discussionDraftDescription", "");
+      await updateUserState(ctx.userId, "discussion_create_preview");
+      return ctx.reply(
+        buildDiscussionPreviewForCurrentDraft(ctx, lang, ""),
+        discussionCreateConfirmKeyboard(lang),
+      );
+    }
     if (!text || text.startsWith("/")) {
-      return ctx.reply(messages[lang].discussionCreateAskDescription, discussionCreateDescriptionKeyboard(lang));
+      return ctx.reply(
+        messages[lang].discussionCreateAskDescription,
+        isOpenRule ? discussionCreateRequiredDescriptionReplyKeyboard(lang) : discussionCreateDescriptionReplyKeyboard(lang),
+      );
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
+    if (isOpenRule && !normalized) {
+      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateRequiredDescriptionReplyKeyboard(lang));
+    }
     await updateProfileField(ctx.userId, "discussionDraftDescription", normalized);
-    await updateUserState(ctx.userId, "discussion_create_join_rule");
-    return ctx.reply(messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+    await updateUserState(ctx.userId, "discussion_create_preview");
+    return ctx.reply(
+      buildDiscussionPreviewForCurrentDraft(ctx, lang, normalized),
+      discussionCreateConfirmKeyboard(lang),
+    );
   }
 
   const manageState = parseAiManageState(state);

@@ -1,11 +1,15 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = require("./users");
+const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const USER_DISCUSSION_MEMBERSHIP_CAP = 10;
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const SAVED_PROFILE_CAP = 50;
+const DISCUSSION_CREATE_DAILY_LIMIT = 3;
+const DISCUSSION_MESSAGE_LIMIT = 30;
+const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 
 function normalizePublicProfileCode(value) {
   const raw = String(value || "").trim().replace(/^\/+/, "");
@@ -24,6 +28,10 @@ function normalizeTitle(value) {
 
 function normalizeDescription(value) {
   return normalizeDiscussionText(value, 300);
+}
+
+function hasLink(value) {
+  return /https?:\/\/|www\.|t\.me\/|telegram\.me\/|bale\.ai\//i.test(String(value || ""));
 }
 
 async function ensurePublicProfileCode(userId) {
@@ -106,8 +114,8 @@ async function validateJoinRules({ user, joinRule }) {
 
   if (type === "top_ten_item") {
     const topTen = getAiListItemsFromUser(user, section, "topTen");
-    const normalizedNeedle = normalizeAiListItem(joinRule.itemTitle).toLowerCase();
-    const hasItem = topTen.some((entry) => normalizeAiListItem(entry.title).toLowerCase() === normalizedNeedle);
+    const match = getAiListDuplicateMatch(joinRule.itemTitle, topTen);
+    const hasItem = Boolean(match);
     if (hasItem) return { ok: true };
     return { ok: false, reason: "requires_top_ten_item", section, itemTitle: joinRule.itemTitle };
   }
@@ -121,6 +129,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
 
   const normalizedTitle = normalizeTitle(title);
   if (!normalizedTitle) return { ok: false, reason: "invalid_title" };
+  if (hasLink(normalizedTitle)) return { ok: false, reason: "invalid_title_link" };
 
   const normalizedDescription = normalizeDescription(description);
   const parsedRule = validateJoinRulePayload(joinRule);
@@ -135,6 +144,15 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
     return { ok: false, reason: "membership_limit" };
   }
 
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const createdToday = await Discussion.countDocuments({
+    creatorUserId,
+    createdAt: { $gte: dayAgo },
+  });
+  if (createdToday >= DISCUSSION_CREATE_DAILY_LIMIT) {
+    return { ok: false, reason: "create_rate_limit", cap: DISCUSSION_CREATE_DAILY_LIMIT };
+  }
+
   const eligibility = await validateJoinRules({ user, joinRule: parsedRule.joinRule });
   if (!eligibility.ok) return eligibility;
 
@@ -147,6 +165,8 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
     memberUserIds: [creatorUserId],
     maxMembers: DISCUSSION_MEMBER_CAP,
     recentMessages: [],
+    replyCount: 0,
+    lastActivityAt: new Date(),
   });
 
   const membershipIds = [...memberships, discussion._id];
@@ -163,7 +183,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
 
 async function listActiveDiscussions({ limit = 50 } = {}) {
   const discussions = await Discussion.find({ status: "open" })
-    .sort({ updatedAt: -1, createdAt: -1 })
+    .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
   return { ok: true, discussions };
 }
@@ -174,7 +194,7 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
 
   const ids = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
   const discussions = await Discussion.find({ _id: { $in: ids }, status: "open" })
-    .sort({ updatedAt: -1, createdAt: -1 })
+    .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
 
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
@@ -330,6 +350,31 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
   };
 }
 
+function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowMs = DISCUSSION_MESSAGE_WINDOW_MS) {
+  const cutoff = now.getTime() - windowMs;
+  return (user?.discussionMessageUsage || [])
+    .map((entry) => new Date(entry))
+    .filter((entry) => Number.isFinite(entry.getTime()) && entry.getTime() > cutoff);
+}
+
+async function consumeDiscussionMessageQuota(userId) {
+  const user = await User.findOne({ userId });
+  if (!user) return { ok: false, reason: "missing_user" };
+
+  const now = new Date();
+  const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now);
+  if (recentUsage.length >= DISCUSSION_MESSAGE_LIMIT) {
+    return { ok: false, reason: "message_rate_limit", cap: DISCUSSION_MESSAGE_LIMIT };
+  }
+
+  const updatedUsage = [...recentUsage, now];
+  await User.findOneAndUpdate(
+    { userId },
+    { $set: { discussionMessageUsage: updatedUsage } },
+  );
+  return { ok: true, count: updatedUsage.length };
+}
+
 async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text }) {
   const discussion = await Discussion.findById(discussionId);
   if (!discussion) return { ok: false, reason: "missing_discussion" };
@@ -339,6 +384,9 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
   const cleanText = normalizeDiscussionText(text, 500);
   const cleanName = normalizeDiscussionText(senderDisplayName, 80);
   if (!cleanText) return { ok: false, reason: "empty_message" };
+
+  const quota = await consumeDiscussionMessageQuota(senderUserId);
+  if (!quota.ok) return { ...quota, discussion };
 
   const nextMessages = [
     ...discussion.recentMessages,
@@ -351,6 +399,8 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
   ].slice(-DISCUSSION_RECENT_MESSAGES_CAP);
 
   discussion.recentMessages = nextMessages;
+  discussion.replyCount = Number(discussion.replyCount || 0) + 1;
+  discussion.lastActivityAt = new Date();
   discussion.updatedAt = new Date();
   await discussion.save();
 
@@ -403,9 +453,13 @@ module.exports = {
   USER_DISCUSSION_MEMBERSHIP_CAP,
   DISCUSSION_RECENT_MESSAGES_CAP,
   SAVED_PROFILE_CAP,
+  DISCUSSION_CREATE_DAILY_LIMIT,
+  DISCUSSION_MESSAGE_LIMIT,
+  DISCUSSION_MESSAGE_WINDOW_MS,
   normalizeTitle,
   normalizeDescription,
   normalizePublicProfileCode,
+  hasLink,
   ensurePublicProfileCode,
   validateJoinRulePayload,
   validateJoinRules,

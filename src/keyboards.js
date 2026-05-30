@@ -611,7 +611,7 @@ function discussionsMenuKeyboard(lang, isActiveMember = false) {
 function discussionItemsKeyboard(lang, discussions = [], prefix) {
   const rows = discussions.slice(0, 20).map((entry) => ([
     {
-      text: `💬 ${entry.title}`,
+      text: `${entry.listPrefix || "💬"} ${entry.title}`,
       callback_data: `${prefix}${entry._id}`,
     },
   ]));
@@ -619,10 +619,58 @@ function discussionItemsKeyboard(lang, discussions = [], prefix) {
   return inlineKeyboard(rows);
 }
 
-function discussionMembersKeyboard(lang, discussion, members, ownerCode) {
+function myDiscussionItemsKeyboard(lang, discussions = [], currentUserId) {
+  const rows = [];
+  for (const entry of discussions.slice(0, 20)) {
+    rows.push([{
+      text: `${entry.listPrefix || "💬"} ${entry.title}`,
+      callback_data: `${callBacks.discussionOpen}${entry._id}`,
+    }]);
+    rows.push([
+      {
+        text: messages[lang].discussionOpenButton,
+        callback_data: `${callBacks.discussionOpen}${entry._id}`,
+      },
+      entry.creatorUserId === currentUserId
+        ? {
+          text: messages[lang].discussionCloseButton,
+          callback_data: `${callBacks.discussionClose}${entry._id}`,
+        }
+        : {
+          text: messages[lang].discussionLeave,
+          callback_data: `${callBacks.discussionLeave}${entry._id}`,
+        },
+    ]);
+  }
+  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionRoomKeyboard(lang, isOwner = false) {
+  const rows = [
+    [
+      { text: messages[lang].discussionMembersTitle },
+      { text: messages[lang].discussionMyList },
+    ],
+    [
+      { text: isOwner ? messages[lang].discussionCloseButton : messages[lang].discussionLeave },
+    ],
+  ];
+
+  return {
+    reply_markup: {
+      keyboard: rows,
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
+}
+
+function discussionMembersKeyboard(lang, discussion, members, ownerCode, currentUserId = null) {
   const rows = [];
   const profileRows = members
-    .filter((entry) => entry.publicProfileCode)
+    .filter((entry) => entry.publicProfileCode && Number(entry.userId) !== Number(currentUserId))
     .map((entry) => ([{
       text: `/${entry.publicProfileCode}`,
       callback_data: `${callBacks.profileViewByCode}${entry.publicProfileCode}`,
@@ -646,6 +694,46 @@ function discussionCreateCancelKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
   ]);
+}
+
+function discussionCreateCancelReplyKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: messages[lang].discussionCreateCancel }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
+}
+
+function discussionCreateDescriptionReplyKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: messages[lang].discussionSkipDescription }],
+        [{ text: messages[lang].discussionCreateCancel }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
+}
+
+function discussionCreateRequiredDescriptionReplyKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: messages[lang].discussionCreateCancel }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
 }
 
 function discussionJoinRuleKeyboard(lang) {
@@ -700,7 +788,7 @@ function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
   const rows = members.map((entry) => ([
     {
       text: `${entry.profileName || entry.firstName || "کاربر"}`,
-      callback_data: `${callBacks.discussionRemoveMember}${discussionId}:${entry.userId}`,
+      callback_data: `${callBacks.discussionRemoveMember}${discussionId}:${entry.publicProfileCode}`,
     },
   ]));
   rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: `${callBacks.discussionOpen}${discussionId}` }]);
@@ -759,9 +847,14 @@ module.exports = {
   languageKeyboard,
   discussionsMenuKeyboard,
   discussionItemsKeyboard,
+  myDiscussionItemsKeyboard,
+  discussionRoomKeyboard,
   discussionMembersKeyboard,
   discussionCreateDescriptionKeyboard,
+  discussionCreateDescriptionReplyKeyboard,
+  discussionCreateRequiredDescriptionReplyKeyboard,
   discussionCreateCancelKeyboard,
+  discussionCreateCancelReplyKeyboard,
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
