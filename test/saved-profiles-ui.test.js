@@ -6,6 +6,7 @@ const {
   isCodeSaved,
   buildSavedProfileListItems,
   buildSavedProfilesListText,
+  buildProfileSavedFooter,
 } = require("../src/services/saved-profiles-ui");
 const messages = require("../src/messages");
 
@@ -51,6 +52,11 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
   ]);
 
   assert.match(text, /⭐ Saved profiles/);
-  assert.match(text, /1\. 👤 Ali\nView profile 👉 \/u_A1/);
+  assert.match(text, /1\. 👤 Ali\nView profile 👉 \/u_A1\nRemove 👉 \/unsave_A1/);
   assert.match(text, /Ali[\s\S]*\n\n2\. 👤 Sara/);
+});
+
+test("buildProfileSavedFooter shows saved status or save command", () => {
+  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "🤖 ⭐ Saved");
+  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "🤖 ⭐ Save profile 👉 /save_A1");
 });

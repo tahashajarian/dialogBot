@@ -12,7 +12,7 @@ Discussions are live rooms with short memory.
 - A discussion can have an optional short description.
 - Users can be in one active discussion at a time.
 - Users can be members of multiple discussions, but only one discussion is active for sending messages.
-- Each discussion has a maximum of 20 active members in MVP.
+- Each discussion has an editable capacity from 1 to 20 active members.
 - Messages are broadcast live to current room members.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
@@ -105,13 +105,14 @@ Flow:
 
 1. Ask for title.
 2. Ask who can join.
-3. If the rule is completed Top 10, ask section and verify creator qualifies.
-4. If the rule is taste label, show creator's existing labels and verify selection.
-5. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
-6. Ask for description last.
-7. If the rule is open, require a description before preview.
-8. If the rule is restricted, allow description to be skipped.
-9. Show preview, then create and auto-join creator after confirm.
+3. If the rule is taste label, show creator's existing labels and verify selection.
+4. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
+5. Ask for description last.
+6. If the rule is open, require a description before preview.
+7. If the rule is restricted, allow description to be skipped.
+8. Show preview, then create and auto-join creator after confirm.
+
+Before asking for the title, check the user's daily creation quota. If the user has reached the limit, do not enter the create flow; show a bot-authored limit message with one inline Back button to the discussions menu.
 
 Limits:
 
@@ -119,7 +120,7 @@ Limits:
 - Description: 300 characters.
 - Description is required for open discussions.
 - Description is optional for restricted discussions.
-- Max active members: 20.
+- Max active members: editable per discussion, capped at 20.
 - Creator must satisfy restricted join rules they create.
 
 Title prompt:
@@ -151,13 +152,13 @@ Buttons:
 
 ```text
 🌍 همه
-🏆 فقط تاپ ۱۰ کامل
 🏷 فقط یک برچسب خاص
 🎯 فقط یک علاقه/آیتم خاص
 لغو
 ```
 
 Description is collected after the join rule is selected, so the bot can show the right description controls for open vs restricted discussions.
+Creation prompts use inline controls only. Do not show bottom reply-keyboard buttons while collecting the title or description.
 
 Description prompt:
 
@@ -165,14 +166,14 @@ Description prompt:
 یه توضیح کوتاه هم می‌خوای اضافه کنی؟
 ```
 
-Restricted discussion buttons:
+Restricted discussion inline buttons:
 
 ```text
 رد کردن
 لغو ساخت بحث
 ```
 
-Open discussion buttons:
+Open discussion inline buttons:
 
 ```text
 لغو ساخت بحث
@@ -188,8 +189,9 @@ If an open discussion has no description:
 
 For open topics, selecting `🌍 همه` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
 
-Room capacity is fixed in MVP:
+Room capacity is editable from the preview step:
 
+- allowed values: 1, 2, 3, 4, 5, 10, 15, 20 active members
 - default: 20 active members
 - max: 20 active members
 - creator counts as a member
@@ -211,7 +213,11 @@ Buttons:
 
 ```text
 ✅ ساخت بحث
-❌ لغو
+✏️ ویرایش عنوان
+📝 ویرایش توضیح
+🔐 ویرایش شرط ورود
+👥 تغییر ظرفیت
+لغو ساخت بحث
 ```
 
 Restricted-topic preview is useful because join rules are harder to change mentally after creation.
@@ -229,7 +235,6 @@ Item-restricted discussions should use the creator's own TopTen items, especiall
 
 Creator eligibility should be validated before creation confirm wherever possible:
 
-- Completed Top 10 rule: creator must already have 10 items in the chosen section.
 - Taste-label rule: creator must already have an existing label in the chosen section.
 - Top-10-item rule: creator must pick an existing item from their own Top 10.
 
@@ -255,7 +260,7 @@ When user joins:
 - If they are already active in another discussion, switch active discussion to the new one.
 - Do not remove them from the old discussion unless they explicitly leave it.
 - If they already belong to the maximum number of discussions, do not allow joining until they leave one.
-- If the discussion already has 20 active members, do not allow joining.
+- If the discussion has reached its configured capacity, do not allow joining.
 - Add the user to current members.
 - Set user's active discussion id.
 - Show discussion info.
@@ -283,8 +288,7 @@ If there are no messages:
 If discussion is full:
 
 ```text
-این بحث فعلاً پره.
-ظرفیت: ۲۰ نفر
+🤖 ظرفیت این بحث تکمیل شده.
 ```
 
 If user has reached membership limit:
@@ -405,7 +409,7 @@ Rules:
 - Use a stable short public profile code such as `publicProfileCode`.
 - Public profile codes only reveal a profile if that user's `profileDiscoverable` is true.
 - If the target profile is private, show a short private-profile message.
-- The member list can show all members because MVP room capacity is 20.
+- The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `⭐ میزبان`.
 - Member lists should be plain text command links, not inline button rows.
@@ -532,8 +536,10 @@ Closing behavior:
 Owner response:
 
 ```text
-✅ بحث بسته شد.
+🤖 بحث بسته شد.
 ```
+
+After this response, remove the room bottom keyboard and show the discussions menu.
 
 Member notification:
 
@@ -593,22 +599,11 @@ Message notifications are not in MVP. They can be added later with careful rules
 
 ## Join Rules
 
-MVP supports only these rules:
-MVP can start with open, completed TopTen, and taste label. Item-specific join rules are strongly recommended for the interests-focused phase and should be designed alongside MVP if implementation scope allows.
+MVP supports only these user-facing creation rules:
 
 ### Open
 
 Any user can join, unless the discussion has a stricter join rule.
-
-### Completed Top 10
-
-User must have completed Top 10 in a selected section.
-
-Example:
-
-```text
-فقط کسایی که تاپ ۱۰ موسیقی‌شون کامله
-```
 
 ### Taste Label
 
@@ -667,14 +662,14 @@ Locked discussions can motivate users to complete Top 10 and earn labels, but th
 - `description`
 - `creatorUserId`
 - `status`: `open | closed`
-- `joinRuleType`: `open | completed_top_ten | taste_label`
-- future/optional `joinRuleType`: `top_ten_item`
+- `joinRuleType`: `open | taste_label | top_ten_item`
+- legacy-compatible `joinRuleType`: `top_ten_completed`
 - `ruleSection`: `movies | music | books | random | ""`
 - `requiredLabelKey`
 - `requiredTopTenItem`
 - `requiredTopTenItemNormalized`
 - `memberIds`
-- `maxMembers`, fixed to 20 in MVP
+- `maxMembers`, allowed values: 1, 2, 3, 4, 5, 10, 15, 20
 - `recentMessages`
 - `replyCount`
 - `createdAt`
@@ -708,6 +703,8 @@ MVP should include basic limits:
 - Max description length: 300.
 - Max message length: 500.
 - Max active members per discussion: 20.
+
+For local testing, usernames listed in `ALLOWED_USERNAMES` may bypass the daily discussion creation limit. This should remain a test/admin allowance, not normal user behavior.
 
 ## Moderation
 
@@ -797,33 +794,34 @@ Recommended MVP limit:
 When viewing another user's discoverable profile from a discussion, show:
 
 ```text
-⭐ ذخیره پروفایل
+🤖 ⭐ ذخیره پروفایل 👈 /save_8K2P
 ```
 
 If already saved:
 
 ```text
-⭐ ذخیره‌شده
-🗑 حذف از ذخیره‌شده‌ها
+🤖 ⭐ ذخیره‌شده
 ```
+
+Do not show inline save/remove buttons on public profile views.
 
 Saved profiles main menu:
 
 ```text
 ⭐ پروفایل‌های ذخیره‌شده
 
-1. علی — /u_8K2P
-2. سارا — /u_9Q4M
+1. 👤 علی
+دیدن پروفایل 👈 /u_8K2P
+حذف 👈 /unsave_8K2P
+
+2. 👤 سارا
+دیدن پروفایل 👈 /u_9Q4M
+حذف 👈 /unsave_9Q4M
 ```
 
-Implementation note: saved profiles now appear in main menu and support view/remove actions.
-
-Actions per saved profile:
-
-```text
-دیدن پروفایل
-حذف
-```
+Saved-profile lists should use text command links for view/remove actions, not per-profile inline buttons.
+The saved-profile list has only a Back inline button.
+When opening a profile from the saved list, delete the list message and show the profile with only one inline Back button to return to the saved-profile list.
 
 Rules:
 
@@ -894,6 +892,7 @@ These are currently preferred but should be confirmed before implementation:
 - Creator automatically joins after creating.
 - Discussion room uses bottom keyboard for leave/info.
 - Open discussions do not require completed Top 10.
+- Completed-Top-10 discussion creation is not user-facing.
 - Item-specific join rules are useful for interests-based rooms; decide whether they are included in MVP or fast-follow.
 
 ## Product Rule

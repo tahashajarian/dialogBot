@@ -197,9 +197,13 @@ async function sendProfileMessage({
   defaultProfilePhoto,
   loadingText = "",
   isOwnProfile = false,
+  footerText = "",
 }) {
   const hasCustomPhoto = user?.photoFileId;
-  const profileText = buildProfileText(user, lang, messages, { isOwnProfile });
+  const profileText = [
+    buildProfileText(user, lang, messages, { isOwnProfile }),
+    String(footerText || "").trim(),
+  ].filter(Boolean).join("\n\n");
   const loadingMessage = loadingText ? await ctx.reply(loadingText) : null;
   let sentProfile;
 

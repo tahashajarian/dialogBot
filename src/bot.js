@@ -23,12 +23,12 @@ const {
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
   discussionRoomKeyboard,
-  discussionCreateDescriptionReplyKeyboard,
-  discussionCreateRequiredDescriptionReplyKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
   discussionCreateConfirmKeyboard,
-  discussionCreateCancelReplyKeyboard,
-  profileViewActionsKeyboard,
+  profileViewBackKeyboard,
+  savedProfilesListKeyboard,
 } = require("./keyboards");
 const {
   updateProfileField,
@@ -83,8 +83,16 @@ const {
   normalizePublicProfileCode,
   removeMemberAsOwner,
   reportDiscussionMember,
+  addSavedProfileCode,
+  removeSavedProfileCode,
   hasLink,
 } = require("./services/discussions");
+const {
+  isCodeSaved,
+  buildSavedProfileListItems,
+  buildSavedProfilesListText,
+  buildProfileSavedFooter,
+} = require("./services/saved-profiles-ui");
 const {
   getDiscussionErrorMessage,
   decorateDiscussionsForList,
@@ -677,8 +685,40 @@ async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false
 }
 
 function normalizeProfileCodeFromActionCommand(value) {
-  const raw = String(value || "").trim().replace(/^\/?(remove|report)_/i, "");
+  const raw = String(value || "").trim().replace(/^\/?(remove|report|save|unsave)_/i, "");
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
+}
+
+async function clearSavedProfilesListMessage(ctx) {
+  const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) return false;
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
+  }
+  return deleted;
+}
+
+async function rememberSavedProfilesListMessage(ctx, message) {
+  const messageId = getMessageId(message);
+  if (!messageId) return;
+  await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", messageId);
+}
+
+async function sendSavedProfilesList(ctx, lang, codes = []) {
+  const items = await buildSavedProfileListItems({
+    codes,
+    normalizePublicProfileCode,
+    findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+      .select("publicProfileCode profileName firstName")
+      .lean(),
+  });
+  const sent = await ctx.reply(
+    buildSavedProfilesListText(messages, lang, items),
+    savedProfilesListKeyboard(lang, items),
+  );
+  await rememberSavedProfilesListMessage(ctx, sent);
+  return sent;
 }
 
 async function handleDiscussionBottomButton(ctx, lang, text) {
@@ -756,9 +796,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
       messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
     );
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return ctx.reply(messages[lang].discussionClosed, {
-      reply_markup: { remove_keyboard: true },
-    });
+    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
   }
 
   return null;
@@ -901,9 +939,7 @@ async function closeDiscussionCommand(ctx, lang, code) {
     messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
   );
   await updateProfileField(ctx.userId, "activeDiscussionId", null);
-  return ctx.reply(messages[lang].discussionClosed, {
-    reply_markup: { remove_keyboard: true },
-  });
+  return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
 }
 
 async function sendRemovedActiveMemberNotice(ctx, removed) {
@@ -949,6 +985,32 @@ async function reportDiscussionMemberCommand(ctx, lang, text) {
   const reported = await reportDiscussionMember(ctx.userId, activeDiscussionId, memberUserId);
   if (!reported.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, reported.reason));
   return ctx.reply(messages[lang].discussionReportSent);
+}
+
+async function saveProfileCommand(ctx, lang, text) {
+  const code = normalizeProfileCodeFromActionCommand(text);
+  if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
+  const saved = await addSavedProfileCode(ctx.userId, code);
+  if (!saved.ok) {
+    if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
+    if (saved.reason === "saved_profiles_limit") return ctx.reply(messages[lang].savedProfilesLimit);
+    return ctx.reply(messages[lang].unknownAction);
+  }
+  await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
+  return ctx.reply(messages[lang].savedProfileSaved);
+}
+
+async function unsaveProfileCommand(ctx, lang, text) {
+  const code = normalizeProfileCodeFromActionCommand(text);
+  if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
+  const removed = await removeSavedProfileCode(ctx.userId, code);
+  if (!removed.ok) {
+    return ctx.reply(removed.reason === "not_found" ? messages[lang].savedProfilesEmpty : messages[lang].unknownAction);
+  }
+  await updateProfileField(ctx.userId, "savedProfileCodes", removed.items || []);
+  await clearSavedProfilesListMessage(ctx);
+  await ctx.reply(messages[lang].savedProfileRemoved);
+  return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
 async function handleUpdate(ctx) {
@@ -1111,20 +1173,22 @@ async function handleUpdate(ctx) {
       await updateProfileField(ctx.userId, "discussionDraftTitle", "");
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
+      await updateProfileField(ctx.userId, "discussionDraftMaxMembers", 20);
       await updateUserState(ctx.userId, "idle");
-      return ctx.reply(messages[lang].discussionCreateCanceled, {
+      await ctx.reply(messages[lang].discussionCreateCanceled, {
         reply_markup: { remove_keyboard: true },
       });
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (!text || text.startsWith("/")) {
-      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelReplyKeyboard(lang));
+      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 80);
     if (!normalized) {
-      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelReplyKeyboard(lang));
+      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelKeyboard(lang));
     }
     if (hasLink(normalized)) {
-      return ctx.reply(messages[lang].discussionInvalidTitleLink, discussionCreateCancelReplyKeyboard(lang));
+      return ctx.reply(messages[lang].discussionInvalidTitleLink, discussionCreateCancelKeyboard(lang));
     }
     await updateProfileField(ctx.userId, "discussionDraftTitle", normalized);
     await updateUserState(ctx.userId, "discussion_create_join_rule");
@@ -1138,14 +1202,16 @@ async function handleUpdate(ctx) {
       await updateProfileField(ctx.userId, "discussionDraftTitle", "");
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
+      await updateProfileField(ctx.userId, "discussionDraftMaxMembers", 20);
       await updateUserState(ctx.userId, "idle");
-      return ctx.reply(messages[lang].discussionCreateCanceled, {
+      await ctx.reply(messages[lang].discussionCreateCanceled, {
         reply_markup: { remove_keyboard: true },
       });
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionSkipDescription)) {
       if (isOpenRule) {
-        return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateRequiredDescriptionReplyKeyboard(lang));
+        return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateCancelKeyboard(lang));
       }
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateUserState(ctx.userId, "discussion_create_preview");
@@ -1157,12 +1223,12 @@ async function handleUpdate(ctx) {
     if (!text || text.startsWith("/")) {
       return ctx.reply(
         messages[lang].discussionCreateAskDescription,
-        isOpenRule ? discussionCreateRequiredDescriptionReplyKeyboard(lang) : discussionCreateDescriptionReplyKeyboard(lang),
+        isOpenRule ? discussionCreateCancelKeyboard(lang) : discussionCreateDescriptionKeyboard(lang),
       );
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
     if (isOpenRule && !normalized) {
-      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateRequiredDescriptionReplyKeyboard(lang));
+      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateCancelKeyboard(lang));
     }
     await updateProfileField(ctx.userId, "discussionDraftDescription", normalized);
     await updateUserState(ctx.userId, "discussion_create_preview");
@@ -1170,6 +1236,18 @@ async function handleUpdate(ctx) {
       buildDiscussionPreviewForCurrentDraft(ctx, lang, normalized),
       discussionCreateConfirmKeyboard(lang),
     );
+  }
+
+  if (matchesMessageText(text, ["discussionCreateCancel"])) {
+    await updateProfileField(ctx.userId, "discussionDraftTitle", "");
+    await updateProfileField(ctx.userId, "discussionDraftDescription", "");
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
+    await updateProfileField(ctx.userId, "discussionDraftMaxMembers", 20);
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(messages[lang].discussionCreateCanceled, {
+      reply_markup: { remove_keyboard: true },
+    });
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 
   const manageState = parseAiManageState(state);
@@ -1538,25 +1616,38 @@ async function handleUpdate(ctx) {
     return reportDiscussionMemberCommand(ctx, lang, text);
   }
 
+  if (/^\/save_(u_)?[a-z0-9]+$/i.test(text)) {
+    return saveProfileCommand(ctx, lang, text);
+  }
+
+  if (/^\/unsave_(u_)?[a-z0-9]+$/i.test(text)) {
+    return unsaveProfileCommand(ctx, lang, text);
+  }
+
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
     const target = await User.findOne({ publicProfileCode: code });
     if (!target) {
       return ctx.reply(messages[lang].profileCodeNotFound);
     }
-    if (!target.profileDiscoverable) {
-      return ctx.reply(messages[lang].profilePrivateShort);
-    }
     const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    const isSaved = current.some((entry) => String(entry).toLowerCase() === code.toLowerCase());
+    const isSaved = isCodeSaved(current, code);
+    const fromSavedList = isSaved ? await clearSavedProfilesListMessage(ctx) : false;
+    if (!target.profileDiscoverable) {
+      return ctx.reply(
+        messages[lang].profilePrivateShort,
+        fromSavedList ? profileViewBackKeyboard(lang) : undefined,
+      );
+    }
     return sendProfileMessage({
       ctx,
       user: target,
       lang,
-      keyboard: profileViewActionsKeyboard(lang, code, isSaved),
+      keyboard: fromSavedList ? profileViewBackKeyboard(lang) : undefined,
       messages,
       defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
       isOwnProfile: false,
+      footerText: buildProfileSavedFooter(messages, lang, code, isSaved),
     });
   }
 

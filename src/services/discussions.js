@@ -4,6 +4,7 @@ const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = requ
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
 const DISCUSSION_MEMBER_CAP = 20;
+const DISCUSSION_ALLOWED_MEMBER_CAPS = [1, 2, 3, 4, 5, 10, 15, 20];
 const USER_DISCUSSION_MEMBERSHIP_CAP = 10;
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const SAVED_PROFILE_CAP = 50;
@@ -35,6 +36,11 @@ function normalizeTitle(value) {
 
 function normalizeDescription(value) {
   return normalizeDiscussionText(value, 300);
+}
+
+function normalizeMaxMembers(value) {
+  const capacity = Number(value) || DISCUSSION_MEMBER_CAP;
+  return DISCUSSION_ALLOWED_MEMBER_CAPS.includes(capacity) ? capacity : DISCUSSION_MEMBER_CAP;
 }
 
 function hasLink(value) {
@@ -168,7 +174,21 @@ async function validateJoinRules({ user, joinRule }) {
   return { ok: false, reason: "invalid_join_rule" };
 }
 
-async function createDiscussion({ creatorUserId, title, description, joinRule }) {
+async function checkDiscussionCreateQuota(creatorUserId, now = new Date()) {
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const createdToday = await Discussion.countDocuments({
+    creatorUserId,
+    createdAt: { $gte: dayAgo },
+  });
+
+  if (createdToday >= DISCUSSION_CREATE_DAILY_LIMIT) {
+    return { ok: false, reason: "create_rate_limit", cap: DISCUSSION_CREATE_DAILY_LIMIT };
+  }
+
+  return { ok: true, count: createdToday, cap: DISCUSSION_CREATE_DAILY_LIMIT };
+}
+
+async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = DISCUSSION_MEMBER_CAP, skipCreateQuota = false }) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
 
@@ -177,6 +197,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
   if (hasLink(normalizedTitle)) return { ok: false, reason: "invalid_title_link" };
 
   const normalizedDescription = normalizeDescription(description);
+  const normalizedMaxMembers = normalizeMaxMembers(maxMembers);
   const parsedRule = validateJoinRulePayload(joinRule);
   if (!parsedRule.ok) return parsedRule;
 
@@ -189,13 +210,9 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
     return { ok: false, reason: "membership_limit" };
   }
 
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const createdToday = await Discussion.countDocuments({
-    creatorUserId,
-    createdAt: { $gte: dayAgo },
-  });
-  if (createdToday >= DISCUSSION_CREATE_DAILY_LIMIT) {
-    return { ok: false, reason: "create_rate_limit", cap: DISCUSSION_CREATE_DAILY_LIMIT };
+  if (!skipCreateQuota) {
+    const quota = await checkDiscussionCreateQuota(creatorUserId);
+    if (!quota.ok) return quota;
   }
 
   const eligibility = await validateJoinRules({ user, joinRule: parsedRule.joinRule });
@@ -208,7 +225,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule })
     joinRule: parsedRule.joinRule,
     status: "open",
     memberUserIds: [creatorUserId],
-    maxMembers: DISCUSSION_MEMBER_CAP,
+    maxMembers: normalizedMaxMembers,
     recentMessages: [],
     replyCount: 0,
     lastActivityAt: new Date(),
@@ -260,8 +277,9 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
   const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
 
   if (!isMember) {
-    if (discussion.memberUserIds.length >= DISCUSSION_MEMBER_CAP) {
-      return { ok: false, reason: "discussion_full", cap: DISCUSSION_MEMBER_CAP };
+    const maxMembers = normalizeMaxMembers(discussion.maxMembers);
+    if (discussion.memberUserIds.length >= maxMembers) {
+      return { ok: false, reason: "discussion_full", cap: maxMembers };
     }
 
     if (memberships.length >= USER_DISCUSSION_MEMBERSHIP_CAP) {
@@ -522,6 +540,7 @@ async function removeSavedProfileCode(userId, profileCode) {
 
 module.exports = {
   DISCUSSION_MEMBER_CAP,
+  DISCUSSION_ALLOWED_MEMBER_CAPS,
   USER_DISCUSSION_MEMBERSHIP_CAP,
   DISCUSSION_RECENT_MESSAGES_CAP,
   SAVED_PROFILE_CAP,
@@ -530,6 +549,7 @@ module.exports = {
   DISCUSSION_MESSAGE_WINDOW_MS,
   normalizeTitle,
   normalizeDescription,
+  normalizeMaxMembers,
   normalizePublicProfileCode,
   normalizePublicDiscussionCode,
   hasLink,
@@ -539,6 +559,7 @@ module.exports = {
   findDiscussionByPublicCode,
   validateJoinRulePayload,
   validateJoinRules,
+  checkDiscussionCreateQuota,
   createDiscussion,
   listActiveDiscussions,
   listMyDiscussions,

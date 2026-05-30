@@ -35,13 +35,25 @@ function buildSavedProfilesListText(messages, lang, items = []) {
   if (!items.length) return messages[lang].savedProfilesEmpty;
 
   const viewLabel = messages[lang].savedProfileOpen;
+  const removeLabel = messages[lang].savedProfileRemove;
   const lines = items.map((entry, index) => {
-    const command = `/${entry.code}`;
-    const action = lang === "fa" ? `${viewLabel} 👈 ${command}` : `${viewLabel} 👉 ${command}`;
-    return `${index + 1}. 👤 ${entry.name}\n${action}`;
+    const viewCommand = `/${entry.code}`;
+    const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
+    const viewAction = lang === "fa" ? `${viewLabel} 👈 ${viewCommand}` : `${viewLabel} 👉 ${viewCommand}`;
+    const removeAction = lang === "fa" ? `${removeLabel} 👈 ${removeCommand}` : `${removeLabel} 👉 ${removeCommand}`;
+    return `${index + 1}. 👤 ${entry.name}\n${viewAction}\n${removeAction}`;
   });
 
   return `${messages[lang].savedProfilesTitle}\n\n${lines.join("\n\n")}`;
+}
+
+function buildProfileSavedFooter(messages, lang, code, isSaved) {
+  if (isSaved) return `🤖 ${messages[lang].profileSavedButton}`;
+  const command = `/save_${String(code || "").replace(/^u_/i, "")}`;
+  const action = lang === "fa"
+    ? `${messages[lang].profileSaveButton} 👈 ${command}`
+    : `${messages[lang].profileSaveButton} 👉 ${command}`;
+  return `🤖 ${action}`;
 }
 
 module.exports = {
@@ -49,4 +61,5 @@ module.exports = {
   isCodeSaved,
   buildSavedProfileListItems,
   buildSavedProfilesListText,
+  buildProfileSavedFooter,
 };

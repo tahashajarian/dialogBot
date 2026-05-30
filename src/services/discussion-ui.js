@@ -5,6 +5,7 @@ const {
 
 const DISCUSSION_LIST_PAGE_SIZE = 5;
 const DISCUSSION_LIST_DIVIDER = "────────";
+const DEFAULT_DISCUSSION_CAPACITY = 20;
 
 function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "missing_discussion") return messages[lang].discussionErrMissingDiscussion;
@@ -104,10 +105,12 @@ function buildDiscussionPreviewText(messages, lang, user) {
   const title = String(user?.discussionDraftTitle || "").trim();
   const description = String(user?.discussionDraftDescription || "").trim();
   const joinRule = user?.discussionDraftJoinRule || { type: "open" };
+  const capacity = Number(user?.discussionDraftMaxMembers) || DEFAULT_DISCUSSION_CAPACITY;
   return messages[lang].discussionPreview
     .replace("{title}", title || "-")
     .replace("{description}", description || "-")
-    .replace("{rule}", getJoinRulePreviewText(messages, lang, joinRule));
+    .replace("{rule}", getJoinRulePreviewText(messages, lang, joinRule))
+    .replace("{capacity}", String(capacity));
 }
 
 module.exports = {

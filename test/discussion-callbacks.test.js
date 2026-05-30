@@ -40,9 +40,11 @@ test("discussion preview includes selected top ten item", () => {
     discussionDraftTitle: "Dune fans",
     discussionDraftDescription: "",
     discussionDraftJoinRule: { type: "top_ten_item", section: "books", itemTitle: "Dune" },
+    discussionDraftMaxMembers: 5,
   };
   const preview = buildDiscussionPreviewText(messages, "en", user);
   assert.match(preview, /Top 10 item \(books\): Dune/);
+  assert.match(preview, /Capacity: 5/);
 });
 
 test("discussion list text includes status, count, and rule", () => {

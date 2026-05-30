@@ -31,16 +31,16 @@ const {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
-  discussionCreateDescriptionReplyKeyboard,
-  discussionCreateRequiredDescriptionReplyKeyboard,
-  discussionCreateCancelReplyKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
+  discussionCreateCapacityKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,
-  profileViewActionsKeyboard,
+  profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("./keyboards");
 const { callBacks } = require("./constances");
@@ -85,7 +85,12 @@ const {
   buildDiscussionListText,
   buildDiscussionPreviewText,
 } = require("./services/discussion-ui");
-const { isCodeSaved, buildSavedProfileListItems, buildSavedProfilesListText } = require("./services/saved-profiles-ui");
+const {
+  isCodeSaved,
+  buildSavedProfileListItems,
+  buildSavedProfilesListText,
+  buildProfileSavedFooter,
+} = require("./services/saved-profiles-ui");
 const {
   formatDiscussionRoom,
   formatRecentDiscussionMessages,
@@ -99,6 +104,8 @@ const {
   leaveDiscussionAsMember,
   closeDiscussionAsOwner,
   ensurePublicProfileCode,
+  checkDiscussionCreateQuota,
+  normalizeMaxMembers,
   createDiscussion,
   removeMemberAsOwner,
   addSavedProfileCode,
@@ -261,6 +268,55 @@ async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
   return deleted;
 }
 
+async function rememberSavedProfilesListMessage(ctx, messageOrId) {
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) return;
+  if (!ctx.user || typeof ctx.user.toObject !== "function") return;
+  await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", messageId);
+}
+
+async function clearSavedProfilesListMessage(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) return false;
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
+  }
+  return deleted;
+}
+
+async function forgetSavedProfilesListMessage(ctx) {
+  if (!ctx.user || typeof ctx.user.toObject !== "function") return;
+  if (ctx.user?.savedProfilesLastListMessageId) {
+    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
+  }
+}
+
+async function removeBottomKeyboard(ctx, text) {
+  const sent = await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
+  const messageId = getMessageId(sent);
+  if (messageId && ctx.deleteMessage) {
+    await ctx.deleteMessage(messageId);
+  }
+}
+
+async function sendSavedProfilesList(ctx, lang, codes = []) {
+  const items = await buildSavedProfileListItems({
+    codes,
+    normalizePublicProfileCode,
+    findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+      .select("publicProfileCode profileName firstName")
+      .lean(),
+  });
+  const sent = await ctx.reply(
+    buildSavedProfilesListText(messages, lang, items),
+    savedProfilesListKeyboard(lang, items),
+  );
+  await rememberSavedProfilesListMessage(ctx, sent);
+  return sent;
+}
+
 function shouldKeepDiscussionRoomCardsForCallback(data = "") {
   return (
     data === callBacks.discussions ||
@@ -272,16 +328,18 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data === callBacks.discussionCreateCancel ||
     data === callBacks.discussionCreateSkipDescription ||
     data === callBacks.discussionCreateRuleOpen ||
-    data === callBacks.discussionCreateRuleTopTen ||
     data === callBacks.discussionCreateRuleTaste ||
     data === callBacks.discussionCreateRuleItem ||
     data === callBacks.discussionCreateConfirm ||
+    data === callBacks.discussionCreatePreview ||
     data === callBacks.discussionCreateEditTitle ||
     data === callBacks.discussionCreateEditDescription ||
     data === callBacks.discussionCreateEditRule ||
+    data === callBacks.discussionCreateEditCapacity ||
     data.startsWith(callBacks.discussionCreateRuleSection) ||
     data.startsWith(callBacks.discussionCreateSelectTaste) ||
     data.startsWith(callBacks.discussionCreateSelectItem) ||
+    data.startsWith(callBacks.discussionCreateSetCapacity) ||
     data.startsWith(callBacks.discussionOpen) ||
     data.startsWith(callBacks.discussionLeave) ||
     data.startsWith(callBacks.discussionClose) ||
@@ -332,6 +390,19 @@ function buildDiscussionPreviewForCurrentDraft(ctx, lang, joinRule, description 
     draft.discussionDraftDescription = description;
   }
   return buildDiscussionPreviewText(messages, lang, draft);
+}
+
+function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
+  return buildDiscussionPreviewText(messages, lang, {
+    ...toPlainUser(ctx.user),
+    ...overrides,
+  });
+}
+
+function discussionMenuBackKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
+  ]);
 }
 
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false) {
@@ -405,8 +476,8 @@ async function askDiscussionDescription(ctx, lang, joinRule) {
   return ctx.reply(
     messages[lang].discussionCreateAskDescription,
     joinRule.type === "open"
-      ? discussionCreateRequiredDescriptionReplyKeyboard(lang)
-      : discussionCreateDescriptionReplyKeyboard(lang),
+      ? discussionCreateCancelKeyboard(lang)
+      : discussionCreateDescriptionKeyboard(lang),
   );
 }
 
@@ -838,6 +909,18 @@ async function deleteCallbackMessageIfPossible(ctx) {
   return ctx.deleteMessage(ctx.callbackMessageId);
 }
 
+async function removeCallbackInlineKeyboardIfPossible(ctx) {
+  if (!ctx.callbackMessageId || !ctx.editMessageReplyMarkup) {
+    return false;
+  }
+  return ctx.editMessageReplyMarkup(ctx.callbackMessageId, { inline_keyboard: [] });
+}
+
+function isProfileCallbackMessage(ctx) {
+  const message = ctx.callbackMessage || {};
+  return Boolean(message.caption || message.photo || message.document);
+}
+
 async function startProfileEdit(ctx, state, prompt, keyboard) {
   await deleteCallbackMessageIfPossible(ctx);
   await updateUserState(ctx.userId, state);
@@ -861,6 +944,7 @@ async function clearDiscussionDraft(userId) {
     updateProfileField(userId, "discussionDraftTitle", ""),
     updateProfileField(userId, "discussionDraftDescription", ""),
     updateProfileField(userId, "discussionDraftJoinRule", null),
+    updateProfileField(userId, "discussionDraftMaxMembers", 20),
   ]);
 }
 
@@ -879,19 +963,25 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const target = await User.findOne({ publicProfileCode: code });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
-  if (!target.profileDiscoverable) return ctx.reply(messages[lang].profilePrivateShort);
 
   const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const saved = isCodeSaved(current, code);
+  if (!target.profileDiscoverable) {
+    return ctx.reply(
+      messages[lang].profilePrivateShort,
+      fromSavedList ? profileViewBackKeyboard(lang) : undefined,
+    );
+  }
 
   return sendProfileMessage({
     ctx,
     user: target,
     lang,
-    keyboard: profileViewActionsKeyboard(lang, code, saved, fromSavedList),
+    keyboard: fromSavedList ? profileViewBackKeyboard(lang) : undefined,
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     isOwnProfile: false,
+    footerText: buildProfileSavedFooter(messages, lang, code, saved),
   });
 }
 
@@ -920,24 +1010,28 @@ async function handleCallback(ctx) {
   // menu routes
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
+    await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
     await clearRememberedAiListMessage(ctx);
+    await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].chooseLanguage, languageKeyboard());
   }
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
     await clearRememberedAiListMessage(ctx);
+    await forgetSavedProfilesListMessage(ctx);
     await deleteCallbackMessageIfPossible(ctx);
     return sendProfile(ctx, lang, ctx.user || {}, { loading: true });
   }
 
   if (data === callBacks.aiAssistant) {
     await ctx.answerCb?.(messages[lang].aiAssistant);
+    await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
       ctx,
       `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`,
@@ -948,6 +1042,7 @@ async function handleCallback(ctx) {
   if (data === callBacks.discussions) {
     await ctx.answerCb?.();
     await clearRememberedAiListMessage(ctx);
+    await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionsMenu,
@@ -958,28 +1053,22 @@ async function handleCallback(ctx) {
   if (data === callBacks.savedProfiles) {
     await ctx.answerCb?.();
     await clearRememberedAiListMessage(ctx);
-    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    if (!codes.length) {
-      return editCallbackMessageOrReply(ctx, messages[lang].savedProfilesEmpty, savedProfilesListKeyboard(lang, []));
+    if (isProfileCallbackMessage(ctx)) {
+      await removeCallbackInlineKeyboardIfPossible(ctx);
+    } else {
+      await deleteCallbackMessageIfPossible(ctx);
+      await removeBottomKeyboard(ctx, messages[lang].savedProfilesTitle);
     }
-    const items = await buildSavedProfileListItems({
-      codes,
-      normalizePublicProfileCode,
-      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-        .select("publicProfileCode profileName firstName")
-        .lean(),
-    });
-    return editCallbackMessageOrReply(
-      ctx,
-      buildSavedProfilesListText(messages, lang, items),
-      savedProfilesListKeyboard(lang, items),
-    );
+    await forgetSavedProfilesListMessage(ctx);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    return sendSavedProfilesList(ctx, lang, codes);
   }
 
   if (data.startsWith(callBacks.savedProfilesOpen)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.savedProfilesOpen, "");
     await deleteCallbackMessageIfPossible(ctx);
+    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
   }
 
@@ -998,13 +1087,15 @@ async function handleCallback(ctx) {
         .select("publicProfileCode profileName firstName")
         .lean(),
     });
-    return editCallbackMessageOrReply(
+    const listMessage = await editCallbackMessageOrReply(
       ctx,
       items.length
         ? `${messages[lang].savedProfileRemoved}\n\n${buildSavedProfilesListText(messages, lang, items)}`
         : messages[lang].savedProfileRemoved,
       savedProfilesListKeyboard(lang, items),
     );
+    await rememberSavedProfilesListMessage(ctx, ctx.callbackMessageId || listMessage);
+    return listMessage;
   }
 
   if (data === callBacks.discussionListActive) {
@@ -1028,16 +1119,29 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.discussionCreateStart) {
     await ctx.answerCb?.();
+    const quota = ctx.canBypassDiscussionCreateLimit
+      ? { ok: true }
+      : await checkDiscussionCreateQuota(ctx.userId);
+    if (!quota.ok) {
+      await clearDiscussionDraft(ctx.userId);
+      await updateUserState(ctx.userId, "idle");
+      return editCallbackMessageOrReply(
+        ctx,
+        getDiscussionErrorMessage(messages, lang, quota.reason) || messages[lang].discussionCreateRateLimit,
+        discussionMenuBackKeyboard(lang),
+      );
+    }
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "discussion_create_title");
     await deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelReplyKeyboard(lang));
+    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
   }
 
   if (data === callBacks.discussionCreateCancel) {
     await ctx.answerCb?.();
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
+    await deleteCallbackMessageIfPossible(ctx);
     await ctx.reply(messages[lang].discussionCreateCanceled, {
       reply_markup: { remove_keyboard: true },
     });
@@ -1048,7 +1152,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const joinRule = ctx.user?.discussionDraftJoinRule || { type: "open" };
     if (joinRule.type === "open") {
-      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateRequiredDescriptionReplyKeyboard(lang));
+      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateCancelKeyboard(lang));
     }
     await updateProfileField(ctx.userId, "discussionDraftDescription", "");
     await updateUserState(ctx.userId, "discussion_create_preview");
@@ -1065,13 +1169,14 @@ async function handleCallback(ctx) {
     return askDiscussionDescription(ctx, lang, joinRule);
   }
 
-  if (data === callBacks.discussionCreateRuleTopTen || data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
+  if (data === callBacks.discussionCreateRuleTopTen) {
     await ctx.answerCb?.();
-    const type = data === callBacks.discussionCreateRuleTopTen
-      ? "top_ten_completed"
-      : data === callBacks.discussionCreateRuleTaste
-        ? "taste_label"
-        : "top_ten_item";
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
+    await ctx.answerCb?.();
+    const type = data === callBacks.discussionCreateRuleTaste ? "taste_label" : "top_ten_item";
     await updateProfileField(ctx.userId, "discussionDraftJoinRule", { type });
     return editCallbackMessageOrReply(
       ctx,
@@ -1147,7 +1252,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "discussion_create_title");
     await deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelReplyKeyboard(lang));
+    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
   }
 
   if (data === callBacks.discussionCreateEditDescription) {
@@ -1162,6 +1267,35 @@ async function handleCallback(ctx) {
     return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
   }
 
+  if (data === callBacks.discussionCreatePreview) {
+    await ctx.answerCb?.();
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewForCurrentUser(ctx, lang),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.discussionCreateEditCapacity) {
+    await ctx.answerCb?.();
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionChooseCapacity,
+      discussionCreateCapacityKeyboard(lang, ctx.user?.discussionDraftMaxMembers),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCreateSetCapacity)) {
+    await ctx.answerCb?.();
+    const capacity = normalizeMaxMembers(data.replace(callBacks.discussionCreateSetCapacity, ""));
+    await updateProfileField(ctx.userId, "discussionDraftMaxMembers", capacity);
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftMaxMembers: capacity }),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
   if (data === callBacks.discussionCreateConfirm) {
     await ctx.answerCb?.();
     const created = await createDiscussion({
@@ -1169,6 +1303,8 @@ async function handleCallback(ctx) {
       title: ctx.user?.discussionDraftTitle || "",
       description: ctx.user?.discussionDraftDescription || "",
       joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
+      maxMembers: ctx.user?.discussionDraftMaxMembers || 20,
+      skipCreateQuota: Boolean(ctx.canBypassDiscussionCreateLimit),
     });
     if (!created.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);
@@ -1256,7 +1392,11 @@ async function handleCallback(ctx) {
       messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
     );
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionClosed, discussionsMenuKeyboard(lang));
+    return editCallbackMessageOrReply(
+      ctx,
+      `${messages[lang].discussionClosed}\n\n${messages[lang].discussionsMenu}`,
+      discussionsMenuKeyboard(lang),
+    );
   }
 
   if (data.startsWith(callBacks.discussionMembers)) {

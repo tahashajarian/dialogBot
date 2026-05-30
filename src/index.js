@@ -115,10 +115,12 @@ function createAppContext(ctx, user) {
   return {
     user,
     userId: user?.userId,
+    canBypassDiscussionCreateLimit: isAllowedUser(ctx.from),
     languageCode: ctx.from?.language_code,
     message: ctx.message,
     text: ctx.message?.text,
     callbackData: ctx.callbackQuery?.data,
+    callbackMessage: ctx.callbackQuery?.message,
     callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
 
     reply: (...args) => ctx.reply(...args),
@@ -174,6 +176,27 @@ function createAppContext(ctx, user) {
           description: getErrorDescription(error),
           error: getErrorText(error),
         });
+        return false;
+      }
+    },
+    editMessageReplyMarkup: async (messageId, replyMarkup = {}) => {
+      const chatId = resolveChatId();
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
+      }
+
+      try {
+        return await callTelegramApiWithTimeout(
+          "editMessageReplyMarkup",
+          {
+            chat_id: chatId,
+            message_id: normalizedMessageId,
+            reply_markup: replyMarkup,
+          },
+          PIN_OPERATION_TIMEOUT_MS,
+        );
+      } catch {
         return false;
       }
     },

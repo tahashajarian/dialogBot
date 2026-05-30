@@ -669,42 +669,23 @@ function discussionRoomKeyboard(lang, isOwner = false) {
   };
 }
 
-function discussionCreateCancelReplyKeyboard(lang) {
+function discussionCreateDescriptionKeyboard(lang) {
   return {
     reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].discussionCreateCancel }],
+      inline_keyboard: [
+        [{ text: messages[lang].discussionSkipDescription, callback_data: callBacks.discussionCreateSkipDescription }],
+        [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
       ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
     },
   };
 }
 
-function discussionCreateDescriptionReplyKeyboard(lang) {
+function discussionCreateCancelKeyboard(lang) {
   return {
     reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].discussionSkipDescription }],
-        [{ text: messages[lang].discussionCreateCancel }],
+      inline_keyboard: [
+        [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
       ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
-    },
-  };
-}
-
-function discussionCreateRequiredDescriptionReplyKeyboard(lang) {
-  return {
-    reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].discussionCreateCancel }],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
     },
   };
 }
@@ -712,7 +693,6 @@ function discussionCreateRequiredDescriptionReplyKeyboard(lang) {
 function discussionJoinRuleKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionJoinRuleOpen, callback_data: callBacks.discussionCreateRuleOpen }],
-    [{ text: messages[lang].discussionJoinRuleTopTen, callback_data: callBacks.discussionCreateRuleTopTen }],
     [{ text: messages[lang].discussionJoinRuleTaste, callback_data: callBacks.discussionCreateRuleTaste }],
     [{ text: messages[lang].discussionJoinRuleItem, callback_data: callBacks.discussionCreateRuleItem }],
     [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
@@ -735,8 +715,23 @@ function discussionCreateConfirmKeyboard(lang) {
     [{ text: messages[lang].discussionEditTitle, callback_data: callBacks.discussionCreateEditTitle }],
     [{ text: messages[lang].discussionEditDescription, callback_data: callBacks.discussionCreateEditDescription }],
     [{ text: messages[lang].discussionEditRule, callback_data: callBacks.discussionCreateEditRule }],
+    [{ text: messages[lang].discussionEditCapacity, callback_data: callBacks.discussionCreateEditCapacity }],
     [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
   ]);
+}
+
+function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
+  const capacities = [1, 2, 3, 4, 5, 10, 15, 20];
+  const rows = [];
+  for (let index = 0; index < capacities.length; index += 4) {
+    const row = capacities.slice(index, index + 4).map((capacity) => ({
+      text: Number(currentCapacity) === capacity ? `✅ ${ltrText(String(capacity))}` : ltrText(String(capacity)),
+      callback_data: `${callBacks.discussionCreateSetCapacity}${capacity}`,
+    }));
+    rows.push(lang === "fa" ? row.reverse() : row);
+  }
+  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussionCreatePreview }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionSelectTasteKeyboard(lang, section, tasteLabelKey) {
@@ -768,25 +763,13 @@ function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
   return inlineKeyboard(rows);
 }
 
-function profileViewActionsKeyboard(lang, profileCode, isSaved, fromSavedList = false) {
-  const rows = isSaved
-    ? [
-      [{ text: messages[lang].profileUnsaveButton, callback_data: `${callBacks.profileUnsaveByCode}${profileCode}` }],
-    ]
-    : [
-      [{ text: messages[lang].profileSaveButton, callback_data: `${callBacks.profileSaveByCode}${profileCode}` }],
-    ];
-  if (fromSavedList) {
-    rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
-  }
+function profileViewBackKeyboard(lang) {
+  const rows = [[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]];
   return inlineKeyboard(rows);
 }
 
 function savedProfilesListKeyboard(lang, items = []) {
-  const rows = items.map((entry) => ([
-    { text: `${entry.name} — /${entry.code}`, callback_data: `${callBacks.savedProfilesOpen}${entry.code}` },
-    { text: messages[lang].savedProfileRemove, callback_data: `${callBacks.savedProfilesRemove}${entry.code}` },
-  ]));
+  const rows = [];
   rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
   return inlineKeyboard(rows);
 }
@@ -821,15 +804,15 @@ module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
-  discussionCreateDescriptionReplyKeyboard,
-  discussionCreateRequiredDescriptionReplyKeyboard,
-  discussionCreateCancelReplyKeyboard,
+  discussionCreateDescriptionKeyboard,
+  discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
+  discussionCreateCapacityKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,
-  profileViewActionsKeyboard,
+  profileViewBackKeyboard,
   savedProfilesListKeyboard,
 };
