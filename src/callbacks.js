@@ -569,9 +569,13 @@ async function sendDiscussionCreateTitlePrompt(ctx, lang, {
   state = "discussion_create_title",
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
+  includeTitlePin = false,
 } = {}) {
   await updateUserState(ctx.userId, state);
   await deleteCallbackMessageIfPossible(ctx);
+  if (includeTitlePin) {
+    await ctx.reply(messages[lang].discussionCreateTitlePin);
+  }
   const sent = await ctx.reply(
     messages[lang].discussionCreateAskTitle,
     discussionCreateCancelKeyboard(lang, cancelCallback, cancelText),
@@ -1252,7 +1256,7 @@ async function handleCallback(ctx) {
       );
     }
     await clearDiscussionDraft(ctx.userId);
-    return sendDiscussionCreateTitlePrompt(ctx, lang);
+    return sendDiscussionCreateTitlePrompt(ctx, lang, { includeTitlePin: true });
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {
