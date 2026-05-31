@@ -66,6 +66,7 @@ function paginateDiscussions(discussions = [], page = 0) {
   return {
     page: normalizedPage,
     totalPages,
+    startIndex: start,
     items: discussions.slice(start, start + DISCUSSION_LIST_PAGE_SIZE),
   };
 }
@@ -74,11 +75,12 @@ function buildDiscussionActionLine(lang, label, command) {
   return lang === "fa" ? `${label} 👈 ${command}` : `${label} 👉 ${command}`;
 }
 
-function buildDiscussionListText(messages, lang, title, discussions = []) {
+function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
   if (!discussions.length) {
     return title;
   }
 
+  const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = discussions.map((entry, index) => {
     const prefix = entry.listPrefix || "💬";
     const count = Array.isArray(entry.memberUserIds) ? entry.memberUserIds.length : 0;
@@ -96,7 +98,7 @@ function buildDiscussionListText(messages, lang, title, discussions = []) {
       entry.listAction === "leave" && code
         ? `\n${buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)}`
         : "";
-    return `${index + 1}. ${prefix} ${entry.title}\n👥 ${count}/${entry.maxMembers || 20}\n${rule}${openLink}${ownerAction}${leaveAction}`;
+    return `${baseIndex + index + 1}. ${prefix} ${entry.title}\n👥 ${count}/${entry.maxMembers || 20}\n${rule}${openLink}${ownerAction}${leaveAction}`;
   });
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }

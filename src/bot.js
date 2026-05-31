@@ -809,6 +809,13 @@ function buildDiscussionPreviewForCurrentDraft(ctx, lang, description) {
   });
 }
 
+function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
+  return buildDiscussionPreviewText(messages, lang, {
+    ...toPlainUser(ctx.user),
+    ...overrides,
+  });
+}
+
 async function sendDiscussionRoomFromText(ctx, lang, discussion) {
   await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   return ctx.reply(
@@ -855,6 +862,13 @@ async function clearDiscussionMenuNotice(ctx) {
   return deleted;
 }
 
+async function sendDiscussionCreatePrompt(ctx, text, keyboard) {
+  await clearDiscussionMenuNotice(ctx);
+  const sent = await ctx.reply(text, keyboard);
+  await rememberDiscussionMenuNotice(ctx, sent);
+  return sent;
+}
+
 async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {
   const listType = preferredType === "mine" ? "mine" : "active";
   if (listType === "mine") {
@@ -866,7 +880,9 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
     const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
     const paged = paginateDiscussions(decorated, 0);
     const sent = await ctx.reply(
-      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items),
+      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
+        startIndex: paged.startIndex,
+      }),
       discussionListNavigationKeyboard(lang, {
         listType: "mine",
         page: paged.page,
@@ -884,7 +900,9 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, false);
   const paged = paginateDiscussions(decorated, 0);
   const sent = await ctx.reply(
-    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items),
+    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
+      startIndex: paged.startIndex,
+    }),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
       page: paged.page,
@@ -922,6 +940,7 @@ async function leaveDiscussionCommand(ctx, lang, code) {
     if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
     return ctx.reply(getDiscussionErrorMessage(messages, lang, left.reason));
   }
+  await clearRememberedDiscussionListMessage(ctx);
   await updateProfileField(ctx.userId, "activeDiscussionId", null);
   return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussionTitle), { removeKeyboard: true });
 }
@@ -938,6 +957,7 @@ async function closeDiscussionCommand(ctx, lang, code) {
     notifyIds,
     messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
   );
+  await clearRememberedDiscussionListMessage(ctx);
   await updateProfileField(ctx.userId, "activeDiscussionId", null);
   return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
 }
@@ -1168,8 +1188,10 @@ async function handleUpdate(ctx) {
     return ctx.reply(messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
   }
 
-  if (state === "discussion_create_title") {
+  if (state === "discussion_create_title" || state === "discussion_create_title_edit") {
+    const isEditingFromPreview = state === "discussion_create_title_edit";
     if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionCreateCancel)) {
+      await clearDiscussionMenuNotice(ctx);
       await updateProfileField(ctx.userId, "discussionDraftTitle", "");
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
@@ -1181,24 +1203,76 @@ async function handleUpdate(ctx) {
       return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (!text || text.startsWith("/")) {
-      return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+      return sendDiscussionCreatePrompt(
+        ctx,
+        isEditingFromPreview ? messages[lang].discussionInvalidTitle : messages[lang].discussionCreateAskTitle,
+        discussionCreateCancelKeyboard(
+          lang,
+          isEditingFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          isEditingFromPreview ? messages[lang].discussionCancelEdit : null,
+        ),
+      );
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 80);
     if (!normalized) {
-      return ctx.reply(messages[lang].discussionInvalidTitle, discussionCreateCancelKeyboard(lang));
+      return sendDiscussionCreatePrompt(
+        ctx,
+        messages[lang].discussionInvalidTitle,
+        discussionCreateCancelKeyboard(
+          lang,
+          isEditingFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          isEditingFromPreview ? messages[lang].discussionCancelEdit : null,
+        ),
+      );
     }
     if (hasLink(normalized)) {
-      return ctx.reply(messages[lang].discussionInvalidTitleLink, discussionCreateCancelKeyboard(lang));
+      return sendDiscussionCreatePrompt(
+        ctx,
+        messages[lang].discussionInvalidTitleLink,
+        discussionCreateCancelKeyboard(
+          lang,
+          isEditingFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          isEditingFromPreview ? messages[lang].discussionCancelEdit : null,
+        ),
+      );
     }
+    await clearDiscussionMenuNotice(ctx);
     await updateProfileField(ctx.userId, "discussionDraftTitle", normalized);
+    if (isEditingFromPreview) {
+      await updateUserState(ctx.userId, "discussion_create_preview");
+      return ctx.reply(
+        buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftTitle: normalized }),
+        discussionCreateConfirmKeyboard(lang),
+      );
+    }
     await updateUserState(ctx.userId, "discussion_create_join_rule");
-    return ctx.reply(messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+    return ctx.reply(
+      messages[lang].discussionJoinRulePrompt,
+      discussionJoinRuleKeyboard(lang, {
+        cancelCallback: callBacks.discussionCreateCancel,
+        backButton: {
+          text: messages[lang].discussionBack,
+          callback_data: callBacks.discussionCreateBackToTitle,
+        },
+      }),
+    );
   }
 
-  if (state === "discussion_create_description") {
+  if (state === "discussion_create_description" || state === "discussion_create_description_edit") {
     const draftRule = ctx.user?.discussionDraftJoinRule || { type: "open" };
     const isOpenRule = draftRule.type === "open";
+    const isEditingDescriptionFromPreview = state === "discussion_create_description_edit";
+    const descriptionBackButton = isEditingDescriptionFromPreview
+      ? {
+        text: messages[lang].discussionBack,
+        callback_data: callBacks.discussionCreatePreview,
+      }
+      : {
+        text: messages[lang].discussionBack,
+        callback_data: callBacks.discussionCreateBackToJoinRule,
+      };
     if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionCreateCancel)) {
+      await clearDiscussionMenuNotice(ctx);
       await updateProfileField(ctx.userId, "discussionDraftTitle", "");
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
@@ -1211,8 +1285,18 @@ async function handleUpdate(ctx) {
     }
     if (normalizeKeyboardText(text) === normalizeKeyboardText(messages[lang].discussionSkipDescription)) {
       if (isOpenRule) {
-        return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateCancelKeyboard(lang));
+        return sendDiscussionCreatePrompt(
+          ctx,
+          messages[lang].discussionOpenNeedsDescription,
+          discussionCreateCancelKeyboard(
+            lang,
+            isEditingDescriptionFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+            isEditingDescriptionFromPreview ? messages[lang].discussionCancelEdit : null,
+            descriptionBackButton,
+          ),
+        );
       }
+      await clearDiscussionMenuNotice(ctx);
       await updateProfileField(ctx.userId, "discussionDraftDescription", "");
       await updateUserState(ctx.userId, "discussion_create_preview");
       return ctx.reply(
@@ -1221,15 +1305,37 @@ async function handleUpdate(ctx) {
       );
     }
     if (!text || text.startsWith("/")) {
-      return ctx.reply(
+      return sendDiscussionCreatePrompt(
+        ctx,
         messages[lang].discussionCreateAskDescription,
-        isOpenRule ? discussionCreateCancelKeyboard(lang) : discussionCreateDescriptionKeyboard(lang),
+        isOpenRule
+          ? discussionCreateCancelKeyboard(
+            lang,
+            isEditingDescriptionFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+            isEditingDescriptionFromPreview ? messages[lang].discussionCancelEdit : null,
+            descriptionBackButton,
+          )
+          : discussionCreateDescriptionKeyboard(lang, {
+            cancelCallback: isEditingDescriptionFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+            cancelText: isEditingDescriptionFromPreview ? messages[lang].discussionCancelEdit : null,
+            backButton: descriptionBackButton,
+          }),
       );
     }
     const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
     if (isOpenRule && !normalized) {
-      return ctx.reply(messages[lang].discussionOpenNeedsDescription, discussionCreateCancelKeyboard(lang));
+      return sendDiscussionCreatePrompt(
+        ctx,
+        messages[lang].discussionOpenNeedsDescription,
+        discussionCreateCancelKeyboard(
+          lang,
+          isEditingDescriptionFromPreview ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          isEditingDescriptionFromPreview ? messages[lang].discussionCancelEdit : null,
+          descriptionBackButton,
+        ),
+      );
     }
+    await clearDiscussionMenuNotice(ctx);
     await updateProfileField(ctx.userId, "discussionDraftDescription", normalized);
     await updateUserState(ctx.userId, "discussion_create_preview");
     return ctx.reply(
@@ -1238,7 +1344,29 @@ async function handleUpdate(ctx) {
     );
   }
 
+  if (state === "discussion_create_join_rule" || state === "discussion_create_join_rule_edit") {
+    await ctx.reply(messages[lang].discussionSelectOptionPrompt);
+    await clearDiscussionMenuNotice(ctx);
+    const isEditingJoinRule = state === "discussion_create_join_rule_edit";
+    const sent = await ctx.reply(
+      messages[lang].discussionJoinRulePrompt,
+      discussionJoinRuleKeyboard(lang, {
+        cancelCallback: isEditingJoinRule ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+        cancelText: isEditingJoinRule ? messages[lang].discussionCancelEdit : null,
+        backButton: isEditingJoinRule
+          ? null
+          : {
+            text: messages[lang].discussionBack,
+            callback_data: callBacks.discussionCreateBackToTitle,
+          },
+      }),
+    );
+    await rememberDiscussionMenuNotice(ctx, sent);
+    return sent;
+  }
+
   if (matchesMessageText(text, ["discussionCreateCancel"])) {
+    await clearDiscussionMenuNotice(ctx);
     await updateProfileField(ctx.userId, "discussionDraftTitle", "");
     await updateProfileField(ctx.userId, "discussionDraftDescription", "");
     await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);

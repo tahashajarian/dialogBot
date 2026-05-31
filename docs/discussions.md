@@ -12,7 +12,7 @@ Discussions are live rooms with short memory.
 - A discussion can have an optional short description.
 - Users can be in one active discussion at a time.
 - Users can be members of multiple discussions, but only one discussion is active for sending messages.
-- Each discussion has an editable capacity from 1 to 20 active members.
+- Each discussion has an editable capacity from 2 to 20 active members.
 - Messages are broadcast live to current room members.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
@@ -154,8 +154,15 @@ Buttons:
 🌍 همه
 🏷 فقط یک برچسب خاص
 🎯 فقط یک علاقه/آیتم خاص
-لغو
+لغو ساخت بحث
 ```
+
+Create/edit navigation rules:
+
+- In create mode, title step shows only `لغو ساخت بحث`.
+- In create mode after title, show `لغو ساخت بحث` plus a `⬅️ برگشت` button to the previous step where relevant.
+- In edit-from-preview mode, cancel actions should use `لغو ویرایش` and return to preview (not cancel the whole draft).
+- If user sends text while on inline-only pickers (for example join-rule picker), show a bot-authored "select an option" message and resend a fresh picker card.
 
 Description is collected after the join rule is selected, so the bot can show the right description controls for open vs restricted discussions.
 Creation prompts use inline controls only. Do not show bottom reply-keyboard buttons while collecting the title or description.
@@ -191,7 +198,7 @@ For open topics, selecting `🌍 همه` moves to the required description step.
 
 Room capacity is editable from the preview step:
 
-- allowed values: 1, 2, 3, 4, 5, 10, 15, 20 active members
+- allowed values: 2, 3, 4, 5, 10, 15, 20 active members
 - default: 20 active members
 - max: 20 active members
 - creator counts as a member

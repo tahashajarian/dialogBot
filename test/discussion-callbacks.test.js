@@ -7,6 +7,7 @@ const {
   buildDiscussionListText,
   buildDiscussionPreviewText,
 } = require("../src/services/discussion-ui");
+const { discussionListNavigationKeyboard } = require("../src/keyboards");
 
 test("discussion callback error mapping returns specific copy", () => {
   assert.equal(
@@ -80,4 +81,42 @@ test("discussion list text separates multiple discussions with dividers", () => 
   ]);
 
   assert.match(text, /Metal room[\s\S]*────────[\s\S]*Movie room/);
+});
+
+test("discussion list text keeps numbering across pages", () => {
+  const text = buildDiscussionListText(messages, "en", "Active discussions", [
+    {
+      title: "Page two item one",
+      publicDiscussionCode: "d_EF56",
+      memberUserIds: [1],
+      joinRule: { type: "open" },
+    },
+    {
+      title: "Page two item two",
+      publicDiscussionCode: "d_GH78",
+      memberUserIds: [1, 2],
+      joinRule: { type: "open" },
+    },
+  ], { startIndex: 5 });
+
+  assert.match(text, /6\. 💬 Page two item one/);
+  assert.match(text, /7\. 💬 Page two item two/);
+});
+
+test("discussion navigation keyboard uses next page index and updated labels", () => {
+  const keyboard = discussionListNavigationKeyboard("fa", {
+    listType: "active",
+    page: 0,
+    totalPages: 3,
+    joinableOnly: false,
+  });
+
+  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+  const flatButtons = rows.flat();
+  const moreButton = flatButtons.find((btn) => btn.callback_data === "discussion:list:active:page:1:all");
+
+  assert.ok(moreButton);
+  assert.equal(moreButton.text, `${messages.fa.discussionListMorePage} ➡️`);
+  assert.equal(messages.fa.discussionListMorePage, "نمایش بیشتر");
+  assert.equal(messages.fa.discussionListPrevPage, "قبلی‌ها");
 });

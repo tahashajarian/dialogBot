@@ -7,6 +7,7 @@
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
+- After a create/edit flow is confirmed or canceled, remove leftover step cards so dead inline actions are not left in chat.
 - If a flow naturally moves from one picker to another, editing the same message in place is preferred.
 - Do not delete user messages.
 - Only delete bot messages that are temporary, stale, or invalid after the next action.
@@ -44,6 +45,7 @@
 - Callback notifications are not persistent like a pin.
 - Use callback notifications for lightweight context changes when the platform supports them.
 - If a repeated button press keeps the visible message effectively unchanged, use a short callback notification so the user can tell the tap was handled without adding chat noise.
+- If a callback belongs to an old/stale flow state, ignore it safely (or remove that stale card) instead of applying state changes from outdated buttons.
 - When a command-link action fails from a list, remove or refresh the stale list and show the relevant list again after the bot explanation when practical.
 - For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.
 - Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.

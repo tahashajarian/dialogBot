@@ -255,6 +255,20 @@ async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
   await updateProfileField(ctx.userId, "discussionLastListType", listType);
 }
 
+async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.discussionLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  }
+  return deleted;
+}
+
 async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
@@ -266,6 +280,14 @@ async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
     await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
   }
   return deleted;
+}
+
+async function rememberDiscussionMenuNotice(ctx, message) {
+  const messageId = Number(getMessageId(message));
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    return;
+  }
+  await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", messageId);
 }
 
 async function rememberSavedProfilesListMessage(ctx, messageOrId) {
@@ -336,6 +358,10 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data === callBacks.discussionCreateEditDescription ||
     data === callBacks.discussionCreateEditRule ||
     data === callBacks.discussionCreateEditCapacity ||
+    data === callBacks.discussionCreateCancelEdit ||
+    data === callBacks.discussionCreateBackToTitle ||
+    data === callBacks.discussionCreateBackToJoinRule ||
+    data === callBacks.discussionCreateBackToSection ||
     data.startsWith(callBacks.discussionCreateRuleSection) ||
     data.startsWith(callBacks.discussionCreateSelectTaste) ||
     data.startsWith(callBacks.discussionCreateSelectItem) ||
@@ -346,6 +372,42 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionMembers) ||
     data.startsWith(callBacks.discussionRemoveMemberPicker) ||
     data.startsWith(callBacks.discussionRemoveMember)
+  );
+}
+
+function isDiscussionCreateFlowCallback(data = "") {
+  return (
+    data === callBacks.discussionCreateCancel ||
+    data === callBacks.discussionCreateSkipDescription ||
+    data === callBacks.discussionCreateRuleOpen ||
+    data === callBacks.discussionCreateRuleTaste ||
+    data === callBacks.discussionCreateRuleItem ||
+    data === callBacks.discussionCreateConfirm ||
+    data === callBacks.discussionCreatePreview ||
+    data === callBacks.discussionCreateEditTitle ||
+    data === callBacks.discussionCreateEditDescription ||
+    data === callBacks.discussionCreateEditRule ||
+    data === callBacks.discussionCreateEditCapacity ||
+    data === callBacks.discussionCreateCancelEdit ||
+    data === callBacks.discussionCreateBackToTitle ||
+    data === callBacks.discussionCreateBackToJoinRule ||
+    data === callBacks.discussionCreateBackToSection ||
+    data.startsWith(callBacks.discussionCreateRuleSection) ||
+    data.startsWith(callBacks.discussionCreateSelectTaste) ||
+    data.startsWith(callBacks.discussionCreateSelectItem) ||
+    data.startsWith(callBacks.discussionCreateSetCapacity)
+  );
+}
+
+function isDiscussionCreateState(state = "") {
+  return (
+    state === "discussion_create_title" ||
+    state === "discussion_create_title_edit" ||
+    state === "discussion_create_join_rule" ||
+    state === "discussion_create_join_rule_edit" ||
+    state === "discussion_create_description" ||
+    state === "discussion_create_description_edit" ||
+    state === "discussion_create_preview"
   );
 }
 
@@ -399,6 +461,17 @@ function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
   });
 }
 
+function isEditingDiscussionRuleFromPreview(ctx) {
+  return ctx.user?.state === "discussion_create_join_rule_edit";
+}
+
+function createStepBackButton(messages, lang, callbackData, emoji, label) {
+  return {
+    text: messages[lang].discussionBack,
+    callback_data: callbackData,
+  };
+}
+
 function discussionMenuBackKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
@@ -431,7 +504,9 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   const paged = paginateDiscussions(filtered, page);
   const listMessage = await editCallbackMessageOrReply(
     ctx,
-    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items),
+    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
+      startIndex: paged.startIndex,
+    }),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
       page: paged.page,
@@ -458,7 +533,9 @@ async function renderMyDiscussionList(ctx, lang, page = 0) {
   const paged = paginateDiscussions(decorated, page);
   const listMessage = await editCallbackMessageOrReply(
     ctx,
-    buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items),
+    buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
+      startIndex: paged.startIndex,
+    }),
     discussionListNavigationKeyboard(lang, {
       listType: "mine",
       page: paged.page,
@@ -469,15 +546,53 @@ async function renderMyDiscussionList(ctx, lang, page = 0) {
   return listMessage;
 }
 
-async function askDiscussionDescription(ctx, lang, joinRule) {
+async function askDiscussionDescription(ctx, lang, joinRule, {
+  state = "discussion_create_description",
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
   await updateProfileField(ctx.userId, "discussionDraftJoinRule", joinRule);
-  await updateUserState(ctx.userId, "discussion_create_description");
+  await updateUserState(ctx.userId, state);
   await deleteCallbackMessageIfPossible(ctx);
-  return ctx.reply(
+  const sent = await ctx.reply(
     messages[lang].discussionCreateAskDescription,
     joinRule.type === "open"
-      ? discussionCreateCancelKeyboard(lang)
-      : discussionCreateDescriptionKeyboard(lang),
+      ? discussionCreateCancelKeyboard(lang, cancelCallback, cancelText, backButton)
+      : discussionCreateDescriptionKeyboard(lang, { cancelCallback, cancelText, backButton }),
+  );
+  await rememberDiscussionMenuNotice(ctx, sent);
+  return sent;
+}
+
+async function sendDiscussionCreateTitlePrompt(ctx, lang, {
+  state = "discussion_create_title",
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+} = {}) {
+  await updateUserState(ctx.userId, state);
+  await deleteCallbackMessageIfPossible(ctx);
+  const sent = await ctx.reply(
+    messages[lang].discussionCreateAskTitle,
+    discussionCreateCancelKeyboard(lang, cancelCallback, cancelText),
+  );
+  await rememberDiscussionMenuNotice(ctx, sent);
+  return sent;
+}
+
+async function sendDiscussionJoinRulePrompt(ctx, lang, {
+  state = null,
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
+  if (state) {
+    await updateUserState(ctx.userId, state);
+  }
+  return editCallbackMessageOrReply(
+    ctx,
+    messages[lang].discussionJoinRulePrompt,
+    discussionJoinRuleKeyboard(lang, { cancelCallback, cancelText, backButton }),
   );
 }
 
@@ -1050,6 +1165,11 @@ async function handleCallback(ctx) {
     );
   }
 
+  if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
+    await ctx.answerCb?.(messages[lang].unknownAction.replace(/^🤖\s*/, ""));
+    return deleteCallbackMessageIfPossible(ctx);
+  }
+
   if (data === callBacks.savedProfiles) {
     await ctx.answerCb?.();
     await clearRememberedAiListMessage(ctx);
@@ -1132,15 +1252,33 @@ async function handleCallback(ctx) {
       );
     }
     await clearDiscussionDraft(ctx.userId);
-    await updateUserState(ctx.userId, "discussion_create_title");
-    await deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+    return sendDiscussionCreateTitlePrompt(ctx, lang);
+  }
+
+  if (data === callBacks.discussionCreateCancelEdit) {
+    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^🤖\s*/, ""));
+    await updateUserState(ctx.userId, "discussion_create_preview");
+    await clearDiscussionMenuNotice(ctx);
+    await ctx.reply(messages[lang].discussionCreateCanceled, {
+      reply_markup: { remove_keyboard: true },
+    });
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewForCurrentUser(ctx, lang),
+      discussionCreateConfirmKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.discussionCreateBackToTitle) {
+    await ctx.answerCb?.();
+    return sendDiscussionCreateTitlePrompt(ctx, lang);
   }
 
   if (data === callBacks.discussionCreateCancel) {
-    await ctx.answerCb?.();
+    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^🤖\s*/, ""));
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
+    await clearDiscussionMenuNotice(ctx);
     await deleteCallbackMessageIfPossible(ctx);
     await ctx.reply(messages[lang].discussionCreateCanceled, {
       reply_markup: { remove_keyboard: true },
@@ -1166,22 +1304,64 @@ async function handleCallback(ctx) {
   if (data === callBacks.discussionCreateRuleOpen) {
     await ctx.answerCb?.();
     const joinRule = { type: "open" };
-    return askDiscussionDescription(ctx, lang, joinRule);
+    if (isEditingDiscussionRuleFromPreview(ctx)) {
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", joinRule);
+      await updateUserState(ctx.userId, "discussion_create_preview");
+      return editCallbackMessageOrReply(
+        ctx,
+        buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: joinRule }),
+        discussionCreateConfirmKeyboard(lang),
+      );
+    }
+    return askDiscussionDescription(ctx, lang, joinRule, {
+      cancelCallback: callBacks.discussionCreateCancel,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+    });
   }
 
   if (data === callBacks.discussionCreateRuleTopTen) {
     await ctx.answerCb?.();
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+    return sendDiscussionJoinRulePrompt(ctx, lang);
   }
 
   if (data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
     await ctx.answerCb?.();
     const type = data === callBacks.discussionCreateRuleTaste ? "taste_label" : "top_ten_item";
     await updateProfileField(ctx.userId, "discussionDraftJoinRule", { type });
+    const editMode = isEditingDiscussionRuleFromPreview(ctx);
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionChooseSection,
-      discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection),
+      discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
+        cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+        cancelText: editMode ? messages[lang].discussionCancelEdit : null,
+        backButton: editMode
+          ? createStepBackButton(messages, lang, callBacks.discussionCreatePreview, "🔐", messages[lang].discussionEditRule)
+          : createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+      }),
+    );
+  }
+
+  if (data === callBacks.discussionCreateBackToJoinRule) {
+    await ctx.answerCb?.();
+    return sendDiscussionJoinRulePrompt(ctx, lang, {
+      state: "discussion_create_join_rule",
+      cancelCallback: callBacks.discussionCreateCancel,
+      cancelText: messages[lang].discussionCreateCancel,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle, "✏️", messages[lang].discussionEditTitle),
+    });
+  }
+
+  if (data === callBacks.discussionCreateBackToSection) {
+    await ctx.answerCb?.();
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionChooseSection,
+      discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
+        cancelCallback: callBacks.discussionCreateCancel,
+        cancelText: messages[lang].discussionCreateCancel,
+        backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+      }),
     );
   }
 
@@ -1193,28 +1373,62 @@ async function handleCallback(ctx) {
     if (baseRule.type === "taste_label") {
       const taste = getAiTasteFromUser(ctx.user, section);
       if (!taste?.labelKey) return ctx.reply(messages[lang].discussionRuleNoEligibleTaste);
-      await updateProfileField(ctx.userId, "discussionDraftJoinRule", { ...nextRule, tasteLabelKey: taste.labelKey });
+      const finalizedRule = { ...nextRule, tasteLabelKey: taste.labelKey };
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", finalizedRule);
+      if (isEditingDiscussionRuleFromPreview(ctx)) {
+        await updateUserState(ctx.userId, "discussion_create_preview");
+        return editCallbackMessageOrReply(
+          ctx,
+          buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: finalizedRule }),
+          discussionCreateConfirmKeyboard(lang),
+        );
+      }
       return editCallbackMessageOrReply(
         ctx,
         messages[lang].discussionChooseTasteLabel,
-        discussionSelectTasteKeyboard(lang, section, taste.labelKey),
+        discussionSelectTasteKeyboard(lang, section, taste.labelKey, {
+          cancelCallback: isEditingDiscussionRuleFromPreview(ctx) ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          cancelText: isEditingDiscussionRuleFromPreview(ctx) ? messages[lang].discussionCancelEdit : null,
+          backButton: isEditingDiscussionRuleFromPreview(ctx)
+            ? createStepBackButton(messages, lang, callBacks.discussionCreatePreview, "🔐", messages[lang].discussionEditRule)
+            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToSection, "🧩", messages[lang].discussionChooseSection),
+        }),
       );
     }
     if (baseRule.type === "top_ten_item") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
       if (!topTen.length) return ctx.reply(messages[lang].discussionRuleNoEligibleItem);
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+      if (isEditingDiscussionRuleFromPreview(ctx)) {
+        return editCallbackMessageOrReply(
+          ctx,
+          messages[lang].discussionChooseTopTenItem,
+          discussionSelectItemKeyboard(lang, section, topTen, {
+            cancelCallback: callBacks.discussionCreateCancelEdit,
+            cancelText: messages[lang].discussionCancelEdit,
+            backButton: createStepBackButton(messages, lang, callBacks.discussionCreatePreview, "🔐", messages[lang].discussionEditRule),
+          }),
+        );
+      }
       return editCallbackMessageOrReply(
         ctx,
         messages[lang].discussionChooseTopTenItem,
-        discussionSelectItemKeyboard(lang, section, topTen),
+        discussionSelectItemKeyboard(lang, section, topTen, {
+          cancelCallback: callBacks.discussionCreateCancel,
+          cancelText: messages[lang].discussionCreateCancel,
+          backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToSection, "🧩", messages[lang].discussionChooseSection),
+        }),
       );
     }
     if (baseRule.type === "top_ten_completed") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
       if (topTen.length < 10) return ctx.reply(getDiscussionErrorMessage(messages, lang, "requires_top_ten_completed"));
     }
-    return askDiscussionDescription(ctx, lang, nextRule);
+    return askDiscussionDescription(ctx, lang, nextRule, {
+      cancelCallback: callBacks.discussionCreateCancel,
+      cancelText: messages[lang].discussionCreateCancel,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+    });
   }
 
   if (data.startsWith(callBacks.discussionCreateSelectTaste)) {
@@ -1227,7 +1441,20 @@ async function handleCallback(ctx) {
       section,
       tasteLabelKey,
     };
-    return askDiscussionDescription(ctx, lang, nextRule);
+    if (isEditingDiscussionRuleFromPreview(ctx)) {
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+      await updateUserState(ctx.userId, "discussion_create_preview");
+      return editCallbackMessageOrReply(
+        ctx,
+        buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
+        discussionCreateConfirmKeyboard(lang),
+      );
+    }
+    return askDiscussionDescription(ctx, lang, nextRule, {
+      cancelCallback: callBacks.discussionCreateCancel,
+      cancelText: messages[lang].discussionCreateCancel,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+    });
   }
 
   if (data.startsWith(callBacks.discussionCreateSelectItem)) {
@@ -1245,26 +1472,49 @@ async function handleCallback(ctx) {
       section,
       itemTitle: topTen[itemIndex].title,
     };
-    return askDiscussionDescription(ctx, lang, nextRule);
+    if (isEditingDiscussionRuleFromPreview(ctx)) {
+      await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
+      await updateUserState(ctx.userId, "discussion_create_preview");
+      return editCallbackMessageOrReply(
+        ctx,
+        buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
+        discussionCreateConfirmKeyboard(lang),
+      );
+    }
+    return askDiscussionDescription(ctx, lang, nextRule, {
+      cancelCallback: callBacks.discussionCreateCancel,
+      cancelText: messages[lang].discussionCreateCancel,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule, "🔐", messages[lang].discussionJoinRulePrompt),
+    });
   }
 
   if (data === callBacks.discussionCreateEditTitle) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "discussion_create_title");
-    await deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].discussionCreateAskTitle, discussionCreateCancelKeyboard(lang));
+    return sendDiscussionCreateTitlePrompt(ctx, lang, {
+      state: "discussion_create_title_edit",
+      cancelCallback: callBacks.discussionCreateCancelEdit,
+      cancelText: messages[lang].discussionCancelEdit,
+    });
   }
 
   if (data === callBacks.discussionCreateEditDescription) {
     await ctx.answerCb?.();
     const joinRule = ctx.user?.discussionDraftJoinRule || { type: "open" };
-    return askDiscussionDescription(ctx, lang, joinRule);
+    return askDiscussionDescription(ctx, lang, joinRule, {
+      state: "discussion_create_description_edit",
+      cancelCallback: callBacks.discussionCreateCancelEdit,
+      cancelText: messages[lang].discussionCancelEdit,
+      backButton: createStepBackButton(messages, lang, callBacks.discussionCreatePreview, "📝", messages[lang].discussionEditDescription),
+    });
   }
 
   if (data === callBacks.discussionCreateEditRule) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "discussion_create_join_rule");
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionJoinRulePrompt, discussionJoinRuleKeyboard(lang));
+    return sendDiscussionJoinRulePrompt(ctx, lang, {
+      state: "discussion_create_join_rule_edit",
+      cancelCallback: callBacks.discussionCreateCancelEdit,
+      cancelText: messages[lang].discussionCancelEdit,
+    });
   }
 
   if (data === callBacks.discussionCreatePreview) {
@@ -1309,6 +1559,8 @@ async function handleCallback(ctx) {
     if (!created.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);
     }
+    await clearDiscussionMenuNotice(ctx);
+    await deleteCallbackMessageIfPossible(ctx);
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     await ctx.reply(messages[lang].discussionJoined);
@@ -1322,6 +1574,7 @@ async function handleCallback(ctx) {
     if (!joined.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, joined.reason));
     }
+    await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     if (joined.joined && joined.discussion.creatorUserId !== ctx.userId) {
       const owner = await User.findOne({ userId: joined.discussion.creatorUserId })
         .select("userId activeDiscussionId")
@@ -1358,6 +1611,7 @@ async function handleCallback(ctx) {
       if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
       return ctx.reply(messages[lang].discussionNotMember);
     }
+    await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     const discussionTitle = left?.discussionTitle || "";
     const ownerUserId = Number(left?.creatorUserId);
     const leaverName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
@@ -1380,6 +1634,9 @@ async function handleCallback(ctx) {
 
   if (data.startsWith(callBacks.discussionClose)) {
     await ctx.answerCb?.();
+    await clearDiscussionMenuNotice(ctx);
+    await clearRememberedDiscussionRoomCards(ctx);
+    await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     const discussionId = data.replace(callBacks.discussionClose, "");
     const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
     if (!closed.ok) {

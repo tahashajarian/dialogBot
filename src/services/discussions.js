@@ -4,7 +4,7 @@ const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = requ
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
 const DISCUSSION_MEMBER_CAP = 20;
-const DISCUSSION_ALLOWED_MEMBER_CAPS = [1, 2, 3, 4, 5, 10, 15, 20];
+const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
 const USER_DISCUSSION_MEMBERSHIP_CAP = 10;
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const SAVED_PROFILE_CAP = 50;

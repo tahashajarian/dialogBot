@@ -669,44 +669,76 @@ function discussionRoomKeyboard(lang, isOwner = false) {
   };
 }
 
-function discussionCreateDescriptionKeyboard(lang) {
+function discussionCreateDescriptionKeyboard(lang, {
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
+  const rows = [
+    [{ text: messages[lang].discussionSkipDescription, callback_data: callBacks.discussionCreateSkipDescription }],
+  ];
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
   return {
     reply_markup: {
-      inline_keyboard: [
-        [{ text: messages[lang].discussionSkipDescription, callback_data: callBacks.discussionCreateSkipDescription }],
-        [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-      ],
+      inline_keyboard: rows,
     },
   };
 }
 
-function discussionCreateCancelKeyboard(lang) {
+function discussionCreateCancelKeyboard(
+  lang,
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+) {
+  const rows = [];
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
   return {
     reply_markup: {
-      inline_keyboard: [
-        [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-      ],
+      inline_keyboard: rows,
     },
   };
 }
 
-function discussionJoinRuleKeyboard(lang) {
-  return inlineKeyboard([
+function discussionJoinRuleKeyboard(lang, {
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
+  const rows = [
     [{ text: messages[lang].discussionJoinRuleOpen, callback_data: callBacks.discussionCreateRuleOpen }],
     [{ text: messages[lang].discussionJoinRuleTaste, callback_data: callBacks.discussionCreateRuleTaste }],
     [{ text: messages[lang].discussionJoinRuleItem, callback_data: callBacks.discussionCreateRuleItem }],
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-  ]);
+  ];
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
+  return inlineKeyboard(rows);
 }
 
-function discussionSectionKeyboard(lang, prefix) {
-  return inlineKeyboard([
+function discussionSectionKeyboard(lang, prefix, {
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
+  const rows = [
     [{ text: messages[lang].aiSuggestMovies, callback_data: `${prefix}movies` }],
     [{ text: messages[lang].aiSuggestMusic, callback_data: `${prefix}music` }],
     [{ text: messages[lang].aiSuggestBooks, callback_data: `${prefix}books` }],
     [{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }],
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-  ]);
+  ];
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionCreateConfirmKeyboard(lang) {
@@ -721,34 +753,52 @@ function discussionCreateConfirmKeyboard(lang) {
 }
 
 function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
-  const capacities = [1, 2, 3, 4, 5, 10, 15, 20];
+  const capacities = [2, 3, 4, 5, 10, 15, 20];
   const rows = [];
   for (let index = 0; index < capacities.length; index += 4) {
     const row = capacities.slice(index, index + 4).map((capacity) => ({
-      text: Number(currentCapacity) === capacity ? `✅ ${ltrText(String(capacity))}` : ltrText(String(capacity)),
+      text: Number(currentCapacity) === capacity ? "✅" : ltrText(String(capacity)),
       callback_data: `${callBacks.discussionCreateSetCapacity}${capacity}`,
     }));
     rows.push(lang === "fa" ? row.reverse() : row);
   }
-  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussionCreatePreview }]);
+  rows.push([{
+    text: messages[lang].discussionCancelEdit || messages[lang].discussionCreateCancel,
+    callback_data: callBacks.discussionCreatePreview,
+  }]);
   return inlineKeyboard(rows);
 }
 
-function discussionSelectTasteKeyboard(lang, section, tasteLabelKey) {
-  return inlineKeyboard([
+function discussionSelectTasteKeyboard(lang, section, tasteLabelKey, {
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
+  const rows = [
     [{ text: messages[lang].discussionCreateSelectCurrentTaste, callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${tasteLabelKey}` }],
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
-  ]);
+  ];
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
+  return inlineKeyboard(rows);
 }
 
-function discussionSelectItemKeyboard(lang, section, items = []) {
+function discussionSelectItemKeyboard(lang, section, items = [], {
+  cancelCallback = callBacks.discussionCreateCancel,
+  cancelText = null,
+  backButton = null,
+} = {}) {
   const rows = items.slice(0, 10).map((entry, index) => ([
     {
       text: entry.title,
       callback_data: `${callBacks.discussionCreateSelectItem}${section}:${index}`,
     },
   ]));
-  rows.push([{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }]);
+  if (backButton?.text && backButton?.callback_data) {
+    rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
+  }
+  rows.push([{ text: cancelText || messages[lang].discussionCreateCancel, callback_data: cancelCallback }]);
   return inlineKeyboard(rows);
 }
 
