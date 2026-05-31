@@ -83,6 +83,8 @@ module.exports = {
     discussionOpen: "discussion:open:",
     discussionLeave: "discussion:leave:",
     discussionClose: "discussion:close:",
+    discussionCloseConfirm: "discussion:close:confirm:",
+    discussionCloseCancel: "discussion:close:cancel:",
     discussionMembers: "discussion:members:",
     discussionRemoveMemberPicker: "discussion:remove:member:picker:",
     discussionRemoveMember: "discussion:remove:member:",

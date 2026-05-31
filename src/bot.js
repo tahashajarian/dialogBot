@@ -185,6 +185,14 @@ function isDiscussionCloseText(text) {
   return matchesMessageText(text, ["discussionCloseButton"]) || (plainText.includes("بستن") && plainText.includes("بحث")) || plainText.includes("close discussion");
 }
 
+function isDiscussionCloseConfirmText(text) {
+  return matchesMessageText(text, ["discussionCloseConfirmCommand"]);
+}
+
+function isDiscussionCloseCancelText(text) {
+  return matchesMessageText(text, ["discussionCloseCancelCommand"]);
+}
+
 function isDiscussionReturnToMenuText(text) {
   const normalizedText = normalizeKeyboardText(text);
   const legacyLabels = [
@@ -219,6 +227,17 @@ function isDiscussionBottomControlText(text) {
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
+}
+
+function parseDiscussionCloseConfirmState(state = "") {
+  if (!state.startsWith("discussion_close_confirm")) return {};
+  const [, discussionId = "", messageIdRaw = "", source = "room"] = state.split(":");
+  const messageId = Number(messageIdRaw);
+  return {
+    discussionId,
+    messageId: Number.isInteger(messageId) && messageId > 0 ? messageId : null,
+    source: source === "list" ? "list" : "room",
+  };
 }
 
 async function rememberAiListMessage(ctx, section, listType, message) {
@@ -786,17 +805,19 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
 
   if (isDiscussionCloseText(text)) {
     if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-
-    const closed = await closeDiscussionAsOwner(ctx.userId, activeDiscussionId);
-    if (!closed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
-    const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
-    await notifyDiscussionUsers(
-      ctx,
-      notifyIds,
-      messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
-    );
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
+    const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
+      reply_markup: {
+        keyboard: [
+          [{ text: messages[lang].discussionCloseConfirmCommand }],
+          [{ text: messages[lang].discussionCloseCancelCommand }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+        selective: true,
+      },
+    });
+    await updateUserState(ctx.userId, `discussion_close_confirm:${activeDiscussionId}:${getMessageId(sent) || ""}:room`);
+    return sent;
   }
 
   return null;
@@ -948,18 +969,19 @@ async function leaveDiscussionCommand(ctx, lang, code) {
 async function closeDiscussionCommand(ctx, lang, code) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
-
-  const closed = await closeDiscussionAsOwner(ctx.userId, discussion._id);
-  if (!closed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
-  const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
-  await notifyDiscussionUsers(
-    ctx,
-    notifyIds,
-    messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
-  );
-  await clearRememberedDiscussionListMessage(ctx);
-  await updateProfileField(ctx.userId, "activeDiscussionId", null);
-  return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
+  const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
+    reply_markup: {
+      keyboard: [
+        [{ text: messages[lang].discussionCloseConfirmCommand }],
+        [{ text: messages[lang].discussionCloseCancelCommand }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  });
+  await updateUserState(ctx.userId, `discussion_close_confirm:${discussion._id}:${getMessageId(sent) || ""}:list`);
+  return sent;
 }
 
 async function sendRemovedActiveMemberNotice(ctx, removed) {
@@ -1045,11 +1067,11 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
 
-  if (text && isDiscussionBottomControlText(text)) {
+  if (!(state && state.startsWith("discussion_close_confirm")) && text && isDiscussionBottomControlText(text)) {
     return handleDiscussionBottomButton(ctx, lang, text);
   }
 
-  if (state === "idle" && ctx.user?.activeDiscussionId && text) {
+  if (!(state && state.startsWith("discussion_close_confirm")) && state === "idle" && ctx.user?.activeDiscussionId && text) {
     const handledDiscussionButton = await handleDiscussionBottomButton(ctx, lang, text);
     if (handledDiscussionButton) {
       return handledDiscussionButton;
@@ -1363,6 +1385,62 @@ async function handleUpdate(ctx) {
     );
     await rememberDiscussionMenuNotice(ctx, sent);
     return sent;
+  }
+
+  if (state && state.startsWith("discussion_close_confirm")) {
+    const parsed = parseDiscussionCloseConfirmState(state);
+    if (isDiscussionCloseCancelText(text)) {
+      await updateUserState(ctx.userId, "idle");
+      if (parsed.messageId && ctx.deleteMessage) {
+        await ctx.deleteMessage(parsed.messageId);
+      }
+      if (parsed.source === "list") {
+        const previousListType = ctx.user?.discussionLastListType || "active";
+        await ctx.reply(messages[lang].discussionCloseCanceled, {
+          reply_markup: { remove_keyboard: true },
+        });
+        return sendRememberedDiscussionList(ctx, lang, previousListType);
+      }
+      const opened = await joinOrSwitchActiveDiscussion(ctx.userId, parsed.discussionId || String(ctx.user?.activeDiscussionId || ""));
+      if (!opened.ok) {
+        return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu, { removeKeyboard: true });
+      }
+      return ctx.reply(messages[lang].discussionCloseCanceled, discussionRoomKeyboard(lang, opened.discussion.creatorUserId === ctx.userId));
+    }
+    if (!isDiscussionCloseConfirmText(text)) {
+      return ctx.reply(messages[lang].discussionSelectOptionPrompt);
+    }
+    const explicitId = parsed.discussionId || "";
+    const discussionId = explicitId || String(ctx.user?.activeDiscussionId || "");
+    if (!discussionId) {
+      await updateUserState(ctx.userId, "idle");
+      return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionNotMember, { removeKeyboard: true });
+    }
+    const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
+    if (!closed.ok) {
+      await updateUserState(ctx.userId, "idle");
+      return replyWithDiscussionMenu(ctx, lang, getDiscussionErrorMessage(messages, lang, closed.reason), { removeKeyboard: true });
+    }
+    if (parsed.messageId && ctx.deleteMessage) {
+      await ctx.deleteMessage(parsed.messageId);
+    }
+    const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
+    await notifyDiscussionUsers(
+      ctx,
+      notifyIds,
+      messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
+    );
+    const previousListType = ctx.user?.discussionLastListType || "active";
+    await clearRememberedDiscussionListMessage(ctx);
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    await updateUserState(ctx.userId, "idle");
+    if (parsed.source === "list") {
+      await ctx.reply(messages[lang].discussionClosed, {
+        reply_markup: { remove_keyboard: true },
+      });
+      return sendRememberedDiscussionList(ctx, lang, previousListType);
+    }
+    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
   }
 
   if (matchesMessageText(text, ["discussionCreateCancel"])) {

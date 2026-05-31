@@ -125,7 +125,24 @@ function createAppContext(ctx, user) {
 
     reply: (...args) => ctx.reply(...args),
     replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
-    answerCb: (text) => ctx.answerCbQuery(text).catch(() => {}),
+    answerCb: (text = "", extra = undefined) => {
+      const payload = {
+        callback_query_id: ctx.callbackQuery?.id,
+        text: String(text || ""),
+        ...(extra && typeof extra === "object" ? extra : {}),
+      };
+      if (payload.callback_query_id && ctx.telegram?.callApi) {
+        return ctx.telegram.callApi("answerCallbackQuery", payload).catch((error) => {
+          if (payload.show_alert) {
+            console.warn("answerCallbackQuery show_alert failed:", {
+              callbackQueryId: String(payload.callback_query_id || ""),
+              error: error?.message || error,
+            });
+          }
+        });
+      }
+      return ctx.answerCbQuery(String(text || "")).catch(() => {});
+    },
     sendToUser: async (userId, text, extra = {}) => {
       const targetUserId = Number(userId);
       if (!Number.isInteger(targetUserId) || targetUserId <= 0 || !ctx.telegram?.callApi) {

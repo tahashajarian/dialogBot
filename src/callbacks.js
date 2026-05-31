@@ -368,6 +368,8 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionCreateSetCapacity) ||
     data.startsWith(callBacks.discussionOpen) ||
     data.startsWith(callBacks.discussionLeave) ||
+    data.startsWith(callBacks.discussionCloseConfirm) ||
+    data.startsWith(callBacks.discussionCloseCancel) ||
     data.startsWith(callBacks.discussionClose) ||
     data.startsWith(callBacks.discussionMembers) ||
     data.startsWith(callBacks.discussionRemoveMemberPicker) ||
@@ -475,6 +477,13 @@ function createStepBackButton(messages, lang, callbackData, emoji, label) {
 function discussionMenuBackKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
+  ]);
+}
+
+function discussionCloseConfirmKeyboard(lang, discussionId) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionCloseConfirmYes, callback_data: `${callBacks.discussionCloseConfirm}${discussionId}` }],
+    [{ text: messages[lang].discussionCloseConfirmNo, callback_data: `${callBacks.discussionCloseCancel}${discussionId}` }],
   ]);
 }
 
@@ -1636,12 +1645,23 @@ async function handleCallback(ctx) {
     );
   }
 
-  if (data.startsWith(callBacks.discussionClose)) {
+  if (data.startsWith(callBacks.discussionClose) && !data.startsWith(callBacks.discussionCloseConfirm)) {
+    await ctx.answerCb?.();
+    const discussionId = data.replace(callBacks.discussionClose, "");
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionCloseConfirmPrompt,
+      discussionCloseConfirmKeyboard(lang, discussionId),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCloseConfirm)) {
     await ctx.answerCb?.();
     await clearDiscussionMenuNotice(ctx);
     await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    const discussionId = data.replace(callBacks.discussionClose, "");
+    await deleteCallbackMessageIfPossible(ctx);
+    const discussionId = data.replace(callBacks.discussionCloseConfirm, "");
     const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
     if (!closed.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
@@ -1658,6 +1678,15 @@ async function handleCallback(ctx) {
       `${messages[lang].discussionClosed}\n\n${messages[lang].discussionsMenu}`,
       discussionsMenuKeyboard(lang),
     );
+  }
+
+  if (data.startsWith(callBacks.discussionCloseCancel)) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible(ctx);
+    const discussionId = data.replace(callBacks.discussionCloseCancel, "");
+    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
+    return sendDiscussionRoom(ctx, lang, opened.discussion);
   }
 
   if (data.startsWith(callBacks.discussionMembers)) {
