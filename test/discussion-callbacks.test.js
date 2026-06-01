@@ -33,7 +33,7 @@ test("discussion preview text reflects draft edits", () => {
   const preview = buildDiscussionPreviewText(messages, "en", user);
   assert.match(preview, /Best riffs/);
   assert.match(preview, /Metal only/);
-  assert.match(preview, /Completed Top 10 \(music\)/);
+  assert.match(preview, /Completed Top 10 \(Music\)/);
 });
 
 test("discussion preview includes selected top ten item", () => {
@@ -44,7 +44,7 @@ test("discussion preview includes selected top ten item", () => {
     discussionDraftMaxMembers: 5,
   };
   const preview = buildDiscussionPreviewText(messages, "en", user);
-  assert.match(preview, /Top 10 item \(books\): Dune/);
+  assert.match(preview, /🏆 Books - Dune/);
   assert.match(preview, /Capacity: 5/);
 });
 
@@ -60,7 +60,8 @@ test("discussion list text includes status, count, and rule", () => {
 
   assert.match(text, /🔒 Metal room/);
   assert.match(text, /👥 2\/20/);
-  assert.match(text, /Taste label \(music\)/);
+  assert.match(text, /🔐 Join condition:/);
+  assert.match(text, /🏷 Music -/);
   assert.match(text, /Join 👉 \/d_AB12/);
 });
 
@@ -119,4 +120,27 @@ test("discussion navigation keyboard uses next page index and updated labels", (
   assert.equal(moreButton.text, `${messages.fa.discussionListMorePage} ➡️`);
   assert.equal(messages.fa.discussionListMorePage, "نمایش بیشتر");
   assert.equal(messages.fa.discussionListPrevPage, "قبلی‌ها");
+});
+
+test("discussion navigation toggle keeps emoji and updates only text", () => {
+  const allState = discussionListNavigationKeyboard("fa", {
+    listType: "active",
+    page: 0,
+    totalPages: 2,
+    joinableOnly: false,
+  });
+  const joinableState = discussionListNavigationKeyboard("fa", {
+    listType: "active",
+    page: 0,
+    totalPages: 2,
+    joinableOnly: true,
+  });
+
+  const allButtons = (allState?.reply_markup?.inline_keyboard || []).flat();
+  const joinableButtons = (joinableState?.reply_markup?.inline_keyboard || []).flat();
+  const allToggle = allButtons.find((btn) => btn.callback_data === "discussion:list:active:page:0:joinable");
+  const joinableToggle = joinableButtons.find((btn) => btn.callback_data === "discussion:list:active:page:0:all");
+
+  assert.equal(allToggle?.text, "🔓 فقط قابل ورودها");
+  assert.equal(joinableToggle?.text, "🔓 نمایش همه");
 });

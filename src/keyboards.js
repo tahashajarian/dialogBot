@@ -639,7 +639,7 @@ function discussionListNavigationKeyboard(lang, {
 
   if (listType === "active") {
     rows.push([{
-      text: joinableOnly ? messages[lang].discussionListShowAll : messages[lang].discussionListOnlyJoinable,
+      text: `🔓 ${joinableOnly ? messages[lang].discussionListShowAll : messages[lang].discussionListOnlyJoinable}`,
       callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}`,
     }]);
   }
@@ -770,12 +770,16 @@ function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
 }
 
 function discussionSelectTasteKeyboard(lang, section, tasteLabelKey, {
+  tasteLabelTitle = "",
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
   backButton = null,
 } = {}) {
+  const tasteButtonText = tasteLabelTitle
+    ? tasteLabelTitle
+    : messages[lang].discussionCreateSelectCurrentTaste;
   const rows = [
-    [{ text: messages[lang].discussionCreateSelectCurrentTaste, callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${tasteLabelKey}` }],
+    [{ text: tasteButtonText, callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${tasteLabelKey}` }],
   ];
   if (backButton?.text && backButton?.callback_data) {
     rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);

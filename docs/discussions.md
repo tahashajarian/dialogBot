@@ -316,6 +316,7 @@ Recommended MVP membership limit:
 `🗂 بحث‌های من` shows discussions the user owns or has joined.
 Discussion lists should be plain text with bot-command links instead of dense inline button rows.
 Long discussion lists should be paginated, with an inline back button below the text list. Active-discussion lists should also include an inline toggle for showing only discussions the user can currently join.
+For this toggle, keep the icon stable across states and change only the text label.
 
 Example:
 
@@ -647,6 +648,13 @@ If the creator has no TopTen items in the selected section during rule selection
 ## Discussion Listing
 
 Active discussion list should show both joinable and locked discussions.
+Join-rule lines in list cards should use user-facing section names (for example `🧩 علاقه‌مندی‌ها`, not raw keys like `random`) and include a short join-condition header.
+Recommended compact rule formatting:
+
+- `🔐 شرط ورود:` / `🔐 Join condition:`
+- Open rule: `🌍 ...`
+- Taste-label rule: `🏷 {section} - {badge emoji} {badge title}`
+- TopTen-item rule: `🏆 {section} - {item}`
 
 Joinable example:
 

@@ -1413,8 +1413,9 @@ async function handleCallback(ctx) {
       }
       return editCallbackMessageOrReply(
         ctx,
-        messages[lang].discussionChooseTasteLabel,
+        messages[lang].discussionChooseTasteLabel.replace("{section}", getSectionLabel(messages, lang, section)),
         discussionSelectTasteKeyboard(lang, section, taste.labelKey, {
+          tasteLabelTitle: `${getTasteLabelEmoji(section, taste.labelKey)} ${getTasteLabelTitle(messages, lang, section, taste.labelKey)}`,
           cancelCallback: isEditingDiscussionRuleFromPreview(ctx) ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
           cancelText: isEditingDiscussionRuleFromPreview(ctx) ? messages[lang].discussionCancelEdit : null,
           backButton: isEditingDiscussionRuleFromPreview(ctx)

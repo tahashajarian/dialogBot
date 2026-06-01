@@ -2,6 +2,7 @@ const {
   ensurePublicDiscussionCodes,
   validateJoinRules,
 } = require("./discussions");
+const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 
 const DISCUSSION_LIST_PAGE_SIZE = 5;
 const DISCUSSION_LIST_DIVIDER = "────────";
@@ -28,15 +29,23 @@ function getDiscussionErrorMessage(messages, lang, reason) {
 }
 
 function getJoinRulePreviewText(messages, lang, joinRule = {}) {
+  const sectionLabel = joinRule?.section
+    ? getSectionLabel(messages, lang, joinRule.section)
+    : "-";
   if (joinRule.type === "top_ten_completed") {
-    return messages[lang].discussionRuleTextTopTen.replace("{section}", joinRule.section || "-");
+    return messages[lang].discussionRuleTextTopTen.replace("{section}", sectionLabel);
   }
   if (joinRule.type === "taste_label") {
-    return messages[lang].discussionRuleTextTaste.replace("{section}", joinRule.section || "-");
+    const base = messages[lang].discussionRuleTextTaste.replace("{section}", sectionLabel);
+    const labelKey = String(joinRule.tasteLabelKey || "").trim();
+    if (!labelKey) return base;
+    const badgeEmoji = getTasteLabelEmoji(joinRule.section, labelKey);
+    const badgeTitle = getTasteLabelTitle(messages, lang, joinRule.section, labelKey);
+    return `${base} - ${badgeEmoji} ${badgeTitle}`;
   }
   if (joinRule.type === "top_ten_item") {
     return messages[lang].discussionRuleTextItem
-      .replace("{section}", joinRule.section || "-")
+      .replace("{section}", sectionLabel)
       .replace("{item}", joinRule.itemTitle || "-");
   }
   return messages[lang].discussionRuleTextOpen;
@@ -98,7 +107,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       entry.listAction === "leave" && code
         ? `\n${buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)}`
         : "";
-    return `${baseIndex + index + 1}. ${prefix} ${entry.title}\n👥 ${count}/${entry.maxMembers || 20}\n${rule}${openLink}${ownerAction}${leaveAction}`;
+    return `${baseIndex + index + 1}. ${prefix} ${entry.title}\n👥 ${count}/${entry.maxMembers || 20}\n${messages[lang].discussionJoinConditionTitle}\n${rule}${openLink}${ownerAction}${leaveAction}`;
   });
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
