@@ -48,19 +48,22 @@ test("discussion preview includes selected top ten item", () => {
   assert.match(preview, /Capacity: 5/);
 });
 
-test("discussion list text includes status, count, and rule", () => {
+test("discussion list text includes title, description, count, and rule", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", [{
     title: "Metal room",
     publicDiscussionCode: "d_AB12",
-    listPrefix: "🔒",
+    isJoinable: false,
+    description: "Heavy riffs only",
     memberUserIds: [1, 2],
     maxMembers: 20,
     joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" },
   }]);
 
-  assert.match(text, /🔒 Metal room/);
+  assert.match(text, /1\.\n💬 Metal room/);
+  assert.match(text, /📄 Heavy riffs only/);
   assert.match(text, /👥 2\/20/);
   assert.match(text, /🔐 Join condition:/);
+  assert.match(text, /🔒 🔐 Join condition:/);
   assert.match(text, /🏷 Music -/);
   assert.match(text, /Join 👉 \/d_AB12/);
 });
@@ -100,8 +103,8 @@ test("discussion list text keeps numbering across pages", () => {
     },
   ], { startIndex: 5 });
 
-  assert.match(text, /6\. 💬 Page two item one/);
-  assert.match(text, /7\. 💬 Page two item two/);
+  assert.match(text, /6\.\n💬 Page two item one/);
+  assert.match(text, /7\.\n💬 Page two item two/);
 });
 
 test("discussion navigation keyboard uses next page index and updated labels", () => {

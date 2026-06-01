@@ -53,15 +53,10 @@ function getJoinRulePreviewText(messages, lang, joinRule = {}) {
   return messages[lang].discussionRuleTextOpen;
 }
 
-function getDiscussionListPrefix(joinCheck) {
-  return joinCheck?.ok ? "✅" : "🔒";
-}
-
 async function decorateDiscussionsForList(user, discussions = [], includeMemberActions = false) {
   await ensurePublicDiscussionCodes(discussions);
   return Promise.all((discussions || []).map(async (discussion) => {
     const joinCheck = await validateJoinRules({ user, joinRule: discussion.joinRule });
-    discussion.listPrefix = getDiscussionListPrefix(joinCheck);
     discussion.isJoinable = Boolean(joinCheck?.ok);
     discussion.listAction = includeMemberActions
       ? (Number(discussion.creatorUserId) === Number(user?.userId) ? "close" : "leave")
@@ -85,8 +80,9 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
 
   const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = discussions.map((entry, index) => {
-    const prefix = entry.listPrefix || "💬";
+    const joinStatus = entry.isJoinable ? "✅" : "🔒";
     const count = Array.isArray(entry.memberUserIds) ? entry.memberUserIds.length : 0;
+    const description = String(entry.description || "").trim() || "-";
     const rule = getJoinRulePreviewText(messages, lang, entry.joinRule || { type: "open" });
     const code = entry.publicDiscussionCode || "";
     const joinLabel = lang === "fa" ? "ورود" : "Join";
@@ -101,7 +97,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       entry.listAction === "leave" && code
         ? `\n${buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)}`
         : "";
-    return `${baseIndex + index + 1}. ${prefix} ${entry.title}\n👥 ${count}/${entry.maxMembers || 20}\n${messages[lang].discussionJoinConditionTitle}\n${rule}${openLink}${ownerAction}${leaveAction}`;
+    return `${baseIndex + index + 1}.\n💬 ${entry.title}\n📄 ${description}\n👥 ${count}/${entry.maxMembers || 20}\n${joinStatus} ${messages[lang].discussionJoinConditionTitle}\n${rule}${openLink}${ownerAction}${leaveAction}`;
   });
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
