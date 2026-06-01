@@ -624,6 +624,8 @@ Example:
 
 The creator must satisfy the restriction they create.
 
+If the creator has no eligible taste label for the selected section during rule selection, show a bot message with the exact section name and a tip to complete Top 10 in that section first.
+
 ### Specific TopTen Item / Interest
 
 User must have a specific item in their TopTen for a selected section.
@@ -639,6 +641,8 @@ Example:
 Matching should use the same normalization/duplicate matching approach as list items, so small spelling differences do not block valid users.
 
 The creator must have the item in their own TopTen before creating this kind of room.
+
+If the creator has no TopTen items in the selected section during rule selection, show a bot message with the exact section name and a tip to add at least one TopTen item in that section first.
 
 ## Discussion Listing
 
