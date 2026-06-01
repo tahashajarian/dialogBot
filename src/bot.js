@@ -1118,7 +1118,7 @@ async function handleUpdate(ctx) {
     if (aiSection) {
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(" ", {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
@@ -1127,7 +1127,7 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     if (state === "editing_location") {
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(" ", {
         reply_markup: { remove_keyboard: true },
       });
     }
@@ -1467,7 +1467,7 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(" ", {
         reply_markup: { remove_keyboard: true },
       });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
@@ -1747,7 +1747,7 @@ async function handleUpdate(ctx) {
   if (state === "editing_location") {
     if (text === messages[lang].cancelEdit) {
       await updateUserState(ctx.userId, "idle");
-      await ctx.reply(messages[lang].cancelMessage, {
+      await ctx.reply(" ", {
         reply_markup: { remove_keyboard: true },
       });
       const updatedUser = toPlainUser(ctx.user);

@@ -5,20 +5,25 @@ const { getTasteLabelEmoji } = require("./ai-section");
 async function getOrCreateUser(from) {
   if (!from) return null;
 
-  let user = await User.findOne({ userId: from.id });
-
-  if (!user) {
-    user = await User.create({
-      userId: from.id,
-      username: from.username,
-      firstName: from.first_name,
-      profileName: from.first_name,
-      age: null,
-      lang: "fa",
-    });
-  }
-
-  return user;
+  return await User.findOneAndUpdate(
+    { userId: from.id },
+    {
+      $set: {
+        username: from.username,
+        firstName: from.first_name,
+      },
+      $setOnInsert: {
+        userId: from.id,
+        profileName: from.first_name,
+        age: null,
+        lang: "fa",
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: "after",
+    },
+  );
 }
 
 async function updateLanguage(userId, newLang) {

@@ -7,6 +7,8 @@
     "test": "node --test test/*.test.js",
     "dev": "nodemon --no-deprecation ./src/index.js",
     "validate:translations": "node ./scripts/validate-translations.js",
+    "clear:data:dry": "node ./scripts/clear-data.js --dry-run",
+    "clear:data": "node ./scripts/clear-data.js",
     "migrate:ai-lists:dry": "node ./scripts/migrate-ai-lists.js",
     "migrate:ai-lists": "node ./scripts/migrate-ai-lists.js --apply",
     "migrate:ai-lists:clear-legacy": "node ./scripts/migrate-ai-lists.js --apply --clear-legacy",

@@ -2674,7 +2674,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await deleteCallbackMessageIfPossible(ctx);
     await updateUserState(ctx.userId, "idle");
-    await ctx.reply(messages[lang].cancelMessage, {
+    await ctx.reply(" ", {
       reply_markup: { remove_keyboard: true },
     });
     const updatedUser = toPlainUser(ctx.user);
