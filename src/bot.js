@@ -1467,6 +1467,9 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
@@ -1684,6 +1687,9 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
+      await ctx.reply(messages[lang].cancelMessage, {
+        reply_markup: { remove_keyboard: true },
+      });
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 

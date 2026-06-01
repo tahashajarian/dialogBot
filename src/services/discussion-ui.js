@@ -9,6 +9,10 @@ const { PAGINATION } = require("../constants/pagination");
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
 const DISCUSSION_LIST_DIVIDER = PAGINATION.discussionListDivider;
 const DEFAULT_DISCUSSION_CAPACITY = 20;
+const RTL_MARK = "\u200F";
+const LTR_MARK = "\u200E";
+const FSI = "\u2068";
+const PDI = "\u2069";
 
 function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "missing_discussion") return messages[lang].discussionErrMissingDiscussion;
@@ -73,6 +77,37 @@ function buildDiscussionActionLine(lang, label, command) {
   return lang === "fa" ? `${label} 👈 ${command}` : `${label} 👉 ${command}`;
 }
 
+function lineForLang(lang, text) {
+  return lang === "fa" ? `${RTL_MARK}${text}` : text;
+}
+
+function isolateText(lang, text) {
+  const value = String(text || "");
+  return lang === "fa" ? `${FSI}${value}${PDI}` : value;
+}
+
+function firstStrongDirection(text) {
+  const value = String(text || "");
+  for (const ch of value) {
+    if (/[A-Za-z]/.test(ch)) return "ltr";
+    if (/[\u0590-\u08FF]/.test(ch)) return "rtl";
+  }
+  return "rtl";
+}
+
+function mixedValueLine(lang, emoji, text) {
+  const value = String(text || "");
+  if (lang !== "fa") return `${emoji} ${value}`;
+  const dirMark = firstStrongDirection(value) === "ltr" ? LTR_MARK : RTL_MARK;
+  return `${dirMark}${emoji} ${FSI}${value}${PDI}`;
+}
+
+function formatListIndex(lang, value) {
+  const index = Number(value) || 0;
+  if (lang !== "fa") return String(index);
+  return new Intl.NumberFormat("fa-IR").format(index);
+}
+
 function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
   if (!discussions.length) {
     return title;
@@ -80,24 +115,34 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
 
   const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = discussions.map((entry, index) => {
-    const joinStatus = entry.isJoinable ? "✅" : "🔒";
     const count = Array.isArray(entry.memberUserIds) ? entry.memberUserIds.length : 0;
     const description = String(entry.description || "").trim() || "-";
     const rule = getJoinRulePreviewText(messages, lang, entry.joinRule || { type: "open" });
+    const ruleWithStatus = `${rule} ${entry.isJoinable ? "✅" : "🔒"}`.trim();
     const code = entry.publicDiscussionCode || "";
     const joinLabel = lang === "fa" ? "ورود" : "Join";
     const leaveLabel = lang === "fa" ? "خروج" : "Leave";
     const closeLabel = lang === "fa" ? "بستن" : "Close";
-    const openLink = code ? `\n${buildDiscussionActionLine(lang, joinLabel, `/${code}`)}` : "";
+    const openLink =
+      code ? buildDiscussionActionLine(lang, joinLabel, `/${code}`) : "";
     const ownerAction =
       entry.listAction === "close" && code
-        ? `\n${buildDiscussionActionLine(lang, closeLabel, `/close_${code.slice(2)}`)}`
+        ? buildDiscussionActionLine(lang, closeLabel, `/close_${code.slice(2)}`)
         : "";
     const leaveAction =
       entry.listAction === "leave" && code
-        ? `\n${buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)}`
+        ? buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)
         : "";
-    return `${baseIndex + index + 1}.\n💬 ${entry.title}\n📄 ${description}\n👥 ${count}/${entry.maxMembers || 20}\n${joinStatus} ${messages[lang].discussionJoinConditionTitle}\n${rule}${openLink}${ownerAction}${leaveAction}`;
+    const actions = [openLink, ownerAction, leaveAction].filter(Boolean).join("\n");
+    const actionsBlock = actions ? `\n\n${actions}` : "";
+    return [
+      lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
+      mixedValueLine(lang, "💬", entry.title),
+      mixedValueLine(lang, "📄", description),
+      lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
+      lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),
+      lineForLang(lang, `${isolateText(lang, ruleWithStatus)}`),
+    ].join("\n") + actionsBlock;
   });
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }

@@ -1,3 +1,22 @@
+const RTL_MARK = "\u200F";
+const FSI = "\u2068";
+const PDI = "\u2069";
+
+function lineForLang(lang, text) {
+  return lang === "fa" ? `${RTL_MARK}${text}` : text;
+}
+
+function isolateText(lang, text) {
+  const value = String(text || "");
+  return lang === "fa" ? `${FSI}${value}${PDI}` : value;
+}
+
+function formatListIndex(lang, value) {
+  const index = Number(value) || 0;
+  if (lang !== "fa") return String(index);
+  return new Intl.NumberFormat("fa-IR").format(index);
+}
+
 function formatDiscussionRoom(messages, lang, discussion) {
   const count = Array.isArray(discussion.memberUserIds) ? discussion.memberUserIds.length : 0;
   const cap = discussion.maxMembers || 20;
@@ -16,12 +35,17 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   if (!recent.length) {
     return `${messages[lang].discussionRecentMessagesTitle}\n${messages[lang].discussionNoRecentMessages}`;
   }
-  const lines = recent.map((entry) => `- ${entry.senderDisplayName}: ${entry.text}`);
+  const lines = recent.map((entry) => lineForLang(
+    lang,
+    `- ${isolateText(lang, entry.senderDisplayName)}: ${isolateText(lang, entry.text)}`,
+  ));
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 
 function formatMemberActionLine(lang, label, command) {
-  return lang === "fa" ? `${label} 👈 ${command}` : `${label} 👉 ${command}`;
+  const commandText = lang === "fa" ? `${FSI}${command}${PDI}` : command;
+  const text = lang === "fa" ? `${label} 👈 ${commandText}` : `${label} 👉 ${commandText}`;
+  return lineForLang(lang, text);
 }
 
 const DISCUSSION_MEMBER_DIVIDER = "────────";
@@ -47,7 +71,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 
     const actionText = actions.length ? `\n${actions.join("\n")}` : "";
     const divider = index < members.length - 1 ? `\n\n${DISCUSSION_MEMBER_DIVIDER}` : "";
-    return `${index + 1}. 👤 ${name}${owner}${actionText}${divider}`;
+    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}`)}${actionText}${divider}`;
   });
 }
 

@@ -63,8 +63,7 @@ test("discussion list text includes title, description, count, and rule", () => 
   assert.match(text, /📄 Heavy riffs only/);
   assert.match(text, /👥 2\/20/);
   assert.match(text, /🔐 Join condition:/);
-  assert.match(text, /🔒 🔐 Join condition:/);
-  assert.match(text, /🏷 Music -/);
+  assert.match(text, /🏷 Music -[\s\S]*🔒/);
   assert.match(text, /Join 👉 \/d_AB12/);
 });
 
@@ -105,6 +104,19 @@ test("discussion list text keeps numbering across pages", () => {
 
   assert.match(text, /6\.\n💬 Page two item one/);
   assert.match(text, /7\.\n💬 Page two item two/);
+});
+
+test("discussion list text uses Persian digits for fa numbering", () => {
+  const text = buildDiscussionListText(messages, "fa", "بحث‌ها", [
+    {
+      title: "English title",
+      description: "English desc",
+      memberUserIds: [1],
+      joinRule: { type: "open" },
+    },
+  ], { startIndex: 1 });
+
+  assert.match(text, /۲\./);
 });
 
 test("discussion navigation keyboard uses next page index and updated labels", () => {

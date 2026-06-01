@@ -46,7 +46,7 @@ test("formatDiscussionMemberLines shows current user without profile code", () =
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10, 11);
 
-  assert.equal(lines[1], "2. 👤 You");
+  assert.equal(lines[1], "2.\n👤 You");
 });
 
 test("formatDiscussionMemberLines lets owner remove other members", () => {
@@ -65,4 +65,14 @@ test("formatDiscussionMemberLines separates member blocks with dividers", () => 
   ], 10, 10);
 
   assert.match(lines.join("\n"), /You[\s\S]*────────[\s\S]*Member/);
+});
+
+test("formatDiscussionMemberLines uses Persian digits in fa", () => {
+  const lines = formatDiscussionMemberLines(messages, "fa", [
+    { userId: 10, profileName: "علی", publicProfileCode: "u_A1" },
+    { userId: 11, profileName: "Sara", publicProfileCode: "u_B2" },
+  ], 10, 10);
+
+  assert.match(lines[0], /۱\./);
+  assert.match(lines[1], /۲\./);
 });

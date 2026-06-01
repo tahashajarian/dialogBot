@@ -1,4 +1,16 @@
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const RTL_MARK = "\u200F";
+const FSI = "\u2068";
+const PDI = "\u2069";
+
+function lineForLang(lang, text) {
+  return lang === "fa" ? `${RTL_MARK}${text}` : text;
+}
+
+function isolateText(lang, text) {
+  const value = String(text || "");
+  return lang === "fa" ? `${FSI}${value}${PDI}` : value;
+}
 
 function toPlainUser(user) {
   if (!user) return {};
@@ -42,7 +54,7 @@ function getFinalTasteLabels(user, lang, messages) {
     .filter(Boolean);
 }
 
-function buildTasteLabelsText(user, lang, messages) {
+function buildTasteLabelsText(user, lang, messages, { isOwnProfile = false } = {}) {
   const labels = getFinalTasteLabels(user, lang, messages);
   const lines = [
     "",
@@ -51,11 +63,18 @@ function buildTasteLabelsText(user, lang, messages) {
   ];
 
   if (!labels.length) {
-    lines.push(messages[lang].profileTasteLabelsEmptyHint);
+    lines.push(
+      isOwnProfile
+        ? messages[lang].profileTasteLabelsEmptyHint
+        : messages[lang].profileTasteLabelsEmptyPublic,
+    );
     return lines.join("\n");
   }
 
-  lines.push(...labels.map((entry) => `${entry.icon} ${entry.section}: ${entry.label}`));
+  lines.push(...labels.map((entry) => lineForLang(
+    lang,
+    `${entry.icon} ${entry.section}: ${isolateText(lang, entry.label)}`,
+  )));
   return lines.join("\n");
 }
 
@@ -119,18 +138,18 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
   const genderIcon = "⚧️";
-  const tasteLabelsText = buildTasteLabelsText(user, lang, messages);
+  const tasteLabelsText = buildTasteLabelsText(user, lang, messages, { isOwnProfile });
 
   const lines = [
-    `${titleIcon} ${messages[lang].profileTitle}`,
-    `━━━━━━━━━━━━━━`,
-    lang === "fa" ? `👤 نام: ${displayName}` : `👤 ${messages[lang].profileName}: ${displayName}`,
-    lang === "fa" ? `🏙 شهر: ${city}` : `🏙 ${messages[lang].profileCity}: ${city}`,
-    lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`,
-    `${genderIcon} ${messages[lang].profileGender}: ${gender}`,
-    `🐾 ${messages[lang].profilePetPreference}: ${petPreference}`,
-    `📍 ${messages[lang].profileLocation}: ${locationText}`,
-    `📝 ${messages[lang].profileBio}: ${bio}`,
+    lineForLang(lang, `${titleIcon} ${messages[lang].profileTitle}`),
+    lineForLang(lang, `━━━━━━━━━━━━━━`),
+    lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayName)}` : `👤 ${messages[lang].profileName}: ${displayName}`),
+    lineForLang(lang, lang === "fa" ? `🏙 شهر: ${isolateText(lang, city)}` : `🏙 ${messages[lang].profileCity}: ${city}`),
+    lineForLang(lang, lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`),
+    lineForLang(lang, `${genderIcon} ${messages[lang].profileGender}: ${isolateText(lang, gender)}`),
+    lineForLang(lang, `🐾 ${messages[lang].profilePetPreference}: ${isolateText(lang, petPreference)}`),
+    lineForLang(lang, `📍 ${messages[lang].profileLocation}: ${isolateText(lang, locationText)}`),
+    lineForLang(lang, `📝 ${messages[lang].profileBio}: ${isolateText(lang, bio)}`),
   ];
 
   if (isOwnProfile) {

@@ -53,8 +53,8 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
   ]);
 
   assert.match(text, /⭐ Saved profiles/);
-  assert.match(text, /1\. 👤 Ali\nView profile 👉 \/u_A1\nRemove 👉 \/unsave_A1/);
-  assert.match(text, /Ali[\s\S]*\n\n2\. 👤 Sara/);
+  assert.match(text, /1\.\n👤 Ali\nView profile 👉 \/u_A1\nRemove 👉 \/unsave_A1/);
+  assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);
 });
 
 test("paginateSavedProfiles keeps stable numbering across pages", () => {
@@ -67,10 +67,20 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 
   assert.equal(paged.page, 1);
   assert.equal(paged.totalPages, 2);
-  assert.match(text, /6\. 👤 User 6/);
+  assert.match(text, /6\.\n👤 User 6/);
 });
 
 test("buildProfileSavedFooter shows saved status or save command", () => {
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "🤖 ⭐ Saved");
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "🤖 ⭐ Save profile 👉 /save_A1");
+});
+
+test("buildSavedProfilesListText uses Persian digits in fa", () => {
+  const text = buildSavedProfilesListText(messages, "fa", [
+    { code: "u_A1", name: "Ali" },
+    { code: "u_B2", name: "Sara" },
+  ]);
+
+  assert.match(text, /۱\./);
+  assert.match(text, /۲\./);
 });

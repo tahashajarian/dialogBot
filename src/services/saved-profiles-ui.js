@@ -2,6 +2,25 @@ function normalizeCode(value) {
   return String(value || "").trim();
 }
 
+const RTL_MARK = "\u200F";
+const FSI = "\u2068";
+const PDI = "\u2069";
+
+function lineForLang(lang, text) {
+  return lang === "fa" ? `${RTL_MARK}${text}` : text;
+}
+
+function isolateText(lang, text) {
+  const value = String(text || "");
+  return lang === "fa" ? `${FSI}${value}${PDI}` : value;
+}
+
+function formatListIndex(lang, value) {
+  const index = Number(value) || 0;
+  if (lang !== "fa") return String(index);
+  return new Intl.NumberFormat("fa-IR").format(index);
+}
+
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const SAVED_PROFILES_PAGE_SIZE = PAGINATION.savedProfilesPageSize;
@@ -49,9 +68,13 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
   const lines = items.map((entry, index) => {
     const viewCommand = `/${entry.code}`;
     const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
-    const viewAction = lang === "fa" ? `${viewLabel} 👈 ${viewCommand}` : `${viewLabel} 👉 ${viewCommand}`;
-    const removeAction = lang === "fa" ? `${removeLabel} 👈 ${removeCommand}` : `${removeLabel} 👉 ${removeCommand}`;
-    return `${baseIndex + index + 1}. 👤 ${entry.name}\n${viewAction}\n${removeAction}`;
+    const viewAction = lang === "fa"
+      ? `${viewLabel} 👈 ${viewCommand}`
+      : `${viewLabel} 👉 ${viewCommand}`;
+    const removeAction = lang === "fa"
+      ? `${removeLabel} 👈 ${removeCommand}`
+      : `${removeLabel} 👉 ${removeCommand}`;
+    return `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, entry.name)}`)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, removeAction)}`;
   });
 
   return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`)}`;
