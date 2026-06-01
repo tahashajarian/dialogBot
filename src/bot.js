@@ -2,7 +2,7 @@ const messages = require("./messages");
 const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
-const { callBacks } = require("./constances");
+const { callBacks } = require("./constants");
 const {
   mainMenuKeyboard,
   languageKeyboard,
@@ -90,6 +90,7 @@ const {
 const {
   isCodeSaved,
   buildSavedProfileListItems,
+  paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
 } = require("./services/saved-profiles-ui");
@@ -724,7 +725,7 @@ async function rememberSavedProfilesListMessage(ctx, message) {
   await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", messageId);
 }
 
-async function sendSavedProfilesList(ctx, lang, codes = []) {
+async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
   const items = await buildSavedProfileListItems({
     codes,
     normalizePublicProfileCode,
@@ -732,9 +733,13 @@ async function sendSavedProfilesList(ctx, lang, codes = []) {
       .select("publicProfileCode profileName firstName")
       .lean(),
   });
+  const paged = paginateSavedProfiles(items, page);
   const sent = await ctx.reply(
-    buildSavedProfilesListText(messages, lang, items),
-    savedProfilesListKeyboard(lang, items),
+    buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
+    savedProfilesListKeyboard(lang, {
+      page: paged.page,
+      totalPages: paged.totalPages,
+    }),
   );
   await rememberSavedProfilesListMessage(ctx, sent);
   return sent;

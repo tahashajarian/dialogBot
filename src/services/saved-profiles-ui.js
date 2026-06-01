@@ -2,6 +2,11 @@ function normalizeCode(value) {
   return String(value || "").trim();
 }
 
+const { paginateItems } = require("./pagination");
+const { PAGINATION } = require("../constants/pagination");
+const SAVED_PROFILES_PAGE_SIZE = PAGINATION.savedProfilesPageSize;
+const SAVED_PROFILES_DIVIDER = PAGINATION.savedProfilesListDivider;
+
 function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
   const uniqueCodes = [...new Set((codes || []).map((entry) => normalizeCode(entry)).filter(Boolean))];
   return uniqueCodes.map((code) => {
@@ -31,20 +36,25 @@ async function buildSavedProfileListItems({
   return toSavedProfileListItems(normalized, byCode);
 }
 
-function buildSavedProfilesListText(messages, lang, items = []) {
+function paginateSavedProfiles(items = [], page = 0) {
+  return paginateItems(items, page, SAVED_PROFILES_PAGE_SIZE);
+}
+
+function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0 } = {}) {
   if (!items.length) return messages[lang].savedProfilesEmpty;
 
   const viewLabel = messages[lang].savedProfileOpen;
   const removeLabel = messages[lang].savedProfileRemove;
+  const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = items.map((entry, index) => {
     const viewCommand = `/${entry.code}`;
     const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
     const viewAction = lang === "fa" ? `${viewLabel} 👈 ${viewCommand}` : `${viewLabel} 👉 ${viewCommand}`;
     const removeAction = lang === "fa" ? `${removeLabel} 👈 ${removeCommand}` : `${removeLabel} 👉 ${removeCommand}`;
-    return `${index + 1}. 👤 ${entry.name}\n${viewAction}\n${removeAction}`;
+    return `${baseIndex + index + 1}. 👤 ${entry.name}\n${viewAction}\n${removeAction}`;
   });
 
-  return `${messages[lang].savedProfilesTitle}\n\n${lines.join("\n\n")}`;
+  return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`)}`;
 }
 
 function buildProfileSavedFooter(messages, lang, code, isSaved) {
@@ -60,6 +70,7 @@ module.exports = {
   toSavedProfileListItems,
   isCodeSaved,
   buildSavedProfileListItems,
+  paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
 };

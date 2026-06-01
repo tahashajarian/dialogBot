@@ -839,7 +839,7 @@ Saved profiles main menu:
 ```
 
 Saved-profile lists should use text command links for view/remove actions, not per-profile inline buttons.
-The saved-profile list has only a Back inline button.
+The saved-profile list can use inline list-navigation controls (pagination + Back) only.
 When opening a profile from the saved list, delete the list message and show the profile with only one inline Back button to return to the saved-profile list.
 
 Rules:

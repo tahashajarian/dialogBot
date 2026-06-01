@@ -52,7 +52,7 @@
 - Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
 - Temporary keyboard-cleanup messages, such as returning from an active discussion to the discussion menu, should be removed when the user leaves the discussion menu.
 - Profile privacy/discussion-visibility status rows are self-only. Other users viewing a profile should not see those settings.
-- Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep only the Back inline button for list/profile navigation.
+- Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 
 ## Pinning
 

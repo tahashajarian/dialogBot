@@ -3,9 +3,11 @@ const {
   validateJoinRules,
 } = require("./discussions");
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const { paginateItems } = require("./pagination");
+const { PAGINATION } = require("../constants/pagination");
 
-const DISCUSSION_LIST_PAGE_SIZE = 5;
-const DISCUSSION_LIST_DIVIDER = "────────";
+const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
+const DISCUSSION_LIST_DIVIDER = PAGINATION.discussionListDivider;
 const DEFAULT_DISCUSSION_CAPACITY = 20;
 
 function getDiscussionErrorMessage(messages, lang, reason) {
@@ -69,15 +71,7 @@ async function decorateDiscussionsForList(user, discussions = [], includeMemberA
 }
 
 function paginateDiscussions(discussions = [], page = 0) {
-  const totalPages = Math.max(1, Math.ceil(discussions.length / DISCUSSION_LIST_PAGE_SIZE));
-  const normalizedPage = Math.min(Math.max(0, Number(page) || 0), totalPages - 1);
-  const start = normalizedPage * DISCUSSION_LIST_PAGE_SIZE;
-  return {
-    page: normalizedPage,
-    totalPages,
-    startIndex: start,
-    items: discussions.slice(start, start + DISCUSSION_LIST_PAGE_SIZE),
-  };
+  return paginateItems(discussions, page, DISCUSSION_LIST_PAGE_SIZE);
 }
 
 function buildDiscussionActionLine(lang, label, command) {

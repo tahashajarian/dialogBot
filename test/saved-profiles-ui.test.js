@@ -5,6 +5,7 @@ const {
   toSavedProfileListItems,
   isCodeSaved,
   buildSavedProfileListItems,
+  paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
 } = require("../src/services/saved-profiles-ui");
@@ -54,6 +55,19 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
   assert.match(text, /⭐ Saved profiles/);
   assert.match(text, /1\. 👤 Ali\nView profile 👉 \/u_A1\nRemove 👉 \/unsave_A1/);
   assert.match(text, /Ali[\s\S]*\n\n2\. 👤 Sara/);
+});
+
+test("paginateSavedProfiles keeps stable numbering across pages", () => {
+  const items = Array.from({ length: 6 }, (_, index) => ({
+    code: `u_A${index + 1}`,
+    name: `User ${index + 1}`,
+  }));
+  const paged = paginateSavedProfiles(items, 1);
+  const text = buildSavedProfilesListText(messages, "en", paged.items, { startIndex: paged.startIndex });
+
+  assert.equal(paged.page, 1);
+  assert.equal(paged.totalPages, 2);
+  assert.match(text, /6\. 👤 User 6/);
 });
 
 test("buildProfileSavedFooter shows saved status or save command", () => {

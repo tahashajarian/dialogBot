@@ -43,7 +43,7 @@ const {
   profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("./keyboards");
-const { callBacks } = require("./constances");
+const { callBacks } = require("./constants");
 const {
   updateProfileField,
   updateUserState,
@@ -88,6 +88,7 @@ const {
 const {
   isCodeSaved,
   buildSavedProfileListItems,
+  paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
 } = require("./services/saved-profiles-ui");
@@ -323,7 +324,7 @@ async function removeBottomKeyboard(ctx, text) {
   }
 }
 
-async function sendSavedProfilesList(ctx, lang, codes = []) {
+async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
   const items = await buildSavedProfileListItems({
     codes,
     normalizePublicProfileCode,
@@ -331,9 +332,13 @@ async function sendSavedProfilesList(ctx, lang, codes = []) {
       .select("publicProfileCode profileName firstName")
       .lean(),
   });
+  const paged = paginateSavedProfiles(items, page);
   const sent = await ctx.reply(
-    buildSavedProfilesListText(messages, lang, items),
-    savedProfilesListKeyboard(lang, items),
+    buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
+    savedProfilesListKeyboard(lang, {
+      page: paged.page,
+      totalPages: paged.totalPages,
+    }),
   );
   await rememberSavedProfilesListMessage(ctx, sent);
   return sent;
@@ -1194,7 +1199,32 @@ async function handleCallback(ctx) {
     }
     await forgetSavedProfilesListMessage(ctx);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    return sendSavedProfilesList(ctx, lang, codes);
+    return sendSavedProfilesList(ctx, lang, codes, 0);
+  }
+
+  if (data.startsWith(callBacks.savedProfilesPage)) {
+    await ctx.answerCb?.();
+    const pageRaw = data.replace(callBacks.savedProfilesPage, "");
+    const page = Number(pageRaw);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    const items = await buildSavedProfileListItems({
+      codes,
+      normalizePublicProfileCode,
+      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+        .select("publicProfileCode profileName firstName")
+        .lean(),
+    });
+    const paged = paginateSavedProfiles(items, page);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
+      savedProfilesListKeyboard(lang, {
+        page: paged.page,
+        totalPages: paged.totalPages,
+      }),
+    );
+    await rememberSavedProfilesListMessage(ctx, ctx.callbackMessageId || listMessage);
+    return listMessage;
   }
 
   if (data.startsWith(callBacks.savedProfilesOpen)) {
@@ -1220,12 +1250,16 @@ async function handleCallback(ctx) {
         .select("publicProfileCode profileName firstName")
         .lean(),
     });
+    const paged = paginateSavedProfiles(items, 0);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
-      items.length
-        ? `${messages[lang].savedProfileRemoved}\n\n${buildSavedProfilesListText(messages, lang, items)}`
+      paged.items.length
+        ? `${messages[lang].savedProfileRemoved}\n\n${buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex })}`
         : messages[lang].savedProfileRemoved,
-      savedProfilesListKeyboard(lang, items),
+      savedProfilesListKeyboard(lang, {
+        page: paged.page,
+        totalPages: paged.totalPages,
+      }),
     );
     await rememberSavedProfilesListMessage(ctx, ctx.callbackMessageId || listMessage);
     return listMessage;

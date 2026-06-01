@@ -92,6 +92,7 @@ module.exports = {
     profileViewByCode: "profile:view:code:",
     profileSaveByCode: "profile:save:code:",
     profileUnsaveByCode: "profile:unsave:code:",
+    savedProfilesPage: "saved:page:",
     savedProfilesOpen: "saved:open:",
     savedProfilesRemove: "saved:remove:",
   },

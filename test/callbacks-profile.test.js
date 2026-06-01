@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { handleCallback } = require("../src/callbacks");
-const { callBacks } = require("../src/constances");
+const { callBacks } = require("../src/constants");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
   const deletedIds = [];

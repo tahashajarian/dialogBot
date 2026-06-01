@@ -1,4 +1,4 @@
-const { callBacks } = require("./constances");
+const { callBacks } = require("./constants");
 const messages = require("./messages");
 
 function inlineKeyboard(rows) {
@@ -824,6 +824,29 @@ function profileViewBackKeyboard(lang) {
 
 function savedProfilesListKeyboard(lang, items = []) {
   const rows = [];
+  const options = items && !Array.isArray(items) ? items : {};
+  const normalizedPage = Math.max(0, Number(options.page) || 0);
+  const maxPage = Math.max(0, Number(options.totalPages || 1) - 1);
+  const pageRows = [];
+
+  if (normalizedPage < maxPage) {
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.savedProfilesPage}${normalizedPage + 1}`,
+    });
+  }
+
+  if (normalizedPage > 0) {
+    pageRows.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.savedProfilesPage}${normalizedPage - 1}`,
+    });
+  }
+
+  if (pageRows.length) {
+    rows.push(pageRows);
+  }
+
   rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
   return inlineKeyboard(rows);
 }
