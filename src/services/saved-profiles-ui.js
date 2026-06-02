@@ -86,11 +86,11 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
     const viewCommand = `/${entry.code}`;
     const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
     const viewAction = lang === "fa"
-      ? `${viewLabel} 👈 ${viewCommand}`
-      : `${viewLabel} 👉 ${viewCommand}`;
+      ? `👁 ${viewLabel} 👈 ${viewCommand}`
+      : `👁 ${viewLabel} 👉 ${viewCommand}`;
     const removeAction = lang === "fa"
-      ? `${removeLabel} 👈 ${removeCommand}`
-      : `${removeLabel} 👉 ${removeCommand}`;
+      ? `🗑 ${removeLabel} 👈 ${removeCommand}`
+      : `🗑 ${removeLabel} 👉 ${removeCommand}`;
     return `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${mixedValueLine(lang, "👤", entry.name)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, removeAction)}`;
   });
 

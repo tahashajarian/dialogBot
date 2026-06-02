@@ -60,7 +60,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
     if (!isCurrentUser && code) {
       const viewLabel = messages[lang].discussionMemberViewProfile;
       const reportLabel = messages[lang].discussionMemberReport;
-      actions.push(`👁 ${viewLabel} 👈 /${code}`);
+      actions.push(`${viewLabel} 👈 /${code}`);
       actions.push(`${reportLabel} 👈 /report_${codeSuffix}`);
       if (currentUserIsOwner) {
         const removeLabel = messages[lang].discussionMemberRemoveAction;

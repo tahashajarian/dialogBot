@@ -8,7 +8,6 @@ const {
   languageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
-  discussionListNavigationKeyboard,
   profileKeyboard,
   ageKeyboard,
   genderKeyboard,
@@ -73,21 +72,24 @@ const {
 const { getAiListDuplicateMatch } = require("./services/ai-list-duplicates");
 const {
   addRecentMessage,
-  closeDiscussionAsOwner,
-  ensurePublicProfileCode,
-  findDiscussionByPublicCode,
-  joinOrSwitchActiveDiscussion,
-  leaveDiscussionAsMember,
-  listActiveDiscussions,
-  listMyDiscussions,
   normalizePublicProfileCode,
-  removeMemberAsOwner,
-  reportDiscussionMember,
   addSavedProfileCode,
   removeSavedProfileCode,
   hasLink,
-  getActiveMembersInDiscussion,
 } = require("./services/discussions");
+const {
+  isDiscussionBottomControlText,
+  handleDiscussionBottomButton,
+  clearDiscussionMenuNotice,
+  rememberDiscussionMenuNotice,
+  sendDiscussionCreatePrompt,
+  closeDiscussionFromTextConfirmation,
+  openDiscussionCommand,
+  leaveDiscussionCommand,
+  closeDiscussionCommand,
+  removeDiscussionMemberCommand,
+  reportDiscussionMemberCommand,
+} = require("./flows/discussions-text");
 const {
   isCodeSaved,
   buildSavedProfileListItems,
@@ -96,17 +98,8 @@ const {
   buildProfileSavedFooter,
 } = require("./services/saved-profiles-ui");
 const {
-  getDiscussionErrorMessage,
-  decorateDiscussionsForList,
-  paginateDiscussions,
-  buildDiscussionListText,
   buildDiscussionPreviewText,
 } = require("./services/discussion-ui");
-const {
-  formatDiscussionMemberLines,
-  formatDiscussionRoom,
-  formatRecentDiscussionMessages,
-} = require("./services/discussion-room-ui");
 const User = require("./models/user");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -166,65 +159,6 @@ function matchesMessageText(text, keys) {
     .flatMap((key) => [messages.fa[key], messages.en[key]])
     .map(normalizeKeyboardText)
     .includes(normalizedText);
-}
-
-function isDiscussionMembersText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionMembersTitle"]) || plainText.includes("اعضا") || plainText.includes("members");
-}
-
-function isDiscussionMyListText(text) {
-  return matchesMessageText(text, ["discussionMyList"]);
-}
-
-function isDiscussionLeaveText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionLeave"]) || (plainText.includes("خروج") && plainText.includes("بحث")) || plainText.includes("leave discussion");
-}
-
-function isDiscussionCloseText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionCloseButton"]) || (plainText.includes("بستن") && plainText.includes("بحث")) || plainText.includes("close discussion");
-}
-
-function isDiscussionCloseConfirmText(text) {
-  return matchesMessageText(text, ["discussionCloseConfirmCommand"]);
-}
-
-function isDiscussionCloseCancelText(text) {
-  return matchesMessageText(text, ["discussionCloseCancelCommand"]);
-}
-
-function isDiscussionReturnToMenuText(text) {
-  const normalizedText = normalizeKeyboardText(text);
-  const legacyLabels = [
-    "💬 منوی بحث‌ها",
-    "💬 Discussions menu",
-  ].map(normalizeKeyboardText);
-  const plainText = getPlainKeyboardText(text);
-  return (
-    matchesMessageText(text, ["discussionReturnToMenu"]) ||
-    legacyLabels.includes(normalizedText) ||
-    (plainText.includes("منوی") && plainText.includes("بحث")) ||
-    (plainText.includes("discussion") && plainText.includes("menu"))
-  );
-}
-
-function getPlainKeyboardText(text) {
-  return normalizeKeyboardText(text)
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .toLowerCase()
-    .trim();
-}
-
-function isDiscussionBottomControlText(text) {
-  return (
-    isDiscussionReturnToMenuText(text) ||
-    isDiscussionMembersText(text) ||
-    isDiscussionLeaveText(text) ||
-    isDiscussionCloseText(text)
-  );
 }
 
 function getMessageId(message) {
@@ -689,22 +623,6 @@ async function sendSingleSectionSuggestion({
   );
 }
 
-async function notifyDiscussionUsers(ctx, userIds = [], text) {
-  const targets = [...new Set((userIds || [])
-    .map((id) => Number(id))
-    .filter((id) => Number.isInteger(id) && id > 0))];
-  await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
-}
-
-function formatDiscussionLeftMessage(lang, discussionTitle = "") {
-  return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
-}
-
-async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false } = {}) {
-  await ctx.reply(text, removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined);
-  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
-}
-
 function normalizeProfileCodeFromActionCommand(value) {
   const raw = String(value || "").trim().replace(/^\/?(remove|report|save|unsave)_/i, "");
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
@@ -746,100 +664,6 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
   return sent;
 }
 
-async function handleDiscussionBottomButton(ctx, lang, text) {
-  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
-
-  if (isDiscussionMembersText(text)) {
-    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, activeDiscussionId);
-    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
-    const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
-      .lean();
-    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
-    const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
-      .lean();
-    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
-    return ctx.reply(
-      `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
-    );
-  }
-
-  if (isDiscussionMyListText(text)) {
-    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
-    if (!result.ok) return ctx.reply(messages[lang].unknownAction);
-    if (!result.discussions.length) return ctx.reply(messages[lang].discussionListMineEmpty);
-    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
-    const sent = await ctx.reply(buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated));
-    await rememberDiscussionListMessage(ctx, "mine", sent);
-    return sent;
-  }
-
-  if (isDiscussionReturnToMenuText(text)) {
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    const notice = await ctx.reply(messages[lang].discussionReturnedToMenu, {
-      reply_markup: { remove_keyboard: true, selective: false },
-    });
-    await rememberDiscussionMenuNotice(ctx, notice);
-    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
-  }
-
-  if (isDiscussionLeaveText(text)) {
-    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-
-    const left = await leaveDiscussionAsMember(ctx.userId, activeDiscussionId);
-    if (!left.ok) {
-      if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
-      return ctx.reply(messages[lang].discussionNotMember);
-    }
-    const discussionTitle = left?.discussionTitle || "";
-    
-    if (left.leaverName && left.discussionId) {
-      console.log(`[leave] Notifying members about ${left.leaverName} leaving discussion ${left.discussionId}`);
-      const activeMembers = await getActiveMembersInDiscussion(left.discussionId, [ctx.userId]);
-      console.log(`[leave] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
-      for (const member of activeMembers) {
-        const memberLang = messages[member.lang] ? member.lang : "fa";
-        try {
-          console.log(`[leave] Sending notification to member ${member.userId}`);
-          await ctx.sendToUser?.(
-            member.userId,
-            messages[memberLang].discussionLeftNotice.replace("{name}", left.leaverName),
-          );
-          console.log(`[leave] Successfully notified member ${member.userId}`);
-        } catch (err) {
-          console.error(`Failed to notify member ${member.userId} about leave:`, err);
-        }
-      }
-    } else {
-      console.log(`[leave] Skipping notification - leaverName: ${left.leaverName}, discussionId: ${left.discussionId}`);
-    }
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, discussionTitle), { removeKeyboard: true });
-  }
-
-  if (isDiscussionCloseText(text)) {
-    if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-    const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
-      reply_markup: {
-        keyboard: [
-          [{ text: messages[lang].discussionCloseConfirmCommand }],
-          [{ text: messages[lang].discussionCloseCancelCommand }],
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false,
-        selective: true,
-      },
-    });
-    await updateUserState(ctx.userId, `discussion_close_confirm:${activeDiscussionId}:${getMessageId(sent) || ""}:room`);
-    return sent;
-  }
-
-  return null;
-}
-
 function buildDiscussionPreviewForCurrentDraft(ctx, lang, description) {
   return buildDiscussionPreviewText(messages, lang, {
     ...toPlainUser(ctx.user),
@@ -852,247 +676,6 @@ function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
     ...toPlainUser(ctx.user),
     ...overrides,
   });
-}
-
-async function sendDiscussionRoomFromText(ctx, lang, discussion) {
-  await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
-  return ctx.reply(
-    `${formatRecentDiscussionMessages(messages, lang, discussion)}\n\n${messages[lang].discussionRoomSendHint}`,
-    discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
-  );
-}
-
-async function rememberDiscussionListMessage(ctx, listType, message) {
-  const messageId = getMessageId(message);
-  if (!messageId) return;
-  await updateProfileField(ctx.userId, "discussionLastListMessageId", messageId);
-  await updateProfileField(ctx.userId, "discussionLastListType", listType);
-}
-
-async function clearRememberedDiscussionListMessage(ctx) {
-  const messageId = Number(ctx.user?.discussionLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
-    return false;
-  }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
-    await updateProfileField(ctx.userId, "discussionLastListType", "");
-  }
-  return deleted;
-}
-
-async function rememberDiscussionMenuNotice(ctx, message) {
-  const messageId = getMessageId(message);
-  if (!messageId) return;
-  await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", messageId);
-}
-
-async function clearDiscussionMenuNotice(ctx) {
-  const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
-    return false;
-  }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
-  }
-  return deleted;
-}
-
-async function sendDiscussionCreatePrompt(ctx, text, keyboard) {
-  await clearDiscussionMenuNotice(ctx);
-  const sent = await ctx.reply(text, keyboard);
-  await rememberDiscussionMenuNotice(ctx, sent);
-  return sent;
-}
-
-async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {
-  const listType = preferredType === "mine" ? "mine" : "active";
-  if (listType === "mine") {
-    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
-    if (!result.ok || !result.discussions.length) {
-      const sentEmpty = await ctx.reply(messages[lang].discussionListMineEmpty);
-      return rememberDiscussionListMessage(ctx, "mine", sentEmpty);
-    }
-    const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
-    const paged = paginateDiscussions(decorated, 0);
-    const sent = await ctx.reply(
-      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
-        startIndex: paged.startIndex,
-      }),
-      discussionListNavigationKeyboard(lang, {
-        listType: "mine",
-        page: paged.page,
-        totalPages: paged.totalPages,
-      }),
-    );
-    return rememberDiscussionListMessage(ctx, "mine", sent);
-  }
-
-  const result = await listActiveDiscussions({ limit: 100 });
-  if (!result.discussions.length) {
-    const sentEmpty = await ctx.reply(messages[lang].discussionListEmpty);
-    return rememberDiscussionListMessage(ctx, "active", sentEmpty);
-  }
-  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, false);
-  const paged = paginateDiscussions(decorated, 0);
-  const sent = await ctx.reply(
-    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
-      startIndex: paged.startIndex,
-    }),
-    discussionListNavigationKeyboard(lang, {
-      listType: "active",
-      page: paged.page,
-      totalPages: paged.totalPages,
-      joinableOnly: false,
-    }),
-  );
-  return rememberDiscussionListMessage(ctx, "active", sent);
-}
-
-async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason) {
-  await clearRememberedDiscussionListMessage(ctx);
-  const errorNotice = await ctx.reply(getDiscussionErrorMessage(messages, lang, reason));
-  await rememberDiscussionMenuNotice(ctx, errorNotice);
-  return sendRememberedDiscussionList(ctx, lang, ctx.user?.discussionLastListType || "active");
-}
-
-async function openDiscussionCommand(ctx, lang, code) {
-  const discussion = await findDiscussionByPublicCode(code);
-  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
-
-  const joined = await joinOrSwitchActiveDiscussion(ctx.userId, discussion._id);
-  if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason);
-
-  // Notify active members about the join
-  if (joined.joined && joined.joinerName && joined.otherMemberIds) {
-    console.log(`[join] Notifying members about ${joined.joinerName} joining discussion ${joined.discussion._id}`);
-    console.log(`[join] Discussion memberUserIds:`, joined.discussion.memberUserIds);
-    console.log(`[join] Joiner userId: ${ctx.userId}`);
-    
-    // Debug: check what activeDiscussionId current members have
-    const allMembers = await User.find({ userId: { $in: joined.discussion.memberUserIds } }).select("userId activeDiscussionId").lean();
-    console.log(`[join] All members activeDiscussionId:`, allMembers.map(m => ({ userId: m.userId, activeDiscussionId: m.activeDiscussionId })));
-    
-    const activeMembers = await getActiveMembersInDiscussion(joined.discussion._id, [ctx.userId]);
-    console.log(`[join] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
-    for (const member of activeMembers) {
-      const memberLang = messages[member.lang] ? member.lang : "fa";
-      try {
-        console.log(`[join] Sending notification to member ${member.userId}`);
-        await ctx.sendToUser?.(member.userId, messages[memberLang].discussionJoinNotice.replace("{name}", joined.joinerName));
-        console.log(`[join] Successfully notified member ${member.userId}`);
-      } catch (err) {
-        console.error(`Failed to notify member ${member.userId} about join:`, err);
-      }
-    }
-  } else {
-    console.log(`[join] Skipping notification - joined: ${joined.joined}, joinerName: ${joined.joinerName}, otherMemberIds: ${joined.otherMemberIds?.length}`);
-  }
-  await clearRememberedDiscussionListMessage(ctx);
-  await clearDiscussionMenuNotice(ctx);
-  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
-  return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
-}
-
-async function leaveDiscussionCommand(ctx, lang, code) {
-  const discussion = await findDiscussionByPublicCode(code);
-  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
-
-  const left = await leaveDiscussionAsMember(ctx.userId, discussion._id);
-  if (!left.ok) {
-    if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
-    return ctx.reply(getDiscussionErrorMessage(messages, lang, left.reason));
-  }
-  await clearRememberedDiscussionListMessage(ctx);
-  await updateProfileField(ctx.userId, "activeDiscussionId", null);
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussionTitle), { removeKeyboard: true });
-}
-
-async function closeDiscussionCommand(ctx, lang, code) {
-  const discussion = await findDiscussionByPublicCode(code);
-  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
-  const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
-    reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].discussionCloseConfirmCommand }],
-        [{ text: messages[lang].discussionCloseCancelCommand }],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
-    },
-  });
-  await updateUserState(ctx.userId, `discussion_close_confirm:${discussion._id}:${getMessageId(sent) || ""}:list`);
-  return sent;
-}
-
-async function sendRemovedActiveMemberNotice(ctx, removed) {
-  if (!removed?.wasActive || !ctx.sendToUser) return;
-  const targetLang = messages[removed.memberLang] ? removed.memberLang : "fa";
-  await ctx.sendToUser(
-    removed.memberUserId,
-    messages[targetLang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
-    { reply_markup: { remove_keyboard: true } },
-  );
-  await ctx.sendToUser(
-    removed.memberUserId,
-    messages[targetLang].discussionsMenu,
-    discussionsMenuKeyboard(targetLang),
-  );
-  
-  // Notify other active members about the removal
-  if (removed.removedMemberName && removed.discussionId) {
-    console.log(`[remove] Notifying members about ${removed.removedMemberName} being removed from discussion ${removed.discussionId}`);
-    const activeMembers = await getActiveMembersInDiscussion(removed.discussionId, [ctx.userId, removed.memberUserId]);
-    console.log(`[remove] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
-    for (const member of activeMembers) {
-      const memberLang = messages[member.lang] ? member.lang : "fa";
-      try {
-        console.log(`[remove] Sending notification to member ${member.userId}`);
-        await ctx.sendToUser?.(
-          member.userId,
-          messages[memberLang].discussionRemovedNoticeToMembers.replace("{name}", removed.removedMemberName),
-        );
-        console.log(`[remove] Successfully notified member ${member.userId}`);
-      } catch (err) {
-        console.error(`Failed to notify member ${member.userId} about removal:`, err);
-      }
-    }
-  } else {
-    console.log(`[remove] Skipping notification - removedMemberName: ${removed.removedMemberName}, discussionId: ${removed.discussionId}`);
-  }
-}
-
-async function removeDiscussionMemberCommand(ctx, lang, text) {
-  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
-  if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-
-  const code = normalizeProfileCodeFromActionCommand(text);
-  const member = code ? await User.findOne({ publicProfileCode: code }).select("userId").lean() : null;
-  const memberUserId = Number(member?.userId);
-  if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
-
-  const removed = await removeMemberAsOwner(ctx.userId, activeDiscussionId, memberUserId);
-  if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
-
-  await sendRemovedActiveMemberNotice(ctx, removed);
-  return ctx.reply(messages[lang].discussionMemberRemoved.replace("{name}", removed.removedMemberName || "Member"));
-}
-
-async function reportDiscussionMemberCommand(ctx, lang, text) {
-  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
-  if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-
-  const code = normalizeProfileCodeFromActionCommand(text);
-  const member = code ? await User.findOne({ publicProfileCode: code }).select("userId").lean() : null;
-  const memberUserId = Number(member?.userId);
-  if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
-
-  const reported = await reportDiscussionMember(ctx.userId, activeDiscussionId, memberUserId);
-  if (!reported.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, reported.reason));
-  return ctx.reply(messages[lang].discussionReportSent);
 }
 
 async function saveProfileCommand(ctx, lang, text) {
@@ -1455,84 +1038,7 @@ async function handleUpdate(ctx) {
 
   if (state && state.startsWith("discussion_close_confirm")) {
     const parsed = parseDiscussionCloseConfirmState(state);
-    if (isDiscussionCloseCancelText(text)) {
-      await updateUserState(ctx.userId, "idle");
-      if (parsed.messageId && ctx.deleteMessage) {
-        await ctx.deleteMessage(parsed.messageId);
-      }
-      if (parsed.source === "list") {
-        const previousListType = ctx.user?.discussionLastListType || "active";
-        await ctx.reply(messages[lang].discussionCloseCanceled, {
-          reply_markup: { remove_keyboard: true },
-        });
-        return sendRememberedDiscussionList(ctx, lang, previousListType);
-      }
-      const opened = await joinOrSwitchActiveDiscussion(ctx.userId, parsed.discussionId || String(ctx.user?.activeDiscussionId || ""));
-      if (!opened.ok) {
-        return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu, { removeKeyboard: true });
-      }
-      return ctx.reply(messages[lang].discussionCloseCanceled, discussionRoomKeyboard(lang, opened.discussion.creatorUserId === ctx.userId));
-    }
-    if (!isDiscussionCloseConfirmText(text)) {
-      return ctx.reply(messages[lang].discussionSelectOptionPrompt);
-    }
-    const explicitId = parsed.discussionId || "";
-    const discussionId = explicitId || String(ctx.user?.activeDiscussionId || "");
-    if (!discussionId) {
-      await updateUserState(ctx.userId, "idle");
-      return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionNotMember, { removeKeyboard: true });
-    }
-    
-    // Get active members BEFORE closing (closing clears activeDiscussionId)
-    console.log(`[close] Querying active members for discussion ${discussionId} before closing`);
-    const activeMembers = await getActiveMembersInDiscussion(discussionId, [ctx.userId]);
-    console.log(`[close] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
-    
-    const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
-    if (!closed.ok) {
-      await updateUserState(ctx.userId, "idle");
-      return replyWithDiscussionMenu(ctx, lang, getDiscussionErrorMessage(messages, lang, closed.reason), { removeKeyboard: true });
-    }
-    if (parsed.messageId && ctx.deleteMessage) {
-      await ctx.deleteMessage(parsed.messageId);
-    }
-    
-    // Notify the active members we queried before closing
-    if (activeMembers.length > 0) {
-      console.log(`[close] Notifying ${activeMembers.length} members about discussion being closed`);
-      for (const member of activeMembers) {
-        const memberLang = messages[member.lang] ? member.lang : "fa";
-        try {
-          console.log(`[close] Sending notification to member ${member.userId}`);
-          await ctx.sendToUser?.(
-            member.userId,
-            messages[memberLang].discussionClosedNoticeToMembers.replace("{title}", closed.discussionTitle || ""),
-            { reply_markup: { remove_keyboard: true } },
-          );
-          await ctx.sendToUser?.(
-            member.userId,
-            messages[memberLang].discussionsMenu,
-            discussionsMenuKeyboard(memberLang),
-          );
-          console.log(`[close] Successfully notified member ${member.userId}`);
-        } catch (err) {
-          console.error(`Failed to notify member ${member.userId} about close:`, err);
-        }
-      }
-    } else {
-      console.log(`[close] No active members to notify`);
-    }
-    const previousListType = ctx.user?.discussionLastListType || "active";
-    await clearRememberedDiscussionListMessage(ctx);
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    await updateUserState(ctx.userId, "idle");
-    if (parsed.source === "list") {
-      await ctx.reply(messages[lang].discussionClosed, {
-        reply_markup: { remove_keyboard: true },
-      });
-      return sendRememberedDiscussionList(ctx, lang, previousListType);
-    }
-    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionClosed, { removeKeyboard: true });
+    return closeDiscussionFromTextConfirmation({ ctx, lang, parsed });
   }
 
   if (matchesMessageText(text, ["discussionCreateCancel"])) {
