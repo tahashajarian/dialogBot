@@ -77,6 +77,7 @@ const {
   clearDiscussionMenuNotice,
   closeDiscussionFromTextConfirmation,
   openDiscussionCommand,
+  showDiscussionInvitePreviewCommand,
   leaveDiscussionCommand,
   closeDiscussionCommand,
   removeDiscussionMemberCommand,
@@ -160,6 +161,16 @@ function matchesMessageText(text, keys) {
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
+}
+
+async function clearBottomKeyboardQuietly(ctx) {
+  const sent = await ctx.reply(" ", {
+    reply_markup: { remove_keyboard: true },
+  });
+  const messageId = getMessageId(sent);
+  if (messageId && ctx.deleteMessage) {
+    await ctx.deleteMessage(messageId);
+  }
 }
 
 function parseDiscussionCloseConfirmState(state = "") {
@@ -625,6 +636,12 @@ function normalizeProfileCodeFromActionCommand(value) {
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
 }
 
+function getStartInviteCode(text = "") {
+  const value = String(text || "").trim();
+  const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])(?:join_|d_)([a-z0-9]+)$/i);
+  return match ? `d_${match[1].toUpperCase()}` : "";
+}
+
 async function clearSavedProfilesListMessage(ctx) {
   const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) return false;
@@ -698,6 +715,43 @@ async function handleUpdate(ctx) {
   const userLang = ctx.user?.lang;
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
+  const startInviteCode = getStartInviteCode(text);
+
+  if (startInviteCode) {
+    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
+    const userName = rawUserName.trim().replace(/\s+/g, " ");
+    const welcomeMessage = userName
+      ? messages[lang].welcomeWithName.replace("{name}", userName)
+      : messages[lang].welcome;
+
+    await clearBottomKeyboardQuietly(ctx);
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(welcomeMessage);
+    return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
+  }
+
+  if (/^\/join_[a-z0-9]+$/i.test(text)) {
+    await clearBottomKeyboardQuietly(ctx);
+    await updateUserState(ctx.userId, "idle");
+    return showDiscussionInvitePreviewCommand(ctx, lang, `d_${text.replace(/^\/join_/i, "")}`);
+  }
+
+  if (text === "/start") {
+    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
+    const userName = rawUserName.trim().replace(/\s+/g, " ");
+    const welcomeMessage = userName
+      ? messages[lang].welcomeWithName.replace("{name}", userName)
+      : messages[lang].welcome;
+
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(welcomeMessage);
+
+    if (!userLang) {
+      return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
+    }
+
+    return ctx.reply(messages[userLang].mainMenu, mainMenuKeyboard(userLang));
+  }
 
   if (!(state && state.startsWith("discussion_close_confirm")) && text && isDiscussionBottomControlText(text)) {
     return handleDiscussionBottomButton(ctx, lang, text);
@@ -1201,22 +1255,6 @@ async function handleUpdate(ctx) {
     return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
-  if (text === "/start") {
-    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
-    const userName = rawUserName.trim().replace(/\s+/g, " ");
-    const welcomeMessage = userName
-      ? messages[lang].welcomeWithName.replace("{name}", userName)
-      : messages[lang].welcome;
-
-    await ctx.reply(welcomeMessage);
-
-    if (!userLang) {
-      return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
-    }
-
-    return ctx.reply(messages[userLang].mainMenu, mainMenuKeyboard(userLang));
-  }
-
   if (text === "/lang") {
     await clearDiscussionMenuNotice(ctx);
     return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
@@ -1323,4 +1361,5 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
 
 module.exports = {
   handleUpdate,
+  getStartInviteCode,
 };

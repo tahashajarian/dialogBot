@@ -88,6 +88,7 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionCloseCancel) ||
     data.startsWith(callBacks.discussionClose) ||
     data.startsWith(callBacks.discussionMembers) ||
+    data.startsWith(callBacks.discussionInviteJoin) ||
     data.startsWith(callBacks.discussionRemoveMemberPicker) ||
     data.startsWith(callBacks.discussionRemoveMember)
   );

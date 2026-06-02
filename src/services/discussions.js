@@ -112,6 +112,17 @@ async function findDiscussionByPublicCode(code) {
   return Discussion.findOne({ publicDiscussionCode: cleanCode });
 }
 
+async function getDiscussionInvitePreviewByCode(code) {
+  const cleanCode = normalizePublicDiscussionCode(code);
+  if (!cleanCode) return { ok: false, reason: "missing_discussion" };
+
+  const discussion = await Discussion.findOne({ publicDiscussionCode: cleanCode });
+  if (!discussion) return { ok: false, reason: "missing_discussion" };
+  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed", discussion };
+
+  return { ok: true, discussion, code: cleanCode };
+}
+
 function validateJoinRulePayload(joinRule = {}) {
   const type = String(joinRule.type || "open");
   if (!["open", "top_ten_completed", "taste_label", "top_ten_item"].includes(type)) {
@@ -319,6 +330,23 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
   );
 
   return { ok: true, discussion, joined: false, switched: true };
+}
+
+async function getActiveDiscussionInviteForUser(userId, discussionId) {
+  const [user, discussion] = await Promise.all([
+    User.findOne({ userId }),
+    Discussion.findById(discussionId),
+  ]);
+
+  if (!user) return { ok: false, reason: "missing_user" };
+  if (!discussion) return { ok: false, reason: "missing_discussion" };
+  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed", discussion };
+  if (!discussion.memberUserIds.includes(userId)) return { ok: false, reason: "not_member", discussion };
+
+  const codeResult = await ensurePublicDiscussionCode(discussion);
+  if (!codeResult.ok) return codeResult;
+
+  return { ok: true, discussion, code: codeResult.code };
 }
 
 async function leaveDiscussionAsMember(userId, discussionId) {
@@ -626,6 +654,7 @@ module.exports = {
   ensurePublicDiscussionCode,
   ensurePublicDiscussionCodes,
   findDiscussionByPublicCode,
+  getDiscussionInvitePreviewByCode,
   validateJoinRulePayload,
   validateJoinRules,
   checkDiscussionCreateQuota,
@@ -633,6 +662,7 @@ module.exports = {
   listActiveDiscussions,
   listMyDiscussions,
   joinOrSwitchActiveDiscussion,
+  getActiveDiscussionInviteForUser,
   leaveDiscussionAsMember,
   closeDiscussionAsOwner,
   removeMemberAsOwner,

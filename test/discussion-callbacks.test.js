@@ -6,8 +6,11 @@ const {
   getDiscussionErrorMessage,
   buildDiscussionListText,
   buildDiscussionPreviewText,
+  buildDiscussionInviteShareText,
+  buildDiscussionInvitePreviewText,
+  buildDiscussionInviteLockedText,
 } = require("../src/services/discussion-ui");
-const { discussionListNavigationKeyboard } = require("../src/keyboards");
+const { discussionListNavigationKeyboard, discussionInvitePreviewKeyboard, discussionRoomKeyboard } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
   shouldKeepDiscussionRoomCardsForCallback,
@@ -170,4 +173,51 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(isDiscussionCreateCallback(callBacks.discussionCreateRuleTopTen), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateRuleTopTen), true);
   assert.equal(shouldKeepDiscussionRoomCardsForCallback(callBacks.discussionCreateRuleTopTen), true);
+});
+
+test("discussion room keyboard includes invite button", () => {
+  const keyboard = discussionRoomKeyboard("en", false);
+  const rows = keyboard?.reply_markup?.keyboard || [];
+  const labels = rows.flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.en.discussionInvite));
+});
+
+test("discussion invite preview keyboard joins by public code", () => {
+  const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12");
+  const buttons = keyboard?.reply_markup?.inline_keyboard.flat() || [];
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`));
+});
+
+test("discussion invite share and preview text stay privacy-safe", () => {
+  const discussion = {
+    title: "Metal room",
+    description: "Heavy riffs only",
+    publicDiscussionCode: "d_AB12",
+    memberUserIds: [1, 2],
+    maxMembers: 5,
+    joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" },
+  };
+
+  const shareText = buildDiscussionInviteShareText(messages, "en", discussion, "d_AB12", {
+    deepLink: "https://ble.ir/@LikelyBot?start=join_AB12",
+  });
+  const previewText = buildDiscussionInvitePreviewText(messages, "en", discussion);
+
+  assert.match(shareText, /Join discussion 👉 https:\/\/ble\.ir\/@LikelyBot\?start=join_AB12/);
+  assert.doesNotMatch(shareText, /Join inside the bot 👉 \/join_AB12/);
+  assert.match(shareText, /Join condition:/);
+  assert.match(shareText, /📄 Heavy riffs only/);
+  assert.doesNotMatch(shareText, /recent/i);
+  assert.match(previewText, /Invite preview/);
+  assert.match(previewText, /👥 2\/5/);
+});
+
+test("discussion invite locked hint names required update path", () => {
+  const text = buildDiscussionInviteLockedText(messages, "en", "requires_top_ten_item", {
+    joinRule: { type: "top_ten_item", section: "random", itemTitle: "Chess" },
+  });
+
+  assert.match(text, /Chess/);
+  assert.match(text, /Go to Lists/);
+  assert.match(text, /same invite link/);
 });

@@ -152,6 +152,77 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
 
+function fillDiscussionInviteTemplate(template, values = {}) {
+  return String(template || "")
+    .replace("{title}", values.title || "-")
+    .replace("{descriptionBlock}", values.descriptionBlock || "")
+    .replace("{ruleBlock}", values.ruleBlock || "")
+    .replace("{joinBlock}", values.joinBlock || "")
+    .replace("{joinConditionTitle}", values.joinConditionTitle || "")
+    .replace("{rule}", values.rule || "")
+    .replace("{count}", values.count || "0")
+    .replace("{cap}", values.cap || "20")
+    .replace("{code}", values.code || "");
+}
+
+function getInviteDescriptionBlock(lang, discussion = {}, { compact = false } = {}) {
+  const description = String(discussion.description || "").trim();
+  if (!description) return "";
+  if (compact) return `📄 ${description}\n\n`;
+  return `📄 ${description}\n`;
+}
+
+function getInviteRuleBlock(messages, lang, discussion = {}) {
+  const rule = getJoinRulePreviewText(messages, lang, discussion.joinRule || { type: "open" });
+  return `${messages[lang].discussionJoinConditionTitle}\n${rule}\n\n`;
+}
+
+function buildDiscussionInviteShareText(messages, lang, discussion, code, { deepLink = "" } = {}) {
+  const cleanCode = String(code || discussion?.publicDiscussionCode || "").replace(/^d_/i, "");
+  const joinBlock = deepLink
+    ? messages[lang].discussionInviteLinkLine.replace("{link}", deepLink)
+    : messages[lang].discussionInviteCommandLine.replace("{code}", cleanCode);
+  return fillDiscussionInviteTemplate(messages[lang].discussionInviteShareText, {
+    title: discussion?.title,
+    descriptionBlock: getInviteDescriptionBlock(lang, discussion, { compact: true }),
+    ruleBlock: getInviteRuleBlock(messages, lang, discussion),
+    joinBlock,
+    code: cleanCode,
+  });
+}
+
+function buildDiscussionInvitePreviewText(messages, lang, discussion) {
+  return fillDiscussionInviteTemplate(messages[lang].discussionInvitePreview, {
+    title: discussion?.title,
+    descriptionBlock: getInviteDescriptionBlock(lang, discussion),
+    count: String((discussion?.memberUserIds || []).length),
+    cap: String(discussion?.maxMembers || DEFAULT_DISCUSSION_CAPACITY),
+    joinConditionTitle: messages[lang].discussionJoinConditionTitle,
+    rule: getJoinRulePreviewText(messages, lang, discussion?.joinRule || { type: "open" }),
+  });
+}
+
+function buildDiscussionInviteLockedText(messages, lang, reason, discussion = {}) {
+  const joinRule = discussion?.joinRule || {};
+  const sectionLabel = joinRule.section ? getSectionLabel(messages, lang, joinRule.section) : "";
+  const rule = getJoinRulePreviewText(messages, lang, joinRule);
+  if (reason === "requires_taste_label") {
+    return messages[lang].discussionInviteLockedTaste
+      .replace("{rule}", rule)
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  if (reason === "requires_top_ten_item") {
+    return messages[lang].discussionInviteLockedItem
+      .replace("{rule}", rule)
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  if (reason === "requires_top_ten_completed") {
+    return messages[lang].discussionInviteLockedTopTen
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  return getDiscussionErrorMessage(messages, lang, reason);
+}
+
 function buildDiscussionPreviewText(messages, lang, user) {
   const title = String(user?.discussionDraftTitle || "").trim();
   const description = String(user?.discussionDraftDescription || "").trim();
@@ -171,4 +242,7 @@ module.exports = {
   paginateDiscussions,
   buildDiscussionListText,
   buildDiscussionPreviewText,
+  buildDiscussionInviteShareText,
+  buildDiscussionInvitePreviewText,
+  buildDiscussionInviteLockedText,
 };

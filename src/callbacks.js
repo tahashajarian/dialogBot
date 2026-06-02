@@ -120,6 +120,9 @@ const {
   handleDiscussionCreateCallback,
 } = require("./flows/discussions-create-callbacks");
 const {
+  joinDiscussionFromInvite,
+} = require("./flows/discussions-text");
+const {
   rememberAiPendingInputPrompt,
   clearAiPendingInputPrompt,
 } = require("./flows/ai-input-prompts");
@@ -1084,6 +1087,17 @@ async function handleCallback(ctx) {
     await clearDiscussionMenuNotice(ctx);
     await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
     return sendDiscussionRoom(ctx, lang, joined.discussion);
+  }
+
+  if (data.startsWith(callBacks.discussionInviteJoin)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.discussionInviteJoin, "");
+    return joinDiscussionFromInvite(ctx, lang, code, {
+      editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
+      clearListMessage: () => clearDiscussionListMessage(ctx, [ctx.callbackMessageId]),
+      clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
+      sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
+    });
   }
 
   if (data === callBacks.discussionLeave || data.startsWith(callBacks.discussionLeave)) {

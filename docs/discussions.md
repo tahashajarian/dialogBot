@@ -26,7 +26,7 @@ Discussions are live rooms with short memory.
 - No photos, voice, stickers, files, or forwarded messages inside discussions.
 - No AI-generated moderation or AI summaries.
 - No age, city, gender, or profile-field-based join rules.
-- No invite-only or private rooms yet.
+- No invite-only or private rooms yet. Shareable invites may exist, but they must not make a room private or bypass join rules.
 
 ## Identity And Profile Visibility
 
@@ -76,6 +76,7 @@ Member buttons:
 
 ```text
 👥 اعضا
+📨 دعوت
 🚪 خروج از بحث
 🔙💬 منوی بحث‌ها
 ```
@@ -84,12 +85,14 @@ Owner buttons:
 
 ```text
 👥 اعضا
+📨 دعوت
 🔒 بستن بحث
 🔙💬 منوی بحث‌ها
 ```
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
 The owner should not see `🚪 خروج از بحث` for their own discussion. To stop participating, the owner must close the discussion for everyone. This prevents orphaned ownerless rooms.
+All current members can use `📨 دعوت` to generate a shareable invite message for the active discussion. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
 
 `🔙💬 منوی بحث‌ها` removes the active room bottom keyboard and returns to the normal discussions menu. From there, `🗂 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
 
@@ -151,7 +154,7 @@ Join rule prompt:
 Buttons:
 
 ```text
-🌍 همه
+🌍 آزاد
 🏷 فقط یک برچسب خاص
 🎯 فقط یک علاقه/آیتم خاص
 لغو ساخت بحث
@@ -194,7 +197,7 @@ If an open discussion has no description:
 برای بحث‌های عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
 ```
 
-For open topics, selecting `🌍 همه` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
+For open topics, selecting `🌍 آزاد` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
 
 Room capacity is editable from the preview step:
 
@@ -315,6 +318,243 @@ Recommended MVP membership limit:
 
 - max joined/owned discussions per user: 10
 - this keeps navigation manageable and prevents users from quietly accumulating too many stale rooms
+
+### Invite To Discussion
+
+Invites make active discussions easier to grow without adding private chat or a people-discovery section.
+
+Entry point:
+
+- Inside an active discussion, the bottom button `📨 دعوت` generates a bot-authored invite message.
+- Any current member can generate an invite for the active discussion.
+- The user must still be a member at the moment they tap `📨 دعوت`; stale bottom keyboards must fail safely.
+- The invite points to a discussion preview, not directly into the room.
+- The invited user must still tap join and pass the normal join checks.
+- If the user has no active discussion, show the discussions menu instead of generating an invite.
+
+Invite flow:
+
+1. Member taps `📨 دعوت` inside their active discussion.
+2. Bot sends a ready-to-share message/card for that discussion.
+3. User shares or forwards the invite outside the bot.
+4. Recipient opens the bot through the invite/deep link or sends the invite command.
+5. Bot shows a safe discussion preview.
+6. Recipient can join only if the discussion is open, not full, not closed, and they satisfy the join rule.
+
+First-time/deep-link handling:
+
+- Shared invite text should include one clear join action.
+- If `BOT_DEEP_LINK_BASE_URL`, `BOT_PUBLIC_URL`, or `BOT_USERNAME` is configured, use one public bot deep link.
+- If no public bot link can be built, fall back to `/join_CODE`.
+- Preferred public link payload is `start=join_CODE`, for example `https://ble.ir/@BOT_USERNAME?start=join_8K2P`.
+- If the platform opens the bot through `/start join_CODE`, handle it as an invite preview.
+- If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
+- `/start d_CODE` may also resolve to the same invite preview for compatibility.
+- Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
+- If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
+- If the user is a member but currently active elsewhere, the invite should switch their active discussion and use the normal switched message.
+- Invite start commands and `/join_CODE` should be handled before section-specific states, so links work even if the user is currently inside profile edit, AI lists, saved profiles, or another bot section.
+
+Example ready-to-share copy:
+
+```text
+📨 دعوت به بحث
+
+💬 «بهترین ریف تاریخ؟»
+
+📄 بحث درباره ریف‌های ماندگار
+
+🔐 شرط ورود:
+🌍 آزاد
+
+ورود به بحث 👈 https://ble.ir/@BOT_USERNAME?start=join_8K2P
+```
+
+For locked rooms, include the join condition:
+
+```text
+📨 دعوت به بحث
+
+💬 «آلبوم‌های متال برای شروع»
+
+🔐 شرط ورود:
+🏷 موسیقی - 🤘 متال‌هد
+
+ورود به بحث 👈 https://ble.ir/@BOT_USERNAME?start=join_9Q4M
+```
+
+Rules:
+
+- Invites must not bypass taste-label or TopTen-item join rules.
+- Invites must not bypass capacity, membership limit, removed-user checks, or closed-room checks.
+- Invites must not reveal private member details, full member lists, raw ids, Bale ids, phone numbers, or location.
+- Invites should use the discussion public code, not the database id.
+- Invite codes should be stable public discussion codes, not per-user tokens, for MVP.
+- Invite links/messages can remain valid until the discussion is closed or unavailable.
+- Old invite messages do not need to be deleted; every open/join attempt must re-read the discussion and revalidate current state.
+- A user who opens an invite for their currently active discussion should see the already-member message instead of a generic preview.
+- Existing members who use the invite while active elsewhere should be moved/re-focused to that discussion, matching normal `/d_CODE` behavior.
+- Removed users can open the preview but must receive the same removed-user error if they try to join.
+- Closed, missing, or expired discussions should show a clean unavailable state.
+- If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
+- Invite generation should be low-noise: send one ready-to-share message, not a chain of explanation messages.
+
+Ready-to-share message rules:
+
+- Keep the invite short enough to be forwarded cleanly.
+- Include title and public join command/link.
+- Include description only if present.
+- Include join condition for restricted rooms.
+- Do not include live member names.
+- Do not include recent messages.
+- Do not include "private", "friend", "DM", or connection-request wording.
+- If a public deep link is available, do not include a second `/join_CODE` line in the shared copy. Keep the command only as fallback when no deep link can be built.
+
+Opening an invite:
+
+- `/join_CODE` or a deep-link equivalent should show the invite preview first.
+- The preview should not join automatically, even for open rooms.
+- The preview message should be safe for non-members.
+- If the discussion is closed/missing/unavailable, show the unavailable state and return to the main menu.
+- If the discussion exists but is full, show the full-room state and return to the discussions menu.
+- If the viewer was removed by the owner, show the removed-user message and return to the main menu.
+- If the viewer does not satisfy a join rule, show the specific locked hint and return to the main menu.
+
+Join attempt validation order:
+
+1. Resolve the public discussion code.
+2. Verify the discussion exists and is open.
+3. Load the current user.
+4. Check whether the user was removed from the discussion.
+5. Check whether the user is already a member.
+6. Check discussion capacity.
+7. Check user membership limit.
+8. Check the discussion join rule.
+9. Join or switch active discussion.
+
+This order keeps sensitive details quiet while still giving useful recovery messages. If a room is closed or missing, do not reveal whether the user would have satisfied its join rule.
+
+Callback and stale-state behavior:
+
+- Invite preview join buttons must encode only the public discussion code.
+- When a user taps an old preview button, revalidate from the database before joining.
+- If the preview is stale because the room became full, closed, or unavailable, edit/remove the stale preview when possible and show the current state.
+- Repeated taps should use the centralized interaction guard and join should be idempotent for existing members.
+- If editing the old preview fails, send a fresh bot message with the current state.
+
+Invite preview:
+
+- Show title.
+- Show short description if present.
+- Show current member count/capacity.
+- Show join condition.
+- Do not show the full member list.
+- Do not show creator location or active/private profile details.
+- Use one inline join action when possible, plus Back.
+
+Unavailable invite state:
+
+```text
+🤖 این بحث دیگه در دسترس نیست.
+```
+
+Full invite state:
+
+```text
+🤖 ظرفیت این بحث تکمیل شده.
+
+از بخش بحث‌ها می‌تونی گفتگوی دیگه‌ای پیدا کنی.
+```
+
+Already member state:
+
+```text
+🤖 تو همین الان عضو این بحثی.
+
+از این به بعد پیام‌هات برای همین بحث ارسال میشه.
+```
+
+Locked invite state:
+
+```text
+🤖 برای ورود به این بحث، باید شرط ورودش رو داشته باشی.
+```
+
+Specific locked hints:
+
+- Taste-label room: tell the user which section/label is required and guide them to complete that section's Top 10 so the label can be calculated.
+- TopTen-item room: tell the user which section/item is required and guide them to add that item to the relevant Top 10 list.
+- After the hint, show the main menu reply keyboard.
+- Tell the user they can use the same invite link/command again or find the discussion again from `🟢 بحث‌های فعال`.
+
+Taste-label example:
+
+```text
+🤖 برای ورود به این بحث باید این برچسب رو داشته باشی:
+🏷 موسیقی - 🤘 متال‌هد
+
+💡 اول تاپ ۱۰ موسیقی‌ات رو کامل کن تا برچسبت حساب بشه.
+بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
+
+از منوی اصلی برو به بخش لیست‌ها.
+```
+
+TopTen-item example:
+
+```text
+🤖 برای ورود به این بحث باید این مورد توی تاپ ۱۰ت باشه:
+🏆 🧩 علاقه‌مندی‌ها - شطرنج
+
+💡 اول این مورد رو به تاپ ۱۰ علاقه‌مندی‌هات اضافه کن.
+بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
+
+از منوی اصلی برو به بخش لیست‌ها.
+```
+
+No active discussion state:
+
+```text
+🤖 الان داخل هیچ بحث فعالی نیستی.
+
+از بخش بحث‌ها وارد یک گفتگو شو، بعد می‌تونی دعوت بسازی.
+```
+
+No longer a member state:
+
+```text
+🤖 دیگه عضو این بحث نیستی، برای همین نمی‌تونم دعوت بسازم.
+```
+
+Invite abuse and rate limits:
+
+- MVP can start without a stored invite counter because invites are public-code based.
+- Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
+- If users spam invite generation, add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
+- Do not notify the discussion owner when someone generates or uses an invite.
+- Do not broadcast invite generation inside the room.
+- Joining from an invite should use the same join notification rules as normal joining.
+
+Implementation test checklist:
+
+- Member can generate an invite for their active discussion.
+- Non-member/stale active state cannot generate an invite.
+- `/join_CODE` shows preview before joining.
+- Open invite join succeeds when room is available.
+- Restricted invite join succeeds only when user satisfies the rule.
+- Restricted invite join failure gives a specific hint and returns to main menu.
+- Closed/missing discussion invite fails cleanly.
+- Full discussion invite fails cleanly.
+- Removed user cannot rejoin through an invite.
+- Existing member using invite switches/re-focuses active discussion without duplicate membership.
+- Old preview button revalidates current state before joining.
+
+Future possibilities:
+
+- Owner-only invites if spam becomes a problem.
+- Expiring invite links.
+- Invite usage counters.
+- Admin controls for disabling invites on a room.
+- Optional per-room invite settings if invite abuse becomes a problem.
 
 ### My Discussions / Switching
 
@@ -690,7 +930,7 @@ Joinable example:
 ```text
 ✅ بهترین ریف تاریخ؟
 👥 ۵ نفر داخل بحث
-🔓 همه می‌تونن وارد بشن
+🔓 ورود آزاده
 ```
 
 Locked example:

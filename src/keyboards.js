@@ -652,6 +652,9 @@ function discussionRoomKeyboard(lang, isOwner = false) {
   const rows = [
     [
       { text: messages[lang].discussionMembersTitle },
+      { text: messages[lang].discussionInvite },
+    ],
+    [
       { text: isOwner ? messages[lang].discussionCloseButton : messages[lang].discussionLeave },
     ],
     [
@@ -667,6 +670,14 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       selective: true,
     },
   };
+}
+
+function discussionInvitePreviewKeyboard(lang, publicDiscussionCode) {
+  const cleanCode = String(publicDiscussionCode || "").replace(/^d_/i, "");
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionInviteJoinButton, callback_data: `${callBacks.discussionInviteJoin}d_${cleanCode}` }],
+    [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
+  ]);
 }
 
 function discussionCreateDescriptionKeyboard(lang, {
@@ -881,6 +892,7 @@ module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
+  discussionInvitePreviewKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,

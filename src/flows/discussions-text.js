@@ -1,15 +1,19 @@
 const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
+  mainMenuKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
+  discussionInvitePreviewKeyboard,
   discussionCreateCancelKeyboard,
 } = require("../keyboards");
 const User = require("../models/user");
 const {
   ensurePublicProfileCode,
   findDiscussionByPublicCode,
+  getActiveDiscussionInviteForUser,
+  getDiscussionInvitePreviewByCode,
   joinOrSwitchActiveDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
@@ -24,6 +28,9 @@ const {
 } = require("../services/discussion-actions");
 const {
   getDiscussionErrorMessage,
+  buildDiscussionInviteLockedText,
+  buildDiscussionInvitePreviewText,
+  buildDiscussionInviteShareText,
   decorateDiscussionsForList,
   paginateDiscussions,
   buildDiscussionListText,
@@ -33,6 +40,7 @@ const {
   formatDiscussionRoom,
   formatRecentDiscussionMessages,
 } = require("../services/discussion-room-ui");
+const { buildBotStartLink } = require("../services/invite-links");
 const { updateProfileField, updateUserState } = require("../services/users");
 
 function normalizeKeyboardText(value) {
@@ -78,6 +86,11 @@ function isDiscussionCloseText(text) {
   return matchesMessageText(text, ["discussionCloseButton"]) || (plainText.includes("بستن") && plainText.includes("بحث")) || plainText.includes("close discussion");
 }
 
+function isDiscussionInviteText(text) {
+  const plainText = getPlainKeyboardText(text);
+  return matchesMessageText(text, ["discussionInvite"]) || plainText.includes("دعوت") || plainText.includes("invite");
+}
+
 function isDiscussionCloseConfirmText(text) {
   return matchesMessageText(text, ["discussionCloseConfirmCommand"]);
 }
@@ -105,6 +118,7 @@ function isDiscussionBottomControlText(text) {
   return (
     isDiscussionReturnToMenuText(text) ||
     isDiscussionMembersText(text) ||
+    isDiscussionInviteText(text) ||
     isDiscussionLeaveText(text) ||
     isDiscussionCloseText(text)
   );
@@ -251,6 +265,29 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     return ctx.reply(`${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`);
   }
 
+  if (isDiscussionInviteText(text)) {
+    if (!activeDiscussionId) {
+      await ctx.reply(messages[lang].discussionInviteNoActive, {
+        reply_markup: { remove_keyboard: true },
+      });
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+
+    const invite = await getActiveDiscussionInviteForUser(ctx.userId, activeDiscussionId);
+    if (!invite.ok) {
+      const textByReason = invite.reason === "not_member"
+        ? messages[lang].discussionInviteNotMember
+        : getDiscussionErrorMessage(messages, lang, invite.reason);
+      await ctx.reply(textByReason, { reply_markup: { remove_keyboard: true } });
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+
+    const cleanCode = String(invite.code || "").replace(/^d_/i, "");
+    const deepLink = buildBotStartLink(`join_${cleanCode}`);
+    await ctx.reply(messages[lang].discussionInviteReady);
+    return ctx.reply(buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink }));
+  }
+
   if (isDiscussionMyListText(text)) {
     const result = await listMyDiscussions(ctx.userId, { limit: 20 });
     if (!result.ok) return ctx.reply(messages[lang].unknownAction);
@@ -316,6 +353,94 @@ async function openDiscussionCommand(ctx, lang, code) {
   await clearRememberedDiscussionListMessage(ctx);
   await clearDiscussionMenuNotice(ctx);
   await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
+  return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
+}
+
+async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
+  editMessage = null,
+  keyboard = null,
+  openExistingMember = true,
+} = {}) {
+  const preview = await getDiscussionInvitePreviewByCode(code);
+  if (!preview.ok) {
+    const unavailableText = messages[lang].discussionInviteUnavailable;
+    await ctx.reply(unavailableText, { reply_markup: { remove_keyboard: true } });
+    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+  }
+
+  const publicCode = preview.code || preview.discussion.publicDiscussionCode;
+  if (openExistingMember && (preview.discussion.memberUserIds || []).includes(Number(ctx.userId))) {
+    return joinDiscussionFromInvite(ctx, lang, publicCode);
+  }
+
+  const text = buildDiscussionInvitePreviewText(messages, lang, preview.discussion);
+  const inviteKeyboard = keyboard || discussionInvitePreviewKeyboard(lang, publicCode);
+  if (editMessage) {
+    return editMessage(text, inviteKeyboard);
+  }
+  return ctx.reply(text, inviteKeyboard);
+}
+
+async function joinDiscussionFromInvite(ctx, lang, code, {
+  editMessage = null,
+  clearListMessage = null,
+  clearMenuNotice = null,
+  sendRoom = null,
+} = {}) {
+  const discussion = await findDiscussionByPublicCode(code);
+  if (!discussion || discussion.status !== "open") {
+    const text = messages[lang].discussionInviteUnavailable;
+    if (editMessage) {
+      await editMessage(text, mainMenuKeyboard(lang));
+    } else {
+      await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
+      await ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+    }
+    return { ok: false, reason: "missing_discussion" };
+  }
+
+  const wasActiveInDiscussion = String(ctx.user?.activeDiscussionId || "") === String(discussion._id);
+  const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
+  if (!joined.ok) {
+    let text = getDiscussionErrorMessage(messages, lang, joined.reason);
+    let keyboardToShow = discussionsMenuKeyboard(lang);
+    let returnToMainMenu = false;
+
+    if (joined.reason === "discussion_full") {
+      text = messages[lang].discussionInviteFull;
+    } else if (joined.reason === "removed_by_owner") {
+      text = messages[lang].discussionErrRemovedByOwner;
+      keyboardToShow = mainMenuKeyboard(lang);
+      returnToMainMenu = true;
+    } else if (
+      joined.reason === "requires_taste_label" ||
+      joined.reason === "requires_top_ten_item" ||
+      joined.reason === "requires_top_ten_completed"
+    ) {
+      text = buildDiscussionInviteLockedText(messages, lang, joined.reason, discussion);
+      keyboardToShow = mainMenuKeyboard(lang);
+      returnToMainMenu = true;
+    }
+
+    if (editMessage) {
+      await editMessage(text, keyboardToShow);
+    } else {
+      await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
+      await ctx.reply(
+        returnToMainMenu ? messages[lang].mainMenu : messages[lang].discussionsMenu,
+        keyboardToShow,
+      );
+    }
+    return joined;
+  }
+
+  await clearListMessage?.();
+  await clearMenuNotice?.();
+  const statusText = joined.joined
+    ? messages[lang].discussionJoined
+    : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionSwitched);
+  await ctx.reply(statusText);
+  if (sendRoom) return sendRoom(ctx, lang, joined.discussion);
   return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
 }
 
@@ -443,6 +568,8 @@ module.exports = {
   sendDiscussionCreatePrompt,
   closeDiscussionFromTextConfirmation,
   openDiscussionCommand,
+  showDiscussionInvitePreviewCommand,
+  joinDiscussionFromInvite,
   leaveDiscussionCommand,
   closeDiscussionCommand,
   removeDiscussionMemberCommand,

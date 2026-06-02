@@ -86,6 +86,7 @@ module.exports = {
     discussionCloseConfirm: "discussion:close:confirm:",
     discussionCloseCancel: "discussion:close:cancel:",
     discussionMembers: "discussion:members:",
+    discussionInviteJoin: "discussion:invite:join:",
     discussionRemoveMemberPicker: "discussion:remove:member:picker:",
     discussionRemoveMember: "discussion:remove:member:",
     discussionBack: "discussion:back",

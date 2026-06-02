@@ -16,7 +16,7 @@ test("formatDiscussionRoom renders title, description, and counts", () => {
     maxMembers: 20,
   });
   assert.match(text, /Best Albums/);
-  assert.match(text, /Metal only/);
+  assert.match(text, /📄 Metal only/);
   assert.match(text, /2\/20/);
 });
 

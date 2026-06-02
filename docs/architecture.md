@@ -20,6 +20,7 @@ Keep the router files thin:
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
 - `src/flows/discussions-callbacks.js` owns discussion callback housekeeping and predicates.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
+- Discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
 
 ## Data Model Rules
 
@@ -89,5 +90,7 @@ Saved profiles, when implemented, should be private one-way bookmarks. They shou
 - `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
+- `BOT_DEEP_LINK_BASE_URL` is the platform-neutral public bot URL for invite deep links. For Bale use `https://ble.ir/@BotUsername`; for Telegram later use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
+- `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings for Bale.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep Bale and AI endpoint configuration separate to avoid launch failures.

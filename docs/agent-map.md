@@ -23,6 +23,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - pre-close active-member lookup before active state is cleared
 - `src/flows/discussions-text.js`: text commands and bottom-keyboard discussion flow.
   - `/d_CODE`, `/leave_CODE`, `/close_CODE`
+  - `/join_CODE` invite/deep-link entry when discussion invites are implemented
   - `/remove_CODE`, `/report_CODE`
   - active room bottom buttons
   - text close-confirm state
@@ -68,6 +69,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion data rule: `src/services/discussions.js`.
 - New discussion side-effect orchestration: `src/services/discussion-actions.js`.
 - New discussion text command or bottom-button flow: `src/flows/discussions-text.js`.
+- New discussion invite preview/callback flow: `src/flows/discussions-callbacks.js`.
 - New discussion-create typed input step: `src/flows/discussions-create-text.js`.
 - New discussion-create inline callback step: `src/flows/discussions-create-callbacks.js`.
 - New discussion callback housekeeping/predicate: `src/flows/discussions-callbacks.js`.
