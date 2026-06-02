@@ -7,7 +7,7 @@ async function editPlaceholder(ctx, placeholder, text, extra) {
   if (messageId && ctx.editMessageText) {
     const edited = await ctx.editMessageText(messageId, text, extra);
     if (edited) {
-      return edited;
+      return typeof edited === "object" ? edited : placeholder;
     }
   }
 

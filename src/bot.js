@@ -87,6 +87,10 @@ const {
   handleDiscussionCreateText,
 } = require("./flows/discussions-create-text");
 const {
+  rememberAiPendingInputPrompt,
+  clearAiPendingInputPrompt,
+} = require("./flows/ai-input-prompts");
+const {
   isCodeSaved,
   buildSavedProfileListItems,
   paginateSavedProfiles,
@@ -739,6 +743,7 @@ async function handleUpdate(ctx) {
     const aiSection = getAiSectionFromState(state);
     await updateUserState(ctx.userId, "idle");
     if (aiSection) {
+      await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
       await ctx.reply(" ", {
@@ -863,6 +868,7 @@ async function handleUpdate(ctx) {
   const manageState = parseAiManageState(state);
   if (manageState) {
     if (isAiBackText(text)) {
+      await clearAiPendingInputPrompt(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
@@ -937,11 +943,16 @@ async function handleUpdate(ctx) {
       const comment = normalizeAiListComment("");
       if (!item) {
         const isInterestTopTen = section === "random" && listType === "topTen";
-        return ctx.reply(
+        await clearAiPendingInputPrompt(ctx);
+        const prompt = await ctx.reply(
           isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
           isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
         );
+        await rememberAiPendingInputPrompt(ctx, prompt);
+        return prompt;
       }
+
+      await clearAiPendingInputPrompt(ctx);
 
       const result = await addAiListItem(
         ctx.userId,
@@ -967,7 +978,9 @@ async function handleUpdate(ctx) {
             aiListManageMenuKeyboard(lang, section, listType),
           );
         }
-        return ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType));
+        const prompt = await ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType));
+        await rememberAiPendingInputPrompt(ctx, prompt);
+        return prompt;
       }
 
       await updateUserState(ctx.userId, `ai_manage_${section}_${isWatchlist ? "watchlist" : "top_ten"}`);
@@ -998,6 +1011,7 @@ async function handleUpdate(ctx) {
       const pendingItem = normalizeAiListItem(ctx.user?.aiSectionPendingCommentItem);
       const pendingListType = ctx.user?.aiSectionPendingCommentListType === "topTen" ? "topTen" : "watchlist";
       if (!pendingItem) {
+        await clearAiPendingInputPrompt(ctx);
         await updateUserState(ctx.userId, `ai_manage_${section}_${pendingListType === "topTen" ? "top_ten" : "watchlist"}`);
         await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
         return ctx.reply(
@@ -1007,12 +1021,16 @@ async function handleUpdate(ctx) {
       }
 
       if (text.startsWith("/")) {
-        return ctx.reply(
+        await clearAiPendingInputPrompt(ctx);
+        const prompt = await ctx.reply(
           pendingListType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
           aiListCancelCommentKeyboard(lang, section, pendingListType),
         );
+        await rememberAiPendingInputPrompt(ctx, prompt);
+        return prompt;
       }
 
+      await clearAiPendingInputPrompt(ctx);
       const updated = await setAiListItemComment(ctx.userId, section, pendingListType, pendingItem, text);
       if (!updated.ok) {
         await updateUserState(ctx.userId, `ai_manage_${section}_${pendingListType === "topTen" ? "top_ten" : "watchlist"}`);
@@ -1043,17 +1061,22 @@ async function handleUpdate(ctx) {
   const suggestContextSection = parseAiSuggestContextState(state);
   if (suggestContextSection) {
     if (isAiBackText(text)) {
+      await clearAiPendingInputPrompt(ctx);
       await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
       return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, suggestContextSection));
     }
 
     const userText = String(text || "").trim().replace(/\s+/g, " ").slice(0, 80);
     if (!userText || text.startsWith("/")) {
-      return ctx.reply(messages[lang].aiSuggestionContextPrompt, aiSuggestionContextCancelKeyboard(lang, suggestContextSection));
+      await clearAiPendingInputPrompt(ctx);
+      const prompt = await ctx.reply(messages[lang].aiSuggestionContextPrompt, aiSuggestionContextCancelKeyboard(lang, suggestContextSection));
+      await rememberAiPendingInputPrompt(ctx, prompt);
+      return prompt;
     }
 
     const topTenItems = getAiListTitlesFromUser(ctx.user, suggestContextSection, "topTen");
     if (topTenItems.length < 3) {
+      await clearAiPendingInputPrompt(ctx);
       await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
       return ctx.reply(getNeedTopTenMessage(lang, suggestContextSection), aiSectionKeyboardForSection(lang, suggestContextSection));
     }
@@ -1065,6 +1088,7 @@ async function handleUpdate(ctx) {
       topTenItems,
     });
     await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
+    await clearAiPendingInputPrompt(ctx);
     return sendSingleSectionSuggestion({
       ctx,
       lang,

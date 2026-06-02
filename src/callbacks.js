@@ -119,6 +119,10 @@ const {
   isDiscussionCreateCallback,
   handleDiscussionCreateCallback,
 } = require("./flows/discussions-create-callbacks");
+const {
+  rememberAiPendingInputPrompt,
+  clearAiPendingInputPrompt,
+} = require("./flows/ai-input-prompts");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const AI_WATCHLIST_LIMIT = 100;
@@ -1469,12 +1473,14 @@ async function handleCallback(ctx) {
       listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
       { reply_markup: { remove_keyboard: true } },
     );
-    return editPlaceholder(
+    const editedPrompt = await editPlaceholder(
       ctx,
       prompt,
       listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
       aiListCancelCommentKeyboard(lang, section, listType),
     );
+    await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
+    return editedPrompt;
   }
 
   if (data.startsWith(callBacks.aiListManageCancelComment)) {
@@ -1486,8 +1492,15 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    const expectedState = `ai_manage_${section}_${toAiManageStateListType(listType)}_comment_input`;
+    if (ctx.user?.state !== expectedState) {
+      await clearAiPendingInputPrompt(ctx);
+      return deleteCallbackMessageIfPossible(ctx);
+    }
+
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
+    await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
     await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(
@@ -1576,6 +1589,13 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
+    const expectedState = `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`;
+    if (ctx.user?.state !== expectedState) {
+      await clearAiPendingInputPrompt(ctx);
+      return deleteCallbackMessageIfPossible(ctx);
+    }
+
+    await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
     await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(
@@ -1600,12 +1620,14 @@ async function handleCallback(ctx) {
       isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
       { reply_markup: { remove_keyboard: true } },
     );
-    return editPlaceholder(
+    const editedPrompt = await editPlaceholder(
       ctx,
       prompt,
       isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
       isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, listType),
     );
+    await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
+    return editedPrompt;
   }
 
   if (data.startsWith(callBacks.aiInterestTopTenChip)) {
@@ -1615,8 +1637,13 @@ async function handleCallback(ctx) {
     if (!item) {
       return ctx.reply(messages[lang].unknownAction);
     }
+    if (ctx.user?.state !== "ai_manage_random_top_ten_add_input") {
+      await clearAiPendingInputPrompt(ctx);
+      return deleteCallbackMessageIfPossible(ctx);
+    }
 
     await deleteCallbackMessageIfPossible(ctx);
+    await clearAiPendingInputPrompt(ctx);
 
     const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
     const result = await addAiListItem(
@@ -1742,6 +1769,11 @@ async function handleCallback(ctx) {
       await ctx.answerCb?.();
       return ctx.reply(messages[lang].unknownAction);
     }
+    if (ctx.user?.state !== `ai_suggest_context_${section}`) {
+      await ctx.answerCb?.();
+      await clearAiPendingInputPrompt(ctx);
+      return deleteCallbackMessageIfPossible(ctx);
+    }
 
     await ctx.answerCb?.(
       messages[lang].aiSectionOpeningNotification
@@ -1785,6 +1817,7 @@ async function handleCallback(ctx) {
         .replace("{section}", getAiSectionNotificationTitle(lang, section)),
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await clearAiPendingInputPrompt(ctx);
     await deleteCallbackMessageIfPossible(ctx);
     const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
     return ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
@@ -1807,12 +1840,14 @@ async function handleCallback(ctx) {
     const prompt = await ctx.reply(messages[lang].aiSuggestionContextPrompt, {
       reply_markup: { remove_keyboard: true },
     });
-    return editPlaceholder(
+    const editedPrompt = await editPlaceholder(
       ctx,
       prompt,
       messages[lang].aiSuggestionContextPrompt,
       aiSuggestionContextCancelKeyboard(lang, section),
     );
+    await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
+    return editedPrompt;
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestFromTopTen)) {
@@ -1916,6 +1951,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.(messages[lang].mainMenuTitle);
     await updateUserState(ctx.userId, "idle");
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    await clearAiPendingInputPrompt(ctx);
     await clearAiSectionPin({ ctx, updateProfileField });
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }

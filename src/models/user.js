@@ -118,6 +118,7 @@ const UserSchema = new mongoose.Schema({
   aiLastListSection: String,
   aiLastListType: String,
   aiSectionEntryMessageId: Number,
+  aiPendingInputMessageId: Number,
   aiSectionPendingCommentItem: String,
   aiSectionPendingCommentListType: String,
   lang: { type: String, default: "fa" },
