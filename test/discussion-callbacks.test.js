@@ -8,6 +8,12 @@ const {
   buildDiscussionPreviewText,
 } = require("../src/services/discussion-ui");
 const { discussionListNavigationKeyboard } = require("../src/keyboards");
+const { callBacks } = require("../src/constants");
+const {
+  shouldKeepDiscussionRoomCardsForCallback,
+  isDiscussionCreateFlowCallback,
+} = require("../src/flows/discussions-callbacks");
+const { isDiscussionCreateCallback } = require("../src/flows/discussions-create-callbacks");
 
 test("discussion callback error mapping returns specific copy", () => {
   assert.equal(
@@ -158,4 +164,10 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
 
   assert.equal(allToggle?.text, "🔓 فقط قابل ورودها");
   assert.equal(joinableToggle?.text, "🔓 نمایش همه");
+});
+
+test("discussion create TopTen callback is routed and treated as create flow", () => {
+  assert.equal(isDiscussionCreateCallback(callBacks.discussionCreateRuleTopTen), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateRuleTopTen), true);
+  assert.equal(shouldKeepDiscussionRoomCardsForCallback(callBacks.discussionCreateRuleTopTen), true);
 });

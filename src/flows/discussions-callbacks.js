@@ -81,25 +81,7 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionListActivePage) ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data === callBacks.discussionCreateStart ||
-    data === callBacks.discussionCreateCancel ||
-    data === callBacks.discussionCreateSkipDescription ||
-    data === callBacks.discussionCreateRuleOpen ||
-    data === callBacks.discussionCreateRuleTaste ||
-    data === callBacks.discussionCreateRuleItem ||
-    data === callBacks.discussionCreateConfirm ||
-    data === callBacks.discussionCreatePreview ||
-    data === callBacks.discussionCreateEditTitle ||
-    data === callBacks.discussionCreateEditDescription ||
-    data === callBacks.discussionCreateEditRule ||
-    data === callBacks.discussionCreateEditCapacity ||
-    data === callBacks.discussionCreateCancelEdit ||
-    data === callBacks.discussionCreateBackToTitle ||
-    data === callBacks.discussionCreateBackToJoinRule ||
-    data === callBacks.discussionCreateBackToSection ||
-    data.startsWith(callBacks.discussionCreateRuleSection) ||
-    data.startsWith(callBacks.discussionCreateSelectTaste) ||
-    data.startsWith(callBacks.discussionCreateSelectItem) ||
-    data.startsWith(callBacks.discussionCreateSetCapacity) ||
+    isDiscussionCreateFlowCallback(data) ||
     data.startsWith(callBacks.discussionOpen) ||
     data.startsWith(callBacks.discussionLeave) ||
     data.startsWith(callBacks.discussionCloseConfirm) ||
@@ -116,6 +98,7 @@ function isDiscussionCreateFlowCallback(data = "") {
     data === callBacks.discussionCreateCancel ||
     data === callBacks.discussionCreateSkipDescription ||
     data === callBacks.discussionCreateRuleOpen ||
+    data === callBacks.discussionCreateRuleTopTen ||
     data === callBacks.discussionCreateRuleTaste ||
     data === callBacks.discussionCreateRuleItem ||
     data === callBacks.discussionCreateConfirm ||
