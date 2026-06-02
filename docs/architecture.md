@@ -7,6 +7,17 @@
 - Main entry point: `src/index.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - User schema lives in `src/models/user.js`.
+- For a quick file-by-file orientation, read [Agent map](agent-map.md).
+
+## Flow Boundaries
+
+Keep the router files thin:
+
+- `src/bot.js` dispatches text messages.
+- `src/callbacks.js` dispatches callback queries.
+- `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
+- `src/flows/discussions-callbacks.js` owns discussion callback housekeeping and predicates.
+- `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
 
 ## Data Model Rules
 

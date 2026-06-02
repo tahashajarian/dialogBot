@@ -6,6 +6,7 @@
 - Main entry point: `src/index.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - Read focused docs before changing related behavior:
+  - [Agent map](docs/agent-map.md)
   - [Architecture notes](docs/architecture.md)
   - [Bot UX rules](docs/bot-ux.md)
   - [AI lists and suggestions](docs/ai-lists-and-suggestions.md)
@@ -19,6 +20,20 @@
 - Preserve the existing style and naming unless a change is required.
 - Do not delete user data unless the task explicitly asks for it.
 - Do not hardcode secrets; keep environment-specific values in `.env`.
+
+## Module Boundaries
+
+- Keep `src/bot.js` and `src/callbacks.js` as dispatchers. Do not add large new feature bodies there when a flow/service module is a better home.
+- Put discussion database rules and mutations in `src/services/discussions.js`.
+- Put discussion cross-user side effects, such as join/leave/close/remove notifications, in `src/services/discussion-actions.js`.
+- Put discussion text commands and bottom-keyboard room controls in `src/flows/discussions-text.js`.
+- Put discussion callback housekeeping, stale-card predicates, and create-flow callback predicates in `src/flows/discussions-callbacks.js`.
+- Put discussion list/preview/error rendering in `src/services/discussion-ui.js`.
+- Put discussion room/member/recent-message rendering in `src/services/discussion-room-ui.js`.
+- Put saved-profile list rendering and saved-profile action text in `src/services/saved-profiles-ui.js`.
+- Put profile rendering and profile input validation in `src/services/profile.js`.
+- Keep AI list storage/mutation access centralized in `src/services/users.js`.
+- If a router starts growing with repeated logic, extract a focused flow helper instead of adding another inline branch.
 
 ## Current Phase
 
