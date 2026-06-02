@@ -16,6 +16,8 @@ Keep the router files thin:
 - `src/bot.js` dispatches text messages.
 - `src/callbacks.js` dispatches callback queries.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
+- `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
+- `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
 - `src/flows/discussions-callbacks.js` owns discussion callback housekeeping and predicates.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
 

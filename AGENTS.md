@@ -27,6 +27,8 @@
 - Put discussion database rules and mutations in `src/services/discussions.js`.
 - Put discussion cross-user side effects, such as join/leave/close/remove notifications, in `src/services/discussion-actions.js`.
 - Put discussion text commands and bottom-keyboard room controls in `src/flows/discussions-text.js`.
+- Put typed discussion-create wizard states in `src/flows/discussions-create-text.js`.
+- Put inline discussion-create wizard callbacks in `src/flows/discussions-create-callbacks.js`.
 - Put discussion callback housekeeping, stale-card predicates, and create-flow callback predicates in `src/flows/discussions-callbacks.js`.
 - Put discussion list/preview/error rendering in `src/services/discussion-ui.js`.
 - Put discussion room/member/recent-message rendering in `src/services/discussion-room-ui.js`.
