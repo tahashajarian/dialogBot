@@ -112,6 +112,7 @@ const {
   addSavedProfileCode,
   removeSavedProfileCode,
   normalizePublicProfileCode,
+  getActiveMembersInDiscussion,
 } = require("./services/discussions");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
@@ -1143,6 +1144,7 @@ async function handleCallback(ctx) {
   // menu routes
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
@@ -1650,26 +1652,40 @@ async function handleCallback(ctx) {
     const discussionId = data.replace(callBacks.discussionOpen, "");
     const joined = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
     if (!joined.ok) {
-      return ctx.reply(getDiscussionErrorMessage(messages, lang, joined.reason));
+      const errorText = getDiscussionErrorMessage(messages, lang, joined.reason);
+      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      const errorNotice = await ctx.reply(errorText);
+      await rememberDiscussionMenuNotice(ctx, errorNotice);
+      return errorNotice;
     }
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    if (joined.joined && joined.discussion.creatorUserId !== ctx.userId) {
-      const owner = await User.findOne({ userId: joined.discussion.creatorUserId })
-        .select("userId activeDiscussionId")
-        .lean();
-      if (String(owner?.activeDiscussionId || "") !== String(joined.discussion._id)) {
-        const joinerName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
-        await ctx.sendToUser?.(
-          joined.discussion.creatorUserId,
-          messages[lang].discussionOwnerJoinNotice
-            .replace("{title}", joined.discussion.title || "")
-            .replace("{name}", joinerName || "کاربر")
-            .replace("{count}", String(joined.discussion.memberUserIds.length)),
-          inlineKeyboard([
-            [{ text: messages[lang].discussionOpenButton, callback_data: `${callBacks.discussionOpen}${joined.discussion._id}` }],
-          ]),
-        );
+    await clearDiscussionMenuNotice(ctx);
+    if (joined.joined && joined.joinerName && joined.otherMemberIds) {
+      console.log(`[join] Notifying members about ${joined.joinerName} joining discussion ${joined.discussion._id}`);
+      console.log(`[join] Discussion memberUserIds:`, joined.discussion.memberUserIds);
+      console.log(`[join] Joiner userId: ${ctx.userId}`);
+      
+      // Debug: check what activeDiscussionId current members have
+      const allMembers = await User.find({ userId: { $in: joined.discussion.memberUserIds } }).select("userId activeDiscussionId").lean();
+      console.log(`[join] All members activeDiscussionId:`, allMembers.map(m => ({ userId: m.userId, activeDiscussionId: m.activeDiscussionId })));
+      
+      const activeMembers = await getActiveMembersInDiscussion(joined.discussion._id, [ctx.userId]);
+      console.log(`[join] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
+      for (const member of activeMembers) {
+        const memberLang = messages[member.lang] ? member.lang : "fa";
+        try {
+          console.log(`[join] Sending notification to member ${member.userId}`);
+          await ctx.sendToUser?.(
+            member.userId,
+            messages[memberLang].discussionJoinNotice.replace("{name}", joined.joinerName),
+          );
+          console.log(`[join] Successfully notified member ${member.userId}`);
+        } catch (err) {
+          console.error(`Failed to notify member ${member.userId} about join:`, err);
+        }
       }
+    } else {
+      console.log(`[join] Skipping notification - joined: ${joined.joined}, joinerName: ${joined.joinerName}, otherMemberIds: ${joined.otherMemberIds?.length}`);
     }
     await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
     return sendDiscussionRoom(ctx, lang, joined.discussion);
@@ -1691,16 +1707,26 @@ async function handleCallback(ctx) {
     }
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     const discussionTitle = left?.discussionTitle || "";
-    const ownerUserId = Number(left?.creatorUserId);
-    const leaverName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
-    if (ownerUserId && ownerUserId !== ctx.userId && discussionTitle) {
-      await notifyDiscussionUsers(
-        ctx,
-        [ownerUserId],
-        messages[lang].discussionLeftNoticeToOwner
-          .replace("{name}", leaverName || "کاربر")
-          .replace("{title}", discussionTitle),
-      );
+    
+    if (left.leaverName && left.discussionId) {
+      console.log(`[leave] Notifying members about ${left.leaverName} leaving discussion ${left.discussionId}`);
+      const activeMembers = await getActiveMembersInDiscussion(left.discussionId, [ctx.userId]);
+      console.log(`[leave] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
+      for (const member of activeMembers) {
+        const memberLang = messages[member.lang] ? member.lang : "fa";
+        try {
+          console.log(`[leave] Sending notification to member ${member.userId}`);
+          await ctx.sendToUser?.(
+            member.userId,
+            messages[memberLang].discussionLeftNotice.replace("{name}", left.leaverName),
+          );
+          console.log(`[leave] Successfully notified member ${member.userId}`);
+        } catch (err) {
+          console.error(`Failed to notify member ${member.userId} about leave:`, err);
+        }
+      }
+    } else {
+      console.log(`[leave] Skipping notification - leaverName: ${left.leaverName}, discussionId: ${left.discussionId}`);
     }
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
     return editCallbackMessageOrReply(
@@ -1727,16 +1753,42 @@ async function handleCallback(ctx) {
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
     const discussionId = data.replace(callBacks.discussionCloseConfirm, "");
+    
+    // Get active members BEFORE closing (closing clears activeDiscussionId)
+    console.log(`[close] Querying active members for discussion ${discussionId} before closing`);
+    const activeMembers = await getActiveMembersInDiscussion(discussionId, [ctx.userId]);
+    console.log(`[close] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
+    
     const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
     if (!closed.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
     }
-    const notifyIds = (closed.affectedMemberIds || []).filter((id) => Number(id) !== Number(ctx.userId));
-    await notifyDiscussionUsers(
-      ctx,
-      notifyIds,
-      messages[lang].discussionClosedNotice.replace("{title}", closed.discussion?.title || ""),
-    );
+    
+    // Notify the active members we queried before closing
+    if (activeMembers.length > 0) {
+      console.log(`[close] Notifying ${activeMembers.length} members about discussion being closed`);
+      for (const member of activeMembers) {
+        const memberLang = messages[member.lang] ? member.lang : "fa";
+        try {
+          console.log(`[close] Sending notification to member ${member.userId}`);
+          await ctx.sendToUser?.(
+            member.userId,
+            messages[memberLang].discussionClosedNoticeToMembers.replace("{title}", closed.discussionTitle || ""),
+            { reply_markup: { remove_keyboard: true } },
+          );
+          await ctx.sendToUser?.(
+            member.userId,
+            messages[memberLang].discussionsMenu,
+            discussionsMenuKeyboard(memberLang),
+          );
+          console.log(`[close] Successfully notified member ${member.userId}`);
+        } catch (err) {
+          console.error(`Failed to notify member ${member.userId} about close:`, err);
+        }
+      }
+    } else {
+      console.log(`[close] No active members to notify`);
+    }
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
     return editCallbackMessageOrReply(
       ctx,
@@ -1747,26 +1799,34 @@ async function handleCallback(ctx) {
 
   if (data.startsWith(callBacks.discussionCloseCancel)) {
     await ctx.answerCb?.();
-    await deleteCallbackMessageIfPossible(ctx);
-    const discussionId = data.replace(callBacks.discussionCloseCancel, "");
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
-    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
-    return sendDiscussionRoom(ctx, lang, opened.discussion);
-  }
+   await deleteCallbackMessageIfPossible(ctx);
+   const discussionId = data.replace(callBacks.discussionCloseCancel, "");
+   const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    if (!opened.ok) {
+      const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
+      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      return ctx.reply(errorText);
+    }
+   return sendDiscussionRoom(ctx, lang, opened.discussion);
+ }
 
   if (data.startsWith(callBacks.discussionMembers)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionMembers, "");
     const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
-    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
+    if (!opened.ok) {
+      const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
+      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      return ctx.reply(errorText);
+    }
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode")
+      .select("userId profileName firstName publicProfileCode activeDiscussionId")
       .lean();
     await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
     const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode")
+      .select("userId profileName firstName publicProfileCode activeDiscussionId")
       .lean();
-    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId);
+    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     return editCallbackMessageOrReply(
       ctx,
       `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
@@ -1778,8 +1838,16 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionRemoveMemberPicker, "");
     const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
-    if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
-    if (opened.discussion.creatorUserId !== ctx.userId) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_owner"));
+    if (!opened.ok) {
+      const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
+      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      return ctx.reply(errorText);
+    }
+    if (opened.discussion.creatorUserId !== ctx.userId) {
+      const errorText = getDiscussionErrorMessage(messages, lang, "not_owner");
+      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      return ctx.reply(errorText);
+    }
     const memberUsers = await User.find({
       userId: {
         $in: opened.discussion.memberUserIds.filter((id) => id !== ctx.userId),
@@ -1811,6 +1879,8 @@ async function handleCallback(ctx) {
     const removed = await removeMemberAsOwner(ctx.userId, discussionId, memberUserId);
     if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
     await deleteCallbackMessageIfPossible(ctx);
+    
+    // Notify the removed member if they were active
     if (removed.wasActive) {
       const targetLang = messages[removed.memberLang] ? removed.memberLang : "fa";
       await ctx.sendToUser?.(
@@ -1824,7 +1894,23 @@ async function handleCallback(ctx) {
         discussionsMenuKeyboard(targetLang),
       );
     }
-    return ctx.reply(messages[lang].discussionMemberRemoved);
+    
+    // Notify other active members about the removal
+    if (removed.removedMemberName && removed.discussionId) {
+      console.log(`[remove] Notifying members about ${removed.removedMemberName} being removed from discussion ${removed.discussionId}`);
+      const activeMembers = await getActiveMembersInDiscussion(removed.discussionId, [ctx.userId, memberUserId]);
+      console.log(`[remove] Found ${activeMembers.length} active members to notify:`, activeMembers.map(m => m.userId));
+      for (const member of activeMembers) {
+        const memberLang = messages[member.lang] ? member.lang : "fa";
+        console.log(`[remove] Sending notification to member ${member.userId}`);
+        await ctx.sendToUser?.(member.userId, messages[memberLang].discussionRemovedNoticeToMembers.replace("{name}", removed.removedMemberName));
+        console.log(`[remove] Successfully notified member ${member.userId}`);
+      }
+    } else {
+      console.log(`[remove] Skipping notification - removedMemberName: ${removed.removedMemberName}, discussionId: ${removed.discussionId}`);
+    }
+    
+    return ctx.reply(messages[lang].discussionMemberRemoved.replace("{name}", removed.removedMemberName || "عضو"));
   }
 
   if (data.startsWith(callBacks.profileViewByCode)) {
@@ -2502,6 +2588,7 @@ async function handleCallback(ctx) {
   if (data === callBacks.aiBack) {
     await ctx.answerCb?.(messages[lang].mainMenuTitle);
     await updateUserState(ctx.userId, "idle");
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
     await clearAiSectionPin({ ctx, updateProfileField });
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }

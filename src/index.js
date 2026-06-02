@@ -27,7 +27,6 @@ function resolveAllowedUsernames() {
 const ALLOWED_USERNAMES = resolveAllowedUsernames();
 
 function isAllowedUser(from) {
-  return true
   return ALLOWED_USERNAMES.has(normalizeUsername(from?.username));
 }
 

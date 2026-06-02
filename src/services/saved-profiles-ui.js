@@ -3,6 +3,7 @@ function normalizeCode(value) {
 }
 
 const RTL_MARK = "\u200F";
+const LTR_MARK = "\u200E";
 const FSI = "\u2068";
 const PDI = "\u2069";
 
@@ -13,6 +14,22 @@ function lineForLang(lang, text) {
 function isolateText(lang, text) {
   const value = String(text || "");
   return lang === "fa" ? `${FSI}${value}${PDI}` : value;
+}
+
+function firstStrongDirection(text) {
+  const value = String(text || "");
+  for (const ch of value) {
+    if (/[A-Za-z]/.test(ch)) return "ltr";
+    if (/[\u0590-\u08FF]/.test(ch)) return "rtl";
+  }
+  return "rtl";
+}
+
+function mixedValueLine(lang, emoji, text) {
+  const value = String(text || "");
+  if (lang !== "fa") return `${emoji} ${value}`;
+  const dirMark = firstStrongDirection(value) === "ltr" ? LTR_MARK : RTL_MARK;
+  return `${dirMark}${emoji} ${FSI}${value}${PDI}`;
 }
 
 function formatListIndex(lang, value) {
@@ -74,7 +91,7 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
     const removeAction = lang === "fa"
       ? `${removeLabel} 👈 ${removeCommand}`
       : `${removeLabel} 👉 ${removeCommand}`;
-    return `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, entry.name)}`)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, removeAction)}`;
+    return `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${mixedValueLine(lang, "👤", entry.name)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, removeAction)}`;
   });
 
   return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`)}`;

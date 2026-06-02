@@ -18,6 +18,7 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "missing_discussion") return messages[lang].discussionErrMissingDiscussion;
   if (reason === "discussion_closed") return messages[lang].discussionErrClosed;
   if (reason === "discussion_full") return messages[lang].discussionErrFull;
+  if (reason === "removed_by_owner") return messages[lang].discussionErrRemovedByOwner;
   if (reason === "membership_limit") return messages[lang].discussionErrMembershipLimit;
   if (reason === "requires_top_ten_completed") return messages[lang].discussionErrNeedTopTen;
   if (reason === "requires_taste_label") return messages[lang].discussionErrNeedTaste;
@@ -61,7 +62,11 @@ async function decorateDiscussionsForList(user, discussions = [], includeMemberA
   await ensurePublicDiscussionCodes(discussions);
   return Promise.all((discussions || []).map(async (discussion) => {
     const joinCheck = await validateJoinRules({ user, joinRule: discussion.joinRule });
-    discussion.isJoinable = Boolean(joinCheck?.ok);
+    const isRemovedByOwner = Array.isArray(discussion.removedUserIds) 
+      && discussion.removedUserIds.includes(Number(user?.userId));
+    
+    // User can join if they meet join rules AND haven't been removed by owner
+    discussion.isJoinable = Boolean(joinCheck?.ok) && !isRemovedByOwner;
     discussion.listAction = includeMemberActions
       ? (Number(discussion.creatorUserId) === Number(user?.userId) ? "close" : "leave")
       : "";
@@ -74,7 +79,7 @@ function paginateDiscussions(discussions = [], page = 0) {
 }
 
 function buildDiscussionActionLine(lang, label, command) {
-  return lang === "fa" ? `${label} 👈 ${command}` : `${label} 👉 ${command}`;
+  return `${label} 👈 ${command}`;
 }
 
 function lineForLang(lang, text) {

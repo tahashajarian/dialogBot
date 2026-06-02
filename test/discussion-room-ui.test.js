@@ -36,8 +36,8 @@ test("formatDiscussionMemberLines marks host with host badge", () => {
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10);
   assert.match(lines[0], /Owner — ⭐ host/);
-  assert.match(lines[1], /View profile 👉 \/u_B2/);
-  assert.match(lines[1], /Report 👉 \/report_B2/);
+  assert.match(lines[1], /👁 View profile 👈 \/u_B2/);
+  assert.match(lines[1], /🚩 Report 👈 \/report_B2/);
 });
 
 test("formatDiscussionMemberLines shows current user without profile code", () => {
@@ -55,7 +55,9 @@ test("formatDiscussionMemberLines lets owner remove other members", () => {
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10, 10);
 
-  assert.match(lines[1], /Remove 👉 \/remove_B2/);
+  assert.match(lines[1], /👁 View profile 👈 \/u_B2/);
+  assert.match(lines[1], /🚩 Report 👈 \/report_B2/);
+  assert.match(lines[1], /🗑 Remove 👈 \/remove_B2/);
 });
 
 test("formatDiscussionMemberLines separates member blocks with dividers", () => {

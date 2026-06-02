@@ -42,36 +42,35 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 
-function formatMemberActionLine(lang, label, command) {
-  const commandText = lang === "fa" ? `${FSI}${command}${PDI}` : command;
-  const text = lang === "fa" ? `${label} 👈 ${commandText}` : `${label} 👉 ${commandText}`;
-  return lineForLang(lang, text);
-}
-
 const DISCUSSION_MEMBER_DIVIDER = "────────";
 
-function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null) {
+function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, discussionId = null) {
   return members.map((entry, index) => {
     const isCurrentUser = Number(entry.userId) === Number(currentUserId);
     const isOwner = Number(entry.userId) === Number(creatorUserId);
     const currentUserIsOwner = Number(currentUserId) === Number(creatorUserId);
+    const isActiveInThisDiscussion = discussionId && String(entry.activeDiscussionId || "") === String(discussionId);
     const name = isCurrentUser ? (lang === "fa" ? "تو" : "You") : (entry.profileName || entry.firstName || "کاربر");
+    const presenceDot = isActiveInThisDiscussion ? " 🟢" : "";
     const owner = isOwner ? ` — ${messages[lang].discussionOwnerMark}` : "";
     const code = entry.publicProfileCode || "";
     const codeSuffix = code.replace(/^u_/i, "");
     const actions = [];
 
     if (!isCurrentUser && code) {
-      actions.push(formatMemberActionLine(lang, messages[lang].discussionMemberViewProfile, `/${code}`));
-      actions.push(formatMemberActionLine(lang, messages[lang].discussionMemberReport, `/report_${codeSuffix}`));
+      const viewLabel = messages[lang].discussionMemberViewProfile;
+      const reportLabel = messages[lang].discussionMemberReport;
+      actions.push(`👁 ${viewLabel} 👈 /${code}`);
+      actions.push(`${reportLabel} 👈 /report_${codeSuffix}`);
       if (currentUserIsOwner) {
-        actions.push(formatMemberActionLine(lang, messages[lang].discussionMemberRemoveAction, `/remove_${codeSuffix}`));
+        const removeLabel = messages[lang].discussionMemberRemoveAction;
+        actions.push(`${removeLabel} 👈 /remove_${codeSuffix}`);
       }
     }
 
     const actionText = actions.length ? `\n${actions.join("\n")}` : "";
-    const divider = index < members.length - 1 ? `\n\n${DISCUSSION_MEMBER_DIVIDER}` : "";
-    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}`)}${actionText}${divider}`;
+    const divider = index < members.length - 1 ? `\n${DISCUSSION_MEMBER_DIVIDER}` : "";
+    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}${presenceDot}`)}${actionText}${divider}`;
   });
 }
 

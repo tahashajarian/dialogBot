@@ -264,6 +264,11 @@ If creator has no TopTen items for item-restricted rooms:
 
 When user joins:
 
+**Error handling:**
+- When a user tries to join via a button action (e.g., from discussion list) and an error occurs (removed by owner, discussion is full/at capacity, doesn't meet join rules, already at membership limit, etc.), show both a toast notification at the top of the screen AND a regular message.
+- The toast notification provides immediate feedback without scrolling, while the message is persistent for reference.
+- Toast notifications strip the 🤖 emoji prefix to keep them concise.
+
 - If they are already active in another discussion, switch active discussion to the new one.
 - Do not remove them from the old discussion unless they explicitly leave it.
 - If they already belong to the maximum number of discussions, do not allow joining until they leave one.
@@ -420,8 +425,9 @@ Rules:
 - The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `⭐ میزبان`.
+- Show a green circle `🟢` next to members who are currently active in the same discussion.
 - Member lists should be plain text command links, not inline button rows.
-- Profile/report/remove actions should use pointer links, matching the discussion list style.
+- Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
 - Separate member blocks with a simple line divider when multiple members are shown.
 - Users stay inside the discussion after viewing the member list; no back button is needed on the member list.
 
@@ -463,7 +469,13 @@ Rules:
 - Owner cannot remove themselves; they can only close the discussion.
 - Members do not see remove actions.
 - Every user can report another member from the member list.
-- A removed member is removed from `memberIds` and from their discussion memberships.
+- A removed member is removed from `memberIds`, added to `removedUserIds`, and removed from their discussion memberships.
+- **Removed users cannot rejoin**: If a user who was previously removed by the owner tries to join the discussion again, they will receive an error message.
+- Removed users will not see the discussion in their "My Discussions" list anymore.
+- **Removed users see discussions but can't join**: Discussions where a user has been removed appear in the regular "Active Discussions" list, but are filtered out when "Show only joinable discussions" is enabled.
+- If a removed user somehow attempts to join (e.g., via a saved link or command), they get both:
+  - A toast notification at the top: `میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
+  - A regular message: `🤖 میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
 - If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
 - If the removed member is not currently active in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
@@ -565,30 +577,47 @@ After close, the room should not appear in `🟢 بحث‌های فعال` or `�
 
 Notifications should be useful but quiet.
 
-MVP notifications:
+## Join/Leave/Remove/Close Notifications
 
-- Notify the owner when someone joins their discussion.
-- Do not notify every member for every message.
-- Do not notify the owner if they are currently active inside that discussion.
-- Include an inline button to open the discussion.
-- Consider a simple mute action per discussion.
+**Who gets notified:**
+- Only members who are currently active in that specific discussion (`activeDiscussionId` matches the discussion)
+- The person performing the action (joiner/leaver/owner) does NOT receive the notification
+- Members in other menus or other discussions do NOT receive notifications
 
-Owner join notification:
-
-```text
-🤖 یه نفر وارد بحثت شد.
-
-💬 بهترین ریف تاریخ؟
-👤 سارا وارد شد.
-👥 الان ۳ نفر داخل بحثن.
-```
-
-Buttons:
+**Join notification:**
 
 ```text
-ورود به بحث
-بی‌صدا کردن این بحث
+🤖 «سارا» وارد بحث شد.
 ```
+
+**Leave notification:**
+
+```text
+🤖 «سارا» از بحث خارج شد.
+```
+
+**Remove notification (to removed member):**
+
+```text
+🤖 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
+```
+
+**Remove notification (to other active members):**
+
+```text
+🤖 «سارا» از بحث توسط میزبان حذف شد.
+```
+
+**Close notification (to active members):**
+
+```text
+🤖 بحث توسط میزبان بسته شد.
+```
+
+**Format rules:**
+- All notifications use bot emoji 🤖 (not door 🚪)
+- Member names appear in quotes/guillemets: «name»
+- Notifications are sent only to members actively viewing that discussion at the moment
 
 Anti-noise rules:
 

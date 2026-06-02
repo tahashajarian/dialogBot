@@ -34,6 +34,7 @@ const DiscussionSchema = new mongoose.Schema({
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
   memberUserIds: { type: [Number], default: [] },
+  removedUserIds: { type: [Number], default: [] },
   maxMembers: { type: Number, default: 20 },
   recentMessages: { type: [DiscussionMessageSchema], default: [] },
   reports: { type: [DiscussionReportSchema], default: [] },

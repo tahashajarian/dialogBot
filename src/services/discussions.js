@@ -277,6 +277,12 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
   const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
 
   if (!isMember) {
+    // Check if user was previously removed
+    const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
+    if (wasRemoved) {
+      return { ok: false, reason: "removed_by_owner" };
+    }
+    
     const maxMembers = normalizeMaxMembers(discussion.maxMembers);
     if (discussion.memberUserIds.length >= maxMembers) {
       return { ok: false, reason: "discussion_full", cap: maxMembers };
@@ -301,7 +307,10 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
       },
     );
 
-    return { ok: true, discussion, joined: true, switched: true };
+    const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
+    const otherMemberIds = discussion.memberUserIds.filter((id) => id !== userId);
+    
+    return { ok: true, discussion, joined: true, switched: true, joinerName, otherMemberIds };
   }
 
   await User.findOneAndUpdate(
@@ -341,11 +350,17 @@ async function leaveDiscussionAsMember(userId, discussionId) {
   }
 
   await User.findOneAndUpdate({ userId }, updates);
+  
+  const leaverName = String(user.profileName || user.firstName || "کاربر").trim();
+  const activeMemberIds = discussion.memberUserIds.filter((id) => id !== userId);
+  
   return {
     ok: true,
     discussionId: discussion._id,
     discussionTitle: discussion.title,
     creatorUserId: discussion.creatorUserId,
+    leaverName,
+    activeMemberIds,
   };
 }
 
@@ -379,13 +394,13 @@ async function closeDiscussionAsOwner(ownerUserId, discussionId) {
     { $set: { activeDiscussionId: null } },
   );
 
-  return { ok: true, discussion, affectedMemberIds: memberIds };
+  return { ok: true, discussion, affectedMemberIds: memberIds, discussionTitle: discussion.title };
 }
 
 async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
   const [discussion, memberUser] = await Promise.all([
     Discussion.findById(discussionId),
-    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang").lean(),
+    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang profileName firstName").lean(),
   ]);
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
@@ -397,6 +412,7 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
   const wasActive = String(memberUser?.activeDiscussionId || "") === String(discussion._id);
 
   discussion.memberUserIds = discussion.memberUserIds.filter((id) => id !== memberUserId);
+  discussion.removedUserIds = [...new Set([...discussion.removedUserIds, memberUserId])];
   discussion.updatedAt = new Date();
   await discussion.save();
 
@@ -410,6 +426,9 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
     { $set: { activeDiscussionId: null } },
   );
 
+  const removedMemberName = String(memberUser?.profileName || memberUser?.firstName || "کاربر").trim();
+  const otherMemberIds = discussion.memberUserIds.filter((id) => id !== memberUserId && id !== ownerUserId);
+  
   return {
     ok: true,
     discussionId: discussion._id,
@@ -417,7 +436,21 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
     memberUserId,
     memberLang: memberUser?.lang || "fa",
     wasActive,
+    removedMemberName,
+    otherMemberIds,
   };
+}
+
+async function getActiveMembersInDiscussion(discussionId, excludeUserIds = []) {
+  const exclude = Array.isArray(excludeUserIds) ? excludeUserIds : [excludeUserIds];
+  const members = await User.find({
+    activeDiscussionId: discussionId,
+    userId: { $nin: exclude },
+  })
+    .select("userId lang")
+    .lean();
+  
+  return members;
 }
 
 async function reportDiscussionMember(reporterUserId, discussionId, targetUserId) {
@@ -498,7 +531,10 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
     ok: true,
     discussion,
     recentMessages: nextMessages,
-    recipients: discussion.memberUserIds.filter((id) => id !== senderUserId),
+    recipients: (await User.find({
+      userId: { $in: discussion.memberUserIds.filter((id) => id !== senderUserId) },
+      activeDiscussionId: discussion._id,
+    }).select("userId").lean()).map((entry) => entry.userId),
   };
 }
 
@@ -571,4 +607,5 @@ module.exports = {
   addRecentMessage,
   addSavedProfileCode,
   removeSavedProfileCode,
+  getActiveMembersInDiscussion,
 };

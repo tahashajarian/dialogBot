@@ -64,7 +64,7 @@ test("discussion list text includes title, description, count, and rule", () => 
   assert.match(text, /👥 2\/20/);
   assert.match(text, /🔐 Join condition:/);
   assert.match(text, /🏷 Music -[\s\S]*🔒/);
-  assert.match(text, /Join 👉 \/d_AB12/);
+  assert.match(text, /Join 👈 \/d_AB12/);
 });
 
 test("discussion list text separates multiple discussions with dividers", () => {
