@@ -52,11 +52,16 @@ Use this map before changing code. It explains where behavior belongs so future 
 ## AI Lists And Suggestions
 
 - `docs/ai-lists-and-suggestions.md`: source of truth for AI list behavior.
+- `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
+- `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
+- `src/flows/ai-cards.js`: remembered AI list/section card IDs and stale-card cleanup helpers shared by AI text/callback flows.
 - `src/services/users.js`: centralized AI list storage helpers and taste label inference.
 - `src/services/ai.js`: AI requests, predefined taste feedback, recommendation parsing.
+- `src/services/ai-list-ui.js`: AI list/taste/suggestion text rendering helpers.
 - `src/services/ai-response-cache.js`: reusable AI response cache.
 - `src/services/ai-section.js`: section labels, taste labels, state-to-section helpers.
 - `src/services/ai-list-duplicates.js`: duplicate matching.
+- `src/constants/ai.js`: AI list and suggestion limits.
 
 ## UI And Copy
 
@@ -76,6 +81,9 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion rendering text: `src/services/discussion-ui.js` or `src/services/discussion-room-ui.js`.
 - New profile rendering rule: `src/services/profile.js`.
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.
+- New AI text state or section bottom-button behavior: `src/flows/ai-text.js`.
+- New AI callback action: `src/flows/ai-callbacks.js`.
+- New AI rendering/copy helper: `src/services/ai-list-ui.js`.
 - New AI list mutation or taste helper: `src/services/users.js`.
 
 ## Validation Shortcuts

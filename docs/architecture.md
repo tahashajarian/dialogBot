@@ -15,6 +15,9 @@ Keep the router files thin:
 
 - `src/bot.js` dispatches text messages.
 - `src/callbacks.js` dispatches callback queries.
+- `src/flows/ai-text.js` owns AI text states for section chat, list management, comments, and suggestion-context prompts.
+- `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
+- `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
@@ -44,6 +47,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/discussion-ui.js` for discussion error/preview copy shaping.
 - `src/services/discussion-room-ui.js` for room header/recent/member line rendering.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
+- `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
 
 When adding new discussion/profile UI flows, prefer extending these helpers instead of growing inline formatting logic inside callbacks.
 
