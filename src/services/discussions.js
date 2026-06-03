@@ -5,7 +5,6 @@ const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
-const USER_DISCUSSION_MEMBERSHIP_CAP = 10;
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const SAVED_PROFILE_CAP = 50;
 const DISCUSSION_CREATE_DAILY_LIMIT = 3;
@@ -217,9 +216,6 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
   }
 
   const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
-  if (memberships.length >= USER_DISCUSSION_MEMBERSHIP_CAP) {
-    return { ok: false, reason: "membership_limit" };
-  }
 
   if (!skipCreateQuota) {
     const quota = await checkDiscussionCreateQuota(creatorUserId);
@@ -267,11 +263,48 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   if (!user) return { ok: false, reason: "missing_user" };
 
   const ids = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
-  const discussions = await Discussion.find({ _id: { $in: ids }, status: "open" })
+  const discussions = await Discussion.find({
+    status: "open",
+    $or: [
+      { creatorUserId: userId },
+      { _id: { $in: ids } },
+      { memberUserIds: userId },
+    ],
+  })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
 
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
+}
+
+async function leaveCurrentDiscussionForJoin(user, nextDiscussionId) {
+  const currentDiscussionId = user?.activeDiscussionId;
+  if (!currentDiscussionId || String(currentDiscussionId) === String(nextDiscussionId)) {
+    return null;
+  }
+
+  const currentDiscussion = await Discussion.findById(currentDiscussionId);
+  if (!currentDiscussion || !currentDiscussion.memberUserIds.includes(user.userId)) {
+    return null;
+  }
+
+  currentDiscussion.memberUserIds = currentDiscussion.memberUserIds.filter((id) => id !== user.userId);
+  currentDiscussion.updatedAt = new Date();
+  await currentDiscussion.save();
+
+  await User.findOneAndUpdate(
+    { userId: user.userId },
+    {
+      $pull: { discussionMembershipIds: currentDiscussion._id },
+      $set: { activeDiscussionId: null },
+    },
+  );
+
+  return {
+    discussionId: currentDiscussion._id,
+    discussionTitle: currentDiscussion.title,
+    leaverName: String(user.profileName || user.firstName || "کاربر").trim(),
+  };
 }
 
 async function joinOrSwitchActiveDiscussion(userId, discussionId) {
@@ -285,26 +318,25 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
 
   const isMember = discussion.memberUserIds.includes(userId);
-  const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
+  const isOwner = Number(discussion.creatorUserId) === Number(userId);
+  const leftPrevious = await leaveCurrentDiscussionForJoin(user, discussion._id);
 
   if (!isMember) {
-    // Check if user was previously removed
-    const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
-    if (wasRemoved) {
-      return { ok: false, reason: "removed_by_owner" };
-    }
-    
-    const maxMembers = normalizeMaxMembers(discussion.maxMembers);
-    if (discussion.memberUserIds.length >= maxMembers) {
-      return { ok: false, reason: "discussion_full", cap: maxMembers };
-    }
+    if (!isOwner) {
+      // Check if user was previously removed
+      const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
+      if (wasRemoved) {
+        return { ok: false, reason: "removed_by_owner" };
+      }
 
-    if (memberships.length >= USER_DISCUSSION_MEMBERSHIP_CAP) {
-      return { ok: false, reason: "membership_limit", cap: USER_DISCUSSION_MEMBERSHIP_CAP };
-    }
+      const maxMembers = normalizeMaxMembers(discussion.maxMembers);
+      if (discussion.memberUserIds.length >= maxMembers) {
+        return { ok: false, reason: "discussion_full", cap: maxMembers };
+      }
 
-    const eligibility = await validateJoinRules({ user, joinRule: discussion.joinRule });
-    if (!eligibility.ok) return eligibility;
+      const eligibility = await validateJoinRules({ user, joinRule: discussion.joinRule });
+      if (!eligibility.ok) return eligibility;
+    }
 
     discussion.memberUserIds.push(userId);
     discussion.updatedAt = new Date();
@@ -321,7 +353,7 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
     const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
     const otherMemberIds = discussion.memberUserIds.filter((id) => id !== userId);
     
-    return { ok: true, discussion, joined: true, switched: true, joinerName, otherMemberIds };
+    return { ok: true, discussion, joined: true, switched: true, joinerName, otherMemberIds, leftPrevious };
   }
 
   await User.findOneAndUpdate(
@@ -329,7 +361,7 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
     { $set: { activeDiscussionId: discussion._id } },
   );
 
-  return { ok: true, discussion, joined: false, switched: true };
+  return { ok: true, discussion, joined: false, switched: true, leftPrevious };
 }
 
 async function getActiveDiscussionInviteForUser(userId, discussionId) {
@@ -357,10 +389,6 @@ async function leaveDiscussionAsMember(userId, discussionId) {
 
   if (!user) return { ok: false, reason: "missing_user" };
   if (!discussion) return { ok: false, reason: "missing_discussion" };
-
-  if (discussion.creatorUserId === userId && discussion.status === "open") {
-    return { ok: false, reason: "owner_cannot_leave_open" };
-  }
 
   const wasMember = discussion.memberUserIds.includes(userId);
   if (!wasMember) return { ok: false, reason: "not_member" };
@@ -471,13 +499,16 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
 
 async function getActiveMembersInDiscussion(discussionId, excludeUserIds = []) {
   const exclude = Array.isArray(excludeUserIds) ? excludeUserIds : [excludeUserIds];
+  const discussion = await Discussion.findById(discussionId).select("memberUserIds").lean();
+  if (!discussion) return [];
+  const excluded = new Set(exclude.map((id) => Number(id)));
+
   const members = await User.find({
-    activeDiscussionId: discussionId,
-    userId: { $nin: exclude },
+    userId: { $in: (discussion.memberUserIds || []).filter((id) => !excluded.has(Number(id))) },
   })
     .select("userId lang")
     .lean();
-  
+
   return members;
 }
 
@@ -561,7 +592,6 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
     recentMessages: nextMessages,
     recipients: (await User.find({
       userId: { $in: discussion.memberUserIds.filter((id) => id !== senderUserId) },
-      activeDiscussionId: discussion._id,
     }).select("userId").lean()).map((entry) => entry.userId),
   };
 }
@@ -638,7 +668,6 @@ async function notifyActiveMembersInDiscussion(ctx, messages, discussionId, excl
 module.exports = {
   DISCUSSION_MEMBER_CAP,
   DISCUSSION_ALLOWED_MEMBER_CAPS,
-  USER_DISCUSSION_MEMBERSHIP_CAP,
   DISCUSSION_RECENT_MESSAGES_CAP,
   SAVED_PROFILE_CAP,
   DISCUSSION_CREATE_DAILY_LIMIT,

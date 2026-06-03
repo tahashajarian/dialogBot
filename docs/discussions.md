@@ -10,9 +10,9 @@ Discussions are live rooms with short memory.
 
 - A discussion has a user-created title.
 - A discussion can have an optional short description.
-- Users can be in one active discussion at a time.
-- Users can be members of multiple discussions, but only one discussion is active for sending messages.
-- Each discussion has an editable capacity from 2 to 20 active members.
+- Users can be inside one discussion at a time.
+- Discussion membership means current room presence. Leaving the room removes membership.
+- Each discussion has an editable capacity from 2 to 20 current members.
 - Messages are broadcast live to current room members.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
@@ -78,7 +78,6 @@ Member buttons:
 👥 اعضا
 📨 دعوت
 🚪 خروج از بحث
-🔙💬 منوی بحث‌ها
 ```
 
 Owner buttons:
@@ -86,21 +85,21 @@ Owner buttons:
 ```text
 👥 اعضا
 📨 دعوت
+🚪 خروج از بحث
 🔒 بستن بحث
-🔙💬 منوی بحث‌ها
 ```
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
-The owner should not see `🚪 خروج از بحث` for their own discussion. To stop participating, the owner must close the discussion for everyone. This prevents orphaned ownerless rooms.
+The owner can leave their own discussion without closing it. The discussion stays open, the owner remains `creatorUserId`, and other members can continue talking. The owner can later find the discussion in `🗂 بحث‌های من`, rejoin it, or close it.
 All current members can use `📨 دعوت` to generate a shareable invite message for the active discussion. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
 
-`🔙💬 منوی بحث‌ها` removes the active room bottom keyboard and returns to the normal discussions menu. From there, `🗂 بحث‌های من` lets the user navigate to other discussions they own or have joined without leaving the current one.
+There is no separate room-level discussion-menu/back button. `🚪 خروج از بحث` is the explicit way to leave the room; after leaving, the bot removes the room keyboard and shows the discussions menu.
 
 Important distinction:
 
-- switching active discussion changes where new text messages go
-- leaving a discussion removes membership
-- going back to other bot sections does not remove membership
+- joining another discussion leaves the current discussion first
+- leaving a discussion removes current membership
+- if a user leaves the room view, they are no longer in that discussion
 
 ### Create Discussion
 
@@ -123,7 +122,7 @@ Limits:
 - Description: 300 characters.
 - Description is required for open discussions.
 - Description is optional for restricted discussions.
-- Max active members: editable per discussion, capped at 20.
+- Max current members: editable per discussion, capped at 20.
 - Creator must satisfy restricted join rules they create.
 
 Title prompt:
@@ -201,9 +200,9 @@ For open topics, selecting `🌍 آزاد` moves to the required description ste
 
 Room capacity is editable from the preview step:
 
-- allowed values: 2, 3, 4, 5, 10, 15, 20 active members
-- default: 20 active members
-- max: 20 active members
+- allowed values: 2, 3, 4, 5, 10, 15, 20 current members
+- default: 20 current members
+- max: 20 current members
 - creator counts as a member
 - joining another discussion removes the user from the previous discussion
 
@@ -268,13 +267,11 @@ If creator has no TopTen items for item-restricted rooms:
 When user joins:
 
 **Error handling:**
-- When a user tries to join via a button action (e.g., from discussion list) and an error occurs (removed by owner, discussion is full/at capacity, doesn't meet join rules, already at membership limit, etc.), show both a toast notification at the top of the screen AND a regular message.
+- When a user tries to join via a button action (e.g., from discussion list) and an error occurs (removed by owner, discussion is full/at capacity, doesn't meet join rules, etc.), show both a toast notification at the top of the screen AND a regular message.
 - The toast notification provides immediate feedback without scrolling, while the message is persistent for reference.
 - Toast notifications strip the 🤖 emoji prefix to keep them concise.
 
-- If they are already active in another discussion, switch active discussion to the new one.
-- Do not remove them from the old discussion unless they explicitly leave it.
-- If they already belong to the maximum number of discussions, do not allow joining until they leave one.
+- If they are already inside another discussion, leave the old discussion first.
 - If the discussion has reached its configured capacity, do not allow joining.
 - Add the user to current members.
 - Set user's active discussion id.
@@ -306,18 +303,12 @@ If discussion is full:
 🤖 ظرفیت این بحث تکمیل شده.
 ```
 
-If user has reached membership limit:
+Owner rejoin:
 
-```text
-🤖 فعلاً عضو حداکثر تعداد بحث‌ها هستی.
-
-برای ورود به بحث جدید، اول از یکی از بحث‌های قبلیت خارج شو.
-```
-
-Recommended MVP membership limit:
-
-- max joined/owned discussions per user: 10
-- this keeps navigation manageable and prevents users from quietly accumulating too many stale rooms
+- The creator can always rejoin their own open discussion.
+- The creator bypasses join-rule checks when rejoining because they already satisfied the rule at creation time.
+- The creator also bypasses capacity on rejoin so they can moderate, invite, or close the room.
+- Owner rejoin must not duplicate membership.
 
 ### Invite To Discussion
 
@@ -352,7 +343,7 @@ First-time/deep-link handling:
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
 - Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
-- If the user is a member but currently active elsewhere, the invite should switch their active discussion and use the normal switched message.
+- If the user is inside another discussion, the invite join action should leave the old discussion first and use the normal switched message.
 - Invite start commands and `/join_CODE` should be handled before section-specific states, so links work even if the user is currently inside profile edit, AI lists, saved profiles, or another bot section.
 
 Example ready-to-share copy:
@@ -386,7 +377,7 @@ For locked rooms, include the join condition:
 Rules:
 
 - Invites must not bypass taste-label or TopTen-item join rules.
-- Invites must not bypass capacity, membership limit, removed-user checks, or closed-room checks.
+- Invites must not bypass capacity, removed-user checks, or closed-room checks.
 - Invites must not reveal private member details, full member lists, raw ids, Bale ids, phone numbers, or location.
 - Invites should use the discussion public code, not the database id.
 - Invite codes should be stable public discussion codes, not per-user tokens, for MVP.
@@ -428,9 +419,8 @@ Join attempt validation order:
 4. Check whether the user was removed from the discussion.
 5. Check whether the user is already a member.
 6. Check discussion capacity.
-7. Check user membership limit.
-8. Check the discussion join rule.
-9. Join or switch active discussion.
+7. Check the discussion join rule.
+8. Join the discussion, leaving any previous discussion first.
 
 This order keeps sensitive details quiet while still giving useful recovery messages. If a room is closed or missing, do not reveal whether the user would have satisfied its join rule.
 
@@ -595,12 +585,12 @@ If owner:
 بستن 👈 /close_CODE
 ```
 
-Owners should see `بستن`, not `خروج`, for discussions they created.
+Owners should see both rejoin/open and close actions for discussions they created.
 
-Opening a discussion from this list sets it as `activeDiscussionId` and shows the room info plus last 10 messages.
+Opening a discussion from this list joins/rejoins it, sets it as `activeDiscussionId`, and shows the room info plus last 10 messages.
 
 Leaving a discussion from this list removes membership. If it was the active discussion, clear `activeDiscussionId`.
-For owner-created discussions, this list should offer close instead of leave.
+For owner-created discussions, this list should offer rejoin/open and close. Owners can close their created discussions even when they are not currently members.
 
 ### Send Message
 
@@ -612,7 +602,7 @@ When a user with an active discussion sends normal text:
 - Broadcast it to current members except sender.
 - Do not send a per-message delivery confirmation to the sender; it makes the chat noisy.
 
-If there are no other active members, still store the message silently so it appears in recent messages for future members.
+If there are no other current members, still store the message silently so it appears in recent messages for future members.
 
 Do not say "seen" or "read" unless the platform later provides reliable read receipts.
 
@@ -665,7 +655,7 @@ Rules:
 - The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `⭐ میزبان`.
-- Show a green circle `🟢` next to members who are currently active in the same discussion.
+- Do not show a separate active/presence marker. If a user is in the member list, they are currently in the discussion.
 - Member lists should be plain text command links, not inline button rows.
 - Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
 - Separate member blocks with a simple line divider when multiple members are shown.
@@ -706,7 +696,7 @@ In the owner view of `👥 اعضا`, show owner-only remove links/actions under
 Rules:
 
 - Only the owner sees remove actions.
-- Owner cannot remove themselves; they can only close the discussion.
+- Owner cannot remove themselves; they can leave or close the discussion.
 - Members do not see remove actions.
 - Every user can report another member from the member list.
 - A removed member is removed from `memberIds`, added to `removedUserIds`, and removed from their discussion memberships.
@@ -717,7 +707,7 @@ Rules:
   - A toast notification at the top: `میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
   - A regular message: `🤖 میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
 - If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
-- If the removed member is not currently active in this discussion, remove membership quietly without notifying them.
+- If the removed member is not currently in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
 
 Remove confirmation for owner:
@@ -768,16 +758,9 @@ Response:
 
 After this response, remove the room bottom keyboard and show the discussions menu.
 
-Owners cannot leave their own active/open discussion. They can only close it.
+Owners can leave their own active/open discussion. This removes them from current members and clears their `activeDiscussionId`, but does not close the discussion or change `creatorUserId`.
 
-If the owner presses a leave-style action on their own discussion:
-
-```text
-🤖 چون این بحث رو تو ساختی، نمی‌تونی فقط ازش خارج بشی.
-برای پایان دادن به بحث، از «بستن بحث» استفاده کن.
-```
-
-Joining another discussion switches the active discussion but does not leave the old one. Leaving is explicit through `🚪 خروج از بحث` or the `خروج` action in `🗂 بحث‌های من` for non-owner memberships.
+Joining another discussion leaves the old one first.
 
 ### Close Discussion
 
@@ -789,7 +772,7 @@ Closing behavior:
 - Notify all current members except the owner.
 - Remove the discussion from active listings.
 - Remove the discussion from all member discussion memberships.
-- Clear `activeDiscussionId` for any user currently active in that discussion.
+- Clear `activeDiscussionId` for any current member of that discussion.
 - Do not allow new messages or joins.
 - For MVP, closed discussions are not reopened.
 
@@ -820,7 +803,7 @@ Notifications should be useful but quiet.
 ## Join/Leave/Remove/Close Notifications
 
 **Who gets notified:**
-- Only members who are currently active in that specific discussion (`activeDiscussionId` matches the discussion)
+- Only current members of that specific discussion
 - The person performing the action (joiner/leaver/owner) does NOT receive the notification
 - Members in other menus or other discussions do NOT receive notifications
 
@@ -842,13 +825,13 @@ Notifications should be useful but quiet.
 🤖 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
-**Remove notification (to other active members):**
+**Remove notification (to other current members):**
 
 ```text
 🤖 «سارا» از بحث توسط میزبان حذف شد.
 ```
 
-**Close notification (to active members):**
+**Close notification (to current members):**
 
 ```text
 🤖 بحث توسط میزبان بسته شد.
@@ -985,12 +968,11 @@ Stored inside `recentMessages`, capped at 10:
 MVP should include basic limits:
 
 - Max 3 discussions created per user per day.
-- Max 10 discussion memberships per user.
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
 - Max message length: 500.
-- Max active members per discussion: 20.
+- Max current members per discussion: 20.
 
 For local testing, usernames listed in `ALLOWED_USERNAMES` may bypass the daily discussion creation limit. This should remain a test/admin allowance, not normal user behavior.
 
@@ -1002,7 +984,7 @@ MVP minimum:
 - Closing is owner-only and should be available from the owner's active-discussion bottom button.
 - If a non-owner somehow triggers a close action, reject it safely with a short permission message.
 - Closed discussions cannot receive new messages.
-- Owner cannot leave their own open discussion; they must close it.
+- Owner can leave their own open discussion without closing it.
 - Closing removes the discussion from active listings and member memberships.
 - Closing should notify current members that the discussion was closed.
 - Text only.

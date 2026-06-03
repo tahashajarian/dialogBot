@@ -111,6 +111,11 @@ function createAppContext(ctx, user) {
     const text = String(error?.message || "").toLowerCase();
     return code === 500 || text.includes("internal server error") || text.includes("timed out");
   };
+  const isTransientEditError = (error) => {
+    const code = getErrorCode(error);
+    const text = String(getErrorDescription(error) || getErrorText(error) || "").toLowerCase();
+    return code === 500 || text.includes("internal server error") || text.includes("timed out");
+  };
 
   return {
     user,
@@ -183,7 +188,7 @@ function createAppContext(ctx, user) {
           PIN_OPERATION_TIMEOUT_MS,
         );
       } catch (error) {
-        if (isMessageNotFoundError(error)) {
+        if (isMessageNotFoundError(error) || isTransientEditError(error)) {
           return false;
         }
         console.warn("Failed to edit bot message:", {

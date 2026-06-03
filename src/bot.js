@@ -40,6 +40,9 @@ const {
   removeSavedProfileCode,
 } = require("./services/discussions");
 const {
+  leaveDiscussionAndNotify,
+} = require("./services/discussion-actions");
+const {
   isDiscussionBottomControlText,
   handleDiscussionBottomButton,
   clearDiscussionMenuNotice,
@@ -108,6 +111,25 @@ async function clearBottomKeyboardQuietly(ctx) {
   if (messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(messageId);
   }
+}
+
+async function leaveActiveDiscussionForNavigation(ctx) {
+  const discussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!discussionId) return null;
+  const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId });
+  if (!left.ok) {
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+  }
+  if (ctx.user) ctx.user.activeDiscussionId = null;
+  return left;
+}
+
+async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
+  const left = await leaveActiveDiscussionForNavigation(ctx);
+  if (left) {
+    await clearBottomKeyboardQuietly(ctx);
+  }
+  return left;
 }
 
 function parseDiscussionCloseConfirmState(state = "") {
@@ -234,6 +256,7 @@ async function handleUpdate(ctx) {
       : messages[lang].welcome;
 
     await updateUserState(ctx.userId, "idle");
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await ctx.reply(welcomeMessage);
 
     if (!userLang) {
@@ -461,11 +484,13 @@ async function handleUpdate(ctx) {
 
   if (text === "/lang") {
     await clearDiscussionMenuNotice(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
   }
 
   if (text === "/menu") {
     await clearDiscussionMenuNotice(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     if (!userLang) {
       return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
     }
@@ -475,6 +500,7 @@ async function handleUpdate(ctx) {
 
   if (text === "/profile") {
     await clearDiscussionMenuNotice(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
   }
 

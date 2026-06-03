@@ -10,7 +10,6 @@ const {
   normalizeMaxMembers,
   DISCUSSION_MEMBER_CAP,
   DISCUSSION_ALLOWED_MEMBER_CAPS,
-  USER_DISCUSSION_MEMBERSHIP_CAP,
   DISCUSSION_RECENT_MESSAGES_CAP,
 } = require("../src/services/discussions");
 const Discussion = require("../src/models/discussion");
@@ -18,7 +17,6 @@ const Discussion = require("../src/models/discussion");
 test("discussion caps match MVP defaults", () => {
   assert.equal(DISCUSSION_MEMBER_CAP, 20);
   assert.deepEqual(DISCUSSION_ALLOWED_MEMBER_CAPS, [2, 3, 4, 5, 10, 15, 20]);
-  assert.equal(USER_DISCUSSION_MEMBERSHIP_CAP, 10);
   assert.equal(DISCUSSION_RECENT_MESSAGES_CAP, 10);
 });
 

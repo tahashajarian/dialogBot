@@ -255,11 +255,11 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const opened = await joinOrSwitchActiveDiscussion(ctx.userId, activeDiscussionId);
     if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
+      .select("userId profileName firstName publicProfileCode")
       .lean();
     await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
     const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
+      .select("userId profileName firstName publicProfileCode")
       .lean();
     const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     return ctx.reply(`${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`);
@@ -299,12 +299,19 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
   }
 
   if (isDiscussionReturnToMenuText(text)) {
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-    const notice = await ctx.reply(messages[lang].discussionReturnedToMenu, {
-      reply_markup: { remove_keyboard: true, selective: false },
-    });
-    await rememberDiscussionMenuNotice(ctx, notice);
-    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    if (!activeDiscussionId) {
+      const notice = await ctx.reply(messages[lang].discussionReturnedToMenu, {
+        reply_markup: { remove_keyboard: true, selective: false },
+      });
+      await rememberDiscussionMenuNotice(ctx, notice);
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+
+    const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId: activeDiscussionId });
+    const textToShow = left.ok
+      ? formatDiscussionLeftMessage(lang, left?.discussionTitle || "")
+      : messages[lang].discussionReturnedToMenu;
+    return replyWithDiscussionMenu(ctx, lang, textToShow, { removeKeyboard: true });
   }
 
   if (isDiscussionLeaveText(text)) {
@@ -312,7 +319,6 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
 
     const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId: activeDiscussionId });
     if (!left.ok) {
-      if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
       return ctx.reply(messages[lang].discussionNotMember);
     }
     return replyWithDiscussionMenu(
@@ -450,7 +456,6 @@ async function leaveDiscussionCommand(ctx, lang, code) {
 
   const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
   if (!left.ok) {
-    if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
     return ctx.reply(getDiscussionErrorMessage(messages, lang, left.reason));
   }
   await clearRememberedDiscussionListMessage(ctx);

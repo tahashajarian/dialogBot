@@ -19,7 +19,6 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "discussion_closed") return messages[lang].discussionErrClosed;
   if (reason === "discussion_full") return messages[lang].discussionErrFull;
   if (reason === "removed_by_owner") return messages[lang].discussionErrRemovedByOwner;
-  if (reason === "membership_limit") return messages[lang].discussionErrMembershipLimit;
   if (reason === "requires_top_ten_completed") return messages[lang].discussionErrNeedTopTen;
   if (reason === "requires_taste_label") return messages[lang].discussionErrNeedTaste;
   if (reason === "requires_top_ten_item") return messages[lang].discussionErrNeedItem;
@@ -61,14 +60,17 @@ function getJoinRulePreviewText(messages, lang, joinRule = {}) {
 async function decorateDiscussionsForList(user, discussions = [], includeMemberActions = false) {
   await ensurePublicDiscussionCodes(discussions);
   return Promise.all((discussions || []).map(async (discussion) => {
-    const joinCheck = await validateJoinRules({ user, joinRule: discussion.joinRule });
+    const isOwner = Number(discussion.creatorUserId) === Number(user?.userId);
+    const joinCheck = isOwner
+      ? { ok: true }
+      : await validateJoinRules({ user, joinRule: discussion.joinRule });
     const isRemovedByOwner = Array.isArray(discussion.removedUserIds) 
       && discussion.removedUserIds.includes(Number(user?.userId));
     
-    // User can join if they meet join rules AND haven't been removed by owner
-    discussion.isJoinable = Boolean(joinCheck?.ok) && !isRemovedByOwner;
+    // Owners can always rejoin their own open rooms; other users must satisfy rules and removal checks.
+    discussion.isJoinable = isOwner || (Boolean(joinCheck?.ok) && !isRemovedByOwner);
     discussion.listAction = includeMemberActions
-      ? (Number(discussion.creatorUserId) === Number(user?.userId) ? "close" : "leave")
+      ? (isOwner ? "close" : "leave")
       : "";
     return discussion;
   }));

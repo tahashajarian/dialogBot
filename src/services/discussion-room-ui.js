@@ -49,9 +49,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
     const isCurrentUser = Number(entry.userId) === Number(currentUserId);
     const isOwner = Number(entry.userId) === Number(creatorUserId);
     const currentUserIsOwner = Number(currentUserId) === Number(creatorUserId);
-    const isActiveInThisDiscussion = discussionId && String(entry.activeDiscussionId || "") === String(discussionId);
     const name = isCurrentUser ? (lang === "fa" ? "تو" : "You") : (entry.profileName || entry.firstName || "کاربر");
-    const presenceDot = isActiveInThisDiscussion ? " 🟢" : "";
     const owner = isOwner ? ` — ${messages[lang].discussionOwnerMark}` : "";
     const code = entry.publicProfileCode || "";
     const codeSuffix = code.replace(/^u_/i, "");
@@ -70,7 +68,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 
     const actionText = actions.length ? `\n${actions.join("\n")}` : "";
     const divider = index < members.length - 1 ? `\n${DISCUSSION_MEMBER_DIVIDER}` : "";
-    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}${presenceDot}`)}${actionText}${divider}`;
+    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}`)}${actionText}${divider}`;
   });
 }
 

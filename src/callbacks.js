@@ -233,6 +233,16 @@ async function editCallbackMessageOrReply(ctx, text, keyboard) {
   return ctx.reply(text, keyboard);
 }
 
+async function clearDiscussionCardsAfterVisibleReply(ctx, exceptMessageIds = []) {
+  try {
+    await clearDiscussionListMessage(ctx, exceptMessageIds);
+    await clearDiscussionMenuNotice(ctx, exceptMessageIds);
+    await retireCallbackMessageIfPossible(ctx);
+  } catch {
+    // Cleanup is best-effort; visible user feedback must not depend on it.
+  }
+}
+
 async function deleteCallbackMessageIfPossible(ctx) {
   if (!ctx.callbackMessageId || !ctx.deleteMessage) {
     return false;
@@ -248,6 +258,17 @@ async function removeCallbackInlineKeyboardIfPossible(ctx) {
   return ctx.editMessageReplyMarkup(ctx.callbackMessageId, { inline_keyboard: [] });
 }
 
+async function retireCallbackMessageIfPossible(ctx) {
+  if (!ctx.callbackMessageId) {
+    return false;
+  }
+  const deleted = await deleteCallbackMessageIfPossible(ctx);
+  if (deleted) {
+    return true;
+  }
+  return removeCallbackInlineKeyboardIfPossible(ctx);
+}
+
 function isProfileCallbackMessage(ctx) {
   const message = ctx.callbackMessage || {};
   return Boolean(message.caption || message.photo || message.document);
@@ -260,20 +281,38 @@ async function startProfileEdit(ctx, state, prompt, keyboard) {
 }
 
 async function sendDiscussionRoom(ctx, lang, discussion) {
-  await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
-  await deleteCallbackMessageIfPossible(ctx);
   const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   const recentMessage = await ctx.reply(
     `${formatRecentDiscussionMessages(messages, lang, discussion)}\n\n${messages[lang].discussionRoomSendHint}`,
     discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
   );
+  await clearRememberedDiscussionRoomCards(ctx, [
+    ctx.callbackMessageId,
+    getMessageId(headerMessage),
+    getMessageId(recentMessage),
+  ]);
+  await retireCallbackMessageIfPossible(ctx);
   await rememberDiscussionRoomCards(ctx, headerMessage, recentMessage);
   return recentMessage;
 }
 
-async function notifyDiscussionUsers(ctx, userIds = [], text) {
-  const targets = [...new Set((userIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
-  await Promise.all(targets.map((userId) => ctx.sendToUser?.(userId, text)));
+async function leaveActiveDiscussionForNavigation(ctx) {
+  const discussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!discussionId) return null;
+  const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId });
+  if (!left.ok) {
+    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+  }
+  if (ctx.user) ctx.user.activeDiscussionId = null;
+  return left;
+}
+
+async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
+  const left = await leaveActiveDiscussionForNavigation(ctx);
+  if (left) {
+    await removeBottomKeyboard(ctx, " ");
+  }
+  return left;
 }
 
 function formatDiscussionLeftMessage(lang, discussionTitle = "") {
@@ -333,13 +372,14 @@ async function handleCallback(ctx) {
   // menu routes
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].chooseLanguage, languageKeyboard());
@@ -347,6 +387,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await deleteCallbackMessageIfPossible(ctx);
@@ -355,6 +396,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.aiAssistant) {
     await ctx.answerCb?.(messages[lang].aiAssistant);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
       ctx,
@@ -365,6 +407,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.discussions) {
     await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
@@ -381,6 +424,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.savedProfiles) {
     await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     if (isProfileCallbackMessage(ctx)) {
       await removeCallbackInlineKeyboardIfPossible(ctx);
@@ -500,10 +544,10 @@ async function handleCallback(ctx) {
       await rememberDiscussionMenuNotice(ctx, errorNotice);
       return errorNotice;
     }
-    await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    await clearDiscussionMenuNotice(ctx);
     await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
-    return sendDiscussionRoom(ctx, lang, joined.discussion);
+    const roomMessage = await sendDiscussionRoom(ctx, lang, joined.discussion);
+    await clearDiscussionCardsAfterVisibleReply(ctx, [getMessageId(roomMessage)]);
+    return roomMessage;
   }
 
   if (data.startsWith(callBacks.discussionInviteJoin)) {
@@ -511,8 +555,8 @@ async function handleCallback(ctx) {
     const code = data.replace(callBacks.discussionInviteJoin, "");
     return joinDiscussionFromInvite(ctx, lang, code, {
       editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
-      clearListMessage: () => clearDiscussionListMessage(ctx, [ctx.callbackMessageId]),
-      clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
+      clearListMessage: () => {},
+      clearMenuNotice: () => {},
       sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
     });
   }
@@ -532,7 +576,6 @@ async function handleCallback(ctx) {
       discussionId,
     });
     if (!left.ok) {
-      if (left.reason === "owner_cannot_leave_open") return ctx.reply(messages[lang].discussionOwnerCannotLeave);
       return ctx.reply(messages[lang].discussionNotMember);
     }
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
@@ -606,11 +649,11 @@ async function handleCallback(ctx) {
       return ctx.reply(errorText);
     }
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
+      .select("userId profileName firstName publicProfileCode")
       .lean();
     await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
     const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode activeDiscussionId")
+      .select("userId profileName firstName publicProfileCode")
       .lean();
     const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     return editCallbackMessageOrReply(
@@ -893,6 +936,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileBack) {
     await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await updateUserState(ctx.userId, "idle");
     await deleteCallbackMessageIfPossible(ctx);
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));

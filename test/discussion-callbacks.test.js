@@ -175,11 +175,22 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(shouldKeepDiscussionRoomCardsForCallback(callBacks.discussionCreateRuleTopTen), true);
 });
 
-test("discussion room keyboard includes invite button", () => {
+test("discussion room keyboard includes invite and leave without menu button", () => {
   const keyboard = discussionRoomKeyboard("en", false);
   const rows = keyboard?.reply_markup?.keyboard || [];
   const labels = rows.flat().map((button) => button.text);
   assert.ok(labels.includes(messages.en.discussionInvite));
+  assert.ok(labels.includes(messages.en.discussionLeave));
+  assert.equal(labels.includes(messages.en.discussionReturnToMenu), false);
+  assert.equal(labels.includes(messages.en.discussionCloseButton), false);
+});
+
+test("discussion owner room keyboard includes leave and close", () => {
+  const keyboard = discussionRoomKeyboard("en", true);
+  const labels = (keyboard?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.en.discussionLeave));
+  assert.ok(labels.includes(messages.en.discussionCloseButton));
+  assert.equal(labels.includes(messages.en.discussionReturnToMenu), false);
 });
 
 test("discussion invite preview keyboard joins by public code", () => {

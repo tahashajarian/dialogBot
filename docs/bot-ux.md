@@ -51,7 +51,7 @@
 - For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.
 - Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.
 - Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
-- Temporary keyboard-cleanup messages, such as returning from an active discussion to the discussion menu, should be removed when the user leaves the discussion menu.
+- Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Profile privacy/discussion-visibility status rows are self-only. Other users viewing a profile should not see those settings.
 - Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 - Discussion invites should be one ready-to-share bot message/card. The invite must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.

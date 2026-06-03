@@ -654,12 +654,14 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       { text: messages[lang].discussionMembersTitle },
       { text: messages[lang].discussionInvite },
     ],
-    [
-      { text: isOwner ? messages[lang].discussionCloseButton : messages[lang].discussionLeave },
-    ],
-    [
-      { text: messages[lang].discussionReturnToMenu },
-    ],
+    isOwner
+      ? [
+        { text: messages[lang].discussionLeave },
+        { text: messages[lang].discussionCloseButton },
+      ]
+      : [
+        { text: messages[lang].discussionLeave },
+      ],
   ];
 
   return {
