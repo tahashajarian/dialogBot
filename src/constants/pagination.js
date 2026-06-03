@@ -1,8 +1,7 @@
 const PAGINATION = {
   discussionListPageSize: 5,
   savedProfilesPageSize: 5,
-  discussionListDivider: "────────",
-  savedProfilesListDivider: "────────",
+  listDivider: "────────────────────",
 };
 
 module.exports = {

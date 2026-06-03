@@ -433,9 +433,14 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsAc
     [
       { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
     ],
-    [
-      { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
-    ],
+    hasPhoto
+      ? [
+        { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
+        { text: messages[lang].profileResetPhoto, callback_data: callBacks.profileResetPhoto },
+      ]
+      : [
+        { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
+      ],
     [
       { text: messages[lang].profileEditCity, callback_data: callBacks.profileEditCity },
       { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
@@ -467,12 +472,6 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsAc
       },
     ],
   ];
-
-  if (hasPhoto) {
-    rows.push([
-      { text: messages[lang].profileResetPhoto, callback_data: callBacks.profileResetPhoto },
-    ]);
-  }
 
   rows.push([
     { text: messages[lang].cancel, callback_data: callBacks.profileBack },

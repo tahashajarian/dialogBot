@@ -7,7 +7,7 @@ const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
-const DISCUSSION_LIST_DIVIDER = PAGINATION.discussionListDivider;
+const DISCUSSION_LIST_DIVIDER = PAGINATION.listDivider;
 const DEFAULT_DISCUSSION_CAPACITY = 20;
 const RTL_MARK = "\u200F";
 const LTR_MARK = "\u200E";

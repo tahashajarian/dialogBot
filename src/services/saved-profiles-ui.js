@@ -41,7 +41,7 @@ function formatListIndex(lang, value) {
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const SAVED_PROFILES_PAGE_SIZE = PAGINATION.savedProfilesPageSize;
-const SAVED_PROFILES_DIVIDER = PAGINATION.savedProfilesListDivider;
+const SAVED_PROFILES_DIVIDER = PAGINATION.listDivider;
 
 function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
   const uniqueCodes = [...new Set((codes || []).map((entry) => normalizeCode(entry)).filter(Boolean))];

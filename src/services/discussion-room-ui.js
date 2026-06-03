@@ -1,3 +1,5 @@
+const { PAGINATION } = require("../constants/pagination");
+
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -42,7 +44,7 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 
-const DISCUSSION_MEMBER_DIVIDER = "────────";
+const DISCUSSION_MEMBER_DIVIDER = PAGINATION.listDivider;
 
 function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, discussionId = null) {
   return members.map((entry, index) => {
