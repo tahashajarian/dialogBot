@@ -69,6 +69,10 @@ const {
   clearRememberedAiListMessage,
 } = require("./flows/ai-cards");
 const {
+  clearProfileEditPrompt,
+  sendProfileEditPrompt,
+} = require("./flows/profile-edit");
+const {
   isCodeSaved,
   buildSavedProfileListItems,
   paginateSavedProfiles,
@@ -313,36 +317,34 @@ async function handleUpdate(ctx) {
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(" ", {
-        reply_markup: { remove_keyboard: true },
-      });
+      await clearBottomKeyboardQuietly(ctx);
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     if (state === "editing_location") {
-      await ctx.reply(" ", {
-        reply_markup: { remove_keyboard: true },
-      });
+      await clearBottomKeyboardQuietly(ctx);
     }
     return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_name" && text) {
     if (text.startsWith("/")) {
-      return ctx.reply(messages[lang].profileEditHintName, cancelEditKeyboard(lang));
+      return sendProfileEditPrompt(ctx, messages[lang].profileEditHintName, cancelEditKeyboard(lang));
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.profileName)) {
-      return ctx.reply(
+      return sendProfileEditPrompt(
+        ctx,
         `${messages[lang].profileNameTooLong}\n${messages[lang].profileEditHintName}`,
-        cancelEditKeyboard(lang)
+        cancelEditKeyboard(lang),
       );
     }
 
     await updateProfileField(ctx.userId, "profileName", text);
     await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.profileName = text;
     updatedUser.state = "idle";
@@ -351,18 +353,20 @@ async function handleUpdate(ctx) {
 
   if (state === "editing_city" && text) {
     if (text.startsWith("/")) {
-      return ctx.reply(messages[lang].profileEditHintCity, cancelEditKeyboard(lang));
+      return sendProfileEditPrompt(ctx, messages[lang].profileEditHintCity, cancelEditKeyboard(lang));
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.city)) {
-      return ctx.reply(
+      return sendProfileEditPrompt(
+        ctx,
         `${messages[lang].profileCityTooLong}\n${messages[lang].profileEditHintCity}`,
-        cancelEditKeyboard(lang)
+        cancelEditKeyboard(lang),
       );
     }
 
     await updateProfileField(ctx.userId, "city", text);
     await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.city = text;
     updatedUser.state = "idle";
@@ -373,6 +377,7 @@ async function handleUpdate(ctx) {
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     await updateProfileField(ctx.userId, "photoFileId", photo.file_id);
     await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = photo.file_id;
     updatedUser.state = "idle";
@@ -382,6 +387,7 @@ async function handleUpdate(ctx) {
   if (state === "editing_photo" && ctx.message?.document?.file_id) {
     await updateProfileField(ctx.userId, "photoFileId", ctx.message.document.file_id);
     await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = ctx.message.document.file_id;
     updatedUser.state = "idle";
@@ -400,6 +406,7 @@ async function handleUpdate(ctx) {
     await ctx.reply(messages[lang].profileUpdated, {
       reply_markup: { remove_keyboard: true },
     });
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.location = location;
     updatedUser.state = "idle";
@@ -407,7 +414,7 @@ async function handleUpdate(ctx) {
   }
 
   if (state === "editing_photo") {
-    return ctx.reply(messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
+    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintPhoto, cancelEditKeyboard(lang));
   }
 
   if (isDiscussionCreateTextState(state)) {
@@ -437,45 +444,46 @@ async function handleUpdate(ctx) {
   }
 
   if (state === "editing_age") {
-    return ctx.reply(messages[lang].profileEditHintAge, ageKeyboard(lang));
+    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintAge, ageKeyboard(lang));
   }
 
   if (state === "editing_gender") {
-    return ctx.reply(messages[lang].profileEditHintGender, genderKeyboard(lang));
+    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintGender, genderKeyboard(lang));
   }
 
   if (state === "editing_pet_preference") {
-    return ctx.reply(messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
+    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
   }
 
   if (state === "editing_location") {
     if (text === messages[lang].cancelEdit) {
       await updateUserState(ctx.userId, "idle");
-      await ctx.reply(" ", {
-        reply_markup: { remove_keyboard: true },
-      });
+      await clearProfileEditPrompt(ctx);
+      await clearBottomKeyboardQuietly(ctx);
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
       return sendProfile(ctx, updatedUser, lang, keyboardLang);
     }
 
-    return ctx.reply(messages[lang].profileEditHintLocation, locationKeyboard(lang));
+    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintLocation, locationKeyboard(lang));
   }
 
   if (state === "editing_bio" && text) {
     if (text.startsWith("/")) {
-      return ctx.reply(messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
+      return sendProfileEditPrompt(ctx, messages[lang].profileEditHintBio, cancelEditKeyboard(lang));
     }
 
     if (!isValidTextInput(text, FIELD_LIMITS.bio)) {
-      return ctx.reply(
+      return sendProfileEditPrompt(
+        ctx,
         `${messages[lang].profileBioTooLong}\n${messages[lang].profileEditHintBio}`,
-        cancelEditKeyboard(lang)
+        cancelEditKeyboard(lang),
       );
     }
 
     await updateProfileField(ctx.userId, "bio", text);
     await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.bio = text;
     updatedUser.state = "idle";

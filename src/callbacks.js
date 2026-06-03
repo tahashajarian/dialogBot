@@ -87,6 +87,11 @@ const {
   clearRememberedAiListMessage,
   shouldKeepAiListTitleForCallback,
 } = require("./flows/ai-cards");
+const {
+  clearProfileEditPrompt,
+  sendProfileEditPrompt,
+  startProfileEdit,
+} = require("./flows/profile-edit");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 
@@ -274,10 +279,10 @@ function isProfileCallbackMessage(ctx) {
   return Boolean(message.caption || message.photo || message.document);
 }
 
-async function startProfileEdit(ctx, state, prompt, keyboard) {
-  await deleteCallbackMessageIfPossible(ctx);
-  await updateUserState(ctx.userId, state);
-  return ctx.reply(prompt, keyboard);
+async function beginProfileEdit(ctx, state, prompt, keyboard) {
+  return startProfileEdit(ctx, state, prompt, keyboard, {
+    deleteCurrentMessage: () => retireCallbackMessageIfPossible(ctx),
+  });
 }
 
 async function sendDiscussionRoom(ctx, lang, discussion) {
@@ -760,7 +765,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileEditName) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_name", messages[lang].profileAskName, cancelEditKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_name", messages[lang].profileAskName, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileToggleDiscoverable) {
@@ -789,32 +794,32 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileEditCity) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_city", messages[lang].profileAskCity, cancelEditKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_city", messages[lang].profileAskCity, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileEditAge) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_age", messages[lang].profileAskAge, ageKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_age", messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
   if (data === callBacks.profileEditGender) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_gender", messages[lang].profileAskGender, genderKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_gender", messages[lang].profileAskGender, genderKeyboard(lang));
   }
 
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang));
   }
 
   if (data === callBacks.profileEditBio) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_bio", messages[lang].profileAskBio, cancelEditKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_bio", messages[lang].profileAskBio, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileEditLocation) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profileGenderSet)) {
@@ -831,7 +836,8 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "gender", gender);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -857,7 +863,8 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "petPreference", petPreference);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -880,12 +887,20 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    return editCallbackMessageOrReply(ctx, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
+    const edited = ctx.callbackMessageId && ctx.editMessageText
+      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge))
+      : false;
+    if (edited) return edited;
+    return sendProfileEditPrompt(ctx, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
   }
 
   if (data === callBacks.profileAgeRangeBack) {
     await ctx.answerCb?.();
-    return editCallbackMessageOrReply(ctx, messages[lang].profileAskAge, ageKeyboard(lang));
+    const edited = ctx.callbackMessageId && ctx.editMessageText
+      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageKeyboard(lang))
+      : false;
+    if (edited) return edited;
+    return sendProfileEditPrompt(ctx, messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profileAgeSet)) {
@@ -897,7 +912,8 @@ async function handleCallback(ctx) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "age", age);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -908,12 +924,13 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileEditPhoto) {
     await ctx.answerCb?.();
-    return startProfileEdit(ctx, "editing_photo", messages[lang].profileAskPhoto, cancelEditKeyboard(lang));
+    return beginProfileEdit(ctx, "editing_photo", messages[lang].profileAskPhoto, cancelEditKeyboard(lang));
   }
 
   if (data === callBacks.profileResetPhoto) {
     await ctx.answerCb?.();
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "photoFileId", null);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
@@ -924,11 +941,10 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profileCancelEdit) {
     await ctx.answerCb?.();
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateUserState(ctx.userId, "idle");
-    await ctx.reply(" ", {
-      reply_markup: { remove_keyboard: true },
-    });
+    await removeBottomKeyboard(ctx, " ");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     return sendProfile(ctx, lang, updatedUser);

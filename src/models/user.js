@@ -90,6 +90,7 @@ const UserSchema = new mongoose.Schema({
     },
   },
   savedProfilesLastListMessageId: { type: Number, default: null },
+  profileEditPromptMessageId: { type: Number, default: null },
   discussionDraftTitle: { type: String, default: "" },
   discussionDraftDescription: { type: String, default: "" },
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
