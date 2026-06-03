@@ -67,7 +67,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
     }
 
     const actionText = actions.length ? `\n${actions.join("\n")}` : "";
-    const divider = index < members.length - 1 ? `\n${DISCUSSION_MEMBER_DIVIDER}` : "";
+    const divider = `\n${DISCUSSION_MEMBER_DIVIDER}`;
     return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}`)}${actionText}${divider}`;
   });
 }
