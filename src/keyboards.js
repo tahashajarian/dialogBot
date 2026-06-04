@@ -428,7 +428,7 @@ function aiListCancelCommentKeyboard(lang, section, listType) {
   ]);
 }
 
-function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsActiveDiscussion = false) {
+function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false) {
   const rows = [
     [
       { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
@@ -446,15 +446,6 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsAc
       { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
     ],
     [
-      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
-    ],
-    [
-      { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
-    ],
-    [
-      { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
-    ],
-    [
       { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
     ],
     [
@@ -465,10 +456,8 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsAc
     ],
     [
       {
-        text: showsActiveDiscussion
-          ? messages[lang].profileHideActiveDiscussion
-          : messages[lang].profileShowActiveDiscussion,
-        callback_data: callBacks.profileToggleActiveDiscussionVisible,
+        text: messages[lang].profileMoreSettings,
+        callback_data: callBacks.profileSettings,
       },
     ],
   ];
@@ -478,6 +467,31 @@ function profileKeyboard(lang, hasPhoto = false, isDiscoverable = false, showsAc
   ]);
 
   return inlineKeyboard(rows);
+}
+
+function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
+  return inlineKeyboard([
+    [
+      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
+    ],
+    [
+      { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
+    ],
+    [
+      { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
+    ],
+    [
+      {
+        text: showsActiveDiscussion
+          ? messages[lang].profileHideActiveDiscussion
+          : messages[lang].profileShowActiveDiscussion,
+        callback_data: callBacks.profileToggleActiveDiscussionVisible,
+      },
+    ],
+    [
+      { text: messages[lang].profileBackToProfile, callback_data: callBacks.profileSettingsBack },
+    ],
+  ]);
 }
 
 function cancelEditKeyboard(lang) {
@@ -883,6 +897,7 @@ module.exports = {
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
+  profileSettingsKeyboard,
   cancelEditKeyboard,
   ageKeyboard,
   ageRangeKeyboard,

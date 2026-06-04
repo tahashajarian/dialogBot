@@ -7,6 +7,7 @@ const {
   languageKeyboard,
   aiAssistantKeyboard,
   profileKeyboard,
+  profileSettingsKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
   genderKeyboard,
@@ -778,6 +779,21 @@ async function handleCallback(ctx) {
     return sendProfile(ctx, lang, updatedUser);
   }
 
+  if (data === callBacks.profileSettings) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible(ctx);
+    return ctx.reply(
+      messages[lang].profileSettingsTitle,
+      profileSettingsKeyboard(lang, Boolean(ctx.user?.showActiveDiscussionOnProfile)),
+    );
+  }
+
+  if (data === callBacks.profileSettingsBack) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible(ctx);
+    return sendProfile(ctx, lang, ctx.user || {});
+  }
+
   if (data === callBacks.profileToggleActiveDiscussionVisible) {
     const nextValue = !ctx.user?.showActiveDiscussionOnProfile;
     await ctx.answerCb?.(
@@ -785,11 +801,11 @@ async function handleCallback(ctx) {
         ? messages[lang].profileActiveDiscussionVisibleOn
         : messages[lang].profileActiveDiscussionVisibleOff,
     );
-    await deleteCallbackMessageIfPossible(ctx);
+    await retireCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.showActiveDiscussionOnProfile = nextValue;
-    return sendProfile(ctx, lang, updatedUser);
+    return ctx.reply(messages[lang].profileSettingsTitle, profileSettingsKeyboard(lang, nextValue));
   }
 
   if (data === callBacks.profileEditCity) {
@@ -1020,7 +1036,6 @@ async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
       lang,
       Boolean(user?.photoFileId),
       Boolean(user?.profileDiscoverable),
-      Boolean(user?.showActiveDiscussionOnProfile),
     ),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,

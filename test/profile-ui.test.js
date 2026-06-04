@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
-const { profileKeyboard } = require("../src/keyboards");
+const { profileKeyboard, profileSettingsKeyboard } = require("../src/keyboards");
 const { buildProfileText } = require("../src/services/profile");
 
 const user = {
@@ -48,4 +48,33 @@ test("profileKeyboard puts remove photo beside change photo", () => {
     messages.en.profileEditPhoto,
     messages.en.profileResetPhoto,
   ]);
+});
+
+test("profileKeyboard keeps lower-frequency controls in settings", () => {
+  const keyboard = profileKeyboard("en", true, true);
+  const buttons = (keyboard?.reply_markup?.inline_keyboard || []).flat();
+  const callbacks = buttons.map((button) => button.callback_data);
+
+  assert.ok(callbacks.includes("profile:settings"));
+  assert.ok(callbacks.includes("profile:toggle:discoverable"));
+  assert.ok(!callbacks.includes("profile:edit:gender"));
+  assert.ok(!callbacks.includes("profile:edit:pet:preference"));
+  assert.ok(!callbacks.includes("profile:edit:location"));
+  assert.ok(!callbacks.includes("profile:toggle:active-discussion-visible"));
+});
+
+test("profileSettingsKeyboard contains detail controls and back to profile", () => {
+  const keyboard = profileSettingsKeyboard("en", true);
+  const buttons = (keyboard?.reply_markup?.inline_keyboard || []).flat();
+  const callbacks = buttons.map((button) => button.callback_data);
+
+  assert.ok(callbacks.includes("profile:edit:gender"));
+  assert.ok(callbacks.includes("profile:edit:pet:preference"));
+  assert.ok(callbacks.includes("profile:edit:location"));
+  assert.ok(callbacks.includes("profile:toggle:active-discussion-visible"));
+  assert.ok(callbacks.includes("profile:settings:back"));
+  assert.equal(
+    buttons.find((button) => button.callback_data === "profile:toggle:active-discussion-visible").text,
+    messages.en.profileHideActiveDiscussion,
+  );
 });
