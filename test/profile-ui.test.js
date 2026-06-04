@@ -2,7 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
-const { profileKeyboard, profileSettingsKeyboard } = require("../src/keyboards");
+const {
+  profileKeyboard,
+  profileSettingsKeyboard,
+  profileActiveDiscussionHelpKeyboard,
+} = require("../src/keyboards");
 const { buildProfileText } = require("../src/services/profile");
 
 const user = {
@@ -69,9 +73,20 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
   assert.ok(callbacks.includes("profile:edit:pet:preference"));
   assert.ok(callbacks.includes("profile:edit:location"));
   assert.ok(callbacks.includes("profile:toggle:active-discussion-visible"));
+  assert.ok(callbacks.includes("profile:active-discussion:help"));
   assert.ok(callbacks.includes("profile:settings:back"));
   assert.equal(
     buttons.find((button) => button.callback_data === "profile:toggle:active-discussion-visible").text,
     messages.en.profileHideActiveDiscussion,
   );
+});
+
+test("profileActiveDiscussionHelpKeyboard returns to profile", () => {
+  const keyboard = profileActiveDiscussionHelpKeyboard("en");
+  const buttons = (keyboard?.reply_markup?.inline_keyboard || []).flat();
+
+  assert.deepEqual(buttons.map((button) => button.callback_data), [
+    "profile:active-discussion:help:done",
+  ]);
+  assert.equal(buttons[0].text, messages.en.profileActiveDiscussionHelpDone);
 });

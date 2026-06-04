@@ -8,6 +8,7 @@ const {
   aiAssistantKeyboard,
   profileKeyboard,
   profileSettingsKeyboard,
+  profileActiveDiscussionHelpKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
   genderKeyboard,
@@ -772,6 +773,21 @@ async function handleCallback(ctx) {
   }
 
   if (data === callBacks.profileSettingsBack) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible(ctx);
+    return sendProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileActiveDiscussionHelp) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible(ctx);
+    return ctx.reply(
+      messages[lang].profileActiveDiscussionHelpText,
+      profileActiveDiscussionHelpKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.profileActiveDiscussionHelpDone) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible(ctx);
     return sendProfile(ctx, lang, ctx.user || {});

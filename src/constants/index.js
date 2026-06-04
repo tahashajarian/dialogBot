@@ -48,6 +48,8 @@ module.exports = {
     profileEditPhoto: "profile:edit:photo",
     profileResetPhoto: "profile:reset:photo",
     profileToggleActiveDiscussionVisible: "profile:toggle:active-discussion-visible",
+    profileActiveDiscussionHelp: "profile:active-discussion:help",
+    profileActiveDiscussionHelpDone: "profile:active-discussion:help:done",
     profileSettings: "profile:settings",
     profileSettingsBack: "profile:settings:back",
     profileBack: "profile:back",

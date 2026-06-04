@@ -483,7 +483,24 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
       },
     ],
     [
+      {
+        text: messages[lang].profileActiveDiscussionHelpButton,
+        callback_data: callBacks.profileActiveDiscussionHelp,
+      },
+    ],
+    [
       { text: messages[lang].profileBackToProfile, callback_data: callBacks.profileSettingsBack },
+    ],
+  ]);
+}
+
+function profileActiveDiscussionHelpKeyboard(lang) {
+  return inlineKeyboard([
+    [
+      {
+        text: messages[lang].profileActiveDiscussionHelpDone,
+        callback_data: callBacks.profileActiveDiscussionHelpDone,
+      },
     ],
   ]);
 }
@@ -892,6 +909,7 @@ module.exports = {
   aiListCancelCommentKeyboard,
   profileKeyboard,
   profileSettingsKeyboard,
+  profileActiveDiscussionHelpKeyboard,
   cancelEditKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
