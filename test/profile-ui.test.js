@@ -20,9 +20,9 @@ test("buildProfileText shows active discussion visibility only for own profile",
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
   assert.match(ownText, /Show active discussion on profile/);
-  assert.doesNotMatch(ownText, /\/profile_active_discussion_help/);
+  assert.match(ownText, /What is this\? \/ad_help/);
   assert.doesNotMatch(publicText, /Show active discussion on profile/);
-  assert.doesNotMatch(publicText, /\/profile_active_discussion_help/);
+  assert.doesNotMatch(publicText, /\/ad_help/);
 });
 
 test("buildProfileText shows badge tip only on own profile", () => {
@@ -59,7 +59,7 @@ test("profileKeyboard keeps lower-frequency controls in settings", () => {
   const callbacks = buttons.map((button) => button.callback_data);
 
   assert.ok(callbacks.includes("profile:settings"));
-  assert.ok(callbacks.includes("profile:active-discussion:help"));
+  assert.ok(!callbacks.includes("profile:active-discussion:help"));
   assert.ok(!callbacks.includes("profile:toggle:discoverable"));
   assert.ok(!callbacks.includes("profile:edit:gender"));
   assert.ok(!callbacks.includes("profile:edit:pet:preference"));
