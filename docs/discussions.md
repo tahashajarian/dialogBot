@@ -258,8 +258,11 @@ If creator has no TopTen items for item-restricted rooms:
 When user joins:
 
 **Error handling:**
-- When a user tries to join via a button action (e.g., from discussion list) and an error occurs (removed by owner, discussion is full/at capacity, doesn't meet join rules, etc.), show both a toast notification at the top of the screen AND a regular message.
-- The toast notification provides immediate feedback without scrolling, while the message is persistent for reference.
+- When a user tries to join from the discussion list and fails (removed by owner, discussion full, doesn't meet join rules, etc.):
+  1. Show the error message with a "Got it" / "فهمیدم" button
+  2. Wait for the user to press the button
+  3. Delete the error message and show the discussion list again
+- When joining via invite link or other flows, show both a toast notification and a regular message for immediate feedback.
 - Toast notifications strip the 🤖 emoji prefix to keep them concise.
 
 - If they are already inside another discussion, leave the old discussion first.

@@ -7,6 +7,7 @@ const {
   discussionRoomKeyboard,
   discussionInvitePreviewKeyboard,
   discussionCreateCancelKeyboard,
+  discussionJoinErrorAckKeyboard,
 } = require("../keyboards");
 const User = require("../models/user");
 const {
@@ -241,9 +242,12 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
 
 async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason) {
   await clearRememberedDiscussionListMessage(ctx);
-  const errorNotice = await ctx.reply(getDiscussionErrorMessage(messages, lang, reason));
+  const listType = ctx.user?.discussionLastListType || "active";
+  const errorNotice = await ctx.reply(
+    getDiscussionErrorMessage(messages, lang, reason),
+    discussionJoinErrorAckKeyboard(lang, listType)
+  );
   await rememberDiscussionMenuNotice(ctx, errorNotice);
-  return sendRememberedDiscussionList(ctx, lang, ctx.user?.discussionLastListType || "active");
 }
 
 async function handleDiscussionBottomButton(ctx, lang, text) {

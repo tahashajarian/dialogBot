@@ -700,6 +700,16 @@ function discussionInvitePreviewKeyboard(lang, publicDiscussionCode) {
   ]);
 }
 
+function discussionJoinErrorAckKeyboard(lang, listType = "active") {
+  const normalizedListType = listType === "mine" ? "mine" : "active";
+  return inlineKeyboard([
+    [{
+      text: messages[lang].acknowledgeButton,
+      callback_data: `${callBacks.discussionJoinErrorAck}${normalizedListType}`,
+    }],
+  ]);
+}
+
 function discussionCreateDescriptionKeyboard(lang, {
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
@@ -915,6 +925,7 @@ module.exports = {
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
   discussionInvitePreviewKeyboard,
+  discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,

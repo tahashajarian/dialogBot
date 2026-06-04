@@ -19,6 +19,7 @@ const {
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
   discussionRemoveMembersKeyboard,
+  discussionJoinErrorAckKeyboard,
   profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("./keyboards");
@@ -159,6 +160,15 @@ function discussionCloseConfirmKeyboard(lang, discussionId) {
     [{ text: messages[lang].discussionCloseConfirmYes, callback_data: `${callBacks.discussionCloseConfirm}${discussionId}` }],
     [{ text: messages[lang].discussionCloseConfirmNo, callback_data: `${callBacks.discussionCloseCancel}${discussionId}` }],
   ]);
+}
+
+async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active") {
+  const errorText = getDiscussionErrorMessage(messages, lang, reason);
+  await retireCallbackMessageIfPossible(ctx);
+  await clearDiscussionListMessage(ctx);
+  const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, listType));
+  await rememberDiscussionMenuNotice(ctx, errorNotice);
+  return errorNotice;
 }
 
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false) {
@@ -519,6 +529,17 @@ async function handleCallback(ctx) {
     return renderMyDiscussionList(ctx, lang, Number(pageRaw));
   }
 
+  if (data.startsWith(callBacks.discussionJoinErrorAck)) {
+    await ctx.answerCb?.();
+    const listType = data.replace(callBacks.discussionJoinErrorAck, "") === "mine" ? "mine" : "active";
+    await deleteCallbackMessageIfPossible(ctx);
+    await clearDiscussionMenuNotice(ctx);
+    if (listType === "mine") {
+      return renderMyDiscussionList(ctx, lang, 0);
+    }
+    return renderActiveDiscussionList(ctx, lang, 0, false);
+  }
+
   if (isDiscussionCreateCallback(data)) {
     return handleDiscussionCreateCallback(ctx, lang, {
       editCallbackMessageOrReply,
@@ -538,11 +559,8 @@ async function handleCallback(ctx) {
       discussionId,
     });
     if (!joined.ok) {
-      const errorText = getDiscussionErrorMessage(messages, lang, joined.reason);
-      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
-      const errorNotice = await ctx.reply(errorText);
-      await rememberDiscussionMenuNotice(ctx, errorNotice);
-      return errorNotice;
+      await ctx.answerCb?.();
+      return sendDiscussionJoinErrorAck(ctx, lang, joined.reason, "active");
     }
     await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
     const roomMessage = await sendDiscussionRoom(ctx, lang, joined.discussion);
