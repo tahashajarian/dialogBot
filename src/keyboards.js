@@ -454,6 +454,12 @@ function profileKeyboard(lang, hasPhoto = false) {
         callback_data: callBacks.profileSettings,
       },
     ],
+    [
+      {
+        text: messages[lang].profileActiveDiscussionHelpButton,
+        callback_data: callBacks.profileActiveDiscussionHelp,
+      },
+    ],
   ];
 
   rows.push([

@@ -16,7 +16,6 @@ const {
   discussionRoomKeyboard,
   profileViewBackKeyboard,
   savedProfilesListKeyboard,
-  profileActiveDiscussionHelpKeyboard,
 } = require("./keyboards");
 const {
   updateProfileField,
@@ -29,7 +28,6 @@ const {
   sendProfileMessage,
   isValidTextInput,
   toPlainUser,
-  ACTIVE_DISCUSSION_HELP_COMMAND,
 } = require("./services/profile");
 const {
   getAiSectionFromState,
@@ -512,15 +510,6 @@ async function handleUpdate(ctx) {
     await clearDiscussionMenuNotice(ctx);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
-  }
-
-  if (text === ACTIVE_DISCUSSION_HELP_COMMAND) {
-    await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    return ctx.reply(
-      messages[lang].profileActiveDiscussionHelpText,
-      profileActiveDiscussionHelpKeyboard(lang),
-    );
   }
 
   if (/^\/d_[a-z0-9]+$/i.test(text)) {

@@ -2,7 +2,6 @@ const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./a
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
-const ACTIVE_DISCUSSION_HELP_COMMAND = "/profile_active_discussion_help";
 
 function lineForLang(lang, text) {
   return lang === "fa" ? `${RTL_MARK}${text}` : text;
@@ -151,10 +150,8 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   ];
 
   if (isOwnProfile) {
-    const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
-      .replace("{status}", activeDiscussionStatus);
     lines.push(
-      `${activeDiscussionLine} (${messages[lang].profileActiveDiscussionHelpButton} ${ACTIVE_DISCUSSION_HELP_COMMAND})`,
+      messages[lang].profileActiveDiscussionVisibility.replace("{status}", activeDiscussionStatus),
     );
   }
 
@@ -258,7 +255,6 @@ async function sendProfileMessage({
 }
 
 module.exports = {
-  ACTIVE_DISCUSSION_HELP_COMMAND,
   buildProfileText,
   buildTasteLabelsText,
   buildLocationPayload,
