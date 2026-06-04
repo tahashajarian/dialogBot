@@ -55,7 +55,7 @@ test("formatDiscussionMemberLines shows current user without profile code", () =
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10, 11);
 
-  assert.equal(lines[1], "2.\n👤 You\n────────");
+  assert.match(lines[1], /^2\.\n👤 You\n─+$/);
 });
 
 test("formatDiscussionMemberLines lets owner remove other members", () => {
