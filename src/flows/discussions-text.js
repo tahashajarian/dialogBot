@@ -435,11 +435,11 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     if (editMessage) {
       await editMessage(text, keyboardToShow);
     } else {
-      await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
-      await ctx.reply(
-        returnToMainMenu ? messages[lang].mainMenu : messages[lang].discussionsMenu,
-        keyboardToShow,
-      );
+      const destination = returnToMainMenu ? "main" : "discussions";
+      await ctx.reply(text, {
+        reply_markup: { remove_keyboard: true },
+      });
+      await ctx.reply(text, discussionJoinErrorAckKeyboard(lang, destination));
     }
     return joined;
   }

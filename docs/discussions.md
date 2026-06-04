@@ -258,12 +258,13 @@ If creator has no TopTen items for item-restricted rooms:
 When user joins:
 
 **Error handling:**
-- When a user tries to join from the discussion list and fails (removed by owner, discussion full, doesn't meet join rules, etc.):
+- When a user tries to join and fails (from discussion list or invitation link):
   1. Show the error message with a "Got it" / "فهمیدم" button
   2. Wait for the user to press the button
-  3. Delete the error message and show the discussion list again
-- When joining via invite link or other flows, show both a toast notification and a regular message for immediate feedback.
-- Toast notifications strip the 🤖 emoji prefix to keep them concise.
+  3. Delete the error message and redirect to appropriate screen:
+     - From discussion list → show the same list type (active/mine)
+     - From invite (requirement/removed errors) → show main menu
+     - From invite (other errors) → show discussions menu
 
 - If they are already inside another discussion, leave the old discussion first.
 - If the discussion has reached its configured capacity, do not allow joining.
@@ -525,9 +526,12 @@ Implementation test checklist:
 - `/join_CODE` shows preview before joining.
 - Open invite join succeeds when room is available.
 - Restricted invite join succeeds only when user satisfies the rule.
-- Restricted invite join failure gives a specific hint and returns to main menu.
-- Closed/missing discussion invite fails cleanly.
-- Full discussion invite fails cleanly.
+- Invite join failures use two-step acknowledgment:
+  1. Show error message with "Got it" / "فهمیدم" button
+  2. After user presses button, redirect to main menu (for requirement/removed errors) or discussions menu (for other errors)
+- Restricted invite join failure gives a specific hint about what's missing and where to update it.
+- Closed/missing discussion invite shows unavailable message.
+- Full discussion invite shows capacity reached message.
 - Removed user cannot rejoin through an invite.
 - Existing member using invite switches/re-focuses active discussion without duplicate membership.
 - Old preview button revalidates current state before joining.

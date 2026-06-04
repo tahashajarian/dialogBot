@@ -718,17 +718,13 @@ async function handleAiCallback(ctx, lang, helpers) {
       await ctx.answerCb?.();
       return ctx.reply(messages[lang].unknownAction);
     }
-    if (ctx.user?.state !== `ai_suggest_context_${section}`) {
-      await ctx.answerCb?.();
-      await clearAiPendingInputPrompt(ctx);
-      return helpers.deleteCallbackMessageIfPossible(ctx);
-    }
 
     await ctx.answerCb?.(
       messages[lang].aiSectionOpeningNotification
         .replace("{section}", getAiSectionNotificationTitle(lang, section)),
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await clearAiPendingInputPrompt(ctx);
     await clearRememberedAiListMessage(ctx);
     await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
     await helpers.deleteCallbackMessageIfPossible(ctx);

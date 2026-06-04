@@ -86,6 +86,9 @@ const {
   isAiCallback,
 } = require("./flows/ai-callbacks");
 const {
+  isAiTextState,
+} = require("./flows/ai-text");
+const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   shouldKeepAiListTitleForCallback,
@@ -383,6 +386,9 @@ async function handleCallback(ctx) {
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    if (isAiTextState(ctx.user?.state)) {
+      await removeBottomKeyboard(ctx, " ");
+    }
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
@@ -398,6 +404,9 @@ async function handleCallback(ctx) {
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    if (isAiTextState(ctx.user?.state)) {
+      await removeBottomKeyboard(ctx, " ");
+    }
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await deleteCallbackMessageIfPossible(ctx);
@@ -418,6 +427,9 @@ async function handleCallback(ctx) {
   if (data === callBacks.discussions) {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    if (isAiTextState(ctx.user?.state)) {
+      await removeBottomKeyboard(ctx, " ");
+    }
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
@@ -531,10 +543,17 @@ async function handleCallback(ctx) {
 
   if (data.startsWith(callBacks.discussionJoinErrorAck)) {
     await ctx.answerCb?.();
-    const listType = data.replace(callBacks.discussionJoinErrorAck, "") === "mine" ? "mine" : "active";
+    const destination = data.replace(callBacks.discussionJoinErrorAck, "");
     await deleteCallbackMessageIfPossible(ctx);
     await clearDiscussionMenuNotice(ctx);
-    if (listType === "mine") {
+    
+    if (destination === "main") {
+      return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+    }
+    if (destination === "discussions") {
+      return editCallbackMessageOrReply(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+    if (destination === "mine") {
       return renderMyDiscussionList(ctx, lang, 0);
     }
     return renderActiveDiscussionList(ctx, lang, 0, false);

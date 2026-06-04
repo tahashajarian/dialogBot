@@ -310,9 +310,18 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(" ", {
+      const sent = await ctx.reply("⬅️", {
         reply_markup: { remove_keyboard: true },
       });
+      // Small delay to ensure keyboard removal is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (sent?.message_id && ctx.deleteMessage) {
+        try {
+          await ctx.deleteMessage(sent.message_id);
+        } catch (e) {
+          // Ignore deletion errors
+        }
+      }
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
@@ -523,9 +532,18 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await ctx.reply(messages[lang].cancelMessage, {
+      const sent = await ctx.reply("⬅️", {
         reply_markup: { remove_keyboard: true },
       });
+      // Small delay to ensure keyboard removal is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (sent?.message_id && ctx.deleteMessage) {
+        try {
+          await ctx.deleteMessage(sent.message_id);
+        } catch (e) {
+          // Ignore deletion errors
+        }
+      }
       return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 

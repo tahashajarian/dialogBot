@@ -298,14 +298,15 @@ function aiListManageMenuKeyboard(lang, section, listType) {
         callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:not_watched`,
       },
     ]);
-  } else {
-    rows.push([
-      {
-        text: messages[lang].aiTopTenInsightButton,
-        callback_data: `${callBacks.aiTopTenInsight}${section}`,
-      },
-    ]);
   }
+  
+  // Removed for now: Top 10 insight button (was in else block for watchlist condition)
+  //   rows.push([
+  //     {
+  //       text: messages[lang].aiTopTenInsightButton,
+  //       callback_data: `${callBacks.aiTopTenInsight}${section}`,
+  //     },
+  //   ]);
 
   rows.push([
     {
