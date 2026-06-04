@@ -73,5 +73,5 @@
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
 - Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.
 - Showing a user's active discussion on their profile is a separate opt-in setting. It should be visible as a profile setting even before discussions are fully implemented, but the active room itself must not be exposed unless enabled.
-- The active-discussion visibility setting should include a small self-only explanation action. The explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
+- The active-discussion visibility row on the user's own profile should include a small self-only explanation command link. The explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
 - Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat.
