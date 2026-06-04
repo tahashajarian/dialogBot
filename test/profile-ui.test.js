@@ -19,9 +19,9 @@ test("buildProfileText shows active discussion visibility only for own profile",
   const ownText = buildProfileText(user, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
-  assert.match(ownText, /Show active discussion on profile/);
+  assert.match(ownText, /Show active discussion/);
   assert.match(ownText, /What is this\? \/ad_help/);
-  assert.doesNotMatch(publicText, /Show active discussion on profile/);
+  assert.doesNotMatch(publicText, /Show active discussion/);
   assert.doesNotMatch(publicText, /\/ad_help/);
 });
 

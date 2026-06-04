@@ -1103,7 +1103,7 @@ Active discussion visibility should be opt-in only.
 Setting:
 
 ```text
-نمایش بحث‌های فعال روی پروفایل: روشن/خاموش
+نمایش بحث‌های فعال: روشن/خاموش
 ```
 
 Rules:
