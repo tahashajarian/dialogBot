@@ -55,11 +55,10 @@
 
 ## Critical Product Rules
 
-- Profile discoverability controls whether other users can view a profile; it should not be assumed to gate discussion participation unless `docs/discussions.md` changes.
-- Profiles are private by default.
+- Profiles are public inside bot social surfaces for now; do not add a public/private profile setting unless `docs/discussions.md` changes.
 - `showActiveDiscussionOnProfile` is a separate opt-in profile setting, default false. Never expose a user's active discussion on their profile unless this is enabled.
 - Discussions, when implemented, are live rooms with last-10-message context, one active room per user, taste-based join rules, and no seen/read count in MVP.
-- Saved profiles should be a one-way private bookmark feature, not friendship/private chat. Users can save discoverable profiles found through discussions and access them from a main-menu saved-profiles entry.
+- Saved profiles should be a one-way private bookmark feature, not friendship/private chat. Users can save profiles found through discussions and access them from a main-menu saved-profiles entry.
 - The internal `random` AI section should be treated as user-facing `🧩 علاقه‌مندی‌ها` / `🧩 Interests`, a first-class broad interests section.
 - AI suggestions should not trigger from free-form AI-section chat text; users should use the section buttons.
 - TopTen/list behavior and AI suggestion rules are documented in `docs/ai-lists-and-suggestions.md`.

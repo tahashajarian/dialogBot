@@ -334,13 +334,6 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const saved = isCodeSaved(current, code);
-  if (!target.profileDiscoverable) {
-    return ctx.reply(
-      messages[lang].profilePrivateShort,
-      fromSavedList ? profileViewBackKeyboard(lang) : undefined,
-    );
-  }
-
   return sendProfileMessage({
     ctx,
     user: target,
@@ -769,16 +762,6 @@ async function handleCallback(ctx) {
     return beginProfileEdit(ctx, "editing_name", messages[lang].profileAskName, cancelEditKeyboard(lang));
   }
 
-  if (data === callBacks.profileToggleDiscoverable) {
-    const nextValue = !ctx.user?.profileDiscoverable;
-    await ctx.answerCb?.(nextValue ? messages[lang].profileDiscoverableOn : messages[lang].profileDiscoverableOff);
-    await deleteCallbackMessageIfPossible(ctx);
-    await updateProfileField(ctx.userId, "profileDiscoverable", nextValue);
-    const updatedUser = toPlainUser(ctx.user);
-    updatedUser.profileDiscoverable = nextValue;
-    return sendProfile(ctx, lang, updatedUser);
-  }
-
   if (data === callBacks.profileSettings) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible(ctx);
@@ -1035,7 +1018,6 @@ async function sendProfile(ctx, lang, user = ctx.user, options = {}) {
     keyboard: profileKeyboard(
       lang,
       Boolean(user?.photoFileId),
-      Boolean(user?.profileDiscoverable),
     ),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,

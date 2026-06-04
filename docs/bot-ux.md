@@ -52,7 +52,7 @@
 - Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.
 - Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
-- Profile privacy/discussion-visibility status rows are self-only. Other users viewing a profile should not see those settings.
+- Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
 - Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 - Discussion invites should be one ready-to-share bot message/card. The invite must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
@@ -68,9 +68,9 @@
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
-- Keep high-frequency profile edits on the main profile card: name, photo, city, age, bio, and discoverability. Put lower-frequency details/settings such as gender, pet preference, location, and active-discussion visibility behind the profile settings card.
+- Keep high-frequency profile edits on the main profile card: name, photo, city, age, and bio. Put lower-frequency details/settings such as gender, pet preference, location, and active-discussion visibility behind the profile settings card.
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
-- Profile discoverability controls profile viewing in social features; keep profiles private by default.
+- Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.
 - Showing a user's active discussion on their profile is a separate opt-in setting. It should be visible as a profile setting even before discussions are fully implemented, but the active room itself must not be exposed unless enabled.
 - Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat.

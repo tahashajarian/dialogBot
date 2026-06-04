@@ -8,17 +8,14 @@ const { buildProfileText } = require("../src/services/profile");
 const user = {
   firstName: "Ali",
   profileName: "Ali",
-  profileDiscoverable: true,
   showActiveDiscussionOnProfile: true,
 };
 
-test("buildProfileText shows privacy rows only for own profile", () => {
+test("buildProfileText shows active discussion visibility only for own profile", () => {
   const ownText = buildProfileText(user, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
-  assert.match(ownText, /Profile discovery/);
   assert.match(ownText, /Show active discussion on profile/);
-  assert.doesNotMatch(publicText, /Profile discovery/);
   assert.doesNotMatch(publicText, /Show active discussion on profile/);
 });
 
@@ -51,12 +48,12 @@ test("profileKeyboard puts remove photo beside change photo", () => {
 });
 
 test("profileKeyboard keeps lower-frequency controls in settings", () => {
-  const keyboard = profileKeyboard("en", true, true);
+  const keyboard = profileKeyboard("en", true);
   const buttons = (keyboard?.reply_markup?.inline_keyboard || []).flat();
   const callbacks = buttons.map((button) => button.callback_data);
 
   assert.ok(callbacks.includes("profile:settings"));
-  assert.ok(callbacks.includes("profile:toggle:discoverable"));
+  assert.ok(!callbacks.includes("profile:toggle:discoverable"));
   assert.ok(!callbacks.includes("profile:edit:gender"));
   assert.ok(!callbacks.includes("profile:edit:pet:preference"));
   assert.ok(!callbacks.includes("profile:edit:location"));

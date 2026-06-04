@@ -30,22 +30,13 @@ Discussions are live rooms with short memory.
 
 ## Identity And Profile Visibility
 
-Creating or joining discussions does not require `profileDiscoverable = true`.
-
 Discussion participation uses a lightweight public display identity:
 
 - display name
 - message text
 - discussion membership while active
 
-Profile discoverability controls profile viewing, not discussion participation.
-
-If a user clicks/taps another discussion member and chooses to view their profile:
-
-- if that member's profile is discoverable, show the profile
-- if that member's profile is private, show a short private-profile message
-
-This keeps discussions open and social while preserving the user's choice about profile visibility. The main use for discoverability is later people discovery/search, not basic room participation.
+Profiles are public inside bot social surfaces for now. If a user clicks/taps another discussion member and chooses to view their profile, show the profile. Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.
 
 ## Core User Flows
 
@@ -439,7 +430,7 @@ Invite preview:
 - Show current member count/capacity.
 - Show join condition.
 - Do not show the full member list.
-- Do not show creator location or active/private profile details.
+- Do not show creator location or active discussion details.
 - Use one inline join action when possible, plus Back.
 
 Unavailable invite state:
@@ -650,8 +641,7 @@ Rules:
 
 - Do not expose raw database ids, Bale user ids, phone numbers, or location.
 - Use a stable short public profile code such as `publicProfileCode`.
-- Public profile codes only reveal a profile if that user's `profileDiscoverable` is true.
-- If the target profile is private, show a short private-profile message.
+- Public profile codes reveal the matching profile.
 - The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `⭐ میزبان`.
@@ -988,7 +978,7 @@ MVP minimum:
 - Closing removes the discussion from active listings and member memberships.
 - Closing should notify current members that the discussion was closed.
 - Text only.
-- Profile viewing must respect `profileDiscoverable`.
+- Profile viewing is public inside bot social surfaces.
 
 Future:
 
@@ -1011,7 +1001,7 @@ Do not expose:
 - phone number
 - raw user id
 - location
-- private profile fields
+- sensitive profile fields
 
 ## Delivery And Room Messaging
 
@@ -1024,15 +1014,14 @@ MVP message behavior:
 
 ## Member/Profile Viewing
 
-MVP should allow users to identify who sent a message by display name and view discoverable profiles through the members list.
+MVP should allow users to identify who sent a message by display name and view profiles through the members list.
 
 Profile-view interaction:
 
 1. User presses `👥 اعضا`.
 2. Bot sends a member list with display names and public profile codes.
 3. User taps/sends a profile code.
-3. If the target user's profile is discoverable, bot shows their profile.
-4. If private, bot says the profile is private.
+3. Bot shows the target user's profile.
 
 Bale may not support clickable names in plain bot text, so public profile codes are preferred over inline buttons under every message.
 Implementation note: member lists can include `/u_CODE` buttons and still support manual typed `/u_CODE` lookup.
@@ -1049,11 +1038,10 @@ They should have a main-menu entry once discussion profile viewing exists:
 
 Recommended behavior:
 
-- A user can save a discoverable profile privately.
+- A user can save a profile privately.
 - Saving is one-way; the saved user is not notified.
 - Saved profiles are not friendships and do not open private chat.
 - Users can remove saved profiles.
-- If a saved profile later becomes private, opening it should show the private-profile message.
 - Saved profiles are mainly created after viewing someone through discussions/member lists.
 - Cap saved profiles to keep the feature manageable.
 
@@ -1061,7 +1049,7 @@ Recommended MVP limit:
 
 - max saved profiles per user: 50
 
-When viewing another user's discoverable profile from a discussion, show:
+When viewing another user's profile from a discussion, show:
 
 ```text
 🤖 ⭐ ذخیره پروفایل 👈 /save_8K2P
@@ -1098,8 +1086,6 @@ Rules:
 - Do not notify someone when their profile is saved or removed.
 - Do not expose raw user ids.
 - Use public profile codes for lookup/display.
-- Saving a profile does not bypass `profileDiscoverable`.
-- If a saved user's profile is now private, show private-profile copy instead of profile details.
 - If a saved user's public code no longer resolves, show a not-found message and let the user remove it.
 - Saved profiles should not show friendship status, online status, or private discussion membership.
 
@@ -1107,7 +1093,7 @@ Discussion discovery from another user's profile should be privacy-safe.
 
 MVP-safe rule:
 
-- Show discussions created by that user if their profile is discoverable and the discussion is not closed.
+- Show discussions created by that user if the discussion is not closed.
 - Do not show all discussions they joined.
 - Do not show membership history.
 - Do not show last seen or activity status.
@@ -1157,8 +1143,7 @@ This keeps social discovery possible without turning profile viewing into presen
 These are currently preferred but should be confirmed before implementation:
 
 - Locked discussions are visible with clear lock reasons.
-- Creating and joining do not require discoverable profile.
-- Viewing another user's full profile requires that user's profile to be discoverable.
+- Profiles are public inside bot social surfaces.
 - Creator automatically joins after creating.
 - Discussion room uses bottom keyboard for leave/info.
 - Open discussions do not require completed Top 10.

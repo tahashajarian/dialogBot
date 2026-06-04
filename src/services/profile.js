@@ -129,9 +129,6 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const locationText = hasValidLocation(user?.location)
     ? (user.location.city || messages[lang].locationSet)
     : messages[lang].locationMissing;
-  const discoveryStatus = user?.profileDiscoverable
-    ? messages[lang].profileDiscoverabilityPublic
-    : messages[lang].profileDiscoverabilityPrivate;
   const activeDiscussionStatus = user?.showActiveDiscussionOnProfile
     ? messages[lang].profileActiveDiscussionShown
     : messages[lang].profileActiveDiscussionHidden;
@@ -154,7 +151,6 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
 
   if (isOwnProfile) {
     lines.push(
-      messages[lang].profileDiscoverability.replace("{status}", discoveryStatus),
       messages[lang].profileActiveDiscussionVisibility.replace("{status}", activeDiscussionStatus),
     );
   }

@@ -65,7 +65,7 @@ const UserSchema = new mongoose.Schema({
     sharedAt: Date,
   },
   photoFileId: String,
-  profileDiscoverable: { type: Boolean, default: false },
+  profileDiscoverable: { type: Boolean, default: true },
   showActiveDiscussionOnProfile: { type: Boolean, default: false },
   publicProfileCode: { type: String, default: "", index: true, sparse: true },
   activeDiscussionId: { type: mongoose.Schema.Types.ObjectId, ref: "Discussion", default: null },

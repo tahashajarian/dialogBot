@@ -549,12 +549,6 @@ async function handleUpdate(ctx) {
     const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
     const isSaved = isCodeSaved(current, code);
     const fromSavedList = isSaved ? await clearSavedProfilesListMessage(ctx) : false;
-    if (!target.profileDiscoverable) {
-      return ctx.reply(
-        messages[lang].profilePrivateShort,
-        fromSavedList ? profileViewBackKeyboard(lang) : undefined,
-      );
-    }
     return sendProfileMessage({
       ctx,
       user: target,
@@ -587,8 +581,6 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     keyboard: profileKeyboard(
       keyboardLang,
       Boolean(user?.photoFileId),
-      Boolean(user?.profileDiscoverable),
-      Boolean(user?.showActiveDiscussionOnProfile),
     ),
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
