@@ -19,6 +19,7 @@ Keep the router files thin:
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
 - `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
+- `src/flows/saved-profiles.js` owns saved-profile commands/callback helpers, public-profile viewing by code, saved-list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
@@ -52,6 +53,8 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
+Viewed public-profile cards are transient. Store and clear their last bot message id through `src/flows/saved-profiles.js` instead of leaving profile cards behind in chat. Saved-profile list views may offer a back button to the saved list; profiles opened from discussion/member contexts should not add an acknowledgement inline button.
+
 ## Existing Profile Fields
 
 - language
@@ -65,6 +68,8 @@ When adding new discussion/profile UI flows, prefer extending these helpers or f
 - photo
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
 - future saved profile references, capped at 50 per user
+- transient public-profile card id (`publicProfileLastMessageId`)
+- transient discussion member-list card id (`discussionLastMembersMessageId`)
 
 Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
 

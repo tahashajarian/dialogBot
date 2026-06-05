@@ -39,6 +39,8 @@ const { startAiPlaceholder, editPlaceholder } = require("../services/ai-placehol
 const {
   clearAiSectionPin,
   getSectionLabel,
+  getSectionListLabel,
+  getSectionMessage,
   getTasteLabelStyleHint,
 } = require("../services/ai-section");
 const {
@@ -213,49 +215,19 @@ async function sendFollowupSuggestion({
 }
 
 function getWatchStatusCopy(lang, section) {
-  if (section === "music") {
-    return {
-      togglePrompt: messages[lang].aiWatchlistTogglePromptMusic || messages[lang].aiWatchlistTogglePrompt,
-      doneText: messages[lang].aiWatchlistWatchedOnMusic || messages[lang].aiWatchlistWatchedOn,
-      pendingText: messages[lang].aiWatchlistWatchedOffMusic || messages[lang].aiWatchlistWatchedOff,
-    };
-  }
-
-  if (section === "books") {
-    return {
-      togglePrompt: messages[lang].aiWatchlistTogglePromptBooks || messages[lang].aiWatchlistTogglePrompt,
-      doneText: messages[lang].aiWatchlistWatchedOnBooks || messages[lang].aiWatchlistWatchedOn,
-      pendingText: messages[lang].aiWatchlistWatchedOffBooks || messages[lang].aiWatchlistWatchedOff,
-    };
-  }
-
-  if (section === "random") {
-    return {
-      togglePrompt: messages[lang].aiWatchlistTogglePromptRandom || messages[lang].aiWatchlistTogglePrompt,
-      doneText: messages[lang].aiWatchlistWatchedOnRandom || messages[lang].aiWatchlistWatchedOn,
-      pendingText: messages[lang].aiWatchlistWatchedOffRandom || messages[lang].aiWatchlistWatchedOff,
-    };
-  }
-
   return {
-    togglePrompt: messages[lang].aiWatchlistTogglePromptMovies || messages[lang].aiWatchlistTogglePrompt,
-    doneText: messages[lang].aiWatchlistWatchedOnMovies || messages[lang].aiWatchlistWatchedOn,
-    pendingText: messages[lang].aiWatchlistWatchedOffMovies || messages[lang].aiWatchlistWatchedOff,
+    togglePrompt: getSectionMessage(messages, lang, "aiWatchlistTogglePrompt", section, "aiWatchlistTogglePrompt"),
+    doneText: getSectionMessage(messages, lang, "aiWatchlistWatchedOn", section, "aiWatchlistWatchedOn"),
+    pendingText: getSectionMessage(messages, lang, "aiWatchlistWatchedOff", section, "aiWatchlistWatchedOff"),
   };
 }
 
 function getSuggestionDoneCompliment(lang, section) {
-  if (section === "music") return messages[lang].aiSuggestionDoneComplimentMusic;
-  if (section === "books") return messages[lang].aiSuggestionDoneComplimentBooks;
-  if (section === "random") return messages[lang].aiSuggestionDoneComplimentRandom;
-  return messages[lang].aiSuggestionDoneComplimentMovies;
+  return getSectionMessage(messages, lang, "aiSuggestionDoneCompliment", section);
 }
 
 function getSuggestionAddedDoneMessage(lang, section) {
-  if (section === "music") return messages[lang].aiSuggestionAddedDoneMusic || messages[lang].aiSuggestionAddedDone;
-  if (section === "books") return messages[lang].aiSuggestionAddedDoneBooks || messages[lang].aiSuggestionAddedDone;
-  if (section === "random") return messages[lang].aiSuggestionAddedDoneRandom || messages[lang].aiSuggestionAddedDone;
-  return messages[lang].aiSuggestionAddedDoneMovies || messages[lang].aiSuggestionAddedDone;
+  return getSectionMessage(messages, lang, "aiSuggestionAddedDone", section, "aiSuggestionAddedDone");
 }
 
 async function getAiSectionEntryMessage(ctx, lang, section) {
@@ -266,10 +238,7 @@ async function getAiSectionEntryMessage(ctx, lang, section) {
 }
 
 function getAiSectionNotificationTitle(lang, section) {
-  if (section === "movies") return messages[lang].aiSuggestMovies;
-  if (section === "music") return messages[lang].aiSuggestMusic;
-  if (section === "books") return messages[lang].aiSuggestBooks;
-  return messages[lang].aiSuggestRandom;
+  return getSectionMessage(messages, lang, "aiSuggest", section, "aiSuggestRandom");
 }
 
 async function enterAiSection(ctx, lang, section, helpers) {
@@ -301,13 +270,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const sectionLabel = getSectionLabel(messages, lang, section);
-    const listLabel = section === "movies"
-      ? messages[lang].aiSectionListLabelMovies
-      : section === "music"
-        ? messages[lang].aiSectionListLabelMusic
-        : section === "books"
-          ? messages[lang].aiSectionListLabelBooks
-          : messages[lang].aiSectionListLabelRandom;
+    const listLabel = getSectionListLabel(messages, lang, section);
     const title = listType === "watchlist"
       ? messages[lang].aiWatchlistTitle.replace("{section}", sectionLabel).replace("{listName}", listLabel)
       : messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
@@ -335,13 +298,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const sectionLabel = getSectionLabel(messages, lang, section);
-    const listLabel = section === "movies"
-      ? messages[lang].aiSectionListLabelMovies
-      : section === "music"
-        ? messages[lang].aiSectionListLabelMusic
-        : section === "books"
-          ? messages[lang].aiSectionListLabelBooks
-          : messages[lang].aiSectionListLabelRandom;
+    const listLabel = getSectionListLabel(messages, lang, section);
     const title = (listType === "watchlist" ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
       .replace("{section}", sectionLabel)
       .replace("{listName}", listLabel);
@@ -699,13 +656,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       );
     }
 
-    const listLabel = section === "movies"
-      ? messages[lang].aiSectionListLabelMovies
-      : section === "music"
-        ? messages[lang].aiSectionListLabelMusic
-        : section === "books"
-          ? messages[lang].aiSectionListLabelBooks
-          : messages[lang].aiSectionListLabelRandom;
+    const listLabel = getSectionListLabel(messages, lang, section);
     return ctx.reply(
       `${removedText}\n\n${messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel)}`,
       aiListManageMenuKeyboard(lang, section, listType),

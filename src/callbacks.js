@@ -20,7 +20,6 @@ const {
   discussionRoomKeyboard,
   discussionRemoveMembersKeyboard,
   discussionJoinErrorAckKeyboard,
-  profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("./keyboards");
 const { callBacks } = require("./constants");
@@ -36,11 +35,7 @@ const {
   buildDiscussionListText,
 } = require("./services/discussion-ui");
 const {
-  isCodeSaved,
-  buildSavedProfileListItems,
-  paginateSavedProfiles,
   buildSavedProfilesListText,
-  buildProfileSavedFooter,
 } = require("./services/saved-profiles-ui");
 const {
   formatDiscussionRoom,
@@ -53,8 +48,6 @@ const {
   listMyDiscussions,
   joinOrSwitchActiveDiscussion,
   ensurePublicProfileCode,
-  addSavedProfileCode,
-  removeSavedProfileCode,
   normalizePublicProfileCode,
 } = require("./services/discussions");
 const {
@@ -67,6 +60,8 @@ const {
   clearRememberedDiscussionRoomCards,
   rememberDiscussionRoomCards,
   rememberDiscussionListMessage,
+  rememberDiscussionMembersMessage,
+  clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
@@ -98,36 +93,23 @@ const {
   sendProfileEditPrompt,
   startProfileEdit,
 } = require("./flows/profile-edit");
+const {
+  buildSavedProfilePage,
+  clearSavedProfilesListMessage,
+  clearViewedPublicProfileMessage,
+  forgetSavedProfilesListMessage,
+  rememberSavedProfilesListMessage,
+  renderSavedProfileDiscussions,
+  saveProfileByCode,
+  sendPublicProfileByCode,
+  sendSavedProfilesList,
+  unsaveProfileByCode,
+} = require("./flows/saved-profiles");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
-}
-
-async function rememberSavedProfilesListMessage(ctx, messageOrId) {
-  const messageId = Number(getMessageId(messageOrId) || messageOrId);
-  if (!Number.isInteger(messageId) || messageId <= 0) return;
-  if (!ctx.user || typeof ctx.user.toObject !== "function") return;
-  await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", messageId);
-}
-
-async function clearSavedProfilesListMessage(ctx, exceptMessageIds = []) {
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) return false;
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
-  }
-  return deleted;
-}
-
-async function forgetSavedProfilesListMessage(ctx) {
-  if (!ctx.user || typeof ctx.user.toObject !== "function") return;
-  if (ctx.user?.savedProfilesLastListMessageId) {
-    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
-  }
 }
 
 async function removeBottomKeyboard(ctx, text) {
@@ -136,26 +118,6 @@ async function removeBottomKeyboard(ctx, text) {
   if (messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(messageId);
   }
-}
-
-async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
-  const items = await buildSavedProfileListItems({
-    codes,
-    normalizePublicProfileCode,
-    findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName")
-      .lean(),
-  });
-  const paged = paginateSavedProfiles(items, page);
-  const sent = await ctx.reply(
-    buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
-    savedProfilesListKeyboard(lang, {
-      page: paged.page,
-      totalPages: paged.totalPages,
-    }),
-  );
-  await rememberSavedProfilesListMessage(ctx, sent);
-  return sent;
 }
 
 function discussionCloseConfirmKeyboard(lang, discussionId) {
@@ -240,52 +202,6 @@ async function renderMyDiscussionList(ctx, lang, page = 0) {
   );
   await rememberDiscussionListMessage(ctx, "mine", ctx.callbackMessageId || listMessage);
   return listMessage;
-}
-
-async function renderSavedProfileDiscussions(ctx, lang, code) {
-  const Discussion = require("./models/discussion");
-  const target = await User.findOne({ publicProfileCode: code });
-  if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
-  
-  const name = target.profileName || target.firstName || "کاربر";
-  const titleText = messages[lang].savedProfileDiscussionsTitle.replace("{name}", name);
-  
-  let textParts = [titleText, ""];
-  let hasAny = false;
-  
-  // Check active discussion
-  if (target.activeDiscussionId) {
-    const activeDiscussion = await Discussion.findOne({ 
-      _id: target.activeDiscussionId, 
-      status: "open" 
-    }).lean();
-    if (activeDiscussion && target.showActiveDiscussionOnProfile) {
-      hasAny = true;
-      const decorated = await decorateDiscussionsForList(ctx.user, [activeDiscussion]);
-      textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileActiveDiscussionTitle, decorated));
-      textParts.push("");
-    }
-  }
-  
-  // Get created discussions
-  const createdDiscussions = await Discussion.find({ 
-    creatorUserId: target.userId, 
-    status: "open" 
-  }).limit(10).lean();
-  
-  if (createdDiscussions.length > 0) {
-    hasAny = true;
-    const decorated = await decorateDiscussionsForList(ctx.user, createdDiscussions);
-    textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileCreatedDiscussionsTitle, decorated));
-  }
-  
-  if (!hasAny) {
-    textParts = [messages[lang].savedProfileNoDiscussions.replace("{name}", name)];
-  }
-  
-  const text = textParts.join("\n");
-  const keyboard = inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
-  return editCallbackMessageOrReply(ctx, text, keyboard);
 }
 
 async function editCallbackMessageOrReply(ctx, text, keyboard) {
@@ -385,46 +301,8 @@ function formatDiscussionLeftMessage(lang, discussionTitle = "") {
   return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
 }
 
-async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false } = {}) {
-  const code = normalizePublicProfileCode(rawCode);
-  if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
-
-  // Send loading message
-  const loadingMsg = await ctx.reply(messages[lang].profileLoading);
-  
-  const target = await User.findOne({ publicProfileCode: code });
-  if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
-
-  // Only show save/unsave footer if NOT from saved list AND viewer has active discussion
-  let footerText;
-  if (!fromSavedList) {
-    const viewerHasActiveDiscussion = Boolean(ctx.user?.activeDiscussionId);
-    if (viewerHasActiveDiscussion) {
-      const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-      const saved = isCodeSaved(current, code);
-      footerText = buildProfileSavedFooter(messages, lang, code, saved);
-    }
-  }
-
-  const result = await sendProfileMessage({
-    ctx,
-    user: target,
-    lang,
-    keyboard: fromSavedList ? profileViewBackKeyboard(lang) : undefined,
-    messages,
-    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
-    isOwnProfile: false,
-    footerText,
-  });
-  
-  // Delete loading message
-  try {
-    await ctx.deleteMessage(loadingMsg.message_id);
-  } catch (err) {
-    // Ignore if already deleted
-  }
-  
-  return result;
+function formatDiscussionClosedMessage(lang, discussionTitle = "") {
+  return messages[lang].discussionClosed.replace("{title}", discussionTitle || "-");
 }
 
 async function handleCallback(ctx) {
@@ -452,6 +330,7 @@ async function handleCallback(ctx) {
   // menu routes
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     if (isAiTextState(ctx.user?.state)) {
       await removeBottomKeyboard(ctx, " ");
@@ -462,6 +341,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
@@ -470,6 +350,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     if (isAiTextState(ctx.user?.state)) {
       await removeBottomKeyboard(ctx, " ");
@@ -482,6 +363,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.aiAssistant) {
     await ctx.answerCb?.(messages[lang].aiAssistant);
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(
@@ -493,6 +375,7 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.discussions) {
     await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     if (isAiTextState(ctx.user?.state)) {
       await removeBottomKeyboard(ctx, " ");
@@ -516,8 +399,10 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
     await clearRememberedAiListMessage(ctx);
     if (isProfileCallbackMessage(ctx)) {
-      await removeCallbackInlineKeyboardIfPossible(ctx);
+      const cleared = await clearViewedPublicProfileMessage(ctx);
+      if (!cleared) await deleteCallbackMessageIfPossible(ctx);
     } else {
+      await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
       await deleteCallbackMessageIfPossible(ctx);
       await removeBottomKeyboard(ctx, messages[lang].savedProfilesTitle);
     }
@@ -528,6 +413,7 @@ async function handleCallback(ctx) {
 
   if (data === "saved:back") {
     await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
     return sendSavedProfilesList(ctx, lang, codes, 0);
@@ -538,14 +424,7 @@ async function handleCallback(ctx) {
     const pageRaw = data.replace(callBacks.savedProfilesPage, "");
     const page = Number(pageRaw);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    const items = await buildSavedProfileListItems({
-      codes,
-      normalizePublicProfileCode,
-      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-        .select("publicProfileCode profileName firstName")
-        .lean(),
-    });
-    const paged = paginateSavedProfiles(items, page);
+    const paged = await buildSavedProfilePage(codes, page);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
       buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
@@ -575,19 +454,10 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.savedProfilesRemove)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.savedProfilesRemove, "");
-    const removed = await removeSavedProfileCode(ctx.userId, code);
-    if (!removed.ok) {
-      return ctx.reply(removed.reason === "not_found" ? messages[lang].savedProfilesEmpty : messages[lang].unknownAction);
-    }
-    await updateProfileField(ctx.userId, "savedProfileCodes", removed.items || []);
-    const items = await buildSavedProfileListItems({
-      codes: removed.items || [],
-      normalizePublicProfileCode,
-      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-        .select("publicProfileCode profileName firstName")
-        .lean(),
-    });
-    const paged = paginateSavedProfiles(items, 0);
+    const removed = await unsaveProfileByCode(ctx, lang, code, { notify: false });
+    if (removed !== true) return removed;
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    const paged = await buildSavedProfilePage(codes, 0);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
       paged.items.length
@@ -603,20 +473,24 @@ async function handleCallback(ctx) {
   }
 
   if (data === callBacks.discussionListActive) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     return renderActiveDiscussionList(ctx, lang, 0, false);
   }
 
   if (data.startsWith(callBacks.discussionListActivePage)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     const payload = data.replace(callBacks.discussionListActivePage, "");
     const [pageRaw = "0", filter = "all"] = payload.split(":");
     return renderActiveDiscussionList(ctx, lang, Number(pageRaw), filter === "joinable");
   }
 
   if (data === callBacks.discussionListMine) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     return renderMyDiscussionList(ctx, lang, 0);
   }
 
   if (data.startsWith(callBacks.discussionListMinePage)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     const pageRaw = data.replace(callBacks.discussionListMinePage, "");
     return renderMyDiscussionList(ctx, lang, Number(pageRaw));
   }
@@ -695,6 +569,7 @@ async function handleCallback(ctx) {
     if (!left.ok) {
       return ctx.reply(messages[lang].discussionNotMember);
     }
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     const discussionTitle = left?.discussionTitle || "";
     return editCallbackMessageOrReply(
@@ -721,6 +596,7 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionCloseConfirm)) {
     await ctx.answerCb?.();
     await clearDiscussionMenuNotice(ctx);
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
@@ -738,7 +614,7 @@ async function handleCallback(ctx) {
 
     return editCallbackMessageOrReply(
       ctx,
-      `${messages[lang].discussionClosed}\n\n${messages[lang].discussionsMenu}`,
+      `${formatDiscussionClosedMessage(lang, closed.discussionTitle)}\n\n${messages[lang].discussionsMenu}`,
       discussionsMenuKeyboard(lang),
     );
   }
@@ -759,6 +635,7 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionMembers)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionMembers, "");
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
@@ -773,11 +650,13 @@ async function handleCallback(ctx) {
       .select("userId profileName firstName publicProfileCode")
       .lean();
     const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
-    return editCallbackMessageOrReply(
+    const membersMessage = await editCallbackMessageOrReply(
       ctx,
       `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
       { reply_markup: { inline_keyboard: [] } },
     );
+    await rememberDiscussionMembersMessage(ctx, ctx.callbackMessageId || membersMessage);
+    return membersMessage;
   }
 
   if (data.startsWith(callBacks.discussionRemoveMemberPicker)) {
@@ -839,33 +718,22 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.profileViewByCode, "");
     await deleteCallbackMessageIfPossible(ctx);
+    await clearDiscussionMembersMessage(ctx);
     return sendPublicProfileByCode(ctx, lang, code);
   }
 
   if (data.startsWith(callBacks.profileSaveByCode)) {
     const code = data.replace(callBacks.profileSaveByCode, "");
     await deleteCallbackMessageIfPossible(ctx);
-    const saved = await addSavedProfileCode(ctx.userId, code);
-    if (!saved.ok) {
-      await ctx.answerCb?.();
-      if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
-      if (saved.reason === "saved_profiles_limit") return ctx.reply(messages[lang].savedProfilesLimit);
-      return ctx.reply(messages[lang].unknownAction);
-    }
-    await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
     await ctx.answerCb?.(messages[lang].savedProfileSaved);
-    return ctx.reply(messages[lang].savedProfileSaved);
+    return saveProfileByCode(ctx, lang, code);
   }
 
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.profileUnsaveByCode, "");
     await deleteCallbackMessageIfPossible(ctx);
-    const removed = await removeSavedProfileCode(ctx.userId, code);
-    if (!removed.ok) return ctx.reply(messages[lang].unknownAction);
-    await updateProfileField(ctx.userId, "savedProfileCodes", removed.items || []);
-    await ctx.reply(messages[lang].savedProfileRemoved);
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
+    return unsaveProfileByCode(ctx, lang, code, { refreshProfile: true });
   }
 
   if (isAiCallback(data)) {

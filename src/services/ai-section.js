@@ -71,6 +71,19 @@ function getSectionListLabel(messages, lang, section) {
   return messages[lang].aiSectionListLabelRandom;
 }
 
+const SECTION_MESSAGE_SUFFIXES = {
+  movies: "Movies",
+  music: "Music",
+  books: "Books",
+  random: "Random",
+};
+
+function getSectionMessage(messages, lang, baseKey, section, fallbackKey = "") {
+  const suffix = SECTION_MESSAGE_SUFFIXES[section] || SECTION_MESSAGE_SUFFIXES.random;
+  const key = `${baseKey}${suffix}`;
+  return messages?.[lang]?.[key] || (fallbackKey ? messages?.[lang]?.[fallbackKey] : "");
+}
+
 const TASTE_LABEL_EMOJIS = {
   music: {
     metalhead: "🤘",
@@ -185,6 +198,7 @@ module.exports = {
   getSectionLabel,
   getSectionListButtonLabel,
   getSectionListLabel,
+  getSectionMessage,
   getTasteLabelEmoji,
   getTasteLabelTitle,
   getTasteLabelStyleHint,

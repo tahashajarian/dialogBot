@@ -53,7 +53,7 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
   ]);
 
   assert.match(text, /⭐ Saved profiles/);
-  assert.match(text, /1\.\n👤 Ali\n👁 View profile 👉 \/u_A1\n🗑 Remove 👉 \/unsave_A1/);
+  assert.match(text, /1\.\n👤 Ali\n👁 View profile 👉 \/u_A1\n💬 Discussions 👉 \/discussions_A1\n🗑 Remove 👉 \/unsave_A1/);
   assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);
 });
 

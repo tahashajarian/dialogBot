@@ -859,7 +859,7 @@ function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
   return inlineKeyboard(rows);
 }
 
-function profileViewBackKeyboard(lang, { code = "", hasDiscussions = false } = {}) {
+function profileViewBackKeyboard(lang) {
   return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 

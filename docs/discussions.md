@@ -657,6 +657,8 @@ Rules:
 - Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
 - Separate member blocks with a simple line divider when multiple members are shown.
 - Users stay inside the discussion after viewing the member list; no back button is needed on the member list.
+- Keep the member list low-noise: remember the latest member-list bot message and remove it when the user opens the member list again, opens a profile from that list, leaves the discussion, or the discussion closes.
+- Profiles opened from the members list are transient public-profile cards. Do not attach an extra "Got it" inline button to those profile cards; clear the previous viewed profile card when the user navigates onward or opens another profile.
 
 Private profile response:
 
@@ -776,7 +778,7 @@ Closing behavior:
 Owner response:
 
 ```text
-🤖 بحث بسته شد.
+🤖 بحث «بهترین ریف تاریخ؟» بسته شد.
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.

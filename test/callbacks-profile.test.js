@@ -108,9 +108,8 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
 });
 
-test("saved profile back removes inline keyboard without deleting profile card", async () => {
+test("saved profile back deletes viewed profile card before rendering list", async () => {
   const deletedIds = [];
-  const editedMarkups = [];
   const replies = [];
   const ctx = {
     callbackData: callBacks.savedProfiles,
@@ -123,15 +122,12 @@ test("saved profile back removes inline keyboard without deleting profile card",
       firstName: "A",
       profileName: "A",
       savedProfileCodes: [],
+      publicProfileLastMessageId: 789,
       showActiveDiscussionOnProfile: false,
     },
     answerCb: async () => true,
     deleteMessage: async (messageId) => {
       deletedIds.push(messageId);
-      return true;
-    },
-    editMessageReplyMarkup: async (messageId, replyMarkup) => {
-      editedMarkups.push({ messageId, replyMarkup });
       return true;
     },
     editMessageText: async () => false,
@@ -143,7 +139,6 @@ test("saved profile back removes inline keyboard without deleting profile card",
 
   await handleCallback(ctx);
 
-  assert.deepEqual(deletedIds, []);
-  assert.deepEqual(editedMarkups, [{ messageId: 789, replyMarkup: { inline_keyboard: [] } }]);
+  assert.deepEqual(deletedIds, [789]);
   assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
 });

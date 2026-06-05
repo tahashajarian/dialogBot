@@ -38,6 +38,27 @@ async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
   await updateProfileField(ctx.userId, "discussionLastListType", listType);
 }
 
+async function rememberDiscussionMembersMessage(ctx, messageOrId) {
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    return;
+  }
+  await updateProfileField(ctx.userId, "discussionLastMembersMessageId", messageId);
+}
+
+async function clearDiscussionMembersMessage(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.discussionLastMembersMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+    return false;
+  }
+  const deleted = await ctx.deleteMessage(messageId);
+  if (deleted) {
+    await updateProfileField(ctx.userId, "discussionLastMembersMessageId", null);
+  }
+  return deleted;
+}
+
 async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionLastListMessageId);
@@ -135,6 +156,8 @@ module.exports = {
   clearRememberedDiscussionRoomCards,
   rememberDiscussionRoomCards,
   rememberDiscussionListMessage,
+  rememberDiscussionMembersMessage,
+  clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,

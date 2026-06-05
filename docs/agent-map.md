@@ -46,6 +46,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/models/user.js`: user schema and profile/discussion/saved-profile fields.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
+- `src/flows/saved-profiles.js`: saved-profile commands/callback helpers, public-profile rendering by code, saved-list message tracking, and stale public-profile card cleanup.
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
 - Saved profiles are private one-way bookmarks. Do not notify the saved user.
@@ -82,6 +83,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion rendering text: `src/services/discussion-ui.js` or `src/services/discussion-room-ui.js`.
 - New profile rendering rule: `src/services/profile.js`.
 - New profile edit prompt lifecycle rule: `src/flows/profile-edit.js`.
+- New saved-profile action or public-profile card lifecycle rule: `src/flows/saved-profiles.js`.
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.
 - New AI text state or section bottom-button behavior: `src/flows/ai-text.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`.
