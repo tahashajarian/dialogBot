@@ -859,9 +859,8 @@ function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
   return inlineKeyboard(rows);
 }
 
-function profileViewBackKeyboard(lang) {
-  const rows = [[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]];
-  return inlineKeyboard(rows);
+function profileViewBackKeyboard(lang, { code = "", hasDiscussions = false } = {}) {
+  return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 
 function savedProfilesListKeyboard(lang, items = []) {

@@ -1077,16 +1077,64 @@ Saved profiles main menu:
 
 1. 👤 علی
 دیدن پروفایل 👈 /u_8K2P
+💬 بحث‌ها 👈 /discussions_8K2P
 حذف 👈 /unsave_8K2P
 
 2. 👤 سارا
 دیدن پروفایل 👈 /u_9Q4M
+💬 بحث‌ها 👈 /discussions_9Q4M
 حذف 👈 /unsave_9Q4M
 ```
 
-Saved-profile lists should use text command links for view/remove actions, not per-profile inline buttons.
+Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons.
 The saved-profile list can use inline list-navigation controls (pagination + Back) only.
 When opening a profile from the saved list, delete the list message and show the profile with only one inline Back button to return to the saved-profile list.
+
+### Viewing Discussions From Saved Profiles
+
+Users can view discussions of people in their saved profiles list via `/discussions_CODE` command.
+
+The discussions view shows:
+- Title with user's name: `💬 بحث‌های {name}`
+- Active discussion (if `showActiveDiscussionOnProfile` is enabled)
+- Created discussions (up to 10, open status only)
+- Empty state with "Got it" button if no discussions
+- Back button to return to saved profiles list
+
+Empty state example:
+
+```text
+🤖 علی هیچ بحثی نداره.
+
+[درست] (inline button → returns to saved profiles)
+```
+
+Discussions list example:
+
+```text
+💬 بحث‌های علی
+
+📌 بحث فعال
+1. بهترین ریف تاریخ؟
+   توضیحات: گیتار رو...
+   🌍 آزاد ✅ | 5 نفر
+   ورود 👈 /d_XY2Z
+
+📌 بحث‌های ساخته‌شده
+1. آلبوم‌های متال برای شروع
+   توضیحات: دوست دارم...
+   🏷 متال‌هد 🔒 | 3 نفر
+   ورود 👈 /d_AB3C
+
+[⬅️ برگشت به ذخیره‌شده‌ها] (inline button)
+```
+
+Technical notes:
+- Query discussions by `creatorUserId` field (not `ownerId`)
+- Active discussion only shows if `showActiveDiscussionOnProfile: true`
+- Discussions are formatted using `buildDiscussionListText` for consistency
+- Empty state uses acknowledgment button (`saved:back` callback)
+- Non-empty lists use regular back button (`savedProfiles` callback)
 
 Rules:
 

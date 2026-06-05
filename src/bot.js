@@ -222,6 +222,58 @@ async function unsaveProfileCommand(ctx, lang, text) {
   return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
+async function showSavedProfileDiscussions(ctx, lang, code) {
+  const Discussion = require("./models/discussion");
+  const { decorateDiscussionsForList, buildDiscussionListText } = require("./services/discussion-ui");
+  const { inlineKeyboard } = require("./keyboards");
+  const { callBacks } = require("./constants");
+  
+  const target = await User.findOne({ publicProfileCode: code });
+  if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
+  
+  const name = target.profileName || target.firstName || "کاربر";
+  const titleText = messages[lang].savedProfileDiscussionsTitle.replace("{name}", name);
+  
+  let textParts = [titleText, ""];
+  let hasAny = false;
+  
+  // Check active discussion
+  if (target.activeDiscussionId) {
+    const activeDiscussion = await Discussion.findOne({ 
+      _id: target.activeDiscussionId, 
+      status: "open" 
+    }).lean();
+    if (activeDiscussion && target.showActiveDiscussionOnProfile) {
+      hasAny = true;
+      const decorated = await decorateDiscussionsForList(ctx.user, [activeDiscussion]);
+      textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileActiveDiscussionTitle, decorated));
+      textParts.push("");
+    }
+  }
+  
+  // Get created discussions
+  const createdDiscussions = await Discussion.find({ 
+    creatorUserId: target.userId, 
+    status: "open" 
+  }).limit(10).lean();
+  
+  if (createdDiscussions.length > 0) {
+    hasAny = true;
+    const decorated = await decorateDiscussionsForList(ctx.user, createdDiscussions);
+    textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileCreatedDiscussionsTitle, decorated));
+  }
+  
+  if (!hasAny) {
+    const noDiscussionsText = messages[lang].savedProfileNoDiscussions.replace("{name}", name);
+    const keyboard = inlineKeyboard([[{ text: messages[lang].acknowledgeButton, callback_data: "saved:back" }]]);
+    return ctx.reply(noDiscussionsText, keyboard);
+  }
+  
+  const text = textParts.join("\n");
+  const keyboard = inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
+  return ctx.reply(text, keyboard);
+}
+
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
@@ -551,16 +603,34 @@ async function handleUpdate(ctx) {
     return unsaveProfileCommand(ctx, lang, text);
   }
 
+  if (/^\/discussions_(u_)?[a-z0-9]+$/i.test(text)) {
+    const raw = text.replace(/^\/discussions_/i, "");
+    const code = normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
+    return showSavedProfileDiscussions(ctx, lang, code);
+  }
+
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
+    
+    // Send loading message
+    const loadingMsg = await ctx.reply(messages[lang].profileLoading);
+    
     const target = await User.findOne({ publicProfileCode: code });
     if (!target) {
+      await ctx.deleteMessage(loadingMsg.message_id).catch(() => {});
       return ctx.reply(messages[lang].profileCodeNotFound);
     }
     const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
     const isSaved = isCodeSaved(current, code);
     const fromSavedList = isSaved ? await clearSavedProfilesListMessage(ctx) : false;
-    return sendProfileMessage({
+    
+    // Only show footer if NOT from saved list AND viewer has active discussion
+    let footerText;
+    if (!fromSavedList && ctx.user?.activeDiscussionId) {
+      footerText = buildProfileSavedFooter(messages, lang, code, isSaved);
+    }
+    
+    const result = await sendProfileMessage({
       ctx,
       user: target,
       lang,
@@ -568,8 +638,11 @@ async function handleUpdate(ctx) {
       messages,
       defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
       isOwnProfile: false,
-      footerText: buildProfileSavedFooter(messages, lang, code, isSaved),
+      footerText,
     });
+    
+    await ctx.deleteMessage(loadingMsg.message_id).catch(() => {});
+    return result;
   }
 
   if (text === "/resetphoto") {

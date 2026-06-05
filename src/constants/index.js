@@ -100,5 +100,6 @@ module.exports = {
     savedProfilesPage: "saved:page:",
     savedProfilesOpen: "saved:open:",
     savedProfilesRemove: "saved:remove:",
+    savedProfilesDiscussions: "saved:discussions:",
   },
 };

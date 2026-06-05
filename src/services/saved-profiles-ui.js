@@ -81,20 +81,27 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
 
   const viewLabel = messages[lang].savedProfileOpen;
   const removeLabel = messages[lang].savedProfileRemove;
+  const discussionsLabel = messages[lang].savedProfileDiscussions;
   const baseIndex = Math.max(0, Number(startIndex) || 0);
-  const lines = items.map((entry, index) => {
+  const lines = items.map((entry, index, arr) => {
     const viewCommand = `/${entry.code}`;
     const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
+    const discussionsCommand = `/discussions_${entry.code.replace(/^u_/i, "")}`;
     const viewAction = lang === "fa"
       ? `👁 ${viewLabel} 👈 ${viewCommand}`
       : `👁 ${viewLabel} 👉 ${viewCommand}`;
     const removeAction = lang === "fa"
       ? `🗑 ${removeLabel} 👈 ${removeCommand}`
       : `🗑 ${removeLabel} 👉 ${removeCommand}`;
-    return `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${mixedValueLine(lang, "👤", entry.name)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, removeAction)}`;
+    const discussionsAction = lang === "fa"
+      ? `${discussionsLabel} 👈 ${discussionsCommand}`
+      : `${discussionsLabel} 👉 ${discussionsCommand}`;
+    const isLast = index === arr.length - 1;
+    const item = `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${mixedValueLine(lang, "👤", entry.name)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, discussionsAction)}\n${lineForLang(lang, removeAction)}`;
+    return isLast ? `${item}\n\n${SAVED_PROFILES_DIVIDER}` : item;
   });
 
-  return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`)}`;
+  return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
 }
 
 function buildProfileSavedFooter(messages, lang, code, isSaved) {

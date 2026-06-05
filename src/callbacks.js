@@ -242,6 +242,52 @@ async function renderMyDiscussionList(ctx, lang, page = 0) {
   return listMessage;
 }
 
+async function renderSavedProfileDiscussions(ctx, lang, code) {
+  const Discussion = require("./models/discussion");
+  const target = await User.findOne({ publicProfileCode: code });
+  if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
+  
+  const name = target.profileName || target.firstName || "کاربر";
+  const titleText = messages[lang].savedProfileDiscussionsTitle.replace("{name}", name);
+  
+  let textParts = [titleText, ""];
+  let hasAny = false;
+  
+  // Check active discussion
+  if (target.activeDiscussionId) {
+    const activeDiscussion = await Discussion.findOne({ 
+      _id: target.activeDiscussionId, 
+      status: "open" 
+    }).lean();
+    if (activeDiscussion && target.showActiveDiscussionOnProfile) {
+      hasAny = true;
+      const decorated = await decorateDiscussionsForList(ctx.user, [activeDiscussion]);
+      textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileActiveDiscussionTitle, decorated));
+      textParts.push("");
+    }
+  }
+  
+  // Get created discussions
+  const createdDiscussions = await Discussion.find({ 
+    creatorUserId: target.userId, 
+    status: "open" 
+  }).limit(10).lean();
+  
+  if (createdDiscussions.length > 0) {
+    hasAny = true;
+    const decorated = await decorateDiscussionsForList(ctx.user, createdDiscussions);
+    textParts.push(buildDiscussionListText(messages, lang, messages[lang].savedProfileCreatedDiscussionsTitle, decorated));
+  }
+  
+  if (!hasAny) {
+    textParts = [messages[lang].savedProfileNoDiscussions.replace("{name}", name)];
+  }
+  
+  const text = textParts.join("\n");
+  const keyboard = inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
+  return editCallbackMessageOrReply(ctx, text, keyboard);
+}
+
 async function editCallbackMessageOrReply(ctx, text, keyboard) {
   if (ctx.callbackMessageId && ctx.editMessageText) {
     const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
@@ -343,12 +389,24 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
 
+  // Send loading message
+  const loadingMsg = await ctx.reply(messages[lang].profileLoading);
+  
   const target = await User.findOne({ publicProfileCode: code });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
 
-  const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-  const saved = isCodeSaved(current, code);
-  return sendProfileMessage({
+  // Only show save/unsave footer if NOT from saved list AND viewer has active discussion
+  let footerText;
+  if (!fromSavedList) {
+    const viewerHasActiveDiscussion = Boolean(ctx.user?.activeDiscussionId);
+    if (viewerHasActiveDiscussion) {
+      const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+      const saved = isCodeSaved(current, code);
+      footerText = buildProfileSavedFooter(messages, lang, code, saved);
+    }
+  }
+
+  const result = await sendProfileMessage({
     ctx,
     user: target,
     lang,
@@ -356,8 +414,17 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     isOwnProfile: false,
-    footerText: buildProfileSavedFooter(messages, lang, code, saved),
+    footerText,
   });
+  
+  // Delete loading message
+  try {
+    await ctx.deleteMessage(loadingMsg.message_id);
+  } catch (err) {
+    // Ignore if already deleted
+  }
+  
+  return result;
 }
 
 async function handleCallback(ctx) {
@@ -459,6 +526,13 @@ async function handleCallback(ctx) {
     return sendSavedProfilesList(ctx, lang, codes, 0);
   }
 
+  if (data === "saved:back") {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible(ctx);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    return sendSavedProfilesList(ctx, lang, codes, 0);
+  }
+
   if (data.startsWith(callBacks.savedProfilesPage)) {
     await ctx.answerCb?.();
     const pageRaw = data.replace(callBacks.savedProfilesPage, "");
@@ -490,6 +564,12 @@ async function handleCallback(ctx) {
     await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
+  }
+
+  if (data.startsWith(callBacks.savedProfilesDiscussions)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesDiscussions, "");
+    return renderSavedProfileDiscussions(ctx, lang, code);
   }
 
   if (data.startsWith(callBacks.savedProfilesRemove)) {
