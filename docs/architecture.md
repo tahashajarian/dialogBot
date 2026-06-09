@@ -19,12 +19,14 @@ Keep the router files thin:
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
 - `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
+- `src/flows/profile-callbacks.js` owns profile edit/settings callback routing and own-profile callback rendering.
 - `src/flows/saved-profiles.js` owns saved-profile commands/callback helpers, public-profile viewing by code, saved-list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
-- `src/flows/discussions-callbacks.js` owns discussion callback housekeeping and predicates.
+- `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, and join-error acknowledgements.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
+- `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
 - Discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
 
 ## Data Model Rules

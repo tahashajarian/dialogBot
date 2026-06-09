@@ -10,9 +10,15 @@ const {
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteLockedText,
 } = require("../src/services/discussion-ui");
-const { discussionListNavigationKeyboard, discussionInvitePreviewKeyboard, discussionRoomKeyboard } = require("../src/keyboards");
+const {
+  discussionListNavigationKeyboard,
+  discussionInvitePreviewKeyboard,
+  discussionJoinErrorAckKeyboard,
+  discussionRoomKeyboard,
+} = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
+  handleDiscussionListCallback,
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
 } = require("../src/flows/discussions-callbacks");
@@ -167,6 +173,37 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
 
   assert.equal(allToggle?.text, "🔓 فقط قابل ورودها");
   assert.equal(joinableToggle?.text, "🔓 نمایش همه");
+});
+
+test("discussion join error acknowledgement can return to saved profile discussions", async () => {
+  const keyboard = discussionJoinErrorAckKeyboard("en", "saved:u_a1");
+  const button = keyboard.reply_markup.inline_keyboard.flat()[0];
+  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}saved:u_A1`);
+
+  const deletedIds = [];
+  let renderedCode = "";
+  const ctx = {
+    callbackData: `${callBacks.discussionJoinErrorAck}saved:u_A1`,
+    callbackMessageId: 42,
+    userId: 1,
+    user: { userId: 1 },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+  };
+
+  await handleDiscussionListCallback(ctx, "en", {
+    deleteCallbackMessageIfPossible: (callbackCtx) => callbackCtx.deleteMessage(callbackCtx.callbackMessageId),
+    renderSavedProfileDiscussions: async (_ctx, _lang, code) => {
+      renderedCode = code;
+      return true;
+    },
+  });
+
+  assert.deepEqual(deletedIds, [42]);
+  assert.equal(renderedCode, "u_A1");
 });
 
 test("discussion create TopTen callback is routed and treated as create flow", () => {

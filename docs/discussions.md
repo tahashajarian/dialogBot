@@ -263,6 +263,7 @@ When user joins:
   2. Wait for the user to press the button
   3. Delete the error message and redirect to appropriate screen:
      - From discussion list → show the same list type (active/mine)
+     - From saved-profile discussions → show that same saved user's discussions again
      - From invite (requirement/removed errors) → show main menu
      - From invite (other errors) → show discussions menu
 
@@ -1018,6 +1019,7 @@ MVP message behavior:
 
 - If a user has `activeDiscussionId` set, normal text messages should be sent to that active discussion.
 - Sending text should append to `recentMessages` (capped to last 10) and be broadcast to current members.
+- If the message replies to a previous bot-delivered discussion message, forward it as a platform-native reply when the runtime delivery map can resolve the matching message id in each member's chat. Do not add "replying to..." text and do not persist reply metadata in `recentMessages`.
 - Sender should receive a short delivery confirmation.
 - Only text is supported in MVP (no media/voice/files/forwards).
 
@@ -1137,6 +1139,7 @@ Technical notes:
 - Discussions are formatted using `buildDiscussionListText` for consistency
 - Empty state uses acknowledgment button (`saved:back` callback)
 - Non-empty lists use regular back button (`savedProfiles` callback)
+- If joining one of these discussions fails, the "Got it" acknowledgment must return to this saved user's discussions, not the generic active-discussions list.
 
 Rules:
 

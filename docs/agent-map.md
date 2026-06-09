@@ -21,6 +21,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-actions.js`: cross-user side effects around discussion mutations.
   - join/leave/close/remove notifications
   - pre-close active-member lookup before active state is cleared
+- `src/services/discussion-delivery-memory.js`: runtime-only discussion message delivery id mapping for platform-native replies.
+  - do not persist reply metadata or delivered message ids
 - `src/flows/discussions-text.js`: text commands and bottom-keyboard discussion flow.
   - `/d_CODE`, `/leave_CODE`, `/close_CODE`
   - `/join_CODE` invite/deep-link entry when discussion invites are implemented
@@ -35,7 +37,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - create quota check and draft reset
   - join-rule pickers
   - preview edits, capacity, confirm/cancel
-- `src/flows/discussions-callbacks.js`: discussion callback housekeeping and predicates.
+- `src/flows/discussions-callbacks.js`: discussion callback housekeeping, predicates, list/menu callbacks, and join-error acknowledgements.
   - remembered room/list/menu cards
   - stale discussion card cleanup predicates
   - create-flow state predicates
@@ -46,6 +48,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/models/user.js`: user schema and profile/discussion/saved-profile fields.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
+- `src/flows/profile-callbacks.js`: profile edit/settings callback routing and own-profile callback rendering.
 - `src/flows/saved-profiles.js`: saved-profile commands/callback helpers, public-profile rendering by code, saved-list message tracking, and stale public-profile card cleanup.
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
@@ -75,13 +78,16 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - New discussion data rule: `src/services/discussions.js`.
 - New discussion side-effect orchestration: `src/services/discussion-actions.js`.
+- New discussion delivery/reply runtime mapping: `src/services/discussion-delivery-memory.js`.
 - New discussion text command or bottom-button flow: `src/flows/discussions-text.js`.
 - New discussion invite preview/callback flow: `src/flows/discussions-callbacks.js`.
+- New discussion list/menu callback action: `src/flows/discussions-callbacks.js`.
 - New discussion-create typed input step: `src/flows/discussions-create-text.js`.
 - New discussion-create inline callback step: `src/flows/discussions-create-callbacks.js`.
 - New discussion callback housekeeping/predicate: `src/flows/discussions-callbacks.js`.
 - New discussion rendering text: `src/services/discussion-ui.js` or `src/services/discussion-room-ui.js`.
 - New profile rendering rule: `src/services/profile.js`.
+- New profile edit/settings callback action: `src/flows/profile-callbacks.js`.
 - New profile edit prompt lifecycle rule: `src/flows/profile-edit.js`.
 - New saved-profile action or public-profile card lifecycle rule: `src/flows/saved-profiles.js`.
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.

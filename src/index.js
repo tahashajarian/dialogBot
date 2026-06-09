@@ -77,8 +77,7 @@ function createAppContext(ctx, user) {
     });
 
     try {
-      await Promise.race([callPromise, timeoutPromise]);
-      return true;
+      return await Promise.race([callPromise, timeoutPromise]);
     } finally {
       clearTimeout(timeoutId);
       callPromise.catch(() => {});
@@ -154,7 +153,7 @@ function createAppContext(ctx, user) {
         return false;
       }
       try {
-        await callTelegramApiWithTimeout(
+        return await callTelegramApiWithTimeout(
           "sendMessage",
           {
             chat_id: targetUserId,
@@ -163,7 +162,6 @@ function createAppContext(ctx, user) {
           },
           PIN_OPERATION_TIMEOUT_MS,
         );
-        return true;
       } catch {
         return false;
       }

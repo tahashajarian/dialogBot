@@ -1,5 +1,22 @@
 const { callBacks } = require("../constants");
+const messages = require("../messages");
+const {
+  mainMenuKeyboard,
+  discussionsMenuKeyboard,
+  discussionListNavigationKeyboard,
+  discussionJoinErrorAckKeyboard,
+} = require("../keyboards");
 const { updateProfileField } = require("../services/users");
+const {
+  getDiscussionErrorMessage,
+  decorateDiscussionsForList,
+  paginateDiscussions,
+  buildDiscussionListText,
+} = require("../services/discussion-ui");
+const {
+  listActiveDiscussions,
+  listMyDiscussions,
+} = require("../services/discussions");
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
@@ -152,6 +169,162 @@ function isDiscussionCreateState(state = "") {
   );
 }
 
+async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active", {
+  retireCallbackMessageIfPossible,
+} = {}) {
+  const errorText = getDiscussionErrorMessage(messages, lang, reason);
+  await retireCallbackMessageIfPossible?.(ctx);
+  await clearDiscussionListMessage(ctx);
+  const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, listType));
+  await rememberDiscussionMenuNotice(ctx, errorNotice);
+  return errorNotice;
+}
+
+async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
+  if (ctx.callbackMessageId && ctx.editMessageText) {
+    const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
+    if (edited) {
+      return edited;
+    }
+  }
+
+  return ctx.reply(text, keyboard);
+}
+
+async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, {
+  editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+} = {}) {
+  const result = await listActiveDiscussions({ limit: 100 });
+  if (!result.discussions.length) {
+    await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^🤖\s*/, ""));
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
+  }
+  await ctx.answerCb?.();
+  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
+  const filtered = joinableOnly ? decorated.filter((entry) => entry.isJoinable) : decorated;
+  if (!filtered.length) {
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionListJoinableEmpty,
+      discussionListNavigationKeyboard(lang, {
+        listType: "active",
+        page: 0,
+        totalPages: 1,
+        joinableOnly,
+      }),
+    );
+    await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+    return listMessage;
+  }
+  const paged = paginateDiscussions(filtered, page);
+  const listMessage = await editCallbackMessageOrReply(
+    ctx,
+    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
+      startIndex: paged.startIndex,
+    }),
+    discussionListNavigationKeyboard(lang, {
+      listType: "active",
+      page: paged.page,
+      totalPages: paged.totalPages,
+      joinableOnly,
+    }),
+  );
+  await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+  return listMessage;
+}
+
+async function renderMyDiscussionList(ctx, lang, page = 0, {
+  editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+} = {}) {
+  const result = await listMyDiscussions(ctx.userId, { limit: 100 });
+  if (!result.ok) {
+    await ctx.answerCb?.();
+    return ctx.reply(messages[lang].unknownAction);
+  }
+  if (!result.discussions.length) {
+    await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^🤖\s*/, ""));
+    return editCallbackMessageOrReply(ctx, messages[lang].discussionListMineEmpty, discussionsMenuKeyboard(lang));
+  }
+  await ctx.answerCb?.();
+  const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
+  const paged = paginateDiscussions(decorated, page);
+  const listMessage = await editCallbackMessageOrReply(
+    ctx,
+    buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
+      startIndex: paged.startIndex,
+    }),
+    discussionListNavigationKeyboard(lang, {
+      listType: "mine",
+      page: paged.page,
+      totalPages: paged.totalPages,
+    }),
+  );
+  await rememberDiscussionListMessage(ctx, "mine", ctx.callbackMessageId || listMessage);
+  return listMessage;
+}
+
+function isDiscussionListCallback(data = "") {
+  return data === callBacks.discussionListActive ||
+    data.startsWith(callBacks.discussionListActivePage) ||
+    data === callBacks.discussionListMine ||
+    data.startsWith(callBacks.discussionListMinePage) ||
+    data.startsWith(callBacks.discussionJoinErrorAck);
+}
+
+async function handleDiscussionListCallback(ctx, lang, {
+  deleteCallbackMessageIfPossible,
+  editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+  renderSavedProfileDiscussions,
+} = {}) {
+  const data = ctx.callbackData || "";
+
+  if (data === callBacks.discussionListActive) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+  }
+
+  if (data.startsWith(callBacks.discussionListActivePage)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    const payload = data.replace(callBacks.discussionListActivePage, "");
+    const [pageRaw = "0", filter = "all"] = payload.split(":");
+    return renderActiveDiscussionList(ctx, lang, Number(pageRaw), filter === "joinable", { editCallbackMessageOrReply });
+  }
+
+  if (data === callBacks.discussionListMine) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+  }
+
+  if (data.startsWith(callBacks.discussionListMinePage)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    const pageRaw = data.replace(callBacks.discussionListMinePage, "");
+    return renderMyDiscussionList(ctx, lang, Number(pageRaw), { editCallbackMessageOrReply });
+  }
+
+  if (data.startsWith(callBacks.discussionJoinErrorAck)) {
+    await ctx.answerCb?.();
+    const destination = data.replace(callBacks.discussionJoinErrorAck, "");
+    await deleteCallbackMessageIfPossible?.(ctx);
+    await clearDiscussionMenuNotice(ctx);
+
+    if (destination.startsWith("saved:u_") && renderSavedProfileDiscussions) {
+      return renderSavedProfileDiscussions(ctx, lang, destination.replace(/^saved:/, ""));
+    }
+    if (destination === "main") {
+      return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+    }
+    if (destination === "discussions") {
+      return editCallbackMessageOrReply(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+    if (destination === "mine") {
+      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    }
+    return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+  }
+
+  return false;
+}
+
 module.exports = {
   clearRememberedDiscussionRoomCards,
   rememberDiscussionRoomCards,
@@ -162,6 +335,11 @@ module.exports = {
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   shouldKeepDiscussionRoomCardsForCallback,
+  handleDiscussionListCallback,
   isDiscussionCreateFlowCallback,
   isDiscussionCreateState,
+  isDiscussionListCallback,
+  renderActiveDiscussionList,
+  renderMyDiscussionList,
+  sendDiscussionJoinErrorAck,
 };

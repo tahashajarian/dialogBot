@@ -249,8 +249,8 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
 }
 
 async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason) {
-  await clearRememberedDiscussionListMessage(ctx);
   const listType = ctx.user?.discussionLastListType || "active";
+  await clearRememberedDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(
     getDiscussionErrorMessage(messages, lang, reason),
     discussionJoinErrorAckKeyboard(lang, listType)

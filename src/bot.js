@@ -38,6 +38,11 @@ const {
   normalizePublicProfileCode,
 } = require("./services/discussions");
 const {
+  findDiscussionDelivery,
+  getReplyMessageIdForRecipient,
+  rememberDiscussionDelivery,
+} = require("./services/discussion-delivery-memory");
+const {
   leaveDiscussionAndNotify,
 } = require("./services/discussion-actions");
 const {
@@ -152,6 +157,31 @@ function getStartInviteCode(text = "") {
   return match ? `d_${match[1].toUpperCase()}` : "";
 }
 
+function getReplyMessageId(message = {}) {
+  const reply = message.reply_to_message || message.replyToMessage || {};
+  const messageId = Number(getMessageId(reply));
+  return Number.isInteger(messageId) && messageId > 0 ? messageId : null;
+}
+
+function formatDiscussionOutboundMessage(messages, lang, { senderDisplayName, text }) {
+  return messages[lang].discussionMessageInbound
+    .replace("{sender}", senderDisplayName || (lang === "fa" ? "کاربر" : "User"))
+    .replace("{text}", String(text || "").trim());
+}
+
+async function sendDiscussionMessageToRecipient(ctx, recipientUserId, text, replyDelivery) {
+  const replyMessageId = getReplyMessageIdForRecipient(replyDelivery, recipientUserId);
+  if (!replyMessageId) {
+    return ctx.sendToUser?.(recipientUserId, text);
+  }
+
+  const sent = await ctx.sendToUser?.(recipientUserId, text, {
+    reply_to_message_id: replyMessageId,
+  });
+  if (sent) return sent;
+  return ctx.sendToUser?.(recipientUserId, text);
+}
+
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
@@ -218,6 +248,11 @@ async function handleUpdate(ctx) {
 
   if (state === "idle" && ctx.user?.activeDiscussionId && text && !text.startsWith("/")) {
     const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+    const replyDelivery = findDiscussionDelivery({
+      userId: ctx.userId,
+      messageId: getReplyMessageId(ctx.message),
+      discussionId: ctx.user.activeDiscussionId,
+    });
     const added = await addRecentMessage({
       discussionId: ctx.user.activeDiscussionId,
       senderUserId: ctx.userId,
@@ -234,14 +269,25 @@ async function handleUpdate(ctx) {
       return ctx.reply(messages[lang].discussionMessageOnlyText);
     }
 
-    const inboundText = messages[lang].discussionMessageInbound
-      .replace("{title}", added.discussion.title)
-      .replace("{sender}", senderName || "کاربر")
-      .replace("{text}", String(text).trim());
+    const inboundText = formatDiscussionOutboundMessage(messages, lang, {
+      senderDisplayName: senderName,
+      text,
+    });
 
-    await Promise.all(
-      (added.recipients || []).map((recipientUserId) => ctx.sendToUser?.(recipientUserId, inboundText)),
-    );
+    const deliveriesByUserId = {
+      [ctx.userId]: getMessageId(ctx.message),
+    };
+    await Promise.all((added.recipients || []).map(async (recipientUserId) => {
+      const sent = await sendDiscussionMessageToRecipient(ctx, recipientUserId, inboundText, replyDelivery);
+      const sentMessageId = getMessageId(sent);
+      if (sentMessageId) {
+        deliveriesByUserId[recipientUserId] = sentMessageId;
+      }
+    }));
+    rememberDiscussionDelivery({
+      discussionId: ctx.user.activeDiscussionId,
+      deliveriesByUserId,
+    });
     return true;
   }
 
@@ -540,4 +586,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
 module.exports = {
   handleUpdate,
   getStartInviteCode,
+  formatDiscussionOutboundMessage,
+  getReplyMessageId,
+  sendDiscussionMessageToRecipient,
 };

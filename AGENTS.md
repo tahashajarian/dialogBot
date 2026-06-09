@@ -26,14 +26,16 @@
 - Keep `src/bot.js` and `src/callbacks.js` as dispatchers. Do not add large new feature bodies there when a flow/service module is a better home.
 - Put discussion database rules and mutations in `src/services/discussions.js`.
 - Put discussion cross-user side effects, such as join/leave/close/remove notifications, in `src/services/discussion-actions.js`.
+- Put runtime-only discussion delivery id mapping for native replies in `src/services/discussion-delivery-memory.js`; do not persist reply metadata or delivered message ids.
 - Put discussion text commands and bottom-keyboard room controls in `src/flows/discussions-text.js`.
 - Put typed discussion-create wizard states in `src/flows/discussions-create-text.js`.
 - Put inline discussion-create wizard callbacks in `src/flows/discussions-create-callbacks.js`.
-- Put discussion callback housekeeping, stale-card predicates, and create-flow callback predicates in `src/flows/discussions-callbacks.js`.
+- Put discussion callback housekeeping, stale-card predicates, create-flow callback predicates, discussion list/menu callbacks, and join-error acknowledgements in `src/flows/discussions-callbacks.js`.
 - Put discussion list/preview/error rendering in `src/services/discussion-ui.js`.
 - Put discussion room/member/recent-message rendering in `src/services/discussion-room-ui.js`.
 - Put saved-profile list rendering and saved-profile action text in `src/services/saved-profiles-ui.js`.
 - Put profile rendering and profile input validation in `src/services/profile.js`.
+- Put profile edit/settings callback routing and own-profile callback rendering in `src/flows/profile-callbacks.js`.
 - Keep AI list storage/mutation access centralized in `src/services/users.js`.
 - If a router starts growing with repeated logic, extract a focused flow helper instead of adding another inline branch.
 

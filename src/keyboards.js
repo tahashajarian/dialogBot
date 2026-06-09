@@ -702,7 +702,11 @@ function discussionInvitePreviewKeyboard(lang, publicDiscussionCode) {
 }
 
 function discussionJoinErrorAckKeyboard(lang, listType = "active") {
-  const normalizedListType = listType === "mine" ? "mine" : "active";
+  const rawListType = String(listType || "").trim();
+  const savedMatch = rawListType.match(/^saved:u_([a-z0-9]+)$/i);
+  const normalizedListType = savedMatch
+    ? `saved:u_${savedMatch[1].toUpperCase()}`
+    : listType === "mine" ? "mine" : "active";
   return inlineKeyboard([
     [{
       text: messages[lang].acknowledgeButton,

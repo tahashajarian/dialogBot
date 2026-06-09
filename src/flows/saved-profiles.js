@@ -211,7 +211,10 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 async function renderSavedProfileDiscussions(ctx, lang, code) {
   await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
 
-  const target = await User.findOne({ publicProfileCode: code });
+  const profileCode = normalizePublicProfileCode(code);
+  if (!profileCode) return ctx.reply(messages[lang].profileCodeNotFound);
+
+  const target = await User.findOne({ publicProfileCode: profileCode });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
 
   const name = target.profileName || target.firstName || "کاربر";
@@ -247,11 +250,120 @@ async function renderSavedProfileDiscussions(ctx, lang, code) {
   if (!hasAny) {
     const noDiscussionsText = messages[lang].savedProfileNoDiscussions.replace("{name}", name);
     const keyboard = inlineKeyboard([[{ text: messages[lang].acknowledgeButton, callback_data: "saved:back" }]]);
-    return ctx.reply(noDiscussionsText, keyboard);
+    const sentEmpty = await ctx.reply(noDiscussionsText, keyboard);
+    await updateProfileField(ctx.userId, "discussionLastListMessageId", getMessageId(sentEmpty) || null);
+    await updateProfileField(ctx.userId, "discussionLastListType", `saved:${profileCode}`);
+    return sentEmpty;
   }
 
   const keyboard = inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
-  return ctx.reply(textParts.join("\n"), keyboard);
+  const sent = await ctx.reply(textParts.join("\n"), keyboard);
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", getMessageId(sent) || null);
+  await updateProfileField(ctx.userId, "discussionLastListType", `saved:${profileCode}`);
+  return sent;
+}
+
+function isSavedProfilesCallback(data = "") {
+  return data === callBacks.savedProfiles ||
+    data === "saved:back" ||
+    data.startsWith(callBacks.savedProfilesPage) ||
+    data.startsWith(callBacks.savedProfilesOpen) ||
+    data.startsWith(callBacks.savedProfilesDiscussions) ||
+    data.startsWith(callBacks.savedProfilesRemove);
+}
+
+async function handleSavedProfilesCallback(ctx, lang, {
+  buildSavedProfilesListText: renderSavedProfilesListText = buildSavedProfilesListText,
+  clearRememberedAiListMessage,
+  clearViewedPublicProfileMessage: clearViewedPublicProfile = clearViewedPublicProfileMessage,
+  deleteCallbackMessageIfPossible,
+  editCallbackMessageOrReply,
+  forgetSavedProfilesListMessage: forgetSavedProfilesList = forgetSavedProfilesListMessage,
+  isProfileCallbackMessage,
+  leaveDiscussionAndClearKeyboardForNavigation,
+  removeBottomKeyboard,
+} = {}) {
+  const data = ctx.callbackData || "";
+
+  if (data === callBacks.savedProfiles) {
+    await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
+    await clearRememberedAiListMessage?.(ctx);
+    if (isProfileCallbackMessage?.(ctx)) {
+      const cleared = await clearViewedPublicProfile(ctx);
+      if (!cleared) await deleteCallbackMessageIfPossible?.(ctx);
+    } else {
+      await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+      await deleteCallbackMessageIfPossible?.(ctx);
+      await removeBottomKeyboard?.(ctx, messages[lang].savedProfilesTitle);
+    }
+    await forgetSavedProfilesList(ctx);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    return sendSavedProfilesList(ctx, lang, codes, 0);
+  }
+
+  if (data === "saved:back") {
+    await ctx.answerCb?.();
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    return sendSavedProfilesList(ctx, lang, codes, 0);
+  }
+
+  if (data.startsWith(callBacks.savedProfilesPage)) {
+    await ctx.answerCb?.();
+    const pageRaw = data.replace(callBacks.savedProfilesPage, "");
+    const page = Number(pageRaw);
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    const paged = await buildSavedProfilePage(codes, page);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      renderSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
+      savedProfilesListKeyboard(lang, {
+        page: paged.page,
+        totalPages: paged.totalPages,
+      }),
+    );
+    await rememberSavedProfilesListMessage(ctx, ctx.callbackMessageId || listMessage);
+    return listMessage;
+  }
+
+  if (data.startsWith(callBacks.savedProfilesOpen)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesOpen, "");
+    await deleteCallbackMessageIfPossible?.(ctx);
+    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
+  }
+
+  if (data.startsWith(callBacks.savedProfilesDiscussions)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesDiscussions, "");
+    return renderSavedProfileDiscussions(ctx, lang, code);
+  }
+
+  if (data.startsWith(callBacks.savedProfilesRemove)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.savedProfilesRemove, "");
+    const removed = await unsaveProfileByCode(ctx, lang, code, { notify: false });
+    if (removed !== true) return removed;
+    const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    const paged = await buildSavedProfilePage(codes, 0);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      paged.items.length
+        ? `${messages[lang].savedProfileRemoved}\n\n${renderSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex })}`
+        : messages[lang].savedProfileRemoved,
+      savedProfilesListKeyboard(lang, {
+        page: paged.page,
+        totalPages: paged.totalPages,
+      }),
+    );
+    await rememberSavedProfilesListMessage(ctx, ctx.callbackMessageId || listMessage);
+    return listMessage;
+  }
+
+  return false;
 }
 
 module.exports = {
@@ -259,6 +371,8 @@ module.exports = {
   clearSavedProfilesListMessage,
   clearViewedPublicProfileMessage,
   forgetSavedProfilesListMessage,
+  handleSavedProfilesCallback,
+  isSavedProfilesCallback,
   normalizeProfileCodeFromActionCommand,
   rememberSavedProfilesListMessage,
   renderSavedProfileDiscussions,
