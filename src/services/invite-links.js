@@ -1,3 +1,5 @@
+const { getInviteConfig } = require("../config");
+
 function normalizeBotUsername(value = "") {
   return String(value || "")
     .trim()
@@ -10,10 +12,10 @@ function normalizePublicUrl(value = "") {
 }
 
 function getConfiguredBotBaseUrl(env = process.env) {
+  const inviteConfig = getInviteConfig(env);
   const configuredUrl = normalizePublicUrl(
-    env.BOT_DEEP_LINK_BASE_URL ||
-    env.BOT_PUBLIC_URL ||
-    env.PUBLIC_BOT_URL ||
+    inviteConfig.deepLinkBaseUrl ||
+    inviteConfig.publicUrl ||
     "",
   );
   if (configuredUrl) {
@@ -22,7 +24,7 @@ function getConfiguredBotBaseUrl(env = process.env) {
     if (configuredUsername) return `https://ble.ir/@${configuredUsername}`;
   }
 
-  const username = normalizeBotUsername(env.BOT_USERNAME || "");
+  const username = normalizeBotUsername(inviteConfig.username || "");
   return username ? `https://ble.ir/@${username}` : "";
 }
 

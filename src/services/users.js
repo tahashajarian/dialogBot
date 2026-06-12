@@ -633,5 +633,4 @@ module.exports = {
   inferTasteLabel,
   getTasteProgressStatus,
   syncAiTasteForSection,
-  getAiTasteFromUser,
 };

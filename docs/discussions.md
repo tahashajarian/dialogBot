@@ -88,7 +88,7 @@ There is no separate room-level discussion-menu/back button. `🚪 خروج از
 
 Important distinction:
 
-- joining another discussion leaves the current discussion first
+- successfully joining another discussion leaves the previous discussion
 - leaving a discussion removes current membership
 - if a user leaves the room view, they are no longer in that discussion
 
@@ -267,7 +267,8 @@ When user joins:
      - From invite (requirement/removed errors) → show main menu
      - From invite (other errors) → show discussions menu
 
-- If they are already inside another discussion, leave the old discussion first.
+- If they are already inside another discussion, keep them in the old discussion until the new join succeeds.
+- If the new join fails, do not remove them from their current discussion.
 - If the discussion has reached its configured capacity, do not allow joining.
 - Add the user to current members.
 - Set user's active discussion id.
@@ -339,7 +340,8 @@ First-time/deep-link handling:
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
 - Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
-- If the user is inside another discussion, the invite join action should leave the old discussion first and use the normal switched message.
+- If the user is inside another discussion, the invite join action should switch rooms only after the new join succeeds.
+- If the invite join fails, keep the user in their current discussion.
 - Invite start commands and `/join_CODE` should be handled before section-specific states, so links work even if the user is currently inside profile edit, AI lists, saved profiles, or another bot section.
 
 Example ready-to-share copy:
@@ -416,9 +418,11 @@ Join attempt validation order:
 5. Check whether the user is already a member.
 6. Check discussion capacity.
 7. Check the discussion join rule.
-8. Join the discussion, leaving any previous discussion first.
+8. Atomically join the target discussion.
+9. After the target join succeeds, leave any previous discussion and send the normal switched message.
 
 This order keeps sensitive details quiet while still giving useful recovery messages. If a room is closed or missing, do not reveal whether the user would have satisfied its join rule.
+It also keeps users from being ejected from their current room when a target join fails because of capacity, permissions, closure, or stale invite/list state.
 
 Callback and stale-state behavior:
 
@@ -760,7 +764,7 @@ After this response, remove the room bottom keyboard and show the discussions me
 
 Owners can leave their own active/open discussion. This removes them from current members and clears their `activeDiscussionId`, but does not close the discussion or change `creatorUserId`.
 
-Joining another discussion leaves the old one first.
+Joining another discussion leaves the old one after the new join succeeds. If the new join fails, the user stays in the old discussion.
 
 ### Close Discussion
 
@@ -973,6 +977,12 @@ MVP should include basic limits:
 - Max description length: 300.
 - Max message length: 500.
 - Max current members per discussion: 20.
+
+Implementation rules:
+
+- Message quota checks should be atomic within the current time window so fast repeated sends cannot bypass the limit.
+- Recent-message appends should be atomic and capped to the last 10 messages so concurrent sends do not overwrite each other.
+- Join capacity checks should be part of the join mutation so concurrent joins cannot exceed the configured room capacity.
 
 For local testing, usernames listed in `ALLOWED_USERNAMES` may bypass the daily discussion creation limit. This should remain a test/admin allowance, not normal user behavior.
 

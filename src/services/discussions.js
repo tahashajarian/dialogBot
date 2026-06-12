@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = require("./users");
@@ -10,6 +11,19 @@ const SAVED_PROFILE_CAP = 50;
 const DISCUSSION_CREATE_DAILY_LIMIT = 3;
 const DISCUSSION_MESSAGE_LIMIT = 30;
 const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
+const PUBLIC_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function generatePublicCodeSuffix(length) {
+  let suffix = "";
+  for (let index = 0; index < length; index += 1) {
+    suffix += PUBLIC_CODE_ALPHABET[crypto.randomInt(PUBLIC_CODE_ALPHABET.length)];
+  }
+  return suffix;
+}
+
+function isDuplicateKeyError(error) {
+  return Number(error?.code) === 11000;
+}
 
 function normalizePublicProfileCode(value) {
   const raw = String(value || "").trim().replace(/^\/+/, "");
@@ -55,22 +69,33 @@ async function ensurePublicProfileCode(userId) {
 
   let code = "";
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const suffix = generatePublicCodeSuffix(4);
     code = `u_${suffix}`;
-    const exists = await User.exists({ publicProfileCode: code });
-    if (!exists) break;
-    code = "";
+    try {
+      const updated = await User.findOneAndUpdate(
+        {
+          userId,
+          $or: [
+            { publicProfileCode: "" },
+            { publicProfileCode: null },
+            { publicProfileCode: { $exists: false } },
+          ],
+        },
+        { $set: { publicProfileCode: code } },
+        { returnDocument: "after" },
+      );
+
+      if (updated) return { ok: true, code, user: updated };
+
+      const refreshed = await User.findOne({ userId });
+      const refreshedCode = normalizePublicProfileCode(refreshed?.publicProfileCode);
+      if (refreshedCode) return { ok: true, code: refreshedCode, user: refreshed };
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+    }
   }
 
-  if (!code) return { ok: false, reason: "code_generation_failed" };
-
-  const updated = await User.findOneAndUpdate(
-    { userId },
-    { $set: { publicProfileCode: code } },
-    { returnDocument: "after" },
-  );
-
-  return { ok: true, code, user: updated };
+  return { ok: false, reason: "code_generation_failed" };
 }
 
 async function ensurePublicDiscussionCode(discussion) {
@@ -86,18 +111,19 @@ async function ensurePublicDiscussionCode(discussion) {
 
   let code = "";
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const suffix = generatePublicCodeSuffix(6);
     code = `d_${suffix}`;
-    const exists = await Discussion.exists({ publicDiscussionCode: code });
-    if (!exists) break;
-    code = "";
+    try {
+      found.publicDiscussionCode = code;
+      await found.save();
+      return { ok: true, code, discussion: found };
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      found.publicDiscussionCode = "";
+    }
   }
 
-  if (!code) return { ok: false, reason: "code_generation_failed" };
-
-  found.publicDiscussionCode = code;
-  await found.save();
-  return { ok: true, code, discussion: found };
+  return { ok: false, reason: "code_generation_failed" };
 }
 
 async function ensurePublicDiscussionCodes(discussions = []) {
@@ -283,14 +309,20 @@ async function leaveCurrentDiscussionForJoin(user, nextDiscussionId) {
     return null;
   }
 
-  const currentDiscussion = await Discussion.findById(currentDiscussionId);
-  if (!currentDiscussion || !currentDiscussion.memberUserIds.includes(user.userId)) {
+  const currentDiscussion = await Discussion.findOneAndUpdate(
+    {
+      _id: currentDiscussionId,
+      memberUserIds: user.userId,
+    },
+    {
+      $pull: { memberUserIds: user.userId },
+      $set: { updatedAt: new Date() },
+    },
+    { returnDocument: "after" },
+  );
+  if (!currentDiscussion) {
     return null;
   }
-
-  currentDiscussion.memberUserIds = currentDiscussion.memberUserIds.filter((id) => id !== user.userId);
-  currentDiscussion.updatedAt = new Date();
-  await currentDiscussion.save();
 
   await User.findOneAndUpdate(
     { userId: user.userId },
@@ -319,11 +351,9 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
 
   const isMember = discussion.memberUserIds.includes(userId);
   const isOwner = Number(discussion.creatorUserId) === Number(userId);
-  const leftPrevious = await leaveCurrentDiscussionForJoin(user, discussion._id);
 
   if (!isMember) {
     if (!isOwner) {
-      // Check if user was previously removed
       const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
       if (wasRemoved) {
         return { ok: false, reason: "removed_by_owner" };
@@ -338,24 +368,65 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
       if (!eligibility.ok) return eligibility;
     }
 
-    discussion.memberUserIds.push(userId);
-    discussion.updatedAt = new Date();
-    await discussion.save();
+    const maxMembers = normalizeMaxMembers(discussion.maxMembers);
+    const joinedDiscussion = await Discussion.findOneAndUpdate(
+      {
+        _id: discussion._id,
+        status: "open",
+        memberUserIds: { $ne: userId },
+        ...(isOwner ? {} : { removedUserIds: { $ne: userId } }),
+        ...(isOwner
+          ? {}
+          : {
+            $expr: {
+              $lt: [
+                { $size: "$memberUserIds" },
+                maxMembers,
+              ],
+            },
+          }),
+      },
+      {
+        $addToSet: { memberUserIds: userId },
+        $set: { updatedAt: new Date(), maxMembers },
+      },
+      { returnDocument: "after" },
+    );
+
+    if (!joinedDiscussion) {
+      const latest = await Discussion.findById(discussion._id).lean();
+      if (!latest) return { ok: false, reason: "missing_discussion" };
+      if (latest.status !== "open") return { ok: false, reason: "discussion_closed" };
+      if (!isOwner && Array.isArray(latest.removedUserIds) && latest.removedUserIds.includes(userId)) {
+        return { ok: false, reason: "removed_by_owner" };
+      }
+      if (latest.memberUserIds?.includes(userId)) {
+        await User.findOneAndUpdate(
+          { userId },
+          { $set: { activeDiscussionId: latest._id } },
+        );
+        return { ok: true, discussion: latest, joined: false, switched: true, leftPrevious: null };
+      }
+      return { ok: false, reason: "discussion_full", cap: maxMembers };
+    }
+
+    const leftPrevious = await leaveCurrentDiscussionForJoin(user, joinedDiscussion._id);
 
     await User.findOneAndUpdate(
       { userId },
       {
-        $set: { activeDiscussionId: discussion._id },
-        $addToSet: { discussionMembershipIds: discussion._id },
+        $set: { activeDiscussionId: joinedDiscussion._id },
+        $addToSet: { discussionMembershipIds: joinedDiscussion._id },
       },
     );
 
     const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
-    const otherMemberIds = discussion.memberUserIds.filter((id) => id !== userId);
+    const otherMemberIds = joinedDiscussion.memberUserIds.filter((id) => id !== userId);
     
-    return { ok: true, discussion, joined: true, switched: true, joinerName, otherMemberIds, leftPrevious };
+    return { ok: true, discussion: joinedDiscussion, joined: true, switched: true, joinerName, otherMemberIds, leftPrevious };
   }
 
+  const leftPrevious = await leaveCurrentDiscussionForJoin(user, discussion._id);
   await User.findOneAndUpdate(
     { userId },
     { $set: { activeDiscussionId: discussion._id } },
@@ -384,18 +455,24 @@ async function getActiveDiscussionInviteForUser(userId, discussionId) {
 async function leaveDiscussionAsMember(userId, discussionId) {
   const [user, discussion] = await Promise.all([
     User.findOne({ userId }),
-    Discussion.findById(discussionId),
+    Discussion.findOneAndUpdate(
+      {
+        _id: discussionId,
+        memberUserIds: userId,
+      },
+      {
+        $pull: { memberUserIds: userId },
+        $set: { updatedAt: new Date() },
+      },
+      { returnDocument: "before" },
+    ),
   ]);
 
   if (!user) return { ok: false, reason: "missing_user" };
-  if (!discussion) return { ok: false, reason: "missing_discussion" };
-
-  const wasMember = discussion.memberUserIds.includes(userId);
-  if (!wasMember) return { ok: false, reason: "not_member" };
-
-  discussion.memberUserIds = discussion.memberUserIds.filter((id) => id !== userId);
-  discussion.updatedAt = new Date();
-  await discussion.save();
+  if (!discussion) {
+    const latest = await Discussion.findById(discussionId).select("_id").lean();
+    return latest ? { ok: false, reason: "not_member" } : { ok: false, reason: "missing_discussion" };
+  }
 
   const updates = {
     $pull: { discussionMembershipIds: discussion._id },
@@ -421,17 +498,30 @@ async function leaveDiscussionAsMember(userId, discussionId) {
 }
 
 async function closeDiscussionAsOwner(ownerUserId, discussionId) {
-  const discussion = await Discussion.findById(discussionId);
-  if (!discussion) return { ok: false, reason: "missing_discussion" };
-  if (discussion.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
-  if (discussion.status === "closed") return { ok: false, reason: "already_closed" };
+  const discussion = await Discussion.findOneAndUpdate(
+    {
+      _id: discussionId,
+      creatorUserId: ownerUserId,
+      status: "open",
+    },
+    {
+      $set: {
+        status: "closed",
+        closedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    },
+    { returnDocument: "before" },
+  );
+  if (!discussion) {
+    const latest = await Discussion.findById(discussionId).select("creatorUserId status").lean();
+    if (!latest) return { ok: false, reason: "missing_discussion" };
+    if (latest.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
+    if (latest.status === "closed") return { ok: false, reason: "already_closed" };
+    return { ok: false, reason: "missing_discussion" };
+  }
 
   const memberIds = [...discussion.memberUserIds];
-
-  discussion.status = "closed";
-  discussion.closedAt = new Date();
-  discussion.updatedAt = new Date();
-  await discussion.save();
 
   await User.updateMany(
     {
@@ -454,23 +544,34 @@ async function closeDiscussionAsOwner(ownerUserId, discussionId) {
 }
 
 async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
-  const [discussion, memberUser] = await Promise.all([
-    Discussion.findById(discussionId),
-    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang profileName firstName").lean(),
-  ]);
-  if (!discussion) return { ok: false, reason: "missing_discussion" };
-  if (discussion.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
-  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
   if (memberUserId === ownerUserId) return { ok: false, reason: "owner_cannot_remove_self" };
 
-  const wasMember = discussion.memberUserIds.includes(memberUserId);
-  if (!wasMember) return { ok: false, reason: "not_member" };
-  const wasActive = String(memberUser?.activeDiscussionId || "") === String(discussion._id);
+  const [discussion, memberUser] = await Promise.all([
+    Discussion.findOneAndUpdate(
+      {
+        _id: discussionId,
+        creatorUserId: ownerUserId,
+        status: "open",
+        memberUserIds: memberUserId,
+      },
+      {
+        $pull: { memberUserIds: memberUserId },
+        $addToSet: { removedUserIds: memberUserId },
+        $set: { updatedAt: new Date() },
+      },
+      { returnDocument: "before" },
+    ),
+    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang profileName firstName").lean(),
+  ]);
 
-  discussion.memberUserIds = discussion.memberUserIds.filter((id) => id !== memberUserId);
-  discussion.removedUserIds = [...new Set([...discussion.removedUserIds, memberUserId])];
-  discussion.updatedAt = new Date();
-  await discussion.save();
+  if (!discussion) {
+    const latest = await Discussion.findById(discussionId).select("creatorUserId status memberUserIds").lean();
+    if (!latest) return { ok: false, reason: "missing_discussion" };
+    if (latest.creatorUserId !== ownerUserId) return { ok: false, reason: "not_owner" };
+    if (latest.status !== "open") return { ok: false, reason: "discussion_closed" };
+    return { ok: false, reason: "not_member" };
+  }
+  const wasActive = String(memberUser?.activeDiscussionId || "") === String(discussion._id);
 
   await User.findOneAndUpdate(
     { userId: memberUserId },
@@ -540,21 +641,57 @@ function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowM
 }
 
 async function consumeDiscussionMessageQuota(userId) {
-  const user = await User.findOne({ userId });
-  if (!user) return { ok: false, reason: "missing_user" };
-
   const now = new Date();
-  const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now);
-  if (recentUsage.length >= DISCUSSION_MESSAGE_LIMIT) {
+  const cutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_WINDOW_MS);
+  const updated = await User.findOneAndUpdate(
+    {
+      userId,
+      $expr: {
+        $lt: [
+          {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$discussionMessageUsage", []] },
+                as: "usedAt",
+                cond: { $gt: ["$$usedAt", cutoff] },
+              },
+            },
+          },
+          DISCUSSION_MESSAGE_LIMIT,
+        ],
+      },
+    },
+    [
+      {
+        $set: {
+          discussionMessageUsage: {
+            $concatArrays: [
+              {
+                $filter: {
+                  input: { $ifNull: ["$discussionMessageUsage", []] },
+                  as: "usedAt",
+                  cond: { $gt: ["$$usedAt", cutoff] },
+                },
+              },
+              [now],
+            ],
+          },
+        },
+      },
+    ],
+    { returnDocument: "after" },
+  );
+
+  if (!updated) {
+    const user = await User.findOne({ userId }).select("discussionMessageUsage").lean();
+    if (!user) return { ok: false, reason: "missing_user" };
     return { ok: false, reason: "message_rate_limit", cap: DISCUSSION_MESSAGE_LIMIT };
   }
 
-  const updatedUsage = [...recentUsage, now];
-  await User.findOneAndUpdate(
-    { userId },
-    { $set: { discussionMessageUsage: updatedUsage } },
-  );
-  return { ok: true, count: updatedUsage.length };
+  return {
+    ok: true,
+    count: getRecentDiscussionMessageUsageFromUser(updated, now).length,
+  };
 }
 
 async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text }) {
@@ -570,28 +707,48 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
   const quota = await consumeDiscussionMessageQuota(senderUserId);
   if (!quota.ok) return { ...quota, discussion };
 
-  const nextMessages = [
-    ...discussion.recentMessages,
+  const now = new Date();
+  const message = {
+    senderUserId,
+    senderDisplayName: cleanName || "کاربر",
+    text: cleanText,
+    sentAt: now,
+  };
+  const updatedDiscussion = await Discussion.findOneAndUpdate(
     {
-      senderUserId,
-      senderDisplayName: cleanName || "کاربر",
-      text: cleanText,
-      sentAt: new Date(),
+      _id: discussionId,
+      status: "open",
+      memberUserIds: senderUserId,
     },
-  ].slice(-DISCUSSION_RECENT_MESSAGES_CAP);
+    {
+      $push: {
+        recentMessages: {
+          $each: [message],
+          $slice: -DISCUSSION_RECENT_MESSAGES_CAP,
+        },
+      },
+      $inc: { replyCount: 1 },
+      $set: {
+        lastActivityAt: now,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: "after" },
+  );
 
-  discussion.recentMessages = nextMessages;
-  discussion.replyCount = Number(discussion.replyCount || 0) + 1;
-  discussion.lastActivityAt = new Date();
-  discussion.updatedAt = new Date();
-  await discussion.save();
+  if (!updatedDiscussion) {
+    const latest = await Discussion.findById(discussionId).lean();
+    if (!latest) return { ok: false, reason: "missing_discussion" };
+    if (latest.status !== "open") return { ok: false, reason: "discussion_closed" };
+    return { ok: false, reason: "not_member" };
+  }
 
   return {
     ok: true,
-    discussion,
-    recentMessages: nextMessages,
+    discussion: updatedDiscussion,
+    recentMessages: updatedDiscussion.recentMessages || [],
     recipients: (await User.find({
-      userId: { $in: discussion.memberUserIds.filter((id) => id !== senderUserId) },
+      userId: { $in: updatedDiscussion.memberUserIds.filter((id) => id !== senderUserId) },
     }).select("userId").lean()).map((entry) => entry.userId),
   };
 }
@@ -654,7 +811,7 @@ async function notifyDiscussionMembers(ctx, messages, members = [], getPayloads)
       for (const payload of payloads) {
         await ctx.sendToUser?.(member.userId, payload.text, payload.extra);
       }
-    } catch (err) {
+    } catch {
       // Individual notification failures should not block the acting user.
     }
   }

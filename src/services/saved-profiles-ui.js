@@ -11,11 +11,6 @@ function lineForLang(lang, text) {
   return lang === "fa" ? `${RTL_MARK}${text}` : text;
 }
 
-function isolateText(lang, text) {
-  const value = String(text || "");
-  return lang === "fa" ? `${FSI}${value}${PDI}` : value;
-}
-
 function firstStrongDirection(text) {
   const value = String(text || "");
   for (const ch of value) {

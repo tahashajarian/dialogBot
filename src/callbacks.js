@@ -11,8 +11,10 @@ const {
 } = require("./keyboards");
 const { callBacks } = require("./constants");
 const {
-  updateProfileField,
-} = require("./services/users");
+  getMessageId,
+  removeBottomKeyboard,
+  leaveDiscussionAndClearKeyboardForNavigation,
+} = require("./services/bot-navigation");
 const {
   getDiscussionErrorMessage,
 } = require("./services/discussion-ui");
@@ -82,18 +84,6 @@ const {
   sendPublicProfileByCode,
   unsaveProfileByCode,
 } = require("./flows/saved-profiles");
-
-function getMessageId(message) {
-  return message?.message_id || message?.messageId;
-}
-
-async function removeBottomKeyboard(ctx, text) {
-  const sent = await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
-  const messageId = getMessageId(sent);
-  if (messageId && ctx.deleteMessage) {
-    await ctx.deleteMessage(messageId);
-  }
-}
 
 function discussionCloseConfirmKeyboard(lang, discussionId) {
   return inlineKeyboard([
@@ -168,25 +158,6 @@ async function sendDiscussionRoom(ctx, lang, discussion) {
   await retireCallbackMessageIfPossible(ctx);
   await rememberDiscussionRoomCards(ctx, headerMessage, recentMessage);
   return recentMessage;
-}
-
-async function leaveActiveDiscussionForNavigation(ctx) {
-  const discussionId = String(ctx.user?.activeDiscussionId || "");
-  if (!discussionId) return null;
-  const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId });
-  if (!left.ok) {
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-  }
-  if (ctx.user) ctx.user.activeDiscussionId = null;
-  return left;
-}
-
-async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
-  const left = await leaveActiveDiscussionForNavigation(ctx);
-  if (left) {
-    await removeBottomKeyboard(ctx, " ");
-  }
-  return left;
 }
 
 function formatDiscussionLeftMessage(lang, discussionTitle = "") {

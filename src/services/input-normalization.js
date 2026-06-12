@@ -74,7 +74,10 @@ function tokenizeNormalizedInput(value) {
 function isMeaningfulNormalizedInput(value) {
   const tokens = tokenizeNormalizedInput(value);
   if (!tokens.length) return false;
-  return tokens.some((token) => token.length >= 3 || /[^\x00-\x7F]/.test(token));
+  return tokens.some((token) => (
+    token.length >= 3 ||
+    [...token].some((ch) => ch.charCodeAt(0) > 127)
+  ));
 }
 
 module.exports = {

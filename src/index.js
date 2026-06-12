@@ -5,38 +5,22 @@ const connectDB = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser } = require("./services/users");
 const { beginInteraction } = require("./services/interaction-guard");
-const DEFAULT_ALLOWED_USERNAMES = ["taha_shj"];
+const { createAppContext } = require("./services/app-context");
+const { getRuntimeConfig, normalizeUsername } = require("./config");
 
-function resolveBaleApiRoot() {
-  return (process.env.API_ROOT || "").trim() || null;
-}
-
-function normalizeUsername(value) {
-  return String(value || "").trim().replace(/^@+/, "").toLowerCase();
-}
-
-function resolveAllowedUsernames() {
-  const fromEnv = String(process.env.ALLOWED_USERNAMES || "").trim();
-  const source = fromEnv ? fromEnv.split(",") : DEFAULT_ALLOWED_USERNAMES;
-  const normalized = source
-    .map((value) => normalizeUsername(value))
-    .filter(Boolean);
-  return new Set(normalized);
-}
-
-const ALLOWED_USERNAMES = resolveAllowedUsernames();
+const config = getRuntimeConfig();
+const ALLOWED_USERNAMES = config.allowedUsernames;
 
 function isAllowedUser(from) {
   return ALLOWED_USERNAMES.has(normalizeUsername(from?.username));
 }
 
-const baleApiRoot = resolveBaleApiRoot();
 const bot = new Telegraf(
-  process.env.BOT_TOKEN,
-  baleApiRoot
+  config.botToken,
+  config.baleApiRoot
     ? {
       telegram: {
-        apiRoot: baleApiRoot,
+        apiRoot: config.baleApiRoot,
       },
     }
     : undefined,
@@ -45,277 +29,6 @@ const bot = new Telegraf(
 bot.catch((err) => {
   console.error("Bot update error:", err);
 });
-
-function createAppContext(ctx, user) {
-  const PIN_OPERATION_TIMEOUT_MS = 2500;
-  const PIN_RETRY_DELAY_MS = 400;
-
-  const resolveChatId = () => (
-    ctx.chat?.id ||
-    ctx.callbackQuery?.message?.chat?.id ||
-    ctx.message?.chat?.id
-  );
-
-  const callTelegramApiWithTimeout = async (method, payload, timeoutMs) => {
-    if (!ctx.telegram?.callApi) {
-      return false;
-    }
-
-    const supportsAbortController = typeof AbortController !== "undefined";
-    const abortController = supportsAbortController ? new AbortController() : null;
-    const callPromise = ctx.telegram.callApi(
-      method,
-      payload,
-      abortController ? { signal: abortController.signal } : undefined,
-    );
-    let timeoutId = null;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => {
-        abortController?.abort();
-        reject(new Error(`${method} timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
-
-    try {
-      return await Promise.race([callPromise, timeoutPromise]);
-    } finally {
-      clearTimeout(timeoutId);
-      callPromise.catch(() => {});
-    }
-  };
-
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const getErrorCode = (error) => Number(
-    error?.code ||
-    error?.response?.error_code ||
-    error?.response?.data?.error_code,
-  );
-  const getErrorDescription = (error) => (
-    error?.description ||
-    error?.response?.description ||
-    error?.response?.data?.description
-  );
-  const getErrorText = (error) => (
-    error?.message ||
-    error?.response?.data?.error ||
-    error
-  );
-  const isMessageNotFoundError = (error) => {
-    const code = getErrorCode(error);
-    const description = String(getErrorDescription(error) || "").toLowerCase();
-    return code === 404 && description.includes("message not found");
-  };
-  const isRetriablePinError = (error) => {
-    const code = getErrorCode(error);
-    const text = String(error?.message || "").toLowerCase();
-    return code === 500 || text.includes("internal server error") || text.includes("timed out");
-  };
-  const isTransientEditError = (error) => {
-    const code = getErrorCode(error);
-    const text = String(getErrorDescription(error) || getErrorText(error) || "").toLowerCase();
-    return code === 500 || text.includes("internal server error") || text.includes("timed out");
-  };
-
-  return {
-    user,
-    userId: user?.userId,
-    canBypassDiscussionCreateLimit: isAllowedUser(ctx.from),
-    languageCode: ctx.from?.language_code,
-    message: ctx.message,
-    text: ctx.message?.text,
-    callbackData: ctx.callbackQuery?.data,
-    callbackMessage: ctx.callbackQuery?.message,
-    callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
-
-    reply: (...args) => ctx.reply(...args),
-    replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
-    answerCb: (text = "", extra = undefined) => {
-      const payload = {
-        callback_query_id: ctx.callbackQuery?.id,
-        text: String(text || ""),
-        ...(extra && typeof extra === "object" ? extra : {}),
-      };
-      if (payload.callback_query_id && ctx.telegram?.callApi) {
-        return ctx.telegram.callApi("answerCallbackQuery", payload).catch((error) => {
-          if (payload.show_alert) {
-            console.warn("answerCallbackQuery show_alert failed:", {
-              callbackQueryId: String(payload.callback_query_id || ""),
-              error: error?.message || error,
-            });
-          }
-        });
-      }
-      return ctx.answerCbQuery(String(text || "")).catch(() => {});
-    },
-    sendToUser: async (userId, text, extra = {}) => {
-      const targetUserId = Number(userId);
-      if (!Number.isInteger(targetUserId) || targetUserId <= 0 || !ctx.telegram?.callApi) {
-        return false;
-      }
-      try {
-        return await callTelegramApiWithTimeout(
-          "sendMessage",
-          {
-            chat_id: targetUserId,
-            text,
-            ...extra,
-          },
-          PIN_OPERATION_TIMEOUT_MS,
-        );
-      } catch {
-        return false;
-      }
-    },
-    editMessage: (...args) => ctx.editMessageText(...args),
-    editMessageText: async (messageId, text, extra = {}) => {
-      const chatId = resolveChatId();
-      const normalizedMessageId = Number(messageId);
-      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
-        return false;
-      }
-
-      try {
-        return await callTelegramApiWithTimeout(
-          "editMessageText",
-          {
-            chat_id: chatId,
-            message_id: normalizedMessageId,
-            text,
-            ...extra,
-          },
-          PIN_OPERATION_TIMEOUT_MS,
-        );
-      } catch (error) {
-        if (isMessageNotFoundError(error) || isTransientEditError(error)) {
-          return false;
-        }
-        console.warn("Failed to edit bot message:", {
-          chatId,
-          messageId: normalizedMessageId,
-          code: getErrorCode(error),
-          description: getErrorDescription(error),
-          error: getErrorText(error),
-        });
-        return false;
-      }
-    },
-    editMessageReplyMarkup: async (messageId, replyMarkup = {}) => {
-      const chatId = resolveChatId();
-      const normalizedMessageId = Number(messageId);
-      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
-        return false;
-      }
-
-      try {
-        return await callTelegramApiWithTimeout(
-          "editMessageReplyMarkup",
-          {
-            chat_id: chatId,
-            message_id: normalizedMessageId,
-            reply_markup: replyMarkup,
-          },
-          PIN_OPERATION_TIMEOUT_MS,
-        );
-      } catch {
-        return false;
-      }
-    },
-    deleteMessage: async (messageId) => {
-      const chatId = resolveChatId();
-      const normalizedMessageId = Number(messageId);
-      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
-        return false;
-      }
-
-      try {
-        return await callTelegramApiWithTimeout(
-          "deleteMessage",
-          {
-            chat_id: chatId,
-            message_id: normalizedMessageId,
-          },
-          PIN_OPERATION_TIMEOUT_MS,
-        );
-      } catch {
-        return false;
-      }
-    },
-    pinMessage: async (messageId) => {
-      const chatId = resolveChatId();
-      const normalizedMessageId = Number(messageId);
-      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
-        return false;
-      }
-
-      let lastError = null;
-      const pinPayloads = [
-        {
-          chat_id: chatId,
-          message_id: normalizedMessageId,
-        },
-        {
-          chat_id: String(chatId),
-          message_id: String(normalizedMessageId),
-        },
-      ];
-
-      for (let attempt = 0; attempt < pinPayloads.length; attempt += 1) {
-        if (attempt > 0) {
-          await sleep(PIN_RETRY_DELAY_MS);
-        }
-
-        try {
-          return await callTelegramApiWithTimeout(
-            "pinChatMessage",
-            pinPayloads[attempt],
-            PIN_OPERATION_TIMEOUT_MS,
-          );
-        } catch (error) {
-          lastError = error;
-          if (!isRetriablePinError(error) || attempt >= pinPayloads.length - 1) {
-            break;
-          }
-        }
-      }
-
-      console.error("Failed to pin chat message:", {
-        chatId,
-        messageId: normalizedMessageId,
-        code: getErrorCode(lastError),
-        description: getErrorDescription(lastError),
-        error: getErrorText(lastError),
-      });
-      return false;
-    },
-    unpinMessage: async (messageId) => {
-      const chatId = resolveChatId();
-      const normalizedMessageId = Number(messageId);
-      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
-        return false;
-      }
-
-      try {
-        return await callTelegramApiWithTimeout(
-          "unpinChatMessage",
-          {
-            chat_id: chatId,
-            message_id: normalizedMessageId,
-          },
-          PIN_OPERATION_TIMEOUT_MS,
-        );
-      } catch (error) {
-        console.error("Failed to unpin chat message:", {
-          chatId,
-          messageId: normalizedMessageId,
-          code: getErrorCode(error),
-          description: getErrorDescription(error),
-          error: getErrorText(error),
-        });
-        return false;
-      }
-    },
-  };
-}
 
 async function processUpdate(ctx) {
   if (!isAllowedUser(ctx.from)) {
@@ -327,7 +40,9 @@ async function processUpdate(ctx) {
   }
 
   const user = await getOrCreateUser(ctx.from);
-  const appCtx = createAppContext(ctx, user);
+  const appCtx = createAppContext(ctx, user, {
+    canBypassDiscussionCreateLimit: isAllowedUser(ctx.from),
+  });
   const interaction = beginInteraction({
     userId: user?.userId || ctx.from?.id,
     callbackData: appCtx.callbackData,
@@ -378,7 +93,7 @@ async function retry(fn, {
 (async () => {
   try {
     console.log("[startup] connecting database...");
-    await connectDB();
+    await connectDB(config);
     console.log("[startup] checking bot token/API via getMe...");
     await retry(
       () => bot.telegram.getMe(),

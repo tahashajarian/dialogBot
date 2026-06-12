@@ -5,6 +5,7 @@
 - This repo contains a Bale bot using a Telegraf-compatible API.
 - Runtime stack: Node.js and MongoDB.
 - Main entry point: `src/index.js`.
+- Runtime environment parsing and validation lives in `src/config.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - User schema lives in `src/models/user.js`.
 - For a quick file-by-file orientation, read [Agent map](agent-map.md).
@@ -105,3 +106,4 @@ Saved profiles, when implemented, should be private one-way bookmarks. They shou
 - `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings for Bale.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep Bale and AI endpoint configuration separate to avoid launch failures.
+- Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.

@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
+const { getRuntimeConfig } = require("./config");
 
-async function connectDB() {
+async function connectDB(config = getRuntimeConfig()) {
   try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      dbName: "bot"
+    await mongoose.connect(config.mongoUri, {
+      dbName: config.dbName,
     });
 
     console.log("MongoDB connected");

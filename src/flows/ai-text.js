@@ -318,7 +318,7 @@ async function handleAiText(ctx, lang, text, state) {
       if (sent?.message_id && ctx.deleteMessage) {
         try {
           await ctx.deleteMessage(sent.message_id);
-        } catch (e) {
+        } catch {
           // Ignore deletion errors
         }
       }
@@ -540,7 +540,7 @@ async function handleAiText(ctx, lang, text, state) {
       if (sent?.message_id && ctx.deleteMessage) {
         try {
           await ctx.deleteMessage(sent.message_id);
-        } catch (e) {
+        } catch {
           // Ignore deletion errors
         }
       }

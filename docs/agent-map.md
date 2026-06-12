@@ -5,6 +5,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 ## Runtime Entry
 
 - `src/index.js`: loads env, creates Telegraf/Bale bot, builds app context, applies allowlist and repeated-tap guard, starts polling.
+- `src/config.js`: parses and validates runtime environment settings, including Bale/API endpoint separation.
 - `src/db.js`: MongoDB connection only.
 - `src/bot.js`: text-message dispatcher. Keep this thin; route to flow/service helpers.
 - `src/callbacks.js`: callback-query dispatcher. Keep this thin; route to flow/service helpers.

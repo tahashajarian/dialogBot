@@ -46,7 +46,7 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
 
 const DISCUSSION_MEMBER_DIVIDER = PAGINATION.listDivider;
 
-function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, discussionId = null) {
+function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, _discussionId = null) {
   return members.map((entry, index) => {
     const isCurrentUser = Number(entry.userId) === Number(currentUserId);
     const isOwner = Number(entry.userId) === Number(creatorUserId);

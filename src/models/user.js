@@ -67,7 +67,7 @@ const UserSchema = new mongoose.Schema({
   photoFileId: String,
   profileDiscoverable: { type: Boolean, default: true },
   showActiveDiscussionOnProfile: { type: Boolean, default: false },
-  publicProfileCode: { type: String, default: "", index: true, sparse: true },
+  publicProfileCode: { type: String, default: "" },
   activeDiscussionId: { type: mongoose.Schema.Types.ObjectId, ref: "Discussion", default: null },
   discussionMembershipIds: {
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Discussion" }],
@@ -128,5 +128,16 @@ const UserSchema = new mongoose.Schema({
   state: { type: String, default: "idle" },
   createdAt: { type: Date, default: Date.now },
 });
+
+UserSchema.index(
+  { publicProfileCode: 1 },
+  {
+    name: "publicProfileCode_unique_nonempty",
+    unique: true,
+    partialFilterExpression: {
+      publicProfileCode: { $type: "string", $ne: "" },
+    },
+  },
+);
 
 module.exports = mongoose.model("User", UserSchema);

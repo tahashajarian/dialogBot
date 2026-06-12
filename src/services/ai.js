@@ -4,12 +4,11 @@ const {
   getAiResponseCacheStats,
   normalizeCategory,
 } = require("./ai-response-cache");
+const { getAiConfig } = require("../config");
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || process.env.MODEL_NAME || "gpt-4o-mini";
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
+const aiConfig = getAiConfig();
 const MAX_OUTPUT_TOKENS = 50;
 const MAX_INPUT_CHARS = 180;
-const REQUEST_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 8000);
 const FEEDBACK_MAX_OUTPUT_TOKENS = 22;
 const FEEDBACK_MAX_WORDS = 8;
 const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v2";
@@ -144,9 +143,9 @@ let aiFeedbackResponseCache = null;
 function getClient() {
   if (client) return client;
 
-  const apiKey = (process.env.OPENAI_API_KEY || process.env.API_KEY || "").trim();
+  const apiKey = aiConfig.apiKey;
   if (!apiKey) return null;
-  const baseURL = (process.env.API_BASE_URL || process.env.api_base_url || "").trim();
+  const baseURL = aiConfig.baseUrl;
 
   client = new OpenAI({
     apiKey,
@@ -228,14 +227,7 @@ function sanitizeTasteFeedback(text, lang) {
   return limitWords(clean, FEEDBACK_MAX_WORDS);
 }
 
-function buildTasteFeedbackFallback({ lang, labelTitle }) {
-  if (lang === "fa") {
-    return limitWords(`سلیقه‌ات خوبه؛ ${labelTitle} هم معلومه.`);
-  }
-  return limitWords(`Great taste; ${labelTitle} energy detected.`);
-}
-
-function buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item }) {
+function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
     return limitWords(`جالبه؛ «${shortItem || "این مورد"}» انتخاب باحالیه.`);
@@ -263,11 +255,11 @@ async function getEmbedding(openai, input) {
   try {
     const response = await Promise.race([
       openai.embeddings.create({
-        model: EMBEDDING_MODEL,
+        model: aiConfig.embeddingModel,
         input,
       }),
       new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("ai_embedding_timeout")), REQUEST_TIMEOUT_MS);
+        setTimeout(() => reject(new Error("ai_embedding_timeout")), aiConfig.timeoutMs);
       }),
     ]);
     const embedding = response?.data?.[0]?.embedding;
@@ -418,7 +410,7 @@ async function getAiSingleSuggestion({
   try {
     const response = await Promise.race([
       openai.responses.create({
-        model: DEFAULT_MODEL,
+        model: aiConfig.model,
         max_output_tokens: MAX_OUTPUT_TOKENS,
         instructions: [
           "You are a Bale chat assistant.",
@@ -442,7 +434,7 @@ async function getAiSingleSuggestion({
         })}`,
       }),
       new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("ai_timeout")), REQUEST_TIMEOUT_MS);
+        setTimeout(() => reject(new Error("ai_timeout")), aiConfig.timeoutMs);
       }),
     ]);
 
@@ -509,8 +501,8 @@ async function getAiTasteItemFeedback({
       section,
       labelKey,
       labelTitle,
-      model: DEFAULT_MODEL,
-      embeddingModel: EMBEDDING_MODEL,
+      model: aiConfig.model,
+      embeddingModel: aiConfig.embeddingModel,
     },
     generateEmbedding: openai
       ? (input) => getEmbedding(openai, input)
@@ -527,7 +519,7 @@ async function getAiTasteItemFeedback({
       try {
         const response = await Promise.race([
           openai.responses.create({
-            model: DEFAULT_MODEL,
+            model: aiConfig.model,
             max_output_tokens: FEEDBACK_MAX_OUTPUT_TOKENS,
             instructions: [
               "You write one micro reaction for taste profiling.",
@@ -544,7 +536,7 @@ async function getAiTasteItemFeedback({
             input: `Section: ${section}\nItem: ${normalizedItem}\nDetected label: ${labelTitle || labelKey || "eclectic"}`,
           }),
           new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("ai_feedback_timeout")), REQUEST_TIMEOUT_MS);
+            setTimeout(() => reject(new Error("ai_feedback_timeout")), aiConfig.timeoutMs);
           }),
         ]);
 

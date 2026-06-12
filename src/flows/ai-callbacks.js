@@ -1,6 +1,5 @@
 const messages = require("../messages");
 const {
-  aiAssistantKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
@@ -79,7 +78,6 @@ const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
-  rememberAiListMessage,
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
 } = require("./ai-cards");

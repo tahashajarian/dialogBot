@@ -19,8 +19,12 @@ const {
 const {
   updateProfileField,
   updateUserState,
-  removeAiListItem,
 } = require("./services/users");
+const {
+  getMessageId,
+  clearBottomKeyboardQuietly,
+  leaveDiscussionAndClearKeyboardForNavigation,
+} = require("./services/bot-navigation");
 const { resolveCityByCoordinates } = require("./services/location");
 const {
   saveLocationProfile,
@@ -42,9 +46,6 @@ const {
   getReplyMessageIdForRecipient,
   rememberDiscussionDelivery,
 } = require("./services/discussion-delivery-memory");
-const {
-  leaveDiscussionAndNotify,
-} = require("./services/discussion-actions");
 const {
   isDiscussionBottomControlText,
   handleDiscussionBottomButton,
@@ -81,7 +82,6 @@ const {
   renderSavedProfileDiscussions,
   saveProfileCommand,
   sendPublicProfileByCode,
-  sendSavedProfilesList,
   unsaveProfileCommand,
 } = require("./flows/saved-profiles");
 
@@ -105,39 +105,6 @@ function matchesMessageText(text, keys) {
     .flatMap((key) => [messages.fa[key], messages.en[key]])
     .map(normalizeKeyboardText)
     .includes(normalizedText);
-}
-
-function getMessageId(message) {
-  return message?.message_id || message?.messageId;
-}
-
-async function clearBottomKeyboardQuietly(ctx) {
-  const sent = await ctx.reply(" ", {
-    reply_markup: { remove_keyboard: true },
-  });
-  const messageId = getMessageId(sent);
-  if (messageId && ctx.deleteMessage) {
-    await ctx.deleteMessage(messageId);
-  }
-}
-
-async function leaveActiveDiscussionForNavigation(ctx) {
-  const discussionId = String(ctx.user?.activeDiscussionId || "");
-  if (!discussionId) return null;
-  const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId });
-  if (!left.ok) {
-    await updateProfileField(ctx.userId, "activeDiscussionId", null);
-  }
-  if (ctx.user) ctx.user.activeDiscussionId = null;
-  return left;
-}
-
-async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
-  const left = await leaveActiveDiscussionForNavigation(ctx);
-  if (left) {
-    await clearBottomKeyboardQuietly(ctx);
-  }
-  return left;
 }
 
 function parseDiscussionCloseConfirmState(state = "") {

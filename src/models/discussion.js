@@ -29,7 +29,7 @@ const DiscussionReportSchema = new mongoose.Schema({
 const DiscussionSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 80 },
   description: { type: String, default: "", trim: true, maxlength: 300 },
-  publicDiscussionCode: { type: String, default: "", index: true, sparse: true },
+  publicDiscussionCode: { type: String, default: "" },
   creatorUserId: { type: Number, required: true, index: true },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
@@ -47,5 +47,15 @@ const DiscussionSchema = new mongoose.Schema({
 
 DiscussionSchema.index({ status: 1, updatedAt: -1 });
 DiscussionSchema.index({ memberUserIds: 1, status: 1 });
+DiscussionSchema.index(
+  { publicDiscussionCode: 1 },
+  {
+    name: "publicDiscussionCode_unique_nonempty",
+    unique: true,
+    partialFilterExpression: {
+      publicDiscussionCode: { $type: "string", $ne: "" },
+    },
+  },
+);
 
 module.exports = mongoose.model("Discussion", DiscussionSchema);

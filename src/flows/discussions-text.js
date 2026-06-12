@@ -1,12 +1,10 @@
 const messages = require("../messages");
-const { callBacks } = require("../constants");
 const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
   discussionInvitePreviewKeyboard,
-  discussionCreateCancelKeyboard,
   discussionJoinErrorAckKeyboard,
 } = require("../keyboards");
 const User = require("../models/user");
