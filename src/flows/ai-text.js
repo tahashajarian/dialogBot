@@ -404,6 +404,11 @@ async function handleAiText(ctx, lang, text, state) {
             aiListManageMenuKeyboard(lang, section, listType),
           );
         }
+        if (result.reason === "invalid_item_quality") {
+          const prompt = await ctx.reply(messages[lang].aiTopTenInvalidItemQuality, aiListCancelAddKeyboard(lang, section, listType));
+          await rememberAiPendingInputPrompt(ctx, prompt);
+          return prompt;
+        }
         const prompt = await ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType));
         await rememberAiPendingInputPrompt(ctx, prompt);
         return prompt;

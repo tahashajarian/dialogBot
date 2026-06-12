@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
+const { isLowQualityAiListItem } = require("./ai-input-quality");
 
 async function getOrCreateUser(from) {
   if (!from) return null;
@@ -422,6 +423,9 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const comment = normalizeAiListComment(item?.comment);
   if (!title) {
     return { ok: false, reason: "empty" };
+  }
+  if (listType === "topTen" && isLowQualityAiListItem(title)) {
+    return { ok: false, reason: "invalid_item_quality" };
   }
 
   const user = await User.findOne({ userId });

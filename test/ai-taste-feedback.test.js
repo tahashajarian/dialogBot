@@ -26,3 +26,27 @@ test("uses predefined feedback for known Interests chips", async () => {
   assert.equal(enGaming.matchType, "predefined");
   assert.equal(enGaming.text, "Gaming says you enjoy challenge and flow.");
 });
+
+test("uses neutral feedback for low-quality or placeholder inputs", async () => {
+  const enResult = await getAiTasteItemFeedback({
+    mode: "movies",
+    lang: "en",
+    item: "Test",
+    labelKey: "arthouse_curious",
+    labelTitle: "Arthouse Curious",
+  });
+  const faResult = await getAiTasteItemFeedback({
+    mode: "random",
+    lang: "fa",
+    item: "نتاشایباشسمنیاب",
+    labelKey: "multi_interest",
+    labelTitle: "چندقسمتی",
+  });
+
+  assert.equal(enResult.ok, true);
+  assert.equal(enResult.matchType, "unknown_input");
+  assert.match(enResult.text, /don't recognize/i);
+  assert.equal(faResult.ok, true);
+  assert.equal(faResult.matchType, "unknown_input");
+  assert.match(faResult.text, /نمی‌شناسم/);
+});

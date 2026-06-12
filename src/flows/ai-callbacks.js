@@ -590,6 +590,9 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (result.reason === "limit") {
         return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
+      if (result.reason === "invalid_item_quality") {
+        return ctx.reply(messages[lang].aiTopTenInvalidItemQuality, aiListManageMenuKeyboard(lang, "random", "topTen"));
+      }
       return ctx.reply(messages[lang].aiListInvalidInput, aiListManageMenuKeyboard(lang, "random", "topTen"));
     }
 

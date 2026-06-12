@@ -41,6 +41,8 @@
 ## TopTen
 
 - TopTen items support comment edit.
+- TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
+- If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
 - When a user enters TopTen in any section, send the current TopTen list as a separate message before the section/manage description and inline buttons.
 - TopTen menus should keep the "show all" action even though the list is also shown on entry.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.

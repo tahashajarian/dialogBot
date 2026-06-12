@@ -5,6 +5,7 @@ const {
   normalizeCategory,
 } = require("./ai-response-cache");
 const { getAiConfig } = require("../config");
+const { isLowQualityAiListItem } = require("./ai-input-quality");
 
 const aiConfig = getAiConfig();
 const MAX_OUTPUT_TOKENS = 50;
@@ -234,6 +235,14 @@ function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   }
 
   return limitWords(`Nice one; "${shortItem || "that one"}" is a solid pick.`);
+}
+
+function buildUnknownItemFeedback({ lang, item }) {
+  const shortItem = shortenItemForFeedback(item);
+  if (lang === "fa") {
+    return limitWords(`راستش «${shortItem || "این"}» رو نمی‌شناسم؛ فعلاً ازش برداشت نمی‌کنم.`, 12);
+  }
+  return limitWords(`I don't recognize "${shortItem || "that"}" yet, so I won't read into it.`, 12);
 }
 
 function getPredefinedTasteFeedback({ section, item, lang }) {
@@ -471,6 +480,16 @@ async function getAiTasteItemFeedback({
   const normalizedItem = normalizeInput(item);
   if (!section || !normalizedItem) {
     return { ok: false, reason: "empty_input" };
+  }
+
+  if (isLowQualityAiListItem(normalizedItem)) {
+    return {
+      ok: true,
+      text: buildUnknownItemFeedback({ lang, item: normalizedItem }),
+      cached: true,
+      matchType: "unknown_input",
+      normalizedInput: normalizeCacheItem(normalizedItem),
+    };
   }
 
   const predefinedFeedback = getPredefinedTasteFeedback({
