@@ -405,7 +405,11 @@ async function handleAiText(ctx, lang, text, state) {
           );
         }
         if (result.reason === "invalid_item_quality") {
-          const prompt = await ctx.reply(messages[lang].aiTopTenInvalidItemQuality, aiListCancelAddKeyboard(lang, section, listType));
+          const sectionKey = section.charAt(0).toUpperCase() + section.slice(1);
+          const messageKey = `aiTopTenInvalidItemQuality${sectionKey}`;
+          const errorMessage = messages[lang][messageKey] || messages[lang].aiTopTenInvalidItemQuality;
+          
+          const prompt = await ctx.reply(errorMessage, aiListCancelAddKeyboard(lang, section, listType));
           await rememberAiPendingInputPrompt(ctx, prompt);
           return prompt;
         }

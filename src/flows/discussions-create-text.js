@@ -9,7 +9,7 @@ const {
 } = require("../keyboards");
 const { updateProfileField, updateUserState } = require("../services/users");
 const { toPlainUser } = require("../services/profile");
-const { hasLink } = require("../services/discussions");
+const { hasLink, validateDiscussionTitle, validateDiscussionDescription } = require("../services/discussions");
 const { buildDiscussionPreviewText } = require("../services/discussion-ui");
 const {
   clearDiscussionMenuNotice,
@@ -96,6 +96,11 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
     return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitleLink, cancelKeyboard());
   }
 
+  const titleValidation = validateDiscussionTitle(normalized);
+  if (!titleValidation.valid) {
+    return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitle, cancelKeyboard());
+  }
+
   await clearDiscussionMenuNotice(ctx);
   await updateProfileField(ctx.userId, "discussionDraftTitle", normalized);
   if (isEditingFromPreview) {
@@ -175,6 +180,11 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
   const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
   if (isOpenRule && !normalized) {
     return sendDiscussionCreatePrompt(ctx, messages[lang].discussionOpenNeedsDescription, cancelKeyboard());
+  }
+
+  const descValidation = validateDiscussionDescription(normalized);
+  if (normalized && !descValidation.valid) {
+    return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidDescription, cancelKeyboard());
   }
 
   await clearDiscussionMenuNotice(ctx);

@@ -60,6 +60,38 @@ function hasLink(value) {
   return /https?:\/\/|www\.|t\.me\/|telegram\.me\/|bale\.ai\//i.test(String(value || ""));
 }
 
+const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-quality");
+
+/**
+ * Validate discussion title for quality and meaningfulness.
+ * Checks minimum length (3+ letters) and rejects nonsense patterns.
+ * Returns { valid: boolean, reason?: string }
+ */
+function validateDiscussionTitle(title) {
+  const lengthCheck = validateMinimumLength(title);
+  if (!lengthCheck.valid) {
+    return lengthCheck;
+  }
+
+  const isLowQuality = isLowQualityAiListItem(title);
+  return { valid: !isLowQuality };
+}
+
+/**
+ * Validate discussion description for quality and meaningfulness.
+ * Uses same validation as title (minimum length + nonsense detection).
+ * Returns { valid: boolean, reason?: string }
+ */
+function validateDiscussionDescription(description) {
+  const lengthCheck = validateMinimumLength(description);
+  if (!lengthCheck.valid) {
+    return lengthCheck;
+  }
+
+  const isLowQuality = isLowQualityAiListItem(description);
+  return { valid: !isLowQuality };
+}
+
 async function ensurePublicProfileCode(userId) {
   const user = await User.findOne({ userId });
   if (!user) return { ok: false, reason: "missing_user" };
@@ -830,13 +862,15 @@ module.exports = {
   DISCUSSION_CREATE_DAILY_LIMIT,
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
-  normalizeTitle,
-  normalizeDescription,
-  normalizeMaxMembers,
-  normalizePublicProfileCode,
-  normalizePublicDiscussionCode,
-  hasLink,
-  ensurePublicProfileCode,
+ normalizeTitle,
+ normalizeDescription,
+ normalizeMaxMembers,
+ normalizePublicProfileCode,
+ normalizePublicDiscussionCode,
+ hasLink,
+ validateDiscussionTitle,
+  validateDiscussionDescription,
+ ensurePublicProfileCode,
   ensurePublicDiscussionCode,
   ensurePublicDiscussionCodes,
   findDiscussionByPublicCode,

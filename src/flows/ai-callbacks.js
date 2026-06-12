@@ -591,7 +591,8 @@ async function handleAiCallback(ctx, lang, helpers) {
         return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
       if (result.reason === "invalid_item_quality") {
-        return ctx.reply(messages[lang].aiTopTenInvalidItemQuality, aiListManageMenuKeyboard(lang, "random", "topTen"));
+        const errorMessage = messages[lang].aiTopTenInvalidItemQualityRandom || messages[lang].aiTopTenInvalidItemQuality;
+        return ctx.reply(errorMessage, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
       return ctx.reply(messages[lang].aiListInvalidInput, aiListManageMenuKeyboard(lang, "random", "topTen"));
     }

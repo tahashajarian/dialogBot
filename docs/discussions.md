@@ -130,10 +130,18 @@ Title prompt:
 Title validation:
 
 - required
+- minimum 3 letters (rejects AI, Go, ش, شش, but allows iOS, Dune, شما)
 - max 80 characters
 - normalize repeated spaces
-- reject empty/meaningless titles
-- avoid links in title for MVP
+- reject links in title
+- reject nonsense input: placeholders (test, asdf, تست, هیچی), Latin keyboard mash (qwerty, asdfg), Persian keyboard mash (سشبیل, شسیب), repeated characters (aaaa), long consonant-heavy chunks, long single Persian tokens with no spaces
+- allow duplicate titles (discussions are not global channels with unique names)
+- allow real short titles (Dune, Chess, شطرنج)
+
+Description validation:
+
+- minimum 3 letters (same as title)
+- uses the same nonsense detection as title and TopTen input (shared `isLowQualityAiListItem` and `validateMinimumLength` from `src/services/ai-input-quality.js`)
 
 Join rule prompt:
 

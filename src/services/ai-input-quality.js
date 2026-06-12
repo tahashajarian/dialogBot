@@ -1,3 +1,21 @@
+/**
+ * AI Input Quality Validator
+ * 
+ * Detects low-quality user input including:
+ * - Placeholders (test, asdf, تست, هیچی)
+ * - Keyboard mashing (qwerty, سشبیل)
+ * - Repeated characters (aaaa)
+ * - Consonant-heavy gibberish
+ * - Long single-token Persian text
+ * 
+ * Used for:
+ * - Discussion titles and descriptions
+ * - TopTen list items
+ * - AI section free-form input
+ * 
+ * Supports both English and Persian text.
+ */
+
 const PLACEHOLDER_INPUTS = new Set([
   "test",
   "testing",
@@ -21,6 +39,22 @@ const PLACEHOLDER_INPUTS = new Set([
   "هیچی",
   "نامشخص",
 ]);
+
+// Persian/Arabic keyboard layout patterns (common mash sequences)
+const PERSIAN_KEYBOARD_PATTERNS = [
+  /شسیب/,     // shin-seen-ye-be
+  /سشبیل/,    // seen-shin-be-ye-lam
+  /یبلس/,     // ye-be-lam-seen
+  /لایب/,     // lam-alef-ye-be
+  /بیشس/,     // be-ye-shin-seen
+  /نتام/,     // noon-te-alef-meem
+  /متان/,     // meem-te-alef-noon
+  /ضثصف/,     // za-se-sad-fe
+  /فصثض/,     // fe-sad-se-za
+  /شسیتن/,    // shin-seen-ye-te-noon
+  /بلاتن/,    // be-lam-alef-te-noon
+  /یتبش/,     // ye-te-be-shin
+];
 
 function normalizeQualityInput(value) {
   return String(value || "")
@@ -47,6 +81,10 @@ function hasLongRepeatedRun(value) {
 
 function hasKeyboardSequence(value) {
   return /(asdf|qwer|zxcv|hjkl|dfgh|jkl;?)/i.test(value);
+}
+
+function hasPersianKeyboardSequence(value) {
+  return PERSIAN_KEYBOARD_PATTERNS.some(pattern => pattern.test(value));
 }
 
 function hasLongConsonantRun(value) {
@@ -83,13 +121,34 @@ function isLowQualityAiListItem(value) {
   if (asciiLetters.length >= 4 && hasLongRepeatedRun(asciiLetters)) return true;
   if (asciiLetters.length >= 5 && hasKeyboardSequence(asciiLetters)) return true;
   if (asciiLetters.length >= 8 && hasLongConsonantRun(asciiLetters)) return true;
+  if (hasPersianKeyboardSequence(normalized)) return true;
   if (hasSuspiciousAsciiToken(normalized)) return true;
   if (hasSuspiciousRtlToken(normalized)) return true;
 
   return false;
 }
 
+/**
+ * Validate that input meets minimum meaningful length (3+ letters).
+ * Used for discussion titles and TopTen items to reject too-short nonsense.
+ * Returns { valid: boolean, reason?: string }
+ */
+function validateMinimumLength(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return { valid: false, reason: "empty" };
+  }
+
+  const letters = normalized.match(/\p{L}/gu) || [];
+  if (letters.length < 3) {
+    return { valid: false, reason: "too_short" };
+  }
+
+  return { valid: true };
+}
+
 module.exports = {
   normalizeQualityInput,
   isLowQualityAiListItem,
+  validateMinimumLength,
 };
