@@ -57,7 +57,12 @@ const PERSIAN_KEYBOARD_PATTERNS = [
 ];
 
 function normalizeQualityInput(value) {
-  return String(value || "")
+  // Remove zero-width and invisible characters that could bypass validation
+  const cleaned = String(value || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u2060-\u2069]/g, "");
+
+  return cleaned
     .trim()
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -112,6 +117,15 @@ function hasSuspiciousRtlToken(value) {
   return getRtlLetterTokens(value).some((token) => token.length >= 12);
 }
 
+function hasMixedScriptPlaceholder(value) {
+  const normalized = normalizeQualityInput(value);
+  const tokens = normalized.split(" ").filter(Boolean);
+  
+  // Check if multiple tokens are placeholders (blocks "test تست")
+  const placeholderCount = tokens.filter(token => PLACEHOLDER_INPUTS.has(token)).length;
+  return placeholderCount >= 2;
+}
+
 function isLowQualityAiListItem(value) {
   const normalized = normalizeQualityInput(value);
   if (!normalized) return true;
@@ -124,6 +138,7 @@ function isLowQualityAiListItem(value) {
   if (hasPersianKeyboardSequence(normalized)) return true;
   if (hasSuspiciousAsciiToken(normalized)) return true;
   if (hasSuspiciousRtlToken(normalized)) return true;
+  if (hasMixedScriptPlaceholder(normalized)) return true;
 
   return false;
 }
