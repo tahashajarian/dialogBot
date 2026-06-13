@@ -43,6 +43,9 @@
 - TopTen items support comment edit.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
+- Typed-item feedback should react to the item itself, not infer the user's personality.
+- For recognizable works, feedback should contain one concrete observation about the creator, form, genre, theme, or atmosphere.
+- Reject generic praise such as "great choice", "cool pick", or "this says you..." and use an honest uncertainty fallback instead of inventing facts.
 - When a user enters TopTen in any section, send the current TopTen list as a separate message before the section/manage description and inline buttons.
 - TopTen menus should keep the "show all" action even though the list is also shown on entry.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.

@@ -29,11 +29,12 @@ async function clearAiPendingInputPrompt(ctx) {
     return;
   }
   const messageId = Number(ctx.user?.aiPendingInputMessageId);
-  if (Number.isInteger(messageId) && messageId > 0) {
-    const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-    if (!deleted && ctx.editMessageReplyMarkup) {
-      await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
-    }
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    return;
+  }
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  if (!deleted && ctx.editMessageReplyMarkup) {
+    await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
   }
   await updateProfileField(ctx.userId, "aiPendingInputMessageId", null);
   if (ctx.user) {

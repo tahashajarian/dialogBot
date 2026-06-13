@@ -62,6 +62,9 @@ const {
   isAiCallback,
 } = require("./flows/ai-callbacks");
 const {
+  clearAiPendingInputPrompt,
+} = require("./flows/ai-input-prompts");
+const {
   isAiTextState,
 } = require("./flows/ai-text");
 const {
@@ -175,6 +178,10 @@ async function handleCallback(ctx) {
   if (!data) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (!isAiCallback(data)) {
+    await clearAiPendingInputPrompt(ctx);
   }
 
   if (!shouldKeepAiListTitleForCallback(data, isAiCallback)) {

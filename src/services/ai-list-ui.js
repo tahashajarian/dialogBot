@@ -9,6 +9,8 @@ const {
   inferTasteLabel,
   syncAiTasteForSection,
 } = require("./users");
+
+const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
 const { getAiTasteItemFeedback } = require("./ai");
 const {
   getSectionLabel,
@@ -242,7 +244,7 @@ async function buildTopTenSavedMessage({
 
   if (count < goal) {
     responseParts.push(getTopTenNextPrompt(lang, count));
-    return responseParts.join("\n\n");
+    return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
   const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
@@ -262,7 +264,7 @@ async function buildTopTenSavedMessage({
     .replace("{goal}", String(goal));
 
   responseParts.push(unlockedText);
-  return responseParts.join("\n\n");
+  return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
 }
 
 module.exports = {

@@ -12,6 +12,7 @@ const {
 } = require("../src/flows/ai-text");
 const {
   isAiCallback,
+  isSuggestionCallbackValidForState,
 } = require("../src/flows/ai-callbacks");
 const {
   clearAiSectionEntryMessage,
@@ -59,6 +60,19 @@ test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.discussions), false);
   assert.equal(shouldKeepAiListTitleForCallback(callBacks.aiAssistant, isAiCallback), true);
   assert.equal(shouldKeepAiListTitleForCallback(callBacks.profile, isAiCallback), false);
+});
+
+test("suggestion callbacks are valid only inside their matching AI state", () => {
+  const fromTopTen = `${callBacks.aiSectionSuggestFromTopTen}movies`;
+  const withContext = `${callBacks.aiSectionSuggestWithContext}books`;
+  const cancelContext = `${callBacks.aiSectionSuggestContextCancel}books`;
+
+  assert.equal(isSuggestionCallbackValidForState(fromTopTen, "ai_chat_movies"), true);
+  assert.equal(isSuggestionCallbackValidForState(fromTopTen, "idle"), false);
+  assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_books"), true);
+  assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_movies"), false);
+  assert.equal(isSuggestionCallbackValidForState(cancelContext, "ai_suggest_context_books"), true);
+  assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
 });
 
 test("AI remembered-card cleanup leaves kept or missing cards alone", async () => {

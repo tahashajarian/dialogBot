@@ -130,8 +130,34 @@ function isAiCallback(data = "") {
   );
 }
 
-function promptSuggestionMode(ctx, lang, section) {
-  return ctx.reply(messages[lang].aiSuggestionModePrompt, aiSuggestionModeKeyboard(lang, section));
+async function promptSuggestionMode(ctx, lang, section) {
+  await clearAiPendingInputPrompt(ctx);
+  const prompt = await ctx.reply(
+    messages[lang].aiSuggestionModePrompt,
+    aiSuggestionModeKeyboard(lang, section),
+  );
+  await rememberAiPendingInputPrompt(ctx, prompt);
+  return prompt;
+}
+
+function getSuggestionCallbackSection(data = "") {
+  const prefixes = [
+    callBacks.aiSectionAnotherSuggestion,
+    callBacks.aiSectionSuggestFromTopTen,
+    callBacks.aiSectionSuggestContextCancel,
+    callBacks.aiSectionSuggestWithContext,
+  ];
+  const prefix = prefixes.find((entry) => data.startsWith(entry));
+  return prefix ? data.slice(prefix.length).trim() : "";
+}
+
+function isSuggestionCallbackValidForState(data = "", state = "") {
+  const section = getSuggestionCallbackSection(data);
+  if (!section) return true;
+  if (data.startsWith(callBacks.aiSectionSuggestContextCancel)) {
+    return state === `ai_suggest_context_${section}`;
+  }
+  return state === `ai_chat_${section}`;
 }
 
 function getPromptWatchlistItems(watchlistItems = []) {
@@ -258,6 +284,12 @@ async function enterAiSection(ctx, lang, section, helpers) {
 
 async function handleAiCallback(ctx, lang, helpers) {
   const data = ctx.callbackData || "";
+
+  if (!isSuggestionCallbackValidForState(data, ctx.user?.state || "")) {
+    await ctx.answerCb?.();
+    await clearAiPendingInputPrompt(ctx);
+    return helpers.deleteCallbackMessageIfPossible(ctx);
+  }
 
   if (data.startsWith(callBacks.aiListManageMenu)) {
     await ctx.answerCb?.();
@@ -725,6 +757,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
     if (topTenItems.length < 3) return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
 
+    await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(messages[lang].aiSuggestionContextPrompt, {
@@ -748,7 +781,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
     if (topTenItems.length < 3) return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
 
-    await helpers.deleteCallbackMessageIfPossible(ctx);
+    await clearAiPendingInputPrompt(ctx);
     const sentSuggestion = await sendFollowupSuggestion({
       ctx,
       lang,
@@ -813,4 +846,5 @@ async function handleAiCallback(ctx, lang, helpers) {
 module.exports = {
   handleAiCallback,
   isAiCallback,
+  isSuggestionCallbackValidForState,
 };

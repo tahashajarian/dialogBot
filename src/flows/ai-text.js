@@ -142,8 +142,14 @@ function parseAiSuggestContextState(state) {
   return matched ? matched[1] : "";
 }
 
-function promptSuggestionMode(ctx, lang, section) {
-  return ctx.reply(messages[lang].aiSuggestionModePrompt, aiSuggestionModeKeyboard(lang, section));
+async function promptSuggestionMode(ctx, lang, section) {
+  await clearAiPendingInputPrompt(ctx);
+  const prompt = await ctx.reply(
+    messages[lang].aiSuggestionModePrompt,
+    aiSuggestionModeKeyboard(lang, section),
+  );
+  await rememberAiPendingInputPrompt(ctx, prompt);
+  return prompt;
 }
 
 function getPromptWatchlistItems(watchlistItems = []) {
@@ -289,6 +295,7 @@ async function sendSingleSectionSuggestion({
 async function openAiListManager(ctx, lang, section, listType) {
   const listLabel = getSectionListLabel(messages, lang, section);
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
+  await clearAiPendingInputPrompt(ctx);
   await updateUserState(ctx.userId, nextState);
   const listMessage = listType === "topTen"
     ? await ctx.reply(buildTopTenListMessage({ ctx, lang, section }))
@@ -538,6 +545,7 @@ async function handleAiText(ctx, lang, text, state) {
   const section = getAiSectionFromState(state);
   if (section) {
     if (isAiBackText(text)) {
+      await clearAiPendingInputPrompt(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });

@@ -10,9 +10,13 @@ const { isLowQualityAiListItem } = require("./ai-input-quality");
 const aiConfig = getAiConfig();
 const MAX_OUTPUT_TOKENS = 50;
 const MAX_INPUT_CHARS = 180;
-const FEEDBACK_MAX_OUTPUT_TOKENS = 22;
-const FEEDBACK_MAX_WORDS = 8;
-const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v2";
+const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
+const FEEDBACK_MAX_WORDS = 18;
+const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v3";
+const FEEDBACK_TITLE_STOPWORDS = new Set([
+  "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to", "with",
+  "از", "با", "به", "برای", "تا", "در", "را", "و",
+]);
 const PREDEFINED_TASTE_FEEDBACK = {
   random: {
     "شطرنج": {
@@ -183,7 +187,8 @@ function tokenizeSignalWords(text) {
     .filter((token) => {
       const isAscii = /^[a-z0-9]+$/i.test(token);
       return isAscii ? token.length >= 3 : token.length >= 2;
-    });
+    })
+    .filter((token) => !FEEDBACK_TITLE_STOPWORDS.has(token));
 }
 
 function isFeedbackRelevantToItem(feedback, item) {
@@ -196,10 +201,36 @@ function isFeedbackRelevantToItem(feedback, item) {
   return itemSignals.some((token) => feedbackNorm.includes(token));
 }
 
+function isGenericTasteFeedback(feedback, lang) {
+  const normalized = normalizeCacheItem(feedback);
+  if (!normalized) return true;
+
+  const patterns = lang === "fa"
+    ? [
+      /انتخاب(?:ت| شما)?\s+(?:خیلی\s+)?(?:\S+\s*){0,2}(?:است|ه|ایه|ای|بود)?$/,
+      /انتخاب (باحال|خوب|عالی|جالب|خاص|فوق العاده)/,
+      /^(وای|عجب|به به)[،!\s]/,
+      /سلیقه ات/,
+      /نشون می ده/,
+      /یعنی (آدم|ذهنت|تو)/,
+      /انرژی .* داری/,
+    ]
+    : [
+      /\b(great|good|nice|cool|solid|interesting|unique|excellent|amazing|fantastic) (choice|pick)\b/,
+      /\b(choice|pick)[.!]?\s*$/,
+      /^(wow|nice|great)[,!\s]/,
+      /\byour taste\b/,
+      /\bthis says you\b/,
+      /\byou (have|like|enjoy|are)\b/,
+    ];
+
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
 function shortenItemForFeedback(item) {
   const words = String(item || "").trim().split(/\s+/).filter(Boolean);
   if (!words.length) return "";
-  return words.slice(0, 3).join(" ");
+  return words.slice(0, 6).join(" ");
 }
 
 function limitWords(text, maxWords = FEEDBACK_MAX_WORDS) {
@@ -231,10 +262,10 @@ function sanitizeTasteFeedback(text, lang) {
 function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`جالبه؛ «${shortItem || "این مورد"}» انتخاب باحالیه.`);
+    return limitWords(`«${shortItem || "این مورد"}» رو دقیق نمی‌شناسم؛ بهتره درباره‌اش حدس نزنم.`, 18);
   }
 
-  return limitWords(`Nice one; "${shortItem || "that one"}" is a solid pick.`);
+  return limitWords(`I don't know "${shortItem || "that item"}" well enough to fake a reaction.`, 18);
 }
 
 function buildUnknownItemFeedback({ lang, item }) {
@@ -541,15 +572,17 @@ async function getAiTasteItemFeedback({
             model: aiConfig.model,
             max_output_tokens: FEEDBACK_MAX_OUTPUT_TOKENS,
             instructions: [
-              "You write one micro reaction for taste profiling.",
+              "You write one grounded micro reaction to a specific work or interest.",
               `Respond only in ${language}.`,
-              "Mostly compliment the user's taste.",
-              "If the item is recognizable, react to its title, artist, genre, author, or vibe.",
-              "Be playful and funny.",
+              "React to the item itself, not the user's personality or taste.",
+              "If recognizable, give one concrete observation about its creator, form, genre, theme, atmosphere, or cultural character.",
+              "Prefer a specific insight over praise. Dry wit is allowed only when it remains relevant.",
+              "If you are not confident you recognize the item, say so briefly and do not guess.",
               `Max ${FEEDBACK_MAX_WORDS} words.`,
               "Mention at least one word from the item title.",
+              "Never say generic phrases such as great choice, cool pick, interesting taste, or this says you are.",
               "Do not ask for another item.",
-              "Do not invent unrelated entities, animals, or characters.",
+              "Do not invent creators, facts, entities, or characters.",
               "Use plain text only.",
             ].join(" "),
             input: `Section: ${section}\nItem: ${normalizedItem}\nDetected label: ${labelTitle || labelKey || "eclectic"}`,
@@ -562,7 +595,8 @@ async function getAiTasteItemFeedback({
         const generated = sanitizeTasteFeedback((response.output_text || "").trim(), lang);
         const text = (
           generated &&
-          isFeedbackRelevantToItem(generated, normalizedItem)
+          isFeedbackRelevantToItem(generated, normalizedItem) &&
+          !isGenericTasteFeedback(generated, lang)
         )
           ? generated
           : buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem });
@@ -589,4 +623,8 @@ module.exports = {
   getAiSingleSuggestion,
   getAiTasteItemFeedback,
   getAiFeedbackCacheStats: getAiResponseCacheStats,
+  isFeedbackRelevantToItem,
+  isGenericTasteFeedback,
+  buildTasteFeedbackFallbackWithItem,
+  sanitizeTasteFeedback,
 };
