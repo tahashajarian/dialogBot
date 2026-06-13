@@ -3,6 +3,7 @@ const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const {
   inlineKeyboard,
   mainMenuKeyboard,
+  helpKeyboard,
   languageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
@@ -221,6 +222,22 @@ async function handleCallback(ctx) {
     }
     await forgetSavedProfilesListMessage(ctx);
     return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+  }
+
+  if (data === callBacks.help) {
+    await ctx.answerCb?.();
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    if (isAiTextState(ctx.user?.state)) {
+      await removeBottomKeyboard(ctx, " ");
+    }
+    await clearRememberedAiListMessage(ctx);
+    await forgetSavedProfilesListMessage(ctx);
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].helpText,
+      helpKeyboard(lang),
+    );
   }
 
   if (data === callBacks.language) {

@@ -41,6 +41,29 @@ function mainMenuKeyboard(lang) {
         callback_data: callBacks.savedProfiles,
       },
     ],
+    [
+      {
+        text: messages[lang].help,
+        callback_data: callBacks.help,
+      },
+    ],
+  ]);
+}
+
+function helpKeyboard(lang) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].helpGoToLists,
+      callback_data: callBacks.aiAssistant,
+    }],
+    [{
+      text: messages[lang].helpBrowseDiscussions,
+      callback_data: callBacks.discussionListActive,
+    }],
+    [{
+      text: messages[lang].helpBackToMain,
+      callback_data: callBacks.menuMain,
+    }],
   ]);
 }
 
@@ -490,6 +513,10 @@ function onboardingCompleteKeyboard(lang) {
     [{
       text: messages[lang].onboardingMainMenuButton,
       callback_data: callBacks.menuMain,
+    }],
+    [{
+      text: messages[lang].help,
+      callback_data: callBacks.help,
     }],
   ]);
 }
@@ -1006,6 +1033,7 @@ function savedProfilesListKeyboard(lang, items = []) {
 module.exports = {
   inlineKeyboard,
   mainMenuKeyboard,
+  helpKeyboard,
   aiAssistantKeyboard,
   aiChatBackKeyboard,
   aiSectionKeyboard,

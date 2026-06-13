@@ -5,6 +5,8 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
   getOnboardingInterestChipTitle,
+  helpKeyboard,
+  mainMenuKeyboard,
   onboardingCompleteKeyboard,
   onboardingCustomInterestKeyboard,
   onboardingInterestsKeyboard,
@@ -155,7 +157,36 @@ test("onboarding completion offers clear next actions", () => {
   assert.deepEqual(callbackData, [
     callBacks.discussionListActive,
     callBacks.menuMain,
+    callBacks.help,
   ]);
+});
+
+test("help is available from the main menu and onboarding completion", () => {
+  const mainCallbacks = mainMenuKeyboard("fa").reply_markup.inline_keyboard
+    .flat()
+    .map((button) => button.callback_data);
+  const helpCallbacks = helpKeyboard("fa").reply_markup.inline_keyboard
+    .flat()
+    .map((button) => button.callback_data);
+
+  assert.ok(mainCallbacks.includes(callBacks.help));
+  assert.deepEqual(helpCallbacks, [
+    callBacks.aiAssistant,
+    callBacks.discussionListActive,
+    callBacks.menuMain,
+  ]);
+  assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);
+  assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
+  assert.match(messages.fa.helpText, /^🤖/);
+  assert.match(messages.en.helpText, /^🤖/);
+  assert.match(messages.fa.helpText, /🎬🎵📚 لیست‌ها/);
+  assert.match(messages.en.helpText, /🎬🎵📚 Lists/);
+  assert.match(messages.fa.helpText, /فهرست کارها/);
+  assert.match(messages.en.helpText, /to-do list/);
+  assert.match(messages.fa.helpText, /۳ مورد/);
+  assert.match(messages.en.helpText, /3 Top 10 items/);
+  assert.ok(messages.fa.helpText.length < 900);
+  assert.ok(messages.en.helpText.length < 900);
 });
 
 test("onboarding copy reports progress and a Persian starter vibe", () => {

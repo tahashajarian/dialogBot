@@ -5,6 +5,7 @@ module.exports = {
     aiAssistant: "menu:ai:assistant",
     discussions: "menu:discussions",
     savedProfiles: "menu:saved-profiles",
+    help: "menu:help",
     onboardingStart: "onboarding:start",
     onboardingInterest: "onboarding:interest:",
     onboardingMore: "onboarding:more:",

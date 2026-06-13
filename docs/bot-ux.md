@@ -38,6 +38,8 @@
 - Show progress after each choice and remove selected chips from the picker.
 - After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
 - End with two clear actions: browse discussions or open the main menu.
+- Keep a reusable bot guide in the main menu and expose the same guide from onboarding completion.
+- The guide should summarize Lists, suggestions, discussions, profiles, and saved profiles, with direct actions to Lists and active discussions.
 - The onboarding discussion action should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
