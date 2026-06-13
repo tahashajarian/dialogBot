@@ -349,32 +349,59 @@ function aiListCancelAddKeyboard(lang, section, listType) {
   ]);
 }
 
-const INTEREST_TOP_TEN_CHIPS = [
+const ONBOARDING_INTEREST_CHIPS = [
   { emoji: "♟", fa: "شطرنج", en: "Chess" },
   { emoji: "💻", fa: "کدنویسی", en: "Coding" },
+  { emoji: "🎮", fa: "گیم", en: "Gaming" },
+  { emoji: "🎬", fa: "فیلم", en: "Movies" },
+  { emoji: "🎵", fa: "موسیقی", en: "Music" },
+  { emoji: "📚", fa: "کتاب", en: "Books" },
+  { emoji: "🍥", fa: "انیمه", en: "Anime" },
+  { emoji: "⚽", fa: "فوتبال", en: "Football" },
+  { emoji: "🏋️", fa: "باشگاه", en: "Gym" },
+  { emoji: "✈️", fa: "سفر", en: "Travel" },
+  { emoji: "🌿", fa: "طبیعت", en: "Nature" },
+  { emoji: "🍜", fa: "غذا", en: "Food" },
+  { emoji: "🍳", fa: "آشپزی", en: "Cooking" },
   { emoji: "☕", fa: "قهوه", en: "Coffee" },
   { emoji: "🏙", fa: "کافه‌گردی", en: "Cafes" },
-  { emoji: "🎮", fa: "گیم", en: "Gaming" },
-  { emoji: "🍜", fa: "غذا", en: "Food" },
-  { emoji: "✈️", fa: "سفر", en: "Travel" },
-  { emoji: "📸", fa: "عکاسی", en: "Photography" },
-  { emoji: "🏃", fa: "ورزش", en: "Sports" },
   { emoji: "🎨", fa: "هنر", en: "Art" },
-  { emoji: "🧘", fa: "آرامش", en: "Calm" },
+  { emoji: "📸", fa: "عکاسی", en: "Photography" },
+  { emoji: "✍️", fa: "نوشتن", en: "Writing" },
+  { emoji: "👗", fa: "مد و فشن", en: "Fashion" },
+  { emoji: "🧠", fa: "روانشناسی", en: "Psychology" },
+  { emoji: "🔬", fa: "علم", en: "Science" },
+  { emoji: "🏛", fa: "تاریخ", en: "History" },
   { emoji: "🎧", fa: "پادکست", en: "Podcast" },
   { emoji: "📺", fa: "یوتیوب", en: "YouTube" },
-  { emoji: "🌿", fa: "طبیعت", en: "Nature" },
-  { emoji: "🍳", fa: "آشپزی", en: "Cooking" },
+  { emoji: "🎉", fa: "دورهمی", en: "Social events" },
+  { emoji: "🧘", fa: "آرامش", en: "Calm" },
+  { emoji: "🚶", fa: "پیاده‌روی", en: "Walking" },
 ];
+const ONBOARDING_CHIPS_PER_PAGE = 9;
 
-function aiInterestTopTenChipKeyboard(lang) {
+function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0) {
+  const selected = new Set(selectedTitles.map((title) => String(title || "").toLowerCase()));
+  const totalPages = Math.ceil(ONBOARDING_INTEREST_CHIPS.length / ONBOARDING_CHIPS_PER_PAGE);
+  const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
+  const pageStart = normalizedPage * ONBOARDING_CHIPS_PER_PAGE;
+  const available = ONBOARDING_INTEREST_CHIPS
+    .slice(pageStart, pageStart + ONBOARDING_CHIPS_PER_PAGE)
+    .map((chip, index) => ({ chip, index: pageStart + index }))
+    .filter(({ chip }) => !selected.has((lang === "fa" ? chip.fa : chip.en).toLowerCase()));
   const rows = [];
-  for (let i = 0; i < INTEREST_TOP_TEN_CHIPS.length; i += 3) {
-    rows.push(INTEREST_TOP_TEN_CHIPS.slice(i, i + 3).map((chip, index) => ({
+
+  for (let i = 0; i < available.length; i += 3) {
+    rows.push(available.slice(i, i + 3).map(({ chip, index }) => ({
       text: `${chip.emoji} ${lang === "fa" ? chip.fa : chip.en}`,
-      callback_data: `${callBacks.aiInterestTopTenChip}${i + index}`,
+      callback_data: `${callBacks.aiInterestTopTenChip}${index}`,
     })));
   }
+
+  rows.push([{
+    text: messages[lang].onboardingMoreButton,
+    callback_data: `${callBacks.aiInterestTopTenMore}${(normalizedPage + 1) % totalPages}`,
+  }]);
 
   rows.push([
     {
@@ -387,11 +414,84 @@ function aiInterestTopTenChipKeyboard(lang) {
 }
 
 function getInterestTopTenChipTitle(index, lang) {
-  const chip = INTEREST_TOP_TEN_CHIPS[index];
+  const chip = ONBOARDING_INTEREST_CHIPS[index];
   if (!chip) {
     return "";
   }
   return lang === "fa" ? chip.fa : chip.en;
+}
+
+function getOnboardingInterestChipTitle(index, lang) {
+  const chip = ONBOARDING_INTEREST_CHIPS[index];
+  if (!chip) {
+    return "";
+  }
+  return lang === "fa" ? chip.fa : chip.en;
+}
+
+function onboardingWelcomeKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].onboardingStartButton,
+      callback_data: callBacks.onboardingStart,
+    },
+  ]]);
+}
+
+function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
+  const selected = new Set(selectedTitles.map((title) => String(title || "").toLowerCase()));
+  const totalPages = Math.ceil(ONBOARDING_INTEREST_CHIPS.length / ONBOARDING_CHIPS_PER_PAGE);
+  const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
+  const pageStart = normalizedPage * ONBOARDING_CHIPS_PER_PAGE;
+  const available = ONBOARDING_INTEREST_CHIPS
+    .slice(pageStart, pageStart + ONBOARDING_CHIPS_PER_PAGE)
+    .map((chip, index) => ({ chip, index: pageStart + index }))
+    .filter(({ chip }) => !selected.has((lang === "fa" ? chip.fa : chip.en).toLowerCase()));
+  const rows = [];
+
+  for (let i = 0; i < available.length; i += 3) {
+    rows.push(available.slice(i, i + 3).map(({ chip, index }) => ({
+      text: `${chip.emoji} ${lang === "fa" ? chip.fa : chip.en}`,
+      callback_data: `${callBacks.onboardingInterest}${index}`,
+    })));
+  }
+
+  rows.push([{
+    text: messages[lang].onboardingMoreButton,
+    callback_data: `${callBacks.onboardingMore}${(normalizedPage + 1) % totalPages}`,
+  }, {
+    text: messages[lang].onboardingCustomButton,
+    callback_data: `${callBacks.onboardingCustom}${normalizedPage}`,
+  }]);
+
+  rows.push([{
+    text: messages[lang].onboardingSkipButton,
+    callback_data: callBacks.onboardingSkip,
+  }]);
+
+  return inlineKeyboard(rows);
+}
+
+function onboardingCustomInterestKeyboard(lang, page = 0) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].onboardingCustomCancelButton,
+      callback_data: `${callBacks.onboardingCustomCancel}${Number(page) || 0}`,
+    },
+  ]]);
+}
+
+function onboardingCompleteKeyboard(lang) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].onboardingBrowseDiscussionsButton,
+      callback_data: callBacks.discussionListActive,
+    }],
+    [{
+      text: messages[lang].onboardingMainMenuButton,
+      callback_data: callBacks.menuMain,
+    }],
+  ]);
 }
 
 function aiListActionItemsKeyboard(lang, section, listType, action, items = []) {
@@ -701,6 +801,13 @@ function discussionInvitePreviewKeyboard(lang, publicDiscussionCode) {
   ]);
 }
 
+function onboardingLanguageKeyboard() {
+  return inlineKeyboard([[
+    { text: "🇮🇷 فارسی", callback_data: callBacks.langSetFa },
+    { text: "🇬🇧 English", callback_data: callBacks.langSetEn },
+  ]]);
+}
+
 function discussionJoinErrorAckKeyboard(lang, listType = "active") {
   const rawListType = String(listType || "").trim();
   const savedMatch = rawListType.match(/^saved:u_([a-z0-9]+)$/i);
@@ -913,6 +1020,11 @@ module.exports = {
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
   getInterestTopTenChipTitle,
+  getOnboardingInterestChipTitle,
+  onboardingWelcomeKeyboard,
+  onboardingInterestsKeyboard,
+  onboardingCustomInterestKeyboard,
+  onboardingCompleteKeyboard,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
@@ -925,6 +1037,7 @@ module.exports = {
   petPreferenceKeyboard,
   locationKeyboard,
   languageKeyboard,
+  onboardingLanguageKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,

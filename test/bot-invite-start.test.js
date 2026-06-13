@@ -21,6 +21,14 @@ test("start invite parser ignores normal start and unrelated payloads", () => {
   assert.equal(getStartInviteCode("/start profile_ab12"), "");
 });
 
+test("invite welcome copy leads into the invite instead of onboarding", () => {
+  for (const lang of ["fa", "en"]) {
+    assert.match(messages[lang].discussionInviteWelcome, /^🤖/);
+    assert.match(messages[lang].discussionInviteWelcome, /inv|دعوت/i);
+    assert.doesNotMatch(messages[lang].discussionInviteWelcome, /3 interests|۳ علاقه/);
+  }
+});
+
 test("discussion reply helper extracts replied message id", () => {
   assert.equal(getReplyMessageId({ reply_to_message: { message_id: 123 } }), 123);
   assert.equal(getReplyMessageId({ replyToMessage: { messageId: 456 } }), 456);

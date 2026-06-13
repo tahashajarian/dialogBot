@@ -143,12 +143,21 @@ function parseAiSuggestContextState(state) {
 }
 
 async function promptSuggestionMode(ctx, lang, section) {
-  await clearAiPendingInputPrompt(ctx);
+  const previousPromptMessageId = Number(ctx.user?.aiPendingInputMessageId);
+  await updateUserState(ctx.userId, `ai_chat_${section}`);
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
   );
   await rememberAiPendingInputPrompt(ctx, prompt);
+  const promptMessageId = Number(prompt?.message_id || prompt?.messageId);
+  if (
+    previousPromptMessageId
+    && previousPromptMessageId !== promptMessageId
+    && ctx.deleteMessage
+  ) {
+    await ctx.deleteMessage(previousPromptMessageId);
+  }
   return prompt;
 }
 
@@ -250,19 +259,30 @@ async function sendSingleSectionSuggestion({
   }
 
   let suggestionResult = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const retryInstruction = suggestionResult?.reason === "low_quality_interest"
+      ? `The previous result was rejected (${suggestionResult.qualityIssue}). Give a specific, different recommendation with a concrete connection to the saved interests.`
+      : "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
       mode: section,
       lang,
       userText: attempt === 0
         ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
-        : "Suggest a different item. The previous one was already known.",
+        : retryInstruction,
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });
+
+    if (
+      (!suggestionResult.ok || !suggestionResult.title)
+      && suggestionResult?.reason === "low_quality_interest"
+      && attempt < 2
+    ) {
+      continue;
+    }
 
     if (!suggestionResult.ok || !suggestionResult.title) {
       break;
@@ -364,7 +384,9 @@ async function handleAiText(ctx, lang, text, state) {
     }
 
     if (isAiListText(text) && !manageState.addInputMode) {
-      const listOptions = isWatchlist ? { topTenTitleSet: toTitleSet(topTenItems) } : {};
+      const listOptions = isWatchlist
+        ? { topTenTitleSet: toTitleSet(topTenItems), includeWatched: true }
+        : {};
       return ctx.reply(
         formatAiItemsList(title, currentItems, emptyText, listOptions),
         aiSectionKeyboardForSection(lang, section),
@@ -379,7 +401,9 @@ async function handleAiText(ctx, lang, text, state) {
         await clearAiPendingInputPrompt(ctx);
         const prompt = await ctx.reply(
           isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
-          isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
+          isInterestTopTen
+            ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
+            : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
         );
         await rememberAiPendingInputPrompt(ctx, prompt);
         return prompt;
@@ -444,7 +468,10 @@ async function handleAiText(ctx, lang, text, state) {
       }
 
       return ctx.reply(
-        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, { topTenTitleSet: toTitleSet(topTenItems) })}`,
+        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, {
+          topTenTitleSet: toTitleSet(topTenItems),
+          includeWatched: true,
+        })}`,
         aiListManageMenuKeyboard(lang, section, listType),
       );
     }

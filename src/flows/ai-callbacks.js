@@ -126,17 +126,27 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiSectionSuggestWithContext) ||
     data.startsWith(callBacks.aiSectionSuggestContextCancel) ||
     data.startsWith(callBacks.aiInterestTopTenChip) ||
+    data.startsWith(callBacks.aiInterestTopTenMore) ||
     data === callBacks.aiBack
   );
 }
 
 async function promptSuggestionMode(ctx, lang, section) {
-  await clearAiPendingInputPrompt(ctx);
+  const previousPromptMessageId = Number(ctx.user?.aiPendingInputMessageId);
+  await updateUserState(ctx.userId, `ai_chat_${section}`);
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
   );
   await rememberAiPendingInputPrompt(ctx, prompt);
+  const promptMessageId = Number(prompt?.message_id || prompt?.messageId);
+  if (
+    previousPromptMessageId
+    && previousPromptMessageId !== promptMessageId
+    && ctx.deleteMessage
+  ) {
+    await ctx.deleteMessage(previousPromptMessageId);
+  }
   return prompt;
 }
 
@@ -157,7 +167,8 @@ function isSuggestionCallbackValidForState(data = "", state = "") {
   if (data.startsWith(callBacks.aiSectionSuggestContextCancel)) {
     return state === `ai_suggest_context_${section}`;
   }
-  return state === `ai_chat_${section}`;
+  return state === `ai_chat_${section}`
+    || state.startsWith(`ai_manage_${section}_`);
 }
 
 function getPromptWatchlistItems(watchlistItems = []) {
@@ -199,19 +210,30 @@ async function sendFollowupSuggestion({
   }
 
   let suggestionResult = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const retryInstruction = suggestionResult?.reason === "low_quality_interest"
+      ? `The previous result was rejected (${suggestionResult.qualityIssue}). Give a specific, different recommendation with a concrete connection to the saved interests.`
+      : "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
       mode: section,
       lang,
       userText: attempt === 0
         ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
-        : "Suggest a different item. The previous one was already known.",
+        : retryInstruction,
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });
+
+    if (
+      (!suggestionResult.ok || !suggestionResult.title)
+      && suggestionResult?.reason === "low_quality_interest"
+      && attempt < 2
+    ) {
+      continue;
+    }
 
     if (!suggestionResult.ok || !suggestionResult.title) {
       break;
@@ -584,6 +606,9 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
     const isInterestTopTen = section === "random" && listType === "topTen";
+    const currentItems = isInterestTopTen
+      ? getAiListItemsFromUser(ctx.user, "random", "topTen")
+      : [];
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
       isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
@@ -593,10 +618,32 @@ async function handleAiCallback(ctx, lang, helpers) {
       ctx,
       prompt,
       isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
-      isInterestTopTen ? aiInterestTopTenChipKeyboard(lang) : aiListCancelAddKeyboard(lang, section, listType),
+      isInterestTopTen
+        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
+        : aiListCancelAddKeyboard(lang, section, listType),
     );
     await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
     return editedPrompt;
+  }
+
+  if (data.startsWith(callBacks.aiInterestTopTenMore)) {
+    await ctx.answerCb?.();
+    if (ctx.user?.state !== "ai_manage_random_top_ten_add_input") {
+      await clearAiPendingInputPrompt(ctx);
+      return helpers.deleteCallbackMessageIfPossible(ctx);
+    }
+
+    const page = Number(data.replace(callBacks.aiInterestTopTenMore, "")) || 0;
+    const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    return helpers.editCallbackMessageOrReply(
+      ctx,
+      messages[lang].aiInterestTopTenAddPrompt,
+      aiInterestTopTenChipKeyboard(
+        lang,
+        currentItems.map((entry) => entry.title),
+        page,
+      ),
+    );
   }
 
   if (data.startsWith(callBacks.aiInterestTopTenChip)) {

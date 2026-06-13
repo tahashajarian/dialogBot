@@ -8,7 +8,7 @@ const { getAiConfig } = require("../config");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 
 const aiConfig = getAiConfig();
-const MAX_OUTPUT_TOKENS = 50;
+const MAX_OUTPUT_TOKENS = 90;
 const MAX_INPUT_CHARS = 180;
 const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
 const FEEDBACK_MAX_WORDS = 18;
@@ -331,6 +331,8 @@ function getModeInstruction(mode, lang) {
 function normalizeSuggestionTitle(text) {
   return String(text || "")
     .replace(/^[\s\-•*#\d.)]+/g, "")
+    .replace(/^\((?:activity|game|channel|tool|place|podcast|course|creator|community|experience|practice|project|فعالیت|بازی|کانال|ابزار|مکان|پادکست|دوره|سازنده|جامعه|تجربه|تمرین|پروژه)\)\s*/i, "")
+    .replace(/\s*\((?:activity|practice|project|creative project|experience|فعالیت|تمرین|پروژه|پروژه خلاق|تجربه)\)\s*$/i, "")
     .replace(/^(title|item|suggestion|عنوان|پیشنهاد)\s*[:：-]\s*/i, "")
     .replace(/^["'“”‘’]+|["'“”‘’]+$/g, "")
     .trim()
@@ -349,6 +351,27 @@ function normalizeSuggestionReason(text, lang) {
   return limitWords(cleaned, 14);
 }
 
+function splitSuggestionSentence(text) {
+  const value = String(text || "").trim();
+  let parenthesisDepth = 0;
+
+  for (let index = 0; index < value.length - 1; index += 1) {
+    const char = value[index];
+    if (char === "(") parenthesisDepth += 1;
+    if (char === ")" && parenthesisDepth > 0) parenthesisDepth -= 1;
+
+    if (
+      parenthesisDepth === 0
+      && /[.!?؟]/u.test(char)
+      && /\s/u.test(value[index + 1])
+    ) {
+      return [value.slice(0, index + 1), value.slice(index + 1).trim()];
+    }
+  }
+
+  return [value, ""];
+}
+
 function parseSingleSuggestionResponse(raw, lang) {
   const lines = String(raw || "")
     .split(/\n+/)
@@ -359,18 +382,21 @@ function parseSingleSuggestionResponse(raw, lang) {
     return { title: "", reason: "" };
   }
 
-  const titleLine = lines[0] || "";
-  const reasonLine = lines[1] || "";
+  let titleLine = lines[0] || "";
+  let reasonLine = lines[1] || "";
+
+  if (lines.length === 1) {
+    const single = lines[0];
+    const delimiterParts = single.split(/\s[-—|]\s/, 2);
+    if (delimiterParts.length === 2) {
+      [titleLine, reasonLine] = delimiterParts;
+    } else {
+      [titleLine, reasonLine] = splitSuggestionSentence(single);
+    }
+  }
 
   let title = normalizeSuggestionTitle(titleLine);
   let reason = normalizeSuggestionReason(reasonLine, lang);
-
-  if (!title && lines.length === 1) {
-    const single = lines[0];
-    const [left = "", right = ""] = single.split(/\s[-—|]\s/, 2);
-    title = normalizeSuggestionTitle(left);
-    reason = normalizeSuggestionReason(right, lang);
-  }
 
   return { title, reason };
 }
@@ -388,7 +414,91 @@ function getSingleSuggestionDetailInstruction(mode) {
     return "Line 1 must include book title + author (and year if known) in parentheses.";
   }
 
-  return "Line 1 should include one concrete qualifier in parentheses when possible.";
+  return [
+    "This is the broad Interests section, not the Books section.",
+    "Recommend a specific named resource or a tightly-defined action related to one or two of the user's interests.",
+    "Good examples: Daily Lichess puzzles; a seven-day street-photo challenge; build a tiny coffee timer app.",
+    "Bad examples: join a class, join a local group, attend a workshop, meet new people, improve your skills.",
+    "Do not recommend generic containers such as classes, groups, clubs, workshops, communities, or courses unless you name a real resource and explain why it uniquely fits.",
+    "The reason must name the relevant user interest and explain a concrete connection, not generic benefits.",
+    "Do not default to a book, movie, or song unless the user's listed interests explicitly include that medium.",
+    "Do not add category labels such as (activity) or (فعالیت) to the title.",
+  ].join(" ");
+}
+
+const INTEREST_GENERIC_TITLE_PATTERNS = [
+  /\b(join|attend|participate in|sign up for)\b.*\b(class|group|club|workshop|community|course)\b/i,
+  /(شرکت در|پیوستن به|ثبت نام در|ثبت‌نام در).*(کلاس|گروه|باشگاه|کارگاه|انجمن|دوره)/,
+];
+const INTEREST_GENERIC_REASON_PATTERNS = [
+  /\b(improve|strengthen|develop|boost|enhance)\b.*\b(skills?|connections?|social|experience)\b/i,
+  /\b(meet|meeting)\b.*\b(new people|others|enthusiasts)\b/i,
+  /\b(great|good|effective|useful)\b.*\b(for|way to)\b/i,
+  /(تقویت|بهبود|افزایش).*(مهارت|ارتباط|تجربه|توانایی)/,
+  /برای (تقویت|بهبود|افزایش).*(مناسب|خوب|عالی)/,
+  /(ملاقات|آشنایی).*(افراد|آدم|دیگران)/,
+  /(عالی|خوب|مؤثر|موثر|مفید) است/,
+  /(مناسب|خوب|عالی) است/,
+];
+const INTEREST_FAMILY_PATTERNS = {
+  social_group: [
+    /\b(class|group|club|workshop|community|course)\b/i,
+    /(کلاس|گروه|باشگاه|کارگاه|انجمن|دوره)/,
+  ],
+  challenge: [
+    /\b(challenge|daily|seven-day|14-day)\b/i,
+    /(چالش|روزانه|هفت روز|۷ روز|۱۴ روز)/,
+  ],
+  project: [
+    /\b(build|make|create|project)\b/i,
+    /(ساخت|بساز|طراحی|پروژه)/,
+  ],
+  practice: [
+    /\b(puzzle|practice|exercise|drill)\b/i,
+    /(پازل|تمرین)/,
+  ],
+};
+
+function getInterestSuggestionFamily(title) {
+  const cleanTitle = String(title || "");
+  return Object.entries(INTEREST_FAMILY_PATTERNS)
+    .find(([, patterns]) => patterns.some((pattern) => pattern.test(cleanTitle)))?.[0] || "";
+}
+
+function getInterestSuggestionQualityIssue({
+  title,
+  reason,
+  topTenItems = [],
+  recentSuggestionItems = [],
+}) {
+  const cleanTitle = String(title || "").trim();
+  const cleanReason = String(reason || "").trim();
+  if (!cleanTitle || !cleanReason) return "missing_detail";
+
+  if (INTEREST_GENERIC_TITLE_PATTERNS.some((pattern) => pattern.test(cleanTitle))) {
+    return "generic_container";
+  }
+  if (INTEREST_GENERIC_REASON_PATTERNS.some((pattern) => pattern.test(cleanReason))) {
+    return "generic_reason";
+  }
+
+  const family = getInterestSuggestionFamily(cleanTitle);
+  if (
+    family
+    && recentSuggestionItems.some((recent) => getInterestSuggestionFamily(recent) === family)
+  ) {
+    return "repeated_family";
+  }
+
+  const interestSignals = topTenItems
+    .flatMap((item) => tokenizeSignalWords(item))
+    .filter(Boolean);
+  const combined = normalizeCacheItem(`${cleanTitle} ${cleanReason}`);
+  if (interestSignals.length && !interestSignals.some((signal) => combined.includes(signal))) {
+    return "weak_interest_connection";
+  }
+
+  return "";
 }
 
 function buildUserContext({
@@ -427,6 +537,142 @@ function buildTasteStyleInstruction(tasteStyleHint, lang) {
   return `Match tone and references to this taste style: ${cleanHint}.`;
 }
 
+function extractAiResponseText(response) {
+  const outputText = String(response?.output_text || "").trim();
+  if (outputText) return outputText;
+
+  const messageContent = response?.choices?.[0]?.message?.content;
+  if (typeof messageContent === "string") {
+    return messageContent.trim();
+  }
+  if (Array.isArray(messageContent)) {
+    return messageContent
+      .map((part) => String(part?.text || part?.content || "").trim())
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+
+  const responseOutput = Array.isArray(response?.output) ? response.output : [];
+  return responseOutput
+    .flatMap((entry) => Array.isArray(entry?.content) ? entry.content : [])
+    .map((part) => String(part?.text || "").trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+async function withAiTimeout(promise, timeoutLabel) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(timeoutLabel)), aiConfig.timeoutMs);
+    }),
+  ]);
+}
+
+async function requestSuggestionText(openai, { instructions, input }) {
+  const errors = [];
+
+  if (openai?.chat?.completions?.create) {
+    try {
+      const response = await withAiTimeout(
+        openai.chat.completions.create({
+          model: aiConfig.model,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          messages: [
+            { role: "system", content: instructions },
+            { role: "user", content: input },
+          ],
+        }),
+        "ai_chat_completion_timeout",
+      );
+      const text = extractAiResponseText(response);
+      if (text) return { text, api: "chat_completions" };
+      errors.push("chat_completions_empty");
+    } catch (error) {
+      errors.push(error?.message || "chat_completions_error");
+    }
+  }
+
+  if (openai?.responses?.create) {
+    try {
+      const response = await withAiTimeout(
+        openai.responses.create({
+          model: aiConfig.model,
+          max_output_tokens: MAX_OUTPUT_TOKENS,
+          instructions,
+          input,
+        }),
+        "ai_responses_timeout",
+      );
+      const text = extractAiResponseText(response);
+      if (text) return { text, api: "responses" };
+      errors.push("responses_empty");
+    } catch (error) {
+      errors.push(error?.message || "responses_error");
+    }
+  }
+
+  return { text: "", api: "", errors };
+}
+
+const INTEREST_SUGGESTION_FALLBACKS = [
+  {
+    keywords: ["coding", "programming", "کدنویسی", "برنامه نویسی", "برنامه‌نویسی", "technology", "تکنولوژی"],
+    fa: ["ساخت یک پروژه کوچک آخرهفته", "چون کدنویسی را از مصرف محتوا به ساختن تبدیل می‌کند."],
+    en: ["Build a tiny weekend project", "It turns your coding interest into something tangible."],
+  },
+  {
+    keywords: ["chess", "شطرنج", "strategy", "استراتژی"],
+    fa: ["پازل روزانه شطرنج در Lichess", "یک تمرین کوتاه و مستقیم برای علاقه‌ات به استراتژی است."],
+    en: ["Daily Lichess puzzles", "A short, direct way to deepen your strategy interest."],
+  },
+  {
+    keywords: ["photography", "عکاسی", "art", "هنر", "writing", "نوشتن"],
+    fa: ["چالش ثبت یک موضوع در ۷ روز", "به علاقه خلاقانه‌ات یک مسیر ساده و قابل انجام می‌دهد."],
+    en: ["A seven-day one-theme challenge", "It gives your creative interest a simple, doable direction."],
+  },
+  {
+    keywords: ["travel", "سفر", "nature", "طبیعت", "walking", "پیاده روی", "پیاده‌روی"],
+    fa: ["طراحی یک مسیر پیاده‌روی تازه در شهرت", "سفر و کشف را به یک تجربه نزدیک و عملی تبدیل می‌کند."],
+    en: ["Map a new walking route in your city", "It turns exploration into something nearby and practical."],
+  },
+  {
+    keywords: ["gaming", "game", "گیم", "بازی"],
+    fa: ["امتحان یک بازی مستقل کوتاه خارج از سبک همیشگی‌ات", "تنوع می‌دهد بدون اینکه تعهد زمانی بزرگی بخواهد."],
+    en: ["Try a short indie game outside your usual genre", "It adds variety without demanding a huge time commitment."],
+  },
+  {
+    keywords: ["food", "غذا", "cooking", "آشپزی", "coffee", "قهوه", "cafe", "کافه"],
+    fa: ["بازسازی یک طعم محبوب در خانه", "غذا و کنجکاوی را به یک تجربه شخصی وصل می‌کند."],
+    en: ["Recreate a favorite flavor at home", "It connects food curiosity with a personal experiment."],
+  },
+  {
+    keywords: ["sports", "ورزش", "gym", "باشگاه", "football", "فوتبال"],
+    fa: ["یک چالش حرکتی ۱۴ روزه قابل اندازه‌گیری", "با علاقه ورزشی‌ات جور است و پیشرفت واضحی نشان می‌دهد."],
+    en: ["A measurable 14-day movement challenge", "It fits your active interests and makes progress visible."],
+  },
+  {
+    keywords: ["podcast", "پادکست", "youtube", "یوتیوب", "science", "علم", "history", "تاریخ", "psychology", "روانشناسی"],
+    fa: ["ساخت یک پلی‌لیست یادگیری سه‌قسمتی", "کنجکاوی‌ات را از پخش پراکنده به یک مسیر کوچک تبدیل می‌کند."],
+    en: ["Build a three-episode learning playlist", "It turns scattered curiosity into a small learning path."],
+  },
+];
+
+function buildInterestSuggestionFallback({ lang, topTenItems = [] }) {
+  const normalized = topTenItems.map((item) => normalizeCacheItem(item));
+  const matched = INTEREST_SUGGESTION_FALLBACKS.find((entry) => (
+    entry.keywords.some((keyword) => normalized.some((item) => item.includes(normalizeCacheItem(keyword))))
+  ));
+  const fallback = matched || {
+    fa: ["یک پروژه کوچک از ترکیب دو علاقه‌ات", "کمکت می‌کند علایقت را به یک تجربه واقعی تبدیل کنی."],
+    en: ["A small project combining two interests", "It turns your interests into a real, personal experience."],
+  };
+  const [title, reason] = lang === "fa" ? fallback.fa : fallback.en;
+  return { ok: true, title, reason, text: `${title}\n${reason}`, fallback: true };
+}
+
 async function getAiSingleSuggestion({
   mode,
   lang,
@@ -448,44 +694,55 @@ async function getAiSingleSuggestion({
   }
 
   try {
-    const response = await Promise.race([
-      openai.responses.create({
-        model: aiConfig.model,
-        max_output_tokens: MAX_OUTPUT_TOKENS,
-        instructions: [
-          "You are a Bale chat assistant.",
-          "Recommend exactly one item only.",
-          "Reply in exactly 2 short lines in plain text.",
-          "Line 1: item name (include metadata in name as requested).",
-          "Line 2: very short why only (max 12 words).",
-          getSingleSuggestionDetailInstruction(mode),
-          "No numbering, no markdown, no emojis.",
-          personalized
-            ? "Recommend items similar to the user's top 10. Avoid repeating top 10, watchlist, or recently suggested items."
-            : "",
-          buildTasteStyleInstruction(tasteStyleHint, lang),
-          getModeInstruction(mode, lang),
-        ].join(" "),
-        input: `Subject: ${mode}\nUser message: ${input}${buildUserContext({
-          personalized,
-          topTenItems,
-          watchlistItems,
-          recentSuggestionItems,
-        })}`,
-      }),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("ai_timeout")), aiConfig.timeoutMs);
-      }),
-    ]);
-
-    const rawText = (response.output_text || "").trim();
+    const instructions = [
+      "You are a Bale chat assistant.",
+      "Recommend exactly one item only.",
+      "Reply in exactly 2 short lines in plain text.",
+      "Line 1: item name (include metadata in name as requested).",
+      "Line 2: very short why only (max 12 words).",
+      getSingleSuggestionDetailInstruction(mode),
+      "No numbering, no markdown, no emojis.",
+      personalized
+        ? "Base the recommendation on specific overlaps with the user's top 10. Avoid repeating top 10, watchlist, or recently suggested items."
+        : "",
+      buildTasteStyleInstruction(tasteStyleHint, lang),
+      getModeInstruction(mode, lang),
+    ].join(" ");
+    const request = await requestSuggestionText(openai, {
+      instructions,
+      input: `Subject: ${mode}\nUser message: ${input}${buildUserContext({
+        personalized,
+        topTenItems,
+        watchlistItems,
+        recentSuggestionItems,
+      })}`,
+    });
+    const rawText = request.text;
     if (!rawText) {
+      if (mode === "random" && topTenItems.length) {
+        return buildInterestSuggestionFallback({ lang, topTenItems });
+      }
+      console.warn("AI suggestion providers returned no text:", request.errors || []);
       return { ok: false, reason: "empty_output" };
     }
 
     const parsed = parseSingleSuggestionResponse(rawText, lang);
     if (!parsed.title) {
+      if (mode === "random" && topTenItems.length) {
+        return buildInterestSuggestionFallback({ lang, topTenItems });
+      }
       return { ok: false, reason: "invalid_output" };
+    }
+    if (mode === "random") {
+      const qualityIssue = getInterestSuggestionQualityIssue({
+        title: parsed.title,
+        reason: parsed.reason,
+        topTenItems,
+        recentSuggestionItems,
+      });
+      if (qualityIssue) {
+        return { ok: false, reason: "low_quality_interest", qualityIssue };
+      }
     }
 
     return {
@@ -496,6 +753,9 @@ async function getAiSingleSuggestion({
     };
   } catch (error) {
     console.warn("AI single suggestion failed:", error?.message || error);
+    if (mode === "random" && topTenItems.length) {
+      return buildInterestSuggestionFallback({ lang, topTenItems });
+    }
     return { ok: false, reason: "api_error" };
   }
 }
@@ -626,5 +886,11 @@ module.exports = {
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
   buildTasteFeedbackFallbackWithItem,
+  buildInterestSuggestionFallback,
+  extractAiResponseText,
+  parseSingleSuggestionResponse,
+  splitSuggestionSentence,
+  getInterestSuggestionFamily,
+  getInterestSuggestionQualityIssue,
   sanitizeTasteFeedback,
 };

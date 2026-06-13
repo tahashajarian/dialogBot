@@ -5,6 +5,7 @@ const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
   languageKeyboard,
+  onboardingLanguageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
   profileKeyboard,
@@ -84,6 +85,11 @@ const {
   sendPublicProfileByCode,
   unsaveProfileCommand,
 } = require("./flows/saved-profiles");
+const {
+  handleOnboardingText,
+  shouldOfferOnboarding,
+  startOnboardingLanguage,
+} = require("./flows/onboarding");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const FIELD_LIMITS = {
@@ -164,13 +170,18 @@ async function handleUpdate(ctx) {
 
   if (startInviteCode) {
     await clearViewedPublicProfileMessage(ctx);
+    await clearBottomKeyboardQuietly(ctx);
+
+    if (shouldOfferOnboarding(ctx.user)) {
+      return startOnboardingLanguage(ctx, keyboardLang, startInviteCode);
+    }
+
     const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
     const userName = rawUserName.trim().replace(/\s+/g, " ");
     const welcomeMessage = userName
-      ? messages[lang].welcomeWithName.replace("{name}", userName)
-      : messages[lang].welcome;
+      ? messages[keyboardLang].discussionInviteWelcomeWithName.replace("{name}", userName)
+      : messages[keyboardLang].discussionInviteWelcome;
 
-    await clearBottomKeyboardQuietly(ctx);
     await updateUserState(ctx.userId, "idle");
     await ctx.reply(welcomeMessage);
     return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
@@ -179,8 +190,12 @@ async function handleUpdate(ctx) {
   if (/^\/join_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
     await clearBottomKeyboardQuietly(ctx);
+    const inviteCode = `d_${text.replace(/^\/join_/i, "")}`;
+    if (shouldOfferOnboarding(ctx.user)) {
+      return startOnboardingLanguage(ctx, keyboardLang, inviteCode);
+    }
     await updateUserState(ctx.userId, "idle");
-    return showDiscussionInvitePreviewCommand(ctx, lang, `d_${text.replace(/^\/join_/i, "")}`);
+    return showDiscussionInvitePreviewCommand(ctx, lang, inviteCode);
   }
 
   if (text === "/start") {
@@ -191,15 +206,28 @@ async function handleUpdate(ctx) {
       ? messages[lang].welcomeWithName.replace("{name}", userName)
       : messages[lang].welcome;
 
-    await updateUserState(ctx.userId, "idle");
     await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    await ctx.reply(welcomeMessage);
 
-    if (!userLang) {
-      return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
+    if (shouldOfferOnboarding(ctx.user)) {
+      return startOnboardingLanguage(ctx, keyboardLang);
     }
 
-    return ctx.reply(messages[userLang].mainMenu, mainMenuKeyboard(userLang));
+    await updateUserState(ctx.userId, "idle");
+    await ctx.reply(welcomeMessage);
+    return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
+  }
+
+  if (state.startsWith("onboarding_")) {
+    if (
+      state === "onboarding_language"
+      || state.startsWith("onboarding_invite_language:")
+    ) {
+      return ctx.reply(
+        messages[keyboardLang].chooseLanguage,
+        onboardingLanguageKeyboard(),
+      );
+    }
+    return handleOnboardingText(ctx, userLang || lang);
   }
 
   if (!(state && state.startsWith("discussion_close_confirm")) && text && isDiscussionBottomControlText(text)) {

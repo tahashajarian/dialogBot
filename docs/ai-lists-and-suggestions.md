@@ -22,6 +22,7 @@
 
 ## Watchlist
 
+- Watchlist/list rendering should always show the section-aware status marker (`✅` done or `⬜` not done), including first entry and post-mutation refreshes.
 - Watchlist supports section-aware status wording:
   - movies: watched
   - music: listened
@@ -138,6 +139,8 @@ Initial common chips can include:
 Implementation notes:
 
 - Chips should use the same add flow as typed input, including duplicate detection and TopTen limit checks.
+- The Interests TopTen editor and onboarding should share the same curated chip catalog.
+- Show nine Interests chips at a time with a More Options action instead of displaying the full catalog at once.
 - After a chip is selected, delete the chip picker message so the old options do not stay in chat.
 - Chip selection should show the same placeholder/feedback flow as typed TopTen input.
 - Known chips should have predefined meaningful feedback, so common choices such as `کدنویسی`, `گیم`, `شطرنج`, and `Coffee` do not need a first-time AI call.
@@ -187,6 +190,13 @@ Labels should be inferred from both typed items and suggested chips.
 ## Suggestions
 
 - Suggestions in AI sections return exactly one item plus a very short reason.
+- Interests suggestions should recommend a concrete activity, hobby step, game, creator, channel, podcast, place, tool, community, course, or experience tied to the user's saved interests.
+- Interests suggestions must not default to books, movies, or songs unless the user's Interests TopTen explicitly points toward that medium.
+- Prefer named resources and tightly-defined actions over generic containers such as joining a class, group, club, or workshop.
+- Reasons must mention the relevant saved interest and explain the concrete connection; reject generic skill/social-benefit copy.
+- Avoid repeating the same recommendation family across recent Interests suggestions even when the wording differs.
+- Do not include type labels such as `(activity)` / `(فعالیت)` in saved suggestion titles.
+- OpenAI-compatible providers may use either Chat Completions or Responses payloads; suggestion handling should accept both response shapes and show a visible fallback instead of failing silently.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
 - Pressing the section suggestion button should first show a choice prompt:
   - suggest from TopTen

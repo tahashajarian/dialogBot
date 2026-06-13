@@ -11,6 +11,10 @@ const {
   isAiTextState,
 } = require("../src/flows/ai-text");
 const {
+  aiInterestTopTenChipKeyboard,
+  getInterestTopTenChipTitle,
+} = require("../src/keyboards");
+const {
   isAiCallback,
   isSuggestionCallbackValidForState,
 } = require("../src/flows/ai-callbacks");
@@ -50,6 +54,18 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiSectionSuggestText(messages.fa.aiSectionSuggestButton), true);
 });
 
+test("Interests editor shares the paged onboarding chip catalog", () => {
+  const firstPage = aiInterestTopTenChipKeyboard("en", ["Chess"], 0);
+  const secondPage = aiInterestTopTenChipKeyboard("en", [], 1);
+  const firstButtons = firstPage.reply_markup.inline_keyboard.flat();
+  const secondButtons = secondPage.reply_markup.inline_keyboard.flat();
+
+  assert.equal(firstButtons.some((button) => button.text.includes("Chess")), false);
+  assert.equal(firstButtons.some((button) => button.callback_data === `${callBacks.aiInterestTopTenMore}1`), true);
+  assert.equal(secondButtons.some((button) => button.text.includes("Travel")), true);
+  assert.equal(getInterestTopTenChipTitle(9, "en"), "Travel");
+});
+
 test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.aiListManageMenu), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShow}movies:watchlist`), true);
@@ -68,6 +84,7 @@ test("suggestion callbacks are valid only inside their matching AI state", () =>
   const cancelContext = `${callBacks.aiSectionSuggestContextCancel}books`;
 
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "ai_chat_movies"), true);
+  assert.equal(isSuggestionCallbackValidForState(fromTopTen, "ai_manage_movies_top_ten"), true);
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "idle"), false);
   assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_books"), true);
   assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_movies"), false);
@@ -126,8 +143,29 @@ test("AI list UI builds section-titled list messages from user data", () => {
 
   assert.match(topTenText, /Movies/);
   assert.match(topTenText, /1\. Heat — tight/);
-  assert.match(watchlistText, /1\. Heat 🏆/);
-  assert.match(watchlistText, /2\. Arrival — rewatch/);
+  assert.match(watchlistText, /1\. ⬜ Heat 🏆/);
+  assert.match(watchlistText, /2\. ⬜ Arrival — rewatch/);
+});
+
+test("watchlist entry rendering always exposes done and not-done status", () => {
+  const ctx = {
+    user: {
+      aiLists: {
+        random: {
+          topTen: [],
+          watchlist: [
+            { title: "Lichess puzzles", watched: true },
+            { title: "Photo walk", watched: false },
+          ],
+        },
+      },
+    },
+  };
+
+  const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
+
+  assert.match(rendered, /1\. ✅ Lichess puzzles/);
+  assert.match(rendered, /2\. ⬜ Photo walk/);
 });
 
 test("AI list UI uses specific duplicate and Top Ten requirement copy", () => {

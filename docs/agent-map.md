@@ -55,6 +55,15 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
 - Saved profiles are private one-way bookmarks. Do not notify the saved user.
 
+## Onboarding
+
+- `src/flows/onboarding.js`: first-session three-interest quick start.
+  - eligibility for recent, empty accounts
+  - rotating interest pages, custom typed interests, and validation
+  - progress and completion rendering
+  - onboarding chip/more/custom/skip callback handling
+  - handoff to Interests, discussions, or the main menu
+
 ## AI Lists And Suggestions
 
 - `docs/ai-lists-and-suggestions.md`: source of truth for AI list behavior.
@@ -93,6 +102,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New saved-profile action or public-profile card lifecycle rule: `src/flows/saved-profiles.js`.
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.
 - New AI text state or section bottom-button behavior: `src/flows/ai-text.js`.
+- New first-session onboarding behavior: `src/flows/onboarding.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.
 - New AI list mutation or taste helper: `src/services/users.js`.

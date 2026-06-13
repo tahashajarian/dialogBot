@@ -54,7 +54,7 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText));
 }
 
-function buildWatchlistMessage({ ctx, lang, section, includeWatched = false }) {
+function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
   const entries = getAiListItemsFromUser(ctx.user, section, "watchlist");

@@ -25,6 +25,25 @@
 - Text inputs should be length-limited and normalized before saving.
 - Profile name/city are short fields; bio can be longer.
 
+## First-Session Onboarding
+
+- Ask fresh users to choose Persian or English before showing the product overview.
+- After language selection, replace the language card with the localized welcome card and onboarding start action.
+- The welcome message should state the product promise: build taste, get personal suggestions, and find related discussions.
+- Offer recent, empty accounts a quick start that asks for three broad interests.
+- Show a small rotating set of interests instead of one oversized picker; let users request more options.
+- Let users type a custom interest through a dedicated input state with validation and a clear return action.
+- After a user types a custom interest, consume the old picker and send the updated progress or result as a fresh message below the user's text; do not edit a card above the user's message.
+- Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
+- Show progress after each choice and remove selected chips from the picker.
+- After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
+- End with two clear actions: browse discussions or open the main menu.
+- The onboarding discussion action should open the active discussion list directly, not the intermediate discussions menu.
+- Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
+- Do not send a new user from onboarding into a generic section hub as the primary continuation.
+- Onboarding must be skippable and must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
+- Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
+
 ## Long-Running Actions
 
 - Long-running AI actions should send one placeholder message.

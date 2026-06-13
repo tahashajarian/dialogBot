@@ -8,6 +8,7 @@ const {
   discussionsMenuKeyboard,
   discussionRoomKeyboard,
   discussionRemoveMembersKeyboard,
+  onboardingWelcomeKeyboard,
 } = require("./keyboards");
 const { callBacks } = require("./constants");
 const {
@@ -24,6 +25,7 @@ const {
   formatDiscussionMemberLines,
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
+const { updateUserState } = require("./services/users");
 const {
   joinOrOpenDiscussion,
   ensurePublicProfileCode,
@@ -56,6 +58,7 @@ const {
 } = require("./flows/discussions-create-callbacks");
 const {
   joinDiscussionFromInvite,
+  showDiscussionInvitePreviewCommand,
 } = require("./flows/discussions-text");
 const {
   handleAiCallback,
@@ -87,6 +90,10 @@ const {
   sendPublicProfileByCode,
   unsaveProfileByCode,
 } = require("./flows/saved-profiles");
+const {
+  handleOnboardingCallback,
+  isOnboardingCallback,
+} = require("./flows/onboarding");
 
 function discussionCloseConfirmKeyboard(lang, discussionId) {
   return inlineKeyboard([
@@ -178,6 +185,13 @@ async function handleCallback(ctx) {
   if (!data) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (isOnboardingCallback(data)) {
+    return handleOnboardingCallback(ctx, lang, {
+      deleteCallbackMessageIfPossible,
+      editCallbackMessageOrReply,
+    });
   }
 
   if (!isAiCallback(data)) {
@@ -558,6 +572,33 @@ async function handleCallback(ctx) {
     }
 
     const newLang = selected;
+    const onboardingState = String(ctx.user?.state || "");
+
+    if (onboardingState === "onboarding_language") {
+      const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
+      const userName = rawUserName.trim().replace(/\s+/g, " ");
+      const welcomeMessage = userName
+        ? messages[newLang].welcomeWithName.replace("{name}", userName)
+        : messages[newLang].welcome;
+      await updateUserState(ctx.userId, "onboarding_welcome");
+      return editCallbackMessageOrReply(
+        ctx,
+        welcomeMessage,
+        onboardingWelcomeKeyboard(newLang),
+      );
+    }
+
+    if (onboardingState.startsWith("onboarding_invite_language:")) {
+      const inviteCode = onboardingState.slice("onboarding_invite_language:".length);
+      const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
+      const userName = rawUserName.trim().replace(/\s+/g, " ");
+      const welcomeMessage = userName
+        ? messages[newLang].discussionInviteWelcomeWithName.replace("{name}", userName)
+        : messages[newLang].discussionInviteWelcome;
+      await updateUserState(ctx.userId, "idle");
+      await editCallbackMessageOrReply(ctx, welcomeMessage);
+      return showDiscussionInvitePreviewCommand(ctx, newLang, inviteCode);
+    }
 
     try {
       // Telegraf editMessageText: (text, extra)

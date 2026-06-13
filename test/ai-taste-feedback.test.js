@@ -3,10 +3,16 @@ const assert = require("node:assert/strict");
 
 const {
   buildTasteFeedbackFallbackWithItem,
+  buildInterestSuggestionFallback,
+  extractAiResponseText,
   getAiTasteItemFeedback,
+  getInterestSuggestionFamily,
+  getInterestSuggestionQualityIssue,
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
   sanitizeTasteFeedback,
+  parseSingleSuggestionResponse,
+  splitSuggestionSentence,
 } = require("../src/services/ai");
 
 test("uses predefined feedback for known Interests chips", async () => {
@@ -121,5 +127,99 @@ test("feedback sanitizer allows a useful short sentence", () => {
   assert.equal(
     feedback,
     "سفر به انتهای شب با تلخی، طنز سیاه و نثر خشنش ضربه می‌زند.",
+  );
+});
+
+test("extracts suggestion text from Responses and Chat Completions payloads", () => {
+  assert.equal(
+    extractAiResponseText({ output_text: "Lichess puzzles\nRelated to chess." }),
+    "Lichess puzzles\nRelated to chess.",
+  );
+  assert.equal(
+    extractAiResponseText({ choices: [{ message: { content: "Photo walk\nRelated to photography." } }] }),
+    "Photo walk\nRelated to photography.",
+  );
+});
+
+test("parses providers that compress suggestion and reason into one line", () => {
+  const parsed = parseSingleSuggestionResponse(
+    "(tool) Coffee roasting starter kit. It builds directly on your coffee interest.",
+    "en",
+  );
+
+  assert.equal(parsed.title, "Coffee roasting starter kit.");
+  assert.equal(parsed.reason, "It builds directly on your coffee interest.");
+});
+
+test("does not split movie metadata at director abbreviation", () => {
+  assert.deepEqual(
+    splitSuggestionSentence(
+      "Blade Runner 2049 (2017, Dir. Denis Villeneuve). A visual continuation of thoughtful sci-fi.",
+    ),
+    [
+      "Blade Runner 2049 (2017, Dir. Denis Villeneuve).",
+      "A visual continuation of thoughtful sci-fi.",
+    ],
+  );
+});
+
+test("Interests fallback is concrete and derived from the user's interests", () => {
+  const coding = buildInterestSuggestionFallback({
+    lang: "en",
+    topTenItems: ["Coding", "Chess", "Coffee"],
+  });
+  const travel = buildInterestSuggestionFallback({
+    lang: "fa",
+    topTenItems: ["سفر", "طبیعت", "عکاسی"],
+  });
+
+  assert.match(coding.title, /project/i);
+  assert.match(coding.reason, /coding/i);
+  assert.match(`${travel.title} ${travel.reason}`, /عکاسی|خلاق|سفر|طبیعت|پیاده‌روی/);
+  assert.doesNotMatch(`${coding.title} ${travel.title}`, /book|کتاب/i);
+  assert.doesNotMatch(`${coding.title} ${travel.title}`, /\((?:activity|فعالیت)\)/i);
+});
+
+test("Interests quality gate rejects generic repeated social suggestions", () => {
+  assert.equal(
+    getInterestSuggestionQualityIssue({
+      title: "(فعالیت) شرکت در کارگاه شطرنج.",
+      reason: "تقویت مهارت‌های شطرنج و ملاقات با افراد جدید.",
+      topTenItems: ["شطرنج", "دورهمی", "پیاده‌روی"],
+      recentSuggestionItems: [],
+    }),
+    "generic_container",
+  );
+  assert.equal(
+    getInterestSuggestionQualityIssue({
+      title: "چالش روزانه حل معماهای شطرنج در Lichess",
+      reason: "برای تقویت استراتژی‌های شطرنج شما مناسب است.",
+      topTenItems: ["شطرنج", "دورهمی"],
+      recentSuggestionItems: [],
+    }),
+    "generic_reason",
+  );
+  assert.equal(
+    getInterestSuggestionQualityIssue({
+      title: "پیوستن به گروه‌های شطرنج محلی",
+      reason: "برای یادگیری و رقابت با دیگران عالی است.",
+      topTenItems: ["شطرنج", "دورهمی"],
+      recentSuggestionItems: ["شرکت در کلاس فعالیت‌های گروهی"],
+    }),
+    "generic_container",
+  );
+  assert.equal(getInterestSuggestionFamily("Join a local chess club"), "social_group");
+  assert.equal(getInterestSuggestionFamily("پازل روزانه شطرنج"), "challenge");
+});
+
+test("Interests quality gate accepts a specific recommendation with a concrete reason", () => {
+  assert.equal(
+    getInterestSuggestionQualityIssue({
+      title: "پازل روزانه شطرنج در Lichess",
+      reason: "شطرنج را با تمرین تاکتیکی پنج‌دقیقه‌ای جلو می‌برد.",
+      topTenItems: ["شطرنج", "کدنویسی", "قهوه"],
+      recentSuggestionItems: ["ساخت یک پروژه کوچک آخرهفته"],
+    }),
+    "",
   );
 });
