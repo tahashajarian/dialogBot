@@ -1,12 +1,15 @@
 {
   "name": "dialogBot",
   "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
+  "description": "A bilingual Bale social bot for profiles, AI taste lists, and live discussions.",
+  "main": "src/index.js",
   "scripts": {
+    "start": "node --no-deprecation ./src/index.js",
     "test": "node --test test/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
     "lint": "eslint .",
     "dev": "nodemon --no-deprecation ./src/index.js",
+    "check": "npm run lint && npm run validate:translations && npm test && npm run test:integration",
     "validate:translations": "node ./scripts/validate-translations.js",
     "clear:data:dry": "node ./scripts/clear-data.js --dry-run",
     "clear:data": "node ./scripts/clear-data.js",

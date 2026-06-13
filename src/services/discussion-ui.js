@@ -18,6 +18,7 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "missing_discussion") return messages[lang].discussionErrMissingDiscussion;
   if (reason === "discussion_closed") return messages[lang].discussionErrClosed;
   if (reason === "discussion_full") return messages[lang].discussionErrFull;
+  if (reason === "leave_current_first") return messages[lang].discussionErrLeaveCurrentFirst;
   if (reason === "removed_by_owner") return messages[lang].discussionErrRemovedByOwner;
   if (reason === "requires_top_ten_completed") return messages[lang].discussionErrNeedTopTen;
   if (reason === "requires_taste_label") return messages[lang].discussionErrNeedTaste;

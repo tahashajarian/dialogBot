@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
+const { disconnectDB } = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser } = require("./services/users");
 const { beginInteraction } = require("./services/interaction-guard");
@@ -67,6 +68,39 @@ async function processUpdate(ctx) {
 bot.on("message", processUpdate);
 bot.on("callback_query", processUpdate);
 
+let pollingStarted = false;
+let shuttingDown = false;
+
+async function shutdown(reason, exitCode = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] stopping application (${reason})...`);
+
+  if (pollingStarted) {
+    try {
+      bot.stop(reason);
+    } catch (error) {
+      console.warn("[shutdown] failed to stop bot polling:", error?.message || error);
+    }
+  }
+
+  try {
+    await disconnectDB();
+  } catch (error) {
+    console.error("[shutdown] failed to disconnect database:", error?.message || error);
+    exitCode = 1;
+  }
+
+  process.exitCode = exitCode;
+}
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -119,14 +153,15 @@ async function retry(fn, {
     }
 
     const pollingLoop = bot.startPolling();
+    pollingStarted = true;
     console.log("[startup] bot started in polling mode.");
 
-    pollingLoop.catch((pollingError) => {
+    pollingLoop.catch(async (pollingError) => {
       console.error("Polling stopped with error:", pollingError);
-      process.exit(1);
+      await shutdown("polling_error", 1);
     });
   } catch (error) {
     console.error("Bot startup failed:", error);
-    process.exit(1);
+    await shutdown("startup_error", 1);
   }
 })();

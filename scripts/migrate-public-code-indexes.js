@@ -55,7 +55,7 @@ async function recreateUniqueCodeIndex({ model, field, legacyName, nextName }) {
       name: nextName,
       unique: true,
       partialFilterExpression: {
-        [field]: { $type: "string", $ne: "" },
+        [field]: { $type: "string", $gt: "" },
       },
     },
   );

@@ -25,7 +25,7 @@ const {
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
 const {
-  joinOrSwitchActiveDiscussion,
+  joinOrOpenDiscussion,
   ensurePublicProfileCode,
   normalizePublicProfileCode,
 } = require("./services/discussions");
@@ -300,7 +300,7 @@ async function handleCallback(ctx) {
         retireCallbackMessageIfPossible,
       });
     }
-    await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
+    await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened);
     const roomMessage = await sendDiscussionRoom(ctx, lang, joined.discussion);
     await clearDiscussionCardsAfterVisibleReply(ctx, [getMessageId(roomMessage)]);
     return roomMessage;
@@ -388,7 +388,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     await deleteCallbackMessageIfPossible(ctx);
     const discussionId = data.replace(callBacks.discussionCloseCancel, "");
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
       await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
@@ -401,7 +401,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionMembers, "");
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
       await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
@@ -427,7 +427,7 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionRemoveMemberPicker)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionRemoveMemberPicker, "");
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
       await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));

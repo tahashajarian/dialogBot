@@ -53,7 +53,7 @@ DiscussionSchema.index(
     name: "publicDiscussionCode_unique_nonempty",
     unique: true,
     partialFilterExpression: {
-      publicDiscussionCode: { $type: "string", $ne: "" },
+      publicDiscussionCode: { $type: "string", $gt: "" },
     },
   },
 );

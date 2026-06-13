@@ -2,16 +2,19 @@ const mongoose = require("mongoose");
 const { getRuntimeConfig } = require("./config");
 
 async function connectDB(config = getRuntimeConfig()) {
-  try {
-    await mongoose.connect(config.mongoUri, {
-      dbName: config.dbName,
-    });
+  await mongoose.connect(config.mongoUri, {
+    dbName: config.dbName,
+  });
 
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error("Mongo error:", err);
-    process.exit(1);
+  console.log("MongoDB connected");
+}
+
+async function disconnectDB() {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+    console.log("MongoDB disconnected");
   }
 }
 
 module.exports = connectDB;
+module.exports.disconnectDB = disconnectDB;

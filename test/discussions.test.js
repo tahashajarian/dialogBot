@@ -6,6 +6,7 @@ const {
   normalizePublicDiscussionCode,
   validateJoinRulePayload,
   validateJoinRules,
+  joinOrOpenDiscussion,
   hasLink,
   normalizeMaxMembers,
   DISCUSSION_MEMBER_CAP,
@@ -13,6 +14,7 @@ const {
   DISCUSSION_RECENT_MESSAGES_CAP,
 } = require("../src/services/discussions");
 const Discussion = require("../src/models/discussion");
+const User = require("../src/models/user");
 
 test("discussion caps match MVP defaults", () => {
   assert.equal(DISCUSSION_MEMBER_CAP, 20);
@@ -104,4 +106,30 @@ test("top ten item join rule tolerates near-duplicate spelling", async () => {
     joinRule: { type: "top_ten_item", section: "books", itemTitle: "Lord of Rings" },
   });
   assert.equal(result.ok, true);
+});
+
+test("joining another room requires leaving the active room first", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindById = Discussion.findById;
+  const activeDiscussionId = new Discussion()._id;
+  const targetDiscussionId = new Discussion()._id;
+
+  User.findOne = async () => ({
+    userId: 42,
+    activeDiscussionId,
+  });
+  Discussion.findById = async () => ({
+    _id: targetDiscussionId,
+    status: "open",
+    memberUserIds: [],
+    creatorUserId: 7,
+  });
+
+  try {
+    const result = await joinOrOpenDiscussion(42, targetDiscussionId);
+    assert.deepEqual(result, { ok: false, reason: "leave_current_first" });
+  } finally {
+    User.findOne = originalFindOne;
+    Discussion.findById = originalFindById;
+  }
 });

@@ -1,6 +1,6 @@
 const {
   closeDiscussionAsOwner,
-  joinOrSwitchActiveDiscussion,
+  joinOrOpenDiscussion,
   leaveDiscussionAsMember,
   removeMemberAsOwner,
   getActiveMembersInDiscussion,
@@ -9,18 +9,8 @@ const {
 } = require("./discussions");
 
 async function joinDiscussionAndNotify({ ctx, messages, discussionId }) {
-  const joined = await joinOrSwitchActiveDiscussion(ctx.userId, discussionId);
+  const joined = await joinOrOpenDiscussion(ctx.userId, discussionId);
   if (!joined.ok) return joined;
-
-  if (joined.leftPrevious?.discussionId && joined.leftPrevious?.leaverName) {
-    await notifyActiveMembersInDiscussion(
-      ctx,
-      messages,
-      joined.leftPrevious.discussionId,
-      [ctx.userId],
-      (msgs, lang) => msgs[lang].discussionLeftNotice.replace("{name}", joined.leftPrevious.leaverName),
-    );
-  }
 
   if (joined.joined && joined.joinerName && joined.otherMemberIds) {
     await notifyActiveMembersInDiscussion(

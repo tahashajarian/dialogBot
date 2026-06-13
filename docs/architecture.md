@@ -70,13 +70,13 @@ Viewed public-profile cards are transient. Store and clear their last bot messag
 - location
 - photo
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
-- future saved profile references, capped at 50 per user
+- saved profile references, capped at 50 per user
 - transient public-profile card id (`publicProfileLastMessageId`)
 - transient discussion member-list card id (`discussionLastMembersMessageId`)
 
 Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
 
-Saved profiles, when implemented, should be private one-way bookmarks. They should store references/public profile codes only, not duplicate private profile data.
+Saved profiles are private one-way bookmarks. They store references/public profile codes only, not duplicate private profile data.
 
 ## Validation
 
@@ -86,6 +86,7 @@ Saved profiles, when implemented, should be private one-way bookmarks. They shou
   - translation keys
   - direct `messages[lang].key` usage
 - Run `npm.cmd test` when behavior or shared services change.
+- Run `npm.cmd run test:integration` when discussion database mutations change.
 - If `node` or `npm` is unavailable in the environment, mention that in the handoff.
 
 ## Safety

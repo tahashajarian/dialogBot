@@ -1,4 +1,19 @@
-# Discussions Design
+# Discussions
+
+## Implementation Status
+
+The MVP described here is implemented. The current code supports:
+
+- discussion creation with title, optional description, capacity, and join-rule selection
+- open, taste-label, and specific TopTen-item join rules
+- active and owned discussion lists with pagination
+- one active room per user; joining another room requires leaving the current room first
+- live text delivery with last-10-message context and runtime-only native reply mapping
+- shareable invite links with a revalidated preview before joining
+- member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
+- member reporting, creation/message limits, and opt-in active-discussion profile visibility
+
+Future ideas in this document are not implemented unless explicitly identified otherwise.
 
 ## Purpose
 
@@ -275,7 +290,7 @@ When user joins:
      - From invite (requirement/removed errors) → show main menu
      - From invite (other errors) → show discussions menu
 
-- If they are already inside another discussion, keep them in the old discussion until the new join succeeds.
+- If they are already inside another discussion, reject the join and ask them to leave the current room first.
 - If the new join fails, do not remove them from their current discussion.
 - If the discussion has reached its configured capacity, do not allow joining.
 - Add the user to current members.
@@ -348,7 +363,7 @@ First-time/deep-link handling:
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
 - Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
-- If the user is inside another discussion, the invite join action should switch rooms only after the new join succeeds.
+- If the user is inside another discussion, the invite join action should ask them to leave the current room first.
 - If the invite join fails, keep the user in their current discussion.
 - Invite start commands and `/join_CODE` should be handled before section-specific states, so links work even if the user is currently inside profile edit, AI lists, saved profiles, or another bot section.
 
@@ -427,7 +442,7 @@ Join attempt validation order:
 6. Check discussion capacity.
 7. Check the discussion join rule.
 8. Atomically join the target discussion.
-9. After the target join succeeds, leave any previous discussion and send the normal switched message.
+9. A user who is already active elsewhere must leave that discussion before joining from the invite.
 
 This order keeps sensitive details quiet while still giving useful recovery messages. If a room is closed or missing, do not reveal whether the user would have satisfied its join rule.
 It also keeps users from being ejected from their current room when a target join fails because of capacity, permissions, closure, or stale invite/list state.
@@ -546,7 +561,7 @@ Implementation test checklist:
 - Closed/missing discussion invite shows unavailable message.
 - Full discussion invite shows capacity reached message.
 - Removed user cannot rejoin through an invite.
-- Existing member using invite switches/re-focuses active discussion without duplicate membership.
+- An existing active member using an invite re-focuses the same discussion without duplicate membership.
 - Old preview button revalidates current state before joining.
 
 Future possibilities:
@@ -1011,8 +1026,8 @@ MVP minimum:
 Future:
 
 - Reopen closed discussion.
-- Report discussion.
 - Report message.
+- Admin review tools for existing member reports.
 - Admin close/hide tools.
 - Basic blocked-word filter.
 
@@ -1193,7 +1208,7 @@ Rules:
 - If the viewer does not qualify, show the lock reason.
 - Never reveal active discussion automatically without this setting.
 - Store this as a user profile setting, e.g. `showActiveDiscussionOnProfile`, default `false`.
-- The profile should show the current setting even before the discussion feature is fully implemented.
+- The profile shows the current setting to its owner.
 - Show this setting only to the profile owner, not to other users viewing the profile.
 
 Example:
@@ -1216,17 +1231,15 @@ Locked example:
 
 This keeps social discovery possible without turning profile viewing into presence tracking.
 
-## Open Decisions
-
-These are currently preferred but should be confirmed before implementation:
+## Implemented Product Decisions
 
 - Locked discussions are visible with clear lock reasons.
 - Profiles are public inside bot social surfaces.
-- Creator automatically joins after creating.
-- Discussion room uses bottom keyboard for leave/info.
-- Open discussions do not require completed Top 10.
-- Completed-Top-10 discussion creation is not user-facing.
-- Item-specific join rules are useful for interests-based rooms; decide whether they are included in MVP or fast-follow.
+- The creator automatically joins after creating.
+- Discussion rooms use a bottom keyboard for members, invites, leaving, and owner close controls.
+- Open discussions do not require a completed Top 10.
+- Completed-Top-10 rules are supported by the service layer but are not user-facing in the creation flow.
+- Item-specific TopTen join rules are included in the MVP.
 
 ## Product Rule
 

@@ -74,6 +74,6 @@
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
 - Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.
-- Showing a user's active discussion on their profile is a separate opt-in setting. It should be visible as a profile setting even before discussions are fully implemented, but the active room itself must not be exposed unless enabled.
+- Showing a user's active discussion on their profile is a separate opt-in setting. The active room must not be exposed unless the setting is enabled.
 - The active-discussion visibility row on the user's own profile should include a short self-only explanation command link, such as `(یعنی چی؟ /ad_help)`. Keep it compact so the profile row stays readable; the explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
 - Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat.

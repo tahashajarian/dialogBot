@@ -41,9 +41,9 @@
 
 ## Current Phase
 
-- Discussion feature work is currently in design mode.
-- For discussion-phase changes, update docs only unless the user explicitly asks to implement/code it.
-- `docs/discussions.md` is the source of truth for discussion behavior.
+- Discussions and saved profiles are implemented MVP features.
+- Keep implementation and documentation aligned when changing discussion behavior.
+- `docs/discussions.md` is the source of truth for discussion product behavior.
 
 ## Critical UX Rules
 
@@ -59,7 +59,7 @@
 
 - Profiles are public inside bot social surfaces for now; do not add a public/private profile setting unless `docs/discussions.md` changes.
 - `showActiveDiscussionOnProfile` is a separate opt-in profile setting, default false. Never expose a user's active discussion on their profile unless this is enabled.
-- Discussions, when implemented, are live rooms with last-10-message context, one active room per user, taste-based join rules, and no seen/read count in MVP.
+- Discussions are live rooms with last-10-message context, one active room per user, taste-based join rules, and no seen/read count in MVP.
 - Saved profiles should be a one-way private bookmark feature, not friendship/private chat. Users can save profiles found through discussions and access them from a main-menu saved-profiles entry.
 - The internal `random` AI section should be treated as user-facing `🧩 علاقه‌مندی‌ها` / `🧩 Interests`, a first-class broad interests section.
 - AI suggestions should not trigger from free-form AI-section chat text; users should use the section buttons.
@@ -84,6 +84,7 @@
 - Prefer a quick syntax or runtime check after edits when available.
 - Run `npm.cmd run validate:translations` after changing `src/messages.js`, translation keys, or direct `messages[lang].key` usage.
 - Run `npm.cmd test` when behavior or shared services change.
+- Run `npm.cmd run test:integration` when discussion database mutations change.
 - If `node` or `npm` is unavailable, mention that in the handoff.
 
 ## Environment Contract

@@ -13,7 +13,7 @@ const {
   findDiscussionByPublicCode,
   getActiveDiscussionInviteForUser,
   getDiscussionInvitePreviewByCode,
-  joinOrSwitchActiveDiscussion,
+  joinOrOpenDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
   normalizePublicProfileCode,
@@ -263,7 +263,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
     await clearDiscussionMembersMessage(ctx);
 
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, activeDiscussionId);
+    const opened = await joinOrOpenDiscussion(ctx.userId, activeDiscussionId);
     if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
       .select("userId profileName firstName publicProfileCode")
@@ -373,7 +373,7 @@ async function openDiscussionCommand(ctx, lang, code) {
 
   await clearRememberedDiscussionListMessage(ctx);
   await clearDiscussionMenuNotice(ctx);
-  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionSwitched);
+  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened);
   return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
 }
 
@@ -459,7 +459,7 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   await clearMenuNotice?.();
   const statusText = joined.joined
     ? messages[lang].discussionJoined
-    : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionSwitched);
+    : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionOpened);
   await ctx.reply(statusText);
   if (sendRoom) return sendRoom(ctx, lang, joined.discussion);
   return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
@@ -543,7 +543,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
       });
       return sendRememberedDiscussionList(ctx, lang, previousListType);
     }
-    const opened = await joinOrSwitchActiveDiscussion(ctx.userId, parsed.discussionId || String(ctx.user?.activeDiscussionId || ""));
+    const opened = await joinOrOpenDiscussion(ctx.userId, parsed.discussionId || String(ctx.user?.activeDiscussionId || ""));
     if (!opened.ok) {
       return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu, { removeKeyboard: true });
     }

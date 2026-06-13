@@ -135,7 +135,7 @@ UserSchema.index(
     name: "publicProfileCode_unique_nonempty",
     unique: true,
     partialFilterExpression: {
-      publicProfileCode: { $type: "string", $ne: "" },
+      publicProfileCode: { $type: "string", $gt: "" },
     },
   },
 );

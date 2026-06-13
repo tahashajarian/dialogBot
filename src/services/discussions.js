@@ -335,43 +335,7 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
 }
 
-async function leaveCurrentDiscussionForJoin(user, nextDiscussionId) {
-  const currentDiscussionId = user?.activeDiscussionId;
-  if (!currentDiscussionId || String(currentDiscussionId) === String(nextDiscussionId)) {
-    return null;
-  }
-
-  const currentDiscussion = await Discussion.findOneAndUpdate(
-    {
-      _id: currentDiscussionId,
-      memberUserIds: user.userId,
-    },
-    {
-      $pull: { memberUserIds: user.userId },
-      $set: { updatedAt: new Date() },
-    },
-    { returnDocument: "after" },
-  );
-  if (!currentDiscussion) {
-    return null;
-  }
-
-  await User.findOneAndUpdate(
-    { userId: user.userId },
-    {
-      $pull: { discussionMembershipIds: currentDiscussion._id },
-      $set: { activeDiscussionId: null },
-    },
-  );
-
-  return {
-    discussionId: currentDiscussion._id,
-    discussionTitle: currentDiscussion.title,
-    leaverName: String(user.profileName || user.firstName || "کاربر").trim(),
-  };
-}
-
-async function joinOrSwitchActiveDiscussion(userId, discussionId) {
+async function joinOrOpenDiscussion(userId, discussionId) {
   const [user, discussion] = await Promise.all([
     User.findOne({ userId }),
     Discussion.findById(discussionId),
@@ -380,6 +344,12 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
   if (!user) return { ok: false, reason: "missing_user" };
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
+  if (
+    user.activeDiscussionId &&
+    String(user.activeDiscussionId) !== String(discussion._id)
+  ) {
+    return { ok: false, reason: "leave_current_first" };
+  }
 
   const isMember = discussion.memberUserIds.includes(userId);
   const isOwner = Number(discussion.creatorUserId) === Number(userId);
@@ -437,12 +407,10 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
           { userId },
           { $set: { activeDiscussionId: latest._id } },
         );
-        return { ok: true, discussion: latest, joined: false, switched: true, leftPrevious: null };
+        return { ok: true, discussion: latest, joined: false };
       }
       return { ok: false, reason: "discussion_full", cap: maxMembers };
     }
-
-    const leftPrevious = await leaveCurrentDiscussionForJoin(user, joinedDiscussion._id);
 
     await User.findOneAndUpdate(
       { userId },
@@ -455,16 +423,15 @@ async function joinOrSwitchActiveDiscussion(userId, discussionId) {
     const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
     const otherMemberIds = joinedDiscussion.memberUserIds.filter((id) => id !== userId);
     
-    return { ok: true, discussion: joinedDiscussion, joined: true, switched: true, joinerName, otherMemberIds, leftPrevious };
+    return { ok: true, discussion: joinedDiscussion, joined: true, joinerName, otherMemberIds };
   }
 
-  const leftPrevious = await leaveCurrentDiscussionForJoin(user, discussion._id);
   await User.findOneAndUpdate(
     { userId },
     { $set: { activeDiscussionId: discussion._id } },
   );
 
-  return { ok: true, discussion, joined: false, switched: true, leftPrevious };
+  return { ok: true, discussion, joined: false };
 }
 
 async function getActiveDiscussionInviteForUser(userId, discussionId) {
@@ -711,7 +678,7 @@ async function consumeDiscussionMessageQuota(userId) {
         },
       },
     ],
-    { returnDocument: "after" },
+    { returnDocument: "after", updatePipeline: true },
   );
 
   if (!updated) {
@@ -881,7 +848,7 @@ module.exports = {
   createDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
-  joinOrSwitchActiveDiscussion,
+  joinOrOpenDiscussion,
   getActiveDiscussionInviteForUser,
   leaveDiscussionAsMember,
   closeDiscussionAsOwner,
