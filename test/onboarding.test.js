@@ -185,6 +185,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpText, /to-do list/);
   assert.match(messages.fa.helpText, /۳ مورد/);
   assert.match(messages.en.helpText, /3 Top 10 items/);
+  assert.match(messages.fa.helpText, /بحث‌های ساخته‌شده‌شون رو ببینی/);
+  assert.match(messages.en.helpText, /view discussions they created/);
   assert.ok(messages.fa.helpText.length < 900);
   assert.ok(messages.en.helpText.length < 900);
 });
