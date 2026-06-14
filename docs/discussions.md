@@ -37,14 +37,17 @@ Discussions are live rooms with short memory.
 - Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
 - Their English titles are `Free Discussion`, `What's Up?`, and `Let's Talk`.
 - Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
-- Bot-created rooms use the same capacity, join, full-room, list, and acknowledgment behavior as user-created rooms.
+- Bot-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
+- **Smart pinning**: Bot-created discussions appear at the top of the active discussions list for users with fewer than 2 discussion memberships. Once a user joins 2 or more discussions, all discussions are sorted purely by activity (most recent first). This helps new users discover starter rooms while keeping the experience clean for active users.
 
 ## Non-Goals For MVP
 
 - No direct messaging between users.
 - No permanent full message archive.
 - No seen/read receipts.
-- No photos, voice, stickers, files, or forwarded messages inside discussions.
+- No photos, stickers, files, or forwarded messages inside discussions.
+- Voice messages and text messages are allowed.
+- Links are not allowed in discussion messages.
 - No AI-generated moderation or AI summaries.
 - No age, city, gender, or profile-field-based join rules.
 - No invite-only or private rooms yet. Shareable invites may exist, but they must not make a room private or bypass join rules.
@@ -1028,7 +1031,8 @@ MVP minimum:
 - Owner can leave their own open discussion without closing it.
 - Closing removes the discussion from active listings and member memberships.
 - Closing should notify current members that the discussion was closed.
-- Text only.
+- Text and voice messages only; no photos, stickers, files, or forwarded messages.
+- Links are not allowed in any discussion messages.
 - Profile viewing is public inside bot social surfaces.
 
 Future:
@@ -1062,10 +1066,12 @@ MVP message behavior:
 - Sending text should append to `recentMessages` (capped to last 10) and be broadcast to current members.
 - If the message replies to a previous bot-delivered discussion message, forward it as a platform-native reply when the runtime delivery map can resolve the matching message id in each member's chat. Do not add "replying to..." text and do not persist reply metadata in `recentMessages`.
 - Sender should receive a short delivery confirmation.
-- Only text is supported in MVP (no media/voice/files/forwards).
+- Text and voice messages are supported (no photos/stickers/files/forwards).
+- Links are blocked in all discussion messages to prevent spam and phishing.
 - Accept at most one discussion message per user per second. Reject faster messages before storage or broadcast with a short localized slow-down notice.
 - Keep the broader limit of 30 accepted discussion messages per user within 10 minutes.
-- When an active-room user sends non-text content, do not forward or store it. Reply directly to that unsupported message with a short localized `🤖` notice explaining that discussions currently support text only; fall back to a normal message if native reply metadata is rejected.
+- When an active-room user sends unsupported content (photos, stickers, files, forwards), do not forward or store it. Reply directly to that unsupported message with a short localized `🤖` notice explaining that discussions currently support text and voice only; fall back to a normal message if native reply metadata is rejected.
+- When a user sends a message containing links, reject it immediately with a localized `🤖` notice that links are not allowed in discussions.
 - Keep this unsupported-content notice separate from valid-text delivery failures; a failed text send should ask the user to reopen the discussion and retry.
 
 ## Member/Profile Viewing

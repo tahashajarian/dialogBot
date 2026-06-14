@@ -58,7 +58,7 @@ test("active discussions reject non-text messages only in the normal room state"
   assert.equal(isUnsupportedDiscussionMessage({ user: {}, message: activeMediaContext.message }, "idle", ""), false);
 
   for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].discussionMessageOnlyText, /^🤖/);
+    assert.match(messages[lang].discussionMessageOnlyTextOrVoice, /^🤖/);
   }
 });
 

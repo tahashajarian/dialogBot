@@ -209,6 +209,10 @@ function isGenericTasteFeedback(feedback, lang) {
     ? [
       /انتخاب(?:ت| شما)?\s+(?:خیلی\s+)?(?:\S+\s*){0,2}(?:است|ه|ایه|ای|بود)?$/,
       /انتخاب (باحال|خوب|عالی|جالب|خاص|فوق العاده)/,
+      /عنوان (جالب|خوب|خاص|باحال)/,
+      /به نظر (میاد|می رسد|می یاد).*(حس|احساس).*(خوب|خاص|جالب)/,
+      /واقعی و جذاب/,
+      /حس.*خاص.*داره/,
       /^(وای|عجب|به به)[،!\s]/,
       /سلیقه ات/,
       /نشون می ده/,
@@ -217,6 +221,8 @@ function isGenericTasteFeedback(feedback, lang) {
     ]
     : [
       /\b(great|good|nice|cool|solid|interesting|unique|excellent|amazing|fantastic) (choice|pick)\b/,
+      /\b(sounds|seems|looks) (interesting|special|unique|good)\b/,
+      /\bhas a (good|special|unique) (feel|vibe)\b/,
       /\b(choice|pick)[.!]?\s*$/,
       /^(wow|nice|great)[,!\s]/,
       /\byour taste\b/,
@@ -262,18 +268,18 @@ function sanitizeTasteFeedback(text, lang) {
 function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`«${shortItem || "این مورد"}» رو بدون توضیح اضافه ثبت کردم.`, 18);
+    return limitWords(`«${shortItem || "این مورد"}» رو ثبت کردم.`, 18);
   }
 
-  return limitWords(`I saved "${shortItem || "that item"}" without adding extra commentary.`, 18);
+  return limitWords(`Saved "${shortItem || "that item"}".`, 18);
 }
 
 function buildUnknownItemFeedback({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`راستش «${shortItem || "این"}» رو نمی‌شناسم؛ فعلاً ازش برداشت نمی‌کنم.`, 12);
+    return limitWords(`«${shortItem || "این"}» رو نمی‌شناسم، ولی ثبتش کردم.`, 12);
   }
-  return limitWords(`I don't recognize "${shortItem || "that"}" yet, so I won't read into it.`, 12);
+  return limitWords(`Don't know "${shortItem || "that"}" yet, but saved it.`, 12);
 }
 
 function getPredefinedTasteFeedback({ section, item, lang }) {
@@ -832,15 +838,15 @@ async function getAiTasteItemFeedback({
             model: aiConfig.model,
             max_output_tokens: FEEDBACK_MAX_OUTPUT_TOKENS,
             instructions: [
-              "You write one grounded micro reaction to a specific work or interest.",
+              "You react naturally to what someone shared, but ONLY if you actually recognize it.",
               `Respond only in ${language}.`,
-              "React to the item itself, not the user's personality or taste.",
-              "If recognizable, give one concrete observation about its creator, form, genre, theme, atmosphere, or cultural character.",
-              "Prefer a specific insight over praise. Dry wit is allowed only when it remains relevant.",
-              "If you are not confident you recognize the item, say so briefly and do not guess.",
+              "CRITICAL: If you don't clearly recognize this specific work/item, you MUST say so honestly. Never pretend or guess.",
+              "For recognized items: keep it conversational, mention one concrete thing about it in simple language.",
+              "For unrecognized items: be direct and honest—say you don't know it. Don't invent details or fake recognition.",
+              "Never say generic praise like 'sounds interesting', 'seems special', 'looks good' for items you don't actually know.",
               `Max ${FEEDBACK_MAX_WORDS} words.`,
-              "Mention at least one word from the item title.",
-              "Never say generic phrases such as great choice, cool pick, interesting taste, or this says you are.",
+              "For recognized items, mention at least one word from the title.",
+              "For unrecognized items, just admit it clearly.",
               "Do not ask for another item.",
               "Do not invent creators, facts, entities, or characters.",
               "Use plain text only.",

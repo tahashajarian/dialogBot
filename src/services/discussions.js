@@ -366,10 +366,26 @@ async function seedBotDiscussions(botUserId) {
   return { ok: true, discussions };
 }
 
-async function listActiveDiscussions({ limit = 50 } = {}) {
-  const discussions = await Discussion.find({ status: "open" })
+async function listActiveDiscussions({ userId, limit = 50 } = {}) {
+  let discussions = await Discussion.find({ status: "open" })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
+
+  // Smart pinning: show bot discussions at top for new/less-engaged users
+  if (userId) {
+    const user = await User.findOne({ userId }).select("discussionMembershipIds");
+    const membershipCount = Array.isArray(user?.discussionMembershipIds) 
+      ? user.discussionMembershipIds.length 
+      : 0;
+    
+    // Pin bot discussions at top if user has < 2 memberships
+    if (membershipCount < 2) {
+      const botDiscussions = discussions.filter((d) => d.isBotCreated);
+      const userDiscussions = discussions.filter((d) => !d.isBotCreated);
+      discussions = [...botDiscussions, ...userDiscussions];
+    }
+  }
+
   return { ok: true, discussions };
 }
 
@@ -782,15 +798,21 @@ async function consumeDiscussionMessageQuota(userId) {
   };
 }
 
-async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text }) {
+async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text, voiceFileId, voiceDuration }) {
   const discussion = await Discussion.findById(discussionId);
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
   if (!discussion.memberUserIds.includes(senderUserId)) return { ok: false, reason: "not_member" };
 
-  const cleanText = normalizeDiscussionText(text, 500);
+  const isVoiceMessage = Boolean(voiceFileId);
+  const cleanText = text ? normalizeDiscussionText(text, 500) : "";
   const cleanName = normalizeDiscussionText(senderDisplayName, 80);
-  if (!cleanText) return { ok: false, reason: "empty_message" };
+  
+  // Either text or voice must be present
+  if (!cleanText && !isVoiceMessage) return { ok: false, reason: "empty_message" };
+  
+  // Block links in text messages
+  if (cleanText && hasLink(cleanText)) return { ok: false, reason: "message_contains_link" };
 
   const quota = await consumeDiscussionMessageQuota(senderUserId);
   if (!quota.ok) return { ...quota, discussion };
@@ -800,6 +822,8 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
     senderUserId,
     senderDisplayName: cleanName || "کاربر",
     text: cleanText,
+    voiceFileId: voiceFileId || "",
+    voiceDuration: voiceDuration || 0,
     sentAt: now,
   };
   const updatedDiscussion = await Discussion.findOneAndUpdate(

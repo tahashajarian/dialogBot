@@ -194,7 +194,7 @@ async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, {
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
 } = {}) {
-  const result = await listActiveDiscussions({ limit: 100 });
+  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100 });
   if (!result.discussions.length) {
     await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^🤖\s*/, ""));
     return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));

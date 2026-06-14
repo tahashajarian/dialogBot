@@ -57,7 +57,7 @@ test("uses neutral feedback for low-quality or placeholder inputs", async () => 
 
   assert.equal(enResult.ok, true);
   assert.equal(enResult.matchType, "unknown_input");
-  assert.match(enResult.text, /don't recognize/i);
+  assert.match(enResult.text, /don't know.*yet/i);
   assert.equal(faResult.ok, true);
   assert.equal(faResult.matchType, "unknown_input");
   assert.match(faResult.text, /نمی‌شناسم/);
@@ -113,7 +113,7 @@ test("fallback stays neutral instead of guessing or giving empty praise", () => 
     item: "An Obscure Work",
   });
 
-  assert.match(fa, /بدون توضیح اضافه ثبت کردم/);
+  assert.match(fa, /ثبت کردم/);
   assert.doesNotMatch(fa, /انتخاب (باحال|خوب|عالی)/);
   assert.match(en, /saved/i);
   assert.doesNotMatch(en, /solid pick|great choice/i);

@@ -42,10 +42,16 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   if (!recent.length) {
     return `${messages[lang].discussionRecentMessagesTitle}\n${messages[lang].discussionNoRecentMessages}`;
   }
-  const lines = recent.map((entry) => lineForLang(
-    lang,
-    `- ${isolateText(lang, entry.senderDisplayName)}: ${isolateText(lang, entry.text)}`,
-  ));
+  const lines = recent.map((entry) => {
+    const isVoice = Boolean(entry.voiceFileId);
+    const content = isVoice 
+      ? (lang === "fa" ? "🎤 پیام صوتی" : "🎤 Voice message")
+      : isolateText(lang, entry.text);
+    return lineForLang(
+      lang,
+      `- ${isolateText(lang, entry.senderDisplayName)}: ${content}`,
+    );
+  });
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 

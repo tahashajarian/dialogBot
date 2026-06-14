@@ -143,11 +143,13 @@ function formatDiscussionOutboundMessage(messages, lang, { senderDisplayName, te
 }
 
 function isUnsupportedDiscussionMessage(ctx, state, text) {
+  const hasVoice = ctx.message?.voice;
   return Boolean(
     state === "idle"
     && ctx.user?.activeDiscussionId
     && ctx.message
-    && !text,
+    && !text
+    && !hasVoice,
   );
 }
 
@@ -163,8 +165,23 @@ async function replyToUnsupportedDiscussionMessage(ctx, text) {
   return ctx.reply(text);
 }
 
-async function sendDiscussionMessageToRecipient(ctx, recipientUserId, text, replyDelivery) {
+async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, replyDelivery) {
   const replyMessageId = getReplyMessageIdForRecipient(replyDelivery, recipientUserId);
+  
+  // Handle voice messages
+  if (payload?.voice) {
+    if (!replyMessageId) {
+      return ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id);
+    }
+    const sent = await ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id, {
+      reply_to_message_id: replyMessageId,
+    });
+    if (sent) return sent;
+    return ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id);
+  }
+  
+  // Handle text messages
+  const text = typeof payload === 'string' ? payload : payload?.text;
   if (!replyMessageId) {
     return ctx.sendToUser?.(recipientUserId, text);
   }
@@ -174,6 +191,65 @@ async function sendDiscussionMessageToRecipient(ctx, recipientUserId, text, repl
   });
   if (sent) return sent;
   return ctx.sendToUser?.(recipientUserId, text);
+}
+
+async function handleDiscussionMessage(ctx, lang, messageType, payload) {
+  const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+  const added = await addRecentMessage({
+    discussionId: ctx.user.activeDiscussionId,
+    senderUserId: ctx.userId,
+    senderDisplayName: senderName,
+    ...payload,
+  });
+
+  if (!added.ok) {
+    if (added.reason === "message_burst_limit") {
+      return ctx.reply(
+        messages[lang].discussionMessageBurstLimit,
+        discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+      );
+    }
+    if (added.reason === "message_rate_limit") {
+      return ctx.reply(
+        messages[lang].discussionMessageRateLimit,
+        discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+      );
+    }
+    if (added.reason === "message_contains_link") {
+      return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageNoLinks);
+    }
+    return ctx.reply(messages[lang].discussionMessageSendFailed);
+  }
+
+  const deliveriesByUserId = {
+    [ctx.userId]: getMessageId(ctx.message),
+  };
+
+  await Promise.all((added.recipients || []).map(async (recipientUserId) => {
+    const sent = await sendDiscussionMessageToRecipient(
+      ctx,
+      recipientUserId,
+      messageType === "voice" 
+        ? { voice: { file_id: payload.voiceFileId, duration: payload.voiceDuration || 0 } }
+        : formatDiscussionOutboundMessage(messages, lang, { senderDisplayName: senderName, text: payload.text }),
+      messageType === "text" ? findDiscussionDelivery({
+        userId: ctx.userId,
+        messageId: getReplyMessageId(ctx.message),
+        discussionId: ctx.user.activeDiscussionId,
+      }) : undefined
+    );
+    const sentMessageId = getMessageId(sent);
+    if (sentMessageId) {
+      deliveriesByUserId[recipientUserId] = sentMessageId;
+    }
+  }));
+
+  rememberDiscussionDelivery({
+    discussionId: ctx.user.activeDiscussionId,
+    deliveriesByUserId,
+  });
+
+  return true;
 }
 
 async function handleUpdate(ctx) {
@@ -263,58 +339,23 @@ async function handleUpdate(ctx) {
   }
 
   if (isUnsupportedDiscussionMessage(ctx, state, text)) {
-    return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageOnlyText);
+    return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageOnlyTextOrVoice);
   }
 
+  // Handle voice messages in discussions
+  if (state === "idle" && ctx.user?.activeDiscussionId && ctx.message?.voice && !text) {
+    const voice = ctx.message.voice;
+    return handleDiscussionMessage(ctx, lang, "voice", {
+      voiceFileId: voice.file_id,
+      voiceDuration: voice.duration || 0,
+    });
+  }
+
+  // Handle text messages in discussions
   if (state === "idle" && ctx.user?.activeDiscussionId && text && !text.startsWith("/")) {
-    const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
-    const replyDelivery = findDiscussionDelivery({
-      userId: ctx.userId,
-      messageId: getReplyMessageId(ctx.message),
-      discussionId: ctx.user.activeDiscussionId,
-    });
-    const added = await addRecentMessage({
-      discussionId: ctx.user.activeDiscussionId,
-      senderUserId: ctx.userId,
-      senderDisplayName: senderName,
+    return handleDiscussionMessage(ctx, lang, "text", {
       text,
     });
-    if (!added.ok) {
-      if (added.reason === "message_burst_limit") {
-        return ctx.reply(
-          messages[lang].discussionMessageBurstLimit,
-          discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
-        );
-      }
-      if (added.reason === "message_rate_limit") {
-        return ctx.reply(
-          messages[lang].discussionMessageRateLimit,
-          discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
-        );
-      }
-      return ctx.reply(messages[lang].discussionMessageSendFailed);
-    }
-
-    const inboundText = formatDiscussionOutboundMessage(messages, lang, {
-      senderDisplayName: senderName,
-      text,
-    });
-
-    const deliveriesByUserId = {
-      [ctx.userId]: getMessageId(ctx.message),
-    };
-    await Promise.all((added.recipients || []).map(async (recipientUserId) => {
-      const sent = await sendDiscussionMessageToRecipient(ctx, recipientUserId, inboundText, replyDelivery);
-      const sentMessageId = getMessageId(sent);
-      if (sentMessageId) {
-        deliveriesByUserId[recipientUserId] = sentMessageId;
-      }
-    }));
-    rememberDiscussionDelivery({
-      discussionId: ctx.user.activeDiscussionId,
-      deliveriesByUserId,
-    });
-    return true;
   }
 
   if (text === "/cancel") {

@@ -3,7 +3,9 @@ const mongoose = require("mongoose");
 const DiscussionMessageSchema = new mongoose.Schema({
   senderUserId: { type: Number, required: true },
   senderDisplayName: { type: String, required: true },
-  text: { type: String, required: true },
+  text: { type: String, default: "" },
+  voiceFileId: { type: String, default: "" },
+  voiceDuration: { type: Number, default: 0 },
   sentAt: { type: Date, default: Date.now },
 }, { _id: false });
 

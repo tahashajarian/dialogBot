@@ -232,7 +232,7 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
     return rememberDiscussionListMessage(ctx, "mine", sent);
   }
 
-  const result = await listActiveDiscussions({ limit: 100 });
+  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100 });
   if (!result.discussions.length) {
     const sentEmpty = await ctx.reply(messages[lang].discussionListEmpty);
     return rememberDiscussionListMessage(ctx, "active", sentEmpty);
