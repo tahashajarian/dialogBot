@@ -142,6 +142,27 @@ function formatDiscussionOutboundMessage(messages, lang, { senderDisplayName, te
     .replace("{text}", String(text || "").trim());
 }
 
+function isUnsupportedDiscussionMessage(ctx, state, text) {
+  return Boolean(
+    state === "idle"
+    && ctx.user?.activeDiscussionId
+    && ctx.message
+    && !text,
+  );
+}
+
+async function replyToUnsupportedDiscussionMessage(ctx, text) {
+  const messageId = getMessageId(ctx.message);
+  if (messageId) {
+    try {
+      return await ctx.reply(text, { reply_to_message_id: messageId });
+    } catch {
+      // A normal reply still gives the user clear delivery feedback.
+    }
+  }
+  return ctx.reply(text);
+}
+
 async function sendDiscussionMessageToRecipient(ctx, recipientUserId, text, replyDelivery) {
   const replyMessageId = getReplyMessageIdForRecipient(replyDelivery, recipientUserId);
   if (!replyMessageId) {
@@ -241,6 +262,10 @@ async function handleUpdate(ctx) {
     }
   }
 
+  if (isUnsupportedDiscussionMessage(ctx, state, text)) {
+    return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageOnlyText);
+  }
+
   if (state === "idle" && ctx.user?.activeDiscussionId && text && !text.startsWith("/")) {
     const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
     const replyDelivery = findDiscussionDelivery({
@@ -261,7 +286,7 @@ async function handleUpdate(ctx) {
           discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
         );
       }
-      return ctx.reply(messages[lang].discussionMessageOnlyText);
+      return ctx.reply(messages[lang].discussionMessageSendFailed);
     }
 
     const inboundText = formatDiscussionOutboundMessage(messages, lang, {
@@ -583,5 +608,7 @@ module.exports = {
   getStartInviteCode,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
+  isUnsupportedDiscussionMessage,
+  replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
 };

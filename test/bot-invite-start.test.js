@@ -6,6 +6,8 @@ const {
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   getStartInviteCode,
+  isUnsupportedDiscussionMessage,
+  replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
 } = require("../src/bot");
 
@@ -42,6 +44,59 @@ test("discussion outbound formatter stays plain for natural replies", () => {
   });
 
   assert.equal(text, "Sara: I agree");
+});
+
+test("active discussions reject non-text messages only in the normal room state", () => {
+  const activeMediaContext = {
+    user: { activeDiscussionId: "discussion-id" },
+    message: { photo: [{ file_id: "photo-id" }] },
+  };
+
+  assert.equal(isUnsupportedDiscussionMessage(activeMediaContext, "idle", ""), true);
+  assert.equal(isUnsupportedDiscussionMessage(activeMediaContext, "editing_photo", ""), false);
+  assert.equal(isUnsupportedDiscussionMessage(activeMediaContext, "idle", "hello"), false);
+  assert.equal(isUnsupportedDiscussionMessage({ user: {}, message: activeMediaContext.message }, "idle", ""), false);
+
+  for (const lang of ["fa", "en"]) {
+    assert.match(messages[lang].discussionMessageOnlyText, /^🤖/);
+  }
+});
+
+test("unsupported discussion notice replies to the failed message", async () => {
+  const replies = [];
+  const ctx = {
+    message: { message_id: 77 },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 78 };
+    },
+  };
+
+  await replyToUnsupportedDiscussionMessage(ctx, "Not sent");
+
+  assert.deepEqual(replies, [{
+    text: "Not sent",
+    extra: { reply_to_message_id: 77 },
+  }]);
+});
+
+test("unsupported discussion notice falls back when native reply fails", async () => {
+  const replies = [];
+  const ctx = {
+    message: { message_id: 77 },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      if (extra) throw new Error("reply unsupported");
+      return { message_id: 78 };
+    },
+  };
+
+  await replyToUnsupportedDiscussionMessage(ctx, "Not sent");
+
+  assert.deepEqual(replies, [
+    { text: "Not sent", extra: { reply_to_message_id: 77 } },
+    { text: "Not sent", extra: undefined },
+  ]);
 });
 
 test("discussion message sender uses platform reply id when available", async () => {

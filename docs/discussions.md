@@ -1063,6 +1063,8 @@ MVP message behavior:
 - If the message replies to a previous bot-delivered discussion message, forward it as a platform-native reply when the runtime delivery map can resolve the matching message id in each member's chat. Do not add "replying to..." text and do not persist reply metadata in `recentMessages`.
 - Sender should receive a short delivery confirmation.
 - Only text is supported in MVP (no media/voice/files/forwards).
+- When an active-room user sends non-text content, do not forward or store it. Reply directly to that unsupported message with a short localized `🤖` notice explaining that discussions currently support text only; fall back to a normal message if native reply metadata is rejected.
+- Keep this unsupported-content notice separate from valid-text delivery failures; a failed text send should ask the user to reopen the discussion and retry.
 
 ## Member/Profile Viewing
 
