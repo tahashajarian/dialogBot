@@ -12,6 +12,7 @@ The MVP described here is implemented. The current code supports:
 - shareable invite links with a revalidated preview before joining
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
+- three open bot-created starter rooms, marked only with `🤖`
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
@@ -23,7 +24,7 @@ Discussions add a social layer to the bot without turning it into a generic matc
 
 Discussions are live rooms with short memory.
 
-- A discussion has a user-created title.
+- A discussion normally has a user-created title; the three starter rooms are bot-created.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
 - Discussion membership means current room presence. Leaving the room removes membership.
@@ -32,6 +33,11 @@ Discussions are live rooms with short memory.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
 - There is no seen count in MVP. Sender only gets a delivery confirmation.
+- Three broad starter rooms are created idempotently at startup using the real bot account id returned by `getMe()`.
+- Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
+- Their English titles are `Free Discussion`, `What's Up?`, and `Let's Talk`.
+- Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
+- Bot-created rooms use the same capacity, join, full-room, list, and acknowledgment behavior as user-created rooms.
 
 ## Non-Goals For MVP
 
@@ -321,6 +327,8 @@ If discussion is full:
 
 ```text
 🤖 ظرفیت این بحث تکمیل شده.
+
+💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
 ```
 
 Owner rejoin:
@@ -476,7 +484,7 @@ Full invite state:
 ```text
 🤖 ظرفیت این بحث تکمیل شده.
 
-از بخش بحث‌ها می‌تونی گفتگوی دیگه‌ای پیدا کنی.
+💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
 ```
 
 Already member state:

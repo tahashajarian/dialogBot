@@ -12,6 +12,23 @@ const DISCUSSION_CREATE_DAILY_LIMIT = 3;
 const DISCUSSION_MESSAGE_LIMIT = 30;
 const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 const PUBLIC_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const BOT_STARTER_DISCUSSIONS = [
+  {
+    botSeedKey: "free-discussion",
+    title: "Free Discussion",
+    description: "Talk freely about anything on your mind.",
+  },
+  {
+    botSeedKey: "whats-up",
+    title: "What's Up?",
+    description: "Drop in, say hi, and share what is going on.",
+  },
+  {
+    botSeedKey: "lets-talk",
+    title: "Let's Talk",
+    description: "A casual place to meet people and start a conversation.",
+  },
+];
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -309,6 +326,47 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
   return { ok: true, discussion, membershipIds };
 }
 
+async function seedBotDiscussions(botUserId) {
+  const creatorUserId = Number(botUserId);
+  if (!Number.isInteger(creatorUserId) || creatorUserId <= 0) {
+    return { ok: false, reason: "invalid_bot_user_id" };
+  }
+
+  const discussions = [];
+  for (const starter of BOT_STARTER_DISCUSSIONS) {
+    const now = new Date();
+    const discussion = await Discussion.findOneAndUpdate(
+      { botSeedKey: starter.botSeedKey },
+      {
+        $set: {
+          title: starter.title,
+          description: starter.description,
+          creatorUserId,
+          isBotCreated: true,
+          joinRule: { type: "open" },
+          maxMembers: DISCUSSION_MEMBER_CAP,
+        },
+        $setOnInsert: {
+          botSeedKey: starter.botSeedKey,
+          status: "open",
+          memberUserIds: [],
+          removedUserIds: [],
+          recentMessages: [],
+          reports: [],
+          replyCount: 0,
+          lastActivityAt: now,
+          createdAt: now,
+        },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+    );
+    await ensurePublicDiscussionCode(discussion);
+    discussions.push(discussion);
+  }
+
+  return { ok: true, discussions };
+}
+
 async function listActiveDiscussions({ limit = 50 } = {}) {
   const discussions = await Discussion.find({ status: "open" })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
@@ -488,6 +546,7 @@ async function leaveDiscussionAsMember(userId, discussionId) {
   
   return {
     ok: true,
+    discussion,
     discussionId: discussion._id,
     discussionTitle: discussion.title,
     creatorUserId: discussion.creatorUserId,
@@ -587,6 +646,7 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
   
   return {
     ok: true,
+    discussion,
     discussionId: discussion._id,
     discussionTitle: discussion.title,
     memberUserId,
@@ -829,15 +889,16 @@ module.exports = {
   DISCUSSION_CREATE_DAILY_LIMIT,
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
- normalizeTitle,
- normalizeDescription,
- normalizeMaxMembers,
- normalizePublicProfileCode,
- normalizePublicDiscussionCode,
- hasLink,
- validateDiscussionTitle,
+  BOT_STARTER_DISCUSSIONS,
+  normalizeTitle,
+  normalizeDescription,
+  normalizeMaxMembers,
+  normalizePublicProfileCode,
+  normalizePublicDiscussionCode,
+  hasLink,
+  validateDiscussionTitle,
   validateDiscussionDescription,
- ensurePublicProfileCode,
+  ensurePublicProfileCode,
   ensurePublicDiscussionCode,
   ensurePublicDiscussionCodes,
   findDiscussionByPublicCode,
@@ -846,6 +907,7 @@ module.exports = {
   validateJoinRules,
   checkDiscussionCreateQuota,
   createDiscussion,
+  seedBotDiscussions,
   listActiveDiscussions,
   listMyDiscussions,
   joinOrOpenDiscussion,

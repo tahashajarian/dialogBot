@@ -116,6 +116,39 @@ function formatListIndex(lang, value) {
   return new Intl.NumberFormat("fa-IR").format(index);
 }
 
+const BOT_DISCUSSION_MESSAGE_KEYS = {
+  "free-discussion": {
+    title: "botDiscussionFreeTitle",
+    description: "botDiscussionFreeDescription",
+  },
+  "whats-up": {
+    title: "botDiscussionWhatsUpTitle",
+    description: "botDiscussionWhatsUpDescription",
+  },
+  "lets-talk": {
+    title: "botDiscussionLetsTalkTitle",
+    description: "botDiscussionLetsTalkDescription",
+  },
+};
+
+function getBotDiscussionMessageKey(discussion = {}, field) {
+  if (!discussion.isBotCreated) return "";
+  return BOT_DISCUSSION_MESSAGE_KEYS[String(discussion.botSeedKey || "")]?.[field] || "";
+}
+
+function getDiscussionDisplayTitle(messages, lang, discussion = {}) {
+  const title = String(discussion.title || "").trim() || "-";
+  const messageKey = getBotDiscussionMessageKey(discussion, "title");
+  const localizedTitle = messageKey ? messages?.[lang]?.[messageKey] : title;
+  return discussion.isBotCreated ? `🤖 ${localizedTitle || title}` : title;
+}
+
+function getDiscussionDisplayDescription(messages, lang, discussion = {}) {
+  const description = String(discussion.description || "").trim();
+  const messageKey = getBotDiscussionMessageKey(discussion, "description");
+  return messageKey ? (messages?.[lang]?.[messageKey] || description) : description;
+}
+
 function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
   if (!discussions.length) {
     return title;
@@ -124,7 +157,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
   const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = discussions.map((entry, index) => {
     const count = Array.isArray(entry.memberUserIds) ? entry.memberUserIds.length : 0;
-    const description = String(entry.description || "").trim() || "-";
+    const description = getDiscussionDisplayDescription(messages, lang, entry) || "-";
     const rule = getJoinRulePreviewText(messages, lang, entry.joinRule || { type: "open" });
     const ruleWithStatus = `${rule} ${entry.isJoinable ? "✅" : "🔒"}`.trim();
     const code = entry.publicDiscussionCode || "";
@@ -145,7 +178,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
     const actionsBlock = actions ? `\n\n${actions}` : "";
     return [
       lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
-      mixedValueLine(lang, "💬", entry.title),
+      mixedValueLine(lang, "💬", getDiscussionDisplayTitle(messages, lang, entry)),
       mixedValueLine(lang, "📄", description),
       lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
       lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),
@@ -168,8 +201,8 @@ function fillDiscussionInviteTemplate(template, values = {}) {
     .replace("{code}", values.code || "");
 }
 
-function getInviteDescriptionBlock(lang, discussion = {}, { compact = false } = {}) {
-  const description = String(discussion.description || "").trim();
+function getInviteDescriptionBlock(messages, lang, discussion = {}, { compact = false } = {}) {
+  const description = getDiscussionDisplayDescription(messages, lang, discussion);
   if (!description) return "";
   if (compact) return `📄 ${description}\n\n`;
   return `📄 ${description}\n`;
@@ -186,8 +219,8 @@ function buildDiscussionInviteShareText(messages, lang, discussion, code, { deep
     ? messages[lang].discussionInviteLinkLine.replace("{link}", deepLink)
     : messages[lang].discussionInviteCommandLine.replace("{code}", cleanCode);
   return fillDiscussionInviteTemplate(messages[lang].discussionInviteShareText, {
-    title: discussion?.title,
-    descriptionBlock: getInviteDescriptionBlock(lang, discussion, { compact: true }),
+    title: getDiscussionDisplayTitle(messages, lang, discussion),
+    descriptionBlock: getInviteDescriptionBlock(messages, lang, discussion, { compact: true }),
     ruleBlock: getInviteRuleBlock(messages, lang, discussion),
     joinBlock,
     code: cleanCode,
@@ -196,8 +229,8 @@ function buildDiscussionInviteShareText(messages, lang, discussion, code, { deep
 
 function buildDiscussionInvitePreviewText(messages, lang, discussion) {
   return fillDiscussionInviteTemplate(messages[lang].discussionInvitePreview, {
-    title: discussion?.title,
-    descriptionBlock: getInviteDescriptionBlock(lang, discussion),
+    title: getDiscussionDisplayTitle(messages, lang, discussion),
+    descriptionBlock: getInviteDescriptionBlock(messages, lang, discussion),
     count: String((discussion?.memberUserIds || []).length),
     cap: String(discussion?.maxMembers || DEFAULT_DISCUSSION_CAPACITY),
     joinConditionTitle: messages[lang].discussionJoinConditionTitle,
@@ -243,6 +276,8 @@ module.exports = {
   getJoinRulePreviewText,
   decorateDiscussionsForList,
   paginateDiscussions,
+  getDiscussionDisplayTitle,
+  getDiscussionDisplayDescription,
   buildDiscussionListText,
   buildDiscussionPreviewText,
   buildDiscussionInviteShareText,

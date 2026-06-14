@@ -7,6 +7,7 @@ const {
   notifyDiscussionMembers,
   notifyActiveMembersInDiscussion,
 } = require("./discussions");
+const { getDiscussionDisplayTitle } = require("./discussion-ui");
 
 async function joinDiscussionAndNotify({ ctx, messages, discussionId }) {
   const joined = await joinOrOpenDiscussion(ctx.userId, discussionId);
@@ -49,7 +50,10 @@ async function closeDiscussionAndNotify({ ctx, messages, discussionId, discussio
 
   await notifyDiscussionMembers(ctx, messages, activeMembers, (msgs, lang) => [
     {
-      text: msgs[lang].discussionClosedNoticeToMembers.replace("{title}", closed.discussionTitle || ""),
+      text: msgs[lang].discussionClosedNoticeToMembers.replace(
+        "{title}",
+        getDiscussionDisplayTitle(msgs, lang, closed.discussion),
+      ),
       extra: { reply_markup: { remove_keyboard: true } },
     },
     {
@@ -73,10 +77,11 @@ async function removeDiscussionMemberAndNotify({
 
   if (removed.wasActive) {
     const targetLang = messages[removed.memberLang] ? removed.memberLang : "fa";
+    const discussionTitle = getDiscussionDisplayTitle(messages, targetLang, removed.discussion);
     try {
       await ctx.sendToUser?.(
         removed.memberUserId,
-        messages[targetLang].discussionRemovedNotice.replace("{title}", removed.discussionTitle || ""),
+        messages[targetLang].discussionRemovedNotice.replace("{title}", discussionTitle),
         { reply_markup: { remove_keyboard: true } },
       );
       await ctx.sendToUser?.(

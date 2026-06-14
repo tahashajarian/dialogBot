@@ -20,6 +20,25 @@ test("formatDiscussionRoom renders title, description, and counts", () => {
   assert.match(text, /2\/20/);
 });
 
+test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emoji marker", () => {
+  const discussion = {
+    title: "Let's Talk",
+    description: "A casual place to meet people and start a conversation.",
+    isBotCreated: true,
+    botSeedKey: "lets-talk",
+    memberUserIds: [],
+    maxMembers: 20,
+  };
+  const text = formatDiscussionRoom(messages, "en", discussion);
+  const persianText = formatDiscussionRoom(messages, "fa", discussion);
+
+  assert.match(text, /💬 🤖 Let's Talk/);
+  assert.match(text, /A casual place to meet people and start a conversation/);
+  assert.match(persianText, /💬 🤖 بیا حرف بزنیم/);
+  assert.match(persianText, /یک جای خودمونی برای آشنا شدن و شروع گفتگو/);
+  assert.doesNotMatch(text, /official/i);
+});
+
 test("formatRecentDiscussionMessages handles empty and populated lists", () => {
   const empty = formatRecentDiscussionMessages(messages, "en", { recentMessages: [] });
   assert.match(empty, /No messages yet/);

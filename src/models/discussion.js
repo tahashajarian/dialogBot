@@ -31,6 +31,8 @@ const DiscussionSchema = new mongoose.Schema({
   description: { type: String, default: "", trim: true, maxlength: 300 },
   publicDiscussionCode: { type: String, default: "" },
   creatorUserId: { type: Number, required: true, index: true },
+  isBotCreated: { type: Boolean, default: false, index: true },
+  botSeedKey: { type: String, default: "" },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
   memberUserIds: { type: [Number], default: [] },
@@ -54,6 +56,16 @@ DiscussionSchema.index(
     unique: true,
     partialFilterExpression: {
       publicDiscussionCode: { $type: "string", $gt: "" },
+    },
+  },
+);
+DiscussionSchema.index(
+  { botSeedKey: 1 },
+  {
+    name: "botSeedKey_unique_nonempty",
+    unique: true,
+    partialFilterExpression: {
+      botSeedKey: { $type: "string", $gt: "" },
     },
   },
 );

@@ -19,6 +19,7 @@ const {
 } = require("./services/bot-navigation");
 const {
   getDiscussionErrorMessage,
+  getDiscussionDisplayTitle,
 } = require("./services/discussion-ui");
 const {
   formatDiscussionRoom,
@@ -171,12 +172,18 @@ async function sendDiscussionRoom(ctx, lang, discussion) {
   return recentMessage;
 }
 
-function formatDiscussionLeftMessage(lang, discussionTitle = "") {
-  return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
+function formatDiscussionLeftMessage(lang, discussion = {}) {
+  return messages[lang].discussionLeft.replace(
+    "{title}",
+    getDiscussionDisplayTitle(messages, lang, discussion) || "-",
+  );
 }
 
-function formatDiscussionClosedMessage(lang, discussionTitle = "") {
-  return messages[lang].discussionClosed.replace("{title}", discussionTitle || "-");
+function formatDiscussionClosedMessage(lang, discussion = {}) {
+  return messages[lang].discussionClosed.replace(
+    "{title}",
+    getDiscussionDisplayTitle(messages, lang, discussion) || "-",
+  );
 }
 
 async function handleCallback(ctx) {
@@ -374,10 +381,9 @@ async function handleCallback(ctx) {
     }
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    const discussionTitle = left?.discussionTitle || "";
     return editCallbackMessageOrReply(
       ctx,
-      `${formatDiscussionLeftMessage(lang, discussionTitle)}\n\n${messages[lang].discussionsMenu}`,
+      `${formatDiscussionLeftMessage(lang, left?.discussion)}\n\n${messages[lang].discussionsMenu}`,
       discussionsMenuKeyboard(lang),
     );
   }
@@ -417,7 +423,7 @@ async function handleCallback(ctx) {
 
     return editCallbackMessageOrReply(
       ctx,
-      `${formatDiscussionClosedMessage(lang, closed.discussionTitle)}\n\n${messages[lang].discussionsMenu}`,
+      `${formatDiscussionClosedMessage(lang, closed.discussion)}\n\n${messages[lang].discussionsMenu}`,
       discussionsMenuKeyboard(lang),
     );
   }

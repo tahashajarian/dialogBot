@@ -8,6 +8,7 @@ const { getOrCreateUser } = require("./services/users");
 const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
+const { seedBotDiscussions } = require("./services/discussions");
 
 const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
@@ -129,7 +130,7 @@ async function retry(fn, {
     console.log("[startup] connecting database...");
     await connectDB(config);
     console.log("[startup] checking bot token/API via getMe...");
-    await retry(
+    const botInfo = await retry(
       () => bot.telegram.getMe(),
       {
         attempts: 5,
@@ -143,6 +144,13 @@ async function retry(fn, {
       },
     );
     console.log("[startup] getMe successful.");
+    try {
+      const seeded = await seedBotDiscussions(botInfo?.id);
+      console.log(`[startup] bot discussions ready (${seeded.discussions?.length || 0}).`);
+    } catch (seedError) {
+      console.warn("[startup] failed to seed bot discussions; continuing without them.");
+      console.warn(seedError?.message || seedError);
+    }
 
     try {
       console.log("[startup] deleting webhook (polling mode)...");

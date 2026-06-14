@@ -33,6 +33,7 @@ const {
   decorateDiscussionsForList,
   paginateDiscussions,
   buildDiscussionListText,
+  getDiscussionDisplayTitle,
 } = require("../services/discussion-ui");
 const {
   formatDiscussionMemberLines,
@@ -131,12 +132,18 @@ function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
-function formatDiscussionLeftMessage(lang, discussionTitle = "") {
-  return messages[lang].discussionLeft.replace("{title}", discussionTitle || "-");
+function formatDiscussionLeftMessage(lang, discussion = {}) {
+  return messages[lang].discussionLeft.replace(
+    "{title}",
+    getDiscussionDisplayTitle(messages, lang, discussion) || "-",
+  );
 }
 
-function formatDiscussionClosedMessage(lang, discussionTitle = "") {
-  return messages[lang].discussionClosed.replace("{title}", discussionTitle || "-");
+function formatDiscussionClosedMessage(lang, discussion = {}) {
+  return messages[lang].discussionClosed.replace(
+    "{title}",
+    getDiscussionDisplayTitle(messages, lang, discussion) || "-",
+  );
 }
 
 async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false } = {}) {
@@ -323,7 +330,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId: activeDiscussionId });
     await clearDiscussionMembersMessage(ctx);
     const textToShow = left.ok
-      ? formatDiscussionLeftMessage(lang, left?.discussionTitle || "")
+      ? formatDiscussionLeftMessage(lang, left?.discussion)
       : messages[lang].discussionReturnedToMenu;
     return replyWithDiscussionMenu(ctx, lang, textToShow, { removeKeyboard: true });
   }
@@ -339,7 +346,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     return replyWithDiscussionMenu(
       ctx,
       lang,
-      formatDiscussionLeftMessage(lang, left?.discussionTitle || ""),
+      formatDiscussionLeftMessage(lang, left?.discussion),
       { removeKeyboard: true },
     );
   }
@@ -475,7 +482,7 @@ async function leaveDiscussionCommand(ctx, lang, code) {
   }
   await clearDiscussionMembersMessage(ctx);
   await clearRememberedDiscussionListMessage(ctx);
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussionTitle), { removeKeyboard: true });
+  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussion), { removeKeyboard: true });
 }
 
 async function closeDiscussionCommand(ctx, lang, code) {
@@ -573,12 +580,12 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
   await clearRememberedDiscussionListMessage(ctx);
   await updateUserState(ctx.userId, "idle");
   if (parsed.source === "list") {
-    await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussionTitle), {
+    await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion), {
       reply_markup: { remove_keyboard: true },
     });
     return sendRememberedDiscussionList(ctx, lang, previousListType);
   }
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussionTitle), { removeKeyboard: true });
+  return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussion), { removeKeyboard: true });
 }
 
 module.exports = {

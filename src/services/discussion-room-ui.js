@@ -1,4 +1,8 @@
 const { PAGINATION } = require("../constants/pagination");
+const {
+  getDiscussionDisplayDescription,
+  getDiscussionDisplayTitle,
+} = require("./discussion-ui");
 
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
@@ -22,12 +26,13 @@ function formatListIndex(lang, value) {
 function formatDiscussionRoom(messages, lang, discussion) {
   const count = Array.isArray(discussion.memberUserIds) ? discussion.memberUserIds.length : 0;
   const cap = discussion.maxMembers || 20;
-  const text = discussion.description
+  const description = getDiscussionDisplayDescription(messages, lang, discussion);
+  const text = description
     ? messages[lang].discussionRoomHeader
     : messages[lang].discussionRoomHeaderNoDescription;
   return text
-    .replace("{title}", discussion.title)
-    .replace("{description}", discussion.description || "")
+    .replace("{title}", getDiscussionDisplayTitle(messages, lang, discussion))
+    .replace("{description}", description)
     .replace("{count}", String(count))
     .replace("{cap}", String(cap));
 }

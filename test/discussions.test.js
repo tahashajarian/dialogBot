@@ -12,6 +12,8 @@ const {
   DISCUSSION_MEMBER_CAP,
   DISCUSSION_ALLOWED_MEMBER_CAPS,
   DISCUSSION_RECENT_MESSAGES_CAP,
+  BOT_STARTER_DISCUSSIONS,
+  seedBotDiscussions,
 } = require("../src/services/discussions");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
@@ -62,6 +64,37 @@ test("discussion schema accepts open join rule without section", () => {
   assert.equal(discussion.validateSync(), undefined);
   assert.equal(discussion.replyCount, 0);
   assert.ok(discussion.lastActivityAt instanceof Date);
+});
+
+test("bot starter discussions use the bot id without fake members", async () => {
+  const originalFindOneAndUpdate = Discussion.findOneAndUpdate;
+  const calls = [];
+  Discussion.findOneAndUpdate = async (filter, update) => {
+    calls.push({ filter, update });
+    return {
+      ...update.$setOnInsert,
+      ...update.$set,
+      publicDiscussionCode: `d_BOT${calls.length}`,
+    };
+  };
+
+  try {
+    const result = await seedBotDiscussions(9001);
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 3);
+    assert.deepEqual(
+      calls.map((entry) => entry.filter.botSeedKey),
+      BOT_STARTER_DISCUSSIONS.map((entry) => entry.botSeedKey),
+    );
+    for (const { update } of calls) {
+      assert.equal(update.$set.creatorUserId, 9001);
+      assert.equal(update.$set.isBotCreated, true);
+      assert.deepEqual(update.$set.joinRule, { type: "open" });
+      assert.deepEqual(update.$setOnInsert.memberUserIds, []);
+    }
+  } finally {
+    Discussion.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("validateJoinRulePayload validates restricted rules", () => {

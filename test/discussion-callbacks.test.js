@@ -101,6 +101,30 @@ test("discussion list text separates multiple discussions with dividers", () => 
   assert.match(text, /Metal room[\s\S]*────────[\s\S]*Movie room/);
 });
 
+test("bot-created discussions use localized copy and only a bot emoji marker", () => {
+  const discussion = {
+    title: "Free Discussion",
+    description: "Talk freely about anything on your mind.",
+    publicDiscussionCode: "d_BOT1",
+    isBotCreated: true,
+    botSeedKey: "free-discussion",
+    memberUserIds: [],
+    joinRule: { type: "open" },
+  };
+  const listText = buildDiscussionListText(messages, "en", "Active discussions", [discussion]);
+  const previewText = buildDiscussionInvitePreviewText(messages, "en", discussion);
+  const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+  const persianPreviewText = buildDiscussionInvitePreviewText(messages, "fa", discussion);
+
+  assert.match(listText, /💬 🤖 Free Discussion/);
+  assert.match(listText, /Talk freely about anything on your mind/);
+  assert.match(previewText, /💬 🤖 Free Discussion/);
+  assert.match(persianListText, /💬 .*🤖 گفتگوی آزاد/);
+  assert.match(persianListText, /آزادانه درباره هر چیزی که توی ذهنت هست حرف بزن/);
+  assert.match(persianPreviewText, /💬 .*🤖 گفتگوی آزاد/);
+  assert.doesNotMatch(listText, /official/i);
+});
+
 test("discussion list text keeps numbering across pages", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", [
     {
@@ -268,4 +292,13 @@ test("discussion invite locked hint names required update path", () => {
   assert.match(text, /Chess/);
   assert.match(text, /Go to Lists/);
   assert.match(text, /same invite link/);
+});
+
+test("full discussion guidance keeps the existing acknowledgement recovery", () => {
+  const keyboard = discussionJoinErrorAckKeyboard("fa", "active");
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+
+  assert.match(messages.fa.discussionErrFull, /گفتگوی خودت رو بسازی/);
+  assert.match(messages.en.discussionErrFull, /create your own/);
+  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}active`);
 });
