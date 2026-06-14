@@ -87,6 +87,40 @@ async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
   return deleted;
 }
 
+async function rememberAiActionMessage(ctx, context, message) {
+  const messageId = Number(getMessageId(message));
+  await updateProfileField(
+    ctx.userId,
+    "aiActionMessageId",
+    Number.isInteger(messageId) && messageId > 0 ? messageId : null,
+  );
+  await updateProfileField(ctx.userId, "aiActionContext", String(context || ""));
+  if (ctx.user) {
+    ctx.user.aiActionMessageId = Number.isInteger(messageId) && messageId > 0 ? messageId : null;
+    ctx.user.aiActionContext = String(context || "");
+  }
+}
+
+async function clearAiActionMessage(ctx) {
+  const messageId = Number(ctx.user?.aiActionMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0) {
+    return true;
+  }
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const retired = deleted || (
+    ctx.editMessageReplyMarkup
+      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
+      : false
+  );
+  await updateProfileField(ctx.userId, "aiActionMessageId", null);
+  await updateProfileField(ctx.userId, "aiActionContext", "");
+  if (ctx.user) {
+    ctx.user.aiActionMessageId = null;
+    ctx.user.aiActionContext = "";
+  }
+  return retired;
+}
+
 function shouldKeepAiListTitleForCallback(data = "", isAiCallback = () => false) {
   return (
     data.startsWith(callBacks.aiAssistant) ||
@@ -95,10 +129,12 @@ function shouldKeepAiListTitleForCallback(data = "", isAiCallback = () => false)
 }
 
 module.exports = {
+  clearAiActionMessage,
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
   rememberAiListMessage,
+  rememberAiActionMessage,
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
   shouldKeepAiListTitleForCallback,

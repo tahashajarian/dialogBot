@@ -183,12 +183,6 @@ function isWeakTasteLabel(section, taste) {
   );
 }
 
-function buildTasteItemFeedbackFallback(lang, item, labelTitle) {
-  return messages[lang].aiTasteItemFeedbackFallback
-    .replace("{item}", item)
-    .replace("{label}", labelTitle || messages[lang].aiTasteLabelTitleFallback);
-}
-
 function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
   return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
 }
@@ -218,16 +212,16 @@ async function buildTopTenSavedMessage({
     labelKey: inferredTaste.labelKey,
     labelTitle: rawLabelTitle,
   });
-  const feedback = feedbackResult.ok && feedbackResult.text
+  const feedback = feedbackResult.ok && feedbackResult.text && !feedbackResult.fallback
     ? feedbackResult.text
-    : buildTasteItemFeedbackFallback(lang, item, labelTitle);
+    : "";
 
   const savedText = messages[lang][savedMessageKey]
     .replace("{item}", item)
     .replace("{count}", String(count))
     .replace("{goal}", String(goal));
 
-  const responseParts = [formatAiComplimentFeedback(feedback)];
+  const responseParts = feedback ? [formatAiComplimentFeedback(feedback)] : [];
 
   if (count >= 3 && count < goal) {
     const preliminaryText = isWeakTasteLabel(section, inferredTaste)

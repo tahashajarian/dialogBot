@@ -68,6 +68,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `docs/ai-lists-and-suggestions.md`: source of truth for AI list behavior.
 - `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
+- `src/flows/ai-list-input.js`: list-add prompt selection plus typed/audio input extraction for AI lists.
 - `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
 - `src/flows/ai-cards.js`: remembered AI list/section card IDs and stale-card cleanup helpers shared by AI text/callback flows.
 - `src/services/users.js`: centralized AI list storage helpers and taste label inference.

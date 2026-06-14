@@ -103,7 +103,7 @@ test("accepts concrete work-focused feedback", () => {
   assert.equal(isGenericTasteFeedback(feedback, "fa"), false);
 });
 
-test("fallback admits uncertainty instead of giving empty praise", () => {
+test("fallback stays neutral instead of guessing or giving empty praise", () => {
   const fa = buildTasteFeedbackFallbackWithItem({
     lang: "fa",
     item: "سفر به انتهای شب",
@@ -113,9 +113,9 @@ test("fallback admits uncertainty instead of giving empty praise", () => {
     item: "An Obscure Work",
   });
 
-  assert.match(fa, /حدس نزنم/);
+  assert.match(fa, /بدون توضیح اضافه ثبت کردم/);
   assert.doesNotMatch(fa, /انتخاب (باحال|خوب|عالی)/);
-  assert.match(en, /don't know/i);
+  assert.match(en, /saved/i);
   assert.doesNotMatch(en, /solid pick|great choice/i);
 });
 

@@ -42,11 +42,18 @@ const {
 } = require("../services/ai-section");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
+  getAiListAddPrompt,
+  resolveAiListAddInput,
+} = require("./ai-list-input");
+const {
   rememberAiPendingInputPrompt,
   clearAiPendingInputPrompt,
+  replaceAiPendingInputPrompt,
 } = require("./ai-input-prompts");
 const {
+  clearAiActionMessage,
   clearRememberedAiListMessage,
+  rememberAiActionMessage,
   rememberAiListMessage,
 } = require("./ai-cards");
 const {
@@ -145,11 +152,13 @@ function parseAiSuggestContextState(state) {
 async function promptSuggestionMode(ctx, lang, section) {
   const previousPromptMessageId = Number(ctx.user?.aiPendingInputMessageId);
   await updateUserState(ctx.userId, `ai_chat_${section}`);
+  await clearAiActionMessage(ctx);
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
   );
   await rememberAiPendingInputPrompt(ctx, prompt);
+  await rememberAiActionMessage(ctx, `suggest_mode:${section}`, prompt);
   const promptMessageId = Number(prompt?.message_id || prompt?.messageId);
   if (
     previousPromptMessageId
@@ -306,10 +315,12 @@ async function sendSingleSectionSuggestion({
 
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
-  return placeholder.finish(
+  const resultMessage = await placeholder.finish(
     formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
     aiSuggestionAddKeyboard(lang, section),
   );
+  await rememberAiActionMessage(ctx, `suggest_result:${section}`, resultMessage);
+  return resultMessage;
 }
 
 async function openAiListManager(ctx, lang, section, listType) {
@@ -321,12 +332,14 @@ async function openAiListManager(ctx, lang, section, listType) {
     ? await ctx.reply(buildTopTenListMessage({ ctx, lang, section }))
     : await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
   await rememberAiListMessage(ctx, section, listType, listMessage);
-  return ctx.reply(
+  const actionMessage = await ctx.reply(
     listType === "topTen"
       ? await getTopTenManageEntryMessage(ctx, lang, section)
       : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
     aiListManageMenuKeyboard(lang, section, listType),
   );
+  await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
+  return actionMessage;
 }
 
 async function handleAiText(ctx, lang, text, state) {
@@ -334,6 +347,7 @@ async function handleAiText(ctx, lang, text, state) {
   if (manageState) {
     if (isAiBackText(text)) {
       await clearAiPendingInputPrompt(ctx);
+      await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
@@ -394,19 +408,25 @@ async function handleAiText(ctx, lang, text, state) {
     }
 
     if (manageState.addInputMode) {
-      const item = normalizeAiListItem(text);
+      const addInput = resolveAiListAddInput(ctx, section, text);
+      const item = addInput.item;
       const comment = normalizeAiListComment("");
       if (!item) {
         const isInterestTopTen = section === "random" && listType === "topTen";
-        await clearAiPendingInputPrompt(ctx);
-        const prompt = await ctx.reply(
-          isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
-          isInterestTopTen
-            ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
-            : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen"),
+        const retryKeyboard = isInterestTopTen
+          ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
+          : aiListCancelAddKeyboard(lang, section, isWatchlist ? "watchlist" : "topTen");
+        const retryText = addInput.reason === "untitled_audio"
+          ? messages[lang].aiMusicAudioTitleMissing
+          : addInput.reason === "unsupported_media"
+            ? (section === "music"
+              ? messages[lang].aiMusicAddTextOrAudioOnly
+              : messages[lang].aiListAddTextOnly)
+            : getAiListAddPrompt(lang, section, listType);
+        return replaceAiPendingInputPrompt(
+          ctx,
+          () => ctx.reply(retryText, retryKeyboard),
         );
-        await rememberAiPendingInputPrompt(ctx, prompt);
-        return prompt;
       }
 
       await clearAiPendingInputPrompt(ctx);
@@ -439,14 +459,16 @@ async function handleAiText(ctx, lang, text, state) {
           const sectionKey = section.charAt(0).toUpperCase() + section.slice(1);
           const messageKey = `aiTopTenInvalidItemQuality${sectionKey}`;
           const errorMessage = messages[lang][messageKey] || messages[lang].aiTopTenInvalidItemQuality;
-          
-          const prompt = await ctx.reply(errorMessage, aiListCancelAddKeyboard(lang, section, listType));
-          await rememberAiPendingInputPrompt(ctx, prompt);
-          return prompt;
+
+          return replaceAiPendingInputPrompt(
+            ctx,
+            () => ctx.reply(errorMessage, aiListCancelAddKeyboard(lang, section, listType)),
+          );
         }
-        const prompt = await ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType));
-        await rememberAiPendingInputPrompt(ctx, prompt);
-        return prompt;
+        return replaceAiPendingInputPrompt(
+          ctx,
+          () => ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType)),
+        );
       }
 
       await updateUserState(ctx.userId, `ai_manage_${section}_${isWatchlist ? "watchlist" : "top_ten"}`);
@@ -524,7 +546,16 @@ async function handleAiText(ctx, lang, text, state) {
       );
     }
 
-    return ctx.reply(messages[lang].aiListManageUseButtons, aiListManageMenuKeyboard(lang, section, listType));
+    await clearAiActionMessage(ctx);
+    const manageDescription = listType === "topTen"
+      ? await getTopTenManageEntryMessage(ctx, lang, section, currentItems)
+      : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel);
+    const actionMessage = await ctx.reply(
+      `${manageDescription}\n\n${messages[lang].aiListManageUseButtonsTip}`,
+      aiListManageMenuKeyboard(lang, section, listType),
+    );
+    await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
+    return actionMessage;
   }
 
   const suggestContextSection = parseAiSuggestContextState(state);
@@ -573,6 +604,7 @@ async function handleAiText(ctx, lang, text, state) {
   if (section) {
     if (isAiBackText(text)) {
       await clearAiPendingInputPrompt(ctx);
+      await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
@@ -609,7 +641,33 @@ async function handleAiText(ctx, lang, text, state) {
       return promptSuggestionMode(ctx, lang, section);
     }
 
-    return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, section));
+    const actionContext = String(ctx.user?.aiActionContext || "");
+    if (actionContext === `suggest_mode:${section}`) {
+      await clearAiPendingInputPrompt(ctx);
+      await clearAiActionMessage(ctx);
+      const actionMessage = await ctx.reply(
+        messages[lang].aiSuggestionUseButtons,
+        aiSuggestionModeKeyboard(lang, section),
+      );
+      await rememberAiPendingInputPrompt(ctx, actionMessage);
+      await rememberAiActionMessage(ctx, actionContext, actionMessage);
+      return actionMessage;
+    }
+
+    if (actionContext === `suggest_result:${section}`) {
+      await clearAiActionMessage(ctx);
+      const actionMessage = await ctx.reply(
+        messages[lang].aiSuggestionUseButtons,
+        aiSuggestionAddKeyboard(lang, section),
+      );
+      await rememberAiActionMessage(ctx, actionContext, actionMessage);
+      return actionMessage;
+    }
+
+    return ctx.reply(
+      messages[lang].aiSectionUseButtonsOnly,
+      aiSectionKeyboardForSection(lang, section),
+    );
   }
 
   return null;

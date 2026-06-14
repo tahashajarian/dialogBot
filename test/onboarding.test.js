@@ -69,7 +69,6 @@ test("bot-authored picker prompts start with the bot marker", () => {
     "aiListManageAddPrompt",
     "aiInterestTopTenAddPrompt",
     "aiListManageRemovePrompt",
-    "aiListManageUseButtons",
     "aiWatchlistTogglePrompt",
     "aiWatchlistCommentPrompt",
     "aiTopTenCommentPrompt",

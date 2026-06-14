@@ -12,7 +12,7 @@ const MAX_OUTPUT_TOKENS = 90;
 const MAX_INPUT_CHARS = 180;
 const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
 const FEEDBACK_MAX_WORDS = 18;
-const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v3";
+const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v4";
 const FEEDBACK_TITLE_STOPWORDS = new Set([
   "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to", "with",
   "از", "با", "به", "برای", "تا", "در", "را", "و",
@@ -262,10 +262,10 @@ function sanitizeTasteFeedback(text, lang) {
 function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`«${shortItem || "این مورد"}» رو دقیق نمی‌شناسم؛ بهتره درباره‌اش حدس نزنم.`, 18);
+    return limitWords(`«${shortItem || "این مورد"}» رو بدون توضیح اضافه ثبت کردم.`, 18);
   }
 
-  return limitWords(`I don't know "${shortItem || "that item"}" well enough to fake a reaction.`, 18);
+  return limitWords(`I saved "${shortItem || "that item"}" without adding extra commentary.`, 18);
 }
 
 function buildUnknownItemFeedback({ lang, item }) {

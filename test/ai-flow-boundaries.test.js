@@ -11,6 +11,12 @@ const {
   isAiTextState,
 } = require("../src/flows/ai-text");
 const {
+  getAiListAddPrompt,
+  getMeaningfulMusicTitle,
+  isAudioDocument,
+  resolveAiListAddInput,
+} = require("../src/flows/ai-list-input");
+const {
   aiInterestTopTenChipKeyboard,
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
@@ -52,6 +58,69 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiSectionListText(messages.fa.aiSectionListButtonRandom, "random"), true);
   assert.equal(isAiSectionTopTenText(messages.en.aiSectionTopTenButton), true);
   assert.equal(isAiSectionSuggestText(messages.fa.aiSectionSuggestButton), true);
+});
+
+test("music add flow accepts meaningful audio titles and rejects untitled media", () => {
+  assert.equal(
+    getMeaningfulMusicTitle({ audio: { title: "Paranoid Android" } }),
+    "Paranoid Android",
+  );
+  assert.equal(
+    getMeaningfulMusicTitle({ audio: { file_name: "03 - Wish You Were Here.mp3" } }),
+    "Wish You Were Here",
+  );
+  assert.equal(
+    getMeaningfulMusicTitle({
+      document: {
+        file_name: "The HU - Sad But True.mp3",
+        mime_type: "audio/mpeg",
+      },
+    }),
+    "The HU - Sad But True",
+  );
+  assert.equal(getMeaningfulMusicTitle({ audio: { file_name: "audio123.mp3" } }), "");
+  assert.equal(isAudioDocument({ file_name: "song.mp3" }), true);
+  assert.equal(isAudioDocument({ file_name: "cover.jpg", mime_type: "image/jpeg" }), false);
+
+  assert.deepEqual(
+    resolveAiListAddInput(
+      { message: { audio: { title: "Nude" } } },
+      "music",
+      "",
+    ),
+    { item: "Nude", reason: "" },
+  );
+  assert.deepEqual(
+    resolveAiListAddInput(
+      { message: { photo: [{ file_id: "photo" }] } },
+      "books",
+      "",
+    ),
+    { item: "", reason: "unsupported_media" },
+  );
+  assert.deepEqual(
+    resolveAiListAddInput(
+      { message: { audio: { file_name: "track01.mp3" } } },
+      "music",
+      "",
+    ),
+    { item: "", reason: "untitled_audio" },
+  );
+  assert.deepEqual(
+    resolveAiListAddInput(
+      { message: { document: { file_name: "The HU - Sad But True.mp3" } } },
+      "music",
+      "",
+    ),
+    { item: "The HU - Sad But True", reason: "" },
+  );
+});
+
+test("music add prompt invites either an audio track or typed title", () => {
+  assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicListManageAddPrompt);
+  assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiListManageAddPrompt);
+  assert.match(messages.en.aiMusicListManageAddPrompt, /^🤖/);
+  assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
 });
 
 test("Interests editor shares the paged onboarding chip catalog", () => {

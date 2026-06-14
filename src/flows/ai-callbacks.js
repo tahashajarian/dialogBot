@@ -74,10 +74,13 @@ const {
   rememberAiPendingInputPrompt,
   clearAiPendingInputPrompt,
 } = require("./ai-input-prompts");
+const { getAiListAddPrompt } = require("./ai-list-input");
 const {
+  clearAiActionMessage,
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
+  rememberAiActionMessage,
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
 } = require("./ai-cards");
@@ -134,11 +137,13 @@ function isAiCallback(data = "") {
 async function promptSuggestionMode(ctx, lang, section) {
   const previousPromptMessageId = Number(ctx.user?.aiPendingInputMessageId);
   await updateUserState(ctx.userId, `ai_chat_${section}`);
+  await clearAiActionMessage(ctx);
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
   );
   await rememberAiPendingInputPrompt(ctx, prompt);
+  await rememberAiActionMessage(ctx, `suggest_mode:${section}`, prompt);
   const promptMessageId = Number(prompt?.message_id || prompt?.messageId);
   if (
     previousPromptMessageId
@@ -254,10 +259,12 @@ async function sendFollowupSuggestion({
 
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
-  return placeholder.finish(
+  const resultMessage = await placeholder.finish(
     formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
     aiSuggestionAddKeyboard(lang, section),
   );
+  await rememberAiActionMessage(ctx, `suggest_result:${section}`, resultMessage);
+  return resultMessage;
 }
 
 function getWatchStatusCopy(lang, section) {
@@ -293,6 +300,7 @@ async function enterAiSection(ctx, lang, section, helpers) {
       .replace("{section}", getAiSectionNotificationTitle(lang, section)),
   );
   await updateUserState(ctx.userId, `ai_chat_${section}`);
+  await clearAiActionMessage(ctx);
   await clearRememberedAiListMessage(ctx);
   await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
   await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", null);
@@ -337,7 +345,12 @@ async function handleAiCallback(ctx, lang, helpers) {
       ? await getTopTenManageEntryMessage(ctx, lang, section)
       : messages[lang].aiListManageInlineMenu.replace("{title}", title);
 
-    return ctx.reply(menuText, aiListManageMenuKeyboard(lang, section, listType));
+    const actionMessage = await ctx.reply(
+      menuText,
+      aiListManageMenuKeyboard(lang, section, listType),
+    );
+    await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
+    return actionMessage;
   }
 
   if (data.startsWith(callBacks.aiListManageShow)) {
@@ -381,10 +394,12 @@ async function handleAiCallback(ctx, lang, helpers) {
     const items = getAiListItemsFromUser(ctx.user, section, "topTen");
     await helpers.deleteCallbackMessageIfPossible(ctx);
     await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(lang, section, items)}`);
-    return ctx.reply(
+    const actionMessage = await ctx.reply(
       await getTopTenManageEntryMessage(ctx, lang, section, items),
       aiListManageMenuKeyboard(lang, section, "topTen"),
     );
+    await rememberAiActionMessage(ctx, `manage:${section}:topTen`, actionMessage);
+    return actionMessage;
   }
 
   if (data.startsWith(callBacks.aiListManageTogglePicker)) {
@@ -611,13 +626,13 @@ async function handleAiCallback(ctx, lang, helpers) {
       : [];
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
-      isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
+      getAiListAddPrompt(lang, section, listType),
       { reply_markup: { remove_keyboard: true } },
     );
     const editedPrompt = await editPlaceholder(
       ctx,
       prompt,
-      isInterestTopTen ? messages[lang].aiInterestTopTenAddPrompt : messages[lang].aiListManageAddPrompt,
+      getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
         ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
         : aiListCancelAddKeyboard(lang, section, listType),
@@ -757,6 +772,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     );
     await updateUserState(ctx.userId, `ai_chat_${section}`);
     await clearAiPendingInputPrompt(ctx);
+    await clearAiActionMessage(ctx);
     await clearRememberedAiListMessage(ctx);
     await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
     await helpers.deleteCallbackMessageIfPossible(ctx);

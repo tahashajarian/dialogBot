@@ -22,3 +22,14 @@ test("editPlaceholder preserves original message when edit returns true", async 
     extra: { reply_markup: { inline_keyboard: [] } },
   }]);
 });
+
+test("editPlaceholder preserves original message when edit response has no message id", async () => {
+  const placeholder = { message_id: 42 };
+  const ctx = {
+    editMessageText: async () => ({ ok: true }),
+  };
+
+  const result = await editPlaceholder(ctx, placeholder, "next");
+
+  assert.equal(result, placeholder);
+});

@@ -26,23 +26,48 @@ async function rememberAiPendingInputPrompt(ctx, messageOrId) {
 
 async function clearAiPendingInputPrompt(ctx) {
   if (!ctx?.userId) {
-    return;
+    return true;
   }
   const messageId = Number(ctx.user?.aiPendingInputMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0) {
-    return;
+    return true;
   }
   const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-  if (!deleted && ctx.editMessageReplyMarkup) {
-    await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
+  const retired = deleted || (
+    ctx.editMessageReplyMarkup
+      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
+      : false
+  );
+  if (!retired) {
+    return false;
   }
   await updateProfileField(ctx.userId, "aiPendingInputMessageId", null);
   if (ctx.user) {
     ctx.user.aiPendingInputMessageId = null;
   }
+  return true;
+}
+
+async function replaceAiPendingInputPrompt(ctx, sendPrompt) {
+  const previousMessageId = Number(ctx.user?.aiPendingInputMessageId);
+  const retired = await clearAiPendingInputPrompt(ctx);
+  const prompt = await sendPrompt();
+
+  if (
+    !retired
+    && Number.isInteger(previousMessageId)
+    && previousMessageId > 0
+    && ctx.deleteMessage
+  ) {
+    await ctx.deleteMessage(previousMessageId);
+  }
+
+  await rememberAiPendingInputPrompt(ctx, prompt);
+  return prompt;
 }
 
 module.exports = {
   rememberAiPendingInputPrompt,
   clearAiPendingInputPrompt,
+  replaceAiPendingInputPrompt,
 };

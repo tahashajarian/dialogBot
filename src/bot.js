@@ -280,6 +280,12 @@ async function handleUpdate(ctx) {
       text,
     });
     if (!added.ok) {
+      if (added.reason === "message_burst_limit") {
+        return ctx.reply(
+          messages[lang].discussionMessageBurstLimit,
+          discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+        );
+      }
       if (added.reason === "message_rate_limit") {
         return ctx.reply(
           messages[lang].discussionMessageRateLimit,

@@ -7,6 +7,9 @@
 - `🧩 علاقه‌مندی‌ها` should feel first-class for users who are not strongly into movies, music, or books.
 - AI section entry should be a guided hub message, not an open chat prompt.
 - Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
+- In a plain section hub, stray text should keep the bottom controls and clearly direct the user to List, Top 10, or Suggestion.
+- In list, Top 10, or suggestion inline-action states, stray text should retire the current inline card and send one fresh guidance card with the same relevant options.
+- Replacement list-management cards should preserve their useful description. In Top 10, keep current taste-label/progress context and append only a short button-use tip.
 - In AI sections, users stay in chat state until pressing the bottom text back button.
 - Bottom AI-section back returns users to the AI assistant menu.
 - The inline AI assistant back button returns to the main menu.
@@ -43,10 +46,13 @@
 
 - TopTen items support comment edit.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
+- List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Bale provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
+- When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
+- When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
 - Typed-item feedback should react to the item itself, not infer the user's personality.
 - For recognizable works, feedback should contain one concrete observation about the creator, form, genre, theme, or atmosphere.
-- Reject generic praise such as "great choice", "cool pick", or "this says you..." and use an honest uncertainty fallback instead of inventing facts.
+- Reject generic praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
 - When a user enters TopTen in any section, send the current TopTen list as a separate message before the section/manage description and inline buttons.
 - TopTen menus should keep the "show all" action even though the list is also shown on entry.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.

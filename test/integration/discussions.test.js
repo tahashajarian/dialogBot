@@ -6,6 +6,7 @@ const User = require("../../src/models/user");
 const Discussion = require("../../src/models/discussion");
 const {
   DISCUSSION_MESSAGE_LIMIT,
+  DISCUSSION_MESSAGE_WINDOW_MS,
   addRecentMessage,
   closeDiscussionAsOwner,
   createDiscussion,
@@ -200,7 +201,7 @@ test("owner removal and closing clear persisted user membership", async () => {
   assert.equal(closedDiscussion.status, "closed");
 });
 
-test("concurrent messages enforce quota and retain only the latest ten", async () => {
+test("concurrent messages enforce the one-second burst limit", async () => {
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_MSG030",
   });
@@ -209,16 +210,20 @@ test("concurrent messages enforce quota and retain only the latest ten", async (
     discussionMembershipIds: [discussion._id],
   });
 
-  const attempts = Array.from(
-    { length: DISCUSSION_MESSAGE_LIMIT + 1 },
-    (_, index) => addRecentMessage({
+  const results = await Promise.all([
+    addRecentMessage({
       discussionId: discussion._id,
       senderUserId: 1,
       senderDisplayName: "Sender",
-      text: `message-${index + 1}`,
+      text: "message-1",
     }),
-  );
-  const results = await Promise.all(attempts);
+    addRecentMessage({
+      discussionId: discussion._id,
+      senderUserId: 1,
+      senderDisplayName: "Sender",
+      text: "message-2",
+    }),
+  ]);
   const accepted = results.filter((result) => result.ok);
   const rejected = results.filter((result) => !result.ok);
   const [user, persisted] = await Promise.all([
@@ -226,11 +231,75 @@ test("concurrent messages enforce quota and retain only the latest ten", async (
     Discussion.findById(discussion._id).lean(),
   ]);
 
-  assert.equal(accepted.length, DISCUSSION_MESSAGE_LIMIT);
+  assert.equal(accepted.length, 1);
   assert.equal(rejected.length, 1);
-  assert.equal(rejected[0].reason, "message_rate_limit");
+  assert.equal(rejected[0].reason, "message_burst_limit");
+  assert.equal(user.discussionMessageUsage.length, 1);
+  assert.equal(persisted.replyCount, 1);
+  assert.equal(persisted.recentMessages.length, 1);
+});
+
+test("ten-minute discussion quota rejects the thirty-first message", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_MSG031",
+  });
+  const now = Date.now();
+  await createUser(1, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+    discussionMessageUsage: Array.from(
+      { length: DISCUSSION_MESSAGE_LIMIT },
+      (_, index) => new Date(now - 2000 - index),
+    ),
+  });
+
+  const result = await addRecentMessage({
+    discussionId: discussion._id,
+    senderUserId: 1,
+    senderDisplayName: "Sender",
+    text: "message-31",
+  });
+  const [user, persisted] = await Promise.all([
+    User.findOne({ userId: 1 }).lean(),
+    Discussion.findById(discussion._id).lean(),
+  ]);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "message_rate_limit");
   assert.equal(user.discussionMessageUsage.length, DISCUSSION_MESSAGE_LIMIT);
-  assert.equal(persisted.replyCount, DISCUSSION_MESSAGE_LIMIT);
+  assert.ok(user.discussionMessageUsage.every(
+    (usedAt) => usedAt.getTime() > now - DISCUSSION_MESSAGE_WINDOW_MS,
+  ));
+  assert.equal(persisted.replyCount, 0);
+  assert.equal(persisted.recentMessages.length, 0);
+});
+
+test("accepted discussion messages retain only the latest ten", async () => {
+  const oldMessages = Array.from({ length: 10 }, (_, index) => ({
+    senderUserId: 1,
+    senderDisplayName: "Sender",
+    text: `old-message-${index + 1}`,
+    sentAt: new Date(Date.now() - 10000 + index),
+  }));
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_MSGCAP",
+    recentMessages: oldMessages,
+  });
+  await createUser(1, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+  });
+
+  const result = await addRecentMessage({
+    discussionId: discussion._id,
+    senderUserId: 1,
+    senderDisplayName: "Sender",
+    text: "newest-message",
+  });
+  const persisted = await Discussion.findById(discussion._id).lean();
+
+  assert.equal(result.ok, true);
   assert.equal(persisted.recentMessages.length, 10);
-  assert.ok(persisted.recentMessages.every((message) => /^message-\d+$/.test(message.text)));
+  assert.equal(persisted.recentMessages[0].text, "old-message-2");
+  assert.equal(persisted.recentMessages[9].text, "newest-message");
 });

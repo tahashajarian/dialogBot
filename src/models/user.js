@@ -121,6 +121,8 @@ const UserSchema = new mongoose.Schema({
   aiLastListSection: String,
   aiLastListType: String,
   aiSectionEntryMessageId: Number,
+  aiActionMessageId: Number,
+  aiActionContext: String,
   aiPendingInputMessageId: Number,
   aiSectionPendingCommentItem: String,
   aiSectionPendingCommentListType: String,

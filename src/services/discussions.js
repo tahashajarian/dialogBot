@@ -11,6 +11,7 @@ const SAVED_PROFILE_CAP = 50;
 const DISCUSSION_CREATE_DAILY_LIMIT = 3;
 const DISCUSSION_MESSAGE_LIMIT = 30;
 const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
+const DISCUSSION_MESSAGE_BURST_WINDOW_MS = 1000;
 const PUBLIC_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BOT_STARTER_DISCUSSIONS = [
   {
@@ -702,21 +703,40 @@ function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowM
 async function consumeDiscussionMessageQuota(userId) {
   const now = new Date();
   const cutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_WINDOW_MS);
+  const burstCutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_BURST_WINDOW_MS);
   const updated = await User.findOneAndUpdate(
     {
       userId,
       $expr: {
-        $lt: [
+        $and: [
           {
-            $size: {
-              $filter: {
-                input: { $ifNull: ["$discussionMessageUsage", []] },
-                as: "usedAt",
-                cond: { $gt: ["$$usedAt", cutoff] },
+            $lt: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ["$discussionMessageUsage", []] },
+                    as: "usedAt",
+                    cond: { $gt: ["$$usedAt", cutoff] },
+                  },
+                },
               },
-            },
+              DISCUSSION_MESSAGE_LIMIT,
+            ],
           },
-          DISCUSSION_MESSAGE_LIMIT,
+          {
+            $eq: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ["$discussionMessageUsage", []] },
+                    as: "usedAt",
+                    cond: { $gt: ["$$usedAt", burstCutoff] },
+                  },
+                },
+              },
+              0,
+            ],
+          },
         ],
       },
     },
@@ -744,6 +764,17 @@ async function consumeDiscussionMessageQuota(userId) {
   if (!updated) {
     const user = await User.findOne({ userId }).select("discussionMessageUsage").lean();
     if (!user) return { ok: false, reason: "missing_user" };
+    const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now);
+    const hasRecentBurst = recentUsage.some(
+      (usedAt) => usedAt.getTime() > burstCutoff.getTime(),
+    );
+    if (hasRecentBurst) {
+      return {
+        ok: false,
+        reason: "message_burst_limit",
+        retryAfterMs: DISCUSSION_MESSAGE_BURST_WINDOW_MS,
+      };
+    }
     return { ok: false, reason: "message_rate_limit", cap: DISCUSSION_MESSAGE_LIMIT };
   }
 
@@ -889,6 +920,7 @@ module.exports = {
   DISCUSSION_CREATE_DAILY_LIMIT,
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
+  DISCUSSION_MESSAGE_BURST_WINDOW_MS,
   BOT_STARTER_DISCUSSIONS,
   normalizeTitle,
   normalizeDescription,
