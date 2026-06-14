@@ -8,7 +8,7 @@ const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const SAVED_PROFILE_CAP = 50;
-const DISCUSSION_CREATE_DAILY_LIMIT = 3;
+const DISCUSSION_ACTIVE_OWNED_LIMIT = 3;
 const DISCUSSION_MESSAGE_LIMIT = 30;
 const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
 const DISCUSSION_MESSAGE_BURST_WINDOW_MS = 1000;
@@ -260,21 +260,20 @@ async function validateJoinRules({ user, joinRule }) {
   return { ok: false, reason: "invalid_join_rule" };
 }
 
-async function checkDiscussionCreateQuota(creatorUserId, now = new Date()) {
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const createdToday = await Discussion.countDocuments({
+async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
+  const activeOwned = await Discussion.countDocuments({
     creatorUserId,
-    createdAt: { $gte: dayAgo },
+    status: "open",
   });
 
-  if (createdToday >= DISCUSSION_CREATE_DAILY_LIMIT) {
-    return { ok: false, reason: "create_rate_limit", cap: DISCUSSION_CREATE_DAILY_LIMIT };
+  if (activeOwned >= DISCUSSION_ACTIVE_OWNED_LIMIT) {
+    return { ok: false, reason: "active_owned_limit", cap: DISCUSSION_ACTIVE_OWNED_LIMIT, count: activeOwned };
   }
 
-  return { ok: true, count: createdToday, cap: DISCUSSION_CREATE_DAILY_LIMIT };
+  return { ok: true, count: activeOwned, cap: DISCUSSION_ACTIVE_OWNED_LIMIT };
 }
 
-async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = DISCUSSION_MEMBER_CAP, skipCreateQuota = false }) {
+async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = DISCUSSION_MEMBER_CAP }) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
 
@@ -293,10 +292,9 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
 
   const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
 
-  if (!skipCreateQuota) {
-    const quota = await checkDiscussionCreateQuota(creatorUserId);
-    if (!quota.ok) return quota;
-  }
+  // Always check active owned limit for everyone (no bypass)
+  const activeOwnedLimit = await checkActiveOwnedDiscussionsLimit(creatorUserId);
+  if (!activeOwnedLimit.ok) return activeOwnedLimit;
 
   const eligibility = await validateJoinRules({ user, joinRule: parsedRule.joinRule });
   if (!eligibility.ok) return eligibility;
@@ -917,7 +915,7 @@ module.exports = {
   DISCUSSION_ALLOWED_MEMBER_CAPS,
   DISCUSSION_RECENT_MESSAGES_CAP,
   SAVED_PROFILE_CAP,
-  DISCUSSION_CREATE_DAILY_LIMIT,
+  DISCUSSION_ACTIVE_OWNED_LIMIT,
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
   DISCUSSION_MESSAGE_BURST_WINDOW_MS,
@@ -937,7 +935,7 @@ module.exports = {
   getDiscussionInvitePreviewByCode,
   validateJoinRulePayload,
   validateJoinRules,
-  checkDiscussionCreateQuota,
+  checkActiveOwnedDiscussionsLimit,
   createDiscussion,
   seedBotDiscussions,
   listActiveDiscussions,

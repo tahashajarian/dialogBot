@@ -840,7 +840,9 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
   const savedMatch = rawListType.match(/^saved:u_([a-z0-9]+)$/i);
   const normalizedListType = savedMatch
     ? `saved:u_${savedMatch[1].toUpperCase()}`
-    : listType === "mine" ? "mine" : "active";
+    : listType === "mine" ? "mine"
+    : listType === "discussions" ? "discussions"
+    : "active";
   return inlineKeyboard([
     [{
       text: messages[lang].acknowledgeButton,

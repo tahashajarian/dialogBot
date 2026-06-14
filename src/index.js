@@ -43,7 +43,6 @@ async function processUpdate(ctx) {
 
   const user = await getOrCreateUser(ctx.from);
   const appCtx = createAppContext(ctx, user, {
-    canBypassDiscussionCreateLimit: isAllowedUser(ctx.from),
   });
   const interaction = beginInteraction({
     userId: user?.userId || ctx.from?.id,

@@ -126,7 +126,7 @@ Flow:
 7. If the rule is restricted, allow description to be skipped.
 8. Show preview, then create and auto-join creator after confirm.
 
-Before asking for the title, check the user's daily creation quota. If the user has reached the limit, do not enter the create flow; show a bot-authored limit message with one inline Back button to the discussions menu.
+Before asking for the title, check if the user already has 3 active discussions they created. If they do, show an error message with a "Got it" acknowledgment button that returns to "My Discussions" list, where they can close an unwanted discussion before creating a new one.
 
 Limits:
 
@@ -1002,7 +1002,7 @@ Stored inside `recentMessages`, capped at 10:
 
 MVP should include basic limits:
 
-- Max 3 discussions created per user per day.
+- Max 3 active (open) discussions per user at any time.
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
@@ -1015,7 +1015,7 @@ Implementation rules:
 - Recent-message appends should be atomic and capped to the last 10 messages so concurrent sends do not overwrite each other.
 - Join capacity checks should be part of the join mutation so concurrent joins cannot exceed the configured room capacity.
 
-For local testing, usernames listed in `ALLOWED_USERNAMES` may bypass the daily discussion creation limit. This should remain a test/admin allowance, not normal user behavior.
+The 3 active discussions limit applies to all users without exception, including test accounts. This prevents users from accumulating too many open discussions.
 
 ## Moderation
 

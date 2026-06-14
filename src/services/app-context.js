@@ -85,7 +85,6 @@ async function callTelegramApiWithTimeout(ctx, method, payload, timeoutMs) {
 
 function createAppContext(ctx, user, options = {}) {
   const operationTimeoutMs = Number(options.operationTimeoutMs) || DEFAULT_API_OPERATION_TIMEOUT_MS;
-  const canBypassDiscussionCreateLimit = Boolean(options.canBypassDiscussionCreateLimit);
 
   const sendApi = (method, payload) => callTelegramApiWithTimeout(
     ctx,
@@ -97,7 +96,6 @@ function createAppContext(ctx, user, options = {}) {
   return {
     user,
     userId: user?.userId,
-    canBypassDiscussionCreateLimit,
     languageCode: ctx.from?.language_code,
     message: ctx.message,
     text: ctx.message?.text,

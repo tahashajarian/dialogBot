@@ -3,6 +3,7 @@ const { callBacks } = require("../constants");
 const {
   inlineKeyboard,
   discussionsMenuKeyboard,
+  discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
@@ -29,7 +30,7 @@ const {
   buildDiscussionPreviewText,
 } = require("../services/discussion-ui");
 const {
-  checkDiscussionCreateQuota,
+  checkActiveOwnedDiscussionsLimit,
   normalizeMaxMembers,
   createDiscussion,
 } = require("../services/discussions");
@@ -172,18 +173,19 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 
   if (data === callBacks.discussionCreateStart) {
     await ctx.answerCb?.();
-    const quota = ctx.canBypassDiscussionCreateLimit
-      ? { ok: true }
-      : await checkDiscussionCreateQuota(ctx.userId);
-    if (!quota.ok) {
+    
+    // Check active owned limit (applies to everyone, no bypass)
+    const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
+    if (!activeLimit.ok) {
       await clearDiscussionDraft(ctx.userId);
       await updateUserState(ctx.userId, "idle");
       return editCallbackMessageOrReply(
         ctx,
-        getDiscussionErrorMessage(messages, lang, quota.reason) || messages[lang].discussionCreateRateLimit,
-        discussionMenuBackKeyboard(lang),
+        getDiscussionErrorMessage(messages, lang, activeLimit.reason) || messages[lang].discussionActiveOwnedLimit,
+        discussionJoinErrorAckKeyboard(lang, "discussions"),
       );
     }
+    
     await clearDiscussionDraft(ctx.userId);
     return sendTitlePrompt({ includeTitlePin: true });
   }
@@ -260,6 +262,47 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
   if (data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
     await ctx.answerCb?.();
     const type = data === callBacks.discussionCreateRuleTaste ? "taste_label" : "top_ten_item";
+    
+    // Check if user has ANY badges or items across all sections
+    const sections = ["movies", "music", "books", "random"];
+    if (type === "taste_label") {
+      const hasBadge = sections.some((section) => {
+        const taste = getAiTasteFromUser(ctx.user, section);
+        return taste?.labelKey;
+      });
+      if (!hasBadge) {
+        await deleteCallbackMessageIfPossible(ctx);
+        await ctx.reply(messages[lang].discussionRuleNoBadgesAtAll);
+        const editMode = isEditingDiscussionRuleFromPreview(ctx);
+        return sendJoinRulePrompt({
+          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
+          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
+          backButton: editMode
+            ? null
+            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
+        });
+      }
+    } else if (type === "top_ten_item") {
+      const hasItem = sections.some((section) => {
+        const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
+        return topTen.length > 0;
+      });
+      if (!hasItem) {
+        await deleteCallbackMessageIfPossible(ctx);
+        await ctx.reply(messages[lang].discussionRuleNoItemsAtAll);
+        const editMode = isEditingDiscussionRuleFromPreview(ctx);
+        return sendJoinRulePrompt({
+          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
+          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
+          backButton: editMode
+            ? null
+            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
+        });
+      }
+    }
+    
     await updateProfileField(ctx.userId, "discussionDraftJoinRule", { type });
     const editMode = isEditingDiscussionRuleFromPreview(ctx);
     return editCallbackMessageOrReply(
@@ -520,7 +563,6 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       description: ctx.user?.discussionDraftDescription || "",
       joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
       maxMembers: ctx.user?.discussionDraftMaxMembers || 20,
-      skipCreateQuota: Boolean(ctx.canBypassDiscussionCreateLimit),
     });
     if (!created.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);

@@ -35,7 +35,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - description text/skip handling
   - join-rule text fallback prompts
 - `src/flows/discussions-create-callbacks.js`: inline discussion-create wizard callbacks.
-  - create quota check and draft reset
+  - active discussion limit check and draft reset
   - join-rule pickers
   - preview edits, capacity, confirm/cancel
 - `src/flows/discussions-callbacks.js`: discussion callback housekeeping, predicates, list/menu callbacks, and join-error acknowledgements.
