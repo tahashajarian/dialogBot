@@ -1,7 +1,6 @@
 const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
-  inlineKeyboard,
   discussionsMenuKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,
@@ -70,12 +69,6 @@ function createStepBackButton(_messages, lang, callbackData) {
     text: messages[lang].discussionBack,
     callback_data: callbackData,
   };
-}
-
-function discussionMenuBackKeyboard(lang) {
-  return inlineKeyboard([
-    [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
-  ]);
 }
 
 async function clearDiscussionDraft(userId) {
