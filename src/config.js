@@ -1,4 +1,4 @@
-const DEFAULT_ALLOWED_USERNAMES = ["taha_shj"];
+const DEFAULT_ALLOWED_USERNAMES = [];
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_AI_TIMEOUT_MS = 8000;

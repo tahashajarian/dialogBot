@@ -44,6 +44,7 @@ EMBEDDING_MODEL=text-embedding-3-small
 AI_TIMEOUT_MS=8000
 
 # Private-beta usernames, comma-separated.
+# Leave empty to allow all users.
 ALLOWED_USERNAMES=
 
 # Discussion invite link configuration.

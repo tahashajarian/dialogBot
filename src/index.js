@@ -14,6 +14,7 @@ const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
 
 function isAllowedUser(from) {
+  if (ALLOWED_USERNAMES.size === 0) return true;
   return ALLOWED_USERNAMES.has(normalizeUsername(from?.username));
 }
 
