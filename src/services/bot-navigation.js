@@ -40,9 +40,9 @@ async function leaveActiveDiscussionForNavigation(ctx) {
   return left;
 }
 
-async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
+async function leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard = true } = {}) {
   const left = await leaveActiveDiscussionForNavigation(ctx);
-  if (left) {
+  if (left && clearKeyboard) {
     await clearBottomKeyboardQuietly(ctx);
   }
   return left;

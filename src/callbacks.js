@@ -157,6 +157,23 @@ function isProfileCallbackMessage(ctx) {
   return Boolean(message.caption || message.photo || message.document);
 }
 
+function hasTemporaryReplyKeyboard(ctx) {
+  const state = String(ctx.user?.state || "");
+  return Boolean(
+    isAiTextState(state)
+    || state === "editing_location"
+    || ctx.user?.activeDiscussionId,
+  );
+}
+
+async function showInlineMenuAfterNavigation(ctx, text, keyboard, { forceClearKeyboard = false } = {}) {
+  if (forceClearKeyboard || hasTemporaryReplyKeyboard(ctx)) {
+    await deleteCallbackMessageIfPossible(ctx);
+    return replyWithRemovedKeyboardThenInline(ctx, text, keyboard);
+  }
+  return editCallbackMessageOrReply(ctx, text, keyboard);
+}
+
 async function sendDiscussionRoom(ctx, lang, discussion) {
   const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   const recentMessage = await ctx.reply(
@@ -223,79 +240,77 @@ async function handleCallback(ctx) {
   // menu routes
   if (data === callBacks.menuMain) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    if (isAiTextState(ctx.user?.state)) {
-      await removeBottomKeyboard(ctx, " ");
-    }
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
-    return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+    return showInlineMenuAfterNavigation(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang), {
+      forceClearKeyboard: shouldClearKeyboard,
+    });
   }
 
   if (data === callBacks.help) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    if (isAiTextState(ctx.user?.state)) {
-      await removeBottomKeyboard(ctx, " ");
-    }
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
-    return editCallbackMessageOrReply(
-      ctx,
-      messages[lang].helpText,
-      helpKeyboard(lang),
-    );
+    return showInlineMenuAfterNavigation(ctx, messages[lang].helpText, helpKeyboard(lang), {
+      forceClearKeyboard: shouldClearKeyboard,
+    });
   }
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
-    return editCallbackMessageOrReply(ctx, messages[lang].chooseLanguage, languageKeyboard());
+    return showInlineMenuAfterNavigation(ctx, messages[lang].chooseLanguage, languageKeyboard(), {
+      forceClearKeyboard: shouldClearKeyboard,
+    });
   }
 
   if (data === callBacks.profile) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    if (isAiTextState(ctx.user?.state)) {
-      await removeBottomKeyboard(ctx, " ");
-    }
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await deleteCallbackMessageIfPossible(ctx);
+    if (shouldClearKeyboard) {
+      await removeBottomKeyboard(ctx, messages[lang].profile);
+    }
     return sendOwnProfile(ctx, lang, ctx.user || {}, { loading: true });
   }
 
   if (data === callBacks.aiAssistant) {
     await ctx.answerCb?.(messages[lang].aiAssistant);
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
-    return editCallbackMessageOrReply(
+    return showInlineMenuAfterNavigation(
       ctx,
       `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`,
       aiAssistantKeyboard(lang),
+      { forceClearKeyboard: shouldClearKeyboard },
     );
   }
 
   if (data === callBacks.discussions) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    if (isAiTextState(ctx.user?.state)) {
-      await removeBottomKeyboard(ctx, " ");
-    }
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
-    return editCallbackMessageOrReply(
-      ctx,
-      messages[lang].discussionsMenu,
-      discussionsMenuKeyboard(lang),
-    );
+    return showInlineMenuAfterNavigation(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang), {
+      forceClearKeyboard: shouldClearKeyboard,
+    });
   }
 
   if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
@@ -311,6 +326,7 @@ async function handleCallback(ctx) {
       isProfileCallbackMessage,
       leaveDiscussionAndClearKeyboardForNavigation,
       removeBottomKeyboard,
+      replyWithRemovedKeyboardThenInline,
     });
   }
 

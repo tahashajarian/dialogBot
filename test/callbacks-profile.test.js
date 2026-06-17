@@ -76,6 +76,7 @@ test("main menu entries open sections without hard delete-first gap", async () =
 test("saved profiles clears stale cards and bottom keyboard before rendering list", async () => {
   const deletedIds = [];
   const replies = [];
+  const edits = [];
   const ctx = {
     callbackData: callBacks.savedProfiles,
     callbackMessageId: 456,
@@ -93,7 +94,10 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
       deletedIds.push(messageId);
       return true;
     },
-    editMessageText: async () => false,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -104,9 +108,9 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   await handleCallback(ctx);
 
   assert.equal(deletedIds[0], 456);
-  assert.equal(deletedIds[1], 1);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.match(replies[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.menuMain);
 });
 
 test("AI back clears the section bottom keyboard before main menu", async () => {

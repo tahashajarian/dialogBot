@@ -23,7 +23,9 @@ const {
 } = require("./services/users");
 const {
   getMessageId,
+  removeBottomKeyboard,
   clearBottomKeyboardQuietly,
+  replyWithRemovedKeyboardThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
 const { resolveCityByCoordinates } = require("./services/location");
@@ -297,20 +299,25 @@ async function handleUpdate(ctx) {
 
   if (text === "/start") {
     await clearViewedPublicProfileMessage(ctx);
+    const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
     const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
     const userName = rawUserName.trim().replace(/\s+/g, " ");
     const welcomeMessage = userName
       ? messages[lang].welcomeWithName.replace("{name}", userName)
       : messages[lang].welcome;
 
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
 
     if (shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang);
     }
 
     await updateUserState(ctx.userId, "idle");
-    await ctx.reply(welcomeMessage);
+    if (shouldClearKeyboard) {
+      await removeBottomKeyboard(ctx, welcomeMessage, { deleteSentMessage: false });
+    } else {
+      await ctx.reply(welcomeMessage);
+    }
     return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
   }
 
@@ -366,8 +373,7 @@ async function handleUpdate(ctx) {
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      await clearBottomKeyboardQuietly(ctx);
-      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
     const updatedUser = toPlainUser(ctx.user);
@@ -542,32 +548,44 @@ async function handleUpdate(ctx) {
   if (text === "/lang") {
     await clearViewedPublicProfileMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
-    return ctx.reply(messages[lang].chooseLanguage, languageKeyboard());
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+    return replyWithRemovedKeyboardThenInline(ctx, messages[lang].chooseLanguage, languageKeyboard());
   }
 
   if (text === "/menu") {
     await clearViewedPublicProfileMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     if (!userLang) {
-      return ctx.reply(messages["fa"].chooseLanguage, languageKeyboard());
+      return replyWithRemovedKeyboardThenInline(ctx, messages["fa"].chooseLanguage, languageKeyboard());
     }
 
-    return ctx.reply(messages[userLang].mainMenu, mainMenuKeyboard(userLang));
+    return replyWithRemovedKeyboardThenInline(ctx, messages[userLang].mainMenu, mainMenuKeyboard(userLang));
   }
 
   if (text === "/profile") {
     await clearViewedPublicProfileMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+    if (shouldClearKeyboard) {
+      await removeBottomKeyboard(ctx, messages[lang].profile, { deleteSentMessage: false });
+    }
     return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
   }
 
   if (text === ACTIVE_DISCUSSION_HELP_COMMAND) {
     await clearViewedPublicProfileMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx);
+    const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+    if (shouldClearKeyboard) {
+      return replyWithRemovedKeyboardThenInline(
+        ctx,
+        messages[lang].profileActiveDiscussionHelpText,
+        profileActiveDiscussionHelpKeyboard(lang),
+      );
+    }
     return ctx.reply(
       messages[lang].profileActiveDiscussionHelpText,
       profileActiveDiscussionHelpKeyboard(lang),

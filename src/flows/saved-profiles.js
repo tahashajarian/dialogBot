@@ -99,7 +99,7 @@ async function rememberViewedPublicProfileMessage(ctx, message) {
   }
 }
 
-async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
+async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = null } = {}) {
   const items = await buildSavedProfileListItems({
     codes,
     normalizePublicProfileCode,
@@ -108,13 +108,12 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0) {
       .lean(),
   });
   const paged = paginateSavedProfiles(items, page);
-  const sent = await ctx.reply(
-    buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex }),
-    savedProfilesListKeyboard(lang, {
-      page: paged.page,
-      totalPages: paged.totalPages,
-    }),
-  );
+  const text = buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex });
+  const keyboard = savedProfilesListKeyboard(lang, {
+    page: paged.page,
+    totalPages: paged.totalPages,
+  });
+  const sent = send ? await send(text, keyboard) : await ctx.reply(text, keyboard);
   await rememberSavedProfilesListMessage(ctx, sent);
   return sent;
 }
@@ -281,7 +280,7 @@ async function handleSavedProfilesCallback(ctx, lang, {
   forgetSavedProfilesListMessage: forgetSavedProfilesList = forgetSavedProfilesListMessage,
   isProfileCallbackMessage,
   leaveDiscussionAndClearKeyboardForNavigation,
-  removeBottomKeyboard,
+  replyWithRemovedKeyboardThenInline,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -295,11 +294,16 @@ async function handleSavedProfilesCallback(ctx, lang, {
     } else {
       await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
       await deleteCallbackMessageIfPossible?.(ctx);
-      await removeBottomKeyboard?.(ctx, messages[lang].savedProfilesTitle);
     }
     await forgetSavedProfilesList(ctx);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    return sendSavedProfilesList(ctx, lang, codes, 0);
+    return sendSavedProfilesList(ctx, lang, codes, 0, {
+      send: isProfileCallbackMessage?.(ctx)
+        ? null
+        : replyWithRemovedKeyboardThenInline
+          ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
+          : null,
+    });
   }
 
   if (data === "saved:back") {
