@@ -21,15 +21,43 @@ const BOT_STARTER_DISCUSSIONS = [
   },
   {
     botSeedKey: "whats-up",
-    title: "What's Up?",
-    description: "Drop in, say hi, and share what is going on.",
+    title: "Gaming Hangout",
+    description: "A room for players, favorite games, and what everyone is playing.",
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
+    },
   },
   {
     botSeedKey: "lets-talk",
-    title: "Let's Talk",
-    description: "A casual place to meet people and start a conversation.",
+    title: "Movie Chat",
+    description: "Talk about films, scenes, actors, and what is worth watching.",
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Movies",
+      itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
+    },
   },
 ];
+const BOT_STARTER_DISCUSSION_ORDER = new Map(
+  BOT_STARTER_DISCUSSIONS.map((starter, index) => [starter.botSeedKey, index]),
+);
+
+function getBotStarterDiscussionOrder(discussion = {}) {
+  const seedKey = String(discussion.botSeedKey || "");
+  return BOT_STARTER_DISCUSSION_ORDER.has(seedKey)
+    ? BOT_STARTER_DISCUSSION_ORDER.get(seedKey)
+    : BOT_STARTER_DISCUSSIONS.length;
+}
+
+function sortBotStarterDiscussionsFirst(discussions = []) {
+  return [...discussions].sort((left, right) => (
+    getBotStarterDiscussionOrder(left) - getBotStarterDiscussionOrder(right)
+  ));
+}
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -223,7 +251,11 @@ function validateJoinRulePayload(joinRule = {}) {
 
   const itemTitle = normalizeAiListItem(joinRule.itemTitle || "");
   if (!itemTitle) return { ok: false, reason: "missing_item" };
-  return { ok: true, joinRule: { type, section, itemTitle } };
+  const itemAliases = Array.isArray(joinRule.itemAliases)
+    ? joinRule.itemAliases.map(normalizeAiListItem).filter(Boolean)
+    : [];
+  const aliases = [...new Set([itemTitle, ...itemAliases])];
+  return { ok: true, joinRule: { type, section, itemTitle, itemAliases: aliases } };
 }
 
 async function validateJoinRules({ user, joinRule }) {
@@ -251,7 +283,11 @@ async function validateJoinRules({ user, joinRule }) {
 
   if (type === "top_ten_item") {
     const topTen = getAiListItemsFromUser(user, section, "topTen");
-    const match = getAiListDuplicateMatch(joinRule.itemTitle, topTen);
+    const candidates = [
+      joinRule.itemTitle,
+      ...(Array.isArray(joinRule.itemAliases) ? joinRule.itemAliases : []),
+    ].filter(Boolean);
+    const match = candidates.some((itemTitle) => getAiListDuplicateMatch(itemTitle, topTen));
     const hasItem = Boolean(match);
     if (hasItem) return { ok: true };
     return { ok: false, reason: "requires_top_ten_item", section, itemTitle: joinRule.itemTitle };
@@ -342,7 +378,7 @@ async function seedBotDiscussions(botUserId) {
           description: starter.description,
           creatorUserId,
           isBotCreated: true,
-          joinRule: { type: "open" },
+          joinRule: starter.joinRule || { type: "open" },
           maxMembers: DISCUSSION_MEMBER_CAP,
         },
         $setOnInsert: {
@@ -380,7 +416,7 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
     
     // Pin bot discussions at top if user has < 2 memberships
     if (membershipCount < 2) {
-      const botDiscussions = discussions.filter((d) => d.isBotCreated);
+      const botDiscussions = sortBotStarterDiscussionsFirst(discussions.filter((d) => d.isBotCreated));
       const userDiscussions = discussions.filter((d) => !d.isBotCreated);
       discussions = [...botDiscussions, ...userDiscussions];
     }
@@ -944,6 +980,7 @@ module.exports = {
   DISCUSSION_MESSAGE_WINDOW_MS,
   DISCUSSION_MESSAGE_BURST_WINDOW_MS,
   BOT_STARTER_DISCUSSIONS,
+  sortBotStarterDiscussionsFirst,
   normalizeTitle,
   normalizeDescription,
   normalizeMaxMembers,

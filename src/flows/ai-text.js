@@ -31,6 +31,7 @@ const {
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
+const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
 const {
   getAiSectionFromState,
   getSectionListButtonLabel,
@@ -351,19 +352,7 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      const sent = await ctx.reply("⬅️", {
-        reply_markup: { remove_keyboard: true },
-      });
-      // Small delay to ensure keyboard removal is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      if (sent?.message_id && ctx.deleteMessage) {
-        try {
-          await ctx.deleteMessage(sent.message_id);
-        } catch {
-          // Ignore deletion errors
-        }
-      }
-      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
     const section = manageState.section;
@@ -608,19 +597,7 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionPin({ ctx, updateProfileField });
-      const sent = await ctx.reply("⬅️", {
-        reply_markup: { remove_keyboard: true },
-      });
-      // Small delay to ensure keyboard removal is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      if (sent?.message_id && ctx.deleteMessage) {
-        try {
-          await ctx.deleteMessage(sent.message_id);
-        } catch {
-          // Ignore deletion errors
-        }
-      }
-      return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
     if (isAiSectionListText(text, section)) {

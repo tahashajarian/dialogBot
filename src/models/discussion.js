@@ -19,6 +19,7 @@ const DiscussionJoinRuleSchema = new mongoose.Schema({
   section: { type: String, enum: ["", "movies", "music", "books", "random"], default: "" },
   tasteLabelKey: { type: String, default: "" },
   itemTitle: { type: String, default: "" },
+  itemAliases: { type: [String], default: [] },
 }, { _id: false });
 
 const DiscussionReportSchema = new mongoose.Schema({

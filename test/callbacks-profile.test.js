@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
+const User = require("../src/models/user");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
   const deletedIds = [];
@@ -106,6 +107,54 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   assert.equal(deletedIds[1], 1);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+});
+
+test("AI back clears the section bottom keyboard before main menu", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  const edits = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    callbackData: callBacks.aiBack,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      state: "idle",
+      aiSectionPinnedMessageId: null,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.match(replies[0].text, /منوی اصلی/);
+  assert.equal(deletedIds.includes(1), false);
+  assert.deepEqual(
+    edits[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.language,
+  );
 });
 
 test("saved profile back deletes viewed profile card before rendering list", async () => {

@@ -6,12 +6,23 @@ function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
-async function removeBottomKeyboard(ctx, text = " ") {
+async function removeBottomKeyboard(ctx, text = " ", { deleteSentMessage = true } = {}) {
   const sent = await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
   const messageId = getMessageId(sent);
-  if (messageId && ctx.deleteMessage) {
+  if (deleteSentMessage && messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(messageId);
   }
+  return sent;
+}
+
+async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
+  const sent = await removeBottomKeyboard(ctx, text, { deleteSentMessage: false });
+  const messageId = getMessageId(sent);
+  if (messageId && ctx.editMessageText) {
+    const edited = await ctx.editMessageText(messageId, text, inlineKeyboard);
+    if (edited) return edited;
+  }
+  return ctx.reply(text, inlineKeyboard);
 }
 
 async function clearBottomKeyboardQuietly(ctx) {
@@ -40,6 +51,7 @@ async function leaveDiscussionAndClearKeyboardForNavigation(ctx) {
 module.exports = {
   getMessageId,
   removeBottomKeyboard,
+  replyWithRemovedKeyboardThenInline,
   clearBottomKeyboardQuietly,
   leaveActiveDiscussionForNavigation,
   leaveDiscussionAndClearKeyboardForNavigation,

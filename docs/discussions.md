@@ -12,7 +12,7 @@ The MVP described here is implemented. The current code supports:
 - shareable invite links with a revalidated preview before joining
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
-- three open bot-created starter rooms, marked only with `🤖`
+- three bot-created starter rooms, marked only with `🤖`: one open room and two rooms gated by popular Interests TopTen items
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
@@ -35,7 +35,10 @@ Discussions are live rooms with short memory.
 - There is no seen count in MVP. Sender only gets a delivery confirmation.
 - Three broad starter rooms are created idempotently at startup using the real bot account id returned by `getMe()`.
 - Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
-- Their English titles are `Free Discussion`, `What's Up?`, and `Let's Talk`.
+- Their English titles are `Free Discussion`, `Gaming Hangout`, and `Movie Chat`.
+- `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🧩 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🧩 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`.
+- When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
+- The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the three-interest onboarding flow.
 - Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
 - Bot-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart pinning**: Bot-created discussions appear at the top of the active discussions list for users with fewer than 2 discussion memberships. Once a user joins 2 or more discussions, all discussions are sorted purely by activity (most recent first). This helps new users discover starter rooms while keeping the experience clean for active users.

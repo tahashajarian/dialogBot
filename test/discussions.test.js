@@ -15,6 +15,7 @@ const {
   DISCUSSION_MESSAGE_BURST_WINDOW_MS,
   BOT_STARTER_DISCUSSIONS,
   seedBotDiscussions,
+  sortBotStarterDiscussionsFirst,
 } = require("../src/services/discussions");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
@@ -91,12 +92,37 @@ test("bot starter discussions use the bot id without fake members", async () => 
     for (const { update } of calls) {
       assert.equal(update.$set.creatorUserId, 9001);
       assert.equal(update.$set.isBotCreated, true);
-      assert.deepEqual(update.$set.joinRule, { type: "open" });
       assert.deepEqual(update.$setOnInsert.memberUserIds, []);
     }
+    assert.deepEqual(calls[0].update.$set.joinRule, { type: "open" });
+    assert.deepEqual(calls[1].update.$set.joinRule, {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
+    });
+    assert.deepEqual(calls[2].update.$set.joinRule, {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Movies",
+      itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
+    });
   } finally {
     Discussion.findOneAndUpdate = originalFindOneAndUpdate;
   }
+});
+
+test("bot starter discussions keep the open room first when pinned", () => {
+  const sorted = sortBotStarterDiscussionsFirst([
+    { botSeedKey: "lets-talk", isBotCreated: true },
+    { botSeedKey: "whats-up", isBotCreated: true },
+    { botSeedKey: "free-discussion", isBotCreated: true },
+  ]);
+
+  assert.deepEqual(
+    sorted.map((discussion) => discussion.botSeedKey),
+    ["free-discussion", "whats-up", "lets-talk"],
+  );
 });
 
 test("validateJoinRulePayload validates restricted rules", () => {
@@ -111,6 +137,7 @@ test("validateJoinRulePayload validates restricted rules", () => {
   const item = validateJoinRulePayload({ type: "top_ten_item", section: "books", itemTitle: "  Dune " });
   assert.equal(item.ok, true);
   assert.equal(item.joinRule.itemTitle, "Dune");
+  assert.deepEqual(item.joinRule.itemAliases, ["Dune"]);
 });
 
 test("validateJoinRulePayload rejects invalid payloads", () => {
@@ -139,6 +166,28 @@ test("top ten item join rule tolerates near-duplicate spelling", async () => {
   const result = await validateJoinRules({
     user,
     joinRule: { type: "top_ten_item", section: "books", itemTitle: "Lord of Rings" },
+  });
+  assert.equal(result.ok, true);
+});
+
+test("top ten item join rule accepts explicit bilingual aliases", async () => {
+  const user = {
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "گیم", comment: "", watched: false },
+        ],
+      },
+    },
+  };
+  const result = await validateJoinRules({
+    user,
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "گیم", "بازی"],
+    },
   });
   assert.equal(result.ok, true);
 });

@@ -15,6 +15,7 @@ const { callBacks } = require("./constants");
 const {
   getMessageId,
   removeBottomKeyboard,
+  replyWithRemovedKeyboardThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
 const {
@@ -549,6 +550,8 @@ async function handleCallback(ctx) {
     return handleAiCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
+      removeBottomKeyboard,
+      replyWithRemovedKeyboardThenInline,
     });
   }
 

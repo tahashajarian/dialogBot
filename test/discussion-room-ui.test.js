@@ -22,8 +22,8 @@ test("formatDiscussionRoom renders title, description, and counts", () => {
 
 test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emoji marker", () => {
   const discussion = {
-    title: "Let's Talk",
-    description: "A casual place to meet people and start a conversation.",
+    title: "Movie Chat",
+    description: "Talk about films, scenes, actors, and what is worth watching.",
     isBotCreated: true,
     botSeedKey: "lets-talk",
     memberUserIds: [],
@@ -32,10 +32,10 @@ test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emo
   const text = formatDiscussionRoom(messages, "en", discussion);
   const persianText = formatDiscussionRoom(messages, "fa", discussion);
 
-  assert.match(text, /💬 🤖 Let's Talk/);
-  assert.match(text, /A casual place to meet people and start a conversation/);
-  assert.match(persianText, /💬 🤖 بیا حرف بزنیم/);
-  assert.match(persianText, /یک جای خودمونی برای آشنا شدن و شروع گفتگو/);
+  assert.match(text, /💬 🤖 Movie Chat/);
+  assert.match(text, /Talk about films, scenes, actors, and what is worth watching/);
+  assert.match(persianText, /💬 🤖 گفتگوی فیلم/);
+  assert.match(persianText, /درباره فیلم‌ها، سکانس‌ها، بازیگرها و چیزهایی که ارزش دیدن دارند حرف بزن/);
   assert.doesNotMatch(text, /official/i);
 });
 

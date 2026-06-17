@@ -900,6 +900,10 @@ async function handleAiCallback(ctx, lang, helpers) {
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
     await clearAiPendingInputPrompt(ctx);
     await clearAiSectionPin({ ctx, updateProfileField });
+    await helpers.deleteCallbackMessageIfPossible?.(ctx);
+    if (helpers.replyWithRemovedKeyboardThenInline) {
+      return helpers.replyWithRemovedKeyboardThenInline(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+    }
     return helpers.editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 

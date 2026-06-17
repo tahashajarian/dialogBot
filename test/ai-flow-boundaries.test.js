@@ -4,12 +4,14 @@ const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
+  handleAiText,
   isAiBackText,
   isAiSectionListText,
   isAiSectionSuggestText,
   isAiSectionTopTenText,
   isAiTextState,
 } = require("../src/flows/ai-text");
+const User = require("../src/models/user");
 const {
   getAiListAddPrompt,
   getMeaningfulMusicTitle,
@@ -58,6 +60,53 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiSectionListText(messages.fa.aiSectionListButtonRandom, "random"), true);
   assert.equal(isAiSectionTopTenText(messages.en.aiSectionTopTenButton), true);
   assert.equal(isAiSectionSuggestText(messages.fa.aiSectionSuggestButton), true);
+});
+
+test("AI bottom Back keeps the keyboard-removal message so Bale clears reply controls", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  const edits = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: messages.fa.aiBack,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      state: "ai_manage_random_top_ten",
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "fa", messages.fa.aiBack, ctx.user.state);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const keyboardRemovalReply = replies.find((reply) => reply.extra?.reply_markup?.remove_keyboard);
+  assert.equal(Boolean(keyboardRemovalReply), true);
+  assert.match(keyboardRemovalReply.text, /یکی از بخش‌ها رو انتخاب کن/);
+  assert.equal(deletedIds.includes(1), false);
+  assert.deepEqual(
+    edits.find((edit) => edit.extra?.reply_markup?.inline_keyboard)
+      .extra.reply_markup.inline_keyboard.at(-1)[0].callback_data,
+    callBacks.aiBack,
+  );
 });
 
 test("music add flow accepts meaningful audio titles and rejects untitled media", () => {

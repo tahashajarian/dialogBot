@@ -35,6 +35,7 @@
   - status toggle
   - comment edit
   - move-to-TopTen, if TopTen has room
+- Status-toggle pickers should show each item's current `✅`/`⬜` marker and explain that tapping an item switches it.
 - Moving a watchlist item to TopTen is non-destructive:
   - keep the item in watchlist
   - copy it into TopTen

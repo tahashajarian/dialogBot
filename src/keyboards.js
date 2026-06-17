@@ -270,6 +270,22 @@ function getSectionStatusLabels(lang, section) {
   };
 }
 
+function getSectionToggleButtonText(lang, section) {
+  if (section === "music") {
+    return messages[lang].aiListManageToggleWatchedMusic || messages[lang].aiListManageToggleWatched;
+  }
+
+  if (section === "books") {
+    return messages[lang].aiListManageToggleWatchedBooks || messages[lang].aiListManageToggleWatched;
+  }
+
+  if (section === "random") {
+    return messages[lang].aiListManageToggleWatchedRandom || messages[lang].aiListManageToggleWatched;
+  }
+
+  return messages[lang].aiListManageToggleWatchedMovies || messages[lang].aiListManageToggleWatched;
+}
+
 function aiListManageMenuKeyboard(lang, section, listType) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [
@@ -301,7 +317,7 @@ function aiListManageMenuKeyboard(lang, section, listType) {
     const statusLabels = getSectionStatusLabels(lang, section);
     rows.push([
       {
-        text: messages[lang].aiListManageToggleWatched,
+        text: getSectionToggleButtonText(lang, section),
         callback_data: `${callBacks.aiListManageTogglePicker}${section}:${listTypeToken}`,
       },
     ]);
@@ -525,7 +541,9 @@ function aiListActionItemsKeyboard(lang, section, listType, action, items = []) 
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = items.map((entry, index) => ([
     {
-      text: `${index + 1}. ${entry.title}`,
+      text: action === "toggle"
+        ? `${entry?.watched ? "✅" : "⬜"} ${index + 1}. ${entry.title}`
+        : `${index + 1}. ${entry.title}`,
       callback_data: action === "toggle"
         ? `${callBacks.aiListManageToggleItem}${section}:${listTypeToken}:${index}`
         : action === "promote"
