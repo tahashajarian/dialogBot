@@ -65,10 +65,19 @@ const UserSchema = new mongoose.Schema({
     sharedAt: Date,
   },
   photoFileId: String,
-  profileDiscoverable: { type: Boolean, default: true },
   showActiveDiscussionOnProfile: { type: Boolean, default: false },
   publicProfileCode: { type: String, default: "" },
   activeDiscussionId: { type: mongoose.Schema.Types.ObjectId, ref: "Discussion", default: null },
+  ownedOpenDiscussionIds: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Discussion" }],
+    default: [],
+    validate: {
+      validator(value) {
+        return Array.isArray(value) && value.length <= 3;
+      },
+      message: "ownedOpenDiscussionIds exceeds active owned discussion cap",
+    },
+  },
   discussionMembershipIds: {
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Discussion" }],
     default: [],

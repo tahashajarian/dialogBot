@@ -1002,6 +1002,7 @@ Stored inside `recentMessages`, capped at 10:
 ### User Additions
 
 - `activeDiscussionId`
+- `ownedOpenDiscussionIds`, capped at 3 and used as an atomic reservation list for the active owned discussion limit
 - `discussionMembershipIds`, capped at 10 in MVP
 - optional muted discussion ids/preferences
 - optional discussion rate-limit metadata

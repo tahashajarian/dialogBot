@@ -19,6 +19,7 @@ const {
 } = require("./keyboards");
 const {
   updateProfileField,
+  resetDiscussionDraft,
   updateUserState,
 } = require("./services/users");
 const {
@@ -483,10 +484,7 @@ async function handleUpdate(ctx) {
 
   if (matchesMessageText(text, ["discussionCreateCancel"])) {
     await clearDiscussionMenuNotice(ctx);
-    await updateProfileField(ctx.userId, "discussionDraftTitle", "");
-    await updateProfileField(ctx.userId, "discussionDraftDescription", "");
-    await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
-    await updateProfileField(ctx.userId, "discussionDraftMaxMembers", 20);
+    await resetDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     await ctx.reply(messages[lang].discussionCreateCanceled, {
       reply_markup: { remove_keyboard: true },

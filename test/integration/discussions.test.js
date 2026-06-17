@@ -8,11 +8,13 @@ const {
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
   addRecentMessage,
+  addSavedProfileCode,
   closeDiscussionAsOwner,
   createDiscussion,
   joinOrOpenDiscussion,
   leaveDiscussionAsMember,
   removeMemberAsOwner,
+  removeSavedProfileCode,
 } = require("../../src/services/discussions");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
@@ -76,7 +78,6 @@ test("create discussion persists creator membership and active room", async () =
     description: "Talk about great album openers",
     joinRule: { type: "open" },
     maxMembers: 5,
-    skipCreateQuota: true,
   });
 
   assert.equal(result.ok, true);
@@ -91,6 +92,32 @@ test("create discussion persists creator membership and active room", async () =
   assert.deepEqual(user.discussionMembershipIds.map(String), [String(discussion._id)]);
   assert.deepEqual(discussion.memberUserIds, [1]);
   assert.equal(discussion.maxMembers, 5);
+});
+
+test("concurrent discussion creation respects active owned limit", async () => {
+  await createUser(1);
+
+  const results = await Promise.all(
+    [1, 2, 3, 4, 5].map((index) => createDiscussion({
+      creatorUserId: 1,
+      title: `Create race ${index}`,
+      description: `Useful discussion ${index}`,
+      joinRule: { type: "open" },
+      maxMembers: 5,
+    })),
+  );
+  const created = results.filter((result) => result.ok);
+  const rejected = results.filter((result) => !result.ok);
+  const [user, discussions] = await Promise.all([
+    User.findOne({ userId: 1 }).lean(),
+    Discussion.find({ creatorUserId: 1, status: "open" }).lean(),
+  ]);
+
+  assert.equal(created.length, 3);
+  assert.equal(rejected.length, 2);
+  assert.ok(rejected.every((result) => result.reason === "active_owned_limit"));
+  assert.equal(discussions.length, 3);
+  assert.equal(user.ownedOpenDiscussionIds.length, 3);
 });
 
 test("user must leave the active room before joining another", async () => {
@@ -199,6 +226,27 @@ test("owner removal and closing clear persisted user membership", async () => {
   assert.deepEqual(owner.discussionMembershipIds, []);
   assert.deepEqual(remainingMember.discussionMembershipIds, []);
   assert.equal(closedDiscussion.status, "closed");
+});
+
+test("saved profile mutations preserve concurrent updates", async () => {
+  await createUser(1);
+
+  const saveResults = await Promise.all(
+    ["u_AAA1", "u_BBB2", "u_CCC3"].map((code) => addSavedProfileCode(1, code)),
+  );
+  assert.ok(saveResults.every((result) => result.ok));
+
+  const savedUser = await User.findOne({ userId: 1 }).lean();
+  assert.deepEqual(savedUser.savedProfileCodes.sort(), ["u_AAA1", "u_BBB2", "u_CCC3"]);
+
+  const removeResults = await Promise.all([
+    removeSavedProfileCode(1, "u_aaa1"),
+    removeSavedProfileCode(1, "u_BBB2"),
+  ]);
+  assert.ok(removeResults.every((result) => result.ok));
+
+  const updatedUser = await User.findOne({ userId: 1 }).lean();
+  assert.deepEqual(updatedUser.savedProfileCodes, ["u_CCC3"]);
 });
 
 test("concurrent messages enforce the one-second burst limit", async () => {

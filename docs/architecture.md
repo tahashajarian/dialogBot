@@ -70,6 +70,7 @@ Viewed public-profile cards are transient. Store and clear their last bot messag
 - location
 - photo
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
+- owned open discussion reservations, capped at 3
 - saved profile references, capped at 50 per user
 - transient public-profile card id (`publicProfileLastMessageId`)
 - transient discussion member-list card id (`discussionLastMembersMessageId`)

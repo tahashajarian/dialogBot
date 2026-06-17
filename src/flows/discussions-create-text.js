@@ -7,7 +7,7 @@ const {
   discussionJoinRuleKeyboard,
   discussionCreateConfirmKeyboard,
 } = require("../keyboards");
-const { updateProfileField, updateUserState } = require("../services/users");
+const { updateProfileField, resetDiscussionDraft, updateUserState } = require("../services/users");
 const { toPlainUser } = require("../services/profile");
 const { hasLink, validateDiscussionTitle, validateDiscussionDescription } = require("../services/discussions");
 const { buildDiscussionPreviewText } = require("../services/discussion-ui");
@@ -51,10 +51,7 @@ function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
 }
 
 async function clearDiscussionDraft(ctx) {
-  await updateProfileField(ctx.userId, "discussionDraftTitle", "");
-  await updateProfileField(ctx.userId, "discussionDraftDescription", "");
-  await updateProfileField(ctx.userId, "discussionDraftJoinRule", null);
-  await updateProfileField(ctx.userId, "discussionDraftMaxMembers", 20);
+  await resetDiscussionDraft(ctx.userId);
 }
 
 async function cancelDiscussionCreate(ctx, lang) {

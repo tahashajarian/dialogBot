@@ -43,12 +43,34 @@ async function updateProfileField(userId, field, value) {
   );
 }
 
+async function updateUserFields(userId, fields = {}) {
+  const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
+  if (!entries.length) {
+    return User.findOne({ userId });
+  }
+
+  return await User.findOneAndUpdate(
+    { userId },
+    { $set: Object.fromEntries(entries) },
+    { returnDocument: "after" },
+  );
+}
+
 async function updateUserState(userId, state) {
   return await User.findOneAndUpdate(
     { userId },
     { state },
     { returnDocument: "after" },
   );
+}
+
+async function resetDiscussionDraft(userId) {
+  return updateUserFields(userId, {
+    discussionDraftTitle: "",
+    discussionDraftDescription: "",
+    discussionDraftJoinRule: null,
+    discussionDraftMaxMembers: 20,
+  });
 }
 
 function normalizeAiListItem(value) {
@@ -613,7 +635,9 @@ module.exports = {
   getOrCreateUser,
   updateLanguage,
   updateProfileField,
+  updateUserFields,
   updateUserState,
+  resetDiscussionDraft,
   addAiListItem,
   removeAiListItem,
   normalizeAiListItem,

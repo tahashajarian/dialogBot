@@ -14,6 +14,7 @@ const {
 } = require("../keyboards");
 const {
   updateProfileField,
+  resetDiscussionDraft,
   updateUserState,
   getAiListItemsFromUser,
   getAiTasteFromUser,
@@ -72,12 +73,7 @@ function createStepBackButton(_messages, lang, callbackData) {
 }
 
 async function clearDiscussionDraft(userId) {
-  await Promise.all([
-    updateProfileField(userId, "discussionDraftTitle", ""),
-    updateProfileField(userId, "discussionDraftDescription", ""),
-    updateProfileField(userId, "discussionDraftJoinRule", null),
-    updateProfileField(userId, "discussionDraftMaxMembers", 20),
-  ]);
+  await resetDiscussionDraft(userId);
 }
 
 async function askDiscussionDescription(ctx, lang, joinRule, {

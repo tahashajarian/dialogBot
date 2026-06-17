@@ -71,6 +71,10 @@ function isDuplicateKeyError(error) {
   return Number(error?.code) === 11000;
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function normalizePublicProfileCode(value) {
   const raw = String(value || "").trim().replace(/^\/+/, "");
   if (!raw) return "";
@@ -297,7 +301,8 @@ async function validateJoinRules({ user, joinRule }) {
 }
 
 async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
-  const activeOwned = await Discussion.countDocuments({
+  const activeOwnedIds = await reconcileOwnedOpenDiscussionIds(creatorUserId);
+  const activeOwned = activeOwnedIds.length || await Discussion.countDocuments({
     creatorUserId,
     status: "open",
   });
@@ -307,6 +312,59 @@ async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
   }
 
   return { ok: true, count: activeOwned, cap: DISCUSSION_ACTIVE_OWNED_LIMIT };
+}
+
+async function reconcileOwnedOpenDiscussionIds(userId) {
+  const discussions = await Discussion.find({
+    creatorUserId: userId,
+    status: "open",
+  }).select("_id").lean();
+  const ids = discussions.map((discussion) => discussion._id);
+
+  const updated = await User.findOneAndUpdate(
+    { userId },
+    { $addToSet: { ownedOpenDiscussionIds: { $each: ids } } },
+    { returnDocument: "after" },
+  ).select("ownedOpenDiscussionIds").lean();
+
+  return Array.isArray(updated?.ownedOpenDiscussionIds) ? updated.ownedOpenDiscussionIds : ids;
+}
+
+async function reserveOwnedDiscussionSlot(userId, discussionId) {
+  await reconcileOwnedOpenDiscussionIds(userId);
+
+  return User.findOneAndUpdate(
+    {
+      userId,
+      $expr: {
+        $lt: [
+          { $size: { $ifNull: ["$ownedOpenDiscussionIds", []] } },
+          DISCUSSION_ACTIVE_OWNED_LIMIT,
+        ],
+      },
+    },
+    {
+      $addToSet: {
+        ownedOpenDiscussionIds: discussionId,
+        discussionMembershipIds: discussionId,
+      },
+      $set: { activeDiscussionId: discussionId },
+    },
+    { returnDocument: "after" },
+  );
+}
+
+async function rollbackOwnedDiscussionReservation(userId, discussionId, previousActiveDiscussionId = null) {
+  await User.findOneAndUpdate(
+    { userId },
+    {
+      $pull: {
+        ownedOpenDiscussionIds: discussionId,
+        discussionMembershipIds: discussionId,
+      },
+      $set: { activeDiscussionId: previousActiveDiscussionId || null },
+    },
+  );
 }
 
 async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = DISCUSSION_MEMBER_CAP }) {
@@ -326,16 +384,10 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
     return { ok: false, reason: "open_requires_description" };
   }
 
-  const memberships = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
-
-  // Always check active owned limit for everyone (no bypass)
-  const activeOwnedLimit = await checkActiveOwnedDiscussionsLimit(creatorUserId);
-  if (!activeOwnedLimit.ok) return activeOwnedLimit;
-
   const eligibility = await validateJoinRules({ user, joinRule: parsedRule.joinRule });
   if (!eligibility.ok) return eligibility;
 
-  const discussion = await Discussion.create({
+  const discussion = new Discussion({
     title: normalizedTitle,
     description: normalizedDescription,
     creatorUserId,
@@ -347,18 +399,31 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
     replyCount: 0,
     lastActivityAt: new Date(),
   });
-  await ensurePublicDiscussionCode(discussion);
 
-  const membershipIds = [...memberships, discussion._id];
-  await User.findOneAndUpdate(
-    { userId: creatorUserId },
-    {
-      $set: { activeDiscussionId: discussion._id },
-      $addToSet: { discussionMembershipIds: discussion._id },
-    },
-  );
+  const reservedUser = await reserveOwnedDiscussionSlot(creatorUserId, discussion._id);
+  if (!reservedUser) {
+    const activeOwned = await checkActiveOwnedDiscussionsLimit(creatorUserId);
+    return activeOwned.ok
+      ? { ok: false, reason: "active_owned_limit", cap: DISCUSSION_ACTIVE_OWNED_LIMIT }
+      : activeOwned;
+  }
 
-  return { ok: true, discussion, membershipIds };
+  try {
+    await discussion.save();
+    const codeResult = await ensurePublicDiscussionCode(discussion);
+    if (!codeResult.ok) throw new Error(codeResult.reason || "code_generation_failed");
+  } catch (error) {
+    await rollbackOwnedDiscussionReservation(creatorUserId, discussion._id, user.activeDiscussionId || null);
+    await Discussion.deleteOne({ _id: discussion._id });
+    if (isDuplicateKeyError(error)) return { ok: false, reason: "duplicate_discussion" };
+    throw error;
+  }
+
+  return {
+    ok: true,
+    discussion,
+    membershipIds: reservedUser.discussionMembershipIds || [],
+  };
 }
 
 async function seedBotDiscussions(botUserId) {
@@ -644,6 +709,11 @@ async function closeDiscussionAsOwner(ownerUserId, discussionId) {
     },
   );
 
+  await User.findOneAndUpdate(
+    { userId: ownerUserId },
+    { $pull: { ownedOpenDiscussionIds: discussion._id } },
+  );
+
   await User.updateMany(
     { activeDiscussionId: discussion._id },
     { $set: { activeDiscussionId: null } },
@@ -905,36 +975,50 @@ async function addSavedProfileCode(userId, profileCode) {
   const cleanCode = normalizePublicProfileCode(profileCode);
   if (!cleanCode) return { ok: false, reason: "empty_code" };
 
-  const user = await User.findOne({ userId });
-  if (!user) return { ok: false, reason: "missing_user" };
+  const codePattern = new RegExp(`^${escapeRegExp(cleanCode)}$`, "i");
+  const updated = await User.findOneAndUpdate(
+    {
+      userId,
+      savedProfileCodes: { $not: codePattern },
+      $expr: {
+        $lt: [
+          { $size: { $ifNull: ["$savedProfileCodes", []] } },
+          SAVED_PROFILE_CAP,
+        ],
+      },
+    },
+    { $push: { savedProfileCodes: cleanCode } },
+    { returnDocument: "after" },
+  ).lean();
 
+  if (updated) return { ok: true, items: updated.savedProfileCodes || [] };
+
+  const user = await User.findOne({ userId }).select("savedProfileCodes").lean();
+  if (!user) return { ok: false, reason: "missing_user" };
   const current = Array.isArray(user.savedProfileCodes) ? user.savedProfileCodes : [];
-  if (current.some((entry) => String(entry).toLowerCase() === cleanCode.toLowerCase())) {
+  if (current.some((entry) => codePattern.test(String(entry)))) {
     return { ok: false, reason: "exists", items: current };
   }
-
-  if (current.length >= SAVED_PROFILE_CAP) {
-    return { ok: false, reason: "saved_profiles_limit", cap: SAVED_PROFILE_CAP };
-  }
-
-  const updated = [...current, cleanCode];
-  await User.findOneAndUpdate({ userId }, { $set: { savedProfileCodes: updated } });
-  return { ok: true, items: updated };
+  return { ok: false, reason: "saved_profiles_limit", cap: SAVED_PROFILE_CAP };
 }
 
 async function removeSavedProfileCode(userId, profileCode) {
   const cleanCode = normalizePublicProfileCode(profileCode);
   if (!cleanCode) return { ok: false, reason: "empty_code" };
 
-  const user = await User.findOne({ userId });
+  const codePattern = new RegExp(`^${escapeRegExp(cleanCode)}$`, "i");
+  const updated = await User.findOneAndUpdate(
+    { userId, savedProfileCodes: codePattern },
+    { $pull: { savedProfileCodes: codePattern } },
+    { returnDocument: "after" },
+  ).lean();
+
+  if (updated) return { ok: true, items: updated.savedProfileCodes || [] };
+
+  const user = await User.findOne({ userId }).select("savedProfileCodes").lean();
   if (!user) return { ok: false, reason: "missing_user" };
-
   const current = Array.isArray(user.savedProfileCodes) ? user.savedProfileCodes : [];
-  const updated = current.filter((entry) => String(entry).toLowerCase() !== cleanCode.toLowerCase());
-  if (updated.length === current.length) return { ok: false, reason: "not_found", items: current };
-
-  await User.findOneAndUpdate({ userId }, { $set: { savedProfileCodes: updated } });
-  return { ok: true, items: updated };
+  return { ok: false, reason: "not_found", items: current };
 }
 
 function normalizeNotificationPayloads(payload) {

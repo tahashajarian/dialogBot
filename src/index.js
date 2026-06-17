@@ -9,6 +9,7 @@ const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussions");
+const messages = require("./messages");
 
 const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
@@ -35,10 +36,12 @@ bot.catch((err) => {
 
 async function processUpdate(ctx) {
   if (!isAllowedUser(ctx.from)) {
+    const lang = String(ctx.from?.language_code || "").toLowerCase().startsWith("en") ? "en" : "fa";
+    const text = messages[lang].betaAccessOnly;
     if (ctx.callbackQuery) {
-      await ctx.answerCbQuery("go away it's not ready yet!").catch(() => {});
+      await ctx.answerCbQuery(text).catch(() => {});
     }
-    await ctx.reply("go away it's not ready yet!").catch(() => {});
+    await ctx.reply(text).catch(() => {});
     return;
   }
 
