@@ -39,6 +39,8 @@ Discussions are live rooms with short memory.
 - `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🧩 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🧩 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
 - The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the three-interest onboarding flow.
+- Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms say which Interest unlocked them, and locked rooms say which Interest TopTen item to add.
+- After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
 - Bot-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart pinning**: Bot-created discussions appear at the top of the active discussions list for users with fewer than 2 discussion memberships. Once a user joins 2 or more discussions, all discussions are sorted purely by activity (most recent first). This helps new users discover starter rooms while keeping the experience clean for active users.

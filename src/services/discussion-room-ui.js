@@ -55,6 +55,29 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
   return `${messages[lang].discussionRecentMessagesTitle}\n${lines.join("\n")}`;
 }
 
+function getStarterDiscussionJoinNudge(messages, lang, discussion = {}) {
+  if (!discussion.isBotCreated) return "";
+  if (discussion.botSeedKey === "free-discussion") {
+    return messages[lang].discussionStarterJoinNudgeFree;
+  }
+  if (discussion.botSeedKey === "whats-up") {
+    return messages[lang].discussionStarterJoinNudgeGaming;
+  }
+  if (discussion.botSeedKey === "lets-talk") {
+    return messages[lang].discussionStarterJoinNudgeMovies;
+  }
+  return "";
+}
+
+function formatDiscussionRoomFollowup(messages, lang, discussion) {
+  const parts = [
+    formatRecentDiscussionMessages(messages, lang, discussion),
+    messages[lang].discussionRoomSendHint,
+    getStarterDiscussionJoinNudge(messages, lang, discussion),
+  ].filter(Boolean);
+  return parts.join("\n\n");
+}
+
 const DISCUSSION_MEMBER_DIVIDER = PAGINATION.listDivider;
 
 function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, _discussionId = null) {
@@ -87,6 +110,8 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 
 module.exports = {
   formatDiscussionRoom,
+  formatDiscussionRoomFollowup,
   formatRecentDiscussionMessages,
+  getStarterDiscussionJoinNudge,
   formatDiscussionMemberLines,
 };

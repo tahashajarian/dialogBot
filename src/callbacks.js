@@ -24,7 +24,7 @@ const {
 } = require("./services/discussion-ui");
 const {
   formatDiscussionRoom,
-  formatRecentDiscussionMessages,
+  formatDiscussionRoomFollowup,
   formatDiscussionMemberLines,
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
@@ -177,7 +177,7 @@ async function showInlineMenuAfterNavigation(ctx, text, keyboard, { forceClearKe
 async function sendDiscussionRoom(ctx, lang, discussion) {
   const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   const recentMessage = await ctx.reply(
-    `${formatRecentDiscussionMessages(messages, lang, discussion)}\n\n${messages[lang].discussionRoomSendHint}`,
+    formatDiscussionRoomFollowup(messages, lang, discussion),
     discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
   );
   await clearRememberedDiscussionRoomCards(ctx, [

@@ -104,7 +104,7 @@ test("discussion list text separates multiple discussions with dividers", () => 
 test("bot-created discussions use localized copy and only a bot emoji marker", () => {
   const discussion = {
     title: "Free Discussion",
-    description: "Talk freely about anything on your mind.",
+    description: "A simple place to start chatting.",
     publicDiscussionCode: "d_BOT1",
     isBotCreated: true,
     botSeedKey: "free-discussion",
@@ -117,12 +117,92 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
   const persianPreviewText = buildDiscussionInvitePreviewText(messages, "fa", discussion);
 
   assert.match(listText, /💬 🤖 Free Discussion/);
-  assert.match(listText, /Talk freely about anything on your mind/);
+  assert.match(listText, /A simple place to start chatting/);
   assert.match(previewText, /💬 🤖 Free Discussion/);
   assert.match(persianListText, /💬 .*🤖 گفتگوی آزاد/);
-  assert.match(persianListText, /آزادانه درباره هر چیزی که توی ذهنت هست حرف بزن/);
+  assert.match(persianListText, /یه جای ساده برای شروع گپ با بقیه/);
   assert.match(persianPreviewText, /💬 .*🤖 گفتگوی آزاد/);
   assert.doesNotMatch(listText, /official/i);
+});
+
+test("starter discussion list makes the first social step obvious", () => {
+  const discussions = [
+    {
+      title: "Free Discussion",
+      description: "A simple place to start chatting.",
+      publicDiscussionCode: "d_BOT1",
+      isBotCreated: true,
+      botSeedKey: "free-discussion",
+      isJoinable: true,
+      memberUserIds: [],
+      joinRule: { type: "open" },
+    },
+    {
+      title: "Gaming Hangout",
+      description: "A room for players.",
+      publicDiscussionCode: "d_BOT2",
+      isBotCreated: true,
+      botSeedKey: "whats-up",
+      isJoinable: true,
+      memberUserIds: [],
+      joinRule: {
+        type: "top_ten_item",
+        section: "random",
+        itemTitle: "Gaming",
+        itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
+      },
+    },
+    {
+      title: "Movie Chat",
+      description: "Talk about films.",
+      publicDiscussionCode: "d_BOT3",
+      isBotCreated: true,
+      botSeedKey: "lets-talk",
+      isJoinable: false,
+      memberUserIds: [],
+      joinRule: {
+        type: "top_ten_item",
+        section: "random",
+        itemTitle: "Movies",
+        itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم"],
+      },
+    },
+  ];
+  const text = buildDiscussionListText(messages, "en", "Active discussions", discussions);
+
+  assert.match(text, /✨ Start here: open to everyone\./);
+  assert.match(text, /✨ Unlocked by your Interests: Gaming\./);
+  assert.match(text, /💡 Add Movies to your Interests Top 10 to unlock this room\./);
+});
+
+test("starter discussion item rules use Persian aliases in Persian UI", () => {
+  const discussion = {
+    title: "Gaming Hangout",
+    description: "A room for players.",
+    publicDiscussionCode: "d_BOT2",
+    isBotCreated: true,
+    botSeedKey: "whats-up",
+    isJoinable: false,
+    memberUserIds: [],
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
+    },
+  };
+  const listText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+  const lockedText = buildDiscussionInviteLockedText(
+    messages,
+    "fa",
+    "requires_top_ten_item",
+    discussion,
+  );
+
+  assert.match(listText, /🏆 .*گیم/);
+  assert.match(listText, /برای باز شدن این اتاق، گیم/);
+  assert.match(lockedText, /«گیم»/);
+  assert.doesNotMatch(lockedText, /Gaming/);
 });
 
 test("discussion list text keeps numbering across pages", () => {
@@ -291,7 +371,8 @@ test("discussion invite locked hint names required update path", () => {
 
   assert.match(text, /Chess/);
   assert.match(text, /Go to Lists/);
-  assert.match(text, /same invite link/);
+  assert.match(text, /try this invite link again/);
+  assert.doesNotMatch(text, /\{item\}/);
 });
 
 test("full discussion guidance keeps the existing acknowledgement recovery", () => {

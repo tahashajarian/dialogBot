@@ -36,9 +36,9 @@ const {
   getDiscussionDisplayTitle,
 } = require("../services/discussion-ui");
 const {
+  formatDiscussionRoomFollowup,
   formatDiscussionMemberLines,
   formatDiscussionRoom,
-  formatRecentDiscussionMessages,
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { updateProfileField, updateUserState } = require("../services/users");
@@ -204,7 +204,7 @@ async function sendDiscussionCreatePrompt(ctx, text, keyboard) {
 async function sendDiscussionRoomFromText(ctx, lang, discussion) {
   await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   return ctx.reply(
-    `${formatRecentDiscussionMessages(messages, lang, discussion)}\n\n${messages[lang].discussionRoomSendHint}`,
+    formatDiscussionRoomFollowup(messages, lang, discussion),
     discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
   );
 }
@@ -454,9 +454,13 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
       await editMessage(text, keyboardToShow);
     } else {
       const destination = returnToMainMenu ? "main" : "discussions";
-      await ctx.reply(text, {
+      const cleanupMessage = await ctx.reply(" ", {
         reply_markup: { remove_keyboard: true },
       });
+      const cleanupMessageId = getMessageId(cleanupMessage);
+      if (cleanupMessageId && ctx.deleteMessage) {
+        await ctx.deleteMessage(cleanupMessageId);
+      }
       await ctx.reply(text, discussionJoinErrorAckKeyboard(lang, destination));
     }
     return joined;

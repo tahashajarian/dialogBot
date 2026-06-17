@@ -35,6 +35,16 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   return messages[lang].unknownAction;
 }
 
+function getLocalizedJoinRuleItemTitle(lang, joinRule = {}) {
+  const aliases = Array.isArray(joinRule.itemAliases) ? joinRule.itemAliases : [];
+  if (lang === "fa") {
+    const persianAlias = aliases.find((alias) => /[\u0600-\u06FF]/.test(String(alias || "")));
+    return persianAlias || joinRule.itemTitle || "-";
+  }
+  const latinAlias = aliases.find((alias) => /[A-Za-z]/.test(String(alias || "")));
+  return latinAlias || joinRule.itemTitle || "-";
+}
+
 function getJoinRulePreviewText(messages, lang, joinRule = {}) {
   const sectionLabel = joinRule?.section
     ? getSectionLabel(messages, lang, joinRule.section)
@@ -53,7 +63,7 @@ function getJoinRulePreviewText(messages, lang, joinRule = {}) {
   if (joinRule.type === "top_ten_item") {
     return messages[lang].discussionRuleTextItem
       .replace("{section}", sectionLabel)
-      .replace("{item}", joinRule.itemTitle || "-");
+      .replace("{item}", getLocalizedJoinRuleItemTitle(lang, joinRule));
   }
   return messages[lang].discussionRuleTextOpen;
 }
@@ -149,6 +159,20 @@ function getDiscussionDisplayDescription(messages, lang, discussion = {}) {
   return messageKey ? (messages?.[lang]?.[messageKey] || description) : description;
 }
 
+function getStarterDiscussionHint(messages, lang, discussion = {}) {
+  if (!discussion.isBotCreated) return "";
+  if (discussion.botSeedKey === "free-discussion") {
+    return messages[lang].discussionStarterHintOpen;
+  }
+  const joinRule = discussion.joinRule || {};
+  if (joinRule.type !== "top_ten_item") return "";
+  const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
+  const key = discussion.isJoinable
+    ? "discussionStarterHintUnlocked"
+    : "discussionStarterHintLocked";
+  return messages[lang][key].replace("{item}", item);
+}
+
 function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
   if (!discussions.length) {
     return title;
@@ -160,6 +184,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
     const description = getDiscussionDisplayDescription(messages, lang, entry) || "-";
     const rule = getJoinRulePreviewText(messages, lang, entry.joinRule || { type: "open" });
     const ruleWithStatus = `${rule} ${entry.isJoinable ? "✅" : "🔒"}`.trim();
+    const starterHint = getStarterDiscussionHint(messages, lang, entry);
     const code = entry.publicDiscussionCode || "";
     const joinLabel = lang === "fa" ? "ورود" : "Join";
     const leaveLabel = lang === "fa" ? "خروج" : "Leave";
@@ -183,7 +208,8 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
       lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),
       lineForLang(lang, `${isolateText(lang, ruleWithStatus)}`),
-    ].join("\n") + actionsBlock;
+      starterHint ? lineForLang(lang, starterHint) : "",
+    ].filter(Boolean).join("\n") + actionsBlock;
   });
   return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
@@ -248,8 +274,10 @@ function buildDiscussionInviteLockedText(messages, lang, reason, discussion = {}
       .replaceAll("{section}", sectionLabel || "-");
   }
   if (reason === "requires_top_ten_item") {
+    const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
     return messages[lang].discussionInviteLockedItem
       .replace("{rule}", rule)
+      .replaceAll("{item}", item)
       .replaceAll("{section}", sectionLabel || "-");
   }
   if (reason === "requires_top_ten_completed") {
@@ -274,6 +302,7 @@ function buildDiscussionPreviewText(messages, lang, user) {
 module.exports = {
   getDiscussionErrorMessage,
   getJoinRulePreviewText,
+  getLocalizedJoinRuleItemTitle,
   decorateDiscussionsForList,
   paginateDiscussions,
   getDiscussionDisplayTitle,

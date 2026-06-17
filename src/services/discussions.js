@@ -17,7 +17,7 @@ const BOT_STARTER_DISCUSSIONS = [
   {
     botSeedKey: "free-discussion",
     title: "Free Discussion",
-    description: "Talk freely about anything on your mind.",
+    description: "A simple place to start chatting.",
   },
   {
     botSeedKey: "whats-up",
@@ -33,7 +33,7 @@ const BOT_STARTER_DISCUSSIONS = [
   {
     botSeedKey: "lets-talk",
     title: "Movie Chat",
-    description: "Talk about films, scenes, actors, and what is worth watching.",
+    description: "Chat about movies, scenes, and recent favorites.",
     joinRule: {
       type: "top_ten_item",
       section: "random",

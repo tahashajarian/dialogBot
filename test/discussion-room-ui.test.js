@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const {
   formatDiscussionRoom,
+  formatDiscussionRoomFollowup,
   formatRecentDiscussionMessages,
   formatDiscussionMemberLines,
 } = require("../src/services/discussion-room-ui");
@@ -23,7 +24,7 @@ test("formatDiscussionRoom renders title, description, and counts", () => {
 test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emoji marker", () => {
   const discussion = {
     title: "Movie Chat",
-    description: "Talk about films, scenes, actors, and what is worth watching.",
+    description: "Chat about movies, scenes, and recent favorites.",
     isBotCreated: true,
     botSeedKey: "lets-talk",
     memberUserIds: [],
@@ -33,9 +34,9 @@ test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emo
   const persianText = formatDiscussionRoom(messages, "fa", discussion);
 
   assert.match(text, /💬 🤖 Movie Chat/);
-  assert.match(text, /Talk about films, scenes, actors, and what is worth watching/);
+  assert.match(text, /Chat about movies, scenes, and recent favorites/);
   assert.match(persianText, /💬 🤖 گفتگوی فیلم/);
-  assert.match(persianText, /درباره فیلم‌ها، سکانس‌ها، بازیگرها و چیزهایی که ارزش دیدن دارند حرف بزن/);
+  assert.match(persianText, /برای گپ درباره فیلم‌ها، سکانس‌ها و چیزهایی که دوست داشتید/);
   assert.doesNotMatch(text, /official/i);
 });
 
@@ -47,6 +48,22 @@ test("formatRecentDiscussionMessages handles empty and populated lists", () => {
     recentMessages: [{ senderDisplayName: "Ali", text: "Hello" }],
   });
   assert.match(populated, /Ali: Hello/);
+});
+
+test("formatDiscussionRoomFollowup adds a quiet starter-room nudge only for bot rooms", () => {
+  const gaming = formatDiscussionRoomFollowup(messages, "en", {
+    isBotCreated: true,
+    botSeedKey: "whats-up",
+    recentMessages: [],
+  });
+  const regular = formatDiscussionRoomFollowup(messages, "en", {
+    isBotCreated: false,
+    recentMessages: [],
+  });
+
+  assert.match(gaming, /From now on, normal text messages go to this discussion/);
+  assert.match(gaming, /Say hi\./);
+  assert.doesNotMatch(regular, /Say hi/);
 });
 
 test("formatDiscussionMemberLines marks host with host badge", () => {
