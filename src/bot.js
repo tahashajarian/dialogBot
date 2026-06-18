@@ -20,6 +20,7 @@ const {
 const {
   updateProfileField,
   resetDiscussionDraft,
+  updateUserFields,
   updateUserState,
 } = require("./services/users");
 const {
@@ -61,7 +62,17 @@ const {
   closeDiscussionCommand,
   removeDiscussionMemberCommand,
   reportDiscussionMemberCommand,
+  sendDiscussionRoomFromText,
 } = require("./flows/discussions-text");
+const {
+  acceptInvitationCommand,
+  normalizeProfileCodeFromInviteCommand,
+  removeInvitationCommand,
+  showDiscussionPickerForSavedProfile,
+} = require("./flows/discussion-invitations");
+const {
+  clearDiscussionListMessage,
+} = require("./flows/discussions-callbacks");
 const {
   isDiscussionCreateTextState,
   handleDiscussionCreateText,
@@ -100,6 +111,7 @@ const FIELD_LIMITS = {
   city: 30,
   bio: 120,
 };
+const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
   return String(value || "")
     .trim()
@@ -131,6 +143,39 @@ function getStartInviteCode(text = "") {
   const value = String(text || "").trim();
   const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])(?:join_|d_)([a-z0-9]+)$/i);
   return match ? `d_${match[1].toUpperCase()}` : "";
+}
+
+function isRepeatedStartInvite(user, inviteCode) {
+  const lastCode = String(user?.lastStartInviteCode || "");
+  const handledCodes = Array.isArray(user?.handledStartInviteCodes)
+    ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
+    : [];
+
+  if (inviteCode && handledCodes.includes(inviteCode)) return true;
+  return Boolean(inviteCode && lastCode === inviteCode);
+}
+
+function addHandledStartInviteCode(user, inviteCode) {
+  const existing = Array.isArray(user?.handledStartInviteCodes)
+    ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
+    : [];
+  const next = [inviteCode, ...existing.filter((code) => code !== inviteCode)];
+  return next.slice(0, START_INVITE_HISTORY_LIMIT);
+}
+
+async function rememberStartInvite(ctx, inviteCode, now = new Date()) {
+  if (!inviteCode) return;
+  const handledStartInviteCodes = addHandledStartInviteCode(ctx.user, inviteCode);
+  if (ctx.user) {
+    ctx.user.lastStartInviteCode = inviteCode;
+    ctx.user.lastStartInviteAt = now;
+    ctx.user.handledStartInviteCodes = handledStartInviteCodes;
+  }
+  await updateUserFields(ctx.userId, {
+    lastStartInviteCode: inviteCode,
+    lastStartInviteAt: now,
+    handledStartInviteCodes,
+  });
 }
 
 function getReplyMessageId(message = {}) {
@@ -267,9 +312,11 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const keyboardLang = userLang || lang;
   const startInviteCode = getStartInviteCode(text);
+  const repeatedStartInvite = startInviteCode && isRepeatedStartInvite(ctx.user, startInviteCode);
 
-  if (startInviteCode) {
+  if (startInviteCode && !repeatedStartInvite) {
     await clearViewedPublicProfileMessage(ctx);
+    await clearSavedProfilesListMessage(ctx);
     await clearBottomKeyboardQuietly(ctx);
 
     if (shouldOfferOnboarding(ctx.user)) {
@@ -283,12 +330,14 @@ async function handleUpdate(ctx) {
       : messages[keyboardLang].discussionInviteWelcome;
 
     await updateUserState(ctx.userId, "idle");
+    await rememberStartInvite(ctx, startInviteCode);
     await ctx.reply(welcomeMessage);
     return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
   }
 
   if (/^\/join_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
+    await clearSavedProfilesListMessage(ctx);
     await clearBottomKeyboardQuietly(ctx);
     const inviteCode = `d_${text.replace(/^\/join_/i, "")}`;
     if (shouldOfferOnboarding(ctx.user)) {
@@ -298,8 +347,34 @@ async function handleUpdate(ctx) {
     return showDiscussionInvitePreviewCommand(ctx, lang, inviteCode);
   }
 
-  if (text === "/start") {
+  if (/^\/invite_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
+    await clearSavedProfilesListMessage(ctx);
+    await clearBottomKeyboardQuietly(ctx);
+    await updateUserState(ctx.userId, "idle");
+    return showDiscussionPickerForSavedProfile(ctx, lang, normalizeProfileCodeFromInviteCommand(text));
+  }
+
+  if (/^\/accept_inv_[a-z0-9]+$/i.test(text)) {
+    await clearViewedPublicProfileMessage(ctx);
+    await clearDiscussionListMessage(ctx);
+    await clearBottomKeyboardQuietly(ctx);
+    await updateUserState(ctx.userId, "idle");
+    return acceptInvitationCommand(ctx, lang, text, {
+      sendRoom: sendDiscussionRoomFromText,
+    });
+  }
+
+  if (/^\/remove_inv_[a-z0-9]+$/i.test(text)) {
+    await clearViewedPublicProfileMessage(ctx);
+    await clearDiscussionListMessage(ctx);
+    await updateUserState(ctx.userId, "idle");
+    return removeInvitationCommand(ctx, lang, text);
+  }
+
+  if (text === "/start" || repeatedStartInvite) {
+    await clearViewedPublicProfileMessage(ctx);
+    await clearSavedProfilesListMessage(ctx);
     const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
     const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
     const userName = rawUserName.trim().replace(/\s+/g, " ");
@@ -634,16 +709,26 @@ async function handleUpdate(ctx) {
   if (/^\/discussions_(u_)?[a-z0-9]+$/i.test(text)) {
     const raw = text.replace(/^\/discussions_/i, "");
     const code = normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
+    await clearSavedProfilesListMessage(ctx);
     return renderSavedProfileDiscussions(ctx, lang, code);
   }
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
     const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    const fromSavedList = current.some((entry) => normalizePublicProfileCode(entry) === code)
-      ? await clearSavedProfilesListMessage(ctx)
-      : false;
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList });
+    const isSavedProfileCode = current.some((entry) => normalizePublicProfileCode(entry) === code);
+    const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
+    const fromSavedList = hasSavedProfilesListContext || (
+      ctx.user?.discussionLastListType !== "invitations" && isSavedProfileCode
+    );
+    if (fromSavedList) {
+      await clearSavedProfilesListMessage(ctx);
+    }
+    const fromInvitationList = !fromSavedList && ctx.user?.discussionLastListType === "invitations";
+    if (fromInvitationList) {
+      await clearDiscussionListMessage(ctx);
+    }
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList });
   }
 
   if (text === "/resetphoto") {
@@ -677,6 +762,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
 module.exports = {
   handleUpdate,
   getStartInviteCode,
+  isRepeatedStartInvite,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   isUnsupportedDiscussionMessage,

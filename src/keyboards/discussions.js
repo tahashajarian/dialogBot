@@ -13,9 +13,14 @@ function ltrText(value) {
   return `\u200e${value}`;
 }
 
-function discussionsMenuKeyboard(lang) {
+function discussionsMenuKeyboard(lang, { invitationCount = 0 } = {}) {
+  const count = Math.max(0, Number(invitationCount) || 0);
   const rows = [
     [{ text: messages[lang].discussionActiveList, callback_data: callBacks.discussionListActive }],
+    [{
+      text: messages[lang].discussionInvitationsWithCount.replace("{count}", String(count)),
+      callback_data: callBacks.discussionInvitations,
+    }],
     [{ text: messages[lang].discussionCreate, callback_data: callBacks.discussionCreateStart }],
     [{ text: messages[lang].discussionMyList, callback_data: callBacks.discussionListMine }],
   ];
@@ -107,6 +112,7 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
     ? `saved:u_${savedMatch[1].toUpperCase()}`
     : listType === "mine" ? "mine"
     : listType === "discussions" ? "discussions"
+    : listType === "invitations" ? "invitations"
     : "active";
   return inlineKeyboard([
     [{
@@ -114,6 +120,67 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
       callback_data: `${callBacks.discussionJoinErrorAck}${normalizedListType}`,
     }],
   ]);
+}
+
+function discussionInviteModeKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionInviteSavedProfile, callback_data: callBacks.discussionInviteModeSaved }],
+    [{ text: messages[lang].discussionInviteShareable, callback_data: callBacks.discussionInviteModeShare }],
+    [{ text: messages[lang].discussionBackToRoom, callback_data: callBacks.discussionInvitationAck + "room" }],
+  ]);
+}
+
+function discussionInviteSavedProfilesKeyboard(lang, items = []) {
+  const rows = items.map((entry) => ([{
+    text: entry.name,
+    callback_data: `${callBacks.discussionInviteSavedTarget}${entry.code}`,
+  }]));
+  rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: callBacks.discussionInvitationAck + "room" }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionInviteDiscussionPickerKeyboard(lang, profileCode, discussions = []) {
+  const cleanProfileCode = String(profileCode || "").replace(/^u_/i, "");
+  const rows = discussions.map((discussion, index) => ([{
+    text: `${index + 1}. ${discussion.title || "-"}`,
+    callback_data: `${callBacks.discussionInviteDiscussionTarget}u_${cleanProfileCode}:${discussion.publicDiscussionCode}`,
+  }]));
+  rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionInvitationAckKeyboard(lang, destination = "invitations") {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: `${callBacks.discussionInvitationAck}${destination}`,
+    },
+  ]]);
+}
+
+function discussionInvitationsBackKeyboard(lang, {
+  page = 0,
+  totalPages = 1,
+} = {}) {
+  const rows = [];
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  const maxPage = Math.max(0, Number(totalPages || 1) - 1);
+  const pageRows = [];
+  if (normalizedPage < maxPage) {
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.discussionInvitationsPage}${normalizedPage + 1}`,
+    });
+  }
+  if (normalizedPage > 0) {
+    pageRows.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.discussionInvitationsPage}${normalizedPage - 1}`,
+    });
+  }
+  if (pageRows.length) rows.push(pageRows);
+  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionCreateDescriptionKeyboard(lang, {
@@ -260,6 +327,11 @@ module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
+  discussionInviteModeKeyboard,
+  discussionInviteSavedProfilesKeyboard,
+  discussionInviteDiscussionPickerKeyboard,
+  discussionInvitationAckKeyboard,
+  discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,

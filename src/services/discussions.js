@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
+const { isUserMutedBy } = require("./discussion-invitation-mutes");
 const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = require("./users");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 
@@ -529,6 +530,15 @@ async function joinOrOpenDiscussion(userId, discussionId) {
   const isOwner = Number(discussion.creatorUserId) === Number(userId);
 
   if (!isMember) {
+    if (!isOwner) {
+      const mutedByCreator = await isUserMutedBy({
+        userId,
+        possibleMuterUserId: discussion.creatorUserId,
+      });
+      if (mutedByCreator) {
+        return { ok: false, reason: "discussion_unavailable" };
+      }
+    }
     if (!isOwner) {
       const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
       if (wasRemoved) {

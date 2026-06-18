@@ -10,6 +10,7 @@ The MVP described here is implemented. The current code supports:
 - one active room per user; joining another room requires leaving the current room first
 - live text delivery with last-10-message context and runtime-only native reply mapping
 - shareable invite links with a revalidated preview before joining
+- stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - three bot-created starter rooms, marked only with `🤖`: one open room and two rooms gated by popular Interests TopTen items
@@ -55,7 +56,7 @@ Discussions are live rooms with short memory.
 - Links are not allowed in discussion messages.
 - No AI-generated moderation or AI summaries.
 - No age, city, gender, or profile-field-based join rules.
-- No invite-only or private rooms yet. Shareable invites may exist, but they must not make a room private or bypass join rules.
+- No invite-only or private rooms yet. Shareable links and stored saved-profile invitations may exist, but they must not make a room private or bypass join rules.
 
 ## Identity And Profile Visibility
 
@@ -117,7 +118,7 @@ Owner buttons:
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
 The owner can leave their own discussion without closing it. The discussion stays open, the owner remains `creatorUserId`, and other members can continue talking. The owner can later find the discussion in `🗂 بحث‌های من`, rejoin it, or close it.
-All current members can use `📨 دعوت` to generate a shareable invite message for the active discussion. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
+All current members can use `📨 دعوت` to open invite options for the active discussion. Members can create a shareable invite message or send a stored invitation to a saved profile. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
 
 There is no separate room-level discussion-menu/back button. `🚪 خروج از بحث` is the explicit way to leave the room; after leaving, the bot removes the room keyboard and shows the discussions menu.
 
@@ -358,8 +359,9 @@ Invites make active discussions easier to grow without adding private chat or a 
 
 Entry point:
 
-- Inside an active discussion, the bottom button `📨 دعوت` generates a bot-authored invite message.
-- Any current member can generate an invite for the active discussion.
+- Inside an active discussion, the bottom button `📨 دعوت` opens invite options.
+- Any current member can create a shareable invite message for the active discussion.
+- Any current member can also send a stored invitation to one of their saved profiles, subject to stored-invitation rules in [Discussion Invitations](discussion-invitations.md).
 - The user must still be a member at the moment they tap `📨 دعوت`; stale bottom keyboards must fail safely.
 - The invite points to a discussion preview, not directly into the room.
 - The invited user must still tap join and pass the normal join checks.
@@ -368,11 +370,12 @@ Entry point:
 Invite flow:
 
 1. Member taps `📨 دعوت` inside their active discussion.
-2. Bot sends a ready-to-share message/card for that discussion.
-3. User shares or forwards the invite outside the bot.
-4. Recipient opens the bot through the invite/deep link or sends the invite command.
-5. Bot shows a safe discussion preview.
-6. Recipient can join only if the discussion is open, not full, not closed, and they satisfy the join rule.
+2. Bot asks whether to invite a saved profile or create a shareable invite.
+3. If the member chooses shareable invite, bot sends a ready-to-share message/card for that discussion.
+4. User shares or forwards the invite outside the bot.
+5. Recipient opens the bot through the invite/deep link or sends the invite command.
+6. Bot shows a safe discussion preview.
+7. Recipient can join only if the discussion is open, not full, not closed, and they satisfy the join rule.
 
 First-time/deep-link handling:
 
@@ -383,6 +386,7 @@ First-time/deep-link handling:
 - If the platform opens the bot through `/start join_CODE`, handle it as an invite preview.
 - If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
+- If the same user later receives the same hidden start payload again from the platform Start button, treat it as normal `/start` so clearing chat history does not reopen an old invite. A new start invite code and explicit `/join_CODE` still open the preview.
 - Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
 - If the user is inside another discussion, the invite join action should ask them to leave the current room first.
@@ -562,9 +566,9 @@ No longer a member state:
 
 Invite abuse and rate limits:
 
-- MVP can start without a stored invite counter because invites are public-code based.
+- Stored invitation inbox counts should show unseen pending invitations; seen invitations stay in the list until the invited user accepts, removes them, or the target discussion becomes unavailable.
 - Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
-- If users spam invite generation, add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
+- Public share-link generation can add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
 - Do not notify the discussion owner when someone generates or uses an invite.
 - Do not broadcast invite generation inside the room.
 - Joining from an invite should use the same join notification rules as normal joining.
@@ -1143,19 +1147,21 @@ Saved profiles main menu:
 ⭐ پروفایل‌های ذخیره‌شده
 
 1. 👤 علی
-دیدن پروفایل 👈 /u_8K2P
-💬 بحث‌ها 👈 /discussions_8K2P
-حذف 👈 /unsave_8K2P
+دیدن پروفایل این کاربر 👈 /u_8K2P
+💬 دیدن بحث‌های این کاربر 👈 /discussions_8K2P
+📨 دعوت این کاربر به بحث 👈 /invite_8K2P
+حذف از ذخیره‌شده‌ها 👈 /unsave_8K2P
 
 2. 👤 سارا
-دیدن پروفایل 👈 /u_9Q4M
-💬 بحث‌ها 👈 /discussions_9Q4M
-حذف 👈 /unsave_9Q4M
+دیدن پروفایل این کاربر 👈 /u_9Q4M
+💬 دیدن بحث‌های این کاربر 👈 /discussions_9Q4M
+📨 دعوت این کاربر به بحث 👈 /invite_9Q4M
+حذف از ذخیره‌شده‌ها 👈 /unsave_9Q4M
 ```
 
 Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons.
 The saved-profile list can use inline list-navigation controls (pagination + Back) only.
-When opening a profile from the saved list, delete the list message and show the profile with only one inline Back button to return to the saved-profile list.
+When opening a profile from the saved list, delete the list message when possible and show the profile with only one inline Back button to return to the saved-profile list. The Back button should still appear if deleting the stale list message fails.
 
 ### Viewing Discussions From Saved Profiles
 

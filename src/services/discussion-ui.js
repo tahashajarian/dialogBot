@@ -16,6 +16,7 @@ const PDI = "\u2069";
 
 function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "missing_discussion") return messages[lang].discussionErrMissingDiscussion;
+  if (reason === "discussion_unavailable") return messages[lang].discussionInviteUnavailable;
   if (reason === "discussion_closed") return messages[lang].discussionErrClosed;
   if (reason === "discussion_full") return messages[lang].discussionErrFull;
   if (reason === "leave_current_first") return messages[lang].discussionErrLeaveCurrentFirst;

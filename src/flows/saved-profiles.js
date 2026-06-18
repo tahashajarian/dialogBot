@@ -4,6 +4,7 @@ const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const {
   inlineKeyboard,
+  profileInvitationBackKeyboard,
   profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("../keyboards");
@@ -133,6 +134,14 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
   });
   const sent = send ? await send(text, keyboard) : await ctx.reply(text, keyboard);
   await rememberSavedProfilesListMessage(ctx, sent);
+  if (ctx.user) {
+    ctx.user.discussionLastListMessageId = null;
+    ctx.user.discussionLastListType = "";
+  }
+  if (canPersistUserMessageState(ctx)) {
+    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  }
   return sent;
 }
 
@@ -193,7 +202,7 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
   return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
-async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false } = {}) {
+async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
 
@@ -220,7 +229,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   }
 
   let footerText = "";
-  if (!fromSavedList && ctx.user?.activeDiscussionId) {
+  if (!fromSavedList && !fromInvitationList && ctx.user?.activeDiscussionId) {
     const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
     const saved = isCodeSaved(current, code);
     footerText = buildProfileSavedFooter(messages, lang, code, saved);
@@ -230,7 +239,11 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     ctx,
     user: target,
     lang,
-    keyboard: fromSavedList ? profileViewBackKeyboard(lang) : undefined,
+    keyboard: fromSavedList
+      ? profileViewBackKeyboard(lang)
+      : fromInvitationList
+        ? profileInvitationBackKeyboard(lang, target.userId)
+        : undefined,
     messages,
     defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: messages[lang].profileLoading,

@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 
 const User = require("../../src/models/user");
 const Discussion = require("../../src/models/discussion");
+const DiscussionInvitation = require("../../src/models/discussion-invitation");
+const DiscussionInvitationMute = require("../../src/models/discussion-invitation-mute");
 const {
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
@@ -16,6 +18,18 @@ const {
   removeMemberAsOwner,
   removeSavedProfileCode,
 } = require("../../src/services/discussions");
+const {
+  countPendingReceivedInvitations,
+  createDiscussionInvitation,
+  getInvitationForUser,
+  listReceivedInvitations,
+  markInvitationsSeen,
+  markInvitationAccepted,
+  removeInvitationForUser,
+} = require("../../src/services/discussion-invitations");
+const {
+  muteInviterForUser,
+} = require("../../src/services/discussion-invitation-mutes");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `dialogbot_integration_${process.pid}_${Date.now()}`;
@@ -52,7 +66,7 @@ test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, {
     dbName: MONGODB_TEST_DB,
   });
-  await Promise.all([User.init(), Discussion.init()]);
+  await Promise.all([User.init(), Discussion.init(), DiscussionInvitation.init(), DiscussionInvitationMute.init()]);
 }, { timeout: 120000 });
 
 test.after(async () => {
@@ -66,6 +80,8 @@ test.beforeEach(async () => {
   await Promise.all([
     User.deleteMany({}),
     Discussion.deleteMany({}),
+    DiscussionInvitation.deleteMany({}),
+    DiscussionInvitationMute.deleteMany({}),
   ]);
 });
 
@@ -247,6 +263,168 @@ test("saved profile mutations preserve concurrent updates", async () => {
 
   const updatedUser = await User.findOne({ userId: 1 }).lean();
   assert.deepEqual(updatedUser.savedProfileCodes, ["u_CCC3"]);
+});
+
+test("discussion invitations create, count, dedupe, and accept cleanly", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_INVITE",
+  });
+  await createUser(1, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+    savedProfileCodes: ["u_BBBB"],
+  });
+  await createUser(2, {
+    publicProfileCode: "u_BBBB",
+  });
+
+  const created = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_BBBB",
+    discussionId: discussion._id,
+    source: "room",
+  });
+  assert.equal(created.ok, true);
+  assert.match(created.invitation.publicInvitationCode, /^i_[A-Z0-9]{7}$/);
+
+  const duplicate = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_BBBB",
+    discussionId: discussion._id,
+    source: "room",
+  });
+  assert.equal(duplicate.ok, false);
+  assert.equal(duplicate.reason, "duplicate");
+  assert.equal(await countPendingReceivedInvitations(2), 1);
+  await markInvitationsSeen([created.invitation._id]);
+  assert.equal(await countPendingReceivedInvitations(2), 0);
+
+  const joined = await joinOrOpenDiscussion(2, discussion._id);
+  assert.equal(joined.ok, true);
+  assert.equal(joined.joined, true);
+  await markInvitationAccepted(created.invitation);
+
+  const [count, invitation, invitee, updatedDiscussion] = await Promise.all([
+    countPendingReceivedInvitations(2),
+    DiscussionInvitation.findOne({ inviteeUserId: 2 }).lean(),
+    User.findOne({ userId: 2 }).lean(),
+    Discussion.findById(discussion._id).lean(),
+  ]);
+
+  assert.equal(count, 0);
+  assert.equal(invitation.status, "accepted");
+  assert.ok(invitation.acceptedAt instanceof Date);
+  assert.equal(String(invitee.activeDiscussionId), String(discussion._id));
+  assert.equal(updatedDiscussion.memberUserIds.includes(2), true);
+
+  const acceptedList = await listReceivedInvitations(2, { statuses: ["accepted"] });
+  assert.equal(acceptedList.invitations.length, 1);
+  assert.equal(acceptedList.invitations[0].invitation.publicInvitationCode, invitation.publicInvitationCode);
+
+  const reopened = await getInvitationForUser(invitation.publicInvitationCode, 2, { statuses: ["accepted"] });
+  assert.equal(reopened.ok, true);
+  assert.equal(reopened.invitation.status, "accepted");
+
+  const removed = await removeInvitationForUser(invitation.publicInvitationCode, 2);
+  assert.equal(removed.ok, true);
+  const hiddenList = await listReceivedInvitations(2, { statuses: ["accepted"] });
+  assert.equal(hiddenList.invitations.length, 0);
+});
+
+test("muting an inviter hides pending invites and blocks future invites", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_MUTE01",
+  });
+  await createUser(1, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+    savedProfileCodes: ["u_BBBB"],
+  });
+  await createUser(2, {
+    publicProfileCode: "u_BBBB",
+  });
+
+  const created = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_BBBB",
+    discussionId: discussion._id,
+  });
+  assert.equal(created.ok, true);
+
+  const muted = await muteInviterForUser({
+    muterUserId: 2,
+    mutedUserId: 1,
+    sourceInvitationId: created.invitation._id,
+  });
+  assert.equal(muted.ok, true);
+
+  const removedInvite = await DiscussionInvitation.findById(created.invitation._id).lean();
+  assert.equal(removedInvite.status, "removed");
+  assert.equal(await countPendingReceivedInvitations(2), 0);
+
+  const next = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_BBBB",
+    discussionId: discussion._id,
+  });
+  assert.equal(next.ok, false);
+  assert.equal(next.reason, "inviter_muted");
+});
+
+test("muted users cannot join discussions created by the muter", async () => {
+  const discussion = await createOpenDiscussion(2, {
+    publicDiscussionCode: "d_MUTE02",
+  });
+  await createUser(2, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+  });
+  await createUser(1);
+  await muteInviterForUser({
+    muterUserId: 2,
+    mutedUserId: 1,
+  });
+
+  const joined = await joinOrOpenDiscussion(1, discussion._id);
+  assert.equal(joined.ok, false);
+  assert.equal(joined.reason, "discussion_unavailable");
+});
+
+test("discussion invitations enforce the centralized daily limit", async () => {
+  await createUser(1, {
+    savedProfileCodes: ["u_BB01", "u_BB02", "u_BB03", "u_BB04"],
+  });
+  await Promise.all([2, 3, 4, 5].map((userId) => createUser(userId, {
+    publicProfileCode: `u_BB0${userId - 1}`,
+  })));
+
+  const discussions = await Promise.all([1, 2, 3, 4].map((index) => createOpenDiscussion(1, {
+    publicDiscussionCode: `d_LIM00${index}`,
+    title: `Limit room ${index}`,
+  })));
+  await User.findOneAndUpdate(
+    { userId: 1 },
+    {
+      $set: {
+        activeDiscussionId: discussions[0]._id,
+        discussionMembershipIds: discussions.map((discussion) => discussion._id),
+      },
+    },
+  );
+
+  const results = [];
+  for (let index = 0; index < 4; index += 1) {
+    results.push(await createDiscussionInvitation({
+      inviterUserId: 1,
+      inviteePublicProfileCode: `u_BB0${index + 1}`,
+      discussionId: discussions[index]._id,
+      source: "saved_profile",
+    }));
+  }
+
+  assert.deepEqual(results.map((result) => result.ok), [true, true, true, false]);
+  assert.equal(results[3].reason, "daily_limit");
+  assert.equal(await DiscussionInvitation.countDocuments({ inviterUserId: 1 }), 3);
 });
 
 test("concurrent messages enforce the one-second burst limit", async () => {

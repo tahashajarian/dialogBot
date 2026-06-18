@@ -22,6 +22,15 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-actions.js`: cross-user side effects around discussion mutations.
   - join/leave/close/remove notifications
   - pre-close active-member lookup before active state is cleared
+- `src/models/discussion-invitation.js`: stored user-to-user discussion invitation schema.
+- `src/models/discussion-invitation-mute.js`: invitation mute pair schema.
+- `src/services/discussion-invitations.js`: stored invitation rules and lifecycle.
+  - create/list/count/accept/remove/expire/seen
+  - duplicate and daily-limit checks
+- `src/services/discussion-invitation-mutes.js`: invitation mute rules.
+  - mute future invites from a user
+  - block muted users from joining discussions created by the muter
+- `src/services/discussion-invitations-ui.js`: stored invitation inbox and picker rendering.
 - `src/services/discussion-delivery-memory.js`: runtime-only discussion message delivery id mapping for platform-native replies.
   - do not persist reply metadata or delivered message ids
 - `src/flows/discussions-text.js`: text commands and bottom-keyboard discussion flow.
@@ -42,6 +51,9 @@ Use this map before changing code. It explains where behavior belongs so future 
   - remembered room/list/menu cards
   - stale discussion card cleanup predicates
   - create-flow state predicates
+- `src/flows/discussion-invitations.js`: stored invitation commands/callbacks and source-specific return handling.
+  - `/invite_CODE`, `/accept_inv_CODE`, `/remove_inv_CODE`
+  - invitation inbox, invite saved profile, invite from saved profile, mute inviter
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.
 
@@ -93,6 +105,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion delivery/reply runtime mapping: `src/services/discussion-delivery-memory.js`.
 - New discussion text command or bottom-button flow: `src/flows/discussions-text.js`.
 - New discussion invite preview/callback flow: `src/flows/discussions-callbacks.js`.
+- New stored discussion invitation behavior: `src/flows/discussion-invitations.js`, `src/services/discussion-invitations.js`, `src/services/discussion-invitation-mutes.js`, and `src/services/discussion-invitations-ui.js`.
 - New discussion list/menu callback action: `src/flows/discussions-callbacks.js`.
 - New discussion-create typed input step: `src/flows/discussions-create-text.js`.
 - New discussion-create inline callback step: `src/flows/discussions-create-callbacks.js`.

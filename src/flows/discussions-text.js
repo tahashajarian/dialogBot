@@ -3,6 +3,7 @@ const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionInviteModeKeyboard,
   discussionRoomKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
@@ -209,6 +210,30 @@ async function sendDiscussionRoomFromText(ctx, lang, discussion) {
   );
 }
 
+async function sendShareableInviteForActiveDiscussion(ctx, lang) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!activeDiscussionId) {
+    await ctx.reply(messages[lang].discussionInviteNoActive, {
+      reply_markup: { remove_keyboard: true },
+    });
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  }
+
+  const invite = await getActiveDiscussionInviteForUser(ctx.userId, activeDiscussionId);
+  if (!invite.ok) {
+    const textByReason = invite.reason === "not_member"
+      ? messages[lang].discussionInviteNotMember
+      : getDiscussionErrorMessage(messages, lang, invite.reason);
+    await ctx.reply(textByReason, { reply_markup: { remove_keyboard: true } });
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  }
+
+  const cleanCode = String(invite.code || "").replace(/^d_/i, "");
+  const deepLink = buildBotStartLink(`join_${cleanCode}`);
+  await ctx.reply(messages[lang].discussionInviteReady);
+  return ctx.reply(buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink }));
+}
+
 async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {
   const listType = preferredType === "mine" ? "mine" : "active";
   if (listType === "mine") {
@@ -302,10 +327,13 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
       return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
 
-    const cleanCode = String(invite.code || "").replace(/^d_/i, "");
-    const deepLink = buildBotStartLink(`join_${cleanCode}`);
-    await ctx.reply(messages[lang].discussionInviteReady);
-    return ctx.reply(buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink }));
+    return ctx.reply(
+      messages[lang].discussionInviteModeText.replace(
+        "{title}",
+        getDiscussionDisplayTitle(messages, lang, invite.discussion),
+      ),
+      discussionInviteModeKeyboard(lang),
+    );
   }
 
   if (isDiscussionMyListText(text)) {
@@ -599,10 +627,12 @@ module.exports = {
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   sendDiscussionCreatePrompt,
+  sendDiscussionRoomFromText,
   closeDiscussionFromTextConfirmation,
   openDiscussionCommand,
   showDiscussionInvitePreviewCommand,
   joinDiscussionFromInvite,
+  sendShareableInviteForActiveDiscussion,
   leaveDiscussionCommand,
   closeDiscussionCommand,
   removeDiscussionMemberCommand,

@@ -26,9 +26,13 @@ Keep the router files thin:
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
 - `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, and join-error acknowledgements.
+- `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, and invite source return handling.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
+- `src/services/discussion-invitations.js` owns stored invitation creation, lookup, lifecycle, daily-limit checks, and received-invite listing.
+- `src/services/discussion-invitation-mutes.js` owns invitation mute pairs and the cross-feature "muted user cannot join muter's created discussions" predicate.
 - `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
-- Discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
+- Public share-link discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
+- Stored saved-profile invitations should use `src/flows/discussion-invitations.js`, `src/services/discussion-invitations.js`, `src/services/discussion-invitation-mutes.js`, and `src/services/discussion-invitations-ui.js`.
 
 ## Data Model Rules
 
@@ -51,6 +55,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 - `src/services/discussion-ui.js` for discussion error/preview copy shaping.
 - `src/services/discussion-room-ui.js` for room header/recent/member line rendering.
+- `src/services/discussion-invitations-ui.js` for stored invitation inbox and picker text shaping.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
 

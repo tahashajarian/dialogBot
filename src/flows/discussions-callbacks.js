@@ -275,6 +275,7 @@ async function handleDiscussionListCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
   renderSavedProfileDiscussions,
+  renderInvitationsList,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -315,6 +316,9 @@ async function handleDiscussionListCallback(ctx, lang, {
     }
     if (destination === "discussions") {
       return editCallbackMessageOrReply(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+    if (destination === "invitations" && renderInvitationsList) {
+      return renderInvitationsList(ctx, lang, 0, { editCallbackMessageOrReply });
     }
     if (destination === "mine") {
       return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });

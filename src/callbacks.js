@@ -62,7 +62,14 @@ const {
 const {
   joinDiscussionFromInvite,
   showDiscussionInvitePreviewCommand,
+  sendShareableInviteForActiveDiscussion,
 } = require("./flows/discussions-text");
+const {
+  handleDiscussionInvitationCallback,
+  getInvitationCount,
+  isDiscussionInvitationCallback,
+  renderInvitationsList,
+} = require("./flows/discussion-invitations");
 const {
   handleAiCallback,
   isAiCallback,
@@ -91,6 +98,7 @@ const {
   renderSavedProfileDiscussions,
   saveProfileByCode,
   sendPublicProfileByCode,
+  sendSavedProfilesList,
   unsaveProfileByCode,
 } = require("./flows/saved-profiles");
 const {
@@ -308,9 +316,13 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
-    return showInlineMenuAfterNavigation(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang), {
-      forceClearKeyboard: shouldClearKeyboard,
-    });
+    const invitationCount = await getInvitationCount(ctx.userId);
+    return showInlineMenuAfterNavigation(
+      ctx,
+      messages[lang].discussionsMenu,
+      discussionsMenuKeyboard(lang, { invitationCount: Number(invitationCount) || 0 }),
+      { forceClearKeyboard: shouldClearKeyboard },
+    );
   }
 
   if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
@@ -335,6 +347,16 @@ async function handleCallback(ctx) {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
       renderSavedProfileDiscussions,
+      renderInvitationsList,
+    });
+  }
+
+  if (isDiscussionInvitationCallback(data)) {
+    return handleDiscussionInvitationCallback(ctx, lang, {
+      deleteCallbackMessageIfPossible,
+      editCallbackMessageOrReply,
+      sendShareableInviteForActiveDiscussion,
+      sendSavedProfilesList,
     });
   }
 

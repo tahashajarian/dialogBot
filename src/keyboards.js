@@ -5,6 +5,11 @@ const {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
+  discussionInviteModeKeyboard,
+  discussionInviteSavedProfilesKeyboard,
+  discussionInviteDiscussionPickerKeyboard,
+  discussionInvitationAckKeyboard,
+  discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,
@@ -792,6 +797,18 @@ function profileViewBackKeyboard(lang) {
   return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 
+function profileInvitationBackKeyboard(lang, userId = "") {
+  const rows = [[{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]];
+  const mutedUserId = Number(userId);
+  if (Number.isInteger(mutedUserId) && mutedUserId > 0) {
+    rows.unshift([{
+      text: messages[lang].discussionInvitationMuteInviter,
+      callback_data: `${callBacks.discussionInvitationMute}${mutedUserId}`,
+    }]);
+  }
+  return inlineKeyboard(rows);
+}
+
 function savedProfilesListKeyboard(lang, items = []) {
   const rows = [];
   const options = items && !Array.isArray(items) ? items : {};
@@ -860,6 +877,11 @@ module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionRoomKeyboard,
+  discussionInviteModeKeyboard,
+  discussionInviteSavedProfilesKeyboard,
+  discussionInviteDiscussionPickerKeyboard,
+  discussionInvitationAckKeyboard,
+  discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionCreateDescriptionKeyboard,
@@ -872,5 +894,6 @@ module.exports = {
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,
   profileViewBackKeyboard,
+  profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
 };

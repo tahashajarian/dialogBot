@@ -45,6 +45,7 @@
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
 - Onboarding must be skippable and must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
+- Some platforms may display only `/start` while still sending an old invite payload to the bot after the user clears chat history and presses Start. Once a `/start join_CODE` payload has opened an invite preview for that user, later repeats of the same start payload should be treated as normal `/start`. New start invite codes and explicit `/join_CODE` commands should still open the invite preview.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
 
 ## Long-Running Actions
@@ -78,8 +79,10 @@
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
 - Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
+- Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
+- If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.
 - Saved-profile discussion views should behave as their own return destination. If a join from that view fails, the "Got it" acknowledgment should return to the same saved user's discussions.
-- Discussion invites should be one ready-to-share bot message/card. The invite must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
+- Shareable discussion invites should be one ready-to-share bot message/card. Stored saved-profile invitations should stay in the invitation inbox, show unseen state through the count/marker, and use Back-only navigation from the list/profile views. Both invite types must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
 
 ## Pinning
 

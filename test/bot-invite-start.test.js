@@ -2,10 +2,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
+const { callBacks } = require("../src/constants");
+const Discussion = require("../src/models/discussion");
+const User = require("../src/models/user");
 const {
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   getStartInviteCode,
+  handleUpdate,
+  isRepeatedStartInvite,
   isUnsupportedDiscussionMessage,
   replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
@@ -29,6 +34,109 @@ test("invite welcome copy leads into the invite instead of onboarding", () => {
     assert.match(messages[lang].discussionInviteWelcome, /inv|دعوت/i);
     assert.doesNotMatch(messages[lang].discussionInviteWelcome, /3 interests|۳ علاقه/);
   }
+});
+
+test("repeated same start invite payload falls back to normal start", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Taha",
+      profileName: "Taha",
+      onboardingVersion: 1,
+      lastStartInviteCode: "d_AB12",
+      lastStartInviteAt: new Date(),
+      handledStartInviteCodes: ["d_AB12"],
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 2);
+  assert.match(replies[0].text, /Welcome, Taha/);
+  assert.doesNotMatch(replies[0].text, /invite/i);
+  assert.equal(replies[1].text, messages.en.mainMenu);
+});
+
+test("repeated start invite payload clears saved profile list card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleteAttempts = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Taha",
+      profileName: "Taha",
+      onboardingVersion: 1,
+      lastStartInviteCode: "d_AB12",
+      handledStartInviteCodes: ["d_AB12"],
+      savedProfilesLastListMessageId: 42,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async () => ({ message_id: 100 + deleteAttempts.length }),
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleteAttempts, [42]);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+});
+
+test("start invite repeat guard blocks handled hidden payloads but not new invite links", () => {
+  const now = new Date("2026-06-19T12:00:00Z");
+  assert.equal(isRepeatedStartInvite({
+    handledStartInviteCodes: ["d_AB12"],
+  }, "d_AB12", now), true);
+
+  assert.equal(isRepeatedStartInvite({
+    handledStartInviteCodes: ["d_AB12"],
+  }, "d_CD34", now), false);
+});
+
+test("start invite repeat guard still supports legacy handled-start fields", () => {
+  assert.equal(isRepeatedStartInvite({
+    lastStartInviteCode: "d_AB12",
+    lastStartInviteAt: new Date("2026-06-19T11:59:00Z"),
+  }, "d_AB12"), true);
+
+  assert.equal(isRepeatedStartInvite({
+    lastStartInviteCode: "d_AB12",
+    lastStartInviteAt: new Date("2026-06-19T11:59:00Z"),
+  }, "d_CD34"), false);
+
+  assert.equal(isRepeatedStartInvite({
+    lastStartInviteCode: "d_AB12",
+    lastStartInviteAt: new Date("2026-06-19T11:00:00Z"),
+  }, "d_AB12"), true);
 });
 
 test("discussion reply helper extracts replied message id", () => {
@@ -117,4 +225,102 @@ test("discussion message sender uses platform reply id when available", async ()
     extra: { reply_to_message_id: 55 },
   }]);
   assert.equal(sent.message_id, 99);
+});
+
+test("saved profile command keeps saved-list back navigation even if stale list cleanup fails", async () => {
+  const originalFindOne = User.findOne;
+  const deleteAttempts = [];
+  const photos = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+
+  const ctx = {
+    text: "/u_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: [],
+      savedProfilesLastListMessageId: 42,
+      discussionLastListType: "invitations",
+      discussionLastListMessageId: 77,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return false;
+    },
+    reply: async () => ({ message_id: 100 }),
+    replyWithPhoto: async (photo, extra) => {
+      photos.push({ photo, extra });
+      return { message_id: 101 };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.equal(deleteAttempts[0], 42);
+  assert.equal(
+    photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.savedProfiles,
+  );
+  assert.equal(photos[0].extra.reply_markup.inline_keyboard.length, 1);
+});
+
+test("saved profile discussions command clears saved profile list card", async () => {
+  const originalFind = Discussion.find;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleteAttempts = [];
+
+  Discussion.findOne = () => ({ lean: async () => null });
+  Discussion.find = () => ({ limit: () => ({ lean: async () => [] }) });
+  User.findOneAndUpdate = async () => ({});
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+
+  const ctx = {
+    text: "/discussions_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      savedProfileCodes: ["u_3HNU"],
+      savedProfilesLastListMessageId: 42,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async () => ({ message_id: 100 }),
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    Discussion.find = originalFind;
+    Discussion.findOne = originalFindOneDiscussion;
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleteAttempts, [42]);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
