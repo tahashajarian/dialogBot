@@ -24,6 +24,7 @@ const {
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
 const {
+  handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,
 } = require("../src/flows/ai-callbacks");
@@ -185,6 +186,50 @@ test("add prompt starts with Cancel and post-save prompt returns to list", () =>
   assert.equal(nextInterestPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.aiListManageAddBackToList);
 });
 
+test("pressing Add retires the remembered list card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageAdd}movies:top_ten`,
+    callbackMessageId: 40,
+    userId: 79,
+    user: {
+      userId: 79,
+      lang: "en",
+      state: "ai_manage_movies_top_ten",
+      aiLastListMessageId: 39,
+      aiLastListSection: "movies",
+      aiLastListType: "topTen",
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 80 + replies.length };
+    },
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(deletedIds.includes(39), true);
+  assert.equal(deletedIds.includes(40), true);
+  assert.equal(ctx.user.aiLastListMessageId, null);
+  assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+});
+
 test("Top Ten add flow stays open for the next item", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -204,6 +249,13 @@ test("Top Ten add flow stays open for the next item", async () => {
       lang: "en",
       state: "ai_manage_random_top_ten_add_input",
       aiLists: { random: { topTen: [] } },
+      aiLastListMessageId: 38,
+      aiLastListSection: "random",
+      aiLastListType: "topTen",
+    },
+    deleteMessage: async (messageId) => {
+      replies.push({ text: `deleted:${messageId}` });
+      return true;
     },
     reply: async (text, extra) => {
       replies.push({ text, extra });
@@ -226,6 +278,7 @@ test("Top Ten add flow stays open for the next item", async () => {
   const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
+  assert.equal(replies.some((reply) => reply.text === "deleted:38"), true);
   assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);

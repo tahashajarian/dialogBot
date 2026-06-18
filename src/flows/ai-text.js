@@ -54,6 +54,7 @@ const {
 const {
   clearAiActionMessage,
   clearRememberedAiListMessage,
+  deleteRememberedAiListMessage,
   rememberAiActionMessage,
   rememberAiListMessage,
 } = require("./ai-cards");
@@ -446,6 +447,7 @@ async function handleAiText(ctx, lang, text, state) {
         );
       }
 
+      await deleteRememberedAiListMessage(ctx, section, listType);
       await clearAiPendingInputPrompt(ctx);
 
       const result = await addAiListItem(

@@ -631,6 +631,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     const currentItems = isInterestTopTen
       ? getAiListItemsFromUser(ctx.user, "random", "topTen")
       : [];
+    await deleteRememberedAiListMessage(ctx, section, listType);
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
       getAiListAddPrompt(lang, section, listType),
@@ -681,6 +682,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
+    await deleteRememberedAiListMessage(ctx, "random", "topTen");
     await clearAiPendingInputPrompt(ctx);
 
     const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");

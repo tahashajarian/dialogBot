@@ -14,6 +14,11 @@ async function rememberAiListMessage(ctx, section, listType, message) {
   await updateProfileField(ctx.userId, "aiLastListMessageId", messageId);
   await updateProfileField(ctx.userId, "aiLastListSection", section);
   await updateProfileField(ctx.userId, "aiLastListType", listType);
+  if (ctx.user) {
+    ctx.user.aiLastListMessageId = messageId;
+    ctx.user.aiLastListSection = section;
+    ctx.user.aiLastListType = listType;
+  }
 }
 
 async function replaceRememberedAiListMessage(ctx, section, listType, message) {
@@ -50,6 +55,11 @@ async function deleteRememberedAiListMessage(ctx, section, listType) {
     await updateProfileField(ctx.userId, "aiLastListMessageId", null);
     await updateProfileField(ctx.userId, "aiLastListSection", "");
     await updateProfileField(ctx.userId, "aiLastListType", "");
+    if (ctx.user) {
+      ctx.user.aiLastListMessageId = null;
+      ctx.user.aiLastListSection = "";
+      ctx.user.aiLastListType = "";
+    }
   }
   return deleted;
 }
@@ -65,6 +75,11 @@ async function clearRememberedAiListMessage(ctx) {
     await updateProfileField(ctx.userId, "aiLastListMessageId", null);
     await updateProfileField(ctx.userId, "aiLastListSection", "");
     await updateProfileField(ctx.userId, "aiLastListType", "");
+    if (ctx.user) {
+      ctx.user.aiLastListMessageId = null;
+      ctx.user.aiLastListSection = "";
+      ctx.user.aiLastListType = "";
+    }
   }
   return deleted;
 }
