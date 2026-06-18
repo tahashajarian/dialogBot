@@ -10,6 +10,7 @@ const {
 const { callBacks } = require("../constants");
 const { updateProfileField } = require("../services/users");
 const {
+  getBasicProfileMissingFields,
   sendProfileMessage,
 } = require("../services/profile");
 const {
@@ -30,6 +31,23 @@ const {
 } = require("../services/discussion-ui");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "..", "assets", "default_profile.png");
+
+function getProfileCompletionFieldLine(messages, lang, field) {
+  if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
+  if (field === "age") return `🎂 ${messages[lang].profileCompletenessFieldAge}`;
+  return `• ${field}`;
+}
+
+function profileViewGateKeyboard(lang, missingFields = []) {
+  const buttons = [];
+  if (missingFields.includes("name")) {
+    buttons.push({ text: messages[lang].profileEditName, callback_data: callBacks.profileEditName });
+  }
+  if (missingFields.includes("age")) {
+    buttons.push({ text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge });
+  }
+  return inlineKeyboard(buttons.map((button) => [button]));
+}
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
@@ -183,6 +201,18 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const target = await User.findOne({ publicProfileCode: code });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
+
+  const isOwnProfile = Number(target.userId) === Number(ctx.userId);
+  const missingBasicFields = isOwnProfile ? [] : getBasicProfileMissingFields(ctx.user);
+  if (missingBasicFields.length) {
+    const fields = missingBasicFields
+      .map((field) => getProfileCompletionFieldLine(messages, lang, field))
+      .join("\n");
+    return ctx.reply(
+      messages[lang].profileViewGateText.replace("{fields}", fields),
+      profileViewGateKeyboard(lang, missingBasicFields),
+    );
+  }
 
   let footerText = "";
   if (!fromSavedList && ctx.user?.activeDiscussionId) {

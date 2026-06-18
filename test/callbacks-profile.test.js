@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
+const { sendPublicProfileByCode } = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
@@ -36,6 +37,95 @@ test("profile callback deletes current menu message before rendering profile", a
 
   assert.equal(deletedIds[0], 123);
   assert.ok(replies.length >= 1);
+});
+
+test("profile settings keeps the profile display with settings controls", async () => {
+  const deletedIds = [];
+  const photos = [];
+  const replies = [];
+
+  const ctx = {
+    callbackData: callBacks.profileSettings,
+    callbackMessageId: 321,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      city: "Tehran",
+      age: 30,
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      photos.push({ photo, extra });
+      return { message_id: 10 };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.equal(deletedIds[0], 321);
+  assert.match(photos[0].extra.caption, /profile/i);
+  assert.match(photos[0].extra.caption, /Ali/);
+  assert.equal(
+    photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.profileEditBio,
+  );
+  assert.equal(replies.length, 0);
+});
+
+test("public profile viewing asks for basic profile first", async () => {
+  const originalFindOne = User.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 222,
+    publicProfileCode: "u_TARGET",
+    firstName: "Target",
+    profileName: "Target",
+  });
+
+  const ctx = {
+    userId: 111,
+    user: {
+      userId: 111,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      age: null,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("gate should not render target profile");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_TARGET");
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Before viewing other profiles/);
+  assert.match(replies[0].text, /🎂 age/);
+  assert.deepEqual(
+    replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
+    [callBacks.profileEditAge],
+  );
 });
 
 test("main menu entries open sections without hard delete-first gap", async () => {

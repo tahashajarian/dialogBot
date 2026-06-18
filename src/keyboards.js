@@ -595,6 +595,7 @@ function profileKeyboard(lang, hasPhoto = false) {
   const rows = [
     [
       { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
+      { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
     ],
     hasPhoto
       ? [
@@ -606,10 +607,7 @@ function profileKeyboard(lang, hasPhoto = false) {
       ],
     [
       { text: messages[lang].profileEditCity, callback_data: callBacks.profileEditCity },
-      { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
-    ],
-    [
-      { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
+      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
     ],
     [
       {
@@ -629,15 +627,11 @@ function profileKeyboard(lang, hasPhoto = false) {
 function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
   return inlineKeyboard([
     [
-      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
-    ],
-    [
+      { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
       { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
     ],
     [
       { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
-    ],
-    [
       {
         text: showsActiveDiscussion
           ? messages[lang].profileHideActiveDiscussion

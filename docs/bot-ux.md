@@ -92,7 +92,7 @@
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
 - Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
-- Keep high-frequency profile edits on the main profile card: name, photo, city, age, and bio. Put lower-frequency details/settings such as gender, pet preference, location, and active-discussion visibility behind the profile settings card.
+- Keep high-frequency profile edits on the main profile card: name, age, photo, city, and gender. Put longer/lower-frequency details/settings such as bio, pet preference, location, and active-discussion visibility behind the profile settings card.
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.
 - Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.

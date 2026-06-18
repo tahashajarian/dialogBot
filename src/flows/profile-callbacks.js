@@ -69,6 +69,21 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
   });
 }
 
+async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
+  return sendProfileMessage({
+    ctx,
+    user,
+    lang,
+    keyboard: profileSettingsKeyboard(
+      lang,
+      Boolean(user?.showActiveDiscussionOnProfile),
+    ),
+    messages,
+    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
+    isOwnProfile: true,
+  });
+}
+
 async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMessageIfPossible } = {}) {
   return startProfileEdit(ctx, state, prompt, keyboard, {
     deleteCurrentMessage: () => retireCallbackMessageIfPossible?.(ctx),
@@ -91,10 +106,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileSettings) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(
-      messages[lang].profileSettingsTitle,
-      profileSettingsKeyboard(lang, Boolean(ctx.user?.showActiveDiscussionOnProfile)),
-    );
+    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileSettingsBack) {
@@ -129,7 +141,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.showActiveDiscussionOnProfile = nextValue;
-    return ctx.reply(messages[lang].profileSettingsTitle, profileSettingsKeyboard(lang, nextValue));
+    return sendOwnProfileSettings(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileEditCity) {
