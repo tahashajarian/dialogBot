@@ -26,6 +26,9 @@ const {
   sendProfileEditPrompt,
   startProfileEdit,
 } = require("./profile-edit");
+const {
+  sendPublicProfileByCode,
+} = require("./saved-profiles");
 
 const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "..", "assets", "default_profile.png");
 
@@ -88,6 +91,17 @@ async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMe
   return startProfileEdit(ctx, state, prompt, keyboard, {
     deleteCurrentMessage: () => retireCallbackMessageIfPossible?.(ctx),
   });
+}
+
+async function handleProfileEditCompletion(ctx, lang, updatedUser) {
+  // Check if user was trying to view another profile
+  const pendingCode = updatedUser.pendingProfileViewCode;
+  if (pendingCode) {
+    await updateProfileField(ctx.userId, "pendingProfileViewCode", "");
+    return sendPublicProfileByCode(ctx, lang, pendingCode);
+  }
+  // Otherwise show their own profile
+  return sendOwnProfile(ctx, lang, updatedUser);
 }
 
 async function handleProfileSettingsOrEditCallback(ctx, lang, {
@@ -191,7 +205,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.gender = gender;
     updatedUser.state = "idle";
-    return sendOwnProfile(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
@@ -211,7 +225,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.petPreference = petPreference;
     updatedUser.state = "idle";
-    return sendOwnProfile(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data.startsWith(callBacks.profileAgeRangeSet)) {
@@ -260,7 +274,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.age = age;
     updatedUser.state = "idle";
-    return sendOwnProfile(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileEditPhoto) {
@@ -277,7 +291,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = null;
     updatedUser.state = "idle";
-    return sendOwnProfile(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileCancelEdit) {
@@ -288,7 +302,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await removeBottomKeyboard?.(ctx, " ");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
-    return sendOwnProfile(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileBack) {

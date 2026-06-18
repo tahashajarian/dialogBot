@@ -99,3 +99,6 @@
 - Showing a user's active discussion on their profile is a separate opt-in setting. The active room must not be exposed unless the setting is enabled.
 - The active-discussion visibility row on the user's own profile should include a short self-only explanation command link, such as `(یعنی چی؟ /ad_help)`. Keep it compact so the profile row stays readable; the explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
 - Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat.
+- When viewing another user's profile from discussions, check that the viewer has at least a display name. If missing, show a profile completion gate with inline edit buttons for missing fields.
+- The profile viewing gate requires only display name; age is optional and not enforced.
+- When a user completes their profile through the gate, redirect them to the intended profile they were trying to view, not their own profile. The intended profile code is stored in `pendingProfileViewCode` and cleared after redirect.

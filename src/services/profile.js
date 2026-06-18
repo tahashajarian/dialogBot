@@ -104,15 +104,9 @@ function hasProfileDisplayName(user) {
   return Boolean(String(user?.profileName || user?.firstName || "").trim());
 }
 
-function hasProfileAge(user) {
-  const age = user?.age;
-  return age !== null && age !== undefined && age !== "" && Number.isFinite(Number(age));
-}
-
 function getBasicProfileMissingFields(user) {
   const missing = [];
   if (!hasProfileDisplayName(user)) missing.push("name");
-  if (!hasProfileAge(user)) missing.push("age");
   return missing;
 }
 

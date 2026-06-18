@@ -205,6 +205,11 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const isOwnProfile = Number(target.userId) === Number(ctx.userId);
   const missingBasicFields = isOwnProfile ? [] : getBasicProfileMissingFields(ctx.user);
   if (missingBasicFields.length) {
+    // Store the intended profile code so we can redirect after completion
+    if (ctx.user) {
+      ctx.user.pendingProfileViewCode = code;
+      await updateProfileField(ctx.userId, "pendingProfileViewCode", code);
+    }
     const fields = missingBasicFields
       .map((field) => getProfileCompletionFieldLine(messages, lang, field))
       .join("\n");

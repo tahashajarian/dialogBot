@@ -404,6 +404,14 @@ async function handleUpdate(ctx) {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.profileName = text;
     updatedUser.state = "idle";
+    
+    // Check if user was trying to view another profile
+    const pendingCode = updatedUser.pendingProfileViewCode;
+    if (pendingCode) {
+      await updateProfileField(ctx.userId, "pendingProfileViewCode", "");
+      return sendPublicProfileByCode(ctx, lang, pendingCode);
+    }
+    
     return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 

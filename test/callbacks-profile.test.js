@@ -86,6 +86,7 @@ test("profile settings keeps the profile display with settings controls", async 
 
 test("public profile viewing asks for basic profile first", async () => {
   const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
 
   User.findOne = async () => ({
@@ -95,14 +96,15 @@ test("public profile viewing asks for basic profile first", async () => {
     profileName: "Target",
   });
 
+  User.findOneAndUpdate = async () => ({});
+
   const ctx = {
     userId: 111,
     user: {
       userId: 111,
       lang: "en",
-      firstName: "Ali",
-      profileName: "Ali",
-      age: null,
+      firstName: "",
+      profileName: "",
     },
     reply: async (text, extra) => {
       replies.push({ text, extra });
@@ -111,20 +113,21 @@ test("public profile viewing asks for basic profile first", async () => {
     replyWithPhoto: async () => {
       throw new Error("gate should not render target profile");
     },
+    toObject: () => ({}),
   };
 
   try {
     await sendPublicProfileByCode(ctx, "en", "u_TARGET");
   } finally {
     User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
   assert.equal(replies.length, 1);
   assert.match(replies[0].text, /Before viewing other profiles/);
-  assert.match(replies[0].text, /🎂 age/);
   assert.deepEqual(
     replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
-    [callBacks.profileEditAge],
+    [callBacks.profileEditName],
   );
 });
 

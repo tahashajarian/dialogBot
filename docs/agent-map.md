@@ -49,11 +49,12 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/models/user.js`: user schema and profile/discussion/saved-profile fields.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
-- `src/flows/profile-callbacks.js`: profile edit/settings callback routing and own-profile callback rendering.
+- `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
 - `src/flows/saved-profiles.js`: saved-profile commands/callback helpers, public-profile rendering by code, saved-list message tracking, and stale public-profile card cleanup.
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
 - Saved profiles are private one-way bookmarks. Do not notify the saved user.
+- Profile viewing gate requires only display name; after completion, users are redirected to the intended profile via `pendingProfileViewCode`.
 
 ## Onboarding
 

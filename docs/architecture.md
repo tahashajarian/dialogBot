@@ -74,10 +74,20 @@ Viewed public-profile cards are transient. Store and clear their last bot messag
 - saved profile references, capped at 50 per user
 - transient public-profile card id (`publicProfileLastMessageId`)
 - transient discussion member-list card id (`discussionLastMembersMessageId`)
+- pending profile view code (`pendingProfileViewCode`)
 
 Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
 
 Saved profiles are private one-way bookmarks. They store references/public profile codes only, not duplicate private profile data.
+
+## Profile Viewing Requirements
+
+When viewing other users' profiles through discussions, a basic profile completion gate checks if the viewer has the minimum required fields. If incomplete, the gate prompts for missing fields and stores the intended profile code in `pendingProfileViewCode`. After the user completes their profile, they are automatically redirected to the intended profile instead of their own profile.
+
+**Required fields for viewing profiles**:
+- Display name (profileName or firstName)
+
+Age is optional and not enforced by the profile viewing gate.
 
 ## Validation
 

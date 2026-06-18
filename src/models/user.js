@@ -101,6 +101,7 @@ const UserSchema = new mongoose.Schema({
   savedProfilesLastListMessageId: { type: Number, default: null },
   publicProfileLastMessageId: { type: Number, default: null },
   profileEditPromptMessageId: { type: Number, default: null },
+  pendingProfileViewCode: { type: String, default: "" },
   discussionDraftTitle: { type: String, default: "" },
   discussionDraftDescription: { type: String, default: "" },
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
