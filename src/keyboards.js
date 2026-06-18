@@ -558,7 +558,7 @@ function onboardingCompleteKeyboard(lang) {
   return inlineKeyboard([
     [{
       text: messages[lang].onboardingBrowseDiscussionsButton,
-      callback_data: callBacks.discussionListActive,
+      callback_data: callBacks.discussionInvitations,
     }],
     [{
       text: messages[lang].onboardingMainMenuButton,

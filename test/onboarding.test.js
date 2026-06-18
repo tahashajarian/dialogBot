@@ -15,6 +15,7 @@ const {
 } = require("../src/keyboards");
 const {
   NEW_USER_WINDOW_MS,
+  appendStarterInvitationsText,
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
   getOnboardingPage,
@@ -155,10 +156,18 @@ test("onboarding completion offers clear next actions", () => {
   const callbackData = keyboard.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
 
   assert.deepEqual(callbackData, [
-    callBacks.discussionListActive,
+    callBacks.discussionInvitations,
     callBacks.menuMain,
     callBacks.help,
   ]);
+});
+
+test("onboarding starter invitation note points users to invitations", () => {
+  const text = appendStarterInvitationsText("en", "Done", 3);
+
+  assert.match(text, /^Done/);
+  assert.match(text, /3 invitations from the bot/);
+  assert.match(text, /💡/);
 });
 
 test("help is available from the main menu and onboarding completion", () => {

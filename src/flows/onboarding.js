@@ -2,7 +2,6 @@ const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
   getOnboardingInterestChipTitle,
-  mainMenuKeyboard,
   onboardingCompleteKeyboard,
   onboardingCustomInterestKeyboard,
   onboardingInterestsKeyboard,
@@ -19,6 +18,9 @@ const {
   getTasteLabelStyleHint,
   getTasteLabelTitle,
 } = require("../services/ai-section");
+const {
+  createOnboardingStarterInvitationsForUser,
+} = require("../services/discussion-invitations");
 const { AI_TOP_TEN_LIMIT } = require("../constants/ai");
 
 const ONBOARDING_VERSION = 1;
@@ -123,6 +125,21 @@ function buildOnboardingCompleteText(lang, items = []) {
     .replace("{style}", style);
 }
 
+function appendStarterInvitationsText(lang, text, count = 0) {
+  const normalizedCount = Number(count) || 0;
+  if (normalizedCount <= 0) return text;
+  return `${text}\n\n${messages[lang].onboardingStarterInvitationsReady.replace("{count}", String(normalizedCount))}`;
+}
+
+async function completeOnboardingAndCreateStarterInvites(ctx, skipped = false) {
+  await completeOnboarding(ctx, skipped);
+  try {
+    return await createOnboardingStarterInvitationsForUser(ctx.userId);
+  } catch {
+    return { ok: false, count: 0 };
+  }
+}
+
 async function startOnboardingLanguage(ctx, lang, inviteCode = "") {
   const state = inviteCode
     ? `onboarding_invite_language:${inviteCode}`
@@ -170,11 +187,11 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (data === callBacks.onboardingSkip) {
-    await completeOnboarding(ctx, true);
+    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx, true);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      messages[lang].onboardingSkipped,
-      mainMenuKeyboard(lang),
+      appendStarterInvitationsText(lang, messages[lang].onboardingSkipped, starterInvites.count),
+      onboardingCompleteKeyboard(lang),
     );
   }
 
@@ -239,10 +256,14 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (items.length >= ONBOARDING_INTEREST_GOAL) {
-    await completeOnboarding(ctx);
+    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)),
+      appendStarterInvitationsText(
+        lang,
+        buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)),
+        starterInvites.count,
+      ),
       onboardingCompleteKeyboard(lang),
     );
   }
@@ -291,8 +312,11 @@ async function handleOnboardingText(ctx, lang) {
         result.items.slice(0, ONBOARDING_INTEREST_GOAL),
       );
       await retireOnboardingPrompt(ctx);
-      await completeOnboarding(ctx);
-      return ctx.reply(completeText, onboardingCompleteKeyboard(lang));
+      const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
+      return ctx.reply(
+        appendStarterInvitationsText(lang, completeText, starterInvites.count),
+        onboardingCompleteKeyboard(lang),
+      );
     }
 
     await updateUserState(ctx.userId, "onboarding_interests");
@@ -318,8 +342,10 @@ module.exports = {
   NEW_USER_WINDOW_MS,
   ONBOARDING_INTEREST_GOAL,
   ONBOARDING_VERSION,
+  appendStarterInvitationsText,
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
+  completeOnboardingAndCreateStarterInvites,
   getOnboardingPage,
   handleOnboardingCallback,
   handleOnboardingText,

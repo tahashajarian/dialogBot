@@ -21,6 +21,7 @@ const {
 const {
   countPendingReceivedInvitations,
   createDiscussionInvitation,
+  createOnboardingStarterInvitationsForUser,
   getInvitationForUser,
   listReceivedInvitations,
   markInvitationsSeen,
@@ -329,6 +330,45 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(removed.ok, true);
   const hiddenList = await listReceivedInvitations(2, { statuses: ["accepted"] });
   assert.equal(hiddenList.invitations.length, 0);
+});
+
+test("onboarding starter invitations are created once from bot discussions", async () => {
+  await createUser(500);
+  await Promise.all([
+    createOpenDiscussion(999, {
+      title: "Free Discussion",
+      publicDiscussionCode: "d_BOTFREE",
+      isBotCreated: true,
+      botSeedKey: "free-discussion",
+      memberUserIds: [999],
+    }),
+    createOpenDiscussion(999, {
+      title: "Gaming Hangout",
+      publicDiscussionCode: "d_BOTGAME",
+      isBotCreated: true,
+      botSeedKey: "whats-up",
+      memberUserIds: [999],
+    }),
+    createOpenDiscussion(999, {
+      title: "Movie Chat",
+      publicDiscussionCode: "d_BOTMOVI",
+      isBotCreated: true,
+      botSeedKey: "lets-talk",
+      memberUserIds: [999],
+    }),
+  ]);
+
+  const created = await createOnboardingStarterInvitationsForUser(500);
+  assert.equal(created.ok, true);
+  assert.equal(created.count, 3);
+
+  const repeated = await createOnboardingStarterInvitationsForUser(500);
+  assert.equal(repeated.ok, true);
+  assert.equal(repeated.skipped, true);
+  assert.equal(await DiscussionInvitation.countDocuments({ inviteeUserId: 500, source: "bot_onboarding" }), 3);
+
+  const user = await User.findOne({ userId: 500 }).lean();
+  assert.ok(user.onboardingStarterInvitationsAt instanceof Date);
 });
 
 test("muting an inviter hides pending invites and blocks future invites", async () => {

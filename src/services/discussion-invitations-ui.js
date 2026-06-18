@@ -63,12 +63,15 @@ function buildInvitationStateText(messages, lang, state = {}) {
 function buildInvitationEntryText(messages, lang, entry, index, { accepted = false } = {}) {
   const { invitation, discussion, inviter, state } = entry;
   const code = commandCode(invitation.publicInvitationCode);
-  const inviterCode = inviter?.publicProfileCode ? commandCode(inviter.publicProfileCode, /^u_/i) : "";
+  const isBotInvite = invitation?.source === "bot_onboarding";
+  const inviterCode = !isBotInvite && inviter?.publicProfileCode ? commandCode(inviter.publicProfileCode, /^u_/i) : "";
   const statusEmoji = accepted ? "✅" : invitation.seenAt ? "📨" : "🆕";
   const title = discussion
     ? getDiscussionDisplayTitle(messages, lang, discussion)
     : messages[lang].discussionInvitationMissingTitle;
-  const inviterName = displayName(inviter, lang === "fa" ? "کاربر" : "User");
+  const inviterName = isBotInvite
+    ? messages[lang].discussionInvitationBotInviter
+    : displayName(inviter, lang === "fa" ? "کاربر" : "User");
   const maxMembers = discussion ? normalizeMaxMembers(discussion.maxMembers) : 0;
   const memberCount = discussion?.memberUserIds?.length || 0;
   const rule = discussion ? getJoinRulePreviewText(messages, lang, discussion.joinRule) : "";

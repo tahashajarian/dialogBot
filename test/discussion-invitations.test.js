@@ -128,6 +128,32 @@ test("received invitations localize bot-created discussion title and description
   assert.doesNotMatch(text, /A simple place to start chatting/);
 });
 
+test("bot onboarding invitations do not show an inviter profile link", async () => {
+  const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [] }, [{
+    invitation: {
+      publicInvitationCode: "i_BOT123",
+      source: "bot_onboarding",
+      seenAt: null,
+    },
+    discussion: {
+      title: "Free Discussion",
+      description: "A simple place to start chatting.",
+      isBotCreated: true,
+      botSeedKey: "free-discussion",
+      memberUserIds: [1],
+      maxMembers: 20,
+      joinRule: { type: "open" },
+    },
+    inviter: null,
+    state: { state: "joinable" },
+  }]);
+
+  assert.match(text, /From: Bot/);
+  assert.match(text, /Join 👉 \/accept_inv_BOT123/);
+  assert.doesNotMatch(text, /Inviter profile/);
+  assert.doesNotMatch(text, /\/u_/);
+});
+
 test("received invitations can show accepted invites as recent shortcuts", async () => {
   const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [] }, [], [{
     invitation: {

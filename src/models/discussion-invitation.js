@@ -13,7 +13,7 @@ const DiscussionInvitationSchema = new mongoose.Schema({
     default: "pending",
     index: true,
   },
-  source: { type: String, enum: ["room", "saved_profile"], default: "room" },
+  source: { type: String, enum: ["room", "saved_profile", "bot_onboarding"], default: "room" },
   createdAt: { type: Date, default: Date.now },
   acceptedAt: { type: Date, default: null },
   removedAt: { type: Date, default: null },

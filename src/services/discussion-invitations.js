@@ -13,6 +13,7 @@ const {
 } = require("./discussions");
 
 const INVITATION_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const ONBOARDING_STARTER_INVITATION_LIMIT = 3;
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -192,6 +193,77 @@ async function createDiscussionInvitation({
   return { ok: true, invitation, discussion, invitee };
 }
 
+async function createOnboardingStarterInvitationsForUser(userId, { now = new Date() } = {}) {
+  const inviteeUserId = Number(userId);
+  if (!Number.isInteger(inviteeUserId) || inviteeUserId <= 0) {
+    return { ok: false, reason: "missing_user", count: 0 };
+  }
+
+  const user = await User.findOne({ userId: inviteeUserId });
+  if (!user) return { ok: false, reason: "missing_user", count: 0 };
+  if (user.onboardingStarterInvitationsAt) {
+    const existingCount = await DiscussionInvitation.countDocuments({
+      inviteeUserId,
+      source: "bot_onboarding",
+      status: "pending",
+    });
+    return { ok: true, count: existingCount, skipped: true };
+  }
+
+  const starters = await Discussion.find({
+    isBotCreated: true,
+    botSeedKey: { $ne: "" },
+    status: "open",
+  }).sort({ botSeedKey: 1, updatedAt: -1 }).limit(ONBOARDING_STARTER_INVITATION_LIMIT * 2);
+
+  const eligible = starters
+    .filter((discussion) => !(discussion.memberUserIds || []).includes(inviteeUserId))
+    .filter((discussion) => !(discussion.removedUserIds || []).includes(inviteeUserId))
+    .slice(0, ONBOARDING_STARTER_INVITATION_LIMIT);
+
+  let count = 0;
+  for (const discussion of eligible) {
+    const existing = await DiscussionInvitation.findOne({
+      inviteeUserId,
+      discussionId: discussion._id,
+      status: "pending",
+    });
+    if (existing) {
+      if (existing.source === "bot_onboarding") count += 1;
+      continue;
+    }
+
+    const discussionCode = await ensurePublicDiscussionCode(discussion);
+    if (!discussionCode.ok) continue;
+
+    const invitation = new DiscussionInvitation({
+      discussionId: discussion._id,
+      discussionPublicCode: discussionCode.code,
+      inviterUserId: Number(discussion.creatorUserId),
+      inviteeUserId,
+      inviteePublicProfileCode: user.publicProfileCode || "",
+      status: "pending",
+      source: "bot_onboarding",
+      createdAt: now,
+    });
+
+    try {
+      const codeResult = await ensurePublicInvitationCode(invitation);
+      if (codeResult.ok) count += 1;
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      count += 1;
+    }
+  }
+
+  if (count > 0) {
+    user.onboardingStarterInvitationsAt = now;
+    await user.save();
+  }
+
+  return { ok: true, count };
+}
+
 async function hydrateInvitations(invitations = []) {
   const discussionIds = invitations.map((entry) => entry.discussionId);
   const inviterIds = invitations.map((entry) => entry.inviterUserId);
@@ -311,6 +383,7 @@ module.exports = {
   countAllPendingReceivedInvitations,
   countAllVisibleReceivedInvitations,
   createDiscussionInvitation,
+  createOnboardingStarterInvitationsForUser,
   listEligibleDiscussionsForInvite,
   listReceivedInvitations,
   markInvitationsSeen,

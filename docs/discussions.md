@@ -14,6 +14,7 @@ The MVP described here is implemented. The current code supports:
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - three bot-created starter rooms, marked only with `🤖`: one open room and two rooms gated by popular Interests TopTen items
+- onboarding starter invitations from the bot into those starter rooms, shown in the normal invitations inbox without a bot profile link
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
