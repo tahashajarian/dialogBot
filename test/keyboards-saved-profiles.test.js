@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  discussionInviteNoSavedProfilesKeyboard,
   discussionInvitationsBackKeyboard,
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
@@ -33,6 +34,15 @@ test("invitations list keyboard only goes back to discussions menu", () => {
   assert.equal(rows.length, 1);
   assert.equal(rows[0].length, 1);
   assert.equal(rows[0][0].callback_data, callBacks.discussions);
+});
+
+test("empty saved-profile invite state offers shareable invite", () => {
+  const keyboard = discussionInviteNoSavedProfilesKeyboard("en");
+  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0][0].callback_data, callBacks.discussionInviteModeShare);
+  assert.equal(rows[1][0].callback_data, `${callBacks.discussionInvitationAck}room`);
 });
 
 test("inviter profile opened from invitations returns to invitations", () => {

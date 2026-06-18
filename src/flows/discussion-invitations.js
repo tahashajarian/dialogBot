@@ -5,6 +5,7 @@ const {
   discussionsMenuKeyboard,
   discussionRoomKeyboard,
   discussionInviteSavedProfilesKeyboard,
+  discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationsBackKeyboard,
@@ -149,7 +150,7 @@ async function showInviteSavedProfilePicker(ctx, lang, {
     return (editCallbackMessageOrReply || ((roomCtx, text, keyboard) => roomCtx.reply(text, keyboard)))(
       ctx,
       messages[lang].discussionInvitationNoSavedProfiles,
-      discussionInvitationAckKeyboard(lang, "room"),
+      discussionInviteNoSavedProfilesKeyboard(lang),
     );
   }
 

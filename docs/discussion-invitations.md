@@ -214,12 +214,12 @@ If the inviter has no saved profiles:
 ```text
 🤖 You do not have saved profiles yet.
 
-You can open the member list, view a profile, and save someone first.
+For now, create a shareable invite and send it to people. Later, save interesting profiles from member lists so you can invite them directly.
 ```
 
 Actions:
 
-- Members
+- Create shareable invite
 - Back to room
 
 Persian:
@@ -227,12 +227,12 @@ Persian:
 ```text
 🤖 هنوز پروفایل ذخیره‌شده‌ای نداری.
 
-می‌تونی از لیست اعضا یک پروفایل رو ببینی و ذخیره کنی.
+می‌تونی فعلاً یک دعوت قابل اشتراک بسازی و برای دیگران بفرستی. بعداً هم از لیست اعضا پروفایل‌های جالب رو ذخیره کن تا مستقیم دعوتشون کنی.
 ```
 
 Actions:
 
-- اعضا
+- ساخت پیام قابل اشتراک
 - برگشت به بحث
 
 ### Invite Target Picker
@@ -1090,7 +1090,7 @@ Flow tests:
 - Active discussion `📨 دعوت` opens invite mode menu.
 - Shareable invite path still works.
 - Invite saved profile path returns to room after `Got it`.
-- No saved profiles state returns to room/members.
+- No saved profiles state offers shareable invite and back to room.
 - Saved profile `/invite_CODE` opens discussion picker.
 - No eligible discussions state offers browse/create/back.
 - Invite sent from saved profile returns to saved profiles after `Got it`.

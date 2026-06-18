@@ -139,6 +139,13 @@ function discussionInviteSavedProfilesKeyboard(lang, items = []) {
   return inlineKeyboard(rows);
 }
 
+function discussionInviteNoSavedProfilesKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].discussionInviteShareable, callback_data: callBacks.discussionInviteModeShare }],
+    [{ text: messages[lang].discussionBackToRoom, callback_data: callBacks.discussionInvitationAck + "room" }],
+  ]);
+}
+
 function discussionInviteDiscussionPickerKeyboard(lang, profileCode, discussions = []) {
   const cleanProfileCode = String(profileCode || "").replace(/^u_/i, "");
   const rows = discussions.map((discussion, index) => ([{
@@ -329,6 +336,7 @@ module.exports = {
   discussionRoomKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteSavedProfilesKeyboard,
+  discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationsBackKeyboard,
