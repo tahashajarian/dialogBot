@@ -196,6 +196,34 @@ function parseAiManageState(state) {
   };
 }
 
+function toAiManageStateListType(value) {
+  return value === "topTen" ? "top_ten" : "watchlist";
+}
+
+function getAiManageState(section, listType, suffix = "") {
+  const base = `ai_manage_${section}_${toAiManageStateListType(listType)}`;
+  return suffix ? `${base}_${suffix}` : base;
+}
+
+function rememberCtxAiListItems(ctx, section, listType, items = []) {
+  if (!ctx.user) return;
+  if (!ctx.user.aiLists) ctx.user.aiLists = {};
+  if (!ctx.user.aiLists[section]) ctx.user.aiLists[section] = {};
+  ctx.user.aiLists[section][listType] = items;
+}
+
+function getContinuousAddKeyboard(lang, section, listType, items = []) {
+  if (section === "random" && listType === "topTen") {
+    return aiInterestTopTenChipKeyboard(
+      lang,
+      items.map((entry) => entry.title),
+      0,
+      { done: true },
+    );
+  }
+  return aiListCancelAddKeyboard(lang, section, listType, { done: true });
+}
+
 function isAiTextState(state = "") {
   return Boolean(
     parseAiManageState(state) ||
@@ -460,7 +488,13 @@ async function handleAiText(ctx, lang, text, state) {
         );
       }
 
-      await updateUserState(ctx.userId, `ai_manage_${section}_${isWatchlist ? "watchlist" : "top_ten"}`);
+      rememberCtxAiListItems(ctx, section, listType, result.items);
+      const listIsFull = result.items.length >= (isWatchlist ? AI_WATCHLIST_LIMIT : AI_TOP_TEN_LIMIT);
+      const nextState = listIsFull
+        ? getAiManageState(section, listType)
+        : getAiManageState(section, listType, "add_input");
+      await updateUserState(ctx.userId, nextState);
+      if (ctx.user) ctx.user.state = nextState;
 
       if (!isWatchlist) {
         const placeholder = await startAiPlaceholder(ctx, [
@@ -475,16 +509,27 @@ async function handleAiText(ctx, lang, text, state) {
           item,
           items: result.items,
         });
-        return placeholder.finish(savedMessage, aiListManageMenuKeyboard(lang, section, listType));
+        const saved = await placeholder.finish(
+          savedMessage,
+          listIsFull
+            ? aiListManageMenuKeyboard(lang, section, listType)
+            : getContinuousAddKeyboard(lang, section, listType, result.items),
+        );
+        if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+        return saved;
       }
 
-      return ctx.reply(
+      const saved = await ctx.reply(
         `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, {
           topTenTitleSet: toTitleSet(topTenItems),
           includeWatched: true,
-        })}`,
-        aiListManageMenuKeyboard(lang, section, listType),
+        })}${listIsFull ? "" : `\n\n${messages[lang].aiListManageAddNextPrompt}`}`,
+        listIsFull
+          ? aiListManageMenuKeyboard(lang, section, listType)
+          : getContinuousAddKeyboard(lang, section, listType, result.items),
       );
+      if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+      return saved;
     }
 
     if (manageState.commentInputMode) {

@@ -172,6 +172,94 @@ test("music add prompt invites either an audio track or typed title", () => {
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
 });
 
+test("Top Ten add flow stays open for the next item", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const edits = [];
+
+  User.findOne = async () => ({
+    userId: 77,
+    aiLists: { random: { topTen: [] } },
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    userId: 77,
+    user: {
+      userId: 77,
+      lang: "en",
+      state: "ai_manage_random_top_ten_add_input",
+      aiLists: { random: { topTen: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "Chess", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const finalEdit = edits.at(-1);
+  const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
+
+  assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
+  assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddDone), true);
+  assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
+  assert.deepEqual(ctx.user.aiLists.random.topTen.map((entry) => entry.title), ["Chess"]);
+});
+
+test("watchlist add flow stays open for the next item", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 78,
+    aiLists: { movies: { watchlist: [], topTen: [] } },
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    userId: 78,
+    user: {
+      userId: 78,
+      lang: "en",
+      state: "ai_manage_movies_watchlist_add_input",
+      aiLists: { movies: { watchlist: [], topTen: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "Arrival", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const savedReply = replies.at(-1);
+  const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
+
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
+  assert.match(savedReply.text, /Send the next item, or tap Done/);
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddDone), true);
+  assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);
+});
+
 test("Interests editor shares the paged onboarding chip catalog", () => {
   const firstPage = aiInterestTopTenChipKeyboard("en", ["Chess"], 0);
   const secondPage = aiInterestTopTenChipKeyboard("en", [], 1);

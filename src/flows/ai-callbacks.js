@@ -609,7 +609,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].aiListManageAddCanceled, aiListManageMenuKeyboard(lang, section, listType));
+    return ctx.reply(messages[lang].aiListManageAddDoneMessage, aiListManageMenuKeyboard(lang, section, listType));
   }
 
   if (data.startsWith(callBacks.aiListManageAdd)) {
@@ -634,8 +634,8 @@ async function handleAiCallback(ctx, lang, helpers) {
       prompt,
       getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
-        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
-        : aiListCancelAddKeyboard(lang, section, listType),
+        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title), 0, { done: true })
+        : aiListCancelAddKeyboard(lang, section, listType, { done: true }),
     );
     await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
     return editedPrompt;
@@ -657,6 +657,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         lang,
         currentItems.map((entry) => entry.title),
         page,
+        { done: true },
       ),
     );
   }
@@ -679,9 +680,14 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     if (!result.ok) {
       if (result.reason === "exists") {
-        return ctx.reply(getDuplicateTopTenMessage(lang, result, currentItems.length), aiListManageMenuKeyboard(lang, "random", "topTen"));
+        return ctx.reply(
+          getDuplicateTopTenMessage(lang, result, currentItems.length),
+          aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title), 0, { done: true }),
+        );
       }
       if (result.reason === "limit") {
+        await updateUserState(ctx.userId, "ai_manage_random_top_ten");
+        if (ctx.user) ctx.user.state = "ai_manage_random_top_ten";
         return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
       if (result.reason === "invalid_item_quality") {
@@ -691,7 +697,14 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].aiListInvalidInput, aiListManageMenuKeyboard(lang, "random", "topTen"));
     }
 
-    await updateUserState(ctx.userId, "ai_manage_random_top_ten");
+    if (ctx.user) {
+      if (!ctx.user.aiLists) ctx.user.aiLists = {};
+      if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
+      ctx.user.aiLists.random.topTen = result.items;
+    }
+    const listIsFull = result.items.length >= AI_TOP_TEN_LIMIT;
+    await updateUserState(ctx.userId, listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input");
+    if (ctx.user) ctx.user.state = listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input";
     const placeholder = await startAiPlaceholder(ctx, [
       messages[lang].aiThinking,
       messages[lang].aiThinkingStill,
@@ -705,7 +718,14 @@ async function handleAiCallback(ctx, lang, helpers) {
       items: result.items,
       savedMessageKey: "aiInterestTopTenChipSaved",
     });
-    return placeholder.finish(savedText, aiListManageMenuKeyboard(lang, "random", "topTen"));
+    const saved = await placeholder.finish(
+      savedText,
+      listIsFull
+        ? aiListManageMenuKeyboard(lang, "random", "topTen")
+        : aiInterestTopTenChipKeyboard(lang, result.items.map((entry) => entry.title), 0, { done: true }),
+    );
+    if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+    return saved;
   }
 
   if (data.startsWith(callBacks.aiListManageRemovePicker)) {

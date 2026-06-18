@@ -393,12 +393,12 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
   return inlineKeyboard(rows);
 }
 
-function aiListCancelAddKeyboard(lang, section, listType) {
+function aiListCancelAddKeyboard(lang, section, listType, { done = false } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   return inlineKeyboard([
     [
       {
-        text: messages[lang].cancelEdit,
+        text: done ? messages[lang].aiListManageAddDone : messages[lang].cancelEdit,
         callback_data: `${callBacks.aiListManageCancelAdd}${section}:${listTypeToken}`,
       },
     ],
@@ -461,7 +461,7 @@ function getPagedInterestChips(lang, selectedTitles = [], page = 0) {
   return { available, normalizedPage, totalPages };
 }
 
-function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0) {
+function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0, { done = false } = {}) {
   const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
 
@@ -479,7 +479,7 @@ function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0) {
 
   rows.push([
     {
-      text: messages[lang].cancelEdit,
+      text: done ? messages[lang].aiListManageAddDone : messages[lang].cancelEdit,
       callback_data: `${callBacks.aiListManageCancelAdd}random:top_ten`,
     },
   ]);
