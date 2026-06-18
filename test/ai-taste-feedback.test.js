@@ -39,6 +39,91 @@ test("uses predefined feedback for known Interests chips", async () => {
   assert.equal(enGaming.text, "Gaming says you enjoy challenge and flow.");
 });
 
+test("uses predefined feedback for every provided Interests chip", async () => {
+  const chips = [
+    ["fa", "شطرنج"],
+    ["fa", "کدنویسی"],
+    ["fa", "گیم"],
+    ["fa", "فیلم"],
+    ["fa", "موسیقی"],
+    ["fa", "کتاب"],
+    ["fa", "انیمه"],
+    ["fa", "فوتبال"],
+    ["fa", "باشگاه"],
+    ["fa", "سفر"],
+    ["fa", "طبیعت"],
+    ["fa", "غذا"],
+    ["fa", "آشپزی"],
+    ["fa", "قهوه"],
+    ["fa", "کافه‌گردی"],
+    ["fa", "هنر"],
+    ["fa", "عکاسی"],
+    ["fa", "نوشتن"],
+    ["fa", "مد و فشن"],
+    ["fa", "روانشناسی"],
+    ["fa", "علم"],
+    ["fa", "تاریخ"],
+    ["fa", "پادکست"],
+    ["fa", "یوتیوب"],
+    ["fa", "دورهمی"],
+    ["fa", "آرامش"],
+    ["fa", "پیاده‌روی"],
+    ["fa", "سلامتی"],
+    ["fa", "رشد فردی"],
+    ["fa", "کسب‌وکار"],
+    ["fa", "سرمایه‌گذاری"],
+    ["fa", "بازی فکری"],
+    ["fa", "تئاتر"],
+    ["en", "Chess"],
+    ["en", "Coding"],
+    ["en", "Gaming"],
+    ["en", "Movies"],
+    ["en", "Music"],
+    ["en", "Books"],
+    ["en", "Anime"],
+    ["en", "Football"],
+    ["en", "Gym"],
+    ["en", "Travel"],
+    ["en", "Nature"],
+    ["en", "Food"],
+    ["en", "Cooking"],
+    ["en", "Coffee"],
+    ["en", "Cafes"],
+    ["en", "Art"],
+    ["en", "Photography"],
+    ["en", "Writing"],
+    ["en", "Fashion"],
+    ["en", "Psychology"],
+    ["en", "Science"],
+    ["en", "History"],
+    ["en", "Podcast"],
+    ["en", "YouTube"],
+    ["en", "Social events"],
+    ["en", "Calm"],
+    ["en", "Walking"],
+    ["en", "Wellness"],
+    ["en", "Self growth"],
+    ["en", "Business"],
+    ["en", "Investing"],
+    ["en", "Board games"],
+    ["en", "Theater"],
+  ];
+
+  for (const [lang, item] of chips) {
+    const result = await getAiTasteItemFeedback({
+      mode: "random",
+      lang,
+      item,
+      labelKey: "multi_interest",
+      labelTitle: "Multi-interest",
+    });
+
+    assert.equal(result.matchType, "predefined", item);
+    assert.equal(result.ok, true, item);
+    assert.ok(result.text.length > 0, item);
+  }
+});
+
 test("uses neutral feedback for low-quality or placeholder inputs", async () => {
   const enResult = await getAiTasteItemFeedback({
     mode: "movies",

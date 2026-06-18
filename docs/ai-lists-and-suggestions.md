@@ -141,6 +141,13 @@ Initial common chips can include:
 📺 یوتیوب
 🌿 طبیعت
 🍳 آشپزی
+🧠 روانشناسی
+💪 سلامتی
+🌱 رشد فردی
+💼 کسب‌وکار
+💰 سرمایه‌گذاری
+🧩 بازی فکری
+🎭 تئاتر
 ```
 
 Implementation notes:
@@ -151,6 +158,7 @@ Implementation notes:
 - After a chip is selected, delete the chip picker message so the old options do not stay in chat.
 - Chip selection should show the same placeholder/feedback flow as typed TopTen input.
 - Known chips should have predefined meaningful feedback, so common choices such as `کدنویسی`, `گیم`, `شطرنج`, and `Coffee` do not need a first-time AI call.
+- Every built-in Interests chip should have predefined feedback, so choosing one never calls AI or shows unknown-item copy.
 - If a user types the same known chip text manually, the predefined feedback should still apply.
 
 ### Interests Labels

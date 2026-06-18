@@ -90,7 +90,8 @@ test("onboarding keyboard shows one page, removes selected interests, and keeps 
   const interestButtons = buttons.filter((button) => button.callback_data.startsWith(callBacks.onboardingInterest));
 
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
-  assert.equal(interestButtons.length, 8);
+  assert.equal(interestButtons.length, 9);
+  assert.equal(buttons.some((button) => button.text.includes("Travel")), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
   assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), true);

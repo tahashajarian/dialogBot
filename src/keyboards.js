@@ -433,18 +433,36 @@ const ONBOARDING_INTEREST_CHIPS = [
   { emoji: "🎉", fa: "دورهمی", en: "Social events" },
   { emoji: "🧘", fa: "آرامش", en: "Calm" },
   { emoji: "🚶", fa: "پیاده‌روی", en: "Walking" },
+  { emoji: "💪", fa: "سلامتی", en: "Wellness" },
+  { emoji: "🌱", fa: "رشد فردی", en: "Self growth" },
+  { emoji: "💼", fa: "کسب‌وکار", en: "Business" },
+  { emoji: "💰", fa: "سرمایه‌گذاری", en: "Investing" },
+  { emoji: "🧩", fa: "بازی فکری", en: "Board games" },
+  { emoji: "🎭", fa: "تئاتر", en: "Theater" },
 ];
 const ONBOARDING_CHIPS_PER_PAGE = 9;
 
-function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0) {
+function getPagedInterestChips(lang, selectedTitles = [], page = 0) {
   const selected = new Set(selectedTitles.map((title) => String(title || "").toLowerCase()));
   const totalPages = Math.ceil(ONBOARDING_INTEREST_CHIPS.length / ONBOARDING_CHIPS_PER_PAGE);
   const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
   const pageStart = normalizedPage * ONBOARDING_CHIPS_PER_PAGE;
-  const available = ONBOARDING_INTEREST_CHIPS
-    .slice(pageStart, pageStart + ONBOARDING_CHIPS_PER_PAGE)
-    .map((chip, index) => ({ chip, index: pageStart + index }))
-    .filter(({ chip }) => !selected.has((lang === "fa" ? chip.fa : chip.en).toLowerCase()));
+  const available = [];
+
+  for (let offset = 0; offset < ONBOARDING_INTEREST_CHIPS.length; offset += 1) {
+    const index = (pageStart + offset) % ONBOARDING_INTEREST_CHIPS.length;
+    const chip = ONBOARDING_INTEREST_CHIPS[index];
+    const title = lang === "fa" ? chip.fa : chip.en;
+    if (selected.has(title.toLowerCase())) continue;
+    available.push({ chip, index });
+    if (available.length >= ONBOARDING_CHIPS_PER_PAGE) break;
+  }
+
+  return { available, normalizedPage, totalPages };
+}
+
+function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0) {
+  const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
 
   for (let i = 0; i < available.length; i += 3) {
@@ -495,14 +513,7 @@ function onboardingWelcomeKeyboard(lang) {
 }
 
 function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
-  const selected = new Set(selectedTitles.map((title) => String(title || "").toLowerCase()));
-  const totalPages = Math.ceil(ONBOARDING_INTEREST_CHIPS.length / ONBOARDING_CHIPS_PER_PAGE);
-  const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
-  const pageStart = normalizedPage * ONBOARDING_CHIPS_PER_PAGE;
-  const available = ONBOARDING_INTEREST_CHIPS
-    .slice(pageStart, pageStart + ONBOARDING_CHIPS_PER_PAGE)
-    .map((chip, index) => ({ chip, index: pageStart + index }))
-    .filter(({ chip }) => !selected.has((lang === "fa" ? chip.fa : chip.en).toLowerCase()));
+  const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
 
   for (let i = 0; i < available.length; i += 3) {

@@ -177,8 +177,13 @@ test("Interests editor shares the paged onboarding chip catalog", () => {
   const secondPage = aiInterestTopTenChipKeyboard("en", [], 1);
   const firstButtons = firstPage.reply_markup.inline_keyboard.flat();
   const secondButtons = secondPage.reply_markup.inline_keyboard.flat();
+  const firstInterestButtons = firstButtons.filter((button) => (
+    button.callback_data.startsWith(callBacks.aiInterestTopTenChip)
+  ));
 
   assert.equal(firstButtons.some((button) => button.text.includes("Chess")), false);
+  assert.equal(firstInterestButtons.length, 9);
+  assert.equal(firstButtons.some((button) => button.text.includes("Travel")), true);
   assert.equal(firstButtons.some((button) => button.callback_data === `${callBacks.aiInterestTopTenMore}1`), true);
   assert.equal(secondButtons.some((button) => button.text.includes("Travel")), true);
   assert.equal(getInterestTopTenChipTitle(9, "en"), "Travel");
