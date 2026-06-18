@@ -116,42 +116,6 @@ function getBasicProfileMissingFields(user) {
   return missing;
 }
 
-function getProfileCompleteness(user) {
-  const checks = [
-    { key: "name", complete: hasProfileDisplayName(user) },
-    { key: "age", complete: hasProfileAge(user) },
-    { key: "city", complete: Boolean(String(user?.city || "").trim()) },
-    { key: "photo", complete: Boolean(user?.photoFileId) },
-    { key: "interests", complete: getProfileInterestTitles(user, 3).length >= 3 },
-  ];
-  const completed = checks.filter((entry) => entry.complete).length;
-
-  return {
-    percent: Math.round((completed / checks.length) * 100),
-    missing: checks.filter((entry) => !entry.complete).map((entry) => entry.key),
-  };
-}
-
-function getProfileCompletenessFieldLabel(messages, lang, field) {
-  const key = `profileCompletenessField${field.charAt(0).toUpperCase()}${field.slice(1)}`;
-  return messages[lang][key] || field;
-}
-
-function buildProfileCompletenessText(user, lang, messages) {
-  const completeness = getProfileCompleteness(user);
-  const title = messages[lang].profileCompletenessTitle.replace("{percent}", String(completeness.percent));
-  if (!completeness.missing.length) {
-    return `\n${title}\n${messages[lang].profileCompletenessComplete}`;
-  }
-
-  const separator = lang === "fa" ? "، " : ", ";
-  const missing = completeness.missing
-    .map((field) => getProfileCompletenessFieldLabel(messages, lang, field))
-    .join(separator);
-
-  return `\n${title}\n${messages[lang].profileCompletenessMissing.replace("{fields}", missing)}`;
-}
-
 function buildProfileInterestsText(user, lang, messages, { isOwnProfile = false } = {}) {
   const interests = getProfileInterestTitles(user);
   if (!interests.length && !isOwnProfile) return "";
@@ -228,7 +192,6 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
   const genderIcon = "⚧️";
-  const completenessText = isOwnProfile ? buildProfileCompletenessText(user, lang, messages) : "";
   const interestsText = buildProfileInterestsText(user, lang, messages, { isOwnProfile });
   const tasteLabelsText = buildTasteLabelsText(user, lang, messages, { isOwnProfile });
 
@@ -254,7 +217,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
 
   const baseText = lines.join("\n");
 
-  return `${baseText}${completenessText}${interestsText}${tasteLabelsText}`;
+  return `${baseText}${interestsText}${tasteLabelsText}`;
 }
 
 function buildLocationPayload(locationMessage) {
@@ -354,11 +317,9 @@ async function sendProfileMessage({
 module.exports = {
   ACTIVE_DISCUSSION_HELP_COMMAND,
   buildProfileText,
-  buildProfileCompletenessText,
   buildProfileInterestsText,
   buildTasteLabelsText,
   getBasicProfileMissingFields,
-  getProfileCompleteness,
   getProfileInterestTitles,
   buildLocationPayload,
   hasValidLocation,

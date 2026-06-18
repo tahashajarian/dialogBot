@@ -82,29 +82,6 @@ test("buildProfileText only shows empty interests hint on own profile", () => {
   assert.doesNotMatch(publicText, /You have not added interests yet/);
 });
 
-test("buildProfileText shows own-profile completeness", () => {
-  const profileUser = {
-    firstName: "Ali",
-    profileName: "Ali",
-    aiLists: {
-      random: {
-        topTen: [
-          { title: "Chess" },
-          { title: "Coffee" },
-          { title: "Coding" },
-        ],
-      },
-    },
-  };
-
-  const ownText = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
-  const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
-
-  assert.match(ownText, /👤 Profile completeness: 40%/);
-  assert.match(ownText, /Missing: age, city, photo/);
-  assert.doesNotMatch(publicText, /Profile completeness/);
-});
-
 test("profileKeyboard puts remove photo beside change photo", () => {
   const keyboard = profileKeyboard("en", true);
   const rows = keyboard?.reply_markup?.inline_keyboard || [];
