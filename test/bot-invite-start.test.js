@@ -154,6 +154,43 @@ test("discussion outbound formatter stays plain for natural replies", () => {
   assert.equal(text, "Sara: I agree");
 });
 
+test("profile name edit rejects emoji and does not save the name", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  const ctx = {
+    text: "Ali 🤖",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "editing_name",
+      profileEditPromptMessageId: 20,
+    },
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 21 };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Names cannot include emoji/);
+  assert.equal(updates.some((entry) => entry.update?.profileName === "Ali 🤖"), false);
+});
+
 test("active discussions reject non-text messages only in the normal room state", () => {
   const activeMediaContext = {
     user: { activeDiscussionId: "discussion-id" },

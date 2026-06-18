@@ -2,20 +2,24 @@ const User = require("../models/user");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
+const { sanitizeProfileNameCandidate } = require("./profile");
+
+const PROFILE_NAME_MAX_LENGTH = 30;
 
 async function getOrCreateUser(from) {
   if (!from) return null;
+  const safeFirstName = sanitizeProfileNameCandidate(from.first_name, PROFILE_NAME_MAX_LENGTH);
 
   return await User.findOneAndUpdate(
     { userId: from.id },
     {
       $set: {
         username: from.username,
-        firstName: from.first_name,
+        firstName: safeFirstName,
       },
       $setOnInsert: {
         userId: from.id,
-        profileName: from.first_name,
+        profileName: safeFirstName,
         age: null,
         lang: "fa",
       },

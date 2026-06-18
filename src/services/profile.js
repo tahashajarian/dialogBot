@@ -29,6 +29,30 @@ function isValidTextInput(text, maxLength) {
   return true;
 }
 
+function hasEmoji(value = "") {
+  return /\p{Extended_Pictographic}/u.test(String(value || ""));
+}
+
+function normalizeProfileName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ");
+}
+
+function sanitizeProfileNameCandidate(name, maxLength) {
+  const sanitized = normalizeProfileName(String(name || "").replace(/\p{Extended_Pictographic}/gu, ""));
+  if (!isValidTextInput(sanitized, maxLength)) return "";
+  return sanitized;
+}
+
+function validateProfileName(name, maxLength) {
+  if (!isValidTextInput(name, maxLength)) {
+    return { ok: false, reason: "invalid_text" };
+  }
+  if (hasEmoji(name)) {
+    return { ok: false, reason: "emoji" };
+  }
+  return { ok: true, value: normalizeProfileName(name) };
+}
+
 function getFinalTasteLabels(user, lang, messages) {
   const sections = [
     { key: "movies", icon: "🎬" },
@@ -320,5 +344,7 @@ module.exports = {
   sendProfileMessage,
   saveLocationProfile,
   isValidTextInput,
+  sanitizeProfileNameCandidate,
+  validateProfileName,
   toPlainUser,
 };

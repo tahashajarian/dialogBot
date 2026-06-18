@@ -78,6 +78,7 @@
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
+- Profile display names must be emoji-free. The bot uses emoji, especially `🤖`, as authorship/status markers; users should get a clear retry prompt if they submit emoji in their name.
 - Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 - Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.

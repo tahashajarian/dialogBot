@@ -69,7 +69,7 @@ Discussion participation uses a lightweight public display identity:
 Profiles are public inside bot social surfaces for now. If a user clicks/taps another discussion member and chooses to view their profile, the viewer must first have a basic profile with at least a display name. If the viewer's profile is incomplete, show a profile completion gate that stores the intended profile code and redirects to it after completion.
 
 **Profile viewing gate requirements**:
-- Display name (required) - must have `profileName` or `firstName`
+- Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
 - Age is optional and not required for viewing profiles
 
 Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.

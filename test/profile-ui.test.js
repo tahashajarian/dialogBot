@@ -7,7 +7,11 @@ const {
   profileSettingsKeyboard,
   profileActiveDiscussionHelpKeyboard,
 } = require("../src/keyboards");
-const { buildProfileText } = require("../src/services/profile");
+const {
+  buildProfileText,
+  sanitizeProfileNameCandidate,
+  validateProfileName,
+} = require("../src/services/profile");
 
 const user = {
   firstName: "Ali",
@@ -23,6 +27,15 @@ test("buildProfileText shows active discussion visibility only for own profile",
   assert.match(ownText, /What is this\? \/ad_help/);
   assert.doesNotMatch(publicText, /Show active discussion/);
   assert.doesNotMatch(publicText, /\/ad_help/);
+});
+
+test("validateProfileName rejects emoji and keeps normal names", () => {
+  assert.deepEqual(validateProfileName("Ali", 30), { ok: true, value: "Ali" });
+  assert.deepEqual(validateProfileName("  علی   رضایی  ", 30), { ok: true, value: "علی رضایی" });
+  assert.equal(validateProfileName("Ali 🤖", 30).reason, "emoji");
+  assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
+  assert.equal(sanitizeProfileNameCandidate("Ali 🤖", 30), "Ali");
+  assert.equal(sanitizeProfileNameCandidate("🤖", 30), "");
 });
 
 test("buildProfileText shows badge tip only on own profile", () => {

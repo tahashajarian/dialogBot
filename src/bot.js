@@ -35,6 +35,7 @@ const {
   saveLocationProfile,
   sendProfileMessage,
   isValidTextInput,
+  validateProfileName,
   toPlainUser,
   ACTIVE_DISCUSSION_HELP_COMMAND,
 } = require("./services/profile");
@@ -465,19 +466,23 @@ async function handleUpdate(ctx) {
       return sendProfileEditPrompt(ctx, messages[lang].profileEditHintName, cancelEditKeyboard(lang));
     }
 
-    if (!isValidTextInput(text, FIELD_LIMITS.profileName)) {
+    const validation = validateProfileName(text, FIELD_LIMITS.profileName);
+    if (!validation.ok) {
+      const errorText = validation.reason === "emoji"
+        ? messages[lang].profileNameNoEmoji
+        : messages[lang].profileNameTooLong;
       return sendProfileEditPrompt(
         ctx,
-        `${messages[lang].profileNameTooLong}\n${messages[lang].profileEditHintName}`,
+        `${errorText}\n${messages[lang].profileEditHintName}`,
         cancelEditKeyboard(lang),
       );
     }
 
-    await updateProfileField(ctx.userId, "profileName", text);
+    await updateProfileField(ctx.userId, "profileName", validation.value);
     await updateUserState(ctx.userId, "idle");
     await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
-    updatedUser.profileName = text;
+    updatedUser.profileName = validation.value;
     updatedUser.state = "idle";
     
     // Check if user was trying to view another profile
