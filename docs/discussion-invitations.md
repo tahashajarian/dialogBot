@@ -214,7 +214,7 @@ If the inviter has no saved profiles:
 ```text
 🤖 You do not have saved profiles yet.
 
-For now, create a shareable invite and send it to people. Later, save interesting profiles from member lists so you can invite them directly.
+💡 For now, create a shareable invite and send it to people. Later, save interesting profiles from member lists so you can invite them directly.
 ```
 
 Actions:
@@ -227,7 +227,7 @@ Persian:
 ```text
 🤖 هنوز پروفایل ذخیره‌شده‌ای نداری.
 
-می‌تونی فعلاً یک دعوت قابل اشتراک بسازی و برای دیگران بفرستی. بعداً هم از لیست اعضا پروفایل‌های جالب رو ذخیره کن تا مستقیم دعوتشون کنی.
+💡 می‌تونی فعلاً یک دعوت قابل اشتراک بسازی و برای دیگران بفرستی. بعداً هم از لیست اعضا پروفایل‌های جالب رو ذخیره کن تا مستقیم دعوتشون کنی.
 ```
 
 Actions:
