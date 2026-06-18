@@ -393,13 +393,13 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
   return inlineKeyboard(rows);
 }
 
-function aiListCancelAddKeyboard(lang, section, listType, { done = false } = {}) {
+function aiListCancelAddKeyboard(lang, section, listType, { backToList = false } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   return inlineKeyboard([
     [
       {
-        text: done ? messages[lang].aiListManageAddDone : messages[lang].cancelEdit,
-        callback_data: `${callBacks.aiListManageCancelAdd}${section}:${listTypeToken}`,
+        text: backToList ? messages[lang].aiListManageAddBackToList : messages[lang].cancelEdit,
+        callback_data: `${callBacks.aiListManageCancelAdd}${section}:${listTypeToken}${backToList ? ":back" : ""}`,
       },
     ],
   ]);
@@ -461,7 +461,7 @@ function getPagedInterestChips(lang, selectedTitles = [], page = 0) {
   return { available, normalizedPage, totalPages };
 }
 
-function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0, { done = false } = {}) {
+function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0, { backToList = false } = {}) {
   const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
 
@@ -474,13 +474,13 @@ function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0, { don
 
   rows.push([{
     text: messages[lang].onboardingMoreButton,
-    callback_data: `${callBacks.aiInterestTopTenMore}${(normalizedPage + 1) % totalPages}`,
+    callback_data: `${callBacks.aiInterestTopTenMore}${(normalizedPage + 1) % totalPages}${backToList ? ":back" : ""}`,
   }]);
 
   rows.push([
     {
-      text: done ? messages[lang].aiListManageAddDone : messages[lang].cancelEdit,
-      callback_data: `${callBacks.aiListManageCancelAdd}random:top_ten`,
+      text: backToList ? messages[lang].aiListManageAddBackToList : messages[lang].cancelEdit,
+      callback_data: `${callBacks.aiListManageCancelAdd}random:top_ten${backToList ? ":back" : ""}`,
     },
   ]);
 

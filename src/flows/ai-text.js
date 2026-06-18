@@ -218,10 +218,10 @@ function getContinuousAddKeyboard(lang, section, listType, items = []) {
       lang,
       items.map((entry) => entry.title),
       0,
-      { done: true },
+      { backToList: true },
     );
   }
-  return aiListCancelAddKeyboard(lang, section, listType, { done: true });
+  return aiListCancelAddKeyboard(lang, section, listType, { backToList: true });
 }
 
 function isAiTextState(state = "") {

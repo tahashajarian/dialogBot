@@ -19,6 +19,7 @@ const {
   resolveAiListAddInput,
 } = require("../src/flows/ai-list-input");
 const {
+  aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
@@ -172,6 +173,18 @@ test("music add prompt invites either an audio track or typed title", () => {
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
 });
 
+test("add prompt starts with Cancel and post-save prompt returns to list", () => {
+  const firstPrompt = aiListCancelAddKeyboard("en", "movies", "watchlist");
+  const nextPrompt = aiListCancelAddKeyboard("en", "movies", "watchlist", { backToList: true });
+  const firstInterestPrompt = aiInterestTopTenChipKeyboard("en", [], 0);
+  const nextInterestPrompt = aiInterestTopTenChipKeyboard("en", ["Chess"], 0, { backToList: true });
+
+  assert.equal(firstPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+  assert.equal(nextPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.aiListManageAddBackToList);
+  assert.equal(firstInterestPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+  assert.equal(nextInterestPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.aiListManageAddBackToList);
+});
+
 test("Top Ten add flow stays open for the next item", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -214,7 +227,8 @@ test("Top Ten add flow stays open for the next item", async () => {
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
   assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
-  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddDone), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
   assert.deepEqual(ctx.user.aiLists.random.topTen.map((entry) => entry.title), ["Chess"]);
 });
@@ -255,8 +269,9 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Send the next item, or tap Done/);
-  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddDone), true);
+  assert.match(savedReply.text, /Send the next item, or tap Back to list/);
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);
 });
 

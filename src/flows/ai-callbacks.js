@@ -596,7 +596,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiListManageCancelAdd)) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.aiListManageCancelAdd, "");
-    const [section = "", rawListType = ""] = payload.split(":");
+    const [section = "", rawListType = "", action = ""] = payload.split(":");
     const listType = normalizeAiListTypeToken(rawListType);
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
@@ -609,7 +609,14 @@ async function handleAiCallback(ctx, lang, helpers) {
     await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(messages[lang].aiListManageAddDoneMessage, aiListManageMenuKeyboard(lang, section, listType));
+    if (action === "back") {
+      const listLabel = getSectionListLabel(messages, lang, section);
+      const managerText = listType === "topTen"
+        ? await getTopTenManageEntryMessage(ctx, lang, section)
+        : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel);
+      return ctx.reply(managerText, aiListManageMenuKeyboard(lang, section, listType));
+    }
+    return ctx.reply(messages[lang].aiListManageAddCanceled, aiListManageMenuKeyboard(lang, section, listType));
   }
 
   if (data.startsWith(callBacks.aiListManageAdd)) {
@@ -634,8 +641,8 @@ async function handleAiCallback(ctx, lang, helpers) {
       prompt,
       getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
-        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title), 0, { done: true })
-        : aiListCancelAddKeyboard(lang, section, listType, { done: true }),
+        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
+        : aiListCancelAddKeyboard(lang, section, listType),
     );
     await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
     return editedPrompt;
@@ -648,7 +655,8 @@ async function handleAiCallback(ctx, lang, helpers) {
       return helpers.deleteCallbackMessageIfPossible(ctx);
     }
 
-    const page = Number(data.replace(callBacks.aiInterestTopTenMore, "")) || 0;
+    const [pageRaw = "0", action = ""] = data.replace(callBacks.aiInterestTopTenMore, "").split(":");
+    const page = Number(pageRaw) || 0;
     const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
     return helpers.editCallbackMessageOrReply(
       ctx,
@@ -657,7 +665,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         lang,
         currentItems.map((entry) => entry.title),
         page,
-        { done: true },
+        { backToList: action === "back" },
       ),
     );
   }
@@ -682,7 +690,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (result.reason === "exists") {
         return ctx.reply(
           getDuplicateTopTenMessage(lang, result, currentItems.length),
-          aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title), 0, { done: true }),
+          aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title), 0, { backToList: true }),
         );
       }
       if (result.reason === "limit") {
@@ -722,7 +730,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       savedText,
       listIsFull
         ? aiListManageMenuKeyboard(lang, "random", "topTen")
-        : aiInterestTopTenChipKeyboard(lang, result.items.map((entry) => entry.title), 0, { done: true }),
+        : aiInterestTopTenChipKeyboard(lang, result.items.map((entry) => entry.title), 0, { backToList: true }),
     );
     if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
     return saved;

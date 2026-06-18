@@ -50,7 +50,7 @@
 - List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Bale provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
 - When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
-- After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. Show a clear Done action to return to the list manager.
+- After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. The first untouched add prompt should show Cancel; post-save prompts should show Back to list.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
 - Typed-item feedback should react to the item itself, not infer the user's personality.
 - For recognizable works, feedback should contain one concrete observation about the creator, form, genre, theme, or atmosphere.
