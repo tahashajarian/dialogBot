@@ -12,12 +12,30 @@ const MAX_OUTPUT_TOKENS = 90;
 const MAX_INPUT_CHARS = 180;
 const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
 const FEEDBACK_MAX_WORDS = 18;
-const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v4";
+const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v5";
 const FEEDBACK_TITLE_STOPWORDS = new Set([
   "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "the", "to", "with",
   "از", "با", "به", "برای", "تا", "در", "را", "و",
 ]);
 const PREDEFINED_TASTE_FEEDBACK = {
+  movies: {
+    "آفیس": {
+      fa: "آفیس با سکوت‌های معذب‌کننده و موقعیت‌های خشک‌وخنده‌دارش هنوز خیلی می‌چسبه.",
+      en: "The Office is painfully awkward in the funniest way.",
+    },
+    "سریال آفیس": {
+      fa: "آفیس با سکوت‌های معذب‌کننده و موقعیت‌های خشک‌وخنده‌دارش هنوز خیلی می‌چسبه.",
+      en: "The Office is painfully awkward in the funniest way.",
+    },
+    "the office": {
+      fa: "آفیس با سکوت‌های معذب‌کننده و موقعیت‌های خشک‌وخنده‌دارش هنوز خیلی می‌چسبه.",
+      en: "The Office is painfully awkward in the funniest way.",
+    },
+    office: {
+      fa: "آفیس با سکوت‌های معذب‌کننده و موقعیت‌های خشک‌وخنده‌دارش هنوز خیلی می‌چسبه.",
+      en: "The Office is painfully awkward in the funniest way.",
+    },
+  },
   random: {
     "شطرنج": {
       fa: "شطرنج یعنی ذهن دقیق و خوش‌حوصله.",
@@ -404,6 +422,27 @@ function isGenericTasteFeedback(feedback, lang) {
       /\byour taste\b/,
       /\bthis says you\b/,
       /\byou (have|like|enjoy|are)\b/,
+    ];
+
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
+function isEncyclopedicTasteFeedback(feedback, lang) {
+  const normalized = normalizeCacheItem(feedback);
+  if (!normalized) return false;
+
+  const patterns = lang === "fa"
+    ? [
+      /یکی از .*(محبوب|معروف|شناخته شده|برجسته).*(است|ه)/,
+      /به (داستان|زندگی|ماجرای|روایت) .* می پردازد/,
+      /در مورد .* است/,
+      /ژانر .* دارد/,
+    ]
+    : [
+      /\bis one of the (most )?(popular|famous|well known|best known)\b/,
+      /\bfollows the (story|life|lives|journey)\b/,
+      /\bis about\b/,
+      /\bbelongs to the .* genre\b/,
     ];
 
   return patterns.some((pattern) => pattern.test(normalized));
@@ -1017,7 +1056,10 @@ async function getAiTasteItemFeedback({
               "You react naturally to what someone shared, but ONLY if you actually recognize it.",
               `Respond only in ${language}.`,
               "CRITICAL: If you don't clearly recognize this specific work/item, you MUST say so honestly. Never pretend or guess.",
-              "For recognized items: keep it conversational, mention one concrete thing about it in simple language.",
+              "For recognized items: sound like a quick human reaction, not a database summary.",
+              "Mention one concrete vibe, scene quality, style, joke, sound, theme, or feeling tied to the item.",
+              "Prefer lines like 'The Office is painfully awkward in the funniest way' over 'The Office is a popular comedy about office workers'.",
+              "Do not define, introduce, or summarize the item as if writing an encyclopedia entry.",
               "For unrecognized items: be direct and honest—say you don't know it. Don't invent details or fake recognition.",
               "Never say generic praise like 'sounds interesting', 'seems special', 'looks good' for items you don't actually know.",
               `Max ${FEEDBACK_MAX_WORDS} words.`,
@@ -1038,7 +1080,8 @@ async function getAiTasteItemFeedback({
         const text = (
           generated &&
           isFeedbackRelevantToItem(generated, normalizedItem) &&
-          !isGenericTasteFeedback(generated, lang)
+          !isGenericTasteFeedback(generated, lang) &&
+          !isEncyclopedicTasteFeedback(generated, lang)
         )
           ? generated
           : buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem });
@@ -1065,6 +1108,7 @@ module.exports = {
   getAiSingleSuggestion,
   getAiTasteItemFeedback,
   getAiFeedbackCacheStats: getAiResponseCacheStats,
+  isEncyclopedicTasteFeedback,
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
   buildTasteFeedbackFallbackWithItem,

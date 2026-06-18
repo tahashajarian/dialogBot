@@ -8,6 +8,7 @@ const {
   getAiTasteItemFeedback,
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
+  isEncyclopedicTasteFeedback,
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
   sanitizeTasteFeedback,
@@ -37,6 +38,29 @@ test("uses predefined feedback for known Interests chips", async () => {
   assert.equal(enGaming.ok, true);
   assert.equal(enGaming.matchType, "predefined");
   assert.equal(enGaming.text, "Gaming says you enjoy challenge and flow.");
+});
+
+test("uses lively predefined feedback for The Office", async () => {
+  const faResult = await getAiTasteItemFeedback({
+    mode: "movies",
+    lang: "fa",
+    item: "آفیس",
+    labelKey: "comedy_fan",
+    labelTitle: "Comedy Fan",
+  });
+  const enResult = await getAiTasteItemFeedback({
+    mode: "movies",
+    lang: "en",
+    item: "The Office",
+    labelKey: "comedy_fan",
+    labelTitle: "Comedy Fan",
+  });
+
+  assert.equal(faResult.matchType, "predefined");
+  assert.match(faResult.text, /معذب|خنده/);
+  assert.doesNotMatch(faResult.text, /یکی از کمدی‌های محبوب/);
+  assert.equal(enResult.matchType, "predefined");
+  assert.match(enResult.text, /funniest|awkward/i);
 });
 
 test("uses predefined feedback for every provided Interests chip", async () => {
@@ -167,6 +191,30 @@ test("rejects generic personality praise even when it repeats the item", () => {
   );
   assert.equal(
     isGenericTasteFeedback("Bicycle Thieves is an amazing choice!", "en"),
+    true,
+  );
+});
+
+test("rejects encyclopedia-style feedback summaries", () => {
+  assert.equal(
+    isEncyclopedicTasteFeedback(
+      "سریال آفیس یکی از کمدی‌های محبوب است که به زندگی روزمره کارمندان یک دفتر می‌پردازد.",
+      "fa",
+    ),
+    true,
+  );
+  assert.equal(
+    isEncyclopedicTasteFeedback(
+      "آفیس با سکوت‌های معذب‌کننده و موقعیت‌های خشک‌وخنده‌دارش هنوز خیلی می‌چسبه.",
+      "fa",
+    ),
+    false,
+  );
+  assert.equal(
+    isEncyclopedicTasteFeedback(
+      "The Office is one of the most popular comedies about office workers.",
+      "en",
+    ),
     true,
   );
 });

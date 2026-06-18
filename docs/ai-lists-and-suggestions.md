@@ -53,7 +53,7 @@
 - After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. The first untouched add prompt should show Cancel; post-save prompts should show Back to list.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
 - Typed-item feedback should react to the item itself, not infer the user's personality.
-- For recognizable works, feedback should contain one concrete observation about the creator, form, genre, theme, or atmosphere.
+- For recognizable works, feedback should contain one concrete reaction about the creator, form, genre, joke, theme, feeling, or atmosphere. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
 - Reject generic praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
 - When a user enters TopTen in any section, send the current TopTen list as a separate message before the section/manage description and inline buttons.
 - TopTen menus should keep the "show all" action even though the list is also shown on entry.
