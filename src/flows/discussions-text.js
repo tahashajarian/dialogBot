@@ -43,6 +43,7 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { updateProfileField, updateUserState } = require("../services/users");
+const { requireDiscussionProfileName } = require("./discussion-name-gate");
 const {
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
@@ -402,6 +403,11 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
 async function openDiscussionCommand(ctx, lang, code) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+  const publicCode = discussion.publicDiscussionCode || code;
+
+  if (!await requireDiscussionProfileName(ctx, lang, { source: "open", token: publicCode })) {
+    return { ok: false, reason: "requires_profile_name" };
+  }
 
   const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
   if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason);
@@ -453,6 +459,11 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
       await ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
     }
     return { ok: false, reason: "missing_discussion" };
+  }
+
+  const publicCode = discussion.publicDiscussionCode || code;
+  if (!await requireDiscussionProfileName(ctx, lang, { source: "join", token: publicCode })) {
+    return { ok: false, reason: "requires_profile_name" };
   }
 
   const wasActiveInDiscussion = String(ctx.user?.activeDiscussionId || "") === String(discussion._id);

@@ -32,6 +32,7 @@ test("buildProfileText shows active discussion visibility only for own profile",
 test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.deepEqual(validateProfileName("Ali", 30), { ok: true, value: "Ali" });
   assert.deepEqual(validateProfileName("  علی   رضایی  ", 30), { ok: true, value: "علی رضایی" });
+  assert.equal(validateProfileName("Al", 30).reason, "too_short");
   assert.equal(validateProfileName("Ali 🤖", 30).reason, "emoji");
   assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
   assert.equal(sanitizeProfileNameCandidate("Ali 🤖", 30), "Ali");

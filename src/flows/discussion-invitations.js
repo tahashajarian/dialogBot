@@ -47,6 +47,7 @@ const {
 } = require("../services/discussion-ui");
 const { joinDiscussionAndNotify } = require("../services/discussion-actions");
 const { updateProfileField } = require("../services/users");
+const { requireDiscussionProfileName } = require("./discussion-name-gate");
 
 const INVITATIONS_PAGE_SIZE = 5;
 const ACCEPTED_INVITATIONS_LIMIT = 5;
@@ -275,6 +276,9 @@ async function acceptInvitationCommand(ctx, lang, text, {
   const found = await getInvitationForUser(code, ctx.userId, { statuses: ["pending", "accepted"] });
   if (!found.ok) {
     return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionJoinErrorAckKeyboard(lang, "invitations"));
+  }
+  if (!await requireDiscussionProfileName(ctx, lang, { source: "accept", token: code })) {
+    return { ok: false, reason: "requires_profile_name" };
   }
   if (!found.discussion || found.discussion.status !== "open") {
     await expireInvitation(found.invitation);

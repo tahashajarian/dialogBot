@@ -22,7 +22,7 @@ function toPlainUser(user) {
 }
 
 function isValidTextInput(text, maxLength) {
-  const normalized = text.trim().replace(/\s+/g, " ");
+  const normalized = String(text || "").trim().replace(/\s+/g, " ");
   if (!normalized) return false;
   if (normalized.length > maxLength) return false;
   if (/[<>]/.test(normalized)) return false;
@@ -44,13 +44,17 @@ function sanitizeProfileNameCandidate(name, maxLength) {
 }
 
 function validateProfileName(name, maxLength) {
+  const normalized = normalizeProfileName(name);
   if (!isValidTextInput(name, maxLength)) {
     return { ok: false, reason: "invalid_text" };
   }
   if (hasEmoji(name)) {
     return { ok: false, reason: "emoji" };
   }
-  return { ok: true, value: normalizeProfileName(name) };
+  if (normalized.length < 3) {
+    return { ok: false, reason: "too_short" };
+  }
+  return { ok: true, value: normalized };
 }
 
 function getFinalTasteLabels(user, lang, messages) {

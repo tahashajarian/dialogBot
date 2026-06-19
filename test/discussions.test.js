@@ -17,6 +17,11 @@ const {
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 } = require("../src/services/discussions");
+const {
+  hasValidDiscussionProfileName,
+  parseDiscussionNameState,
+  requireDiscussionProfileName,
+} = require("../src/flows/discussion-name-gate");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
 
@@ -123,6 +128,47 @@ test("bot starter discussions keep the open room first when pinned", () => {
     sorted.map((discussion) => discussion.botSeedKey),
     ["free-discussion", "whats-up", "lets-talk"],
   );
+});
+
+test("discussion entry requires a valid profile name before joining", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: { userId: 42, profileName: "" },
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return { message_id: 77 };
+      },
+    };
+
+    assert.equal(hasValidDiscussionProfileName({ profileName: "Ali" }), true);
+    assert.equal(hasValidDiscussionProfileName({ profileName: "Al" }), false);
+    assert.equal(await requireDiscussionProfileName(ctx, "en", { source: "join", token: "d_ROOM1" }), false);
+
+    assert.match(replies[0].text, /Before entering a discussion/);
+    assert.equal(
+      replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
+      "profile:cancel:edit",
+    );
+    const stateUpdate = updates.find((entry) => entry.update.state);
+    const promptUpdate = updates.find((entry) => entry.update.profileEditPromptMessageId === 77);
+    assert.deepEqual(parseDiscussionNameState(stateUpdate.update.state), {
+      source: "join",
+      token: "d_ROOM1",
+    });
+    assert.ok(promptUpdate);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("validateJoinRulePayload validates restricted rules", () => {

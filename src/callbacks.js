@@ -28,10 +28,12 @@ const {
   formatDiscussionMemberLines,
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
+const Discussion = require("./models/discussion");
 const { updateUserState } = require("./services/users");
 const {
   joinOrOpenDiscussion,
   ensurePublicProfileCode,
+  ensurePublicDiscussionCode,
   normalizePublicProfileCode,
 } = require("./services/discussions");
 const {
@@ -90,6 +92,7 @@ const {
   isProfileSettingsOrEditCallback,
   sendOwnProfile,
 } = require("./flows/profile-callbacks");
+const { requireDiscussionProfileName } = require("./flows/discussion-name-gate");
 const {
   clearViewedPublicProfileMessage,
   forgetSavedProfilesListMessage,
@@ -373,6 +376,21 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionOpen)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionOpen, "");
+    const discussion = await Discussion.findById(discussionId);
+    if (!discussion) {
+      return sendDiscussionJoinErrorAck(ctx, lang, "missing_discussion", "active", {
+        retireCallbackMessageIfPossible,
+      });
+    }
+    const codeResult = await ensurePublicDiscussionCode(discussion);
+    if (!codeResult.ok) {
+      return ctx.reply(messages[lang].unknownAction);
+    }
+    const hasName = await requireDiscussionProfileName(ctx, lang, {
+      source: "open",
+      token: codeResult.code,
+    });
+    if (!hasName) return true;
     const joined = await joinDiscussionAndNotify({
       ctx,
       messages,

@@ -59,6 +59,7 @@ const {
   closeDiscussionFromTextConfirmation,
   openDiscussionCommand,
   showDiscussionInvitePreviewCommand,
+  joinDiscussionFromInvite,
   leaveDiscussionCommand,
   closeDiscussionCommand,
   removeDiscussionMemberCommand,
@@ -92,6 +93,12 @@ const {
   clearProfileEditPrompt,
   sendProfileEditPrompt,
 } = require("./flows/profile-edit");
+const {
+  DISCUSSION_PROFILE_NAME_MAX_LENGTH,
+  getProfileNameErrorMessage,
+  isDiscussionNameState,
+  parseDiscussionNameState,
+} = require("./flows/discussion-name-gate");
 const {
   clearSavedProfilesListMessage,
   clearViewedPublicProfileMessage,
@@ -442,6 +449,50 @@ async function handleUpdate(ctx) {
     });
   }
 
+  if (isDiscussionNameState(state) && text) {
+    const pendingEntry = parseDiscussionNameState(state);
+    if (text === "/cancel") {
+      await updateUserState(ctx.userId, "idle");
+      await clearProfileEditPrompt(ctx);
+      return true;
+    }
+    if (text.startsWith("/")) {
+      return sendProfileEditPrompt(ctx, messages[lang].discussionNameRequired, cancelEditKeyboard(lang));
+    }
+
+    const validation = validateProfileName(text, DISCUSSION_PROFILE_NAME_MAX_LENGTH);
+    if (!validation.ok) {
+      return sendProfileEditPrompt(
+        ctx,
+        `${getProfileNameErrorMessage(lang, validation.reason)}\n${messages[lang].discussionNameRequired}`,
+        cancelEditKeyboard(lang),
+      );
+    }
+
+    await updateProfileField(ctx.userId, "profileName", validation.value);
+    await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
+    if (ctx.user) {
+      ctx.user.profileName = validation.value;
+      ctx.user.state = "idle";
+    }
+
+    if (pendingEntry?.source === "open") {
+      return openDiscussionCommand(ctx, lang, pendingEntry.token);
+    }
+    if (pendingEntry?.source === "join") {
+      return joinDiscussionFromInvite(ctx, lang, pendingEntry.token, {
+        sendRoom: sendDiscussionRoomFromText,
+      });
+    }
+    if (pendingEntry?.source === "accept") {
+      return acceptInvitationCommand(ctx, lang, `/accept_inv_${pendingEntry.token}`, {
+        sendRoom: sendDiscussionRoomFromText,
+      });
+    }
+    return true;
+  }
+
   if (text === "/cancel") {
     await clearViewedPublicProfileMessage(ctx);
     const aiSection = getAiSectionFromState(state);
@@ -468,9 +519,7 @@ async function handleUpdate(ctx) {
 
     const validation = validateProfileName(text, FIELD_LIMITS.profileName);
     if (!validation.ok) {
-      const errorText = validation.reason === "emoji"
-        ? messages[lang].profileNameNoEmoji
-        : messages[lang].profileNameTooLong;
+      const errorText = getProfileNameErrorMessage(lang, validation.reason);
       return sendProfileEditPrompt(
         ctx,
         `${errorText}\n${messages[lang].profileEditHintName}`,
