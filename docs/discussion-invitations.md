@@ -93,6 +93,7 @@ Accepted invitations stay visible as recent joined shortcuts so a user can retur
 - The invitee can be invited even if they have never joined a discussion before.
 - The invite does not bypass join rules, capacity, removed-user checks, closed-room checks, or one-active-room behavior.
 - Duplicate pending invites for the same recipient and discussion are blocked.
+- Inbox display and counts collapse duplicate stored rows by inviter and discussion, including recent joined shortcuts from accepted invites.
 - Sender daily invite limits are enforced.
 - Invitation counts show all pending invites, including seen pending and bot starter invites.
 - Seen pending invites stay in the list until accepted, removed, or expired.

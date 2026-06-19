@@ -61,7 +61,7 @@ function isProfileCodeSaved(user, profileCode) {
 }
 
 async function countUnseenPendingReceivedInvitations(userId) {
-  return DiscussionInvitation.countDocuments({
+  return countDistinctInvitationGroups({
     inviteeUserId: Number(userId),
     status: "pending",
     seenAt: null,
@@ -73,17 +73,33 @@ async function countPendingReceivedInvitations(userId) {
 }
 
 async function countAllPendingReceivedInvitations(userId) {
-  return DiscussionInvitation.countDocuments({
+  return countDistinctInvitationGroups({
     inviteeUserId: Number(userId),
     status: "pending",
   });
 }
 
 async function countAllVisibleReceivedInvitations(userId) {
-  return DiscussionInvitation.countDocuments({
+  return countDistinctInvitationGroups({
     inviteeUserId: Number(userId),
     status: { $in: ["pending", "accepted"] },
   });
+}
+
+async function countDistinctInvitationGroups(match = {}) {
+  const [result] = await DiscussionInvitation.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: {
+          inviterUserId: "$inviterUserId",
+          discussionId: "$discussionId",
+        },
+      },
+    },
+    { $count: "count" },
+  ]);
+  return Number(result?.count) || 0;
 }
 
 async function countCreatedInvitationsWithinWindow(inviterUserId, since) {
@@ -286,6 +302,24 @@ async function hydrateInvitations(invitations = []) {
   }));
 }
 
+function dedupeInvitationsByInviterAndDiscussion(invitations = []) {
+  const seen = new Set();
+  const deduped = [];
+  for (const invitation of invitations) {
+    const inviterUserId = Number(invitation?.inviterUserId) || 0;
+    const discussionId = String(invitation?.discussionId || "");
+    if (!inviterUserId || !discussionId) {
+      deduped.push(invitation);
+      continue;
+    }
+    const key = `${inviterUserId}:${discussionId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(invitation);
+  }
+  return deduped;
+}
+
 async function listReceivedInvitations(userId, { limit = 20, skip = 0, statuses = ["pending"] } = {}) {
   const statusList = (Array.isArray(statuses) ? statuses : [statuses])
     .map((status) => String(status || "").trim())
@@ -293,11 +327,16 @@ async function listReceivedInvitations(userId, { limit = 20, skip = 0, statuses 
   const invitations = await DiscussionInvitation.find({
     inviteeUserId: Number(userId),
     status: { $in: statusList.length ? statusList : ["pending"] },
-  }).sort({ createdAt: -1 }).skip(Math.max(0, Number(skip) || 0)).limit(Math.max(1, Number(limit) || 20)).lean();
+  }).sort({ createdAt: -1 }).lean();
+  const deduped = dedupeInvitationsByInviterAndDiscussion(invitations);
+  const paged = deduped.slice(
+    Math.max(0, Number(skip) || 0),
+    Math.max(0, Number(skip) || 0) + Math.max(1, Number(limit) || 20),
+  );
 
   return {
     ok: true,
-    invitations: await hydrateInvitations(invitations),
+    invitations: await hydrateInvitations(paged),
   };
 }
 
@@ -384,6 +423,7 @@ module.exports = {
   countAllVisibleReceivedInvitations,
   createDiscussionInvitation,
   createOnboardingStarterInvitationsForUser,
+  dedupeInvitationsByInviterAndDiscussion,
   listEligibleDiscussionsForInvite,
   listReceivedInvitations,
   markInvitationsSeen,

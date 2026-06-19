@@ -14,6 +14,7 @@ const {
   createDiscussionInvitation,
   getInvitationDisplayState,
   countPendingReceivedInvitations,
+  dedupeInvitationsByInviterAndDiscussion,
 } = require("../src/services/discussion-invitations");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
@@ -47,24 +48,64 @@ test("discussion invitation schema accepts pending invitation", () => {
 });
 
 test("pending invitation count includes seen pending invitations", async () => {
-  const originalCountDocuments = DiscussionInvitation.countDocuments;
-  let filter = null;
+  const originalAggregate = DiscussionInvitation.aggregate;
+  let pipeline = null;
 
-  DiscussionInvitation.countDocuments = async (query) => {
-    filter = query;
-    return 2;
+  DiscussionInvitation.aggregate = async (nextPipeline) => {
+    pipeline = nextPipeline;
+    return [{ count: 2 }];
   };
 
   try {
     assert.equal(await countPendingReceivedInvitations(7), 2);
   } finally {
-    DiscussionInvitation.countDocuments = originalCountDocuments;
+    DiscussionInvitation.aggregate = originalAggregate;
   }
 
-  assert.deepEqual(filter, {
-    inviteeUserId: 7,
-    status: "pending",
+  assert.deepEqual(pipeline[0], {
+    $match: {
+      inviteeUserId: 7,
+      status: "pending",
+    },
   });
+  assert.deepEqual(pipeline[1], {
+    $group: {
+      _id: {
+        inviterUserId: "$inviterUserId",
+        discussionId: "$discussionId",
+      },
+    },
+  });
+});
+
+test("dedupes invitation rows by inviter and discussion", () => {
+  const discussionId = new Discussion()._id;
+  const otherDiscussionId = new Discussion()._id;
+
+  const deduped = dedupeInvitationsByInviterAndDiscussion([
+    { publicInvitationCode: "i_NEW", inviterUserId: 1, discussionId },
+    { publicInvitationCode: "i_OLD", inviterUserId: 1, discussionId },
+    { publicInvitationCode: "i_OTHER_INVITER", inviterUserId: 2, discussionId },
+    { publicInvitationCode: "i_OTHER_DISCUSSION", inviterUserId: 1, discussionId: otherDiscussionId },
+  ]);
+
+  assert.deepEqual(deduped.map((entry) => entry.publicInvitationCode), [
+    "i_NEW",
+    "i_OTHER_INVITER",
+    "i_OTHER_DISCUSSION",
+  ]);
+});
+
+test("dedupe leaves malformed invitation rows visible", () => {
+  const deduped = dedupeInvitationsByInviterAndDiscussion([
+    { publicInvitationCode: "i_MISSING_DISCUSSION", inviterUserId: 1 },
+    { publicInvitationCode: "i_MISSING_INVITER", discussionId: new Discussion()._id },
+  ]);
+
+  assert.deepEqual(deduped.map((entry) => entry.publicInvitationCode), [
+    "i_MISSING_DISCUSSION",
+    "i_MISSING_INVITER",
+  ]);
 });
 
 test("createDiscussionInvitation blocks pending duplicates before daily limit", async () => {
