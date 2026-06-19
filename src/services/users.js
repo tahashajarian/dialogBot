@@ -6,19 +6,36 @@ const { sanitizeProfileNameCandidate } = require("./profile");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 
+function firstPresent(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+}
+
+function normalizePlatformUserSource(from = {}) {
+  const rawId = firstPresent(from.id, from.user_id, from.userId);
+  const userId = Number(rawId);
+  if (!Number.isInteger(userId) || userId <= 0) return null;
+
+  return {
+    id: userId,
+    username: firstPresent(from.username, from.user_name, from.userName) || "",
+    firstName: firstPresent(from.first_name, from.firstName, from.name, from.full_name, from.fullName) || "",
+    languageCode: firstPresent(from.language_code, from.languageCode, from.lang) || "",
+  };
+}
+
 async function getOrCreateUser(from) {
-  if (!from) return null;
-  const safeFirstName = sanitizeProfileNameCandidate(from.first_name, PROFILE_NAME_MAX_LENGTH);
+  const source = normalizePlatformUserSource(from);
+  if (!source) return null;
+  const safeFirstName = sanitizeProfileNameCandidate(source.firstName, PROFILE_NAME_MAX_LENGTH);
+  const setFields = { username: source.username };
+  if (safeFirstName) setFields.firstName = safeFirstName;
 
   return await User.findOneAndUpdate(
-    { userId: from.id },
+    { userId: source.id },
     {
-      $set: {
-        username: from.username,
-        firstName: safeFirstName,
-      },
+      $set: setFields,
       $setOnInsert: {
-        userId: from.id,
+        userId: source.id,
         profileName: safeFirstName,
         age: null,
         lang: "fa",
@@ -640,6 +657,7 @@ module.exports = {
   updateLanguage,
   updateProfileField,
   updateUserFields,
+  normalizePlatformUserSource,
   updateUserState,
   resetDiscussionDraft,
   addAiListItem,

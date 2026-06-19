@@ -4,7 +4,7 @@ const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { disconnectDB } = require("./db");
 const { handleUpdate } = require("./bot");
-const { getOrCreateUser } = require("./services/users");
+const { getOrCreateUser, normalizePlatformUserSource } = require("./services/users");
 const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
@@ -16,7 +16,24 @@ const ALLOWED_USERNAMES = config.allowedUsernames;
 
 function isAllowedUser(from) {
   if (ALLOWED_USERNAMES.size === 0) return true;
-  return ALLOWED_USERNAMES.has(normalizeUsername(from?.username));
+  return ALLOWED_USERNAMES.has(normalizeUsername(from?.username || from?.user_name || from?.userName));
+}
+
+function resolveUpdateUserSource(ctx) {
+  const candidates = [
+    ctx.from,
+    ctx.message?.from,
+    ctx.message?.sender,
+    ctx.update?.message?.from,
+    ctx.update?.message?.sender,
+    ctx.callbackQuery?.from,
+    ctx.update?.callback_query?.from,
+    ctx.update?.callbackQuery?.from,
+    ctx.chat,
+    ctx.message?.chat,
+    ctx.update?.message?.chat,
+  ];
+  return candidates.find((candidate) => normalizePlatformUserSource(candidate)) || null;
 }
 
 const bot = new Telegraf(
@@ -35,8 +52,9 @@ bot.catch((err) => {
 });
 
 async function processUpdate(ctx) {
-  if (!isAllowedUser(ctx.from)) {
-    const lang = String(ctx.from?.language_code || "").toLowerCase().startsWith("en") ? "en" : "fa";
+  const from = resolveUpdateUserSource(ctx);
+  if (!isAllowedUser(from)) {
+    const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
     const text = messages[lang].betaAccessOnly;
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery(text).catch(() => {});
@@ -45,11 +63,11 @@ async function processUpdate(ctx) {
     return;
   }
 
-  const user = await getOrCreateUser(ctx.from);
+  const user = await getOrCreateUser(from);
   const appCtx = createAppContext(ctx, user, {
   });
   const interaction = beginInteraction({
-    userId: user?.userId || ctx.from?.id,
+    userId: user?.userId || normalizePlatformUserSource(from)?.id,
     callbackData: appCtx.callbackData,
     text: appCtx.text,
     state: user?.state || "idle",
