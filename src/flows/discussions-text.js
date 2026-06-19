@@ -405,7 +405,11 @@ async function openDiscussionCommand(ctx, lang, code) {
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
   const publicCode = discussion.publicDiscussionCode || code;
 
-  if (!await requireDiscussionProfileName(ctx, lang, { source: "open", token: publicCode })) {
+  if (!await requireDiscussionProfileName(ctx, lang, {
+    source: "open",
+    token: publicCode,
+    beforePrompt: () => clearRememberedDiscussionListMessage(ctx),
+  })) {
     return { ok: false, reason: "requires_profile_name" };
   }
 

@@ -390,6 +390,7 @@ async function handleCallback(ctx) {
     const hasName = await requireDiscussionProfileName(ctx, lang, {
       source: "open",
       token: codeResult.code,
+      beforePrompt: () => clearDiscussionListMessage(ctx),
     });
     if (!hasName) return true;
     const joined = await joinDiscussionAndNotify({

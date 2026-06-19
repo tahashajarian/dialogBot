@@ -32,12 +32,13 @@ function isDiscussionNameState(state = "") {
   return Boolean(parseDiscussionNameState(state));
 }
 
-async function requireDiscussionProfileName(ctx, lang, { source, token } = {}) {
+async function requireDiscussionProfileName(ctx, lang, { source, token, beforePrompt } = {}) {
   if (hasValidDiscussionProfileName(ctx.user)) return true;
 
   const nextState = buildDiscussionNameState(source, token);
   if (!nextState) return true;
   await updateUserState(ctx.userId, nextState);
+  await beforePrompt?.();
   await sendProfileEditPrompt(
     ctx,
     messages[lang].discussionNameRequired,

@@ -135,6 +135,7 @@ test("discussion entry requires a valid profile name before joining", async () =
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];
   const replies = [];
+  const events = [];
 
   User.findOneAndUpdate = async (filter, update) => {
     updates.push({ filter, update });
@@ -146,6 +147,7 @@ test("discussion entry requires a valid profile name before joining", async () =
       userId: 42,
       user: { userId: 42, profileName: "" },
       reply: async (text, keyboard) => {
+        events.push("prompt");
         replies.push({ text, keyboard });
         return { message_id: 77 };
       },
@@ -154,8 +156,13 @@ test("discussion entry requires a valid profile name before joining", async () =
     assert.equal(hasValidDiscussionProfileName({ profileName: "Ali", profileNameConfirmedAt: new Date() }), true);
     assert.equal(hasValidDiscussionProfileName({ profileName: "Ali" }), false);
     assert.equal(hasValidDiscussionProfileName({ profileName: "Al" }), false);
-    assert.equal(await requireDiscussionProfileName(ctx, "en", { source: "join", token: "d_ROOM1" }), false);
+    assert.equal(await requireDiscussionProfileName(ctx, "en", {
+      source: "join",
+      token: "d_ROOM1",
+      beforePrompt: async () => events.push("cleanup"),
+    }), false);
 
+    assert.deepEqual(events, ["cleanup", "prompt"]);
     assert.match(replies[0].text, /Before entering a discussion/);
     assert.equal(
       replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
