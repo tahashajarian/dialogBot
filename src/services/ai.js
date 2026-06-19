@@ -1,4 +1,3 @@
-const OpenAI = require("openai");
 const {
   createAiResponseCache,
   getAiResponseCacheStats,
@@ -7,6 +6,14 @@ const {
 const { getAiConfig } = require("../config");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { logger } = require("./logger");
+const {
+  DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
+  extractAiResponseText,
+  getClient,
+  getEmbedding,
+  requestSuggestionText,
+  withAiTimeout,
+} = require("./ai-client");
 const {
   DEFAULT_INTEREST_SUGGESTION_FALLBACK,
   INTEREST_SUGGESTION_FALLBACKS,
@@ -18,7 +25,6 @@ const {
 } = require("./ai-suggestion-quality");
 
 const aiConfig = getAiConfig();
-const MAX_OUTPUT_TOKENS = 90;
 const MAX_INPUT_CHARS = 180;
 const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
 const FEEDBACK_MAX_WORDS = 18;
@@ -28,22 +34,7 @@ const FEEDBACK_TITLE_STOPWORDS = new Set([
   "از", "با", "به", "برای", "تا", "در", "را", "و",
 ]);
 
-let client;
 let aiFeedbackResponseCache = null;
-
-function getClient() {
-  if (client) return client;
-
-  const apiKey = aiConfig.apiKey;
-  if (!apiKey) return null;
-  const baseURL = aiConfig.baseUrl;
-
-  client = new OpenAI({
-    apiKey,
-    ...(baseURL ? { baseURL } : {}),
-  });
-  return client;
-}
 
 function normalizeInput(text) {
   return String(text || "").trim().replace(/\s+/g, " ").slice(0, MAX_INPUT_CHARS);
@@ -200,29 +191,6 @@ function getPredefinedTasteFeedback({ section, item, lang }) {
   return response[lang] || response.fa || response.en || "";
 }
 
-async function getEmbedding(openai, input) {
-  if (!openai?.embeddings?.create || !input) {
-    return null;
-  }
-
-  try {
-    const response = await Promise.race([
-      openai.embeddings.create({
-        model: aiConfig.embeddingModel,
-        input,
-      }),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("ai_embedding_timeout")), aiConfig.timeoutMs);
-      }),
-    ]);
-    const embedding = response?.data?.[0]?.embedding;
-    return Array.isArray(embedding) ? embedding : null;
-  } catch (error) {
-    logger.warn("AI embedding failed", error);
-    return null;
-  }
-}
-
 function getModeInstruction(mode, lang) {
   const language = lang === "fa" ? "Persian" : "English";
 
@@ -288,87 +256,6 @@ function buildTasteStyleInstruction(tasteStyleHint, lang) {
   return `Match tone and references to this taste style: ${cleanHint}.`;
 }
 
-function extractAiResponseText(response) {
-  const outputText = String(response?.output_text || "").trim();
-  if (outputText) return outputText;
-
-  const messageContent = response?.choices?.[0]?.message?.content;
-  if (typeof messageContent === "string") {
-    return messageContent.trim();
-  }
-  if (Array.isArray(messageContent)) {
-    return messageContent
-      .map((part) => String(part?.text || part?.content || "").trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-  }
-
-  const responseOutput = Array.isArray(response?.output) ? response.output : [];
-  return responseOutput
-    .flatMap((entry) => Array.isArray(entry?.content) ? entry.content : [])
-    .map((part) => String(part?.text || "").trim())
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-}
-
-async function withAiTimeout(promise, timeoutLabel) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(timeoutLabel)), aiConfig.timeoutMs);
-    }),
-  ]);
-}
-
-async function requestSuggestionText(openai, { instructions, input }) {
-  const errors = [];
-
-  if (openai?.chat?.completions?.create) {
-    try {
-      const response = await withAiTimeout(
-        openai.chat.completions.create({
-          model: aiConfig.model,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          messages: [
-            { role: "system", content: instructions },
-            { role: "user", content: input },
-          ],
-        }),
-        "ai_chat_completion_timeout",
-      );
-      const text = extractAiResponseText(response);
-      if (text) return { text, api: "chat_completions" };
-      errors.push("chat_completions_empty");
-    } catch (error) {
-      errors.push(error?.message || "chat_completions_error");
-    }
-  }
-
-  if (openai?.responses?.create) {
-    try {
-      const response = await withAiTimeout(
-        openai.responses.create({
-          model: aiConfig.model,
-          max_output_tokens: MAX_OUTPUT_TOKENS,
-          instructions,
-          input,
-        }),
-        "ai_responses_timeout",
-      );
-      const text = extractAiResponseText(response);
-      if (text) return { text, api: "responses" };
-      errors.push("responses_empty");
-    } catch (error) {
-      errors.push(error?.message || "responses_error");
-    }
-  }
-
-  return { text: "", api: "", errors };
-}
-
-
 function buildInterestSuggestionFallback({ lang, topTenItems = [] }) {
   const normalized = topTenItems.map((item) => normalizeCacheItem(item));
   const matched = INTEREST_SUGGESTION_FALLBACKS.find((entry) => (
@@ -394,7 +281,7 @@ async function getAiSingleSuggestion({
     return { ok: false, reason: "empty_input" };
   }
 
-  const openai = getClient();
+  const openai = getClient(aiConfig);
   if (!openai) {
     return { ok: false, reason: "missing_key" };
   }
@@ -415,6 +302,8 @@ async function getAiSingleSuggestion({
       getModeInstruction(mode, lang),
     ].join(" ");
     const request = await requestSuggestionText(openai, {
+      config: aiConfig,
+      maxOutputTokens: DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
       instructions,
       input: `Subject: ${mode}\nUser message: ${input}${buildUserContext({
         personalized,
@@ -504,7 +393,7 @@ async function getAiTasteItemFeedback({
     };
   }
 
-  const openai = getClient();
+  const openai = getClient(aiConfig);
   const language = lang === "fa" ? "Persian" : "English";
   const category = normalizeCategory(section);
 
@@ -521,7 +410,7 @@ async function getAiTasteItemFeedback({
       embeddingModel: aiConfig.embeddingModel,
     },
     generateEmbedding: openai
-      ? (input) => getEmbedding(openai, input)
+      ? (input) => getEmbedding(openai, input, { config: aiConfig, log: logger })
       : null,
     generateResponse: async () => {
       if (!openai) {
@@ -533,7 +422,7 @@ async function getAiTasteItemFeedback({
       }
 
       try {
-        const response = await Promise.race([
+        const response = await withAiTimeout(
           openai.responses.create({
             model: aiConfig.model,
             max_output_tokens: FEEDBACK_MAX_OUTPUT_TOKENS,
@@ -556,10 +445,9 @@ async function getAiTasteItemFeedback({
             ].join(" "),
             input: `Section: ${section}\nItem: ${normalizedItem}\nDetected label: ${labelTitle || labelKey || "eclectic"}`,
           }),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("ai_feedback_timeout")), aiConfig.timeoutMs);
-          }),
-        ]);
+          "ai_feedback_timeout",
+          aiConfig.timeoutMs,
+        );
 
         const generated = sanitizeTasteFeedback((response.output_text || "").trim(), lang);
         const text = (
