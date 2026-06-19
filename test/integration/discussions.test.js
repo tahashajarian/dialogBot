@@ -332,31 +332,38 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(hiddenList.invitations.length, 0);
 });
 
-test("onboarding starter invitations skip empty first-interest discussions", async () => {
+test("onboarding starter invitations include only the open free discussion", async () => {
   await createUser(500);
-  await createOpenDiscussion(999, {
-    title: "Free Discussion",
-    publicDiscussionCode: "d_BOTFREE",
-    isBotCreated: true,
-    botSeedKey: "free-discussion",
-    memberUserIds: [],
-  });
+  await Promise.all([
+    createOpenDiscussion(999, {
+      title: "Free Discussion",
+      publicDiscussionCode: "d_BOTFREE",
+      isBotCreated: true,
+      botSeedKey: "free-discussion",
+      memberUserIds: [],
+    }),
+    createOpenDiscussion(999, {
+      title: "Gaming Hangout",
+      publicDiscussionCode: "d_BOTGAME",
+      isBotCreated: true,
+      botSeedKey: "whats-up",
+      memberUserIds: [42],
+      joinRule: {
+        type: "top_ten_item",
+        section: "random",
+        itemTitle: "Gaming",
+        itemAliases: ["Gaming"],
+      },
+    }),
+  ]);
 
-  const created = await createOnboardingStarterInvitationsForUser(500, {
-    firstInterestTitle: "Coffee",
-  });
+  const created = await createOnboardingStarterInvitationsForUser(500);
   assert.equal(created.ok, true);
   assert.equal(created.count, 1);
 
-  const interestDiscussion = await Discussion.findOne({
-    isBotCreated: true,
-    botSeedKey: "interest-coffee",
-  }).lean();
-  assert.equal(interestDiscussion.title, "Coffee Chat");
-  assert.equal(interestDiscussion.joinRule.type, "top_ten_item");
-  assert.equal(interestDiscussion.joinRule.section, "random");
-  assert.equal(interestDiscussion.joinRule.itemTitle, "Coffee");
-  assert.deepEqual(interestDiscussion.joinRule.itemAliases, ["Coffee"]);
+  const invitations = await DiscussionInvitation.find({ inviteeUserId: 500, source: "bot_onboarding" }).lean();
+  assert.equal(invitations.length, 1);
+  assert.equal(invitations[0].discussionPublicCode, "d_BOTFREE");
 
   const repeated = await createOnboardingStarterInvitationsForUser(500);
   assert.equal(repeated.ok, true);
@@ -365,38 +372,6 @@ test("onboarding starter invitations skip empty first-interest discussions", asy
 
   const user = await User.findOne({ userId: 500 }).lean();
   assert.ok(user.onboardingStarterInvitationsAt instanceof Date);
-});
-
-test("onboarding starter invitations include first-interest rooms with active members", async () => {
-  await createUser(501);
-  await createOpenDiscussion(999, {
-    title: "Free Discussion",
-    publicDiscussionCode: "d_BOTFR2",
-    isBotCreated: true,
-    botSeedKey: "free-discussion",
-    memberUserIds: [],
-  });
-  await createOpenDiscussion(999, {
-    title: "Coffee Chat",
-    publicDiscussionCode: "d_COFFEE",
-    isBotCreated: true,
-    botSeedKey: "interest-coffee",
-    memberUserIds: [42],
-    joinRule: {
-      type: "top_ten_item",
-      section: "random",
-      itemTitle: "Coffee",
-      itemAliases: ["Coffee"],
-    },
-  });
-
-  const created = await createOnboardingStarterInvitationsForUser(501, {
-    firstInterestTitle: "Coffee",
-  });
-
-  assert.equal(created.ok, true);
-  assert.equal(created.count, 2);
-  assert.equal(await DiscussionInvitation.countDocuments({ inviteeUserId: 501, source: "bot_onboarding" }), 2);
 });
 
 test("muting an inviter hides pending invites and blocks future invites", async () => {

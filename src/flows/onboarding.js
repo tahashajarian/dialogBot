@@ -131,12 +131,10 @@ function appendStarterInvitationsText(lang, text, count = 0) {
   return `${text}\n\n${messages[lang].onboardingStarterInvitationsReady.replace("{count}", String(normalizedCount))}`;
 }
 
-async function completeOnboardingAndCreateStarterInvites(ctx, skipped = false, {
-  firstInterestTitle = "",
-} = {}) {
+async function completeOnboardingAndCreateStarterInvites(ctx, skipped = false) {
   await completeOnboarding(ctx, skipped);
   try {
-    return await createOnboardingStarterInvitationsForUser(ctx.userId, { firstInterestTitle });
+    return await createOnboardingStarterInvitationsForUser(ctx.userId);
   } catch {
     return { ok: false, count: 0 };
   }
@@ -258,9 +256,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (items.length >= ONBOARDING_INTEREST_GOAL) {
-    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx, false, {
-      firstInterestTitle: items[0]?.title || "",
-    });
+    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
     return helpers.editCallbackMessageOrReply(
       ctx,
       appendStarterInvitationsText(
@@ -316,9 +312,7 @@ async function handleOnboardingText(ctx, lang) {
         result.items.slice(0, ONBOARDING_INTEREST_GOAL),
       );
       await retireOnboardingPrompt(ctx);
-      const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx, false, {
-        firstInterestTitle: result.items[0]?.title || "",
-      });
+      const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
       return ctx.reply(
         appendStarterInvitationsText(lang, completeText, starterInvites.count),
         onboardingCompleteKeyboard(lang),

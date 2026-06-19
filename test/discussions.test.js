@@ -14,8 +14,6 @@ const {
   DISCUSSION_RECENT_MESSAGES_CAP,
   DISCUSSION_MESSAGE_BURST_WINDOW_MS,
   BOT_STARTER_DISCUSSIONS,
-  buildBotInterestDiscussionDraft,
-  normalizeBotInterestSeedKey,
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 } = require("../src/services/discussions");
@@ -125,21 +123,6 @@ test("bot starter discussions keep the open room first when pinned", () => {
     sorted.map((discussion) => discussion.botSeedKey),
     ["free-discussion", "whats-up", "lets-talk"],
   );
-});
-
-test("bot interest discussion drafts are stable and gated by the selected interest", () => {
-  assert.equal(normalizeBotInterestSeedKey("Coffee roasting!"), "interest-coffee-roasting");
-
-  const draft = buildBotInterestDiscussionDraft("Coffee");
-  assert.equal(draft.botSeedKey, "interest-coffee");
-  assert.equal(draft.title, "Coffee Chat");
-  assert.equal(draft.description, "A starter room for people interested in Coffee.");
-  assert.deepEqual(draft.joinRule, {
-    type: "top_ten_item",
-    section: "random",
-    itemTitle: "Coffee",
-    itemAliases: ["Coffee"],
-  });
 });
 
 test("validateJoinRulePayload validates restricted rules", () => {

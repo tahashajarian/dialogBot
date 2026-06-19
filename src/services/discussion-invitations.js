@@ -7,14 +7,12 @@ const { hasInvitationMute } = require("./discussion-invitation-mutes");
 const {
   ensurePublicDiscussionCode,
   ensurePublicProfileCode,
-  ensureBotInterestDiscussion,
   normalizePublicProfileCode,
   normalizeMaxMembers,
   validateJoinRules,
 } = require("./discussions");
 
 const INVITATION_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const ONBOARDING_STARTER_INVITATION_LIMIT = 2;
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -210,12 +208,10 @@ async function createDiscussionInvitation({
   return { ok: true, invitation, discussion, invitee };
 }
 
-async function createBotOnboardingInvitation({ user, discussion, now, requireActiveMembers = false }) {
+async function createBotOnboardingInvitation({ user, discussion, now }) {
   const inviteeUserId = Number(user?.userId);
   if (!discussion || (discussion.memberUserIds || []).includes(inviteeUserId)) return false;
   if ((discussion.removedUserIds || []).includes(inviteeUserId)) return false;
-  const activeMemberIds = (discussion.memberUserIds || []).filter((memberUserId) => Number(memberUserId) !== inviteeUserId);
-  if (requireActiveMembers && activeMemberIds.length === 0) return false;
 
   const existing = await DiscussionInvitation.findOne({
     inviteeUserId,
@@ -247,7 +243,7 @@ async function createBotOnboardingInvitation({ user, discussion, now, requireAct
   }
 }
 
-async function createOnboardingStarterInvitationsForUser(userId, { now = new Date(), firstInterestTitle = "" } = {}) {
+async function createOnboardingStarterInvitationsForUser(userId, { now = new Date() } = {}) {
   const inviteeUserId = Number(userId);
   if (!Number.isInteger(inviteeUserId) || inviteeUserId <= 0) {
     return { ok: false, reason: "missing_user", count: 0 };
@@ -271,23 +267,16 @@ async function createOnboardingStarterInvitationsForUser(userId, { now = new Dat
   });
   const starters = [];
   if (freeDiscussion) {
-    starters.push({ discussion: freeDiscussion, requireActiveMembers: false });
-  }
-
-  if (firstInterestTitle) {
-    const interestDiscussion = await ensureBotInterestDiscussion(firstInterestTitle);
-    if (interestDiscussion.ok && interestDiscussion.discussion) {
-      starters.push({ discussion: interestDiscussion.discussion, requireActiveMembers: true });
-    }
+    starters.push(freeDiscussion);
   }
 
   let count = 0;
   const seenDiscussionIds = new Set();
-  for (const { discussion, requireActiveMembers } of starters.slice(0, ONBOARDING_STARTER_INVITATION_LIMIT)) {
+  for (const discussion of starters) {
     const discussionId = String(discussion?._id || "");
     if (!discussionId || seenDiscussionIds.has(discussionId)) continue;
     seenDiscussionIds.add(discussionId);
-    if (await createBotOnboardingInvitation({ user, discussion, now, requireActiveMembers })) count += 1;
+    if (await createBotOnboardingInvitation({ user, discussion, now })) count += 1;
   }
 
   if (count > 0) {
