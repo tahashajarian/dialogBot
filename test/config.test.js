@@ -6,6 +6,7 @@ const {
   getConfigIssues,
   getRuntimeConfig,
   getAiConfig,
+  getAiCacheConfig,
   normalizeUsername,
 } = require("../src/config");
 
@@ -49,6 +50,8 @@ test("config normalizes defaults and allowlist usernames", () => {
   assert.equal(config.dbName, "bot");
   assert.equal(config.aiModel, "gpt-4o-mini");
   assert.equal(config.embeddingModel, "text-embedding-3-small");
+  assert.equal(config.aiCache.cacheEnabled, true);
+  assert.equal(config.aiCache.candidateLimit, 500);
   assert.deepEqual([...config.allowedUsernames], ["alice", "bob"]);
 });
 
@@ -71,4 +74,40 @@ test("ai config can be used without runtime bot credentials", () => {
 
 test("normalizeUsername strips at signs and lowercases", () => {
   assert.equal(normalizeUsername("@Taha_SHJ"), "taha_shj");
+});
+
+test("ai cache config parses documented environment overrides", () => {
+  const config = getAiCacheConfig({
+    CACHE_ENABLED: "false",
+    ENABLE_SEMANTIC_MATCHING: "off",
+    FUZZY_MATCH_THRESHOLD: "91",
+    SEMANTIC_MATCH_THRESHOLD: "0.95",
+    MIN_FUZZY_INPUT_LENGTH: "5",
+    SHORT_TEXT_HIGHER_THRESHOLD: "97",
+    CACHE_CANDIDATE_LIMIT: "250",
+    FUZZY_AMBIGUOUS_SCORE_GAP: "3",
+    SEMANTIC_AMBIGUOUS_SCORE_GAP: "0.04",
+  });
+
+  assert.deepEqual(config, {
+    cacheEnabled: false,
+    enableSemanticMatching: false,
+    fuzzyMatchThreshold: 91,
+    semanticMatchThreshold: 0.95,
+    minFuzzyInputLength: 5,
+    shortTextHigherThreshold: 97,
+    candidateLimit: 250,
+    ambiguousFuzzyScoreGap: 3,
+    ambiguousSemanticScoreGap: 0.04,
+  });
+});
+
+test("config rejects invalid AI cache numeric overrides", () => {
+  const issues = getConfigIssues(buildConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    FUZZY_MATCH_THRESHOLD: "bad",
+  }), { requireRuntime: true });
+
+  assert.ok(issues.some((issue) => issue.includes("fuzzyMatchThreshold")));
 });

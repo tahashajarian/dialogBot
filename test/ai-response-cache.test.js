@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const { normalizeAiInput } = require("../src/services/input-normalization");
 const {
   createAiResponseCache,
+  getConfig,
   getAiResponseCacheStats,
   resetAiResponseCacheStats,
 } = require("../src/services/ai-response-cache");
@@ -73,6 +74,20 @@ function createSilentCache(store, overrides = {}) {
 
 test.beforeEach(() => {
   resetAiResponseCacheStats();
+});
+
+test("cache service exposes centralized default config", () => {
+  assert.deepEqual(getConfig(), {
+    cacheEnabled: true,
+    fuzzyMatchThreshold: 88,
+    semanticMatchThreshold: 0.9,
+    minFuzzyInputLength: 4,
+    shortTextHigherThreshold: 94,
+    enableSemanticMatching: true,
+    candidateLimit: 500,
+    ambiguousFuzzyScoreGap: 2,
+    ambiguousSemanticScoreGap: 0.02,
+  });
 });
 
 function embeddingFor(text) {

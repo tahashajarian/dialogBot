@@ -5,18 +5,9 @@ const {
   tokenizeNormalizedInput,
   isMeaningfulNormalizedInput,
 } = require("./input-normalization");
+const { getAiCacheConfig } = require("../config");
 
-const DEFAULT_CONFIG = {
-  cacheEnabled: process.env.CACHE_ENABLED !== "false",
-  fuzzyMatchThreshold: Number(process.env.FUZZY_MATCH_THRESHOLD || 88),
-  semanticMatchThreshold: Number(process.env.SEMANTIC_MATCH_THRESHOLD || 0.9),
-  minFuzzyInputLength: Number(process.env.MIN_FUZZY_INPUT_LENGTH || 4),
-  shortTextHigherThreshold: Number(process.env.SHORT_TEXT_HIGHER_THRESHOLD || 94),
-  enableSemanticMatching: process.env.ENABLE_SEMANTIC_MATCHING !== "false",
-  candidateLimit: Number(process.env.CACHE_CANDIDATE_LIMIT || 500),
-  ambiguousFuzzyScoreGap: Number(process.env.FUZZY_AMBIGUOUS_SCORE_GAP || 2),
-  ambiguousSemanticScoreGap: Number(process.env.SEMANTIC_AMBIGUOUS_SCORE_GAP || 0.02),
-};
+const DEFAULT_CONFIG = getAiCacheConfig();
 
 const CACHE_STATS = {
   total: 0,
@@ -66,6 +57,12 @@ function getConfig(overrides = {}) {
     semanticMatchThreshold: normalizeScore(overrides.semanticMatchThreshold, DEFAULT_CONFIG.semanticMatchThreshold),
     minFuzzyInputLength: normalizeScore(overrides.minFuzzyInputLength, DEFAULT_CONFIG.minFuzzyInputLength),
     shortTextHigherThreshold: normalizeScore(overrides.shortTextHigherThreshold, DEFAULT_CONFIG.shortTextHigherThreshold),
+    candidateLimit: normalizeScore(overrides.candidateLimit, DEFAULT_CONFIG.candidateLimit),
+    ambiguousFuzzyScoreGap: normalizeScore(overrides.ambiguousFuzzyScoreGap, DEFAULT_CONFIG.ambiguousFuzzyScoreGap),
+    ambiguousSemanticScoreGap: normalizeScore(
+      overrides.ambiguousSemanticScoreGap,
+      DEFAULT_CONFIG.ambiguousSemanticScoreGap,
+    ),
   };
 }
 
