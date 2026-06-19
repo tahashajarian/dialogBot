@@ -13,8 +13,8 @@ The MVP described here is implemented. The current code supports:
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
-- three bot-created starter rooms, marked only with `🤖`: one open room and two rooms gated by popular Interests TopTen items
-- onboarding starter invitations from the bot into those starter rooms, shown in the normal invitations inbox without a bot profile link
+- bot-created starter rooms, marked only with `🤖`: one open room, two seeded popular-interest rooms, and on-demand rooms based on onboarding Interests
+- onboarding starter invitations from the bot, shown in the normal invitations inbox without a bot profile link
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
@@ -26,7 +26,7 @@ Discussions add a social layer to the bot without turning it into a generic matc
 
 Discussions are live rooms with short memory.
 
-- A discussion normally has a user-created title; the three starter rooms are bot-created.
+- A discussion normally has a user-created title; starter rooms are bot-created.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
 - Discussion membership means current room presence. Leaving the room removes membership.
@@ -36,11 +36,12 @@ Discussions are live rooms with short memory.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
 - There is no seen count in MVP. Sender only gets a delivery confirmation.
 - Three broad starter rooms are created idempotently at startup using the real bot account id returned by `getMe()`.
-- Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
+- Starter rooms have stable `botSeedKey` values. The seeded starter titles and descriptions are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
 - Their English titles are `Free Discussion`, `Gaming Hangout`, and `Movie Chat`.
 - `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🧩 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🧩 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
 - The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the three-interest onboarding flow.
+- Normal onboarding completion should prepare at most two bot invitations: the open `Free Discussion` room and one room based on the user's first selected Interest only if that interest room already has real members. If the interest room does not exist, create it as a bot-created room for active-list discovery, but do not invite the user to an empty room. Skipping onboarding should prepare only the open starter invitation.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms say which Interest unlocked them, and locked rooms say which Interest TopTen item to add.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.

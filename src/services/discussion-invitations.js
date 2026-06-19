@@ -7,13 +7,14 @@ const { hasInvitationMute } = require("./discussion-invitation-mutes");
 const {
   ensurePublicDiscussionCode,
   ensurePublicProfileCode,
+  ensureBotInterestDiscussion,
   normalizePublicProfileCode,
   normalizeMaxMembers,
   validateJoinRules,
 } = require("./discussions");
 
 const INVITATION_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const ONBOARDING_STARTER_INVITATION_LIMIT = 3;
+const ONBOARDING_STARTER_INVITATION_LIMIT = 2;
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -209,7 +210,44 @@ async function createDiscussionInvitation({
   return { ok: true, invitation, discussion, invitee };
 }
 
-async function createOnboardingStarterInvitationsForUser(userId, { now = new Date() } = {}) {
+async function createBotOnboardingInvitation({ user, discussion, now, requireActiveMembers = false }) {
+  const inviteeUserId = Number(user?.userId);
+  if (!discussion || (discussion.memberUserIds || []).includes(inviteeUserId)) return false;
+  if ((discussion.removedUserIds || []).includes(inviteeUserId)) return false;
+  const activeMemberIds = (discussion.memberUserIds || []).filter((memberUserId) => Number(memberUserId) !== inviteeUserId);
+  if (requireActiveMembers && activeMemberIds.length === 0) return false;
+
+  const existing = await DiscussionInvitation.findOne({
+    inviteeUserId,
+    discussionId: discussion._id,
+    status: "pending",
+  });
+  if (existing) return existing.source === "bot_onboarding";
+
+  const discussionCode = await ensurePublicDiscussionCode(discussion);
+  if (!discussionCode.ok) return false;
+
+  const invitation = new DiscussionInvitation({
+    discussionId: discussion._id,
+    discussionPublicCode: discussionCode.code,
+    inviterUserId: Number(discussion.creatorUserId),
+    inviteeUserId,
+    inviteePublicProfileCode: user.publicProfileCode || "",
+    status: "pending",
+    source: "bot_onboarding",
+    createdAt: now,
+  });
+
+  try {
+    const codeResult = await ensurePublicInvitationCode(invitation);
+    return Boolean(codeResult.ok);
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+    return true;
+  }
+}
+
+async function createOnboardingStarterInvitationsForUser(userId, { now = new Date(), firstInterestTitle = "" } = {}) {
   const inviteeUserId = Number(userId);
   if (!Number.isInteger(inviteeUserId) || inviteeUserId <= 0) {
     return { ok: false, reason: "missing_user", count: 0 };
@@ -226,50 +264,30 @@ async function createOnboardingStarterInvitationsForUser(userId, { now = new Dat
     return { ok: true, count: existingCount, skipped: true };
   }
 
-  const starters = await Discussion.find({
+  const freeDiscussion = await Discussion.findOne({
     isBotCreated: true,
-    botSeedKey: { $ne: "" },
+    botSeedKey: "free-discussion",
     status: "open",
-  }).sort({ botSeedKey: 1, updatedAt: -1 }).limit(ONBOARDING_STARTER_INVITATION_LIMIT * 2);
+  });
+  const starters = [];
+  if (freeDiscussion) {
+    starters.push({ discussion: freeDiscussion, requireActiveMembers: false });
+  }
 
-  const eligible = starters
-    .filter((discussion) => !(discussion.memberUserIds || []).includes(inviteeUserId))
-    .filter((discussion) => !(discussion.removedUserIds || []).includes(inviteeUserId))
-    .slice(0, ONBOARDING_STARTER_INVITATION_LIMIT);
+  if (firstInterestTitle) {
+    const interestDiscussion = await ensureBotInterestDiscussion(firstInterestTitle);
+    if (interestDiscussion.ok && interestDiscussion.discussion) {
+      starters.push({ discussion: interestDiscussion.discussion, requireActiveMembers: true });
+    }
+  }
 
   let count = 0;
-  for (const discussion of eligible) {
-    const existing = await DiscussionInvitation.findOne({
-      inviteeUserId,
-      discussionId: discussion._id,
-      status: "pending",
-    });
-    if (existing) {
-      if (existing.source === "bot_onboarding") count += 1;
-      continue;
-    }
-
-    const discussionCode = await ensurePublicDiscussionCode(discussion);
-    if (!discussionCode.ok) continue;
-
-    const invitation = new DiscussionInvitation({
-      discussionId: discussion._id,
-      discussionPublicCode: discussionCode.code,
-      inviterUserId: Number(discussion.creatorUserId),
-      inviteeUserId,
-      inviteePublicProfileCode: user.publicProfileCode || "",
-      status: "pending",
-      source: "bot_onboarding",
-      createdAt: now,
-    });
-
-    try {
-      const codeResult = await ensurePublicInvitationCode(invitation);
-      if (codeResult.ok) count += 1;
-    } catch (error) {
-      if (!isDuplicateKeyError(error)) throw error;
-      count += 1;
-    }
+  const seenDiscussionIds = new Set();
+  for (const { discussion, requireActiveMembers } of starters.slice(0, ONBOARDING_STARTER_INVITATION_LIMIT)) {
+    const discussionId = String(discussion?._id || "");
+    if (!discussionId || seenDiscussionIds.has(discussionId)) continue;
+    seenDiscussionIds.add(discussionId);
+    if (await createBotOnboardingInvitation({ user, discussion, now, requireActiveMembers })) count += 1;
   }
 
   if (count > 0) {

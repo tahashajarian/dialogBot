@@ -46,6 +46,7 @@ const BOT_STARTER_DISCUSSIONS = [
 const BOT_STARTER_DISCUSSION_ORDER = new Map(
   BOT_STARTER_DISCUSSIONS.map((starter, index) => [starter.botSeedKey, index]),
 );
+const BOT_INTEREST_DISCUSSION_PREFIX = "interest";
 
 function getBotStarterDiscussionOrder(discussion = {}) {
   const seedKey = String(discussion.botSeedKey || "");
@@ -58,6 +59,31 @@ function sortBotStarterDiscussionsFirst(discussions = []) {
   return [...discussions].sort((left, right) => (
     getBotStarterDiscussionOrder(left) - getBotStarterDiscussionOrder(right)
   ));
+}
+
+function normalizeBotInterestSeedKey(itemTitle = "") {
+  const normalized = normalizeAiListItem(itemTitle)
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06FF]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return normalized ? `${BOT_INTEREST_DISCUSSION_PREFIX}-${normalized}` : "";
+}
+
+function buildBotInterestDiscussionDraft(itemTitle = "") {
+  const title = normalizeAiListItem(itemTitle);
+  if (!title) return null;
+  return {
+    botSeedKey: normalizeBotInterestSeedKey(title),
+    title: `${title} Chat`,
+    description: `A starter room for people interested in ${title}.`,
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: title,
+      itemAliases: [title],
+    },
+  };
 }
 
 function generatePublicCodeSuffix(length) {
@@ -466,6 +492,61 @@ async function seedBotDiscussions(botUserId) {
   }
 
   return { ok: true, discussions };
+}
+
+async function ensureBotInterestDiscussion(itemTitle) {
+  const draft = buildBotInterestDiscussionDraft(itemTitle);
+  if (!draft?.botSeedKey) return { ok: false, reason: "missing_item" };
+
+  const existing = await Discussion.findOne({
+    isBotCreated: true,
+    status: "open",
+    "joinRule.type": "top_ten_item",
+    "joinRule.section": "random",
+    "joinRule.itemTitle": draft.joinRule.itemTitle,
+  });
+  if (existing) {
+    await ensurePublicDiscussionCode(existing);
+    return { ok: true, discussion: existing, created: false };
+  }
+
+  const anchor = await Discussion.findOne({
+    isBotCreated: true,
+    botSeedKey: "free-discussion",
+  }).select("creatorUserId").lean();
+  const creatorUserId = Number(anchor?.creatorUserId);
+  if (!Number.isInteger(creatorUserId) || creatorUserId <= 0) {
+    return { ok: false, reason: "missing_bot_creator" };
+  }
+
+  const now = new Date();
+  const discussion = await Discussion.findOneAndUpdate(
+    { botSeedKey: draft.botSeedKey },
+    {
+      $set: {
+        title: draft.title,
+        description: draft.description,
+        creatorUserId,
+        isBotCreated: true,
+        joinRule: draft.joinRule,
+        maxMembers: DISCUSSION_MEMBER_CAP,
+      },
+      $setOnInsert: {
+        botSeedKey: draft.botSeedKey,
+        status: "open",
+        memberUserIds: [],
+        removedUserIds: [],
+        recentMessages: [],
+        reports: [],
+        replyCount: 0,
+        lastActivityAt: now,
+        createdAt: now,
+      },
+    },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+  );
+  await ensurePublicDiscussionCode(discussion);
+  return { ok: true, discussion, created: true };
 }
 
 async function listActiveDiscussions({ userId, limit = 50 } = {}) {
@@ -1074,6 +1155,9 @@ module.exports = {
   DISCUSSION_MESSAGE_WINDOW_MS,
   DISCUSSION_MESSAGE_BURST_WINDOW_MS,
   BOT_STARTER_DISCUSSIONS,
+  buildBotInterestDiscussionDraft,
+  ensureBotInterestDiscussion,
+  normalizeBotInterestSeedKey,
   sortBotStarterDiscussionsFirst,
   normalizeTitle,
   normalizeDescription,
