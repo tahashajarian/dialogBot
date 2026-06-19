@@ -69,7 +69,7 @@ async function countUnseenPendingReceivedInvitations(userId) {
 }
 
 async function countPendingReceivedInvitations(userId) {
-  return countUnseenPendingReceivedInvitations(userId);
+  return countAllPendingReceivedInvitations(userId);
 }
 
 async function countAllPendingReceivedInvitations(userId) {

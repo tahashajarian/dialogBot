@@ -567,7 +567,7 @@ No longer a member state:
 
 Invite abuse and rate limits:
 
-- Stored invitation inbox counts should show unseen pending invitations; seen invitations stay in the list until the invited user accepts, removes them, or the target discussion becomes unavailable.
+- Stored invitation inbox counts should show all pending invitations, including seen pending and bot starter invitations. Seen invitations stay in the list until the invited user accepts, removes them, or the target discussion becomes unavailable.
 - Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
 - Public share-link generation can add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
 - Do not notify the discussion owner when someone generates or uses an invite.

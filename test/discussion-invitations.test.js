@@ -13,6 +13,7 @@ const {
   normalizePublicInvitationCode,
   createDiscussionInvitation,
   getInvitationDisplayState,
+  countPendingReceivedInvitations,
 } = require("../src/services/discussion-invitations");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
@@ -43,6 +44,27 @@ test("discussion invitation schema accepts pending invitation", () => {
   assert.equal(invitation.validateSync(), undefined);
   assert.equal(invitation.status, "pending");
   assert.equal(invitation.source, "room");
+});
+
+test("pending invitation count includes seen pending invitations", async () => {
+  const originalCountDocuments = DiscussionInvitation.countDocuments;
+  let filter = null;
+
+  DiscussionInvitation.countDocuments = async (query) => {
+    filter = query;
+    return 2;
+  };
+
+  try {
+    assert.equal(await countPendingReceivedInvitations(7), 2);
+  } finally {
+    DiscussionInvitation.countDocuments = originalCountDocuments;
+  }
+
+  assert.deepEqual(filter, {
+    inviteeUserId: 7,
+    status: "pending",
+  });
 });
 
 test("createDiscussionInvitation blocks pending duplicates before daily limit", async () => {

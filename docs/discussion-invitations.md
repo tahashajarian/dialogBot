@@ -94,7 +94,7 @@ Accepted invitations stay visible as recent joined shortcuts so a user can retur
 - The invite does not bypass join rules, capacity, removed-user checks, closed-room checks, or one-active-room behavior.
 - Duplicate pending invites for the same recipient and discussion are blocked.
 - Sender daily invite limits are enforced.
-- Invitation counts show unseen pending invites only.
+- Invitation counts show all pending invites, including seen pending and bot starter invites.
 - Seen pending invites stay in the list until accepted, removed, or expired.
 - Accepted invitations are excluded from the count, but the inbox can show the most recent accepted invites under a separate recent section.
 - Accepted invitation shortcuts stay until the invitee removes them or the target discussion becomes unavailable.
@@ -405,15 +405,15 @@ Join 👉 /accept_inv_ABC123
 Remove invitation 👉 /remove_inv_ABC123
 ```
 
-The recent section is a shortcut list, not a pending-invite count. `Invitations (0)` can still show while recent accepted shortcuts are visible.
+The recent section is a shortcut list, not a pending-invite count. `Invitations (0)` can still show while recent accepted shortcuts are visible, but pending invitations stay counted after they are seen.
 
 ## Invitation Count And Seen State
 
-The count should represent unseen pending received invitations.
+The count should represent all pending received invitations.
 
 Recommended MVP count:
 
-- Count invitations with status `pending` and empty `seenAt`.
+- Count invitations with status `pending`.
 - Exclude invitations removed by the recipient.
 - Exclude invitations accepted by the recipient.
 - Do not perform expensive join-rule evaluation for every menu render.
@@ -423,7 +423,7 @@ When the invitee opens the invitations list, each invite is revalidated for disp
 Recommended MVP:
 
 - Show unseen pending invites with `🆕`.
-- Show seen pending invites with `📨`.
+- Show seen pending invites with `📨` while still counting them.
 - After a page renders successfully, set `seenAt` on invitations shown on that page.
 - Keep stale pending invites visible once with a clear unavailable state and a remove action.
 - Show up to the most recent accepted invitations as shortcuts below pending invitations.
@@ -906,7 +906,7 @@ Responsibilities:
 
 - Create invitation.
 - Block duplicate pending invites.
-- Count unseen pending received invites.
+- Count all pending received invites.
 - List received invites.
 - Mark accepted/removed/expired/seen.
 - Resolve invitation public code.
@@ -1077,7 +1077,7 @@ Service tests:
 - Removed invitee cannot be invited or cannot accept, depending selected rule.
 - Target must be in inviter's saved profiles.
 - Self-invite is rejected.
-- Pending invitation count includes unseen pending only.
+- Pending invitation count includes all pending invitations, including bot starter invitations.
 - Opening the invitation list marks displayed invitations seen after rendering.
 - Seen invitations stay listed with a seen marker.
 - Mute inviter hides existing pending invites from that inviter.

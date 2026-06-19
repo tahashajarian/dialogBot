@@ -298,7 +298,7 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(duplicate.reason, "duplicate");
   assert.equal(await countPendingReceivedInvitations(2), 1);
   await markInvitationsSeen([created.invitation._id]);
-  assert.equal(await countPendingReceivedInvitations(2), 0);
+  assert.equal(await countPendingReceivedInvitations(2), 1);
 
   const joined = await joinOrOpenDiscussion(2, discussion._id);
   assert.equal(joined.ok, true);
