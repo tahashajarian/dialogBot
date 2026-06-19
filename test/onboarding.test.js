@@ -157,10 +157,12 @@ test("onboarding completion offers clear next actions", () => {
 
   assert.deepEqual(callbackData, [
     callBacks.discussionInvitations,
+    callBacks.discussionListActive,
     callBacks.menuMain,
     callBacks.help,
   ]);
   assert.equal(buttons[0].text, "📨 Invitations (1)");
+  assert.equal(buttons[1].text, messages.en.discussionActiveList);
 });
 
 test("onboarding starter invitation note points users to invitations", () => {

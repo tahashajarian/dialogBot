@@ -564,6 +564,10 @@ function onboardingCompleteKeyboard(lang, { invitationCount = 0 } = {}) {
       callback_data: callBacks.discussionInvitations,
     }],
     [{
+      text: messages[lang].discussionActiveList,
+      callback_data: callBacks.discussionListActive,
+    }],
+    [{
       text: messages[lang].onboardingMainMenuButton,
       callback_data: callBacks.menuMain,
     }],
