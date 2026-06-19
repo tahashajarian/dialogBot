@@ -6,6 +6,7 @@ const {
 } = require("./ai-response-cache");
 const { getAiConfig } = require("../config");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
+const { logger } = require("./logger");
 
 const aiConfig = getAiConfig();
 const MAX_OUTPUT_TOKENS = 90;
@@ -526,7 +527,7 @@ async function getEmbedding(openai, input) {
     const embedding = response?.data?.[0]?.embedding;
     return Array.isArray(embedding) ? embedding : null;
   } catch (error) {
-    console.warn("AI embedding failed:", error?.message || error);
+    logger.warn("AI embedding failed", error);
     return null;
   }
 }
@@ -943,7 +944,7 @@ async function getAiSingleSuggestion({
       if (mode === "random" && topTenItems.length) {
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }
-      console.warn("AI suggestion providers returned no text:", request.errors || []);
+      logger.warn("AI suggestion providers returned no text", { errors: request.errors || [] });
       return { ok: false, reason: "empty_output" };
     }
 
@@ -973,7 +974,7 @@ async function getAiSingleSuggestion({
       text: `${parsed.title}\n${parsed.reason}`.trim(),
     };
   } catch (error) {
-    console.warn("AI single suggestion failed:", error?.message || error);
+    logger.warn("AI single suggestion failed", error);
     if (mode === "random" && topTenItems.length) {
       return buildInterestSuggestionFallback({ lang, topTenItems });
     }
@@ -1090,9 +1091,9 @@ async function getAiTasteItemFeedback({
       } catch (error) {
         const message = error?.message || String(error);
         if (message === "ai_feedback_timeout") {
-          console.info("AI taste feedback fallback:", message);
+          logger.info("AI taste feedback fallback", { reason: message });
         } else {
-          console.warn("AI taste feedback failed:", message);
+          logger.warn("AI taste feedback failed", { error: message });
         }
         return {
           ok: true,

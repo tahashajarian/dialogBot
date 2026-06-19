@@ -9,6 +9,7 @@ const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussion-starters");
+const { logger } = require("./services/logger");
 const messages = require("./messages");
 
 const config = getRuntimeConfig();
@@ -48,7 +49,7 @@ const bot = new Telegraf(
 );
 
 bot.catch((err) => {
-  console.error("Bot update error:", err);
+  logger.error("Bot update error", err);
 });
 
 async function processUpdate(ctx) {
@@ -96,20 +97,20 @@ let shuttingDown = false;
 async function shutdown(reason, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[shutdown] stopping application (${reason})...`);
+  logger.info("Stopping application", { reason });
 
   if (pollingStarted) {
     try {
       bot.stop(reason);
     } catch (error) {
-      console.warn("[shutdown] failed to stop bot polling:", error?.message || error);
+      logger.warn("Failed to stop bot polling", error);
     }
   }
 
   try {
     await disconnectDB();
   } catch (error) {
-    console.error("[shutdown] failed to disconnect database:", error?.message || error);
+    logger.error("Failed to disconnect database", error);
     exitCode = 1;
   }
 
@@ -148,49 +149,48 @@ async function retry(fn, {
 
 (async () => {
   try {
-    console.log("[startup] connecting database...");
+    logger.info("Connecting database");
     await connectDB(config);
-    console.log("[startup] checking bot token/API via getMe...");
+    logger.info("Checking bot token/API via getMe");
     const botInfo = await retry(
       () => bot.telegram.getMe(),
       {
         attempts: 5,
         delayMs: 2000,
         onRetry: (error, attempt, attempts) => {
-          console.warn(
-            `[startup] getMe failed (${attempt}/${attempts - 1} retries used):`,
-            error?.message || error,
-          );
+          logger.warn("getMe failed; retrying", {
+            attempt,
+            maxRetries: attempts - 1,
+            error,
+          });
         },
       },
     );
-    console.log("[startup] getMe successful.");
+    logger.info("getMe successful");
     try {
       const seeded = await seedBotDiscussions(botInfo?.id);
-      console.log(`[startup] bot discussions ready (${seeded.discussions?.length || 0}).`);
+      logger.info("Bot discussions ready", { count: seeded.discussions?.length || 0 });
     } catch (seedError) {
-      console.warn("[startup] failed to seed bot discussions; continuing without them.");
-      console.warn(seedError?.message || seedError);
+      logger.warn("Failed to seed bot discussions; continuing without them", seedError);
     }
 
     try {
-      console.log("[startup] deleting webhook (polling mode)...");
+      logger.info("Deleting webhook for polling mode");
       await bot.telegram.deleteWebhook();
     } catch (deleteWebhookError) {
-      console.warn("deleteWebhook failed; continuing with polling mode.");
-      console.warn(deleteWebhookError?.message || deleteWebhookError);
+      logger.warn("deleteWebhook failed; continuing with polling mode", deleteWebhookError);
     }
 
     const pollingLoop = bot.startPolling();
     pollingStarted = true;
-    console.log("[startup] bot started in polling mode.");
+    logger.info("Bot started in polling mode");
 
     pollingLoop.catch(async (pollingError) => {
-      console.error("Polling stopped with error:", pollingError);
+      logger.error("Polling stopped with error", pollingError);
       await shutdown("polling_error", 1);
     });
   } catch (error) {
-    console.error("Bot startup failed:", error);
+    logger.error("Bot startup failed", error);
     await shutdown("startup_error", 1);
   }
 })();

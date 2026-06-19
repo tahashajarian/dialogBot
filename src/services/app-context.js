@@ -1,5 +1,6 @@
 const DEFAULT_API_OPERATION_TIMEOUT_MS = 2500;
 const PIN_RETRY_DELAY_MS = 400;
+const { logger } = require("./logger");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -114,7 +115,7 @@ function createAppContext(ctx, user, options = {}) {
       if (payload.callback_query_id && ctx.telegram?.callApi) {
         return ctx.telegram.callApi("answerCallbackQuery", payload).catch((error) => {
           if (payload.show_alert) {
-            console.warn("answerCallbackQuery show_alert failed:", {
+            logger.warn("answerCallbackQuery show_alert failed", {
               callbackQueryId: String(payload.callback_query_id || ""),
               error: error?.message || error,
             });
@@ -157,7 +158,7 @@ function createAppContext(ctx, user, options = {}) {
         if (isMessageNotFoundError(error) || isTransientEditError(error)) {
           return false;
         }
-        console.warn("Failed to edit bot message:", {
+        logger.warn("Failed to edit bot message", {
           chatId,
           messageId: normalizedMessageId,
           code: getErrorCode(error),
@@ -234,7 +235,7 @@ function createAppContext(ctx, user, options = {}) {
         }
       }
 
-      console.error("Failed to pin chat message:", {
+      logger.error("Failed to pin chat message", {
         chatId,
         messageId: normalizedMessageId,
         code: getErrorCode(lastError),
@@ -256,7 +257,7 @@ function createAppContext(ctx, user, options = {}) {
           message_id: normalizedMessageId,
         });
       } catch (error) {
-        console.error("Failed to unpin chat message:", {
+        logger.error("Failed to unpin chat message", {
           chatId,
           messageId: normalizedMessageId,
           code: getErrorCode(error),
