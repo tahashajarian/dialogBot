@@ -191,7 +191,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     return helpers.editCallbackMessageOrReply(
       ctx,
       appendStarterInvitationsText(lang, messages[lang].onboardingSkipped, starterInvites.count),
-      onboardingCompleteKeyboard(lang),
+      onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
     );
   }
 
@@ -264,7 +264,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
         buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)),
         starterInvites.count,
       ),
-      onboardingCompleteKeyboard(lang),
+      onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
     );
   }
 
@@ -315,7 +315,7 @@ async function handleOnboardingText(ctx, lang) {
       const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
       return ctx.reply(
         appendStarterInvitationsText(lang, completeText, starterInvites.count),
-        onboardingCompleteKeyboard(lang),
+        onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
       );
     }
 

@@ -554,10 +554,13 @@ function onboardingCustomInterestKeyboard(lang, page = 0) {
   ]]);
 }
 
-function onboardingCompleteKeyboard(lang) {
+function onboardingCompleteKeyboard(lang, { invitationCount = 0 } = {}) {
   return inlineKeyboard([
     [{
-      text: messages[lang].onboardingBrowseDiscussionsButton,
+      text: messages[lang].discussionInvitationsWithCount.replace(
+        "{count}",
+        String(Math.max(0, Number(invitationCount) || 0)),
+      ),
       callback_data: callBacks.discussionInvitations,
     }],
     [{

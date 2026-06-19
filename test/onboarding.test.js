@@ -152,21 +152,22 @@ test("typed onboarding input retires the old picker before a fresh reply", async
 });
 
 test("onboarding completion offers clear next actions", () => {
-  const keyboard = onboardingCompleteKeyboard("en");
-  const callbackData = keyboard.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+  const buttons = onboardingCompleteKeyboard("en", { invitationCount: 1 }).reply_markup.inline_keyboard.flat();
+  const callbackData = buttons.map((button) => button.callback_data);
 
   assert.deepEqual(callbackData, [
     callBacks.discussionInvitations,
     callBacks.menuMain,
     callBacks.help,
   ]);
+  assert.equal(buttons[0].text, "📨 Invitations (1)");
 });
 
 test("onboarding starter invitation note points users to invitations", () => {
-  const text = appendStarterInvitationsText("en", "Done", 3);
+  const text = appendStarterInvitationsText("en", "Done", 1);
 
   assert.match(text, /^Done/);
-  assert.match(text, /3 invitations from the bot/);
+  assert.match(text, /bot invitations for you \(1\)/);
   assert.match(text, /💡/);
 });
 

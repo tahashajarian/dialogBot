@@ -575,7 +575,7 @@ module.exports = {
     onboardingCustomDuplicate: "🤖 You already selected \"{item}\". Enter another interest.",
     onboardingComplete: "🤖 Initial interests saved:\n\n{items}\n\n✨ Initial result: {emoji} {label}\n{style}\n\n💡 Completing your Interests top 10 makes suggestions and related discussions more accurate.",
     onboardingSkipped: "🤖 This step was skipped.\n\n💡 You can add interests later from Lists.",
-    onboardingStarterInvitationsReady: "🤖 To get started, I prepared {count} invitations from the bot.\n\n💡 Preview each one and join a discussion if it feels right.",
+    onboardingStarterInvitationsReady: "🤖 To get started, I prepared bot invitations for you ({count}).\n\n💡 Preview each one and join a discussion if it feels right.",
     onboardingSkipButton: "Skip for now",
     onboardingMoreButton: "🔄 More options",
     onboardingCustomButton: "✍️ Another interest",
