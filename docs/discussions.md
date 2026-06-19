@@ -72,7 +72,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before entering any discussion, users must set a profile name with 3 to 30 characters and no emoji. If they cancel the prompt, remove only the prompt card and leave them on the list or invite preview they came from.
+- Before entering any discussion, users must explicitly set a bot profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and leave them on the list or invite preview they came from.
 - Age is optional and not required for viewing profiles
 
 Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.

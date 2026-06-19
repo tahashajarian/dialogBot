@@ -8,7 +8,8 @@ const DISCUSSION_NAME_STATE_PREFIX = "discussion_name_required:";
 const DISCUSSION_PROFILE_NAME_MAX_LENGTH = 30;
 
 function hasValidDiscussionProfileName(user = {}) {
-  return validateProfileName(user.profileName, DISCUSSION_PROFILE_NAME_MAX_LENGTH).ok;
+  return Boolean(user.profileNameConfirmedAt) &&
+    validateProfileName(user.profileName, DISCUSSION_PROFILE_NAME_MAX_LENGTH).ok;
 }
 
 function buildDiscussionNameState(source, token) {

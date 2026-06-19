@@ -52,6 +52,7 @@ const UserSchema = new mongoose.Schema({
   username: String,
   firstName: String,
   profileName: String,
+  profileNameConfirmedAt: { type: Date, default: null },
   city: String,
   age: Number,
   gender: String,

@@ -150,7 +150,8 @@ test("discussion entry requires a valid profile name before joining", async () =
       },
     };
 
-    assert.equal(hasValidDiscussionProfileName({ profileName: "Ali" }), true);
+    assert.equal(hasValidDiscussionProfileName({ profileName: "Ali", profileNameConfirmedAt: new Date() }), true);
+    assert.equal(hasValidDiscussionProfileName({ profileName: "Ali" }), false);
     assert.equal(hasValidDiscussionProfileName({ profileName: "Al" }), false);
     assert.equal(await requireDiscussionProfileName(ctx, "en", { source: "join", token: "d_ROOM1" }), false);
 

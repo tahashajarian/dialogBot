@@ -51,7 +51,8 @@ test("getOrCreateUser creates users from alternate name fields", async () => {
   assert.deepEqual(call.filter, { userId: 456 });
   assert.equal(call.update.$set.username, "taha");
   assert.equal(call.update.$set.firstName, "Taha");
-  assert.equal(call.update.$setOnInsert.profileName, "Taha");
+  assert.equal(call.update.$setOnInsert.profileName, "");
+  assert.equal(call.update.$setOnInsert.profileNameConfirmedAt, null);
   assert.equal(call.options.upsert, true);
 });
 
@@ -74,4 +75,5 @@ test("getOrCreateUser still upserts when platform name sanitizes to empty", asyn
   assert.equal(call.update.$set.username, "emoji_user");
   assert.equal(Object.hasOwn(call.update.$set, "firstName"), false);
   assert.equal(call.update.$setOnInsert.profileName, "");
+  assert.equal(call.update.$setOnInsert.profileNameConfirmedAt, null);
 });

@@ -469,11 +469,16 @@ async function handleUpdate(ctx) {
       );
     }
 
-    await updateProfileField(ctx.userId, "profileName", validation.value);
+    const confirmedAt = new Date();
+    await updateUserFields(ctx.userId, {
+      profileName: validation.value,
+      profileNameConfirmedAt: confirmedAt,
+    });
     await updateUserState(ctx.userId, "idle");
     await clearProfileEditPrompt(ctx);
     if (ctx.user) {
       ctx.user.profileName = validation.value;
+      ctx.user.profileNameConfirmedAt = confirmedAt;
       ctx.user.state = "idle";
     }
 
@@ -527,11 +532,16 @@ async function handleUpdate(ctx) {
       );
     }
 
-    await updateProfileField(ctx.userId, "profileName", validation.value);
+    const confirmedAt = new Date();
+    await updateUserFields(ctx.userId, {
+      profileName: validation.value,
+      profileNameConfirmedAt: confirmedAt,
+    });
     await updateUserState(ctx.userId, "idle");
     await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.profileName = validation.value;
+    updatedUser.profileNameConfirmedAt = confirmedAt;
     updatedUser.state = "idle";
     
     // Check if user was trying to view another profile

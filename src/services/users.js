@@ -36,7 +36,8 @@ async function getOrCreateUser(from) {
       $set: setFields,
       $setOnInsert: {
         userId: source.id,
-        profileName: safeFirstName,
+        profileName: "",
+        profileNameConfirmedAt: null,
         age: null,
         lang: "fa",
       },
