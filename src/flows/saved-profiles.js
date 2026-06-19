@@ -15,10 +15,12 @@ const {
   sendProfileMessage,
 } = require("../services/profile");
 const {
+  normalizePublicProfileCode,
+} = require("../services/public-codes");
+const {
   addSavedProfileCode,
   removeSavedProfileCode,
-  normalizePublicProfileCode,
-} = require("../services/discussions");
+} = require("../services/saved-profiles");
 const {
   isCodeSaved,
   buildSavedProfileListItems,

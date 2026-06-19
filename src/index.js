@@ -8,7 +8,7 @@ const { getOrCreateUser, normalizePlatformUserSource } = require("./services/use
 const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
-const { seedBotDiscussions } = require("./services/discussions");
+const { seedBotDiscussions } = require("./services/discussion-starters");
 const messages = require("./messages");
 
 const config = getRuntimeConfig();

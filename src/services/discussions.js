@@ -1,97 +1,51 @@
-const crypto = require("crypto");
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { isUserMutedBy } = require("./discussion-invitation-mutes");
-const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = require("./users");
-const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
+const {
+  validateJoinRulePayload,
+  validateJoinRules,
+} = require("./discussion-join-rules");
+const {
+  DISCUSSION_MESSAGE_BURST_WINDOW_MS,
+  DISCUSSION_MESSAGE_LIMIT,
+  DISCUSSION_MESSAGE_WINDOW_MS,
+  DISCUSSION_RECENT_MESSAGES_CAP,
+  addRecentMessage,
+} = require("./discussion-messages");
+const {
+  ensurePublicDiscussionCode,
+  ensurePublicDiscussionCodes,
+  ensurePublicProfileCode,
+  findDiscussionByPublicCode,
+  getDiscussionInvitePreviewByCode,
+  normalizePublicDiscussionCode,
+  normalizePublicProfileCode,
+} = require("./public-codes");
+const {
+  hasLink,
+  normalizeDiscussionText,
+} = require("./discussion-text");
+const {
+  SAVED_PROFILE_CAP,
+  addSavedProfileCode,
+  removeSavedProfileCode,
+} = require("./saved-profiles");
+const {
+  BOT_STARTER_DISCUSSIONS,
+  seedBotDiscussions,
+  sortBotStarterDiscussionsFirst,
+} = require("./discussion-starters");
+const {
+  createActiveDiscussionNotifier,
+  notifyDiscussionMembers,
+} = require("./discussion-notifications");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
-const DISCUSSION_RECENT_MESSAGES_CAP = 10;
-const SAVED_PROFILE_CAP = 50;
 const DISCUSSION_ACTIVE_OWNED_LIMIT = 3;
-const DISCUSSION_MESSAGE_LIMIT = 30;
-const DISCUSSION_MESSAGE_WINDOW_MS = 10 * 60 * 1000;
-const DISCUSSION_MESSAGE_BURST_WINDOW_MS = 1000;
-const PUBLIC_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const BOT_STARTER_DISCUSSIONS = [
-  {
-    botSeedKey: "free-discussion",
-    title: "Free Discussion",
-    description: "A simple place to start chatting.",
-  },
-  {
-    botSeedKey: "whats-up",
-    title: "Gaming Hangout",
-    description: "A room for players, favorite games, and what everyone is playing.",
-    joinRule: {
-      type: "top_ten_item",
-      section: "random",
-      itemTitle: "Gaming",
-      itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
-    },
-  },
-  {
-    botSeedKey: "lets-talk",
-    title: "Movie Chat",
-    description: "Chat about movies, scenes, and recent favorites.",
-    joinRule: {
-      type: "top_ten_item",
-      section: "random",
-      itemTitle: "Movies",
-      itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
-    },
-  },
-];
-const BOT_STARTER_DISCUSSION_ORDER = new Map(
-  BOT_STARTER_DISCUSSIONS.map((starter, index) => [starter.botSeedKey, index]),
-);
-
-function getBotStarterDiscussionOrder(discussion = {}) {
-  const seedKey = String(discussion.botSeedKey || "");
-  return BOT_STARTER_DISCUSSION_ORDER.has(seedKey)
-    ? BOT_STARTER_DISCUSSION_ORDER.get(seedKey)
-    : BOT_STARTER_DISCUSSIONS.length;
-}
-
-function sortBotStarterDiscussionsFirst(discussions = []) {
-  return [...discussions].sort((left, right) => (
-    getBotStarterDiscussionOrder(left) - getBotStarterDiscussionOrder(right)
-  ));
-}
-
-function generatePublicCodeSuffix(length) {
-  let suffix = "";
-  for (let index = 0; index < length; index += 1) {
-    suffix += PUBLIC_CODE_ALPHABET[crypto.randomInt(PUBLIC_CODE_ALPHABET.length)];
-  }
-  return suffix;
-}
 
 function isDuplicateKeyError(error) {
   return Number(error?.code) === 11000;
-}
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizePublicProfileCode(value) {
-  const raw = String(value || "").trim().replace(/^\/+/, "");
-  if (!raw) return "";
-  if (!/^u_/i.test(raw)) return "";
-  return `u_${raw.slice(2).replace(/[^a-z0-9]/gi, "").toUpperCase()}`;
-}
-
-function normalizePublicDiscussionCode(value) {
-  const raw = String(value || "").trim().replace(/^\/+/, "");
-  if (!raw) return "";
-  if (!/^d_/i.test(raw)) return "";
-  return `d_${raw.slice(2).replace(/[^a-z0-9]/gi, "").toUpperCase()}`;
-}
-
-function normalizeDiscussionText(value, maxLength) {
-  return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
 
 function normalizeTitle(value) {
@@ -105,10 +59,6 @@ function normalizeDescription(value) {
 function normalizeMaxMembers(value) {
   const capacity = Number(value) || DISCUSSION_MEMBER_CAP;
   return DISCUSSION_ALLOWED_MEMBER_CAPS.includes(capacity) ? capacity : DISCUSSION_MEMBER_CAP;
-}
-
-function hasLink(value) {
-  return /https?:\/\/|www\.|t\.me\/|telegram\.me\/|bale\.ai\//i.test(String(value || ""));
 }
 
 const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-quality");
@@ -141,164 +91,6 @@ function validateDiscussionDescription(description) {
 
   const isLowQuality = isLowQualityAiListItem(description);
   return { valid: !isLowQuality };
-}
-
-async function ensurePublicProfileCode(userId) {
-  const user = await User.findOne({ userId });
-  if (!user) return { ok: false, reason: "missing_user" };
-
-  const current = normalizePublicProfileCode(user.publicProfileCode);
-  if (current) return { ok: true, code: current, user };
-
-  let code = "";
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const suffix = generatePublicCodeSuffix(4);
-    code = `u_${suffix}`;
-    try {
-      const updated = await User.findOneAndUpdate(
-        {
-          userId,
-          $or: [
-            { publicProfileCode: "" },
-            { publicProfileCode: null },
-            { publicProfileCode: { $exists: false } },
-          ],
-        },
-        { $set: { publicProfileCode: code } },
-        { returnDocument: "after" },
-      );
-
-      if (updated) return { ok: true, code, user: updated };
-
-      const refreshed = await User.findOne({ userId });
-      const refreshedCode = normalizePublicProfileCode(refreshed?.publicProfileCode);
-      if (refreshedCode) return { ok: true, code: refreshedCode, user: refreshed };
-    } catch (error) {
-      if (!isDuplicateKeyError(error)) throw error;
-    }
-  }
-
-  return { ok: false, reason: "code_generation_failed" };
-}
-
-async function ensurePublicDiscussionCode(discussion) {
-  const discussionId = discussion?._id || discussion;
-  const current = normalizePublicDiscussionCode(discussion?.publicDiscussionCode);
-  if (current) return { ok: true, code: current, discussion };
-
-  const found = discussion?.title ? discussion : await Discussion.findById(discussionId);
-  if (!found) return { ok: false, reason: "missing_discussion" };
-
-  const existing = normalizePublicDiscussionCode(found.publicDiscussionCode);
-  if (existing) return { ok: true, code: existing, discussion: found };
-
-  let code = "";
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const suffix = generatePublicCodeSuffix(6);
-    code = `d_${suffix}`;
-    try {
-      found.publicDiscussionCode = code;
-      await found.save();
-      return { ok: true, code, discussion: found };
-    } catch (error) {
-      if (!isDuplicateKeyError(error)) throw error;
-      found.publicDiscussionCode = "";
-    }
-  }
-
-  return { ok: false, reason: "code_generation_failed" };
-}
-
-async function ensurePublicDiscussionCodes(discussions = []) {
-  await Promise.all((discussions || []).map((discussion) => ensurePublicDiscussionCode(discussion)));
-  return discussions;
-}
-
-async function findDiscussionByPublicCode(code) {
-  const cleanCode = normalizePublicDiscussionCode(code);
-  if (!cleanCode) return null;
-  return Discussion.findOne({ publicDiscussionCode: cleanCode });
-}
-
-async function getDiscussionInvitePreviewByCode(code) {
-  const cleanCode = normalizePublicDiscussionCode(code);
-  if (!cleanCode) return { ok: false, reason: "missing_discussion" };
-
-  const discussion = await Discussion.findOne({ publicDiscussionCode: cleanCode });
-  if (!discussion) return { ok: false, reason: "missing_discussion" };
-  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed", discussion };
-
-  return { ok: true, discussion, code: cleanCode };
-}
-
-function validateJoinRulePayload(joinRule = {}) {
-  const type = String(joinRule.type || "open");
-  if (!["open", "top_ten_completed", "taste_label", "top_ten_item"].includes(type)) {
-    return { ok: false, reason: "invalid_join_rule" };
-  }
-
-  if (type === "open") return { ok: true, joinRule: { type: "open" } };
-
-  const section = String(joinRule.section || "");
-  if (!["movies", "music", "books", "random"].includes(section)) {
-    return { ok: false, reason: "invalid_section" };
-  }
-
-  if (type === "top_ten_completed") {
-    return { ok: true, joinRule: { type, section } };
-  }
-
-  if (type === "taste_label") {
-    const tasteLabelKey = String(joinRule.tasteLabelKey || "").trim();
-    if (!tasteLabelKey) return { ok: false, reason: "missing_taste_label" };
-    return { ok: true, joinRule: { type, section, tasteLabelKey } };
-  }
-
-  const itemTitle = normalizeAiListItem(joinRule.itemTitle || "");
-  if (!itemTitle) return { ok: false, reason: "missing_item" };
-  const itemAliases = Array.isArray(joinRule.itemAliases)
-    ? joinRule.itemAliases.map(normalizeAiListItem).filter(Boolean)
-    : [];
-  const aliases = [...new Set([itemTitle, ...itemAliases])];
-  return { ok: true, joinRule: { type, section, itemTitle, itemAliases: aliases } };
-}
-
-async function validateJoinRules({ user, joinRule }) {
-  if (!user) return { ok: false, reason: "missing_user" };
-  const type = joinRule?.type || "open";
-
-  if (type === "open") {
-    return { ok: true };
-  }
-
-  const section = joinRule.section;
-  if (type === "top_ten_completed") {
-    const topTen = getAiListItemsFromUser(user, section, "topTen");
-    if (topTen.length >= 10) return { ok: true };
-    return { ok: false, reason: "requires_top_ten_completed", section };
-  }
-
-  if (type === "taste_label") {
-    const taste = getAiTasteFromUser(user, section);
-    if (taste?.labelKey && taste.labelKey === joinRule.tasteLabelKey) {
-      return { ok: true };
-    }
-    return { ok: false, reason: "requires_taste_label", section, tasteLabelKey: joinRule.tasteLabelKey };
-  }
-
-  if (type === "top_ten_item") {
-    const topTen = getAiListItemsFromUser(user, section, "topTen");
-    const candidates = [
-      joinRule.itemTitle,
-      ...(Array.isArray(joinRule.itemAliases) ? joinRule.itemAliases : []),
-    ].filter(Boolean);
-    const match = candidates.some((itemTitle) => getAiListDuplicateMatch(itemTitle, topTen));
-    const hasItem = Boolean(match);
-    if (hasItem) return { ok: true };
-    return { ok: false, reason: "requires_top_ten_item", section, itemTitle: joinRule.itemTitle };
-  }
-
-  return { ok: false, reason: "invalid_join_rule" };
 }
 
 async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
@@ -425,47 +217,6 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
     discussion,
     membershipIds: reservedUser.discussionMembershipIds || [],
   };
-}
-
-async function seedBotDiscussions(botUserId) {
-  const creatorUserId = Number(botUserId);
-  if (!Number.isInteger(creatorUserId) || creatorUserId <= 0) {
-    return { ok: false, reason: "invalid_bot_user_id" };
-  }
-
-  const discussions = [];
-  for (const starter of BOT_STARTER_DISCUSSIONS) {
-    const now = new Date();
-    const discussion = await Discussion.findOneAndUpdate(
-      { botSeedKey: starter.botSeedKey },
-      {
-        $set: {
-          title: starter.title,
-          description: starter.description,
-          creatorUserId,
-          isBotCreated: true,
-          joinRule: starter.joinRule || { type: "open" },
-          maxMembers: DISCUSSION_MEMBER_CAP,
-        },
-        $setOnInsert: {
-          botSeedKey: starter.botSeedKey,
-          status: "open",
-          memberUserIds: [],
-          removedUserIds: [],
-          recentMessages: [],
-          reports: [],
-          replyCount: 0,
-          lastActivityAt: now,
-          createdAt: now,
-        },
-      },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
-    );
-    await ensurePublicDiscussionCode(discussion);
-    discussions.push(discussion);
-  }
-
-  return { ok: true, discussions };
 }
 
 async function listActiveDiscussions({ userId, limit = 50 } = {}) {
@@ -823,246 +574,7 @@ async function reportDiscussionMember(reporterUserId, discussionId, targetUserId
   return { ok: true, discussionId: discussion._id, targetUserId };
 }
 
-function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowMs = DISCUSSION_MESSAGE_WINDOW_MS) {
-  const cutoff = now.getTime() - windowMs;
-  return (user?.discussionMessageUsage || [])
-    .map((entry) => new Date(entry))
-    .filter((entry) => Number.isFinite(entry.getTime()) && entry.getTime() > cutoff);
-}
-
-async function consumeDiscussionMessageQuota(userId) {
-  const now = new Date();
-  const cutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_WINDOW_MS);
-  const burstCutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_BURST_WINDOW_MS);
-  const updated = await User.findOneAndUpdate(
-    {
-      userId,
-      $expr: {
-        $and: [
-          {
-            $lt: [
-              {
-                $size: {
-                  $filter: {
-                    input: { $ifNull: ["$discussionMessageUsage", []] },
-                    as: "usedAt",
-                    cond: { $gt: ["$$usedAt", cutoff] },
-                  },
-                },
-              },
-              DISCUSSION_MESSAGE_LIMIT,
-            ],
-          },
-          {
-            $eq: [
-              {
-                $size: {
-                  $filter: {
-                    input: { $ifNull: ["$discussionMessageUsage", []] },
-                    as: "usedAt",
-                    cond: { $gt: ["$$usedAt", burstCutoff] },
-                  },
-                },
-              },
-              0,
-            ],
-          },
-        ],
-      },
-    },
-    [
-      {
-        $set: {
-          discussionMessageUsage: {
-            $concatArrays: [
-              {
-                $filter: {
-                  input: { $ifNull: ["$discussionMessageUsage", []] },
-                  as: "usedAt",
-                  cond: { $gt: ["$$usedAt", cutoff] },
-                },
-              },
-              [now],
-            ],
-          },
-        },
-      },
-    ],
-    { returnDocument: "after", updatePipeline: true },
-  );
-
-  if (!updated) {
-    const user = await User.findOne({ userId }).select("discussionMessageUsage").lean();
-    if (!user) return { ok: false, reason: "missing_user" };
-    const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now);
-    const hasRecentBurst = recentUsage.some(
-      (usedAt) => usedAt.getTime() > burstCutoff.getTime(),
-    );
-    if (hasRecentBurst) {
-      return {
-        ok: false,
-        reason: "message_burst_limit",
-        retryAfterMs: DISCUSSION_MESSAGE_BURST_WINDOW_MS,
-      };
-    }
-    return { ok: false, reason: "message_rate_limit", cap: DISCUSSION_MESSAGE_LIMIT };
-  }
-
-  return {
-    ok: true,
-    count: getRecentDiscussionMessageUsageFromUser(updated, now).length,
-  };
-}
-
-async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text, voiceFileId, voiceDuration }) {
-  const discussion = await Discussion.findById(discussionId);
-  if (!discussion) return { ok: false, reason: "missing_discussion" };
-  if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
-  if (!discussion.memberUserIds.includes(senderUserId)) return { ok: false, reason: "not_member" };
-
-  const isVoiceMessage = Boolean(voiceFileId);
-  const cleanText = text ? normalizeDiscussionText(text, 500) : "";
-  const cleanName = normalizeDiscussionText(senderDisplayName, 80);
-  
-  // Either text or voice must be present
-  if (!cleanText && !isVoiceMessage) return { ok: false, reason: "empty_message" };
-  
-  // Block links in text messages
-  if (cleanText && hasLink(cleanText)) return { ok: false, reason: "message_contains_link" };
-
-  const quota = await consumeDiscussionMessageQuota(senderUserId);
-  if (!quota.ok) return { ...quota, discussion };
-
-  const now = new Date();
-  const message = {
-    senderUserId,
-    senderDisplayName: cleanName || "کاربر",
-    text: cleanText,
-    voiceFileId: voiceFileId || "",
-    voiceDuration: voiceDuration || 0,
-    sentAt: now,
-  };
-  const updatedDiscussion = await Discussion.findOneAndUpdate(
-    {
-      _id: discussionId,
-      status: "open",
-      memberUserIds: senderUserId,
-    },
-    {
-      $push: {
-        recentMessages: {
-          $each: [message],
-          $slice: -DISCUSSION_RECENT_MESSAGES_CAP,
-        },
-      },
-      $inc: { replyCount: 1 },
-      $set: {
-        lastActivityAt: now,
-        updatedAt: now,
-      },
-    },
-    { returnDocument: "after" },
-  );
-
-  if (!updatedDiscussion) {
-    const latest = await Discussion.findById(discussionId).lean();
-    if (!latest) return { ok: false, reason: "missing_discussion" };
-    if (latest.status !== "open") return { ok: false, reason: "discussion_closed" };
-    return { ok: false, reason: "not_member" };
-  }
-
-  return {
-    ok: true,
-    discussion: updatedDiscussion,
-    recentMessages: updatedDiscussion.recentMessages || [],
-    recipients: (await User.find({
-      userId: { $in: updatedDiscussion.memberUserIds.filter((id) => id !== senderUserId) },
-    }).select("userId").lean()).map((entry) => entry.userId),
-  };
-}
-
-async function addSavedProfileCode(userId, profileCode) {
-  const cleanCode = normalizePublicProfileCode(profileCode);
-  if (!cleanCode) return { ok: false, reason: "empty_code" };
-
-  const codePattern = new RegExp(`^${escapeRegExp(cleanCode)}$`, "i");
-  const updated = await User.findOneAndUpdate(
-    {
-      userId,
-      savedProfileCodes: { $not: codePattern },
-      $expr: {
-        $lt: [
-          { $size: { $ifNull: ["$savedProfileCodes", []] } },
-          SAVED_PROFILE_CAP,
-        ],
-      },
-    },
-    { $push: { savedProfileCodes: cleanCode } },
-    { returnDocument: "after" },
-  ).lean();
-
-  if (updated) return { ok: true, items: updated.savedProfileCodes || [] };
-
-  const user = await User.findOne({ userId }).select("savedProfileCodes").lean();
-  if (!user) return { ok: false, reason: "missing_user" };
-  const current = Array.isArray(user.savedProfileCodes) ? user.savedProfileCodes : [];
-  if (current.some((entry) => codePattern.test(String(entry)))) {
-    return { ok: false, reason: "exists", items: current };
-  }
-  return { ok: false, reason: "saved_profiles_limit", cap: SAVED_PROFILE_CAP };
-}
-
-async function removeSavedProfileCode(userId, profileCode) {
-  const cleanCode = normalizePublicProfileCode(profileCode);
-  if (!cleanCode) return { ok: false, reason: "empty_code" };
-
-  const codePattern = new RegExp(`^${escapeRegExp(cleanCode)}$`, "i");
-  const updated = await User.findOneAndUpdate(
-    { userId, savedProfileCodes: codePattern },
-    { $pull: { savedProfileCodes: codePattern } },
-    { returnDocument: "after" },
-  ).lean();
-
-  if (updated) return { ok: true, items: updated.savedProfileCodes || [] };
-
-  const user = await User.findOne({ userId }).select("savedProfileCodes").lean();
-  if (!user) return { ok: false, reason: "missing_user" };
-  const current = Array.isArray(user.savedProfileCodes) ? user.savedProfileCodes : [];
-  return { ok: false, reason: "not_found", items: current };
-}
-
-function normalizeNotificationPayloads(payload) {
-  const payloads = Array.isArray(payload) ? payload : [payload];
-  return payloads
-    .map((entry) => {
-      if (typeof entry === "string") return { text: entry, extra: {} };
-      if (!entry || typeof entry !== "object") return null;
-      return {
-        text: String(entry.text || ""),
-        extra: entry.extra && typeof entry.extra === "object" ? entry.extra : {},
-      };
-    })
-    .filter((entry) => entry?.text);
-}
-
-async function notifyDiscussionMembers(ctx, messages, members = [], getPayloads) {
-  for (const member of members || []) {
-    const memberLang = messages[member.lang] ? member.lang : "fa";
-    try {
-      const payloads = normalizeNotificationPayloads(getPayloads(messages, memberLang));
-      for (const payload of payloads) {
-        await ctx.sendToUser?.(member.userId, payload.text, payload.extra);
-      }
-    } catch {
-      // Individual notification failures should not block the acting user.
-    }
-  }
-}
-
-async function notifyActiveMembersInDiscussion(ctx, messages, discussionId, excludeUserIds, getPayloads) {
-  const activeMembers = await getActiveMembersInDiscussion(discussionId, excludeUserIds);
-  await notifyDiscussionMembers(ctx, messages, activeMembers, getPayloads);
-}
+const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 
 module.exports = {
   DISCUSSION_MEMBER_CAP,

@@ -4,10 +4,14 @@ const {
   leaveDiscussionAsMember,
   removeMemberAsOwner,
   getActiveMembersInDiscussion,
-  notifyDiscussionMembers,
-  notifyActiveMembersInDiscussion,
 } = require("./discussions");
+const {
+  notifyDiscussionMembers,
+  createActiveDiscussionNotifier,
+} = require("./discussion-notifications");
 const { getDiscussionDisplayTitle } = require("./discussion-ui");
+
+const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 
 async function joinDiscussionAndNotify({ ctx, messages, discussionId }) {
   const joined = await joinOrOpenDiscussion(ctx.userId, discussionId);
