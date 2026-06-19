@@ -1,6 +1,6 @@
 const messages = require("../messages");
 const { cancelEditKeyboard } = require("../keyboards");
-const { sendProfileEditPrompt } = require("./profile-edit");
+const { clearProfileEditPrompt, sendProfileEditPrompt } = require("./profile-edit");
 const { validateProfileName } = require("../services/profile");
 const { updateUserState } = require("../services/users");
 
@@ -46,6 +46,31 @@ async function requireDiscussionProfileName(ctx, lang, { source, token } = {}) {
   return false;
 }
 
+async function handleDiscussionNameCancel(ctx, lang, {
+  renderActiveDiscussionList,
+  renderInvitationsList,
+  showDiscussionInvitePreviewCommand,
+} = {}) {
+  const pendingEntry = parseDiscussionNameState(ctx.user?.state);
+  await clearProfileEditPrompt(ctx);
+  await updateUserState(ctx.userId, "idle");
+  if (ctx.user) ctx.user.state = "idle";
+
+  if (pendingEntry?.source === "accept" && renderInvitationsList) {
+    return renderInvitationsList(ctx, lang, 0);
+  }
+  if (pendingEntry?.source === "open" && renderActiveDiscussionList) {
+    return renderActiveDiscussionList(ctx, lang, 0, false, {
+      editCallbackMessageOrReply: (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
+    });
+  }
+  if (pendingEntry?.source === "join" && showDiscussionInvitePreviewCommand) {
+    return showDiscussionInvitePreviewCommand(ctx, lang, pendingEntry.token);
+  }
+
+  return true;
+}
+
 function getProfileNameErrorMessage(lang, reason) {
   if (reason === "emoji") return messages[lang].profileNameNoEmoji;
   return messages[lang].profileNameInvalid;
@@ -54,6 +79,7 @@ function getProfileNameErrorMessage(lang, reason) {
 module.exports = {
   DISCUSSION_PROFILE_NAME_MAX_LENGTH,
   getProfileNameErrorMessage,
+  handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
   isDiscussionNameState,
   parseDiscussionNameState,

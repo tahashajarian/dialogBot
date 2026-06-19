@@ -18,6 +18,7 @@ const {
   sortBotStarterDiscussionsFirst,
 } = require("../src/services/discussions");
 const {
+  handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
   parseDiscussionNameState,
   requireDiscussionProfileName,
@@ -167,6 +168,84 @@ test("discussion entry requires a valid profile name before joining", async () =
       token: "d_ROOM1",
     });
     assert.ok(promptUpdate);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion name cancel returns invite accepts to invitations", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const calls = [];
+
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        state: "discussion_name_required:accept:875ZYQO",
+        profileEditPromptMessageId: 77,
+      },
+      deleteMessage: async (messageId) => {
+        calls.push(["delete", messageId]);
+        return true;
+      },
+    };
+
+    await handleDiscussionNameCancel(ctx, "en", {
+      renderInvitationsList: async (_ctx, lang, page) => {
+        calls.push(["invitations", lang, page]);
+        return true;
+      },
+    });
+
+    assert.deepEqual(calls, [
+      ["delete", 77],
+      ["invitations", "en", 0],
+    ]);
+    assert.equal(ctx.user.state, "idle");
+    assert.ok(updates.some((entry) => entry.update.profileEditPromptMessageId === null));
+    assert.ok(updates.some((entry) => entry.update.state === "idle"));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion name cancel returns active list opens to active discussions", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const calls = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        state: "discussion_name_required:open:d_ROOM1",
+        profileEditPromptMessageId: 88,
+      },
+      deleteMessage: async (messageId) => {
+        calls.push(["delete", messageId]);
+        return true;
+      },
+    };
+
+    await handleDiscussionNameCancel(ctx, "en", {
+      renderActiveDiscussionList: async (_ctx, lang, page, joinableOnly) => {
+        calls.push(["active", lang, page, joinableOnly]);
+        return true;
+      },
+    });
+
+    assert.deepEqual(calls, [
+      ["delete", 88],
+      ["active", "en", 0, false],
+    ]);
+    assert.equal(ctx.user.state, "idle");
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

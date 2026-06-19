@@ -26,7 +26,10 @@ const {
   sendProfileEditPrompt,
   startProfileEdit,
 } = require("./profile-edit");
-const { isDiscussionNameState } = require("./discussion-name-gate");
+const {
+  handleDiscussionNameCancel,
+  isDiscussionNameState,
+} = require("./discussion-name-gate");
 const {
   sendPublicProfileByCode,
 } = require("./saved-profiles");
@@ -109,7 +112,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
   leaveDiscussionAndClearKeyboardForNavigation,
   removeBottomKeyboard,
+  renderActiveDiscussionList,
+  renderInvitationsList,
   retireCallbackMessageIfPossible,
+  showDiscussionInvitePreviewCommand,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -298,10 +304,11 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileCancelEdit) {
     await ctx.answerCb?.();
     if (isDiscussionNameState(ctx.user?.state)) {
-      await clearProfileEditPrompt(ctx);
-      await updateUserState(ctx.userId, "idle");
-      if (ctx.user) ctx.user.state = "idle";
-      return true;
+      return handleDiscussionNameCancel(ctx, lang, {
+        renderActiveDiscussionList,
+        renderInvitationsList,
+        showDiscussionInvitePreviewCommand,
+      });
     }
     await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);

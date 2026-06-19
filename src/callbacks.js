@@ -55,6 +55,7 @@ const {
   isDiscussionCreateFlowCallback,
   isDiscussionCreateState,
   isDiscussionListCallback,
+  renderActiveDiscussionList,
   sendDiscussionJoinErrorAck,
 } = require("./flows/discussions-callbacks");
 const {
@@ -616,7 +617,10 @@ async function handleCallback(ctx) {
       deleteCallbackMessageIfPossible,
       leaveDiscussionAndClearKeyboardForNavigation,
       removeBottomKeyboard,
+      renderActiveDiscussionList,
+      renderInvitationsList,
       retireCallbackMessageIfPossible,
+      showDiscussionInvitePreviewCommand,
     });
   }
 

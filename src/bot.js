@@ -70,10 +70,12 @@ const {
   acceptInvitationCommand,
   normalizeProfileCodeFromInviteCommand,
   removeInvitationCommand,
+  renderInvitationsList,
   showDiscussionPickerForSavedProfile,
 } = require("./flows/discussion-invitations");
 const {
   clearDiscussionListMessage,
+  renderActiveDiscussionList,
 } = require("./flows/discussions-callbacks");
 const {
   isDiscussionCreateTextState,
@@ -96,6 +98,7 @@ const {
 const {
   DISCUSSION_PROFILE_NAME_MAX_LENGTH,
   getProfileNameErrorMessage,
+  handleDiscussionNameCancel,
   isDiscussionNameState,
   parseDiscussionNameState,
 } = require("./flows/discussion-name-gate");
@@ -452,9 +455,11 @@ async function handleUpdate(ctx) {
   if (isDiscussionNameState(state) && text) {
     const pendingEntry = parseDiscussionNameState(state);
     if (text === "/cancel") {
-      await updateUserState(ctx.userId, "idle");
-      await clearProfileEditPrompt(ctx);
-      return true;
+      return handleDiscussionNameCancel(ctx, lang, {
+        renderActiveDiscussionList,
+        renderInvitationsList,
+        showDiscussionInvitePreviewCommand,
+      });
     }
     if (text.startsWith("/")) {
       return sendProfileEditPrompt(ctx, messages[lang].discussionNameRequired, cancelEditKeyboard(lang));
