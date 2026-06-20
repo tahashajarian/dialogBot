@@ -81,9 +81,10 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
   const baseIndex = Math.max(0, Number(startIndex) || 0);
   const lines = items.map((entry, index, arr) => {
     const viewCommand = `/${entry.code}`;
-    const removeCommand = `/unsave_${entry.code.replace(/^u_/i, "")}`;
-    const discussionsCommand = `/discussions_${entry.code.replace(/^u_/i, "")}`;
-    const inviteCommand = `/invite_${entry.code.replace(/^u_/i, "")}`;
+    const shortCode = entry.code.replace(/^u_/i, "");
+    const removeCommand = `/rm_${shortCode}`;
+    const discussionsCommand = `/ds_${shortCode}`;
+    const inviteCommand = `/iv_${shortCode}`;
     const viewAction = lang === "fa"
       ? `👁 ${viewLabel} 👈 ${viewCommand}`
       : `👁 ${viewLabel} 👉 ${viewCommand}`;

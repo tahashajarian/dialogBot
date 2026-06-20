@@ -89,6 +89,7 @@ const {
 } = require("./flows/discussion-name-gate");
 const {
   clearSavedProfilesListMessage,
+  clearSavedProfileSurfaceMessages,
   clearViewedPublicProfileMessage,
   renderSavedProfileDiscussions,
   saveProfileCommand,
@@ -237,9 +238,8 @@ async function handleUpdate(ctx) {
     return showDiscussionInvitePreviewCommand(ctx, lang, inviteCode);
   }
 
-  if (/^\/invite_[a-z0-9]+$/i.test(text)) {
-    await clearViewedPublicProfileMessage(ctx);
-    await clearSavedProfilesListMessage(ctx);
+  if (/^\/(?:invite|iv)_[a-z0-9]+$/i.test(text)) {
+    await clearSavedProfileSurfaceMessages(ctx);
     await clearBottomKeyboardQuietly(ctx);
     await updateUserState(ctx.userId, "idle");
     return showDiscussionPickerForSavedProfile(ctx, lang, normalizeProfileCodeFromInviteCommand(text));
@@ -510,14 +510,13 @@ async function handleUpdate(ctx) {
     return saveProfileCommand(ctx, lang, text);
   }
 
-  if (/^\/unsave_(u_)?[a-z0-9]+$/i.test(text)) {
+  if (/^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i.test(text)) {
     return unsaveProfileCommand(ctx, lang, text);
   }
 
-  if (/^\/discussions_(u_)?[a-z0-9]+$/i.test(text)) {
-    const raw = text.replace(/^\/discussions_/i, "");
+  if (/^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i.test(text)) {
+    const raw = text.replace(/^\/(?:discussions|ds)_/i, "");
     const code = normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
-    await clearSavedProfilesListMessage(ctx);
     return renderSavedProfileDiscussions(ctx, lang, code);
   }
 
@@ -529,9 +528,6 @@ async function handleUpdate(ctx) {
     const fromSavedList = hasSavedProfilesListContext || (
       ctx.user?.discussionLastListType !== "invitations" && isSavedProfileCode
     );
-    if (fromSavedList) {
-      await clearSavedProfilesListMessage(ctx);
-    }
     const fromInvitationList = !fromSavedList && ctx.user?.discussionLastListType === "invitations";
     if (fromInvitationList) {
       await clearDiscussionListMessage(ctx);

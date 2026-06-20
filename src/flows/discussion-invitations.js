@@ -57,7 +57,7 @@ function getMessageId(message) {
 }
 
 function normalizeProfileCodeFromInviteCommand(value) {
-  const raw = String(value || "").trim().replace(/^\/?invite_/i, "");
+  const raw = String(value || "").trim().replace(/^\/?(invite|iv)_/i, "");
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
 }
 

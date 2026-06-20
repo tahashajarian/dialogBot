@@ -234,6 +234,31 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.menuMain);
 });
 
+test("saved profiles remembers the real list message id when edit returns true", async () => {
+  const ctx = {
+    callbackData: callBacks.savedProfiles,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "A",
+      profileName: "A",
+      savedProfileCodes: [],
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    editMessageText: async () => true,
+    reply: async () => ({ message_id: 77 }),
+    replyWithPhoto: async () => ({ message_id: 99 }),
+  };
+
+  await handleCallback(ctx);
+
+  assert.equal(ctx.user.savedProfilesLastListMessageId, 77);
+});
+
 test("AI back clears the section bottom keyboard before main menu", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
@@ -282,7 +307,7 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
   );
 });
 
-test("saved profile back deletes viewed profile card before rendering list", async () => {
+test("saved profile back deletes viewed profile card and renders fresh list", async () => {
   const deletedIds = [];
   const replies = [];
   const ctx = {
@@ -315,4 +340,135 @@ test("saved profile back deletes viewed profile card before rendering list", asy
 
   assert.deepEqual(deletedIds, [789]);
   assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+});
+
+test("opening saved profile clears old list and previous profile before rendering profile", async () => {
+  const originalFindOne = User.findOne;
+  const deletedIds = [];
+  const photos = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: [],
+      savedProfilesLastListMessageId: 42,
+      publicProfileLastMessageId: 55,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async () => ({ message_id: 100 }),
+    replyWithPhoto: async (photo, extra) => {
+      photos.push({ photo, extra });
+      return { message_id: 101 };
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", { fromSavedList: true });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.deepEqual(deletedIds, [42, 55, 100]);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.equal(ctx.user.publicProfileLastMessageId, 101);
+  assert.equal(photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.savedProfiles);
+});
+
+test("opening saved profile retires old list text when delete fails", async () => {
+  const originalFindOne = User.findOne;
+  const deletedIds = [];
+  const edits = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: ["u_A1"],
+      savedProfilesLastListMessageId: 42,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return false;
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+    reply: async () => ({ message_id: 100 }),
+    replyWithPhoto: async () => ({ message_id: 101 }),
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", { fromSavedList: true });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.equal(edits[0].messageId, 42);
+  assert.equal(edits[0].text, " ");
+  assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard, []);
+  assert.equal(deletedIds.includes(42), true);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+});
+
+test("saved profile Back renders fresh list after profile card", async () => {
+  const deletedIds = [];
+  const replies = [];
+  const ctx = {
+    callbackData: callBacks.savedProfiles,
+    callbackMessageId: 101,
+    callbackMessage: { caption: "profile card", photo: [{}] },
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: [],
+      savedProfilesLastListMessageId: null,
+      publicProfileLastMessageId: 101,
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.deepEqual(deletedIds, [101]);
+  assert.match(replies.at(-1).text, /haven't saved any profiles yet/);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, 1);
 });

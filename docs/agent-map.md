@@ -78,7 +78,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - stale discussion card cleanup predicates
   - create-flow state predicates
 - `src/flows/discussion-invitations.js`: stored invitation commands/callbacks and source-specific return handling.
-  - `/invite_CODE`, `/accept_inv_CODE`, `/remove_inv_CODE`
+  - `/iv_CODE`, `/accept_inv_CODE`, `/remove_inv_CODE`
   - invitation inbox, invite saved profile, invite from saved profile, mute inviter
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.

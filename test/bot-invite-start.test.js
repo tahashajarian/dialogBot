@@ -295,7 +295,7 @@ test("discussion message sender uses platform reply id when available", async ()
   assert.equal(sent.message_id, 99);
 });
 
-test("saved profile command keeps saved-list back navigation even if stale list cleanup fails", async () => {
+test("saved profile command clears saved list before opening profile", async () => {
   const originalFindOne = User.findOne;
   const deleteAttempts = [];
   const photos = [];
@@ -323,7 +323,7 @@ test("saved profile command keeps saved-list back navigation even if stale list 
     },
     deleteMessage: async (messageId) => {
       deleteAttempts.push(messageId);
-      return false;
+      return true;
     },
     reply: async () => ({ message_id: 100 }),
     replyWithPhoto: async (photo, extra) => {
@@ -338,12 +338,13 @@ test("saved profile command keeps saved-list back navigation even if stale list 
     User.findOne = originalFindOne;
   }
 
-  assert.equal(deleteAttempts[0], 42);
+  assert.equal(deleteAttempts.includes(42), true);
   assert.equal(
     photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.savedProfiles,
   );
   assert.equal(photos[0].extra.reply_markup.inline_keyboard.length, 1);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 
 test("saved profile discussions command clears saved profile list card", async () => {
@@ -391,4 +392,118 @@ test("saved profile discussions command clears saved profile list card", async (
 
   assert.deepEqual(deleteAttempts, [42]);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+});
+
+test("saved profile discussions include visible active discussion without duplicating created room", async () => {
+  const originalFind = Discussion.find;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const activeDiscussion = {
+    _id: "disc_active",
+    title: "Active room",
+    publicDiscussionCode: "d_ACTIVE",
+    creatorUserId: 2,
+    memberUserIds: [2],
+    maxMembers: 20,
+    status: "open",
+    joinRule: { type: "open" },
+  };
+
+  Discussion.findOne = () => ({ lean: async () => activeDiscussion });
+  Discussion.find = (query) => {
+    assert.deepEqual(query._id, { $ne: "disc_active" });
+    return { limit: () => ({ lean: async () => [] }) };
+  };
+  User.findOneAndUpdate = async () => ({});
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Saved User",
+    profileName: "Saved User",
+    activeDiscussionId: "disc_active",
+    showActiveDiscussionOnProfile: true,
+  });
+
+  const ctx = {
+    text: "/discussions_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      savedProfileCodes: ["u_3HNU"],
+      savedProfilesLastListMessageId: null,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    Discussion.find = originalFind;
+    Discussion.findOne = originalFindOneDiscussion;
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.match(replies[0].text, /Active discussion/);
+  assert.match(replies[0].text, /Active room/);
+  assert.doesNotMatch(replies[0].text, /Created discussions/);
+});
+
+test("saved profile invite command clears saved profile surfaces", async () => {
+  const originalFindOne = User.findOne;
+  const originalFind = Discussion.find;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleteAttempts = [];
+
+  User.findOne = () => ({
+    select: () => ({
+      lean: async () => ({
+        userId: 2,
+        publicProfileCode: "u_3HNU",
+        firstName: "Saved User",
+        profileName: "Saved User",
+      }),
+    }),
+  });
+  Discussion.find = () => ({ sort: async () => [] });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: "/iv_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      savedProfileCodes: ["u_3HNU"],
+      savedProfilesLastListMessageId: 42,
+      publicProfileLastMessageId: 43,
+      discussionLastListMessageId: 44,
+      discussionLastListType: "saved:u_3HNU",
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async () => ({ message_id: 100 }),
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    Discussion.find = originalFind;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleteAttempts.slice(0, 3), [42, 43, 44]);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.equal(ctx.user.publicProfileLastMessageId, null);
+  assert.equal(ctx.user.discussionLastListMessageId, null);
+  assert.equal(ctx.user.discussionLastListType, "");
 });

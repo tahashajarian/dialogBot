@@ -202,6 +202,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpRulesText, /💡/);
   assert.match(messages.fa.helpRulesText, /۳۰ پیام در ۱۰ دقیقه/);
   assert.match(messages.en.helpRulesText, /30 messages per 10 minutes/);
+  assert.match(messages.fa.helpRulesText, /نمایش بحث فعال رو روشن کن/);
+  assert.match(messages.en.helpRulesText, /active discussion visibility/);
   assert.match(messages.fa.helpRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
   assert.match(messages.en.helpRulesText, /Reports count only from different users/);
   assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);

@@ -61,11 +61,12 @@ function canPersistUserMessageState(ctx) {
 }
 
 function normalizeProfileCodeFromActionCommand(value) {
-  const raw = String(value || "").trim().replace(/^\/?(remove|report|save|unsave)_/i, "");
+  const raw = String(value || "").trim().replace(/^\/?(remove|report|save|unsave|rm)_/i, "");
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
 }
 
 async function rememberSavedProfilesListMessage(ctx, messageOrId) {
+  if (typeof messageOrId === "boolean") return;
   const messageId = Number(getMessageId(messageOrId) || messageOrId);
   if (!Number.isInteger(messageId) || messageId <= 0) return;
   if (ctx.user) ctx.user.savedProfilesLastListMessageId = messageId;
@@ -77,20 +78,23 @@ async function rememberSavedProfilesListMessage(ctx, messageOrId) {
 async function clearSavedProfilesListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) return false;
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageText)) return false;
+  const edited = ctx.editMessageText
+    ? await ctx.editMessageText(messageId, " ", { reply_markup: { inline_keyboard: [] } })
+    : false;
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  if (edited || deleted) {
     if (ctx.user) ctx.user.savedProfilesLastListMessageId = null;
     if (canPersistUserMessageState(ctx)) {
       await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
     }
   }
-  return deleted;
+  return Boolean(edited || deleted);
 }
 
 async function forgetSavedProfilesListMessage(ctx) {
   if (ctx.user?.savedProfilesLastListMessageId) {
-    ctx.user.savedProfilesLastListMessageId = null;
+    if (ctx.user) ctx.user.savedProfilesLastListMessageId = null;
     if (canPersistUserMessageState(ctx)) {
       await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
     }
@@ -100,15 +104,46 @@ async function forgetSavedProfilesListMessage(ctx) {
 async function clearViewedPublicProfileMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.publicProfileLastMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) return false;
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    if (ctx.user) ctx.user.publicProfileLastMessageId = null;
-    if (canPersistUserMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
-    }
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageReplyMarkup)) return false;
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const retired = deleted || (
+    ctx.editMessageReplyMarkup
+      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
+      : false
+  );
+  if (ctx.user) ctx.user.publicProfileLastMessageId = null;
+  if (canPersistUserMessageState(ctx)) {
+    await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
   }
-  return deleted;
+  return retired;
+}
+
+async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
+  if (!String(ctx.user?.discussionLastListType || "").startsWith("saved:")) return false;
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.discussionLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageReplyMarkup)) return false;
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const retired = deleted || (
+    ctx.editMessageReplyMarkup
+      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
+      : false
+  );
+  if (ctx.user) {
+    ctx.user.discussionLastListMessageId = null;
+    ctx.user.discussionLastListType = "";
+  }
+  if (canPersistUserMessageState(ctx)) {
+    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  }
+  return retired;
+}
+
+async function clearSavedProfileSurfaceMessages(ctx, exceptMessageIds = []) {
+  await clearSavedProfilesListMessage(ctx, exceptMessageIds);
+  await clearViewedPublicProfileMessage(ctx, exceptMessageIds);
+  await clearSavedProfileDiscussionMessage(ctx, exceptMessageIds);
 }
 
 async function rememberViewedPublicProfileMessage(ctx, message) {
@@ -208,7 +243,13 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
 
-  await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+  if (fromSavedList) {
+    await clearSavedProfilesListMessage(ctx, [ctx.callbackMessageId]);
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+    await clearSavedProfileDiscussionMessage(ctx, [ctx.callbackMessageId]);
+  } else {
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+  }
 
   const target = await User.findOne({ publicProfileCode: code });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
@@ -258,10 +299,10 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 }
 
 async function renderSavedProfileDiscussions(ctx, lang, code) {
-  await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-
   const profileCode = normalizePublicProfileCode(code);
   if (!profileCode) return ctx.reply(messages[lang].profileCodeNotFound);
+
+  await clearSavedProfileSurfaceMessages(ctx, [ctx.callbackMessageId]);
 
   const target = await User.findOne({ publicProfileCode: profileCode });
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
@@ -288,6 +329,7 @@ async function renderSavedProfileDiscussions(ctx, lang, code) {
   const createdDiscussions = await Discussion.find({
     creatorUserId: target.userId,
     status: "open",
+    ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
   }).limit(10).lean();
 
   if (createdDiscussions.length > 0) {
@@ -386,13 +428,13 @@ async function handleSavedProfilesCallback(ctx, lang, {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.savedProfilesOpen, "");
     await deleteCallbackMessageIfPossible?.(ctx);
-    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
   }
 
   if (data.startsWith(callBacks.savedProfilesDiscussions)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.savedProfilesDiscussions, "");
+    await deleteCallbackMessageIfPossible?.(ctx);
     return renderSavedProfileDiscussions(ctx, lang, code);
   }
 
@@ -423,6 +465,8 @@ async function handleSavedProfilesCallback(ctx, lang, {
 module.exports = {
   buildSavedProfilePage,
   clearSavedProfilesListMessage,
+  clearSavedProfileDiscussionMessage,
+  clearSavedProfileSurfaceMessages,
   clearViewedPublicProfileMessage,
   forgetSavedProfilesListMessage,
   handleSavedProfilesCallback,

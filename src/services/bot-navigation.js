@@ -20,7 +20,7 @@ async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
   const messageId = getMessageId(sent);
   if (messageId && ctx.editMessageText) {
     const edited = await ctx.editMessageText(messageId, text, inlineKeyboard);
-    if (edited) return edited;
+    if (edited) return getMessageId(edited) ? edited : sent;
   }
   return ctx.reply(text, inlineKeyboard);
 }

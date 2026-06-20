@@ -173,13 +173,13 @@ Saved-profile list items currently use command links for view, discussions, and 
 Add a stable command link:
 
 ```text
-Invite this user to a discussion 👉 /invite_CODE
+Invite this user to a discussion 👉 /iv_CODE
 ```
 
 Persian:
 
 ```text
-دعوت این کاربر به بحث 👈 /invite_CODE
+دعوت این کاربر به بحث 👈 /iv_CODE
 ```
 
 `CODE` is the saved user's public profile code, not a raw user id.
@@ -273,7 +273,7 @@ Avoid raw user ids in callback data if public codes are available.
 Scenario: user is browsing saved profiles and wants to invite a saved person to one of their discussions.
 
 1. User opens saved profiles.
-2. User taps/sends `/invite_CODE`.
+2. User taps/sends `/iv_CODE`.
 3. Bot resolves `CODE` to a saved profile.
 4. Bot verifies the target is actually saved by the inviter.
 5. Bot loads inviter's eligible discussions.
@@ -690,7 +690,7 @@ Do not create invite.
 
 ### Target Not Actually Saved
 
-If user sends `/invite_CODE` manually for someone not saved:
+If user sends `/iv_CODE` manually for someone not saved:
 
 - Reject.
 - Show `This profile is not in your saved profiles.`
@@ -927,7 +927,7 @@ Responsibilities:
 
 - Callback routing for invitation inbox.
 - Text commands:
-  - `/invite_CODE`
+  - `/iv_CODE`
   - `/accept_inv_CODE`
   - `/remove_inv_CODE`
 - Active-room invite mode callbacks.
@@ -958,7 +958,7 @@ discussionInvitationAck: "discussion:invitation:ack:",
 Suggested text commands:
 
 ```text
-/invite_PROFILECODE
+/iv_PROFILECODE
 /accept_inv_INVITECODE
 /remove_inv_INVITECODE
 ```
@@ -1094,7 +1094,7 @@ Flow tests:
 - Shareable invite path still works.
 - Invite saved profile path returns to room after `Got it`.
 - No saved profiles state offers shareable invite and back to room.
-- Saved profile `/invite_CODE` opens discussion picker.
+- Saved profile `/iv_CODE` opens discussion picker.
 - No eligible discussions state offers browse/create/back.
 - Invite sent from saved profile returns to saved profiles after `Got it`.
 - Invitations list renders pending invites with stable actions.

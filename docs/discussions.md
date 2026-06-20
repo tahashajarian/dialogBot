@@ -1163,24 +1163,24 @@ Saved profiles main menu:
 
 1. 👤 علی
 دیدن پروفایل این کاربر 👈 /u_8K2P
-💬 دیدن بحث‌های این کاربر 👈 /discussions_8K2P
-📨 دعوت این کاربر به بحث 👈 /invite_8K2P
-حذف از ذخیره‌شده‌ها 👈 /unsave_8K2P
+💬 دیدن بحث‌های این کاربر 👈 /ds_8K2P
+📨 دعوت این کاربر به بحث 👈 /iv_8K2P
+حذف از ذخیره‌شده‌ها 👈 /rm_8K2P
 
 2. 👤 سارا
 دیدن پروفایل این کاربر 👈 /u_9Q4M
-💬 دیدن بحث‌های این کاربر 👈 /discussions_9Q4M
-📨 دعوت این کاربر به بحث 👈 /invite_9Q4M
-حذف از ذخیره‌شده‌ها 👈 /unsave_9Q4M
+💬 دیدن بحث‌های این کاربر 👈 /ds_9Q4M
+📨 دعوت این کاربر به بحث 👈 /iv_9Q4M
+حذف از ذخیره‌شده‌ها 👈 /rm_9Q4M
 ```
 
 Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons.
 The saved-profile list can use inline list-navigation controls (pagination + Back) only.
-When opening a profile from the saved list, delete the list message when possible and show the profile with only one inline Back button to return to the saved-profile list. The Back button should still appear if deleting the stale list message fails.
+When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should have only one inline Back button to render a fresh saved-profile list.
 
 ### Viewing Discussions From Saved Profiles
 
-Users can view discussions of people in their saved profiles list via `/discussions_CODE` command.
+Users can view discussions of people in their saved profiles list via `/ds_CODE` command.
 
 The discussions view shows:
 - Title with user's name: `💬 بحث‌های {name}`
