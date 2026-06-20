@@ -39,6 +39,7 @@ const {
   createActiveDiscussionNotifier,
   notifyDiscussionMembers,
 } = require("./discussion-notifications");
+const { getModerationConfig } = require("../config");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -555,12 +556,25 @@ async function getActiveMembersInDiscussion(discussionId, excludeUserIds = []) {
 }
 
 async function reportDiscussionMember(reporterUserId, discussionId, targetUserId) {
-  const discussion = await Discussion.findById(discussionId);
+  const reportBanThreshold = getModerationConfig().reportBanThreshold;
+  const [discussion, reporter, target] = await Promise.all([
+    Discussion.findById(discussionId),
+    User.findOne({ userId: reporterUserId }).select("bannedAt").lean(),
+    User.findOne({ userId: targetUserId })
+      .select("userId lang profileName firstName reportReporterUserIds bannedAt")
+      .lean(),
+  ]);
+
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
   if (!discussion.memberUserIds.includes(reporterUserId)) return { ok: false, reason: "not_member" };
   if (!discussion.memberUserIds.includes(targetUserId)) return { ok: false, reason: "not_member" };
   if (Number(reporterUserId) === Number(targetUserId)) return { ok: false, reason: "invalid_report_target" };
+  if (!reporter || reporter.bannedAt) return { ok: false, reason: "invalid_report_target" };
+  if (!target || target.bannedAt) return { ok: false, reason: "invalid_report_target" };
+  if ((target.reportReporterUserIds || []).some((id) => Number(id) === Number(reporterUserId))) {
+    return { ok: false, reason: "duplicate_report" };
+  }
 
   discussion.reports.push({
     reporterUserId,
@@ -571,7 +585,68 @@ async function reportDiscussionMember(reporterUserId, discussionId, targetUserId
   discussion.updatedAt = new Date();
   await discussion.save();
 
-  return { ok: true, discussionId: discussion._id, targetUserId };
+  const updatedTarget = await User.findOneAndUpdate(
+    {
+      userId: targetUserId,
+      bannedAt: null,
+      reportReporterUserIds: { $ne: reporterUserId },
+    },
+    {
+      $addToSet: { reportReporterUserIds: reporterUserId },
+    },
+    { returnDocument: "after" },
+  ).select("userId lang profileName firstName reportReporterUserIds bannedAt");
+
+  if (!updatedTarget) return { ok: false, reason: "duplicate_report" };
+
+  const reportCount = (updatedTarget.reportReporterUserIds || []).length;
+  const reportsLeft = Math.max(reportBanThreshold - reportCount, 0);
+  const targetName = String(updatedTarget.profileName || updatedTarget.firstName || "کاربر").trim();
+  const banned = reportCount >= reportBanThreshold;
+  let affectedDiscussionIds = [];
+
+  if (banned) {
+    const affectedDiscussions = await Discussion.find({
+      status: "open",
+      memberUserIds: targetUserId,
+    }).select("_id").lean();
+    affectedDiscussionIds = affectedDiscussions.map((entry) => entry._id);
+
+    await User.findOneAndUpdate(
+      { userId: targetUserId },
+      {
+        $set: {
+          bannedAt: new Date(),
+          banReason: "report_threshold",
+          banSource: "auto_reports",
+          activeDiscussionId: null,
+          state: "idle",
+        },
+        $pull: { discussionMembershipIds: { $in: affectedDiscussionIds } },
+      },
+    );
+
+    await Discussion.updateMany(
+      { _id: { $in: affectedDiscussionIds } },
+      {
+        $pull: { memberUserIds: targetUserId },
+        $set: { updatedAt: new Date() },
+      },
+    );
+  }
+
+  return {
+    ok: true,
+    discussionId: discussion._id,
+    targetUserId,
+    targetLang: updatedTarget.lang || "fa",
+    targetName,
+    reportCount,
+    reportBanThreshold,
+    reportsLeft,
+    banned,
+    affectedDiscussionIds,
+  };
 }
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);

@@ -2,6 +2,7 @@ const DEFAULT_ALLOWED_USERNAMES = [];
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_AI_TIMEOUT_MS = 8000;
+const DEFAULT_REPORT_BAN_THRESHOLD = 5;
 const DEFAULT_AI_CACHE_CONFIG = {
   cacheEnabled: true,
   fuzzyMatchThreshold: 88,
@@ -101,6 +102,9 @@ function getConfigIssues(config, options = {}) {
   if (!Number.isFinite(config.aiTimeoutMs) || config.aiTimeoutMs <= 0) {
     issues.push("AI_TIMEOUT_MS must be a positive number when set.");
   }
+  if (!Number.isInteger(config.moderation.reportBanThreshold) || config.moderation.reportBanThreshold <= 0) {
+    issues.push("REPORT_BAN_THRESHOLD must be a positive integer when set.");
+  }
   for (const [key, value] of Object.entries(config.aiCache || {})) {
     if (typeof value === "number" && (!Number.isFinite(value) || value < 0)) {
       issues.push(`AI cache config ${key} must be a non-negative number when set.`);
@@ -114,6 +118,9 @@ function buildConfig(env = process.env) {
   const aiTimeoutMs = env.AI_TIMEOUT_MS === undefined || clean(env.AI_TIMEOUT_MS) === ""
     ? DEFAULT_AI_TIMEOUT_MS
     : Number(env.AI_TIMEOUT_MS);
+  const reportBanThreshold = env.REPORT_BAN_THRESHOLD === undefined || clean(env.REPORT_BAN_THRESHOLD) === ""
+    ? DEFAULT_REPORT_BAN_THRESHOLD
+    : Number(env.REPORT_BAN_THRESHOLD);
 
   return {
     botToken: clean(env.BOT_TOKEN),
@@ -127,6 +134,9 @@ function buildConfig(env = process.env) {
     embeddingModel: clean(env.EMBEDDING_MODEL) || DEFAULT_EMBEDDING_MODEL,
     aiTimeoutMs,
     aiCache: resolveAiCacheConfig(env),
+    moderation: {
+      reportBanThreshold,
+    },
     invite: {
       deepLinkBaseUrl: clean(env.BOT_DEEP_LINK_BASE_URL),
       publicUrl: clean(env.BOT_PUBLIC_URL || env.PUBLIC_BOT_URL),
@@ -168,11 +178,16 @@ function getInviteConfig(env = process.env) {
   return buildConfig(env).invite;
 }
 
+function getModerationConfig(env = process.env) {
+  return validateConfig(buildConfig(env), { requireRuntime: false }).moderation;
+}
+
 module.exports = {
   DEFAULT_ALLOWED_USERNAMES,
   DEFAULT_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_AI_TIMEOUT_MS,
+  DEFAULT_REPORT_BAN_THRESHOLD,
   DEFAULT_AI_CACHE_CONFIG,
   buildConfig,
   validateConfig,
@@ -181,6 +196,7 @@ module.exports = {
   getAiConfig,
   getAiCacheConfig,
   getInviteConfig,
+  getModerationConfig,
   normalizeUsername,
   resolveAiCacheConfig,
   resolveAllowedUsernames,

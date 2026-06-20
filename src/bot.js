@@ -185,14 +185,22 @@ async function rememberStartInvite(ctx, inviteCode, now = new Date()) {
 async function handleUpdate(ctx) {
   const text = (ctx.text || "").trim();
   const lang = detectLanguage(ctx);
+  const userLang = ctx.user?.lang;
+  const keyboardLang = userLang || lang;
+
+  if (ctx.user?.bannedAt) {
+    const bannedText = messages[keyboardLang].userBannedAccessDenied;
+    if (ctx.callbackData) {
+      await ctx.answerCb?.(bannedText, { show_alert: true });
+    }
+    return ctx.reply(bannedText, { reply_markup: { remove_keyboard: true, selective: false } });
+  }
 
   if (ctx.callbackData) {
     return handleCallback(ctx);
   }
 
-  const userLang = ctx.user?.lang;
   const state = ctx.user?.state || "idle";
-  const keyboardLang = userLang || lang;
   const startInviteCode = getStartInviteCode(text);
   const repeatedStartInvite = startInviteCode && isRepeatedStartInvite(ctx.user, startInviteCode);
 

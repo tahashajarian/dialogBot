@@ -130,6 +130,7 @@ Age is optional and not enforced by the profile viewing gate.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
 - `BOT_DEEP_LINK_BASE_URL` is the platform-neutral public bot URL for invite deep links. For Bale use `https://ble.ir/@BotUsername`; for Telegram later use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
 - `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings for Bale.
+- `REPORT_BAN_THRESHOLD` controls how many unique reporters trigger an automatic global user ban. Default: `5`.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep Bale and AI endpoint configuration separate to avoid launch failures.
 - Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.

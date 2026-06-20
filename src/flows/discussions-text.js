@@ -18,13 +18,13 @@ const {
   listActiveDiscussions,
   listMyDiscussions,
   normalizePublicProfileCode,
-  reportDiscussionMember,
 } = require("../services/discussions");
 const {
   closeDiscussionAndNotify,
   joinDiscussionAndNotify,
   leaveDiscussionAndNotify,
   removeDiscussionMemberAndNotify,
+  reportDiscussionMemberAndNotify,
 } = require("../services/discussion-actions");
 const {
   getDiscussionErrorMessage,
@@ -589,7 +589,12 @@ async function reportDiscussionMemberCommand(ctx, lang, text) {
   const memberUserId = Number(member?.userId);
   if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
 
-  const reported = await reportDiscussionMember(ctx.userId, activeDiscussionId, memberUserId);
+  const reported = await reportDiscussionMemberAndNotify({
+    ctx,
+    messages,
+    discussionId: activeDiscussionId,
+    memberUserId,
+  });
   if (!reported.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, reported.reason));
   return ctx.reply(messages[lang].discussionReportSent);
 }

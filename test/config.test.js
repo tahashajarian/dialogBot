@@ -7,6 +7,7 @@ const {
   getRuntimeConfig,
   getAiConfig,
   getAiCacheConfig,
+  getModerationConfig,
   normalizeUsername,
 } = require("../src/config");
 
@@ -53,6 +54,20 @@ test("config normalizes defaults and allowlist usernames", () => {
   assert.equal(config.aiCache.cacheEnabled, true);
   assert.equal(config.aiCache.candidateLimit, 500);
   assert.deepEqual([...config.allowedUsernames], ["alice", "bob"]);
+  assert.equal(config.moderation.reportBanThreshold, 5);
+});
+
+test("moderation config parses report ban threshold", () => {
+  assert.deepEqual(getModerationConfig({ REPORT_BAN_THRESHOLD: "3" }), {
+    reportBanThreshold: 3,
+  });
+
+  const issues = getConfigIssues(buildConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    REPORT_BAN_THRESHOLD: "0",
+  }), { requireRuntime: true });
+  assert.ok(issues.some((issue) => issue.includes("REPORT_BAN_THRESHOLD")));
 });
 
 test("ai config can be used without runtime bot credentials", () => {

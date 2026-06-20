@@ -6,6 +6,7 @@ module.exports = {
     discussions: "menu:discussions",
     savedProfiles: "menu:saved-profiles",
     help: "menu:help",
+    helpRules: "menu:help:rules",
     onboardingStart: "onboarding:start",
     onboardingInterest: "onboarding:interest:",
     onboardingMore: "onboarding:more:",

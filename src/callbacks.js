@@ -4,6 +4,7 @@ const {
   inlineKeyboard,
   mainMenuKeyboard,
   helpKeyboard,
+  helpRulesKeyboard,
   languageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
@@ -269,6 +270,18 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     return showInlineMenuAfterNavigation(ctx, messages[lang].helpText, helpKeyboard(lang), {
+      forceClearKeyboard: shouldClearKeyboard,
+    });
+  }
+
+  if (data === callBacks.helpRules) {
+    await ctx.answerCb?.();
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+    await clearRememberedAiListMessage(ctx);
+    await forgetSavedProfilesListMessage(ctx);
+    return showInlineMenuAfterNavigation(ctx, messages[lang].helpRulesText, helpRulesKeyboard(lang), {
       forceClearKeyboard: shouldClearKeyboard,
     });
   }

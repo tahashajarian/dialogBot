@@ -6,6 +6,7 @@ const { callBacks } = require("../src/constants");
 const {
   getOnboardingInterestChipTitle,
   helpKeyboard,
+  helpRulesKeyboard,
   mainMenuKeyboard,
   onboardingCompleteKeyboard,
   onboardingCustomInterestKeyboard,
@@ -180,13 +181,29 @@ test("help is available from the main menu and onboarding completion", () => {
   const helpCallbacks = helpKeyboard("fa").reply_markup.inline_keyboard
     .flat()
     .map((button) => button.callback_data);
+  const rulesCallbacks = helpRulesKeyboard("fa").reply_markup.inline_keyboard
+    .flat()
+    .map((button) => button.callback_data);
 
   assert.ok(mainCallbacks.includes(callBacks.help));
   assert.deepEqual(helpCallbacks, [
+    callBacks.helpRules,
     callBacks.aiAssistant,
     callBacks.discussionListActive,
     callBacks.menuMain,
   ]);
+  assert.deepEqual(rulesCallbacks, [
+    callBacks.help,
+    callBacks.menuMain,
+  ]);
+  assert.match(messages.fa.helpRules, /^📜/);
+  assert.match(messages.en.helpRules, /^📜/);
+  assert.match(messages.fa.helpRulesText, /💡/);
+  assert.match(messages.en.helpRulesText, /💡/);
+  assert.match(messages.fa.helpRulesText, /۳۰ پیام در ۱۰ دقیقه/);
+  assert.match(messages.en.helpRulesText, /30 messages per 10 minutes/);
+  assert.match(messages.fa.helpRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
+  assert.match(messages.en.helpRulesText, /Reports count only from different users/);
   assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.fa.helpText, /^🤖/);

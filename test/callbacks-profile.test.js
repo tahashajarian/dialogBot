@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
+const messages = require("../src/messages");
 const { sendPublicProfileByCode } = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
 
@@ -37,6 +38,33 @@ test("profile callback deletes current menu message before rendering profile", a
 
   assert.equal(deletedIds[0], 123);
   assert.ok(replies.length >= 1);
+});
+
+test("help rules callback opens the rules card", async () => {
+  const edits = [];
+  const ctx = {
+    callbackData: callBacks.helpRules,
+    callbackMessageId: 321,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "idle",
+    },
+    answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 321);
+  assert.equal(edits[0].text, messages.en.helpRulesText);
+  const labels = edits[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  assert.deepEqual(labels, [messages.en.helpBackToGuide, messages.en.helpBackToMain]);
 });
 
 test("profile settings keeps the profile display with settings controls", async () => {

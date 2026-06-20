@@ -17,6 +17,7 @@ const {
   leaveDiscussionAsMember,
   removeMemberAsOwner,
   removeSavedProfileCode,
+  reportDiscussionMember,
 } = require("../../src/services/discussions");
 const {
   countPendingReceivedInvitations,
@@ -31,6 +32,10 @@ const {
 const {
   muteInviterForUser,
 } = require("../../src/services/discussion-invitation-mutes");
+const {
+  reportDiscussionMemberAndNotify,
+} = require("../../src/services/discussion-actions");
+const messages = require("../../src/messages");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `dialogbot_integration_${process.pid}_${Date.now()}`;
@@ -243,6 +248,141 @@ test("owner removal and closing clear persisted user membership", async () => {
   assert.deepEqual(owner.discussionMembershipIds, []);
   assert.deepEqual(remainingMember.discussionMembershipIds, []);
   assert.equal(closedDiscussion.status, "closed");
+});
+
+test("unique discussion reports ban user and remove them from active discussions", async () => {
+  const previousThreshold = process.env.REPORT_BAN_THRESHOLD;
+  process.env.REPORT_BAN_THRESHOLD = "2";
+
+  try {
+    const discussion = await createOpenDiscussion(1, {
+      publicDiscussionCode: "d_REPORTBAN",
+      memberUserIds: [1, 2, 3],
+    });
+    await Promise.all([
+      createUser(1, {
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+      createUser(2, {
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+      createUser(3, {
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+    ]);
+
+    const first = await reportDiscussionMember(1, discussion._id, 2);
+    assert.equal(first.ok, true);
+    assert.equal(first.reportCount, 1);
+    assert.equal(first.reportsLeft, 1);
+    assert.equal(first.banned, false);
+
+    const duplicate = await reportDiscussionMember(1, discussion._id, 2);
+    assert.deepEqual(duplicate, { ok: false, reason: "duplicate_report" });
+
+    const second = await reportDiscussionMember(3, discussion._id, 2);
+    assert.equal(second.ok, true);
+    assert.equal(second.reportCount, 2);
+    assert.equal(second.reportsLeft, 0);
+    assert.equal(second.banned, true);
+    assert.equal(second.affectedDiscussionIds.length, 1);
+
+    const [target, persistedDiscussion] = await Promise.all([
+      User.findOne({ userId: 2 }).lean(),
+      Discussion.findById(discussion._id).lean(),
+    ]);
+
+    assert.ok(target.bannedAt);
+    assert.equal(target.banReason, "report_threshold");
+    assert.equal(target.activeDiscussionId, null);
+    assert.deepEqual(target.discussionMembershipIds, []);
+    assert.deepEqual(target.reportReporterUserIds.sort(), [1, 3]);
+    assert.equal(persistedDiscussion.memberUserIds.includes(2), false);
+    assert.equal(persistedDiscussion.reports.length, 2);
+  } finally {
+    if (previousThreshold === undefined) {
+      delete process.env.REPORT_BAN_THRESHOLD;
+    } else {
+      process.env.REPORT_BAN_THRESHOLD = previousThreshold;
+    }
+  }
+});
+
+test("report notifications warn target and announce auto-removal on ban", async () => {
+  const previousThreshold = process.env.REPORT_BAN_THRESHOLD;
+  process.env.REPORT_BAN_THRESHOLD = "2";
+
+  try {
+    const discussion = await createOpenDiscussion(1, {
+      publicDiscussionCode: "d_REPORTNOTIFY",
+      memberUserIds: [1, 2, 3],
+    });
+    await Promise.all([
+      createUser(1, {
+        lang: "en",
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+      createUser(2, {
+        lang: "en",
+        profileName: "Reported User",
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+      createUser(3, {
+        lang: "en",
+        activeDiscussionId: discussion._id,
+        discussionMembershipIds: [discussion._id],
+      }),
+    ]);
+
+    const sent = [];
+    const ctx = {
+      userId: 1,
+      sendToUser: async (userId, text, extra) => {
+        sent.push({ userId, text, extra });
+      },
+    };
+
+    const first = await reportDiscussionMemberAndNotify({
+      ctx,
+      messages,
+      discussionId: discussion._id,
+      memberUserId: 2,
+    });
+    assert.equal(first.ok, true);
+    assert.equal(first.banned, false);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].userId, 2);
+    assert.match(sent[0].text, /Reports: 1\/2/);
+    assert.deepEqual(sent[0].extra, {});
+
+    ctx.userId = 3;
+    const second = await reportDiscussionMemberAndNotify({
+      ctx,
+      messages,
+      discussionId: discussion._id,
+      memberUserId: 2,
+    });
+    assert.equal(second.ok, true);
+    assert.equal(second.banned, true);
+
+    assert.equal(sent[1].userId, 2);
+    assert.match(sent[1].text, /account was banned/);
+    assert.equal(sent[1].extra.reply_markup.remove_keyboard, true);
+    const roomNotices = sent.slice(2);
+    assert.deepEqual(roomNotices.map((entry) => entry.userId).sort(), [1, 3]);
+    assert.ok(roomNotices.every((entry) => entry.text.includes('"Reported User" was removed')));
+  } finally {
+    if (previousThreshold === undefined) {
+      delete process.env.REPORT_BAN_THRESHOLD;
+    } else {
+      process.env.REPORT_BAN_THRESHOLD = previousThreshold;
+    }
+  }
 });
 
 test("saved profile mutations preserve concurrent updates", async () => {

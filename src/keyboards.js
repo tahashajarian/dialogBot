@@ -77,12 +77,29 @@ function mainMenuKeyboard(lang) {
 function helpKeyboard(lang) {
   return inlineKeyboard([
     [{
+      text: messages[lang].helpRules,
+      callback_data: callBacks.helpRules,
+    }],
+    [{
       text: messages[lang].helpGoToLists,
       callback_data: callBacks.aiAssistant,
     }],
     [{
       text: messages[lang].helpBrowseDiscussions,
       callback_data: callBacks.discussionListActive,
+    }],
+    [{
+      text: messages[lang].helpBackToMain,
+      callback_data: callBacks.menuMain,
+    }],
+  ]);
+}
+
+function helpRulesKeyboard(lang) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].helpBackToGuide,
+      callback_data: callBacks.help,
     }],
     [{
       text: messages[lang].helpBackToMain,
@@ -828,6 +845,7 @@ module.exports = {
   inlineKeyboard,
   mainMenuKeyboard,
   helpKeyboard,
+  helpRulesKeyboard,
   aiAssistantKeyboard,
   aiChatBackKeyboard,
   aiSectionKeyboard,

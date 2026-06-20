@@ -799,6 +799,17 @@ Reports should store enough data for later review:
 - report status
 - created time
 
+Auto-ban rule:
+
+- `REPORT_BAN_THRESHOLD` controls how many different reporters are required before a user is banned. Default: `5`.
+- Count unique reporters across open discussion reports. Multiple reports from the same reporter against the same target should not move the target closer to a ban.
+- Every newly accepted report should notify the reported user privately with their current report count, the threshold, and how many unique reports remain before a full bot ban.
+- Normal report warnings should not remove the user's current bottom keyboard; on Bale this can expose the platform fallback start button. Only the final ban/access-denied messages should clear the bottom keyboard.
+- When the threshold is reached, set a global bot ban on the reported user. A banned user can no longer use messages, commands, callbacks, lists, profiles, invites, or discussions. Any future interaction should only return a short banned-account message with an admin-contact hint.
+- When a user is auto-banned, remove them from all active discussion memberships, clear their `activeDiscussionId`, and notify the remaining active members in each affected discussion that the user was removed. Keep the room notification calm and do not include report counts.
+- Do not let reports from banned users count toward another user's ban.
+- Do not publicly expose reporter identities or raw report counts in room notifications.
+
 ### Leave Discussion
 
 Member leaving:

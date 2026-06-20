@@ -28,6 +28,37 @@ test("start invite parser ignores normal start and unrelated payloads", () => {
   assert.equal(getStartInviteCode("/start profile_ab12"), "");
 });
 
+test("banned users receive only the ban notice", async () => {
+  const replies = [];
+  const answers = [];
+  const ctx = {
+    callbackData: callBacks.profile,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      bannedAt: new Date(),
+      state: "idle",
+    },
+    answerCb: async (text, extra) => {
+      answers.push({ text, extra });
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleUpdate(ctx);
+
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].text, messages.en.userBannedAccessDenied);
+  assert.equal(answers[0].extra.show_alert, true);
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.userBannedAccessDenied);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+});
+
 test("invite welcome copy leads into the invite instead of onboarding", () => {
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].discussionInviteWelcome, /^🤖/);

@@ -65,6 +65,16 @@ async function processUpdate(ctx) {
   }
 
   const user = await getOrCreateUser(from);
+  if (user?.bannedAt) {
+    const lang = messages[user.lang] ? user.lang : "fa";
+    const text = messages[lang].userBannedAccessDenied;
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery(text, { show_alert: true }).catch(() => {});
+    }
+    await ctx.reply(text, { reply_markup: { remove_keyboard: true, selective: false } }).catch(() => {});
+    return;
+  }
+
   const appCtx = createAppContext(ctx, user, {
   });
   const interaction = beginInteraction({
