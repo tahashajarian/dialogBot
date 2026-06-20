@@ -545,7 +545,7 @@ TopTen-item example:
 
 ```text
 🤖 برای ورود به این بحث باید این مورد توی تاپ ۱۰ت باشه:
-🏆 🧩 علاقه‌مندی‌ها - شطرنج
+🔑 🧩 علاقه‌مندی‌ها - شطرنج
 
 💡 اول این مورد رو به تاپ ۱۰ علاقه‌مندی‌هات اضافه کن.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
@@ -974,7 +974,7 @@ Recommended compact rule formatting:
 - `🔐 شرط ورود:` / `🔐 Join condition:`
 - Open rule: `🌍 ...`
 - Taste-label rule: `🏷 {section} - {badge emoji} {badge title}`
-- TopTen-item rule: `🏆 {section} - {item}`
+- TopTen-item rule: `🔑 {section} - {item}`
 
 Joinable example:
 

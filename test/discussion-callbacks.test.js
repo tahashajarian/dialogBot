@@ -63,7 +63,7 @@ test("discussion preview includes selected top ten item", () => {
     discussionDraftMaxMembers: 5,
   };
   const preview = buildDiscussionPreviewText(messages, "en", user);
-  assert.match(preview, /🏆 Books - Dune/);
+  assert.match(preview, /🔑 Books - Dune/);
   assert.match(preview, /Capacity: 5/);
 });
 
@@ -203,7 +203,7 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
     discussion,
   );
 
-  assert.match(listText, /🏆 .*گیم/);
+  assert.match(listText, /🔑 .*گیم/);
   assert.match(listText, /برای باز شدن این اتاق، گیم/);
   assert.match(lockedText, /«گیم»/);
   assert.doesNotMatch(lockedText, /Gaming/);
