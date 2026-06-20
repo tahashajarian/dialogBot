@@ -32,6 +32,7 @@ const {
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteShareText,
   decorateDiscussionsForList,
+  rankDiscussionsForDiscovery,
   paginateDiscussions,
   buildDiscussionListText,
   getDiscussionDisplayTitle,
@@ -267,7 +268,8 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
     return rememberDiscussionListMessage(ctx, "active", sentEmpty);
   }
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, false);
-  const paged = paginateDiscussions(decorated, 0);
+  const ranked = await rankDiscussionsForDiscovery(ctx.user, decorated);
+  const paged = paginateDiscussions(ranked, 0);
   const sent = await ctx.reply(
     buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
       startIndex: paged.startIndex,

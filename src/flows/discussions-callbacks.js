@@ -10,6 +10,7 @@ const { updateProfileField } = require("../services/users");
 const {
   getDiscussionErrorMessage,
   decorateDiscussionsForList,
+  rankDiscussionsForDiscovery,
   paginateDiscussions,
   buildDiscussionListText,
 } = require("../services/discussion-ui");
@@ -202,7 +203,8 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   }
   await ctx.answerCb?.();
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
-  const filtered = joinableOnly ? decorated.filter((entry) => entry.isJoinable) : decorated;
+  const ranked = await rankDiscussionsForDiscovery(ctx.user, decorated);
+  const filtered = joinableOnly ? ranked.filter((entry) => entry.isJoinable) : ranked;
   if (!filtered.length) {
     const listMessage = await editCallbackMessageOrReply(
       ctx,

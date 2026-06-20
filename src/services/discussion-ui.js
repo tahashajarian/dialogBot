@@ -5,10 +5,13 @@ const {
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
+const User = require("../models/user");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
 const DISCUSSION_LIST_DIVIDER = PAGINATION.listDivider;
 const DEFAULT_DISCUSSION_CAPACITY = 20;
+const DISCUSSION_NEW_BOOST_MS = 24 * 60 * 60 * 1000;
+const DISCUSSION_RECENCY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const RTL_MARK = "\u200F";
 const LTR_MARK = "\u200E";
 const FSI = "\u2068";
@@ -87,6 +90,88 @@ async function decorateDiscussionsForList(user, discussions = [], includeMemberA
       : "";
     return discussion;
   }));
+}
+
+function getTimeValue(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function getRecencyScore(discussion, nowMs) {
+  const activityMs = Math.max(
+    getTimeValue(discussion.lastActivityAt),
+    getTimeValue(discussion.updatedAt),
+    getTimeValue(discussion.createdAt),
+  );
+  if (!activityMs) return 0;
+  const ageMs = Math.max(0, nowMs - activityMs);
+  if (ageMs >= DISCUSSION_RECENCY_WINDOW_MS) return 0;
+  return Math.round((1 - (ageMs / DISCUSSION_RECENCY_WINDOW_MS)) * 20);
+}
+
+function getCapacityScore(discussion) {
+  const maxMembers = Number(discussion.maxMembers) || DEFAULT_DISCUSSION_CAPACITY;
+  const count = Array.isArray(discussion.memberUserIds) ? discussion.memberUserIds.length : 0;
+  if (maxMembers <= 0 || count >= maxMembers) return 0;
+  return Math.round(((maxMembers - count) / maxMembers) * 5);
+}
+
+function normalizeSavedProfileCodes(codes = []) {
+  return [...new Set((codes || [])
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean))];
+}
+
+async function getSavedCreatorUserIds(user) {
+  const codes = normalizeSavedProfileCodes(user?.savedProfileCodes);
+  if (!codes.length) return new Set();
+  const savedUsers = await User.find({ publicProfileCode: { $in: codes } })
+    .select("userId")
+    .lean();
+  return new Set((savedUsers || []).map((entry) => Number(entry.userId)).filter(Boolean));
+}
+
+function getDiscussionDiscoveryScore(user, discussion, { now = new Date(), savedCreatorUserIds = new Set() } = {}) {
+  const nowMs = getTimeValue(now) || Date.now();
+  const joinRule = discussion.joinRule || { type: "open" };
+  const membershipCount = Array.isArray(user?.discussionMembershipIds) ? user.discussionMembershipIds.length : 0;
+  let score = 0;
+
+  if (discussion.isJoinable) score += 15;
+  if (discussion.isJoinable && joinRule.type === "top_ten_item") score += 90;
+  if (discussion.isJoinable && joinRule.type === "taste_label") score += 80;
+  if (discussion.isJoinable && joinRule.type === "top_ten_completed") score += 60;
+  if (savedCreatorUserIds.has(Number(discussion.creatorUserId))) score += 50;
+  if (nowMs - getTimeValue(discussion.createdAt) <= DISCUSSION_NEW_BOOST_MS) score += 40;
+  if (discussion.isBotCreated && membershipCount < 2) score += 30;
+  if ((joinRule.type || "open") === "open") score += 10;
+  score += getRecencyScore(discussion, nowMs);
+  score += getCapacityScore(discussion);
+
+  return score;
+}
+
+async function rankDiscussionsForDiscovery(user, discussions = [], { now = new Date(), savedCreatorUserIds = null } = {}) {
+  const savedCreatorIds = savedCreatorUserIds
+    ? new Set([...savedCreatorUserIds].map(Number).filter(Boolean))
+    : await getSavedCreatorUserIds(user);
+  return [...(discussions || [])]
+    .map((discussion, index) => ({
+      discussion,
+      index,
+      score: getDiscussionDiscoveryScore(user, discussion, { now, savedCreatorUserIds: savedCreatorIds }),
+      activity: Math.max(
+        getTimeValue(discussion.lastActivityAt),
+        getTimeValue(discussion.updatedAt),
+        getTimeValue(discussion.createdAt),
+      ),
+    }))
+    .sort((left, right) => (
+      (right.score - left.score) ||
+      (right.activity - left.activity) ||
+      (left.index - right.index)
+    ))
+    .map((entry) => entry.discussion);
 }
 
 function paginateDiscussions(discussions = [], page = 0) {
@@ -306,6 +391,8 @@ module.exports = {
   getJoinRulePreviewText,
   getLocalizedJoinRuleItemTitle,
   decorateDiscussionsForList,
+  getDiscussionDiscoveryScore,
+  rankDiscussionsForDiscovery,
   paginateDiscussions,
   getDiscussionDisplayTitle,
   getDiscussionDisplayDescription,

@@ -9,6 +9,8 @@ const {
   buildDiscussionInviteShareText,
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteLockedText,
+  getDiscussionDiscoveryScore,
+  rankDiscussionsForDiscovery,
 } = require("../src/services/discussion-ui");
 const {
   discussionListNavigationKeyboard,
@@ -103,6 +105,48 @@ test("discussion list text separates multiple discussions with dividers", () => 
   ]);
 
   assert.match(text, /Metal room[\s\S]*────────[\s\S]*Movie room/);
+});
+
+test("discussion discovery ranking favors relevant and fresh joinable rooms", async () => {
+  const now = new Date("2026-06-21T12:00:00Z");
+  const user = {
+    userId: 1,
+    discussionMembershipIds: [],
+    savedProfileCodes: ["u_SAVED"],
+  };
+  const base = {
+    status: "open",
+    isJoinable: true,
+    memberUserIds: [2],
+    maxMembers: 20,
+    lastActivityAt: new Date("2026-06-10T12:00:00Z"),
+    updatedAt: new Date("2026-06-10T12:00:00Z"),
+    createdAt: new Date("2026-06-10T12:00:00Z"),
+  };
+  const discussions = [
+    { ...base, title: "Generic old", creatorUserId: 4, joinRule: { type: "open" } },
+    { ...base, title: "Saved creator", creatorUserId: 9, joinRule: { type: "open" } },
+    { ...base, title: "Fresh open", creatorUserId: 5, joinRule: { type: "open" }, createdAt: now, lastActivityAt: now },
+    { ...base, title: "Taste room", creatorUserId: 6, joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" } },
+    { ...base, title: "Item room", creatorUserId: 7, joinRule: { type: "top_ten_item", section: "random", itemTitle: "Chess" } },
+  ];
+
+  const ranked = await rankDiscussionsForDiscovery(user, discussions, {
+    now,
+    savedCreatorUserIds: new Set([9]),
+  });
+
+  assert.deepEqual(ranked.map((entry) => entry.title), [
+    "Item room",
+    "Taste room",
+    "Fresh open",
+    "Saved creator",
+    "Generic old",
+  ]);
+  assert.ok(
+    getDiscussionDiscoveryScore(user, discussions[2], { now }) >
+    getDiscussionDiscoveryScore(user, discussions[0], { now }),
+  );
 });
 
 test("bot-created discussions use localized copy and only a bot emoji marker", () => {

@@ -46,7 +46,7 @@ Discussions are live rooms with short memory.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
 - Bot-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
-- **Smart pinning**: Bot-created discussions appear at the top of the active discussions list for users with fewer than 2 discussion memberships. Once a user joins 2 or more discussions, all discussions are sorted purely by activity (most recent first). This helps new users discover starter rooms while keeping the experience clean for active users.
+- **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
 
 ## Non-Goals For MVP
 
@@ -968,6 +968,7 @@ If the creator has no TopTen items in the selected section during rule selection
 ## Discussion Listing
 
 Active discussion list should show both joinable and locked discussions.
+The joinable-only list should use smart discovery sorting so relevant and fresh joinable rooms appear above generic older rooms. Do not pin a current active discussion here; users leave the active room before browsing bot sections.
 Join-rule lines in list cards should use user-facing section names (for example `🧩 علاقه‌مندی‌ها`, not raw keys like `random`) and include a short join-condition header.
 Recommended compact rule formatting:
 
