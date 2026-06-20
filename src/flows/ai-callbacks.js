@@ -57,9 +57,8 @@ const {
 } = require("../constants/ai");
 const {
   buildTopTenInsightMessage,
-  buildTopTenListMessage,
   buildTopTenSavedMessage,
-  buildWatchlistMessage,
+  buildShareListMessage,
   formatAiItemsList,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
@@ -84,6 +83,7 @@ const {
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
 } = require("./ai-cards");
+const { openAiListManager } = require("./ai-text");
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -109,6 +109,7 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiSuggestRandom) ||
     data.startsWith(callBacks.aiListManageMenu) ||
     data.startsWith(callBacks.aiListManageShow) ||
+    data.startsWith(callBacks.aiListManageShare) ||
     data.startsWith(callBacks.aiTopTenInsight) ||
     data.startsWith(callBacks.aiListManageTogglePicker) ||
     data.startsWith(callBacks.aiListManageToggleItem) ||
@@ -329,28 +330,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    const sectionLabel = getSectionLabel(messages, lang, section);
-    const listLabel = getSectionListLabel(messages, lang, section);
-    const title = listType === "watchlist"
-      ? messages[lang].aiWatchlistTitle.replace("{section}", sectionLabel).replace("{listName}", listLabel)
-      : messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
-
-    const listText = listType === "topTen"
-      ? buildTopTenListMessage({ ctx, lang, section })
-      : buildWatchlistMessage({ ctx, lang, section, includeWatched: true });
-    const listMessage = await ctx.reply(listText);
-    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
-
-    const menuText = listType === "topTen"
-      ? await getTopTenManageEntryMessage(ctx, lang, section)
-      : messages[lang].aiListManageInlineMenu.replace("{title}", title);
-
-    const actionMessage = await ctx.reply(
-      menuText,
-      aiListManageMenuKeyboard(lang, section, listType),
-    );
-    await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
-    return actionMessage;
+    return openAiListManager(ctx, lang, section, listType);
   }
 
   if (data.startsWith(callBacks.aiListManageShow)) {
@@ -373,15 +353,55 @@ async function handleAiCallback(ctx, lang, helpers) {
     const items = listType === "watchlist"
       ? getWatchlistItemsByStatusFromUser(ctx.user, section, filter)
       : getAiListItemsFromUser(ctx.user, section, listType);
+    const itemCount = getAiListItemsFromUser(ctx.user, section, listType).length;
+    const hasItems = itemCount > 0;
     const listText = listType === "watchlist"
       ? formatAiItemsList(title, items, filter === "all" ? emptyText : messages[lang].aiWatchlistFilterEmpty, {
         includeWatched: true,
         topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
+        includeActions: filter === "all",
+        canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < AI_TOP_TEN_LIMIT,
+        lang,
+        section,
+        listType,
       })
-      : formatAiItemsList(title, items, emptyText);
+      : formatAiItemsList(title, items, emptyText, {
+        includeActions: true,
+        lang,
+        section,
+        listType,
+      });
     const titledListText = withAiSectionTitle(lang, section, listText);
 
-    const listMessage = await ctx.reply(titledListText, aiListManageMenuKeyboard(lang, section, listType));
+    const listMessage = await ctx.reply(
+      titledListText,
+      aiListManageMenuKeyboard(lang, section, listType, { hasItems, itemCount }),
+    );
+    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
+    return listMessage;
+  }
+
+  if (data.startsWith(callBacks.aiListManageShare)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.aiListManageShare, "");
+    const [section = "", rawListType = ""] = payload.split(":");
+    const listType = normalizeAiListTypeToken(rawListType);
+    if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
+
+    const items = getAiListItemsFromUser(ctx.user, section, listType);
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    if (items.length <= 5) {
+      return openAiListManager(ctx, lang, section, listType);
+    }
+
+    await ctx.reply(messages[lang].aiListShareIntro);
+    const listMessage = await ctx.reply(
+      buildShareListMessage({ ctx, lang, section, listType }),
+      aiListManageMenuKeyboard(lang, section, listType, {
+        hasItems: true,
+        itemCount: items.length,
+      }),
+    );
     await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
     return listMessage;
   }
@@ -520,11 +540,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
     await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
-    await helpers.deleteCallbackMessageIfPossible(ctx);
-    return ctx.reply(
-      listType === "topTen" ? messages[lang].aiTopTenCommentCanceled : messages[lang].aiWatchlistCommentCanceled,
-      aiListManageMenuKeyboard(lang, section, listType),
-    );
+    return openAiListManager(ctx, lang, section, listType);
   }
 
   if (data.startsWith(callBacks.aiListManagePromotePicker)) {
@@ -610,13 +626,10 @@ async function handleAiCallback(ctx, lang, helpers) {
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
     await helpers.deleteCallbackMessageIfPossible(ctx);
     if (action === "back") {
-      const listLabel = getSectionListLabel(messages, lang, section);
-      const managerText = listType === "topTen"
-        ? await getTopTenManageEntryMessage(ctx, lang, section)
-        : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel);
-      return ctx.reply(managerText, aiListManageMenuKeyboard(lang, section, listType));
+      return openAiListManager(ctx, lang, section, listType);
     }
-    return ctx.reply(messages[lang].aiListManageAddCanceled, aiListManageMenuKeyboard(lang, section, listType));
+    await ctx.reply(messages[lang].aiListManageAddCanceled);
+    return openAiListManager(ctx, lang, section, listType);
   }
 
   if (data.startsWith(callBacks.aiListManageAdd)) {
@@ -698,7 +711,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (result.reason === "limit") {
         await updateUserState(ctx.userId, "ai_manage_random_top_ten");
         if (ctx.user) ctx.user.state = "ai_manage_random_top_ten";
-        return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, "random", "topTen"));
+        return ctx.reply(messages[lang].aiTopTenLimitReachedHere, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
       if (result.reason === "invalid_item_quality") {
         const errorMessage = messages[lang].aiTopTenInvalidItemQualityRandom || messages[lang].aiTopTenInvalidItemQuality;

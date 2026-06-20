@@ -11,7 +11,9 @@ const {
 } = require("./users");
 
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
+const AI_LIST_ITEM_DIVIDER = "────────";
 const { getAiTasteItemFeedback } = require("./ai");
+const { buildBotBaseLink } = require("./invite-links");
 const {
   getSectionLabel,
   getSectionListLabel,
@@ -24,6 +26,40 @@ function toTitleSet(items = []) {
   return new Set(items.map((entry) => String(entry?.title || entry || "").trim().toLowerCase()).filter(Boolean));
 }
 
+function getAiListCommandSectionToken(section) {
+  if (section === "movies") return "mv";
+  if (section === "music") return "mu";
+  if (section === "books") return "bk";
+  if (section === "random") return "in";
+  return section;
+}
+
+function getStatusActionLabels(lang, section) {
+  const copy = messages[lang] || messages.en;
+  if (section === "movies") {
+    return {
+      on: copy.aiListActionMarkWatched,
+      off: copy.aiListActionMarkNotWatched,
+    };
+  }
+  if (section === "music") {
+    return {
+      on: copy.aiListActionMarkListened,
+      off: copy.aiListActionMarkNotListened,
+    };
+  }
+  if (section === "books") {
+    return {
+      on: copy.aiListActionMarkRead,
+      off: copy.aiListActionMarkNotRead,
+    };
+  }
+  return {
+    on: copy.aiListActionMarkDone,
+    off: copy.aiListActionMarkNotDone,
+  };
+}
+
 function formatAiItemsList(title, items, emptyText, options = {}) {
   if (!items.length) {
     return emptyText;
@@ -31,13 +67,49 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
 
   const topTenTitleSet = options.topTenTitleSet || new Set();
   const includeWatched = Boolean(options.includeWatched);
+  const includeActions = Boolean(options.includeActions);
+  const section = String(options.section || "");
+  const listType = options.listType === "topTen" ? "top" : "list";
+  const sectionToken = getAiListCommandSectionToken(section);
+  const listToken = listType === "top" ? "t" : "l";
+  const canPromote = Boolean(options.canPromote);
+  const pointer = options.lang === "fa" ? "👈" : "👉";
+  const statusLabels = getStatusActionLabels(options.lang, section);
+  const actionLabels = {
+    done: statusLabels.on,
+    undone: statusLabels.off,
+    top10: options.lang === "fa" ? "انتقال به تاپ ۱۰" : "Move to Top 10",
+    addComment: messages[options.lang]?.aiListActionAddComment || "Add comment",
+    updateComment: messages[options.lang]?.aiListActionUpdateComment || "Update comment",
+    remove: options.lang === "fa" ? "حذف" : "Remove",
+  };
+  const actionLine = (label, command) => `${label} ${pointer} ${command}`;
   const lines = items.map((entry, index) => {
     const watchedBadge = includeWatched ? `${entry?.watched ? "✅" : "⬜"} ` : "";
     const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
     const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
-    return `${index + 1}. ${watchedBadge}${entry.title}${topTenBadge}${commentPart}`;
+    const itemLine = `${index + 1}. ${watchedBadge}${entry.title}${topTenBadge}${commentPart}`;
+    if (!includeActions || !section) return itemLine;
+
+    const number = index + 1;
+    const actions = [];
+    if (listType === "list") {
+      actions.push(entry?.watched
+        ? actionLine(actionLabels.undone, `/un_${sectionToken}_${listToken}_${number}`)
+        : actionLine(actionLabels.done, `/dn_${sectionToken}_${listToken}_${number}`));
+      if (entry?.watched && canPromote && !topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase())) {
+        actions.push(actionLine(actionLabels.top10, `/tt_${sectionToken}_${listToken}_${number}`));
+      }
+    }
+    actions.push(actionLine(
+      entry?.comment ? actionLabels.updateComment : actionLabels.addComment,
+      `/cm_${sectionToken}_${listToken}_${number}`,
+    ));
+    actions.push(actionLine(actionLabels.remove, `/rm_${sectionToken}_${listToken}_${number}`));
+
+    return `${itemLine}\n${actions.join("\n")}`;
   });
-  return `${title}\n\n${lines.join("\n")}`;
+  return `${title}\n\n${lines.join(`\n${AI_LIST_ITEM_DIVIDER}\n`)}`;
 }
 
 function withAiSectionTitle(lang, section, body) {
@@ -51,7 +123,12 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
-  return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText));
+  return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText, {
+    includeActions: true,
+    lang,
+    section,
+    listType: "topTen",
+  }));
 }
 
 function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
@@ -68,8 +145,33 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
   return withAiSectionTitle(
     lang,
     section,
-    formatAiItemsList(title, entries, emptyText, { topTenTitleSet, includeWatched }),
+    formatAiItemsList(title, entries, emptyText, {
+      topTenTitleSet,
+      includeWatched,
+      includeActions: true,
+      canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < AI_TOP_TEN_LIMIT,
+      lang,
+      section,
+      listType: "watchlist",
+    }),
   );
+}
+
+function buildShareListMessage({ ctx, lang, section, listType, botLink = buildBotBaseLink() }) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const listLabel = getSectionListLabel(messages, lang, section);
+  const entries = getAiListItemsFromUser(ctx.user, section, listType);
+  const title = (listType === "topTen" ? messages[lang].aiTopTenTitle : messages[lang].aiWatchlistTitle)
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+  const emptyText = (listType === "topTen" ? messages[lang].aiTopTenEmpty : messages[lang].aiWatchlistEmpty)
+    .replace("{section}", sectionLabel)
+    .replace("{listName}", listLabel);
+
+  const listText = formatAiItemsList(title, entries, emptyText);
+  const cleanBotLink = String(botLink || "").trim();
+  if (!cleanBotLink) return listText;
+  return `${listText}\n\n${messages[lang].aiListShareFooter.replace("{link}", cleanBotLink)}`;
 }
 
 function formatTasteWithStoredEmoji(section, taste, labelTitle) {
@@ -266,6 +368,8 @@ module.exports = {
   buildTopTenListMessage,
   buildTopTenSavedMessage,
   buildWatchlistMessage,
+  buildShareListMessage,
+  getAiListCommandSectionToken,
   formatAiItemsList,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,

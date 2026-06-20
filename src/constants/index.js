@@ -26,6 +26,7 @@ module.exports = {
     aiListManageMenu: "ai:list:menu:",
     aiListManageAdd: "ai:list:add:",
     aiListManageShow: "ai:list:show:",
+    aiListManageShare: "ai:list:share:",
     aiListManageRemovePicker: "ai:list:remove:picker:",
     aiListManageRemoveItem: "ai:list:remove:item:",
     aiListManageTogglePicker: "ai:list:toggle:picker:",

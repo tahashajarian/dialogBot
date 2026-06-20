@@ -20,6 +20,7 @@ const {
 } = require("../src/flows/ai-list-input");
 const {
   aiListCancelAddKeyboard,
+  aiListManageMenuKeyboard,
   aiInterestTopTenChipKeyboard,
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
@@ -36,6 +37,7 @@ const {
 const {
   buildTopTenListMessage,
   buildWatchlistMessage,
+  buildShareListMessage,
   formatAiItemsList,
   getDuplicateListMessage,
   getNeedTopTenMessage,
@@ -230,6 +232,282 @@ test("pressing Add retires the remembered list card", async () => {
   assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
 });
 
+test("canceling AI list comment returns to the refreshed list manager", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageCancelComment}movies:watchlist`,
+    callbackMessageId: 55,
+    userId: 81,
+    user: {
+      userId: 81,
+      lang: "fa",
+      state: "ai_manage_movies_watchlist_comment_input",
+      aiPendingInputMessageId: 55,
+      aiSectionPendingCommentItem: "Arrival",
+      aiSectionPendingCommentListType: "watchlist",
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [{ title: "Arrival" }],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "fa", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const finalReply = replies.at(-1);
+  const labels = finalReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.deepEqual(deletedIds, [55]);
+  assert.equal(ctx.user.aiSectionPendingCommentItem, null);
+  assert.equal(ctx.user.aiSectionPendingCommentListType, null);
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.doesNotMatch(finalReply.text, /Arrival/);
+  assert.doesNotMatch(finalReply.text, /لغو شد/);
+  assert.equal(labels.includes(messages.fa.cancelEdit), false);
+  assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
+  assert.equal(labels.includes(messages.fa.aiListManageShow), true);
+});
+
+test("entering AI list manager hides item rows until Show list is tapped", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageMenu}movies:watchlist`,
+    callbackMessageId: 60,
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [{ title: "Arrival" }],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const managerReply = replies.at(-1);
+  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.deepEqual(deletedIds, [60]);
+  assert.doesNotMatch(managerReply.text, /Arrival/);
+  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+});
+
+test("empty AI watchlist manager uses an intentional empty-state message", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageMenu}music:watchlist`,
+    callbackMessageId: 63,
+    userId: 85,
+    user: {
+      userId: 85,
+      lang: "fa",
+      state: "ai_chat_music",
+      aiLists: {
+        music: {
+          topTen: [],
+          watchlist: [],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 130 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "fa", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const managerReply = replies.at(-1);
+  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.match(managerReply.text, /هنوز خالیه/);
+  assert.match(managerReply.text, /اولین مورد/);
+  assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
+  assert.equal(labels.includes(messages.fa.aiListManageShow), false);
+});
+
+test("sharing AI list renders clean titles and comments without management commands", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageShare}movies:watchlist`,
+    callbackMessageId: 61,
+    userId: 83,
+    user: {
+      userId: 83,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [
+            { title: "Arrival", comment: "quiet sci-fi", watched: true },
+            { title: "Heat" },
+            { title: "Dune" },
+            { title: "Alien" },
+            { title: "Her" },
+            { title: "Jaws", comment: "classic" },
+          ],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 110 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const introReply = replies.at(-2);
+  const sharedReply = replies.at(-1);
+
+  assert.equal(introReply.text, messages.en.aiListShareIntro);
+  assert.doesNotMatch(sharedReply.text, /📌/);
+  assert.match(sharedReply.text, /Arrival — quiet sci-fi/);
+  assert.match(sharedReply.text, /Jaws — classic/);
+  assert.doesNotMatch(sharedReply.text, /\/cm_mv_l_1/);
+  assert.doesNotMatch(sharedReply.text, /\/rm_mv_l_1/);
+  assert.doesNotMatch(sharedReply.text, /Change to watched/);
+});
+
+test("back to list after adding uses current item count for share button", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageCancelAdd}random:top_ten:back`,
+    callbackMessageId: 62,
+    userId: 84,
+    user: {
+      userId: 84,
+      lang: "en",
+      state: "ai_manage_random_top_ten_add_input",
+      aiLists: {
+        random: {
+          topTen: [
+            { title: "Chess" },
+            { title: "Coding" },
+            { title: "Coffee" },
+            { title: "Travel" },
+            { title: "Photography" },
+            { title: "Writing" },
+          ],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 120 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const managerReply = replies.at(-1);
+  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.equal(ctx.user.state, "ai_manage_random_top_ten");
+  assert.doesNotMatch(managerReply.text, /Chess/);
+  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+  assert.equal(labels.includes(messages.en.aiListManageShare), true);
+});
+
 test("Top Ten add flow stays open for the next item", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -284,6 +562,46 @@ test("Top Ten add flow stays open for the next item", async () => {
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
   assert.deepEqual(ctx.user.aiLists.random.topTen.map((entry) => entry.title), ["Chess"]);
+});
+
+test("Top Ten add limit uses local bot-marked copy inside top-ten section", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const fullTopTen = Array.from({ length: 10 }, (_, index) => ({ title: `Item ${index + 1}` }));
+
+  User.findOne = async () => ({
+    userId: 86,
+    aiLists: { random: { topTen: fullTopTen } },
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    userId: 86,
+    user: {
+      userId: 86,
+      lang: "fa",
+      state: "ai_manage_random_top_ten_add_input",
+      aiLists: { random: { topTen: fullTopTen } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "fa", "مورد جدید", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const reply = replies.at(-1);
+
+  assert.match(reply.text, /^🤖/);
+  assert.match(reply.text, /همین تاپ ۱۰/);
+  assert.doesNotMatch(reply.text, /به بخش تاپ ۱۰ برو/);
 });
 
 test("watchlist add flow stays open for the next item", async () => {
@@ -348,6 +666,7 @@ test("Interests editor shares the paged onboarding chip catalog", () => {
 test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.aiListManageMenu), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShow}movies:watchlist`), true);
+  assert.equal(isAiCallback(`${callBacks.aiListManageShare}movies:watchlist`), true);
   assert.equal(isAiCallback(`${callBacks.aiSectionSuggestWithContext}books`), true);
   assert.equal(isAiCallback(callBacks.aiBack), true);
 
@@ -422,8 +741,89 @@ test("AI list UI builds section-titled list messages from user data", () => {
 
   assert.match(topTenText, /Movies/);
   assert.match(topTenText, /1\. Heat — tight/);
+  assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
+  assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
   assert.match(watchlistText, /1\. ⬜ Heat 🏆/);
   assert.match(watchlistText, /2\. ⬜ Arrival — rewatch/);
+  assert.match(watchlistText, /────────/);
+  assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
+  assert.match(watchlistText, /Change to watched 👉 \/dn_mv_l_1/);
+  assert.match(watchlistText, /Add comment 👉 \/cm_mv_l_1/);
+  assert.match(watchlistText, /Update comment 👉 \/cm_mv_l_2/);
+  assert.match(watchlistText, /Remove 👉 \/rm_mv_l_2/);
+});
+
+test("AI share list appends configured bot link footer", () => {
+  const ctx = {
+    user: {
+      aiLists: {
+        music: {
+          topTen: [{ title: "Toranj", comment: "Mohsen Namjoo" }],
+        },
+      },
+    },
+  };
+
+  const shareText = buildShareListMessage({
+    ctx,
+    lang: "en",
+    section: "music",
+    listType: "topTen",
+    botLink: "https://ble.ir/@DialogBot",
+  });
+
+  assert.match(shareText, /🏆 Music top 10/);
+  assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
+  assert.match(shareText, /Bot: https:\/\/ble\.ir\/@DialogBot/);
+  assert.doesNotMatch(shareText, /📌/);
+});
+
+test("watchlist action labels use section-specific status wording", () => {
+  const ctx = {
+    user: {
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [{ title: "Arrival", watched: false }],
+        },
+        music: {
+          topTen: [],
+          watchlist: [{ title: "Nights", watched: true }],
+        },
+      },
+    },
+  };
+
+  const movieText = buildWatchlistMessage({ ctx, lang: "fa", section: "movies" });
+  const musicText = buildWatchlistMessage({ ctx, lang: "en", section: "music" });
+
+  assert.match(movieText, /تغییر به دیده‌شده 👈 \/dn_mv_l_1/);
+  assert.doesNotMatch(movieText, /دیده شد 👈 \/dn_mv_l_1/);
+  assert.doesNotMatch(movieText, /انجام شد 👈 \/dn_mv_l_1/);
+  assert.match(musicText, /Change to not listened 👉 \/un_mu_l_1/);
+});
+
+test("AI list manager keyboard shows list/filter/share controls only when eligible", () => {
+  const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
+  const emptyLabels = emptyKeyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true });
+  const labels = keyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const shareKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 6 });
+  const shareLabels = shareKeyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.equal(emptyLabels.includes(messages.en.aiListManageShow), false);
+  assert.equal(emptyLabels.includes(messages.en.aiListManageShare), false);
+  assert.equal(emptyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
+  assert.ok(labels.includes(messages.en.aiListManageAdd));
+  assert.ok(labels.includes(messages.en.aiListManageShow));
+  assert.equal(labels.includes(messages.en.aiListManageShare), false);
+  assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
+  assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
+  assert.ok(shareLabels.includes(messages.en.aiListManageShare));
+  assert.ok(labels.includes(messages.en.aiBack));
+  assert.equal(labels.includes(messages.en.aiListManageRemove), false);
+  assert.equal(labels.includes(messages.en.aiListManageComment), false);
+  assert.equal(labels.includes(messages.en.aiListManageMoveToTopTen), false);
 });
 
 test("watchlist entry rendering always exposes done and not-done status", () => {

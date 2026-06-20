@@ -14,6 +14,7 @@ const {
   updateProfileField,
   updateUserState,
   addAiListItem,
+  removeAiListItem,
   addAiRecentSuggestion,
   consumeAiSuggestionQuota,
   refundAiSuggestionQuota,
@@ -23,6 +24,8 @@ const {
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   setAiListItemComment,
+  toggleWatchlistItemWatched,
+  promoteWatchlistItemToTopTen,
   inferTasteLabel,
   getAiTasteFromUser,
   getTasteProgressStatus,
@@ -34,6 +37,7 @@ const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
 const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
 const {
   getAiSectionFromState,
+  getSectionMessage,
   getSectionListButtonLabel,
   getSectionLabel,
   getSectionListLabel,
@@ -66,9 +70,7 @@ const {
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const {
-  buildTopTenListMessage,
   buildTopTenSavedMessage,
-  buildWatchlistMessage,
   formatAiItemsList,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
@@ -195,6 +197,44 @@ function parseAiManageState(state) {
     addInputMode,
     commentInputMode,
   };
+}
+
+function parseAiListActionCommand(text = "") {
+  const compactMatched = String(text || "").trim().match(
+    /^\/(dn|un|tt|cm|rm)_(mv|mu|bk|in)_(l|t)_(\d+)$/i,
+  );
+  if (compactMatched) {
+    const actionMap = {
+      dn: "done",
+      un: "undone",
+      tt: "top10",
+      cm: "comment",
+      rm: "remove",
+    };
+    const sectionMap = {
+      mv: "movies",
+      mu: "music",
+      bk: "books",
+      in: "random",
+    };
+    const action = actionMap[compactMatched[1].toLowerCase()] || "";
+    const section = sectionMap[compactMatched[2].toLowerCase()] || "";
+    const listType = compactMatched[3].toLowerCase() === "t" ? "topTen" : "watchlist";
+    const itemIndex = Number(compactMatched[4]) - 1;
+    if (!action || !section || !Number.isInteger(itemIndex) || itemIndex < 0) return null;
+    return { action, section, listType, itemIndex };
+  }
+
+  const matched = String(text || "").trim().match(
+    /^\/(done|undone|top10|comment|remove)_(movies|music|books|random)_(list|top)_(\d+)$/i,
+  );
+  if (!matched) return null;
+  const action = matched[1].toLowerCase();
+  const section = matched[2].toLowerCase();
+  const listType = matched[3].toLowerCase() === "top" ? "topTen" : "watchlist";
+  const itemIndex = Number(matched[4]) - 1;
+  if (!Number.isInteger(itemIndex) || itemIndex < 0) return null;
+  return { action, section, listType, itemIndex };
 }
 
 function toAiManageStateListType(value) {
@@ -357,22 +397,115 @@ async function openAiListManager(ctx, lang, section, listType) {
   const listLabel = getSectionListLabel(messages, lang, section);
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   await clearAiPendingInputPrompt(ctx);
+  await clearAiActionMessage(ctx);
   await updateUserState(ctx.userId, nextState);
-  const listMessage = listType === "topTen"
-    ? await ctx.reply(buildTopTenListMessage({ ctx, lang, section }))
-    : await ctx.reply(buildWatchlistMessage({ ctx, lang, section }));
-  await rememberAiListMessage(ctx, section, listType, listMessage);
-  const actionMessage = await ctx.reply(
-    listType === "topTen"
+  const items = getAiListItemsFromUser(ctx.user, section, listType);
+  const managerText = listType === "topTen"
       ? await getTopTenManageEntryMessage(ctx, lang, section)
-      : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel),
-    aiListManageMenuKeyboard(lang, section, listType),
+      : (items.length
+        ? messages[lang].aiListManageInlineEntry
+        : messages[lang].aiListManageEmptyEntry
+      ).replace("{listName}", listLabel);
+  const listMessage = await ctx.reply(
+    managerText,
+    aiListManageMenuKeyboard(lang, section, listType, {
+      hasItems: items.length > 0,
+      itemCount: items.length,
+    }),
   );
-  await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
-  return actionMessage;
+  await rememberAiListMessage(ctx, section, listType, listMessage);
+  return listMessage;
+}
+
+async function handleAiListActionCommand(ctx, lang, command) {
+  const { action, section, listType, itemIndex } = command;
+  const expectedState = getAiManageState(section, listType);
+  const currentState = String(ctx.user?.state || "");
+  if (currentState !== expectedState) {
+    return null;
+  }
+
+  const items = getAiListItemsFromUser(ctx.user, section, listType);
+  const itemTitle = items[itemIndex]?.title;
+  if (!itemTitle) {
+    await deleteRememberedAiListMessage(ctx, section, listType);
+    return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, listType));
+  }
+
+  if ((action === "done" || action === "undone") && listType !== "watchlist") {
+    return ctx.reply(messages[lang].unknownAction);
+  }
+  if (action === "top10" && listType !== "watchlist") {
+    return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (action === "comment") {
+    await deleteRememberedAiListMessage(ctx, section, listType);
+    await updateUserState(ctx.userId, getAiManageState(section, listType, "comment_input"));
+    if (ctx.user) ctx.user.state = getAiManageState(section, listType, "comment_input");
+    await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", itemTitle);
+    await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", listType);
+    const prompt = await ctx.reply(
+      listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
+      aiListCancelCommentKeyboard(lang, section, listType),
+    );
+    await rememberAiPendingInputPrompt(ctx, prompt);
+    return prompt;
+  }
+
+  await deleteRememberedAiListMessage(ctx, section, listType);
+
+  if (action === "remove") {
+    const removed = await removeAiListItem(ctx.userId, section, listType, itemTitle);
+    if (!removed.ok) return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, listType));
+    rememberCtxAiListItems(ctx, section, listType, removed.items);
+    if (listType === "topTen") await syncAiTasteForSection(ctx.userId, section);
+    await ctx.reply(messages[lang].aiListRemovedNamed.replace("{item}", itemTitle));
+    return openAiListManager(ctx, lang, section, listType);
+  }
+
+  if (action === "done" || action === "undone") {
+    const currentItem = items[itemIndex];
+    if ((action === "done" && !currentItem?.watched) || (action === "undone" && currentItem?.watched)) {
+      const toggled = await toggleWatchlistItemWatched(ctx.userId, section, itemTitle);
+      if (!toggled.ok) return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
+      rememberCtxAiListItems(ctx, section, "watchlist", toggled.items);
+      const statusText = toggled.item?.watched
+        ? getSectionMessage(messages, lang, "aiWatchlistWatchedOn", section, "aiWatchlistWatchedOn")
+        : getSectionMessage(messages, lang, "aiWatchlistWatchedOff", section, "aiWatchlistWatchedOff");
+      await ctx.reply(statusText);
+    }
+    return openAiListManager(ctx, lang, section, "watchlist");
+  }
+
+  if (action === "top10") {
+    const promoted = await promoteWatchlistItemToTopTen(ctx.userId, section, itemTitle, AI_TOP_TEN_LIMIT);
+    if (!promoted.ok) {
+      if (promoted.reason === "top_ten_limit") {
+        return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
+      }
+      if (promoted.reason === "exists") {
+        return ctx.reply(messages[lang].aiWatchlistPromoteAlreadyTopTen, aiListManageMenuKeyboard(lang, section, "watchlist"));
+      }
+      return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
+    }
+    rememberCtxAiListItems(ctx, section, "watchlist", promoted.watchlistItems);
+    rememberCtxAiListItems(ctx, section, "topTen", promoted.topTenItems);
+    await syncAiTasteForSection(ctx.userId, section);
+    await ctx.reply(messages[lang].aiWatchlistPromotedToTopTen);
+    return openAiListManager(ctx, lang, section, "watchlist");
+  }
+
+  return null;
 }
 
 async function handleAiText(ctx, lang, text, state) {
+  const listActionCommand = parseAiListActionCommand(text);
+  if (listActionCommand) {
+    const handled = await handleAiListActionCommand(ctx, lang, listActionCommand);
+    if (handled) return handled;
+  }
+
   const manageState = parseAiManageState(state);
   if (manageState) {
     if (isAiBackText(text)) {
@@ -470,7 +603,7 @@ async function handleAiText(ctx, lang, text, state) {
         }
         if (result.reason === "limit") {
           return ctx.reply(
-            isWatchlist ? messages[lang].aiWatchlistLimitReached : messages[lang].aiTopTenLimitReached,
+            isWatchlist ? messages[lang].aiWatchlistLimitReached : messages[lang].aiTopTenLimitReachedHere,
             aiListManageMenuKeyboard(lang, section, listType),
           );
         }
@@ -540,11 +673,9 @@ async function handleAiText(ctx, lang, text, state) {
       if (!pendingItem) {
         await clearAiPendingInputPrompt(ctx);
         await updateUserState(ctx.userId, `ai_manage_${section}_${pendingListType === "topTen" ? "top_ten" : "watchlist"}`);
+        await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
         await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
-        return ctx.reply(
-          pendingListType === "topTen" ? messages[lang].aiTopTenCommentCanceled : messages[lang].aiWatchlistCommentCanceled,
-          aiListManageMenuKeyboard(lang, section, pendingListType),
-        );
+        return openAiListManager(ctx, lang, section, pendingListType);
       }
 
       if (text.startsWith("/")) {
@@ -569,17 +700,14 @@ async function handleAiText(ctx, lang, text, state) {
       await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
       await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
       await updateUserState(ctx.userId, `ai_manage_${section}_${pendingListType === "topTen" ? "top_ten" : "watchlist"}`);
+      rememberCtxAiListItems(ctx, section, pendingListType, updated.items);
       if (pendingListType === "topTen") {
         await syncAiTasteForSection(ctx.userId, section);
-        return ctx.reply(
-          `${messages[lang].aiTopTenCommentSaved}\n${formatAiItemsList(title, updated.items, emptyText)}`,
-          aiListManageMenuKeyboard(lang, section, pendingListType),
-        );
+        await ctx.reply(messages[lang].aiTopTenCommentSaved);
+        return openAiListManager(ctx, lang, section, pendingListType);
       }
-      return ctx.reply(
-        messages[lang].aiWatchlistCommentSaved,
-        aiListManageMenuKeyboard(lang, section, pendingListType),
-      );
+      await ctx.reply(messages[lang].aiWatchlistCommentSaved);
+      return openAiListManager(ctx, lang, section, pendingListType);
     }
 
     await clearAiActionMessage(ctx);
@@ -699,6 +827,7 @@ async function handleAiText(ctx, lang, text, state) {
 
 module.exports = {
   handleAiText,
+  openAiListManager,
   isAiBackText,
   isAiSectionListText,
   isAiSectionSuggestText,

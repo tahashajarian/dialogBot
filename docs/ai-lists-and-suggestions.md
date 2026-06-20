@@ -31,11 +31,20 @@
   - music: listened
   - books: read
   - random: done
-- Watchlist includes inline actions for:
+- Per-item status command labels should use this same section-aware wording, not a generic "done" label for every section.
+- Watchlist list text should include per-item command links for:
   - status toggle
-  - comment edit
+  - add comment / update comment, depending on whether the item already has a comment
   - move-to-TopTen, if TopTen has room
-- Status-toggle pickers should show each item's current `✅`/`⬜` marker and explain that tapping an item switches it.
+  - remove
+- Entering a list manager should not print item rows immediately. Show a compact manager card, and include a "show list" button only when that list has at least one item.
+- Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
+- If a list has more than five items, also show a "share my list" button. Send a short intro first, then a separate shareable list message. The shareable message should omit the pinned section header and render titles/comments only, without management command links or status toggles, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
+- Keep inline buttons for list-level controls only, such as add, filters, back/navigation, and input cancel.
+- Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
+- Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
+- Canceling comment input should quietly retire the input prompt and return to the refreshed list manager, without sending a separate "comment canceled" card.
+- Legacy status-toggle picker callbacks may remain safe for stale cards, but new list rendering should prefer command links in the list text.
 - Moving a watchlist item to TopTen is non-destructive:
   - keep the item in watchlist
   - copy it into TopTen
@@ -45,8 +54,10 @@
 
 ## TopTen
 
-- TopTen items support comment edit.
+- TopTen items support add comment / update comment actions.
+- TopTen list text should include per-item command links for comment and remove actions. Do not add per-item inline rows when the command-link list can handle the action.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
+- TopTen full-limit copy should be context-aware: direct TopTen add flows should say to remove one from this TopTen, while watchlist promotion can tell the user to go to TopTen and remove one.
 - List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Bale provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
 - When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.

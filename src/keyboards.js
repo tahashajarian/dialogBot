@@ -293,63 +293,37 @@ function getSectionStatusLabels(lang, section) {
   };
 }
 
-function getSectionToggleButtonText(lang, section) {
-  if (section === "music") {
-    return messages[lang].aiListManageToggleWatchedMusic || messages[lang].aiListManageToggleWatched;
-  }
-
-  if (section === "books") {
-    return messages[lang].aiListManageToggleWatchedBooks || messages[lang].aiListManageToggleWatched;
-  }
-
-  if (section === "random") {
-    return messages[lang].aiListManageToggleWatchedRandom || messages[lang].aiListManageToggleWatched;
-  }
-
-  return messages[lang].aiListManageToggleWatchedMovies || messages[lang].aiListManageToggleWatched;
-}
-
-function aiListManageMenuKeyboard(lang, section, listType) {
+function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0 } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [
-    [
-      {
-        text: messages[lang].aiListManageShow,
-        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}`,
-      },
-    ],
     [
       {
         text: messages[lang].aiListManageAdd,
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
       },
-      {
-        text: messages[lang].aiListManageRemove,
-        callback_data: `${callBacks.aiListManageRemovePicker}${section}:${listTypeToken}`,
-      },
-    ],
-    [
-      {
-        text: messages[lang].aiListManageComment,
-        callback_data: `${callBacks.aiListManageCommentPicker}${section}:${listTypeToken}`,
-      },
     ],
   ];
 
-  if (listType === "watchlist") {
+  if (hasItems) {
+    rows.push([
+      {
+        text: messages[lang].aiListManageShow,
+        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}`,
+      },
+    ]);
+  }
+
+  if (itemCount > 5) {
+    rows.push([
+      {
+        text: messages[lang].aiListManageShare,
+        callback_data: `${callBacks.aiListManageShare}${section}:${listTypeToken}`,
+      },
+    ]);
+  }
+
+  if (listType === "watchlist" && hasItems) {
     const statusLabels = getSectionStatusLabels(lang, section);
-    rows.push([
-      {
-        text: getSectionToggleButtonText(lang, section),
-        callback_data: `${callBacks.aiListManageTogglePicker}${section}:${listTypeToken}`,
-      },
-    ]);
-    rows.push([
-      {
-        text: messages[lang].aiListManageMoveToTopTen,
-        callback_data: `${callBacks.aiListManagePromotePicker}${section}:${listTypeToken}`,
-      },
-    ]);
     rows.push([
       {
         text: statusLabels.done,

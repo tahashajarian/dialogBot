@@ -44,7 +44,14 @@ function buildBotStartLink(payload, env = process.env) {
   return `${baseUrl}${separator}start=${encodedPayload}`;
 }
 
+function buildBotBaseLink(env = process.env) {
+  const baseUrl = getConfiguredBotBaseUrl(env);
+  if (!baseUrl) return "";
+  return normalizePublicUrl(baseUrl.replace("{payload}", ""));
+}
+
 module.exports = {
   normalizeBotUsername,
+  buildBotBaseLink,
   buildBotStartLink,
 };

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildBotStartLink, normalizeBotUsername } = require("../src/services/invite-links");
+const { buildBotBaseLink, buildBotStartLink, normalizeBotUsername } = require("../src/services/invite-links");
 
 test("normalizes bot username for public invite links", () => {
   assert.equal(normalizeBotUsername("@Likely_Bot!"), "Likely_Bot");
@@ -13,6 +13,14 @@ test("buildBotStartLink uses explicit public URL", () => {
   });
 
   assert.equal(link, "https://ble.ir/@LikelyBot?start=join_AB12");
+});
+
+test("buildBotBaseLink uses configured deep link base URL", () => {
+  const link = buildBotBaseLink({
+    BOT_DEEP_LINK_BASE_URL: "https://ble.ir/@LikelyBot",
+  });
+
+  assert.equal(link, "https://ble.ir/@LikelyBot");
 });
 
 test("buildBotStartLink can use Telegram base URL", () => {
