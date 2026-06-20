@@ -1,4 +1,3 @@
-const path = require("path");
 const messages = require("../messages");
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
@@ -32,8 +31,6 @@ const {
   decorateDiscussionsForList,
   buildDiscussionListText,
 } = require("../services/discussion-ui");
-
-const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "..", "assets", "default_profile.png");
 
 function getProfileCompletionFieldLine(messages, lang, field) {
   if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
@@ -288,7 +285,6 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
         ? profileInvitationBackKeyboard(lang, target.userId)
         : undefined,
     messages,
-    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: messages[lang].profileLoading,
     isOwnProfile: false,
     footerText,

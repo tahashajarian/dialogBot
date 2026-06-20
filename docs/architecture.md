@@ -91,6 +91,7 @@ Viewed public-profile cards are transient. Store and clear their last bot messag
 - pending profile view code (`pendingProfileViewCode`)
 
 Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
+Profile display should stay compact: omit unset optional fields instead of showing placeholder or missing-value rows. Profiles without a real uploaded photo should render as text instead of uploading a default placeholder image.
 
 Saved profiles are private one-way bookmarks. They store references/public profile codes only, not duplicate private profile data.
 

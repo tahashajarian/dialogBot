@@ -69,7 +69,6 @@ test("help rules callback opens the rules card", async () => {
 
 test("profile settings keeps the profile display with settings controls", async () => {
   const deletedIds = [];
-  const photos = [];
   const replies = [];
 
   const ctx = {
@@ -94,22 +93,20 @@ test("profile settings keeps the profile display with settings controls", async 
       replies.push({ text, extra });
       return { message_id: replies.length };
     },
-    replyWithPhoto: async (photo, extra) => {
-      photos.push({ photo, extra });
-      return { message_id: 10 };
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
     },
   };
 
   await handleCallback(ctx);
 
   assert.equal(deletedIds[0], 321);
-  assert.match(photos[0].extra.caption, /profile/i);
-  assert.match(photos[0].extra.caption, /Ali/);
+  assert.match(replies[0].text, /profile/i);
+  assert.match(replies[0].text, /Ali/);
   assert.equal(
-    photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.profileEditBio,
   );
-  assert.equal(replies.length, 0);
 });
 
 test("public profile viewing asks for basic profile first", async () => {
@@ -345,7 +342,7 @@ test("saved profile back deletes viewed profile card and renders fresh list", as
 test("opening saved profile clears old list and previous profile before rendering profile", async () => {
   const originalFindOne = User.findOne;
   const deletedIds = [];
-  const photos = [];
+  const replies = [];
 
   User.findOne = async () => ({
     userId: 2,
@@ -370,10 +367,12 @@ test("opening saved profile clears old list and previous profile before renderin
       deletedIds.push(messageId);
       return true;
     },
-    reply: async () => ({ message_id: 100 }),
-    replyWithPhoto: async (photo, extra) => {
-      photos.push({ photo, extra });
-      return { message_id: 101 };
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
     },
   };
 
@@ -383,10 +382,10 @@ test("opening saved profile clears old list and previous profile before renderin
     User.findOne = originalFindOne;
   }
 
-  assert.deepEqual(deletedIds, [42, 55, 100]);
+  assert.deepEqual(deletedIds, [42, 55]);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
-  assert.equal(ctx.user.publicProfileLastMessageId, 101);
-  assert.equal(photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.savedProfiles);
+  assert.equal(ctx.user.publicProfileLastMessageId, 100);
+  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.savedProfiles);
 });
 
 test("opening saved profile retires old list text when delete fails", async () => {

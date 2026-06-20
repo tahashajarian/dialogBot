@@ -169,18 +169,9 @@ This preserves the current public share behavior while adding the saved-profile 
 ### Saved Profile Invite Action
 
 Saved-profile list items currently use command links for view, discussions, and remove actions.
+Do not show an invite action in each saved-profile row; it makes the list too busy.
 
-Add a stable command link:
-
-```text
-Invite this user to a discussion 👉 /iv_CODE
-```
-
-Persian:
-
-```text
-دعوت این کاربر به بحث 👈 /iv_CODE
-```
+The backend still accepts the stable legacy/manual command `/iv_CODE` for compatibility.
 
 `CODE` is the saved user's public profile code, not a raw user id.
 
@@ -270,15 +261,14 @@ Avoid raw user ids in callback data if public codes are available.
 
 ## Sender Flow B: Invite From Saved Profile
 
-Scenario: user is browsing saved profiles and wants to invite a saved person to one of their discussions.
+Scenario: user sends the legacy/manual saved-profile invite command.
 
-1. User opens saved profiles.
-2. User taps/sends `/iv_CODE`.
-3. Bot resolves `CODE` to a saved profile.
-4. Bot verifies the target is actually saved by the inviter.
-5. Bot loads inviter's eligible discussions.
-6. Bot shows discussion picker.
-7. User selects one discussion.
+1. User sends `/iv_CODE`.
+2. Bot resolves `CODE` to a saved profile.
+3. Bot verifies the target is actually saved by the inviter.
+4. Bot loads inviter's eligible discussions.
+5. Bot shows discussion picker.
+6. User selects one discussion.
 8. Bot creates or reuses a pending invitation.
 9. If a new invitation was created, bot sends the invitee a short notification pointing to `Discussions → Invitations`.
 10. Bot shows `Invitation sent to {name}.`

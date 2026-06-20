@@ -1,5 +1,4 @@
 const messages = require("./messages");
-const path = require("path");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
 const {
@@ -59,6 +58,7 @@ const {
   showDiscussionPickerForSavedProfile,
 } = require("./flows/discussion-invitations");
 const {
+  clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   renderActiveDiscussionList,
 } = require("./flows/discussions-callbacks");
@@ -115,7 +115,6 @@ const {
   resetProfilePhotoCommand,
 } = require("./flows/profile-text");
 
-const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "assets", "default_profile.png");
 const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -522,15 +521,14 @@ async function handleUpdate(ctx) {
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
-    const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    const isSavedProfileCode = current.some((entry) => normalizePublicProfileCode(entry) === code);
     const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
-    const fromSavedList = hasSavedProfilesListContext || (
-      ctx.user?.discussionLastListType !== "invitations" && isSavedProfileCode
-    );
+    const fromSavedList = hasSavedProfilesListContext;
     const fromInvitationList = !fromSavedList && ctx.user?.discussionLastListType === "invitations";
     if (fromInvitationList) {
       await clearDiscussionListMessage(ctx);
+    }
+    if (!fromSavedList && !fromInvitationList) {
+      await clearDiscussionMembersMessage(ctx);
     }
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList });
   }
@@ -555,7 +553,6 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
       Boolean(user?.photoFileId),
     ),
     messages,
-    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
   });

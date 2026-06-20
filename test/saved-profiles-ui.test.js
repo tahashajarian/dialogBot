@@ -53,7 +53,8 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
   ]);
 
   assert.match(text, /⭐ Saved profiles/);
-  assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n📨 Invite this user to a discussion 👉 \/iv_A1\n🗑 Remove from saved 👉 \/rm_A1/);
+  assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n🗑 Remove from saved 👉 \/rm_A1/);
+  assert.doesNotMatch(text, /Invite this user/);
   assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);
 });
 
@@ -71,7 +72,7 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 });
 
 test("buildProfileSavedFooter shows saved status or save command", () => {
-  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "🤖 ⭐ Saved");
+  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "⭐ Saved");
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "🤖 ⭐ Save profile 👉 /save_A1");
 });
 

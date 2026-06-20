@@ -13,6 +13,10 @@ function isolateText(lang, text) {
   return lang === "fa" ? `${FSI}${value}${PDI}` : value;
 }
 
+function hasText(value) {
+  return String(value || "").trim() !== "";
+}
+
 function toPlainUser(user) {
   if (!user) return {};
   if (typeof user.toObject === "function") {
@@ -83,22 +87,15 @@ function getFinalTasteLabels(user, lang, messages) {
     .filter(Boolean);
 }
 
-function buildTasteLabelsText(user, lang, messages, { isOwnProfile = false } = {}) {
+function buildTasteLabelsText(user, lang, messages) {
   const labels = getFinalTasteLabels(user, lang, messages);
+  if (!labels.length) return "";
+
   const lines = [
     "",
     "",
     messages[lang].profileTasteLabelsTitle,
   ];
-
-  if (!labels.length) {
-    lines.push(
-      isOwnProfile
-        ? messages[lang].profileTasteLabelsEmptyHint
-        : messages[lang].profileTasteLabelsEmptyPublic,
-    );
-    return lines.join("\n");
-  }
 
   lines.push(...labels.map((entry) => lineForLang(
     lang,
@@ -138,19 +135,14 @@ function getBasicProfileMissingFields(user) {
   return missing;
 }
 
-function buildProfileInterestsText(user, lang, messages, { isOwnProfile = false } = {}) {
+function buildProfileInterestsText(user, lang, messages) {
   const interests = getProfileInterestTitles(user);
-  if (!interests.length && !isOwnProfile) return "";
+  if (!interests.length) return "";
 
   const lines = [
     "",
     messages[lang].profileInterestsTitle,
   ];
-
-  if (!interests.length) {
-    lines.push(messages[lang].profileInterestsEmptyHint);
-    return lines.join("\n");
-  }
 
   const separator = lang === "fa" ? "، " : ", ";
   lines.push(lineForLang(lang, interests.map((title) => isolateText(lang, title)).join(separator)));
@@ -187,14 +179,11 @@ function hasValidLocation(location) {
 
 function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const displayName = user?.profileName || user?.firstName || "—";
-  const city = user?.city || "—";
-  const age = Number.isFinite(user?.age) ? `\u2066${String(user.age)}\u2069` : "—";
   const genderMap = {
     female: messages[lang].genderOptionFemaleDisplay,
     male: messages[lang].genderOptionMaleDisplay,
     other: messages[lang].genderOptionOtherDisplay,
   };
-  const gender = genderMap[user?.gender] || messages[lang].genderMissing;
   const petPreferenceMap = {
     any: messages[lang].petOptionAnyDisplay,
     none: messages[lang].petOptionNoneDisplay,
@@ -203,31 +192,51 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     bird: messages[lang].petOptionBirdDisplay,
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
-  const petPreference = petPreferenceMap[user?.petPreference] || "—";
-  const bio = user?.bio || messages[lang].bioMissing;
-  const locationText = hasValidLocation(user?.location)
-    ? (user.location.city || messages[lang].locationSet)
-    : messages[lang].locationMissing;
   const activeDiscussionStatus = user?.showActiveDiscussionOnProfile
     ? messages[lang].profileActiveDiscussionShown
     : messages[lang].profileActiveDiscussionHidden;
 
   const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
+  const title = isOwnProfile
+    ? messages[lang].profileTitle
+    : (messages[lang].profilePublicTitle || messages[lang].profileTitle);
   const genderIcon = "⚧️";
   const interestsText = buildProfileInterestsText(user, lang, messages, { isOwnProfile });
   const tasteLabelsText = buildTasteLabelsText(user, lang, messages, { isOwnProfile });
 
   const lines = [
-    lineForLang(lang, `${titleIcon} ${messages[lang].profileTitle}`),
+    lineForLang(lang, `${titleIcon} ${title}`),
     lineForLang(lang, `━━━━━━━━━━━━━━`),
     lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayName)}` : `👤 ${messages[lang].profileName}: ${displayName}`),
-    lineForLang(lang, lang === "fa" ? `🏙 شهر: ${isolateText(lang, city)}` : `🏙 ${messages[lang].profileCity}: ${city}`),
-    lineForLang(lang, lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`),
-    lineForLang(lang, `${genderIcon} ${messages[lang].profileGender}: ${isolateText(lang, gender)}`),
-    lineForLang(lang, `🐾 ${messages[lang].profilePetPreference}: ${isolateText(lang, petPreference)}`),
-    lineForLang(lang, `📍 ${messages[lang].profileLocation}: ${isolateText(lang, locationText)}`),
-    lineForLang(lang, `📝 ${messages[lang].profileBio}: ${isolateText(lang, bio)}`),
   ];
+
+  if (hasText(user?.city)) {
+    lines.push(lineForLang(lang, lang === "fa" ? `🏙 شهر: ${isolateText(lang, user.city)}` : `🏙 ${messages[lang].profileCity}: ${user.city}`));
+  }
+
+  if (Number.isFinite(user?.age)) {
+    const age = `\u2066${String(user.age)}\u2069`;
+    lines.push(lineForLang(lang, lang === "fa" ? `🎂 سن: ${age}` : `🎂 ${messages[lang].profileAge}: ${age}`));
+  }
+
+  const gender = genderMap[user?.gender];
+  if (gender) {
+    lines.push(lineForLang(lang, `${genderIcon} ${messages[lang].profileGender}: ${isolateText(lang, gender)}`));
+  }
+
+  const petPreference = petPreferenceMap[user?.petPreference];
+  if (petPreference) {
+    lines.push(lineForLang(lang, `🐾 ${messages[lang].profilePetPreference}: ${isolateText(lang, petPreference)}`));
+  }
+
+  if (hasValidLocation(user?.location)) {
+    const locationText = user.location.city || messages[lang].locationSet;
+    lines.push(lineForLang(lang, `📍 ${messages[lang].profileLocation}: ${isolateText(lang, locationText)}`));
+  }
+
+  if (hasText(user?.bio)) {
+    lines.push(lineForLang(lang, `📝 ${messages[lang].profileBio}: ${isolateText(lang, user.bio)}`));
+  }
 
   if (isOwnProfile) {
     const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
@@ -291,7 +300,6 @@ async function sendProfileMessage({
   lang,
   keyboard,
   messages,
-  defaultProfilePhoto,
   loadingText = "",
   isOwnProfile = false,
   footerText = "",
@@ -301,7 +309,7 @@ async function sendProfileMessage({
     buildProfileText(user, lang, messages, { isOwnProfile }),
     String(footerText || "").trim(),
   ].filter(Boolean).join("\n\n");
-  const loadingMessage = loadingText ? await ctx.reply(loadingText) : null;
+  const loadingMessage = hasCustomPhoto && loadingText ? await ctx.reply(loadingText) : null;
   let sentProfile;
 
   if (hasCustomPhoto) {
@@ -319,21 +327,9 @@ async function sendProfileMessage({
     }
   }
 
-  try {
-    sentProfile = await ctx.replyWithPhoto(
-      { source: defaultProfilePhoto },
-      {
-        caption: profileText,
-        ...keyboard,
-      }
-    );
-    await deleteMessageIfPossible(ctx, loadingMessage);
-    return sentProfile;
-  } catch {
-    sentProfile = await ctx.reply(profileText, keyboard);
-    await deleteMessageIfPossible(ctx, loadingMessage);
-    return sentProfile;
-  }
+  sentProfile = await ctx.reply(profileText, keyboard);
+  await deleteMessageIfPossible(ctx, loadingMessage);
+  return sentProfile;
 }
 
 module.exports = {

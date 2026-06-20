@@ -1,4 +1,3 @@
-const path = require("path");
 const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
@@ -34,8 +33,6 @@ const {
   sendPublicProfileByCode,
 } = require("./saved-profiles");
 
-const DEFAULT_PROFILE_PHOTO = path.join(__dirname, "..", "..", "assets", "default_profile.png");
-
 function isProfileSettingsOrEditCallback(data = "") {
   return data === callBacks.profileEditName ||
     data === callBacks.profileSettings ||
@@ -70,7 +67,6 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
       Boolean(user?.photoFileId),
     ),
     messages,
-    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
   });
@@ -86,7 +82,6 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
       Boolean(user?.showActiveDiscussionOnProfile),
     ),
     messages,
-    defaultProfilePhoto: DEFAULT_PROFILE_PHOTO,
     isOwnProfile: true,
   });
 }

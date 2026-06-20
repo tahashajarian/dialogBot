@@ -298,7 +298,7 @@ test("discussion message sender uses platform reply id when available", async ()
 test("saved profile command clears saved list before opening profile", async () => {
   const originalFindOne = User.findOne;
   const deleteAttempts = [];
-  const photos = [];
+  const replies = [];
 
   User.findOne = async () => ({
     userId: 2,
@@ -325,10 +325,12 @@ test("saved profile command clears saved list before opening profile", async () 
       deleteAttempts.push(messageId);
       return true;
     },
-    reply: async () => ({ message_id: 100 }),
-    replyWithPhoto: async (photo, extra) => {
-      photos.push({ photo, extra });
-      return { message_id: 101 };
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
     },
   };
 
@@ -340,10 +342,64 @@ test("saved profile command clears saved list before opening profile", async () 
 
   assert.equal(deleteAttempts.includes(42), true);
   assert.equal(
-    photos[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.savedProfiles,
   );
-  assert.equal(photos[0].extra.reply_markup.inline_keyboard.length, 1);
+  assert.equal(replies[0].extra.reply_markup.inline_keyboard.length, 1);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+});
+
+test("discussion profile command does not use saved-profile back button for saved users", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleteAttempts = [];
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: "/u_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      activeDiscussionId: "discussion-id",
+      savedProfileCodes: ["u_3HNU"],
+      savedProfilesLastListMessageId: null,
+      discussionLastMembersMessageId: 88,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleteAttempts, [88]);
+  assert.match(replies[0].text, /User profile:/);
+  assert.equal(replies[0].extra, undefined);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 
