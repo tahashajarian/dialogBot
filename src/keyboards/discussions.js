@@ -122,6 +122,15 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
   ]);
 }
 
+function discussionCreateGuidanceAckKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionCreateGuidanceAck,
+    },
+  ]]);
+}
+
 function discussionInviteModeKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionInviteSavedProfile, callback_data: callBacks.discussionInviteModeSaved }],
@@ -342,6 +351,7 @@ module.exports = {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,

@@ -3,6 +3,7 @@ const { callBacks } = require("../constants");
 const {
   discussionsMenuKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
@@ -69,6 +70,18 @@ function createStepBackButton(_messages, lang, callbackData) {
   return {
     text: messages[lang].discussionBack,
     callback_data: callbackData,
+  };
+}
+
+function getJoinRulePromptOptions(ctx, lang, { includeState = true } = {}) {
+  const editMode = isEditingDiscussionRuleFromPreview(ctx);
+  return {
+    state: includeState ? (editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule") : null,
+    cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+    cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
+    backButton: editMode
+      ? null
+      : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
   };
 }
 
@@ -159,6 +172,17 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     ...options,
     editCallbackMessageOrReply,
   });
+  const pauseOnJoinRuleGuidance = async (text) => {
+    await deleteCallbackMessageIfPossible(ctx);
+    await updateUserState(ctx.userId, getJoinRulePromptOptions(ctx, lang).state);
+    return ctx.reply(text, discussionCreateGuidanceAckKeyboard(lang));
+  };
+
+  if (data === callBacks.discussionCreateGuidanceAck) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible(ctx);
+    return sendJoinRulePrompt(getJoinRulePromptOptions(ctx, lang, { includeState: false }));
+  }
 
   if (data === callBacks.discussionCreateStart) {
     await ctx.answerCb?.();
@@ -260,17 +284,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
         return taste?.labelKey;
       });
       if (!hasBadge) {
-        await deleteCallbackMessageIfPossible(ctx);
-        await ctx.reply(messages[lang].discussionRuleNoBadgesAtAll);
-        const editMode = isEditingDiscussionRuleFromPreview(ctx);
-        return sendJoinRulePrompt({
-          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
-          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
-          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
-          backButton: editMode
-            ? null
-            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
-        });
+        return pauseOnJoinRuleGuidance(messages[lang].discussionRuleNoBadgesAtAll);
       }
     } else if (type === "top_ten_item") {
       const hasItem = sections.some((section) => {
@@ -278,17 +292,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
         return topTen.length > 0;
       });
       if (!hasItem) {
-        await deleteCallbackMessageIfPossible(ctx);
-        await ctx.reply(messages[lang].discussionRuleNoItemsAtAll);
-        const editMode = isEditingDiscussionRuleFromPreview(ctx);
-        return sendJoinRulePrompt({
-          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
-          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
-          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
-          backButton: editMode
-            ? null
-            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
-        });
+        return pauseOnJoinRuleGuidance(messages[lang].discussionRuleNoItemsAtAll);
       }
     }
     
@@ -338,20 +342,10 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     if (baseRule.type === "taste_label") {
       const taste = getAiTasteFromUser(ctx.user, section);
       if (!taste?.labelKey) {
-        await deleteCallbackMessageIfPossible(ctx);
-        await ctx.reply(
+        return pauseOnJoinRuleGuidance(
           messages[lang].discussionRuleNoEligibleTaste
             .replace("{section}", getSectionLabel(messages, lang, section)),
         );
-        const editMode = isEditingDiscussionRuleFromPreview(ctx);
-        return sendJoinRulePrompt({
-          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
-          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
-          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
-          backButton: editMode
-            ? null
-            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
-        });
       }
       const finalizedRule = { ...nextRule, tasteLabelKey: taste.labelKey };
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", finalizedRule);
@@ -380,20 +374,10 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     if (baseRule.type === "top_ten_item") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
       if (!topTen.length) {
-        await deleteCallbackMessageIfPossible(ctx);
-        await ctx.reply(
+        return pauseOnJoinRuleGuidance(
           messages[lang].discussionRuleNoEligibleItem
             .replace("{section}", getSectionLabel(messages, lang, section)),
         );
-        const editMode = isEditingDiscussionRuleFromPreview(ctx);
-        return sendJoinRulePrompt({
-          state: editMode ? "discussion_create_join_rule_edit" : "discussion_create_join_rule",
-          cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
-          cancelText: editMode ? messages[lang].discussionCancelEdit : messages[lang].discussionCreateCancel,
-          backButton: editMode
-            ? null
-            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToTitle),
-        });
       }
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
       if (isEditingDiscussionRuleFromPreview(ctx)) {

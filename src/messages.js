@@ -139,7 +139,7 @@ module.exports = {
     discussionEditDescription: "📝 ویرایش توضیح",
     discussionEditRule: "🔐 ویرایش شرط ورود",
     discussionEditCapacity: "👥 تغییر ظرفیت",
-    discussionChooseCapacity: "🤖 ظرفیت بحث چند نفر باشه؟\n\n۲، ۳، ۴، ۵، ۱۰، ۱۵، ۲۰",
+    discussionChooseCapacity: "🤖 ظرفیت بحث چند نفر باشه؟\n\n‪۲، ۳، ۴، ۵، ۱۰، ۱۵، ۲۰‬",
     discussionCreateFailed: "🤖 ایجاد بحث انجام نشد.",
     discussionOpenNeedsDescription: "🤖 برای بحث‌های عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.",
     discussionInvalidTitle: "🤖 عنوان باید معنی‌دار و حداقل ۳ حرف باشه. از کلمات تستی، فشردن کیبورد، یا تکرار حروف استفاده نکن.",

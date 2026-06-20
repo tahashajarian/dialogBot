@@ -14,6 +14,7 @@ const {
   discussionListNavigationKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionCreateGuidanceAckKeyboard,
   discussionRoomKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
@@ -22,7 +23,10 @@ const {
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
 } = require("../src/flows/discussions-callbacks");
-const { isDiscussionCreateCallback } = require("../src/flows/discussions-create-callbacks");
+const {
+  handleDiscussionCreateCallback,
+  isDiscussionCreateCallback,
+} = require("../src/flows/discussions-create-callbacks");
 
 test("discussion callback error mapping returns specific copy", () => {
   assert.equal(
@@ -326,6 +330,43 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(isDiscussionCreateCallback(callBacks.discussionCreateRuleTopTen), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateRuleTopTen), true);
   assert.equal(shouldKeepDiscussionRoomCardsForCallback(callBacks.discussionCreateRuleTopTen), true);
+  assert.equal(isDiscussionCreateCallback(callBacks.discussionCreateGuidanceAck), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateGuidanceAck), true);
+});
+
+test("discussion create guidance uses Got it acknowledgement and deletes on tap", async () => {
+  const guidanceKeyboard = discussionCreateGuidanceAckKeyboard("en");
+  assert.equal(
+    guidanceKeyboard.reply_markup.inline_keyboard[0][0].text,
+    messages.en.acknowledgeButton,
+  );
+  assert.equal(
+    guidanceKeyboard.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.discussionCreateGuidanceAck,
+  );
+
+  const deletedIds = [];
+  const renderedPrompts = [];
+  const ctx = {
+    callbackData: callBacks.discussionCreateGuidanceAck,
+    callbackMessageId: 88,
+    user: { state: "discussion_create_join_rule" },
+    answerCb: async () => true,
+  };
+
+  await handleDiscussionCreateCallback(ctx, "en", {
+    deleteCallbackMessageIfPossible: async (callbackCtx) => {
+      deletedIds.push(callbackCtx.callbackMessageId);
+      return true;
+    },
+    editCallbackMessageOrReply: async (_callbackCtx, text, keyboard) => {
+      renderedPrompts.push({ text, keyboard });
+      return true;
+    },
+  });
+
+  assert.deepEqual(deletedIds, [88]);
+  assert.deepEqual(renderedPrompts.map((entry) => entry.text), [messages.en.discussionJoinRulePrompt]);
 });
 
 test("discussion room keyboard includes invite and leave without menu button", () => {

@@ -150,6 +150,7 @@ function isDiscussionCreateFlowCallback(data = "") {
     data === callBacks.discussionCreateBackToTitle ||
     data === callBacks.discussionCreateBackToJoinRule ||
     data === callBacks.discussionCreateBackToSection ||
+    data === callBacks.discussionCreateGuidanceAck ||
     data.startsWith(callBacks.discussionCreateRuleSection) ||
     data.startsWith(callBacks.discussionCreateSelectTaste) ||
     data.startsWith(callBacks.discussionCreateSelectItem) ||

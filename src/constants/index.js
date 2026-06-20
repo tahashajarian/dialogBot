@@ -100,6 +100,7 @@ module.exports = {
     discussionCreateBackToTitle: "discussion:create:back:title",
     discussionCreateBackToJoinRule: "discussion:create:back:join-rule",
     discussionCreateBackToSection: "discussion:create:back:section",
+    discussionCreateGuidanceAck: "discussion:create:guidance:ack",
     discussionCreateSetCapacity: "discussion:create:set:capacity:",
     discussionOpen: "discussion:open:",
     discussionLeave: "discussion:leave:",
