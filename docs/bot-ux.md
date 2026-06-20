@@ -38,13 +38,13 @@
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
 - Show progress after each choice and remove selected chips from the picker.
 - After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
-- End with two clear actions: browse discussions or open the main menu.
+- End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable bot guide in the main menu and expose the same guide from onboarding completion.
 - The guide should summarize Lists, suggestions, discussions, profiles, and saved profiles, with direct actions to Lists and active discussions.
-- The onboarding discussion action should open the active discussion list directly, not the intermediate discussions menu.
+- If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
-- After normal onboarding completion or skip, the bot may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. Do not send locked starter-room invitations during onboarding. These are bot recommendations, not personal invites, and should not show bot profile/mute controls.
+- After normal onboarding completion or skip, the bot may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. Do not send locked starter-room invitations during onboarding. These are bot recommendations, not personal invites, and should not show bot profile/mute controls. The active-discussions action can stay available as a secondary path for users who want to browse instead.
 - Onboarding must be skippable and must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
 - Some platforms may display only `/start` while still sending an old invite payload to the bot after the user clears chat history and presses Start. Once a `/start join_CODE` payload has opened an invite preview for that user, later repeats of the same start payload should be treated as normal `/start`. New start invite codes and explicit `/join_CODE` commands should still open the invite preview.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
