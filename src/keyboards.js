@@ -1,5 +1,6 @@
 const { callBacks } = require("./constants");
 const messages = require("./messages");
+const { AI_TOP_TEN_LIMIT } = require("./constants/ai");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -295,14 +296,17 @@ function getSectionStatusLabels(lang, section) {
 
 function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0 } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
-  const rows = [
-    [
+  const rows = [];
+  const canAdd = !(listType === "topTen" && itemCount >= AI_TOP_TEN_LIMIT);
+
+  if (canAdd) {
+    rows.push([
       {
         text: messages[lang].aiListManageAdd,
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
       },
-    ],
-  ];
+    ]);
+  }
 
   if (hasItems) {
     rows.push([

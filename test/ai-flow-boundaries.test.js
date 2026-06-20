@@ -564,6 +564,65 @@ test("Top Ten add flow stays open for the next item", async () => {
   assert.deepEqual(ctx.user.aiLists.random.topTen.map((entry) => entry.title), ["Chess"]);
 });
 
+test("Top Ten add flow returns to manager when the 10th item completes the list", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const edits = [];
+  const initialItems = [
+    "Chess",
+    "Coding",
+    "Gaming",
+    "Movies",
+    "Music",
+    "Books",
+    "Anime",
+    "Football",
+    "Gym",
+  ].map((title) => ({ title }));
+
+  User.findOne = async () => ({
+    userId: 87,
+    aiLists: { random: { topTen: initialItems } },
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    userId: 87,
+    user: {
+      userId: 87,
+      lang: "en",
+      state: "ai_manage_random_top_ten_add_input",
+      aiLists: { random: { topTen: [...initialItems] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "Travel", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const savedEdit = edits.at(-1);
+  const managerReply = replies.at(-1);
+  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+
+  assert.equal(ctx.user.state, "ai_manage_random_top_ten");
+  assert.equal(savedEdit.extra, undefined);
+  assert.equal(labels.includes(messages.en.aiListManageAdd), false);
+  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+  assert.equal(labels.includes(messages.en.aiListManageShare), true);
+});
+
 test("Top Ten add limit uses local bot-marked copy inside top-ten section", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -774,7 +833,7 @@ test("AI share list appends configured bot link footer", () => {
 
   assert.match(shareText, /🏆 Music top 10/);
   assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
-  assert.match(shareText, /Bot: https:\/\/ble\.ir\/@DialogBot/);
+  assert.match(shareText, /Made with: https:\/\/ble\.ir\/@DialogBot/);
   assert.doesNotMatch(shareText, /📌/);
 });
 
@@ -820,6 +879,12 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
   assert.ok(shareLabels.includes(messages.en.aiListManageShare));
+  assert.equal(
+    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 10 })
+      .reply_markup.inline_keyboard.flat()
+      .some((button) => button.text === messages.en.aiListManageAdd),
+    false,
+  );
   assert.ok(labels.includes(messages.en.aiBack));
   assert.equal(labels.includes(messages.en.aiListManageRemove), false);
   assert.equal(labels.includes(messages.en.aiListManageComment), false);

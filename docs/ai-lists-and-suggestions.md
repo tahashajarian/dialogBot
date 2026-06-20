@@ -58,6 +58,7 @@
 - TopTen list text should include per-item command links for comment and remove actions. Do not add per-item inline rows when the command-link list can handle the action.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
 - TopTen full-limit copy should be context-aware: direct TopTen add flows should say to remove one from this TopTen, while watchlist promotion can tell the user to go to TopTen and remove one.
+- When the 10th TopTen item is saved, exit add mode and return to the TopTen manager. Do not leave an Add button on a full TopTen manager.
 - List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Bale provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
 - When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.

@@ -711,7 +711,10 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (result.reason === "limit") {
         await updateUserState(ctx.userId, "ai_manage_random_top_ten");
         if (ctx.user) ctx.user.state = "ai_manage_random_top_ten";
-        return ctx.reply(messages[lang].aiTopTenLimitReachedHere, aiListManageMenuKeyboard(lang, "random", "topTen"));
+        return ctx.reply(messages[lang].aiTopTenLimitReachedHere, aiListManageMenuKeyboard(lang, "random", "topTen", {
+          hasItems: currentItems.length > 0,
+          itemCount: currentItems.length,
+        }));
       }
       if (result.reason === "invalid_item_quality") {
         const errorMessage = messages[lang].aiTopTenInvalidItemQualityRandom || messages[lang].aiTopTenInvalidItemQuality;
@@ -744,10 +747,13 @@ async function handleAiCallback(ctx, lang, helpers) {
     const saved = await placeholder.finish(
       savedText,
       listIsFull
-        ? aiListManageMenuKeyboard(lang, "random", "topTen")
+        ? undefined
         : aiInterestTopTenChipKeyboard(lang, result.items.map((entry) => entry.title), 0, { backToList: true }),
     );
-    if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+    if (listIsFull) {
+      return openAiListManager(ctx, lang, "random", "topTen");
+    }
+    await rememberAiPendingInputPrompt(ctx, saved);
     return saved;
   }
 

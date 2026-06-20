@@ -604,7 +604,10 @@ async function handleAiText(ctx, lang, text, state) {
         if (result.reason === "limit") {
           return ctx.reply(
             isWatchlist ? messages[lang].aiWatchlistLimitReached : messages[lang].aiTopTenLimitReachedHere,
-            aiListManageMenuKeyboard(lang, section, listType),
+            aiListManageMenuKeyboard(lang, section, listType, {
+              hasItems: currentItems.length > 0,
+              itemCount: currentItems.length,
+            }),
           );
         }
         if (result.reason === "invalid_item_quality") {
@@ -647,10 +650,13 @@ async function handleAiText(ctx, lang, text, state) {
         const saved = await placeholder.finish(
           savedMessage,
           listIsFull
-            ? aiListManageMenuKeyboard(lang, section, listType)
+            ? undefined
             : getContinuousAddKeyboard(lang, section, listType, result.items),
         );
-        if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+        if (listIsFull) {
+          return openAiListManager(ctx, lang, section, listType);
+        }
+        await rememberAiPendingInputPrompt(ctx, saved);
         return saved;
       }
 

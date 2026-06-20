@@ -11,6 +11,24 @@ test("infers music label from common song titles", () => {
   assert.ok(taste.confidence >= 0.5);
 });
 
+test("infers metalhead from metal and hard-rock music variants", () => {
+  const taste = inferTasteLabel("music", [
+    "killing in the name of",
+    "enter sand man metalica",
+    "highway to the hell",
+    "pulp fiction tarantino",
+    "toranj mohsen namjoo",
+    "جبر جغرافیایی محسن نامجو",
+    "bleeding me metalica",
+    "nothing else matter metalica",
+    "stand by me sting",
+    "welocme to the jungle - guns and roses",
+  ]);
+
+  assert.equal(taste.labelKey, "metalhead");
+  assert.equal(taste.emoji, "🤘");
+});
+
 test("infers movie label from common drama titles and misspellings", () => {
   const taste = inferTasteLabel("movies", ["forest gump", "The Green Mile", "Whiplash"]);
 
