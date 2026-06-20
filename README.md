@@ -47,6 +47,9 @@ AI_TIMEOUT_MS=8000
 # Leave empty to allow all users.
 ALLOWED_USERNAMES=
 
+# Moderation: unique reports needed before an automatic ban.
+REPORT_BAN_THRESHOLD=5
+
 # Discussion invite link configuration.
 BOT_DEEP_LINK_BASE_URL=
 BOT_PUBLIC_URL=
