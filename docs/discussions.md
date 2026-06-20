@@ -607,6 +607,7 @@ Future possibilities:
 Discussion lists should be plain text with bot-command links instead of dense inline button rows.
 Long discussion lists should be paginated, with an inline back button below the text list. Active-discussion lists should also include an inline toggle for showing only discussions the user can currently join.
 For this toggle, keep the icon stable across states and change only the text label.
+If the list is empty, show a short empty-state notice with a useful tip and a single `Got it` acknowledgment that returns to the discussions menu. If closing a discussion from this list leaves the user with no discussions, show the same style of notice instead of immediately rendering the list again.
 
 Example:
 

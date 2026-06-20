@@ -243,7 +243,13 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
   }
   if (!result.discussions.length) {
     await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^🤖\s*/, ""));
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionListMineEmpty, discussionsMenuKeyboard(lang));
+    const emptyNotice = await editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionListMineEmpty,
+      discussionJoinErrorAckKeyboard(lang, "discussions"),
+    );
+    await rememberDiscussionMenuNotice(ctx, ctx.callbackMessageId || emptyNotice);
+    return emptyNotice;
   }
   await ctx.answerCb?.();
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);

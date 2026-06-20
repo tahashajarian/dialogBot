@@ -240,8 +240,11 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
   if (listType === "mine") {
     const result = await listMyDiscussions(ctx.userId, { limit: 20 });
     if (!result.ok || !result.discussions.length) {
-      const sentEmpty = await ctx.reply(messages[lang].discussionListMineEmpty);
-      return rememberDiscussionListMessage(ctx, "mine", sentEmpty);
+      const sentEmpty = await ctx.reply(
+        messages[lang].discussionListMineEmpty,
+        discussionJoinErrorAckKeyboard(lang, "discussions"),
+      );
+      return rememberDiscussionMenuNotice(ctx, sentEmpty);
     }
     const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
     const paged = paginateDiscussions(decorated, 0);
@@ -340,7 +343,14 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
   if (isDiscussionMyListText(text)) {
     const result = await listMyDiscussions(ctx.userId, { limit: 20 });
     if (!result.ok) return ctx.reply(messages[lang].unknownAction);
-    if (!result.discussions.length) return ctx.reply(messages[lang].discussionListMineEmpty);
+    if (!result.discussions.length) {
+      const emptyNotice = await ctx.reply(
+        messages[lang].discussionListMineEmpty,
+        discussionJoinErrorAckKeyboard(lang, "discussions"),
+      );
+      await rememberDiscussionMenuNotice(ctx, emptyNotice);
+      return emptyNotice;
+    }
     const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
     const sent = await ctx.reply(buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated));
     await rememberDiscussionListMessage(ctx, "mine", sent);
@@ -627,6 +637,29 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
   await clearRememberedDiscussionListMessage(ctx);
   await updateUserState(ctx.userId, "idle");
   if (parsed.source === "list") {
+    const remainingList = previousListType === "mine"
+      ? await listMyDiscussions(ctx.userId, { limit: 1 })
+      : null;
+    const noRemainingMineDiscussions = previousListType === "mine" && remainingList?.ok && !remainingList.discussions.length;
+    if (noRemainingMineDiscussions) {
+      const closedEmptyText = messages[lang].discussionListMineEmptyAfterClose.replace(
+        "{title}",
+        closed.discussion?.title || "-",
+      );
+      const cleanupMessage = await ctx.reply(" ", {
+        reply_markup: { remove_keyboard: true },
+      });
+      const cleanupMessageId = getMessageId(cleanupMessage);
+      if (cleanupMessageId && ctx.deleteMessage) {
+        await ctx.deleteMessage(cleanupMessageId);
+      }
+      const emptyNotice = await ctx.reply(
+        closedEmptyText,
+        discussionJoinErrorAckKeyboard(lang, "discussions"),
+      );
+      await rememberDiscussionMenuNotice(ctx, emptyNotice);
+      return emptyNotice;
+    }
     await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion), {
       reply_markup: { remove_keyboard: true },
     });

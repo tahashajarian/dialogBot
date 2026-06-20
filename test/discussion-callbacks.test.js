@@ -279,6 +279,18 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
   assert.equal(joinableToggle?.text, "🔓 نمایش همه");
 });
 
+test("my discussions empty state uses a tip and Got it acknowledgement", () => {
+  const keyboard = discussionJoinErrorAckKeyboard("en", "discussions");
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+
+  assert.match(messages.en.discussionListMineEmpty, /Active discussions/);
+  assert.match(messages.en.discussionListMineEmpty, /create a new discussion/);
+  assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
+  assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
+  assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}discussions`);
+});
+
 test("discussion join error acknowledgement can return to saved profile discussions", async () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "saved:u_a1");
   const button = keyboard.reply_markup.inline_keyboard.flat()[0];
