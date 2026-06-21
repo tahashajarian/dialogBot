@@ -9,6 +9,7 @@ function normalizeCacheItem(text) {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
+    .trim()
     .slice(0, 80);
 }
 
@@ -41,6 +42,13 @@ function isGenericTasteFeedback(feedback, lang, { normalize = normalizeCacheItem
 
   const patterns = lang === "fa"
     ? [
+      /نمی\s*شناسم/,
+      /نمی\s*دونم/,
+      /نمی\s*دانم/,
+      /متاسفانه/,
+      /متأسفانه/,
+      /آشنا نیستم/,
+      /شناخته شده نیست/,
       /انتخاب(?:ت| شما)?\s+(?:خیلی\s+)?(?:\S+\s*){0,2}(?:است|ه|ایه|ای|بود)?$/,
       /انتخاب (باحال|خوب|عالی|جالب|خاص|فوق العاده)/,
       /عنوان (جالب|خوب|خاص|باحال)/,
@@ -54,6 +62,12 @@ function isGenericTasteFeedback(feedback, lang, { normalize = normalizeCacheItem
       /انرژی .* داری/,
     ]
     : [
+      /\b(i )?(do not|don't|dont|don t) (know|recognize)\b/,
+      /\b(i am|i'm) not familiar\b/,
+      /\bnot familiar with\b/,
+      /\bunrecognized\b/,
+      /\bunknown\b/,
+      /\bsorry\b.*\b(don't|do not|can't|cannot)\b/,
       /\b(great|good|nice|cool|solid|interesting|unique|excellent|amazing|fantastic) (choice|pick)\b/,
       /\b(sounds|seems|looks) (interesting|special|unique|good)\b/,
       /\bhas a (good|special|unique) (feel|vibe)\b/,
@@ -123,7 +137,7 @@ function sanitizeTasteFeedback(text, lang, maxWords = 18) {
 function buildTasteFeedbackFallbackWithItem({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`«${shortItem || "این مورد"}» رو ثبت کردم.`, 18);
+    return limitWords(`«${shortItem || "این مورد"}» ذخیره شد.`, 18);
   }
 
   return limitWords(`Saved "${shortItem || "that item"}".`, 18);
@@ -132,9 +146,22 @@ function buildTasteFeedbackFallbackWithItem({ lang, item }) {
 function buildUnknownItemFeedback({ lang, item }) {
   const shortItem = shortenItemForFeedback(item);
   if (lang === "fa") {
-    return limitWords(`«${shortItem || "این"}» رو نمی‌شناسم، ولی ثبتش کردم.`, 12);
+    return limitWords(`«${shortItem || "این مورد"}» ذخیره شد.`, 12);
   }
-  return limitWords(`Don't know "${shortItem || "that"}" yet, but saved it.`, 12);
+  return limitWords(`Saved "${shortItem || "that item"}".`, 12);
+}
+
+function isSavedOnlyTasteFeedback(feedback, lang) {
+  const normalized = normalizeCacheItem(feedback);
+  if (!normalized) return false;
+
+  if (lang === "fa") {
+    return normalized.endsWith("ذخیره شد") ||
+      normalized.endsWith("ثبت کردم") ||
+      normalized.endsWith("ثبت شد");
+  }
+
+  return /^saved\b/.test(normalized);
 }
 
 
@@ -156,6 +183,7 @@ module.exports = {
   isEncyclopedicTasteFeedback,
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
+  isSavedOnlyTasteFeedback,
   limitWords,
   normalizeCacheItem,
   sanitizeTasteFeedback,

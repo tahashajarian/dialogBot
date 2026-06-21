@@ -15,6 +15,9 @@ const {
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = require("../src/services/ai");
+const {
+  isSavedOnlyTasteFeedback,
+} = require("../src/services/ai-feedback-quality");
 
 test("uses predefined feedback for known Interests chips", async () => {
   const faCoding = await getAiTasteItemFeedback({
@@ -166,10 +169,10 @@ test("uses neutral feedback for low-quality or placeholder inputs", async () => 
 
   assert.equal(enResult.ok, true);
   assert.equal(enResult.matchType, "unknown_input");
-  assert.match(enResult.text, /don't know.*yet/i);
+  assert.equal(enResult.text, 'Saved "Test".');
   assert.equal(faResult.ok, true);
   assert.equal(faResult.matchType, "unknown_input");
-  assert.match(faResult.text, /نمی‌شناسم/);
+  assert.match(faResult.text, /ذخیره شد/);
 });
 
 test("rejects generic personality praise even when it repeats the item", () => {
@@ -191,6 +194,14 @@ test("rejects generic personality praise even when it repeats the item", () => {
   );
   assert.equal(
     isGenericTasteFeedback("Bicycle Thieves is an amazing choice!", "en"),
+    true,
+  );
+  assert.equal(
+    isGenericTasteFeedback("متأسفانه، این مورد را نمی‌شناسم.", "fa"),
+    true,
+  );
+  assert.equal(
+    isGenericTasteFeedback("Sorry, I don't recognize this item.", "en"),
     true,
   );
 });
@@ -246,10 +257,25 @@ test("fallback stays neutral instead of guessing or giving empty praise", () => 
     item: "An Obscure Work",
   });
 
-  assert.match(fa, /ثبت کردم/);
+  assert.match(fa, /ذخیره شد/);
   assert.doesNotMatch(fa, /انتخاب (باحال|خوب|عالی)/);
   assert.match(en, /saved/i);
   assert.doesNotMatch(en, /solid pick|great choice/i);
+});
+
+test("saved-only cached feedback is detectable and can be hidden from add cards", () => {
+  assert.equal(
+    isSavedOnlyTasteFeedback("«کرم شب تاب دیده نیست» ذخیره شد.", "fa"),
+    true,
+  );
+  assert.equal(
+    isSavedOnlyTasteFeedback('Saved "Some made-up title".', "en"),
+    true,
+  );
+  assert.equal(
+    isSavedOnlyTasteFeedback("کرم شب تاب دیده نیست فضای شاعرانه و تاریکی دارد.", "fa"),
+    false,
+  );
 });
 
 test("feedback sanitizer allows a useful short sentence", () => {

@@ -13,6 +13,7 @@ const {
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
 const AI_LIST_ITEM_DIVIDER = "────────";
 const { getAiTasteItemFeedback } = require("./ai");
+const { isSavedOnlyTasteFeedback } = require("./ai-feedback-quality");
 const { buildBotBaseLink } = require("./invite-links");
 const {
   getSectionLabel,
@@ -314,7 +315,11 @@ async function buildTopTenSavedMessage({
     labelKey: inferredTaste.labelKey,
     labelTitle: rawLabelTitle,
   });
-  const feedback = feedbackResult.ok && feedbackResult.text && !feedbackResult.fallback
+  const feedback = feedbackResult.ok
+    && feedbackResult.text
+    && !feedbackResult.fallback
+    && feedbackResult.matchType !== "unknown_input"
+    && !isSavedOnlyTasteFeedback(feedbackResult.text, lang)
     ? feedbackResult.text
     : "";
 
@@ -323,7 +328,11 @@ async function buildTopTenSavedMessage({
     .replace("{count}", String(count))
     .replace("{goal}", String(goal));
 
-  const responseParts = feedback ? [formatAiComplimentFeedback(feedback)] : [];
+  const responseParts = [savedText];
+
+  if (feedback) {
+    responseParts.push(formatAiComplimentFeedback(feedback));
+  }
 
   if (count >= 3 && count < goal) {
     const preliminaryText = isWeakTasteLabel(section, inferredTaste)
@@ -335,8 +344,6 @@ async function buildTopTenSavedMessage({
         .replace("{goal}", String(goal)),
     );
   }
-
-  responseParts.push(savedText);
 
   if (count < goal) {
     responseParts.push(getTopTenNextPrompt(lang, count));

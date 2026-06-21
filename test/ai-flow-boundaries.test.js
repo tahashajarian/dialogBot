@@ -36,6 +36,7 @@ const {
 } = require("../src/flows/ai-cards");
 const {
   buildTopTenListMessage,
+  buildTopTenSavedMessage,
   buildWatchlistMessage,
   buildShareListMessage,
   formatAiItemsList,
@@ -230,6 +231,20 @@ test("pressing Add retires the remembered list card", async () => {
   assert.equal(deletedIds.includes(40), true);
   assert.equal(ctx.user.aiLastListMessageId, null);
   assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+});
+
+test("Top Ten saved message does not repeat saved-only fallback feedback", async () => {
+  const text = await buildTopTenSavedMessage({
+    ctx: { userId: 1 },
+    lang: "fa",
+    section: "books",
+    item: "نتاشایباشسمنیاب",
+    items: [{ title: "نتاشایباشسمنیاب" }],
+  });
+
+  assert.match(text, /^✅/);
+  assert.match(text, /✅ «نتاشایباشسمنیاب» ثبت شد\. \(1\/10\)/);
+  assert.doesNotMatch(text, /ذخیره شد/);
 });
 
 test("canceling AI list comment returns to the refreshed list manager", async () => {
