@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const { clearInterval, setInterval } = require("timers");
 const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { disconnectDB } = require("./db");
@@ -10,6 +11,7 @@ const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussion-starters");
 const { logger } = require("./services/logger");
+const { recordBotHeartbeat } = require("./services/operational-health");
 const messages = require("./messages");
 
 const config = getRuntimeConfig();
@@ -103,6 +105,7 @@ bot.on("callback_query", processUpdate);
 
 let pollingStarted = false;
 let shuttingDown = false;
+let heartbeatTimer = null;
 
 async function shutdown(reason, exitCode = 0) {
   if (shuttingDown) return;
@@ -115,6 +118,10 @@ async function shutdown(reason, exitCode = 0) {
     } catch (error) {
       logger.warn("Failed to stop bot polling", error);
     }
+  }
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
   }
 
   try {
@@ -193,6 +200,11 @@ async function retry(fn, {
 
     const pollingLoop = bot.startPolling();
     pollingStarted = true;
+    void recordBotHeartbeat({ botId: botInfo?.id });
+    heartbeatTimer = setInterval(() => {
+      void recordBotHeartbeat({ botId: botInfo?.id });
+    }, 60 * 1000);
+    heartbeatTimer.unref?.();
     logger.info("Bot started in polling mode");
 
     pollingLoop.catch(async (pollingError) => {

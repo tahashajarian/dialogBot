@@ -54,6 +54,11 @@ REPORT_BAN_THRESHOLD=5
 BOT_DEEP_LINK_BASE_URL=
 BOT_PUBLIC_URL=
 BOT_USERNAME=
+
+# Optional local analytics dashboard.
+ADMIN_DASHBOARD_HOST=127.0.0.1
+ADMIN_DASHBOARD_PORT=8787
+ADMIN_DASHBOARD_TOKEN=
 ```
 
 `API_ROOT` belongs to Bale. `API_BASE_URL` belongs to the AI provider. They
@@ -64,6 +69,7 @@ must never point to the same endpoint.
 ```powershell
 npm.cmd start
 npm.cmd run dev
+npm.cmd run dashboard
 npm.cmd run check
 npm.cmd test
 npm.cmd run test:integration
@@ -96,6 +102,8 @@ Read these before changing related behavior:
 - [Bot UX rules](docs/bot-ux.md)
 - [AI lists and suggestions](docs/ai-lists-and-suggestions.md)
 - [Discussions](docs/discussions.md)
+- [Analytics dashboard](docs/analytics-dashboard.md)
+- [Product roadmap](docs/product-roadmap.md)
 
 ## Validation
 

@@ -6,6 +6,7 @@ const {
 const { getAiConfig } = require("../config");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { logger } = require("./logger");
+const { recordAiApiEvent } = require("./operational-health");
 const {
   DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
   extractAiResponseText,
@@ -301,6 +302,7 @@ async function getAiTasteItemFeedback({
       }
 
       try {
+        const startedAt = Date.now();
         const response = await withAiTimeout(
           openai.responses.create({
             model: aiConfig.model,
@@ -327,6 +329,12 @@ async function getAiTasteItemFeedback({
           "ai_feedback_timeout",
           aiConfig.timeoutMs,
         );
+        void recordAiApiEvent({
+          ok: true,
+          operation: "taste_feedback",
+          provider: "responses",
+          durationMs: Date.now() - startedAt,
+        });
 
         const generated = sanitizeTasteFeedback((response.output_text || "").trim(), lang);
         const text = (
@@ -341,6 +349,12 @@ async function getAiTasteItemFeedback({
         return { ok: true, text };
       } catch (error) {
         const message = error?.message || String(error);
+        void recordAiApiEvent({
+          ok: false,
+          operation: "taste_feedback",
+          provider: "responses",
+          reason: message,
+        });
         if (message === "ai_feedback_timeout") {
           logger.info("AI taste feedback fallback", { reason: message });
         } else {
