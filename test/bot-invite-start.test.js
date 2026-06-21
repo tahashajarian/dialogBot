@@ -100,7 +100,7 @@ test("repeated same start invite payload falls back to normal start", async () =
   }
 
   assert.equal(replies.length, 2);
-  assert.match(replies[0].text, /Welcome, Taha/);
+  assert.match(replies[0].text, /Hi Taha, I’m Muze/);
   assert.doesNotMatch(replies[0].text, /invite/i);
   assert.equal(replies[1].text, messages.en.mainMenu);
 });

@@ -175,7 +175,7 @@ test("onboarding starter invitation note points users to invitations", () => {
   const text = appendStarterInvitationsText("en", "Done", 1);
 
   assert.match(text, /^Done/);
-  assert.match(text, /bot invitations for you \(1\)/);
+  assert.match(text, /Muze prepared discussion invitations for you \(1\)/);
   assert.match(text, /💡/);
 });
 

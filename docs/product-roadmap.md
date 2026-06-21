@@ -6,7 +6,7 @@ into random feature work.
 
 ## Product Direction
 
-DialogBot should become a taste-based social bot:
+Muze should become a taste-based social bot:
 
 > Build your taste profile, find people and discussions around what you
 > actually like.

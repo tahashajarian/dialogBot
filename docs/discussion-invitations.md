@@ -4,9 +4,9 @@ This document is the product and implementation spec for the discussion invitati
 
 ## Goal
 
-Discussion invitations let a user invite a saved profile into a discussion from inside the bot.
+Discussion invitations let a user invite a saved profile into a discussion from inside Muze.
 
-The bot can also create one-time starter invitations during onboarding. These use the same invitations inbox and join/remove actions, but are clearly shown as coming from the bot and do not expose an inviter profile or inviter mute action.
+Muze can also create one-time starter invitations during onboarding. These use the same invitations inbox and join/remove actions, but are clearly shown as coming from Muze and do not expose an inviter profile or inviter mute action.
 
 The feature should connect existing social surfaces:
 

@@ -13,20 +13,20 @@ The MVP described here is implemented. The current code supports:
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
-- four bot-created starter rooms, marked only with `🤖`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
-- onboarding starter invitations from the bot, shown in the normal invitations inbox without a bot profile link
+- four Muze-created starter rooms, marked only with `🤖`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
+- onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
 ## Purpose
 
-Discussions add a social layer to the bot without turning it into a generic matching or chat app. They let users talk around taste, lists, labels, and interests while keeping the existing bot identity centered on profiles, lists, Top 10, taste labels, and suggestions.
+Discussions add a social layer to Muze without turning it into a generic matching or chat app. They let users talk around taste, lists, labels, and interests while keeping the existing Muze identity centered on profiles, lists, Top 10, taste labels, and suggestions.
 
 ## MVP Concept
 
 Discussions are live rooms with short memory.
 
-- A discussion normally has a user-created title; the four starter rooms are bot-created.
+- A discussion normally has a user-created title; the four starter rooms are Muze-created.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
 - Discussion membership means current room presence. Leaving the room removes membership.
@@ -44,8 +44,8 @@ Discussions are live rooms with short memory.
 - Normal onboarding completion or skip should prepare at most one bot invitation: the open `Free Discussion` room. Do not send locked starter-room invitations during onboarding; users can still discover those rooms from the active discussion list when their Interests unlock them.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms say which Interest unlocked them, and locked rooms say which Interest TopTen item to add.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
-- Bot-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
-- Bot-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
+- Muze-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
+- Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Lists -> Music -> complete Top 10` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
@@ -73,7 +73,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before entering any discussion, users must explicitly set a bot profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the list or invite preview they came from. Invitation accepts return to the invitations inbox; active-list joins return to the active discussions list.
+- Before entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the list or invite preview they came from. Invitation accepts return to the invitations inbox; active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.
@@ -804,9 +804,9 @@ Auto-ban rule:
 
 - `REPORT_BAN_THRESHOLD` controls how many different reporters are required before a user is banned. Default: `5`.
 - Count unique reporters across open discussion reports. Multiple reports from the same reporter against the same target should not move the target closer to a ban.
-- Every newly accepted report should notify the reported user privately with their current report count, the threshold, and how many unique reports remain before a full bot ban.
+- Every newly accepted report should notify the reported user privately with their current report count, the threshold, and how many unique reports remain before a full Muze ban.
 - Normal report warnings should not remove the user's current bottom keyboard; on Bale this can expose the platform fallback start button. Only the final ban/access-denied messages should clear the bottom keyboard.
-- When the threshold is reached, set a global bot ban on the reported user. A banned user can no longer use messages, commands, callbacks, lists, profiles, invites, or discussions. Any future interaction should only return a short banned-account message with an admin-contact hint.
+- When the threshold is reached, set a global Muze ban on the reported user. A banned user can no longer use messages, commands, callbacks, lists, profiles, invites, or discussions. Any future interaction should only return a short banned-account message with an admin-contact hint.
 - When a user is auto-banned, remove them from all active discussion memberships, clear their `activeDiscussionId`, and notify the remaining active members in each affected discussion that the user was removed. Keep the room notification calm and do not include report counts.
 - Do not let reports from banned users count toward another user's ban.
 - Do not publicly expose reporter identities or raw report counts in room notifications.

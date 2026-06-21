@@ -1,7 +1,8 @@
-# DialogBot
+# Muze
 
-DialogBot is a bilingual Persian/English Bale bot built with Node.js, Telegraf's
-compatible API surface, MongoDB, and an OpenAI-compatible AI endpoint.
+Muze is a bilingual Persian/English Bale bot built with Node.js, Telegraf's
+compatible API surface, MongoDB, and an OpenAI-compatible AI endpoint. The
+codebase is still named DialogBot internally.
 
 The bot combines:
 

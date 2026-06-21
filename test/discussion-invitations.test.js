@@ -211,7 +211,7 @@ test("bot onboarding invitations do not show an inviter profile link", async () 
     state: { state: "joinable" },
   }]);
 
-  assert.match(text, /From: Bot/);
+  assert.match(text, /From: Muze/);
   assert.match(text, /Join 👉 \/accept_inv_BOT123/);
   assert.doesNotMatch(text, /Inviter profile/);
   assert.doesNotMatch(text, /\/u_/);
