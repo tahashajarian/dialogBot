@@ -48,9 +48,9 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].welcome, /^🤖/);
     assert.match(messages[lang].welcome, /🧩/);
+    assert.match(messages[lang].welcome, /🏆/);
     assert.match(messages[lang].welcome, /✨/);
     assert.match(messages[lang].welcome, /💬/);
-    assert.match(messages[lang].welcome, /📌/);
     assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
     assert.match(messages[lang].welcomeWithName, /^🤖/);
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);

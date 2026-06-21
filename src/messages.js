@@ -1,7 +1,7 @@
 module.exports = {
   fa: {
-    welcome: "🤖 سلام، من میوزم 🌱\n\nکمکت می‌کنم:\n🧩 سلیقه و علاقه‌مندی‌هات رو بسازی\n✨ پیشنهادهای نزدیک‌تر به حال‌وهوات بگیری\n💬 آدم‌ها و بحث‌های هم‌سلیقه‌تر رو پیدا کنی\n📌 پروفایل‌های جالب رو برای بعد ذخیره کنی.",
-    welcomeWithName: "🤖 سلام {name}، من میوزم 🌱\n\nکمکت می‌کنم:\n🧩 سلیقه و علاقه‌مندی‌هات رو بسازی\n✨ پیشنهادهای نزدیک‌تر به حال‌وهوات بگیری\n💬 آدم‌ها و بحث‌های هم‌سلیقه‌تر رو پیدا کنی\n📌 پروفایل‌های جالب رو برای بعد ذخیره کنی.",
+    welcome: "🤖 سلام، من میوزم 🌱\n\nاینجا می‌تونی:\n🎬 فیلم‌ها، 🎵 موسیقی‌ها، 📚 کتاب‌ها و 🧩 علاقه‌مندی‌هات رو لیست کنی\n🏆 تاپ ۱۰های سلیقه‌ات رو بسازی و برچسب‌های سلیقه بگیری\n✨ پیشنهادهای نزدیک‌تر به حال‌وهوات بگیری\n💬 وارد بحث‌های مرتبط بشی و آدم‌های نزدیک‌تر به سلیقه‌ات رو پیدا کنی.",
+    welcomeWithName: "🤖 سلام {name}، من میوزم 🌱\n\nاینجا می‌تونی:\n🎬 فیلم‌ها، 🎵 موسیقی‌ها، 📚 کتاب‌ها و 🧩 علاقه‌مندی‌هات رو لیست کنی\n🏆 تاپ ۱۰های سلیقه‌ات رو بسازی و برچسب‌های سلیقه بگیری\n✨ پیشنهادهای نزدیک‌تر به حال‌وهوات بگیری\n💬 وارد بحث‌های مرتبط بشی و آدم‌های نزدیک‌تر به سلیقه‌ات رو پیدا کنی.",
     onboardingWelcome: "🤖 سلام، من میوزم 🌱\n\nکمکت می‌کنم سلیقه‌ات رو بسازی، پیشنهادهای نزدیک‌تر بگیری و بحث‌های هم‌حال‌تر رو پیدا کنی.\n\n💡 اول ۳ علاقه‌مندی انتخاب کن تا تصویر اولیه سلیقه‌ات ساخته بشه.",
     onboardingWelcomeWithName: "🤖 سلام {name}، من میوزم 🌱\n\nکمکت می‌کنم سلیقه‌ات رو بسازی، پیشنهادهای نزدیک‌تر بگیری و بحث‌های هم‌حال‌تر رو پیدا کنی.\n\n💡 اول ۳ علاقه‌مندی انتخاب کن تا تصویر اولیه سلیقه‌ات ساخته بشه.",
     discussionInviteWelcome: "🤖 سلام، من میوزم 🌱\n\nاز طریق دعوت به یک بحث وارد شدی. جزئیاتش رو پایین می‌بینی.",
@@ -26,7 +26,7 @@ module.exports = {
     chooseLanguage: "🤖 زبان موردنظرت رو انتخاب کن:",
     languageChanged: "✅ زبان با موفقیت به فارسی تغییر کرد.",
     unknownAction: "این عملیات شناخته‌شده نیست.",
-    mainMenu: "🏠 منوی اصلی\n\nیکی از گزینه‌ها رو انتخاب کن:",
+    mainMenu: "🏠 منوی اصلی\n\n🤖 یکی از گزینه‌ها رو انتخاب کن:",
     mainMenuTitle: "🏠 منوی اصلی",
     language: "🌐 تغییر زبان",
     profile: "👤 پروفایل",
@@ -42,7 +42,7 @@ module.exports = {
     helpBrowseDiscussions: "💬 دیدن بحث‌های فعال",
     helpBackToMain: "⬅️ برگشت به منوی اصلی",
     aiAssistantMenu: "🤖 یکی از بخش‌ها رو انتخاب کن:\n\n💡 هر بخش لیست و تاپ ۱۰ خودش رو داره.",
-    discussionsMenu: "💬 بحث‌ها\n\nیکی از گزینه‌ها رو انتخاب کن:",
+    discussionsMenu: "💬 بحث‌ها\n\n🤖 یکی از گزینه‌ها رو انتخاب کن:",
     discussionActiveList: "🟢 بحث‌های فعال",
     discussionCreate: "➕ ساخت بحث جدید",
     discussionCreateTitlePin: "📌 ساخت بحث جدید",
@@ -596,8 +596,8 @@ module.exports = {
   },
 
   en: {
-    welcome: "🤖 Hi, I’m Muze 🌱\n\nI help you:\n🧩 Build your taste and interests\n✨ Get suggestions closer to your vibe\n💬 Find people and discussions closer to your taste\n📌 Save interesting profiles for later.",
-    welcomeWithName: "🤖 Hi {name}, I’m Muze 🌱\n\nI help you:\n🧩 Build your taste and interests\n✨ Get suggestions closer to your vibe\n💬 Find people and discussions closer to your taste\n📌 Save interesting profiles for later.",
+    welcome: "🤖 Hi, I’m Muze 🌱\n\nHere you can:\n🎬 List movies, 🎵 music, 📚 books, and 🧩 interests\n🏆 Build your Top 10s and unlock taste labels\n✨ Get suggestions closer to your vibe\n💬 Join discussions around shared taste and find people closer to what you like.",
+    welcomeWithName: "🤖 Hi {name}, I’m Muze 🌱\n\nHere you can:\n🎬 List movies, 🎵 music, 📚 books, and 🧩 interests\n🏆 Build your Top 10s and unlock taste labels\n✨ Get suggestions closer to your vibe\n💬 Join discussions around shared taste and find people closer to what you like.",
     onboardingWelcome: "🤖 Hi, I’m Muze 🌱\n\nI help you build your taste, get closer suggestions, and find discussions that fit your vibe.\n\n💡 Start by choosing 3 interests so I can build your first taste picture.",
     onboardingWelcomeWithName: "🤖 Hi {name}, I’m Muze 🌱\n\nI help you build your taste, get closer suggestions, and find discussions that fit your vibe.\n\n💡 Start by choosing 3 interests so I can build your first taste picture.",
     discussionInviteWelcome: "🤖 Hi, I’m Muze 🌱\n\nYou opened a discussion invite. You can see its details below.",
@@ -622,7 +622,7 @@ module.exports = {
     chooseLanguage: "🤖 Choose your language:",
     languageChanged: "✅ Language changed to English successfully.",
     unknownAction: "Unknown action.",
-    mainMenu: "Choose one of the options:",
+    mainMenu: "🤖 Choose one of the options:",
     mainMenuTitle: "🏠 Main menu",
     language: "🌐 Change language",
     profile: "👤 Profile",
