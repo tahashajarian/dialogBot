@@ -182,15 +182,15 @@ The Interests section should have cooler and more specific labels than a generic
 Potential labels:
 
 - `♟ استراتژی‌باز` / strategy-minded
-- `💻 تکنولوژی‌دوست` / tech-minded
+- `💻 تکنولوژی‌باز` / tech fan
 - `☕ کافه‌گرد` / cafe lover
 - `🍜 فودی` / foodie
 - `🎮 گیمر` / gamer
 - `🌍 ماجراجو` / explorer
-- `🎨 خلاق` / creator
-- `🏃 فعال` / active
+- `🎨 اهل ساختن` / maker
+- `🏃 اسپرتی` / sporty
 - `🧘 آرام‌جو` / mindful
-- `🎉 اجتماعی` / social
+- `🎉 اهل جمع` / people person
 - `📸 لحظه‌ساز` / photo/story seeker
 - `🧩 چندعلاقه‌ای` / multi-interest
 
