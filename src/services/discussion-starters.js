@@ -30,6 +30,16 @@ const BOT_STARTER_DISCUSSIONS = [
       itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
     },
   },
+  {
+    botSeedKey: "metalheads",
+    title: "Metalheads",
+    description: "Heavy riffs, loud albums, and metal recommendations.",
+    joinRule: {
+      type: "taste_label",
+      section: "music",
+      tasteLabelKey: "metalhead",
+    },
+  },
 ];
 const BOT_STARTER_DISCUSSION_ORDER = new Map(
   BOT_STARTER_DISCUSSIONS.map((starter, index) => [starter.botSeedKey, index]),

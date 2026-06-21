@@ -414,6 +414,7 @@ async function handleCallback(ctx) {
     if (!joined.ok) {
       await ctx.answerCb?.();
       return sendDiscussionJoinErrorAck(ctx, lang, joined.reason, "active", {
+        discussion,
         retireCallbackMessageIfPossible,
       });
     }
@@ -678,8 +679,8 @@ async function handleCallback(ctx) {
       const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
       const userName = rawUserName.trim().replace(/\s+/g, " ");
       const welcomeMessage = userName
-        ? messages[newLang].welcomeWithName.replace("{name}", userName)
-        : messages[newLang].welcome;
+        ? messages[newLang].onboardingWelcomeWithName.replace("{name}", userName)
+        : messages[newLang].onboardingWelcome;
       await updateUserState(ctx.userId, "onboarding_welcome");
       return editCallbackMessageOrReply(
         ctx,

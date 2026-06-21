@@ -90,7 +90,7 @@ test("bot starter discussions use the bot id without fake members", async () => 
   try {
     const result = await seedBotDiscussions(9001);
     assert.equal(result.ok, true);
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, BOT_STARTER_DISCUSSIONS.length);
     assert.deepEqual(
       calls.map((entry) => entry.filter.botSeedKey),
       BOT_STARTER_DISCUSSIONS.map((entry) => entry.botSeedKey),
@@ -113,6 +113,11 @@ test("bot starter discussions use the bot id without fake members", async () => 
       itemTitle: "Movies",
       itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
     });
+    assert.deepEqual(calls[3].update.$set.joinRule, {
+      type: "taste_label",
+      section: "music",
+      tasteLabelKey: "metalhead",
+    });
   } finally {
     Discussion.findOneAndUpdate = originalFindOneAndUpdate;
   }
@@ -121,13 +126,14 @@ test("bot starter discussions use the bot id without fake members", async () => 
 test("bot starter discussions keep the open room first when pinned", () => {
   const sorted = sortBotStarterDiscussionsFirst([
     { botSeedKey: "lets-talk", isBotCreated: true },
+    { botSeedKey: "metalheads", isBotCreated: true },
     { botSeedKey: "whats-up", isBotCreated: true },
     { botSeedKey: "free-discussion", isBotCreated: true },
   ]);
 
   assert.deepEqual(
     sorted.map((discussion) => discussion.botSeedKey),
-    ["free-discussion", "whats-up", "lets-talk"],
+    ["free-discussion", "whats-up", "lets-talk", "metalheads"],
   );
 });
 

@@ -44,16 +44,21 @@ test("onboarding is offered only to recent empty accounts", () => {
   }, now), false);
 });
 
-test("welcome copy uses bot and tip markers in both languages", () => {
+test("welcome copy stays general while onboarding welcome carries the starter tip", () => {
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].welcome, /^🤖/);
-    assert.match(messages[lang].welcome, /💡/);
     assert.match(messages[lang].welcome, /🧩/);
     assert.match(messages[lang].welcome, /✨/);
     assert.match(messages[lang].welcome, /💬/);
     assert.match(messages[lang].welcome, /📌/);
+    assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
     assert.match(messages[lang].welcomeWithName, /^🤖/);
-    assert.match(messages[lang].welcomeWithName, /💡/);
+    assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
+    assert.match(messages[lang].onboardingWelcome, /^🤖/);
+    assert.match(messages[lang].onboardingWelcome, /💡/);
+    assert.match(messages[lang].onboardingWelcome, /3 interests|۳ علاقه/);
+    assert.match(messages[lang].onboardingWelcomeWithName, /^🤖/);
+    assert.match(messages[lang].onboardingWelcomeWithName, /💡/);
   }
 });
 

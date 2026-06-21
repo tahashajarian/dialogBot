@@ -226,6 +226,10 @@ const BOT_DISCUSSION_MESSAGE_KEYS = {
     title: "botDiscussionLetsTalkTitle",
     description: "botDiscussionLetsTalkDescription",
   },
+  metalheads: {
+    title: "botDiscussionMetalheadsTitle",
+    description: "botDiscussionMetalheadsDescription",
+  },
 };
 
 function getBotDiscussionMessageKey(discussion = {}, field) {
@@ -374,6 +378,29 @@ function buildDiscussionInviteLockedText(messages, lang, reason, discussion = {}
   return getDiscussionErrorMessage(messages, lang, reason);
 }
 
+function buildDiscussionJoinLockedText(messages, lang, reason, discussion = {}) {
+  const joinRule = discussion?.joinRule || {};
+  const sectionLabel = joinRule.section ? getSectionLabel(messages, lang, joinRule.section) : "";
+  const rule = getJoinRulePreviewText(messages, lang, joinRule);
+  if (reason === "requires_taste_label") {
+    return messages[lang].discussionJoinLockedTaste
+      .replace("{rule}", rule)
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  if (reason === "requires_top_ten_item") {
+    const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
+    return messages[lang].discussionJoinLockedItem
+      .replace("{rule}", rule)
+      .replaceAll("{item}", item)
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  if (reason === "requires_top_ten_completed") {
+    return messages[lang].discussionJoinLockedTopTen
+      .replaceAll("{section}", sectionLabel || "-");
+  }
+  return getDiscussionErrorMessage(messages, lang, reason);
+}
+
 function buildDiscussionPreviewText(messages, lang, user) {
   const title = String(user?.discussionDraftTitle || "").trim();
   const description = String(user?.discussionDraftDescription || "").trim();
@@ -401,4 +428,5 @@ module.exports = {
   buildDiscussionInviteShareText,
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteLockedText,
+  buildDiscussionJoinLockedText,
 };

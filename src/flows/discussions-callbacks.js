@@ -8,7 +8,7 @@ const {
 } = require("../keyboards");
 const { updateProfileField } = require("../services/users");
 const {
-  getDiscussionErrorMessage,
+  buildDiscussionJoinLockedText,
   decorateDiscussionsForList,
   rankDiscussionsForDiscovery,
   paginateDiscussions,
@@ -84,11 +84,16 @@ async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
     return false;
   }
   const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
-    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  if (deleted === false) {
+    return false;
   }
-  return deleted;
+  if (ctx.user) {
+    ctx.user.discussionLastListMessageId = null;
+    ctx.user.discussionLastListType = "";
+  }
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+  await updateProfileField(ctx.userId, "discussionLastListType", "");
+  return true;
 }
 
 async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
@@ -172,9 +177,10 @@ function isDiscussionCreateState(state = "") {
 }
 
 async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active", {
+  discussion = null,
   retireCallbackMessageIfPossible,
 } = {}) {
-  const errorText = getDiscussionErrorMessage(messages, lang, reason);
+  const errorText = buildDiscussionJoinLockedText(messages, lang, reason, discussion);
   await retireCallbackMessageIfPossible?.(ctx);
   await clearDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, listType));

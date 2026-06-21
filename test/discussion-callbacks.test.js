@@ -9,6 +9,7 @@ const {
   buildDiscussionInviteShareText,
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteLockedText,
+  buildDiscussionJoinLockedText,
   getDiscussionDiscoveryScore,
   rankDiscussionsForDiscovery,
 } = require("../src/services/discussion-ui");
@@ -173,6 +174,28 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
   assert.doesNotMatch(listText, /official/i);
 });
 
+test("metalhead starter discussion uses localized copy and metalhead badge rule", () => {
+  const discussion = {
+    title: "Metalheads",
+    description: "Heavy riffs, loud albums, and metal recommendations.",
+    publicDiscussionCode: "d_METAL",
+    isBotCreated: true,
+    botSeedKey: "metalheads",
+    isJoinable: true,
+    memberUserIds: [],
+    joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" },
+  };
+  const listText = buildDiscussionListText(messages, "en", "Active discussions", [discussion]);
+  const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+
+  assert.match(listText, /💬 🤖 Metalheads/);
+  assert.match(listText, /Heavy riffs, loud albums, and metal recommendations/);
+  assert.match(listText, /🏷 Music - 🤘 Metalhead ✅/);
+  assert.match(persianListText, /💬 .*🤖 متال‌هدها/);
+  assert.match(persianListText, /ریف‌های سنگین/);
+  assert.match(persianListText, /🤘/);
+});
+
 test("starter discussion list makes the first social step obvious", () => {
   const discussions = [
     {
@@ -251,6 +274,23 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
   assert.match(listText, /برای باز شدن این اتاق، گیم/);
   assert.match(lockedText, /«گیم»/);
   assert.doesNotMatch(lockedText, /Gaming/);
+});
+
+test("locked discussion list join text explains the exact unlock path", () => {
+  const text = buildDiscussionJoinLockedText(messages, "fa", "requires_taste_label", {
+    title: "Metalheads",
+    joinRule: {
+      type: "taste_label",
+      section: "music",
+      tasteLabelKey: "metalhead",
+    },
+  });
+
+  assert.match(text, /موسیقی/);
+  assert.match(text, /Metalhead|متال/);
+  assert.match(text, /لیست‌ها ←/);
+  assert.match(text, /تاپ ۱۰/);
+  assert.match(text, /لیست بحث‌ها/);
 });
 
 test("discussion list text keeps numbering across pages", () => {

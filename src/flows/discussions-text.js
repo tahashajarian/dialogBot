@@ -29,6 +29,7 @@ const {
 const {
   getDiscussionErrorMessage,
   buildDiscussionInviteLockedText,
+  buildDiscussionJoinLockedText,
   buildDiscussionInvitePreviewText,
   buildDiscussionInviteShareText,
   decorateDiscussionsForList,
@@ -172,11 +173,14 @@ async function clearRememberedDiscussionListMessage(ctx) {
     return false;
   }
   const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
-    await updateProfileField(ctx.userId, "discussionLastListType", "");
+  if (deleted === false) return false;
+  if (ctx.user) {
+    ctx.user.discussionLastListMessageId = null;
+    ctx.user.discussionLastListType = "";
   }
-  return deleted;
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+  await updateProfileField(ctx.userId, "discussionLastListType", "");
+  return true;
 }
 
 async function rememberDiscussionMenuNotice(ctx, message) {
@@ -284,11 +288,11 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
   return rememberDiscussionListMessage(ctx, "active", sent);
 }
 
-async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason) {
+async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason, discussion = null) {
   const listType = ctx.user?.discussionLastListType || "active";
   await clearRememberedDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(
-    getDiscussionErrorMessage(messages, lang, reason),
+    buildDiscussionJoinLockedText(messages, lang, reason, discussion),
     discussionJoinErrorAckKeyboard(lang, listType)
   );
   await rememberDiscussionMenuNotice(ctx, errorNotice);
@@ -426,7 +430,7 @@ async function openDiscussionCommand(ctx, lang, code) {
   }
 
   const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
-  if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason);
+  if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason, discussion);
 
   await clearRememberedDiscussionListMessage(ctx);
   await clearDiscussionMenuNotice(ctx);
