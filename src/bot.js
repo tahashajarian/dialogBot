@@ -114,6 +114,7 @@ const {
   handleProfileText,
   resetProfilePhotoCommand,
 } = require("./flows/profile-text");
+const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 
 const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
@@ -205,6 +206,11 @@ async function handleUpdate(ctx) {
   const repeatedStartInvite = startInviteCode && isRepeatedStartInvite(ctx.user, startInviteCode);
 
   if (startInviteCode && !repeatedStartInvite) {
+    void trackEvent({
+      name: EVENT_NAMES.userStarted,
+      userId: ctx.userId,
+      source: "invite",
+    });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
     await clearBottomKeyboardQuietly(ctx);
@@ -262,6 +268,11 @@ async function handleUpdate(ctx) {
   }
 
   if (text === "/start" || repeatedStartInvite) {
+    void trackEvent({
+      name: EVENT_NAMES.userStarted,
+      userId: ctx.userId,
+      source: repeatedStartInvite ? "repeat_invite" : "direct",
+    });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
     const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");

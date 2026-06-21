@@ -67,6 +67,7 @@ Smoke-test checklist:
 Goal: know whether users actually move through the product.
 
 - [x] Add a simple read-only dashboard over the existing MongoDB product state.
+- [x] Add lightweight product event tracking for the first launch funnel.
 - [ ] Start with a simple Mongo collection. Avoid external analytics until the event
 shape is stable.
 

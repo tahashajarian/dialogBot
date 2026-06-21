@@ -56,6 +56,9 @@ http://127.0.0.1:8787/?token=your_token
   reports, and recent activity
 - invitation status counts
 - AI response cache size and hit counts
+- product events for the last 24 hours and seven days
+- simple seven-day funnel with unique users
+- Top 10 adds and suggestion requests by section
 
 ## Next Step
 
@@ -68,5 +71,10 @@ Operational health data is intentionally lightweight:
 
 - bot heartbeat is recorded about once per minute
 - AI provider attempts are recorded without message text
+- discussion-list open events are throttled per user/source
 - health events expire automatically after seven days
 - failures in health logging do not block bot behavior
+
+Product analytics events are also fire-and-forget. They should never block the
+bot response path, and metadata is restricted to small safe fields such as
+section, count, source, and join-rule type.

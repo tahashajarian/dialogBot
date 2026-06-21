@@ -11,6 +11,7 @@ const {
   createActiveDiscussionNotifier,
 } = require("./discussion-notifications");
 const { getDiscussionDisplayTitle } = require("./discussion-ui");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
@@ -18,6 +19,16 @@ const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: fals
 async function joinDiscussionAndNotify({ ctx, messages, discussionId }) {
   const joined = await joinOrOpenDiscussion(ctx.userId, discussionId);
   if (!joined.ok) return joined;
+
+  if (joined.joined) {
+    void trackEvent({
+      name: EVENT_NAMES.discussionJoined,
+      userId: ctx.userId,
+      metadata: {
+        joinRuleType: joined.discussion?.joinRule?.type || "unknown",
+      },
+    });
+  }
 
   if (joined.joined && joined.joinerName && joined.otherMemberIds) {
     await notifyActiveMembersInDiscussion(

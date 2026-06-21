@@ -1,5 +1,6 @@
 const User = require("../models/user");
 const { normalizePublicProfileCode } = require("./public-codes");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const SAVED_PROFILE_CAP = 50;
 
@@ -27,7 +28,16 @@ async function addSavedProfileCode(userId, profileCode) {
     { returnDocument: "after" },
   ).lean();
 
-  if (updated) return { ok: true, items: updated.savedProfileCodes || [] };
+  if (updated) {
+    void trackEvent({
+      name: EVENT_NAMES.profileSaved,
+      userId,
+      metadata: {
+        count: (updated.savedProfileCodes || []).length,
+      },
+    });
+    return { ok: true, items: updated.savedProfileCodes || [] };
+  }
 
   const user = await User.findOne({ userId }).select("savedProfileCodes").lean();
   if (!user) return { ok: false, reason: "missing_user" };

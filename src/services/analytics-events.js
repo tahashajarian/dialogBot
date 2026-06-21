@@ -1,0 +1,143 @@
+const mongoose = require("mongoose");
+const AnalyticsEvent = require("../models/analytics-event");
+const { logger } = require("./logger");
+
+const EVENT_NAMES = Object.freeze({
+  userStarted: "user_started",
+  onboardingCompleted: "onboarding_completed",
+  onboardingSkipped: "onboarding_skipped",
+  topTenItemAdded: "topten_item_added",
+  watchlistItemAdded: "watchlist_item_added",
+  tasteLabelUnlocked: "taste_label_unlocked",
+  suggestionRequested: "suggestion_requested",
+  suggestionSaved: "suggestion_saved",
+  discussionListOpened: "discussion_list_opened",
+  discussionJoined: "discussion_joined",
+  discussionCreated: "discussion_created",
+  inviteSent: "invite_sent",
+  profileSaved: "profile_saved",
+});
+
+const SAFE_METADATA_KEYS = new Set([
+  "count",
+  "goal",
+  "listType",
+  "joinRuleType",
+  "maxMembers",
+  "labelKey",
+  "source",
+  "status",
+  "reason",
+  "page",
+  "joinableOnly",
+  "resultCount",
+]);
+const THROTTLE_CACHE_LIMIT = 1000;
+const throttleCache = new Map();
+
+function sanitizeMetadata(metadata = {}) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return undefined;
+  const safeEntries = Object.entries(metadata)
+    .filter(([key]) => SAFE_METADATA_KEYS.has(key))
+    .map(([key, value]) => {
+      if (typeof value === "boolean") return [key, value];
+      if (typeof value === "number") return [key, Number.isFinite(value) ? value : 0];
+      return [key, String(value || "").slice(0, 80)];
+    });
+  return safeEntries.length ? Object.fromEntries(safeEntries) : undefined;
+}
+
+async function trackEvent({ name, userId = null, source = "", section = "", metadata } = {}) {
+  try {
+    if (!name || mongoose.connection.readyState !== 1) return null;
+    return await AnalyticsEvent.create({
+      name: String(name).slice(0, 80),
+      userId: Number.isInteger(Number(userId)) ? Number(userId) : null,
+      source: String(source || "").slice(0, 80),
+      section: String(section || "").slice(0, 40),
+      metadata: sanitizeMetadata(metadata),
+    });
+  } catch (error) {
+    logger.debug("Failed to record analytics event", error);
+    return null;
+  }
+}
+
+function rememberThrottle(key, nowMs) {
+  throttleCache.set(key, nowMs);
+  if (throttleCache.size <= THROTTLE_CACHE_LIMIT) return;
+  const overflow = throttleCache.size - THROTTLE_CACHE_LIMIT;
+  for (const cacheKey of throttleCache.keys()) {
+    throttleCache.delete(cacheKey);
+    if (throttleCache.size <= THROTTLE_CACHE_LIMIT - overflow) break;
+  }
+}
+
+function trackThrottledEvent({ throttleKey, throttleMs = 5 * 60 * 1000, now = new Date(), ...event } = {}) {
+  const key = String(throttleKey || `${event.name}:${event.userId || ""}:${event.source || ""}:${event.section || ""}`);
+  const nowMs = now.getTime();
+  const lastMs = throttleCache.get(key) || 0;
+  if (nowMs - lastMs < throttleMs) return null;
+  rememberThrottle(key, nowMs);
+  return trackEvent(event);
+}
+
+async function countEventsByName({ since } = {}) {
+  const match = since ? { createdAt: { $gte: since } } : {};
+  const rows = await AnalyticsEvent.aggregate([
+    { $match: match },
+    { $group: { _id: "$name", count: { $sum: 1 }, users: { $addToSet: "$userId" } } },
+    { $sort: { count: -1 } },
+  ]);
+  return rows.map((row) => ({
+    key: row._id || "unknown",
+    count: row.count,
+    users: (row.users || []).filter((id) => id !== null).length,
+  }));
+}
+
+async function countEventsBySection({ name, since } = {}) {
+  const match = {
+    ...(name ? { name } : {}),
+    ...(since ? { createdAt: { $gte: since } } : {}),
+  };
+  const rows = await AnalyticsEvent.aggregate([
+    { $match: match },
+    { $group: { _id: "$section", count: { $sum: 1 }, users: { $addToSet: "$userId" } } },
+    { $sort: { count: -1 } },
+  ]);
+  return rows.map((row) => ({
+    key: row._id || "unknown",
+    count: row.count,
+    users: (row.users || []).filter((id) => id !== null).length,
+  }));
+}
+
+async function countUniqueUsersForEvents({ names = [], since } = {}) {
+  const rows = await AnalyticsEvent.aggregate([
+    {
+      $match: {
+        name: { $in: names },
+        ...(since ? { createdAt: { $gte: since } } : {}),
+      },
+    },
+    { $group: { _id: "$name", users: { $addToSet: "$userId" }, count: { $sum: 1 } } },
+  ]);
+  return Object.fromEntries(rows.map((row) => [
+    row._id,
+    {
+      count: row.count,
+      users: (row.users || []).filter((id) => id !== null).length,
+    },
+  ]));
+}
+
+module.exports = {
+  EVENT_NAMES,
+  countEventsByName,
+  countEventsBySection,
+  countUniqueUsersForEvents,
+  sanitizeMetadata,
+  trackEvent,
+  trackThrottledEvent,
+};

@@ -179,6 +179,91 @@ function hasTemporaryReplyKeyboard(ctx) {
   );
 }
 
+function positiveMessageId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function getLatestRememberedMessageId(ctx, fields = []) {
+  return fields
+    .map((field) => positiveMessageId(ctx.user?.[field]))
+    .filter(Boolean)
+    .reduce((latest, id) => Math.max(latest, id), 0);
+}
+
+function isCurrentRememberedMessage(ctx, messageId, fields = []) {
+  return fields.some((field) => positiveMessageId(ctx.user?.[field]) === messageId);
+}
+
+function getStaleCallbackFields(data = "") {
+  if (isAiCallback(data)) {
+    return [
+      "aiActionMessageId",
+      "aiLastListMessageId",
+      "aiSectionEntryMessageId",
+    ];
+  }
+
+  if (isSavedProfilesCallback(data) || data.startsWith(callBacks.profileSaveByCode) || data.startsWith(callBacks.profileUnsaveByCode)) {
+    return [
+      "savedProfilesLastListMessageId",
+      "publicProfileLastMessageId",
+      "discussionLastListMessageId",
+    ];
+  }
+
+  if (
+    isDiscussionListCallback(data) ||
+    isDiscussionCreateFlowCallback(data) ||
+    isDiscussionInvitationCallback(data) ||
+    data === callBacks.discussions ||
+    data.startsWith(callBacks.discussionOpen) ||
+    data.startsWith(callBacks.discussionInviteJoin) ||
+    data.startsWith(callBacks.discussionLeave) ||
+    data.startsWith(callBacks.discussionClose) ||
+    data.startsWith(callBacks.discussionMembers) ||
+    data.startsWith(callBacks.discussionRemoveMemberPicker) ||
+    data.startsWith(callBacks.discussionRemoveMember)
+  ) {
+    return [
+      "discussionLastListMessageId",
+      "discussionMenuNoticeMessageId",
+      "discussionLastMembersMessageId",
+      "discussionLastRoomHeaderMessageId",
+      "discussionLastRoomRecentMessageId",
+    ];
+  }
+
+  if (
+    data === callBacks.profile ||
+    isProfileSettingsOrEditCallback(data) ||
+    data.startsWith(callBacks.profileViewByCode)
+  ) {
+    return ["publicProfileLastMessageId"];
+  }
+
+  return [];
+}
+
+async function retireStaleCallbackCardIfNeeded(ctx, data = "") {
+  const callbackMessageId = positiveMessageId(ctx.callbackMessageId);
+  if (!callbackMessageId) return false;
+
+  const fields = getStaleCallbackFields(data);
+  if (!fields.length || isCurrentRememberedMessage(ctx, callbackMessageId, fields)) {
+    return false;
+  }
+
+  const latestMessageId = getLatestRememberedMessageId(ctx, fields);
+  if (latestMessageId <= callbackMessageId) {
+    return false;
+  }
+
+  await ctx.answerCb?.();
+  await retireCallbackMessageIfPossible(ctx);
+  return true;
+}
+
 async function showInlineMenuAfterNavigation(ctx, text, keyboard, { forceClearKeyboard = false } = {}) {
   if (forceClearKeyboard || hasTemporaryReplyKeyboard(ctx)) {
     await deleteCallbackMessageIfPossible(ctx);
@@ -224,6 +309,10 @@ async function handleCallback(ctx) {
   if (!data) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (await retireStaleCallbackCardIfNeeded(ctx, data)) {
+    return null;
   }
 
   if (isOnboardingCallback(data)) {

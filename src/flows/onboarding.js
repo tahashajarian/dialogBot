@@ -22,6 +22,7 @@ const {
   createOnboardingStarterInvitationsForUser,
 } = require("../services/discussion-invitations");
 const { AI_TOP_TEN_LIMIT } = require("../constants/ai");
+const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 
 const ONBOARDING_VERSION = 1;
 const ONBOARDING_INTEREST_GOAL = 3;
@@ -163,6 +164,11 @@ async function completeOnboarding(ctx, skipped = false) {
   await updateProfileField(ctx.userId, "onboardingPromptMessageId", null);
   if (ctx.user) ctx.user.onboardingPromptMessageId = null;
   await updateUserState(ctx.userId, "idle");
+  void trackEvent({
+    name: skipped ? EVENT_NAMES.onboardingSkipped : EVENT_NAMES.onboardingCompleted,
+    userId: ctx.userId,
+    source: "onboarding",
+  });
 }
 
 async function handleOnboardingCallback(ctx, lang, helpers = {}) {

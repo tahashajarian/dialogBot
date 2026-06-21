@@ -3,6 +3,12 @@ const Discussion = require("../models/discussion");
 const DiscussionInvitation = require("../models/discussion-invitation");
 const AiResponseCache = require("../models/ai-response-cache");
 const { getOperationalHealthSnapshot } = require("./operational-health");
+const {
+  EVENT_NAMES,
+  countEventsByName,
+  countEventsBySection,
+  countUniqueUsersForEvents,
+} = require("./analytics-events");
 
 const SECTIONS = ["movies", "music", "books", "random"];
 const SECTION_LABELS = {
@@ -100,6 +106,11 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     invitationStatusCounts,
     cacheTotals,
     health,
+    events24h,
+    events7d,
+    topTenBySection7d,
+    suggestionsBySection7d,
+    funnel7d,
   ] = await Promise.all([
     User.find({})
       .select("createdAt onboardingCompletedAt onboardingSkippedAt profileName bannedAt activeDiscussionId savedProfileCodes aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
@@ -132,6 +143,24 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       },
     ]),
     getOperationalHealthSnapshot({ now }),
+    countEventsByName({ since: since24h }),
+    countEventsByName({ since: since7d }),
+    countEventsBySection({ name: EVENT_NAMES.topTenItemAdded, since: since7d }),
+    countEventsBySection({ name: EVENT_NAMES.suggestionRequested, since: since7d }),
+    countUniqueUsersForEvents({
+      since: since7d,
+      names: [
+        EVENT_NAMES.userStarted,
+        EVENT_NAMES.onboardingCompleted,
+        EVENT_NAMES.topTenItemAdded,
+        EVENT_NAMES.tasteLabelUnlocked,
+        EVENT_NAMES.discussionListOpened,
+        EVENT_NAMES.discussionJoined,
+        EVENT_NAMES.discussionCreated,
+        EVENT_NAMES.inviteSent,
+        EVENT_NAMES.profileSaved,
+      ],
+    }),
   ]);
 
   const discussionAgg = await Discussion.aggregate([
@@ -181,6 +210,23 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       totalHits: cache.totalHits || 0,
     },
     health,
+    events: {
+      last24h: events24h,
+      last7d: events7d,
+      topTenBySection7d,
+      suggestionsBySection7d,
+      funnel7d: [
+        { key: "Started", event: EVENT_NAMES.userStarted, ...(funnel7d[EVENT_NAMES.userStarted] || { count: 0, users: 0 }) },
+        { key: "Onboarding completed", event: EVENT_NAMES.onboardingCompleted, ...(funnel7d[EVENT_NAMES.onboardingCompleted] || { count: 0, users: 0 }) },
+        { key: "Added Top 10 item", event: EVENT_NAMES.topTenItemAdded, ...(funnel7d[EVENT_NAMES.topTenItemAdded] || { count: 0, users: 0 }) },
+        { key: "Unlocked taste label", event: EVENT_NAMES.tasteLabelUnlocked, ...(funnel7d[EVENT_NAMES.tasteLabelUnlocked] || { count: 0, users: 0 }) },
+        { key: "Opened discussion list", event: EVENT_NAMES.discussionListOpened, ...(funnel7d[EVENT_NAMES.discussionListOpened] || { count: 0, users: 0 }) },
+        { key: "Joined discussion", event: EVENT_NAMES.discussionJoined, ...(funnel7d[EVENT_NAMES.discussionJoined] || { count: 0, users: 0 }) },
+        { key: "Created discussion", event: EVENT_NAMES.discussionCreated, ...(funnel7d[EVENT_NAMES.discussionCreated] || { count: 0, users: 0 }) },
+        { key: "Sent invite", event: EVENT_NAMES.inviteSent, ...(funnel7d[EVENT_NAMES.inviteSent] || { count: 0, users: 0 }) },
+        { key: "Saved profile", event: EVENT_NAMES.profileSaved, ...(funnel7d[EVENT_NAMES.profileSaved] || { count: 0, users: 0 }) },
+      ],
+    },
   };
 }
 

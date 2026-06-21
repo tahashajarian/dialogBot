@@ -3,6 +3,7 @@ const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { sanitizeProfileNameCandidate } = require("./profile");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 
@@ -231,6 +232,15 @@ async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
   const withoutDuplicate = current.filter((entry) => entry.toLowerCase() !== cleanTitle.toLowerCase());
   const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
   await updateProfileField(userId, `aiRecentSuggestions.${section}`, updated);
+  void trackEvent({
+    name: EVENT_NAMES.suggestionSaved,
+    userId,
+    section,
+    metadata: {
+      count: updated.length,
+      goal: maxItems,
+    },
+  });
   return { ok: true, items: updated };
 }
 
@@ -267,6 +277,15 @@ async function consumeAiSuggestionQuota(
 
   const updatedUsage = [...recentUsage, now];
   await updateProfileField(userId, `aiSuggestionUsage.${section}`, updatedUsage);
+  void trackEvent({
+    name: EVENT_NAMES.suggestionRequested,
+    userId,
+    section,
+    metadata: {
+      count: updatedUsage.length,
+      goal: limit,
+    },
+  });
   return {
     ok: true,
     count: updatedUsage.length,
@@ -455,6 +474,19 @@ async function syncAiTasteForSection(userId, section) {
     { returnDocument: "after" },
   );
 
+  if (!existingTaste.labelKey && inferred.labelKey) {
+    void trackEvent({
+      name: EVENT_NAMES.tasteLabelUnlocked,
+      userId,
+      section,
+      metadata: {
+        labelKey: inferred.labelKey,
+        count: inferred.sampleCount,
+        goal: progress.goal,
+      },
+    });
+  }
+
   return {
     ok: true,
     taste: inferred,
@@ -497,6 +529,16 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const updated = [...current, { title, comment, watched }];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
+  void trackEvent({
+    name: listType === "topTen" ? EVENT_NAMES.topTenItemAdded : EVENT_NAMES.watchlistItemAdded,
+    userId,
+    section,
+    metadata: {
+      listType,
+      count: updated.length,
+      goal: maxItems,
+    },
+  });
   return { ok: true, items: updated };
 }
 

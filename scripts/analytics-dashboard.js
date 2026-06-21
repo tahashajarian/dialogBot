@@ -92,6 +92,37 @@ function renderKeyCountTable(rows = [], emptyText = "No data yet") {
   </table>`;
 }
 
+function renderEventTable(rows = [], emptyText = "No events yet") {
+  if (!rows.length) return `<p class="muted">${escapeHtml(emptyText)}</p>`;
+  return `<table>
+    <thead><tr><th>Event</th><th>Events</th><th>Users</th></tr></thead>
+    <tbody>
+      ${rows.map((row) => `<tr>
+        <td>${escapeHtml(row.key)}</td>
+        <td>${formatNumber(row.count)}</td>
+        <td>${formatNumber(row.users)}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
+}
+
+function sectionKey(title) {
+  return String(title || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function collapsibleSection(title, body, { open = false, note = "" } = {}) {
+  return `<details class="section" data-section="${escapeHtml(sectionKey(title))}" ${open ? "open" : ""}>
+    <summary>
+      <span>${escapeHtml(title)}</span>
+      ${note ? `<small>${escapeHtml(note)}</small>` : ""}
+    </summary>
+    <div class="section-body">${body}</div>
+  </details>`;
+}
+
 function renderDashboard(snapshot) {
   const { users, discussions, aiCache, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
@@ -110,9 +141,11 @@ function renderDashboard(snapshot) {
       --text: #17202a;
       --muted: #64748b;
       --line: #d8dee8;
+      --soft-line: #edf0f5;
       --accent: #16836b;
       --ok: #16836b;
       --bad: #b42318;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -121,7 +154,9 @@ function renderDashboard(snapshot) {
         --text: #edf2f7;
         --muted: #9aa7b7;
         --line: #2a3542;
+        --soft-line: #222b35;
         --accent: #3fc49f;
+        --shadow: none;
       }
     }
     * { box-sizing: border-box; }
@@ -147,16 +182,23 @@ function renderDashboard(snapshot) {
     h1 { margin: 0; font-size: 28px; }
     h2 { margin: 28px 0 12px; font-size: 18px; }
     .muted { color: var(--muted); }
+    .stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
     }
+    .compact-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .card {
       background: var(--panel);
-      border: 1px solid var(--line);
+      border: 1px solid var(--soft-line);
       border-radius: 8px;
       padding: 14px 16px;
+      box-shadow: var(--shadow);
     }
     .card.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
     .card.bad { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
@@ -167,14 +209,51 @@ function renderDashboard(snapshot) {
     .card-note { color: var(--muted); font-size: 12px; margin-top: 6px; }
     .panel {
       background: var(--panel);
-      border: 1px solid var(--line);
+      border: 1px solid var(--soft-line);
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: var(--shadow);
     }
+    details.section {
+      background: var(--panel);
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    details.section > summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 14px;
+      font-weight: 700;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    details.section > summary::after {
+      content: "+";
+      color: var(--accent);
+      font-size: 18px;
+      line-height: 1;
+    }
+    details.section[open] > summary {
+      border-bottom: 1px solid var(--soft-line);
+    }
+    details.section[open] > summary::after { content: "-"; }
+    details.section small {
+      color: var(--muted);
+      font-weight: 500;
+      margin-left: auto;
+    }
+    .section-body { padding: 12px; }
+    .section-body > .panel,
+    .section-body > .grid { margin: 0; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+    th, td { padding: 10px 12px; text-align: left; }
     th { color: var(--muted); font-weight: 600; font-size: 12px; }
-    tr:last-child td { border-bottom: 0; }
+    tbody tr + tr td { border-top: 1px solid var(--soft-line); }
     a { color: var(--accent); }
     .footer { margin-top: 24px; font-size: 13px; color: var(--muted); }
   </style>
@@ -189,8 +268,8 @@ function renderDashboard(snapshot) {
       <a href="/api/snapshot">JSON</a>
     </header>
 
-    <h2>Health</h2>
-    <div class="grid">
+    <div class="stack">
+      ${collapsibleSection("Health", `<div class="grid compact-grid">
       ${statusCard("Dashboard Server", true, `Up for ${formatNumber(Math.round(process.uptime()))}s`)}
       ${statusCard(
         "Database",
@@ -213,19 +292,17 @@ function renderDashboard(snapshot) {
       )}
       ${card("AI Avg Latency 1h", aiHour.avgDurationMs || 0, "Milliseconds")}
       ${card("AI Calls 24h", aiDay.total || 0, `${formatNumber(aiDay.failures || 0)} failed (${percent(aiDay.failureRate)})`)}
-    </div>
+    </div>`, { open: true, note: "server, db, bot, AI" })}
 
-    <h2>Recent AI Failures</h2>
-    <div class="panel">${renderKeyCountTable(
+      ${collapsibleSection("Recent AI Failures", `<div class="panel">${renderKeyCountTable(
     (health?.aiApi?.recentFailures || []).map((event) => ({
       key: `${event.operation || "ai"} / ${event.provider || "provider"}: ${event.reason || "failed"}`,
       count: event.durationMs || 0,
     })),
     "No AI failures in the last 24 hours",
-  )}</div>
+  )}</div>`, { note: "last 24h" })}
 
-    <h2>Users</h2>
-    <div class="grid">
+      ${collapsibleSection("Users", `<div class="grid compact-grid">
       ${card("Total Users", users.total)}
       ${card("New 24h", users.new24h)}
       ${card("New 7d", users.new7d)}
@@ -235,13 +312,21 @@ function renderDashboard(snapshot) {
       ${card("Active In Discussion", users.activeDiscussionUsers)}
       ${card("Saved Profile Users", users.savedProfileUsers)}
       ${card("Banned", users.banned)}
-    </div>
+    </div>`, { open: true, note: "growth and profile state" })}
 
-    <h2>Lists And Taste</h2>
-    <div class="panel">${renderSectionTable(snapshot.lists)}</div>
+      ${collapsibleSection("Product Funnel", `<div class="panel">${renderEventTable(snapshot.events?.funnel7d || [], "No funnel events yet")}</div>`, { open: true, note: "last 7 days" })}
 
-    <h2>Discussions</h2>
-    <div class="grid">
+      ${collapsibleSection("Events, Last 24 Hours", `<div class="panel">${renderEventTable(snapshot.events?.last24h || [])}</div>`, { note: "detailed" })}
+
+      ${collapsibleSection("Events, Last 7 Days", `<div class="panel">${renderEventTable(snapshot.events?.last7d || [])}</div>`, { note: "detailed" })}
+
+      ${collapsibleSection("Top 10 Adds By Section", `<div class="panel">${renderEventTable(snapshot.events?.topTenBySection7d || [])}</div>`, { note: "last 7 days" })}
+
+      ${collapsibleSection("Suggestion Requests By Section", `<div class="panel">${renderEventTable(snapshot.events?.suggestionsBySection7d || [])}</div>`, { note: "last 7 days" })}
+
+      ${collapsibleSection("Lists And Taste", `<div class="panel">${renderSectionTable(snapshot.lists)}</div>`, { note: "all sections" })}
+
+      ${collapsibleSection("Discussions", `<div class="grid compact-grid">
       ${card("Total Discussions", discussions.total)}
       ${card("Open", discussions.open)}
       ${card("Closed", discussions.closed)}
@@ -252,20 +337,47 @@ function renderDashboard(snapshot) {
       ${card("Total Members", discussions.totalMembers, "Sum across rooms")}
       ${card("Messages", discussions.totalMessages)}
       ${card("Reports", discussions.totalReports)}
-    </div>
+    </div>`, { open: true, note: "rooms and activity" })}
 
-    <h2>Invitations</h2>
-    <div class="panel">${renderKeyCountTable(snapshot.invitations)}</div>
+      ${collapsibleSection("Invitations", `<div class="panel">${renderKeyCountTable(snapshot.invitations)}</div>`, { note: "by status" })}
 
-    <h2>AI Cache</h2>
-    <div class="grid">
+      ${collapsibleSection("AI Cache", `<div class="grid compact-grid">
       ${card("Cached Responses", aiCache.total)}
       ${card("Used Entries", aiCache.usedEntries)}
       ${card("Cache Hits", aiCache.totalHits)}
+    </div>`, { note: "reuse stats" })}
     </div>
 
-    <p class="footer">This dashboard is read-only and uses existing product data. Event-based analytics should be added next.</p>
+    <p class="footer">This dashboard updates every 30 seconds and remembers collapsed sections. It is read-only and stores analytics events without message text.</p>
   </main>
+  <script>
+    const sectionStateKey = "dialogbot.dashboard.sections";
+    const loadSectionState = () => {
+      try {
+        return JSON.parse(localStorage.getItem(sectionStateKey) || "{}");
+      } catch {
+        return {};
+      }
+    };
+    const saveSectionState = () => {
+      const state = {};
+      document.querySelectorAll("details.section").forEach((section) => {
+        state[section.dataset.section] = section.open;
+      });
+      localStorage.setItem(sectionStateKey, JSON.stringify(state));
+    };
+    const state = loadSectionState();
+    document.querySelectorAll("details.section").forEach((section) => {
+      if (Object.prototype.hasOwnProperty.call(state, section.dataset.section)) {
+        section.open = Boolean(state[section.dataset.section]);
+      }
+      section.addEventListener("toggle", saveSectionState);
+    });
+    setTimeout(() => {
+      saveSectionState();
+      window.location.reload();
+    }, 30000);
+  </script>
 </body>
 </html>`;
 }

@@ -40,6 +40,7 @@ const {
   notifyDiscussionMembers,
 } = require("./discussion-notifications");
 const { getModerationConfig } = require("../config");
+const { EVENT_NAMES, trackEvent, trackThrottledEvent } = require("./analytics-events");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -213,6 +214,15 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
     throw error;
   }
 
+  void trackEvent({
+    name: EVENT_NAMES.discussionCreated,
+    userId: creatorUserId,
+    metadata: {
+      joinRuleType: parsedRule.joinRule.type,
+      maxMembers: normalizedMaxMembers,
+    },
+  });
+
   return {
     ok: true,
     discussion,
@@ -240,6 +250,16 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
     }
   }
 
+  void trackThrottledEvent({
+    name: EVENT_NAMES.discussionListOpened,
+    userId,
+    source: "active",
+    throttleKey: `discussion_list:active:${userId || "anon"}`,
+    metadata: {
+      resultCount: discussions.length,
+    },
+  });
+
   return { ok: true, discussions };
 }
 
@@ -258,6 +278,16 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
+
+  void trackThrottledEvent({
+    name: EVENT_NAMES.discussionListOpened,
+    userId,
+    source: "mine",
+    throttleKey: `discussion_list:mine:${userId || "anon"}`,
+    metadata: {
+      resultCount: discussions.length,
+    },
+  });
 
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
 }

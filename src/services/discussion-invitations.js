@@ -3,6 +3,7 @@ const DiscussionInvitation = require("../models/discussion-invitation");
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { getUserLimits } = require("../constants/limits");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { hasInvitationMute } = require("./discussion-invitation-mutes");
 const {
   ensurePublicDiscussionCode,
@@ -204,6 +205,12 @@ async function createDiscussionInvitation({
     if (duplicate) return { ok: false, reason: "duplicate", invitation: duplicate, discussion, invitee };
     throw error;
   }
+
+  void trackEvent({
+    name: EVENT_NAMES.inviteSent,
+    userId: inviter.userId,
+    source: invitation.source,
+  });
 
   return { ok: true, invitation, discussion, invitee };
 }

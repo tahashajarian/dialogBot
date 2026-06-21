@@ -8,6 +8,7 @@ const {
   getAiTasteItemFeedback,
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
+  getSuggestionRealityIssue,
   isEncyclopedicTasteFeedback,
   isFeedbackRelevantToItem,
   isGenericTasteFeedback,
@@ -319,6 +320,33 @@ test("does not split movie metadata at director abbreviation", () => {
       "Blade Runner 2049 (2017, Dir. Denis Villeneuve).",
       "A visual continuation of thoughtful sci-fi.",
     ],
+  );
+});
+
+test("suggestion reality gate rejects fabricated-looking outputs", () => {
+  assert.equal(
+    getSuggestionRealityIssue({
+      mode: "books",
+      title: "The Silent Path (Unknown Author)",
+      reason: "Matches your reflective mood.",
+    }),
+    "placeholder_metadata",
+  );
+  assert.equal(
+    getSuggestionRealityIssue({
+      mode: "music",
+      title: "Moon Dust Symphony",
+      reason: "A fictional track for metal fans.",
+    }),
+    "fabrication_marker",
+  );
+  assert.equal(
+    getSuggestionRealityIssue({
+      mode: "movies",
+      title: "Blade Runner 2049 (2017, Dir. Denis Villeneuve)",
+      reason: "Slow sci-fi with neon melancholy.",
+    }),
+    "",
   );
 });
 

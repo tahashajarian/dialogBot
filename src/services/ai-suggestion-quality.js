@@ -21,6 +21,38 @@ function normalizeSuggestionReason(text, lang, { limitWords }) {
   return limitWords(cleaned, 14);
 }
 
+function getSuggestionRealityIssue({ mode, title, reason }) {
+  const cleanTitle = String(title || "").trim();
+  const cleanReason = String(reason || "").trim();
+  const combined = `${cleanTitle} ${cleanReason}`;
+  if (!cleanTitle) return "missing_title";
+
+  if (/\b(?:Title|Artist|Author|Director|Unknown Artist|Unknown Author|Unknown Director)\b/.test(combined)) {
+    return "placeholder_metadata";
+  }
+  if (/(عنوان|نویسنده|کارگردان|هنرمند)\s*(نامشخص|فرضی)/.test(combined)) {
+    return "placeholder_metadata";
+  }
+  if (/\b(?:unknown|fictional|imaginary|made[- ]?up|placeholder)\b/i.test(combined)) {
+    return "fabrication_marker";
+  }
+  if (/(خیالی|ساختگی|فرضی|ناموجود)/.test(combined)) {
+    return "fabrication_marker";
+  }
+
+  if (mode === "movies" && !/\((?=.*(?:\bdir\.|\bdirector\b))[^)]+\)/i.test(cleanTitle)) {
+    return "missing_movie_metadata";
+  }
+  if (mode === "music" && !/\([^)]+\)/.test(cleanTitle)) {
+    return "missing_music_metadata";
+  }
+  if (mode === "books" && !/\([^)]+\)/.test(cleanTitle)) {
+    return "missing_book_metadata";
+  }
+
+  return "";
+}
+
 function splitSuggestionSentence(text) {
   const value = String(text || "").trim();
   let parenthesisDepth = 0;
@@ -178,6 +210,7 @@ function createSuggestionHelpers(helpers) {
     getInterestSuggestionQualityIssue: (payload) => getInterestSuggestionQualityIssue(payload, helpers),
     parseSingleSuggestionResponse: (raw, lang) => parseSingleSuggestionResponse(raw, lang, helpers),
     splitSuggestionSentence,
+    getSuggestionRealityIssue,
   };
 }
 
@@ -185,5 +218,6 @@ module.exports = {
   createSuggestionHelpers,
   getInterestSuggestionFamily,
   getSingleSuggestionDetailInstruction,
+  getSuggestionRealityIssue,
   splitSuggestionSentence,
 };

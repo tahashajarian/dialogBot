@@ -92,6 +92,7 @@ const {
 const {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
+  getSuggestionRealityIssue,
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = createSuggestionHelpers({
@@ -173,6 +174,9 @@ async function getAiSingleSuggestion({
       "Reply in exactly 2 short lines in plain text.",
       "Line 1: item name (include metadata in name as requested).",
       "Line 2: very short why only (max 12 words).",
+      "Recommend only real, existing works/resources. If unsure, choose a widely known real item instead.",
+      "Never invent titles, artists, authors, directors, years, tools, channels, or resources.",
+      "Do not use placeholder metadata like unknown artist, unknown author, or fictional title.",
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
       personalized
@@ -207,6 +211,14 @@ async function getAiSingleSuggestion({
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }
       return { ok: false, reason: "invalid_output" };
+    }
+    const realityIssue = getSuggestionRealityIssue({
+      mode,
+      title: parsed.title,
+      reason: parsed.reason,
+    });
+    if (realityIssue) {
+      return { ok: false, reason: "unverified_suggestion", qualityIssue: realityIssue };
     }
     if (mode === "random") {
       const qualityIssue = getInterestSuggestionQualityIssue({
@@ -384,5 +396,6 @@ module.exports = {
   splitSuggestionSentence,
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
+  getSuggestionRealityIssue,
   sanitizeTasteFeedback,
 };

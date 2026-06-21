@@ -280,10 +280,6 @@ function getSuggestionDoneCompliment(lang, section) {
   return getSectionMessage(messages, lang, "aiSuggestionDoneCompliment", section);
 }
 
-function getSuggestionAddedDoneMessage(lang, section) {
-  return getSectionMessage(messages, lang, "aiSuggestionAddedDone", section, "aiSuggestionAddedDone");
-}
-
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const title = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
@@ -932,10 +928,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].aiSuggestionAdded, aiSuggestionAddedOptionsKeyboard(lang, section));
     }
 
-    return ctx.reply(
-      `${getSuggestionDoneCompliment(lang, section)}\n${getSuggestionAddedDoneMessage(lang, section)}`,
-      aiSuggestionNextKeyboard(lang, section),
-    );
+    return ctx.reply(getSuggestionDoneCompliment(lang, section), aiSuggestionNextKeyboard(lang, section));
   }
 
   if (data === callBacks.aiSuggestMovies) return enterAiSection(ctx, lang, "movies", helpers);

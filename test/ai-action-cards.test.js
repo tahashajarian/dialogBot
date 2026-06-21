@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const messages = require("../src/messages");
+const { handleCallback } = require("../src/callbacks");
+const { callBacks } = require("../src/constants");
 const {
   clearAiActionMessage,
   rememberAiActionMessage,
@@ -44,4 +46,40 @@ test("AI button guidance is concise, bot-authored, and distinguishes control typ
     assert.match(messages[lang].aiSuggestionUseButtons, /^🤖/);
     assert.match(messages[lang].aiSuggestionUseButtons, /💡/);
   }
+});
+
+test("old suggestion action cards are retired without running the stale action", async () => {
+  const deleted = [];
+  const replies = [];
+  let answered = false;
+  const ctx = {
+    callbackData: `${callBacks.aiSectionAddSuggestionDone}books`,
+    callbackMessageId: 10,
+    userId: 42,
+    user: {
+      userId: 42,
+      lang: "en",
+      state: "ai_chat_books",
+      aiActionMessageId: 20,
+      aiActionContext: "suggest_result:books",
+    },
+    answerCb: async () => {
+      answered = true;
+      return true;
+    },
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 1 };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.equal(answered, true);
+  assert.deepEqual(deleted, [10]);
+  assert.deepEqual(replies, []);
 });
