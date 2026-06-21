@@ -1,5 +1,5 @@
 {
-  "name": "dialogBot",
+  "name": "MuzeBot",
   "version": "0.0.1",
   "description": "A bilingual Bale social bot for profiles, AI taste lists, and live discussions.",
   "main": "src/index.js",
