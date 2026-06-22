@@ -127,13 +127,14 @@ function collapsibleSection(title, body, { open = false, note = "" } = {}) {
   </details>`;
 }
 
-function renderLimitsForm(values = {}, action = "/limits") {
+function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, saved = false } = {}) {
   const groups = {};
   for (const [key, definition] of Object.entries(LIMIT_DEFINITIONS)) {
     if (!groups[definition.group]) groups[definition.group] = [];
     groups[definition.group].push({ key, ...definition, value: values[key] ?? definition.default });
   }
-  return `<form method="post" action="${escapeHtml(action)}" class="limits-form">
+  return `${saved ? `<div class="notice success">Limits saved. Restart the bot to activate them.</div>` : ""}
+  <form method="post" action="${escapeHtml(action)}" class="limits-form">
     ${Object.entries(groups).map(([group, fields]) => `<fieldset>
       <legend>${escapeHtml(group)}</legend>
       <div class="limit-grid">${fields.map((field) => `<label>
@@ -143,6 +144,7 @@ function renderLimitsForm(values = {}, action = "/limits") {
       </label>`).join("")}</div>
     </fieldset>`).join("")}
     <div class="form-actions"><button type="submit">Save limits</button><span class="muted">Restart the bot to activate saved changes.</span></div>
+    <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
   </form>`;
 }
 
@@ -287,6 +289,9 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
     .form-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     button { border: 0; border-radius: 6px; padding: 10px 16px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; }
+    .notice { padding: 10px 12px; margin-bottom: 14px; border-radius: 6px; }
+    .notice.success { color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, var(--panel)); }
+    .limit-updated { font-size: 12px; }
   </style>
 </head>
 <body>
@@ -300,7 +305,10 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     </header>
 
     <div class="stack">
-      ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, `/limits${actionSuffix}`), { open: true, note: "editable product quotas" })}
+      ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, `/limits${actionSuffix}`, {
+    updatedAt: snapshot.limitsUpdatedAt,
+    saved: new URLSearchParams(actionSuffix).get("saved") === "1",
+  }), { open: true, note: "editable product quotas" })}
       ${collapsibleSection("Health", `<div class="grid compact-grid">
       ${statusCard("Dashboard Server", true, `Up for ${formatNumber(Math.round(process.uptime()))}s`)}
       ${statusCard(
@@ -450,7 +458,9 @@ async function handleRequest(req, res, { token }) {
 
   if (url.pathname === "/limits" && req.method === "POST") {
     await updateOperationalLimits(await readFormBody(req));
-    res.writeHead(303, { location: `/${url.search}`, "cache-control": "no-store" });
+    const redirectParams = new URLSearchParams(url.searchParams);
+    redirectParams.set("saved", "1");
+    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
     return res.end();
   }
 

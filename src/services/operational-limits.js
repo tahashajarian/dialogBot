@@ -23,6 +23,7 @@ const operationalLimits = Object.fromEntries(
 );
 let cacheExpiresAt = 0;
 let refreshPromise = null;
+let limitsUpdatedAt = null;
 
 function normalizeLimits(values = {}) {
   return Object.fromEntries(Object.entries(LIMIT_DEFINITIONS).map(([key, definition]) => {
@@ -43,6 +44,7 @@ async function refreshOperationalLimits({ force = false } = {}) {
   refreshPromise = AppSetting.findOne({ key: SETTINGS_KEY }).lean()
     .then((setting) => {
       applyLimits(setting?.values || {});
+      limitsUpdatedAt = setting?.updatedAt || null;
       cacheExpiresAt = Date.now() + CACHE_TTL_MS;
       return operationalLimits;
     })
@@ -54,19 +56,29 @@ async function refreshOperationalLimits({ force = false } = {}) {
 
 async function updateOperationalLimits(values) {
   const normalized = normalizeLimits(values);
+  const updatedAt = new Date();
   await AppSetting.findOneAndUpdate(
     { key: SETTINGS_KEY },
-    { $set: { values: normalized, updatedAt: new Date() } },
+    { $set: { values: normalized, updatedAt } },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
   cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+  limitsUpdatedAt = updatedAt;
   return { ...applyLimits(normalized) };
+}
+
+function getOperationalLimitsState() {
+  return {
+    values: { ...operationalLimits },
+    updatedAt: limitsUpdatedAt ? new Date(limitsUpdatedAt).toISOString() : null,
+  };
 }
 
 module.exports = {
   LIMIT_DEFINITIONS,
   operationalLimits,
   normalizeLimits,
+  getOperationalLimitsState,
   refreshOperationalLimits,
   updateOperationalLimits,
 };

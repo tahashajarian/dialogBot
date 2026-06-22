@@ -69,6 +69,9 @@ values remain the defaults until an admin saves the form, and running bot
 processes load the saved values once at startup. Restart the bot after saving
 changes in the dashboard.
 
+After saving, the dashboard confirms the write and shows when the global limits
+were last changed. The form always displays the currently persisted values.
+
 These settings are global. Lowering a cap does not delete existing user data;
 it only prevents new additions until usage is below the new cap.
 

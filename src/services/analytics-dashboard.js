@@ -3,7 +3,11 @@ const Discussion = require("../models/discussion");
 const DiscussionInvitation = require("../models/discussion-invitation");
 const AiResponseCache = require("../models/ai-response-cache");
 const { getOperationalHealthSnapshot } = require("./operational-health");
-const { operationalLimits, refreshOperationalLimits } = require("./operational-limits");
+const {
+  operationalLimits,
+  refreshOperationalLimits,
+  getOperationalLimitsState,
+} = require("./operational-limits");
 const {
   EVENT_NAMES,
   countEventsByName,
@@ -84,6 +88,7 @@ async function countByField(Model, field) {
 
 async function getAnalyticsSnapshot({ now = new Date() } = {}) {
   const limits = { ...(await refreshOperationalLimits()) };
+  const limitsState = getOperationalLimitsState();
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -182,6 +187,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
   return {
     generatedAt: now.toISOString(),
     limits,
+    limitsUpdatedAt: limitsState.updatedAt,
     users: {
       total: totalUsers,
       new24h: newUsers24h,
