@@ -212,6 +212,7 @@ Labels should be inferred from both typed items and suggested chips.
 
 - AI list duplicate detection should run across all sections and list types, not just music.
 - Duplicate detection should return match data for better duplicate messages.
+- Duplicate responses are bot-authored messages and keep the same continuous-add inline controls as a successful non-final add.
 - After a mutation, do not build follow-up copy from stale `ctx.user` when the service already returned updated items.
 - Use the updated result to avoid incorrect full/progress messages.
 - Track the last bot-sent AI list message (`aiLastListMessageId`, section, type) so stale list displays can be deleted after mutating actions.

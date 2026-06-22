@@ -97,6 +97,7 @@ const {
 const { requireDiscussionProfileName } = require("./flows/discussion-name-gate");
 const {
   clearViewedPublicProfileMessage,
+  forgetPeopleListMessage,
   forgetSavedProfilesListMessage,
   handleSavedProfilesCallback,
   isSavedProfilesCallback,
@@ -207,6 +208,7 @@ function getStaleCallbackFields(data = "") {
   if (isSavedProfilesCallback(data) || data.startsWith(callBacks.profileSaveByCode) || data.startsWith(callBacks.profileUnsaveByCode)) {
     return [
       "savedProfilesLastListMessageId",
+      "peopleLastListMessageId",
       "publicProfileLastMessageId",
       "discussionLastListMessageId",
     ];
@@ -346,6 +348,7 @@ async function handleCallback(ctx) {
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang), {
       forceClearKeyboard: shouldClearKeyboard,
     });
@@ -358,6 +361,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(ctx, messages[lang].helpText, helpKeyboard(lang), {
       forceClearKeyboard: shouldClearKeyboard,
     });
@@ -370,6 +374,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(ctx, messages[lang].helpRulesText, helpRulesKeyboard(lang), {
       forceClearKeyboard: shouldClearKeyboard,
     });
@@ -382,6 +387,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(ctx, messages[lang].chooseLanguage, languageKeyboard(), {
       forceClearKeyboard: shouldClearKeyboard,
     });
@@ -394,6 +400,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     await deleteCallbackMessageIfPossible(ctx);
     if (shouldClearKeyboard) {
       await removeBottomKeyboard(ctx, messages[lang].profile);
@@ -407,6 +414,7 @@ async function handleCallback(ctx) {
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(
       ctx,
       `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`,
@@ -422,6 +430,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
+    await forgetPeopleListMessage(ctx);
     const invitationCount = await getInvitationCount(ctx.userId);
     return showInlineMenuAfterNavigation(
       ctx,

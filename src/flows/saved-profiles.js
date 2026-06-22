@@ -3,12 +3,15 @@ const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const {
   inlineKeyboard,
+  peopleDiscoverListKeyboard,
+  peopleHubKeyboard,
+  profilePeopleBackKeyboard,
   profileInvitationBackKeyboard,
   profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
-const { updateProfileField } = require("../services/users");
+const { updateProfileField, updateUserFields } = require("../services/users");
 const {
   getBasicProfileMissingFields,
   sendProfileMessage,
@@ -27,6 +30,15 @@ const {
   buildSavedProfilesListText,
   buildProfileSavedFooter,
 } = require("../services/saved-profiles-ui");
+const {
+  ensurePeopleDiscoveryCodes,
+  findPeopleBySharedTaste,
+  paginatePeopleDiscovery,
+} = require("../services/people-discovery");
+const {
+  buildPeopleDiscoveryText,
+  isPeopleCallback,
+} = require("../services/people-discovery-ui");
 const {
   decorateDiscussionsForList,
   buildDiscussionListText,
@@ -98,6 +110,49 @@ async function forgetSavedProfilesListMessage(ctx) {
   }
 }
 
+async function rememberPeopleListMessage(ctx, messageOrId, page = 0) {
+  if (typeof messageOrId === "boolean") return;
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) return;
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  if (ctx.user) {
+    ctx.user.peopleLastListMessageId = messageId;
+    ctx.user.peopleLastListPage = normalizedPage;
+  }
+  if (canPersistUserMessageState(ctx)) {
+    await updateUserFields(ctx.userId, {
+      peopleLastListMessageId: messageId,
+      peopleLastListPage: normalizedPage,
+    });
+  }
+}
+
+async function clearPeopleListMessage(ctx, exceptMessageIds = []) {
+  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
+  const messageId = Number(ctx.user?.peopleLastListMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageText)) return false;
+  const edited = ctx.editMessageText
+    ? await ctx.editMessageText(messageId, " ", { reply_markup: { inline_keyboard: [] } })
+    : false;
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  if (edited || deleted) {
+    if (ctx.user) ctx.user.peopleLastListMessageId = null;
+    if (canPersistUserMessageState(ctx)) {
+      await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
+    }
+  }
+  return Boolean(edited || deleted);
+}
+
+async function forgetPeopleListMessage(ctx) {
+  if (ctx.user?.peopleLastListMessageId) {
+    if (ctx.user) ctx.user.peopleLastListMessageId = null;
+    if (canPersistUserMessageState(ctx)) {
+      await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
+    }
+  }
+}
+
 async function clearViewedPublicProfileMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.publicProfileLastMessageId);
@@ -139,6 +194,7 @@ async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
 
 async function clearSavedProfileSurfaceMessages(ctx, exceptMessageIds = []) {
   await clearSavedProfilesListMessage(ctx, exceptMessageIds);
+  await clearPeopleListMessage(ctx, exceptMessageIds);
   await clearViewedPublicProfileMessage(ctx, exceptMessageIds);
   await clearSavedProfileDiscussionMessage(ctx, exceptMessageIds);
 }
@@ -153,6 +209,7 @@ async function rememberViewedPublicProfileMessage(ctx, message) {
 }
 
 async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = null } = {}) {
+  await forgetPeopleListMessage(ctx);
   const items = await buildSavedProfileListItems({
     codes,
     normalizePublicProfileCode,
@@ -176,6 +233,42 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
     await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
     await updateProfileField(ctx.userId, "discussionLastListType", "");
   }
+  return sent;
+}
+
+async function sendPeopleHub(ctx, lang, { send = null } = {}) {
+  await forgetSavedProfilesListMessage(ctx);
+  await forgetPeopleListMessage(ctx);
+  const sent = send
+    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang))
+    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang));
+  return sent;
+}
+
+async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
+  const result = await findPeopleBySharedTaste(ctx.user || {});
+  const paged = paginatePeopleDiscovery(result.items || [], page);
+  const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
+  return {
+    page: paged.page,
+    text: result.ok
+      ? buildPeopleDiscoveryText(messages, lang, pageItems, { startIndex: paged.startIndex })
+      : messages[lang].peopleDiscoverNeedsLists,
+    keyboard: peopleDiscoverListKeyboard(lang, {
+      page: paged.page,
+      totalPages: paged.totalPages,
+      showLists: pageItems.length === 0,
+    }),
+  };
+}
+
+async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}) {
+  await forgetSavedProfilesListMessage(ctx);
+  const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
+  const sent = send
+    ? await send(discoveryPage.text, discoveryPage.keyboard)
+    : await ctx.reply(discoveryPage.text, discoveryPage.keyboard);
+  await rememberPeopleListMessage(ctx, sent, discoveryPage.page);
   return sent;
 }
 
@@ -236,11 +329,15 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
   return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
-async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false } = {}) {
+async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromPeopleList = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
 
-  if (fromSavedList) {
+  if (fromPeopleList) {
+    await clearPeopleListMessage(ctx, [ctx.callbackMessageId]);
+    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
+    await clearSavedProfileDiscussionMessage(ctx, [ctx.callbackMessageId]);
+  } else if (fromSavedList) {
     await clearSavedProfilesListMessage(ctx, [ctx.callbackMessageId]);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await clearSavedProfileDiscussionMessage(ctx, [ctx.callbackMessageId]);
@@ -281,7 +378,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     lang,
     keyboard: fromSavedList
       ? profileViewBackKeyboard(lang)
-      : fromInvitationList
+      : fromPeopleList
+        ? profilePeopleBackKeyboard(lang)
+        : fromInvitationList
         ? profileInvitationBackKeyboard(lang, target.userId)
         : undefined,
     messages,
@@ -351,7 +450,8 @@ async function renderSavedProfileDiscussions(ctx, lang, code) {
 }
 
 function isSavedProfilesCallback(data = "") {
-  return data === callBacks.savedProfiles ||
+  return isPeopleCallback(data) ||
+    data === callBacks.savedProfiles ||
     data === "saved:back" ||
     data.startsWith(callBacks.savedProfilesPage) ||
     data.startsWith(callBacks.savedProfilesOpen) ||
@@ -372,6 +472,41 @@ async function handleSavedProfilesCallback(ctx, lang, {
 } = {}) {
   const data = ctx.callbackData || "";
 
+  if (data === callBacks.people) {
+    await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
+    await clearRememberedAiListMessage?.(ctx);
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return sendPeopleHub(ctx, lang, {
+      send: replyWithRemovedKeyboardThenInline
+        ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
+        : null,
+    });
+  }
+
+  if (data === callBacks.peopleDiscover) {
+    await ctx.answerCb?.();
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    const page = Number(ctx.user?.peopleLastListPage) || 0;
+    return sendPeopleDiscoveryList(ctx, lang, page);
+  }
+
+  if (data.startsWith(callBacks.peopleDiscoverPage)) {
+    await ctx.answerCb?.();
+    const pageRaw = data.replace(callBacks.peopleDiscoverPage, "");
+    const page = Number(pageRaw);
+    const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      discoveryPage.text,
+      discoveryPage.keyboard,
+    );
+    await rememberPeopleListMessage(ctx, ctx.callbackMessageId || listMessage, discoveryPage.page);
+    return listMessage;
+  }
+
   if (data === callBacks.savedProfiles) {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
@@ -384,6 +519,7 @@ async function handleSavedProfilesCallback(ctx, lang, {
       await deleteCallbackMessageIfPossible?.(ctx);
     }
     await forgetSavedProfilesList(ctx);
+    await forgetPeopleListMessage(ctx);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
     return sendSavedProfilesList(ctx, lang, codes, 0, {
       send: isProfileCallbackMessage?.(ctx)
@@ -461,10 +597,12 @@ async function handleSavedProfilesCallback(ctx, lang, {
 module.exports = {
   buildSavedProfilePage,
   clearSavedProfilesListMessage,
+  clearPeopleListMessage,
   clearSavedProfileDiscussionMessage,
   clearSavedProfileSurfaceMessages,
   clearViewedPublicProfileMessage,
   forgetSavedProfilesListMessage,
+  forgetPeopleListMessage,
   handleSavedProfilesCallback,
   isSavedProfilesCallback,
   normalizeProfileCodeFromActionCommand,
@@ -473,6 +611,8 @@ module.exports = {
   saveProfileByCode,
   saveProfileCommand,
   sendPublicProfileByCode,
+  sendPeopleDiscoveryList,
+  sendPeopleHub,
   sendSavedProfilesList,
   unsaveProfileByCode,
   unsaveProfileCommand,

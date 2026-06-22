@@ -40,7 +40,7 @@
 - After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
-- The guide should summarize Lists, suggestions, discussions, profiles, and saved profiles, with direct actions to Lists and active discussions.
+- The guide should summarize Lists, suggestions, discussions, profiles, people discovery, and saved profiles, with direct actions to Lists and active discussions.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
@@ -80,10 +80,12 @@
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
 - Profile display names must be emoji-free. The bot uses emoji, especially `🤖`, as authorship/status markers; users should get a clear retry prompt if they submit emoji in their name.
-- Saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per saved profile; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
+- People and saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per row; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 - Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.
 - Saved-profile discussion views should behave as their own return destination. If a join from that view fails, the "Got it" acknowledgment should return to the same saved user's discussions.
+- Profiles opened from `👀 دیدن آدم‌ها` should return to the people discovery list, not the saved-profile list.
+- Empty people discovery distinguishes insufficient list data from no current matches. Both states offer a direct Lists button, but only insufficient data asks the user to add their first 3 items in one section.
 - Shareable discussion invites should be one ready-to-share bot message/card. Stored saved-profile invitations should stay in the invitation inbox, show unseen state through the count/marker, and use Back-only navigation from the list/profile views. Both invite types must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
 
 ## Pinning
@@ -103,7 +105,7 @@
 - Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.
 - Showing a user's active discussion on their profile is a separate opt-in setting. The active room must not be exposed unless the setting is enabled.
 - The active-discussion visibility row on the user's own profile should include a short self-only explanation command link, such as `(یعنی چی؟ /ad_help)`. Keep it compact so the profile row stays readable; the explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
-- Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat.
+- Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat. People discovery should stay taste-based and should not imply matching, dating, friendship, private chat, or online status.
 - When viewing another user's profile from discussions, check that the viewer has at least a display name. If missing, show a profile completion gate with inline edit buttons for missing fields.
 - The profile viewing gate requires only display name; age is optional and not enforced.
 - When a user completes their profile through the gate, redirect them to the intended profile they were trying to view, not their own profile. The intended profile code is stored in `pendingProfileViewCode` and cleared after redirect.

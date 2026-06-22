@@ -596,10 +596,13 @@ async function handleAiText(ctx, lang, text, state) {
           if (!isWatchlist) {
             return ctx.reply(
               getDuplicateTopTenMessage(lang, result, currentItems.length),
-              aiListManageMenuKeyboard(lang, section, listType),
+              getContinuousAddKeyboard(lang, section, listType, currentItems),
             );
           }
-          return ctx.reply(getDuplicateListMessage(lang, result), aiListManageMenuKeyboard(lang, section, listType));
+          return ctx.reply(
+            getDuplicateListMessage(lang, result),
+            getContinuousAddKeyboard(lang, section, listType, currentItems),
+          );
         }
         if (result.reason === "limit") {
           return ctx.reply(

@@ -56,6 +56,7 @@ Smoke-test checklist:
 - [ ] AI suggestions
 - [ ] profile display
 - [ ] saved profiles
+- [ ] people discovery and discovery-list/profile Back navigation
 - [ ] creating, joining, leaving, and closing discussions
 - [ ] discussion message relay
 - [ ] discussion invites and deep links
@@ -127,6 +128,8 @@ Suggested early signals:
 ## Phase 4: Discovery Upgrade
 
 Goal: help users find relevant people and discussions.
+
+Current baseline: lightweight people discovery already matches profiles with at least 3 normalized shared items in one list section. This phase should improve that baseline with optional location and stronger ranking, not create a second overlapping people surface.
 
 - [ ] Add city/area only as an optional profile field. Do not require exact GPS.
 

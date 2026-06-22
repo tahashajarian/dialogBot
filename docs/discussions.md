@@ -11,7 +11,7 @@ The MVP described here is implemented. The current code supports:
 - live text delivery with last-10-message context and runtime-only native reply mapping
 - shareable invite links with a revalidated preview before joining
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
-- member lists, public-profile viewing, private saved profiles, and saved-profile discussion discovery
+- member lists, public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - four Muze-created starter rooms, marked only with `🤖`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
 - onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
@@ -359,7 +359,7 @@ Owner rejoin:
 
 ### Invite To Discussion
 
-Invites make active discussions easier to grow without adding private chat or a people-discovery section.
+Invites make active discussions easier to grow through direct sharing, without adding private chat. They complement the separate taste-based people-discovery surface.
 
 Entry point:
 
@@ -1121,15 +1121,54 @@ Profile-view interaction:
 Bale may not support clickable names in plain bot text, so public profile codes are preferred over inline buttons under every message.
 Implementation note: member lists can include `/u_CODE` buttons and still support manual typed `/u_CODE` lookup.
 
-## Saved Profiles And Discussion Discovery
+## People, Saved Profiles, And Discovery
 
-Saved profiles are a lightweight social layer connected to discussion profile viewing.
+The `👥 آدم‌ها` / `👥 People` hub is the lightweight people surface connected to discussion profile viewing.
 
-They should have a main-menu entry once discussion profile viewing exists:
+Main menu entry:
 
 ```text
-⭐ پروفایل‌های ذخیره‌شده
+👥 آدم‌ها
 ```
+
+People hub:
+
+```text
+👥 آدم‌ها
+
+👀 دیدن آدم‌ها
+⭐ ذخیره‌شده‌ها
+⬅️ برگشت
+```
+
+### Seeing People
+
+`👀 دیدن آدم‌ها` helps users find public profiles through shared taste, without adding direct messages, friendship, or broad people search.
+
+Eligibility and matching:
+
+- The viewer must have at least 3 items in one AI list section.
+- A candidate appears only when they share at least 3 normalized items with the viewer in the same section.
+- Matching uses movies, music, books, and broad interests list data.
+- Exclude the viewer, banned users, and users without a display name.
+- A matching user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
+- Do not expose private profile fields or private discussion membership.
+- Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
+- Results are paginated with the same low-noise navigation style as other lists.
+
+Insufficient-list-data state:
+
+```text
+🤖🤷‍♀️ فعلاً چیزی برای دیدن نیست.
+
+💡 برو به بخش لیست‌ها و حداقل ۳ مورد به یکی از بخش‌ها اضافه کن؛ بعد آدم‌هایی با سلیقه نزدیک‌تر به خودت می‌بینی.
+```
+
+This state includes a direct button to Lists. When the viewer already has enough list data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 items again.
+
+### Saved Profiles
+
+Saved profiles are a lightweight private bookmark layer connected to discussion profile viewing and people discovery.
 
 Recommended behavior:
 
@@ -1158,10 +1197,10 @@ If already saved:
 
 Do not show inline save/remove buttons on public profile views.
 
-Saved profiles main menu:
+Saved profiles inside the people hub:
 
 ```text
-⭐ پروفایل‌های ذخیره‌شده
+⭐ آدم‌های ذخیره‌شده
 
 1. 👤 علی
 دیدن پروفایل این کاربر 👈 /u_8K2P

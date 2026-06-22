@@ -87,20 +87,22 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.
 
-## Profile And Saved Profiles
+## Profile, People, And Saved Profiles
 
-- `src/models/user.js`: user schema and profile/discussion/saved-profile fields.
+- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
-- `src/flows/saved-profiles.js`: saved-profile commands/callback helpers, public-profile rendering by code, saved-list message tracking, and stale public-profile card cleanup.
+- `src/flows/saved-profiles.js`: people hub callbacks, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
+- `src/services/people-discovery.js`: taste-based people discovery, shared-item matching, filtering, ranking, and pagination.
+- `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.
   - save/unsave public profile codes
   - enforce saved-profile cap
   - preserve concurrent saved-profile updates
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
-- Saved profiles are private one-way bookmarks. Do not notify the saved user.
+- People discovery is taste-based and should not imply matching, dating, friendship, private chat, or online status. Saved profiles are private one-way bookmarks. Do not notify the saved user.
 - Profile viewing gate requires only display name; after completion, users are redirected to the intended profile via `pendingProfileViewCode`.
 
 ## Onboarding

@@ -52,7 +52,7 @@ test("buildSavedProfilesListText separates rows with readable action links", () 
     { code: "u_B2", name: "Sara" },
   ]);
 
-  assert.match(text, /⭐ Saved profiles/);
+  assert.match(text, new RegExp(messages.en.savedProfilesTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n🗑 Remove from saved 👉 \/rm_A1/);
   assert.doesNotMatch(text, /Invite this user/);
   assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);

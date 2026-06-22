@@ -231,6 +231,113 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.menuMain);
 });
 
+test("people hub opens discovery and saved profile choices", async () => {
+  const replies = [];
+  const ctx = {
+    callbackData: callBacks.people,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      firstName: "A",
+      profileName: "A",
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.match(replies.at(-1).text, /آدم‌ها/);
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.equal(buttons[0].callback_data, callBacks.peopleDiscover);
+  assert.equal(buttons[1].callback_data, callBacks.savedProfiles);
+});
+
+test("people discovery empty state uses the intentional no-results tip", async () => {
+  const replies = [];
+  const ctx = {
+    callbackData: callBacks.peopleDiscover,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      firstName: "A",
+      profileName: "A",
+      aiLists: { music: { topTen: [], watchlist: [] } },
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 77 };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.match(replies.at(-1).text, /فعلاً چیزی برای دیدن نیست/);
+  assert.match(replies.at(-1).text, /حداقل ۳ مورد/);
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.equal(buttons[0].callback_data, callBacks.aiAssistant);
+  assert.equal(buttons.at(-1).callback_data, callBacks.people);
+  assert.equal(ctx.user.peopleLastListMessageId, 77);
+});
+
+test("people profile opened from discovery returns to people discovery", async () => {
+  const originalFindOne = User.findOne;
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    firstName: "Seen User",
+    profileName: "Seen User",
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      peopleLastListMessageId: 42,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", { fromPeopleList: true });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.deepEqual(deletedIds, [42]);
+  assert.equal(ctx.user.peopleLastListMessageId, null);
+  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.peopleDiscover);
+});
+
 test("saved profiles remembers the real list message id when edit returns true", async () => {
   const ctx = {
     callbackData: callBacks.savedProfiles,

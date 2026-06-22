@@ -62,8 +62,8 @@ function mainMenuKeyboard(lang) {
     ],
     [
       {
-        text: messages[lang].savedProfiles,
-        callback_data: callBacks.savedProfiles,
+        text: messages[lang].people,
+        callback_data: callBacks.people,
       },
     ],
     [
@@ -801,6 +801,10 @@ function profileViewBackKeyboard(lang) {
   return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 
+function profilePeopleBackKeyboard(lang) {
+  return inlineKeyboard([[{ text: messages[lang].profileBackToPeople, callback_data: callBacks.peopleDiscover }]]);
+}
+
 function profileInvitationBackKeyboard(lang, userId = "") {
   const rows = [[{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]];
   const mutedUserId = Number(userId);
@@ -839,6 +843,42 @@ function savedProfilesListKeyboard(lang, items = []) {
   }
 
   rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
+  return inlineKeyboard(rows);
+}
+
+function peopleHubKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].peopleDiscover, callback_data: callBacks.peopleDiscover }],
+    [{ text: messages[lang].savedProfiles, callback_data: callBacks.savedProfiles }],
+    [{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }],
+  ]);
+}
+
+function peopleDiscoverListKeyboard(lang, options = {}) {
+  const rows = [];
+  const normalizedPage = Math.max(0, Number(options.page) || 0);
+  const maxPage = Math.max(0, Number(options.totalPages || 1) - 1);
+  const pageRows = [];
+
+  if (normalizedPage < maxPage) {
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage + 1}`,
+    });
+  }
+
+  if (normalizedPage > 0) {
+    pageRows.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage - 1}`,
+    });
+  }
+
+  if (pageRows.length) rows.push(pageRows);
+  if (options.showLists) {
+    rows.push([{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }]);
+  }
+  rows.push([{ text: messages[lang].peopleBackToHub, callback_data: callBacks.people }]);
   return inlineKeyboard(rows);
 }
 
@@ -901,6 +941,9 @@ module.exports = {
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,
   profileViewBackKeyboard,
+  profilePeopleBackKeyboard,
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
+  peopleHubKeyboard,
+  peopleDiscoverListKeyboard,
 };

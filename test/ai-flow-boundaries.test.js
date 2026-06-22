@@ -579,6 +579,49 @@ test("Top Ten add flow stays open for the next item", async () => {
   assert.deepEqual(ctx.user.aiLists.random.topTen.map((entry) => entry.title), ["Chess"]);
 });
 
+test("Top Ten duplicate response stays in add mode with bot copy and continuous-add controls", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const existingItems = [{ title: "Arrival" }, { title: "Second Movie" }];
+
+  User.findOne = async () => ({
+    userId: 79,
+    aiLists: { movies: { topTen: existingItems } },
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    userId: 79,
+    user: {
+      userId: 79,
+      lang: "en",
+      state: "ai_manage_movies_top_ten_add_input",
+      aiLists: { movies: { topTen: existingItems } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "Second Movie", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const reply = replies.at(-1);
+  const buttons = reply.extra.reply_markup.inline_keyboard.flat();
+
+  assert.match(reply.text, /^🤖/);
+  assert.match(reply.text, /2\/10/);
+  assert.equal(ctx.user.state, "ai_manage_movies_top_ten_add_input");
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAdd), false);
+});
+
 test("Top Ten add flow returns to manager when the 10th item completes the list", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

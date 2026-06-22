@@ -533,15 +533,17 @@ async function handleUpdate(ctx) {
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
     const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
+    const hasPeopleListContext = Number(ctx.user?.peopleLastListMessageId) > 0;
     const fromSavedList = hasSavedProfilesListContext;
-    const fromInvitationList = !fromSavedList && ctx.user?.discussionLastListType === "invitations";
+    const fromPeopleList = !fromSavedList && hasPeopleListContext;
+    const fromInvitationList = !fromSavedList && !fromPeopleList && ctx.user?.discussionLastListType === "invitations";
     if (fromInvitationList) {
       await clearDiscussionListMessage(ctx);
     }
-    if (!fromSavedList && !fromInvitationList) {
+    if (!fromSavedList && !fromPeopleList && !fromInvitationList) {
       await clearDiscussionMembersMessage(ctx);
     }
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList });
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList });
   }
 
   if (text === "/resetphoto") {

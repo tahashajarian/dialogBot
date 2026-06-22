@@ -99,6 +99,8 @@ const UserSchema = new mongoose.Schema({
       message: "savedProfileCodes exceeds saved profile cap",
     },
   },
+  peopleLastListMessageId: { type: Number, default: null },
+  peopleLastListPage: { type: Number, default: 0 },
   savedProfilesLastListMessageId: { type: Number, default: null },
   publicProfileLastMessageId: { type: Number, default: null },
   profileEditPromptMessageId: { type: Number, default: null },
