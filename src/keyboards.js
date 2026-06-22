@@ -44,7 +44,7 @@ function mainMenuKeyboard(lang) {
     ],
     [
       {
-        text: messages[lang].profile,
+        text: messages[lang].mainMenuMe,
         callback_data: callBacks.profile,
       },
     ],

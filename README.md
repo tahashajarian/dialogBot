@@ -9,6 +9,7 @@ The bot combines:
 - public social profiles and private saved-profile bookmarks
 - movie, music, book, and broad-interest lists
 - AI taste feedback and suggestions
+- shared-taste people discovery with private profile bookmarks
 - live discussion rooms with taste-based join rules
 - shareable discussion invites and last-10-message room context
 

@@ -207,10 +207,12 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpRulesText, /💡/);
   assert.match(messages.fa.helpRulesText, /۳۰ پیام در ۱۰ دقیقه/);
   assert.match(messages.en.helpRulesText, /30 messages per 10 minutes/);
-  assert.match(messages.fa.helpRulesText, /نمایش بحث فعال رو روشن کن/);
-  assert.match(messages.en.helpRulesText, /active discussion visibility/);
+  assert.match(messages.fa.helpRulesText, /ذخیره‌کردن پروفایل‌ها خصوصی است/);
+  assert.match(messages.en.helpRulesText, /Saved profiles are private/);
   assert.match(messages.fa.helpRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
   assert.match(messages.en.helpRulesText, /Reports count only from different users/);
+  assert.match(messages.fa.helpRulesText, /۳ دعوت در هر ۲۴ ساعت/);
+  assert.match(messages.en.helpRulesText, /3 per 24 hours/);
   assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.fa.helpText, /^🤖/);
@@ -222,11 +224,21 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.fa.helpText, /۳ مورد/);
   assert.match(messages.en.helpText, /3 Top 10 items/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
-  assert.match(messages.fa.helpText, /بحث‌های ساخته‌شده‌شون رو دنبال کن/);
+  assert.match(messages.fa.helpText, /حداقل ۳ انتخاب مشترک/);
   assert.match(messages.en.helpText, /👥 People/);
-  assert.match(messages.en.helpText, /follow discussions they created/);
+  assert.match(messages.en.helpText, /share at least 3 choices/);
   assert.ok(messages.fa.helpText.length < 900);
   assert.ok(messages.en.helpText.length < 900);
+});
+
+test("main menu uses the warmer Me label without renaming profile copy", () => {
+  const faButtons = mainMenuKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const enButtons = mainMenuKeyboard("en").reply_markup.inline_keyboard.flat();
+
+  assert.equal(faButtons.find((button) => button.callback_data === callBacks.profile)?.text, "👤 من");
+  assert.equal(enButtons.find((button) => button.callback_data === callBacks.profile)?.text, "👤 Me");
+  assert.equal(messages.fa.profile, "👤 پروفایل");
+  assert.equal(messages.en.profile, "👤 Profile");
 });
 
 test("onboarding copy reports progress and a Persian starter vibe", () => {

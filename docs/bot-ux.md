@@ -40,7 +40,8 @@
 - After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
-- The guide should summarize Lists, suggestions, discussions, profiles, people discovery, and saved profiles, with direct actions to Lists and active discussions.
+- The About/guide should summarize Lists, suggestions, discussions, profiles, people discovery, and private saved profiles, with direct actions to Lists and active discussions.
+- Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.

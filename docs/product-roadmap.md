@@ -47,6 +47,27 @@ API_ROOT=
 BOT_DEEP_LINK_BASE_URL=https://t.me/YourTelegramBot
 ```
 
+Recommended BotFather profile copy for the current product:
+
+```text
+Name: Muze
+Username: hey_muze_bot
+
+About (fa):
+میوز؛ برای ساخت لیست، پیشنهادهای شخصی، پیدا کردن آدم‌ها و بحث‌های نزدیک به سلیقه‌ات.
+
+About (en):
+Build taste lists, get suggestions, and find people and discussions around what you like.
+
+Description (fa):
+با میوز برای فیلم، موسیقی، کتاب و علاقه‌مندی‌ها لیست و تاپ ۱۰ بساز، پیشنهاد بگیر، آدم‌هایی با انتخاب‌های مشترک پیدا کن و وارد بحث‌های مرتبط شو.
+
+Description (en):
+Build movie, music, book, and interest lists and Top 10s. Get suggestions, find people with shared choices, and join relevant discussions.
+```
+
+Keep BotFather profile copy aligned with the in-bot About/guide when the product surface changes.
+
 Smoke-test checklist:
 
 - [ ] `/start`
