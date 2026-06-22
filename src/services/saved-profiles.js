@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const { normalizePublicProfileCode } = require("./public-codes");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
+const { operationalLimits } = require("./operational-limits");
 
 const SAVED_PROFILE_CAP = 50;
 
@@ -20,7 +21,7 @@ async function addSavedProfileCode(userId, profileCode) {
       $expr: {
         $lt: [
           { $size: { $ifNull: ["$savedProfileCodes", []] } },
-          SAVED_PROFILE_CAP,
+          operationalLimits.savedProfiles,
         ],
       },
     },
@@ -45,7 +46,7 @@ async function addSavedProfileCode(userId, profileCode) {
   if (current.some((entry) => codePattern.test(String(entry)))) {
     return { ok: false, reason: "exists", items: current };
   }
-  return { ok: false, reason: "saved_profiles_limit", cap: SAVED_PROFILE_CAP };
+  return { ok: false, reason: "saved_profiles_limit", cap: operationalLimits.savedProfiles };
 }
 
 async function removeSavedProfileCode(userId, profileCode) {

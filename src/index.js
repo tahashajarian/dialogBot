@@ -12,6 +12,7 @@ const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussion-starters");
 const { logger } = require("./services/logger");
 const { recordBotHeartbeat } = require("./services/operational-health");
+const { refreshOperationalLimits } = require("./services/operational-limits");
 const messages = require("./messages");
 
 const config = getRuntimeConfig();
@@ -168,6 +169,11 @@ async function retry(fn, {
   try {
     logger.info("Connecting database");
     await connectDB(config);
+    try {
+      await refreshOperationalLimits({ force: true });
+    } catch (limitsError) {
+      logger.warn("Failed to load operational limits; using defaults", limitsError);
+    }
     logger.info("Checking bot token/API via getMe");
     const botInfo = await retry(
       () => bot.telegram.getMe(),

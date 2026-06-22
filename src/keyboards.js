@@ -1,6 +1,6 @@
 const { callBacks } = require("./constants");
 const messages = require("./messages");
-const { AI_TOP_TEN_LIMIT } = require("./constants/ai");
+const { operationalLimits } = require("./services/operational-limits");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -239,6 +239,21 @@ function aiSuggestionNextKeyboard(lang, section) {
   ]);
 }
 
+function aiSuggestionLimitKeyboard(lang, section) {
+  const sectionCallbacks = {
+    movies: callBacks.aiSuggestMovies,
+    music: callBacks.aiSuggestMusic,
+    books: callBacks.aiSuggestBooks,
+    random: callBacks.aiSuggestRandom,
+  };
+  return inlineKeyboard([[
+    {
+      text: messages[lang].aiBack,
+      callback_data: sectionCallbacks[section] || callBacks.aiBack,
+    },
+  ]]);
+}
+
 function aiSuggestionModeKeyboard(lang, section) {
   return inlineKeyboard([
     [
@@ -315,7 +330,7 @@ function getSectionStatusLabels(lang, section) {
 function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0 } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [];
-  const canAdd = !(listType === "topTen" && itemCount >= AI_TOP_TEN_LIMIT);
+  const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
 
   if (canAdd) {
     rows.push([
@@ -893,6 +908,7 @@ module.exports = {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
+  aiSuggestionLimitKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,

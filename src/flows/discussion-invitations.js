@@ -1,5 +1,6 @@
 const messages = require("../messages");
 const User = require("../models/user");
+const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
 const { callBacks } = require("../constants");
 const {
   discussionsMenuKeyboard,
@@ -122,7 +123,10 @@ async function buildSavedInviteTargets(ctx) {
 function getInviteCreationFailureText(lang, reason, details = {}) {
   if (reason === "duplicate") return messages[lang].discussionInvitationAlreadySent;
   if (reason === "daily_limit") {
-    return messages[lang].discussionInvitationDailyLimit.replace("{count}", String(details.cap || 3));
+    return formatOperationalLimitsText(messages[lang].discussionInvitationDailyLimit, {
+      count: details.cap,
+      invitationWindowHours: details.windowHours,
+    });
   }
   if (reason === "already_member") return messages[lang].discussionInvitationAlreadyMember;
   if (reason === "not_saved") return messages[lang].discussionInvitationNotSaved;

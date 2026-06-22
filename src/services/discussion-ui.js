@@ -6,6 +6,7 @@ const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./a
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const User = require("../models/user");
+const { formatOperationalLimitsText } = require("./operational-limits-ui");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
 const DISCUSSION_LIST_DIVIDER = PAGINATION.listDivider;
@@ -35,7 +36,7 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "open_requires_description") return messages[lang].discussionErrOpenNeedsDescription;
   if (reason === "invalid_report_target") return messages[lang].discussionErrInvalidReportTarget;
   if (reason === "duplicate_report") return messages[lang].discussionErrDuplicateReport;
-  if (reason === "active_owned_limit") return messages[lang].discussionActiveOwnedLimit;
+  if (reason === "active_owned_limit") return formatOperationalLimitsText(messages[lang].discussionActiveOwnedLimit);
   if (reason === "message_rate_limit") return messages[lang].discussionMessageRateLimit;
   return messages[lang].unknownAction;
 }

@@ -1,6 +1,7 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { hasLink, normalizeDiscussionText } = require("./discussion-text");
+const { operationalLimits } = require("./operational-limits");
 
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
 const DISCUSSION_MESSAGE_LIMIT = 30;
@@ -16,8 +17,11 @@ function getRecentDiscussionMessageUsageFromUser(user, now = new Date(), windowM
 
 async function consumeDiscussionMessageQuota(userId) {
   const now = new Date();
-  const cutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_WINDOW_MS);
-  const burstCutoff = new Date(now.getTime() - DISCUSSION_MESSAGE_BURST_WINDOW_MS);
+  const messageLimit = operationalLimits.discussionMessagesPerWindow;
+  const windowMs = operationalLimits.discussionMessageWindowMinutes * 60 * 1000;
+  const burstWindowMs = operationalLimits.discussionMessageBurstSeconds * 1000;
+  const cutoff = new Date(now.getTime() - windowMs);
+  const burstCutoff = new Date(now.getTime() - burstWindowMs);
   const updated = await User.findOneAndUpdate(
     {
       userId,
@@ -34,7 +38,7 @@ async function consumeDiscussionMessageQuota(userId) {
                   },
                 },
               },
-              DISCUSSION_MESSAGE_LIMIT,
+              messageLimit,
             ],
           },
           {
@@ -78,7 +82,7 @@ async function consumeDiscussionMessageQuota(userId) {
   if (!updated) {
     const user = await User.findOne({ userId }).select("discussionMessageUsage").lean();
     if (!user) return { ok: false, reason: "missing_user" };
-    const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now);
+    const recentUsage = getRecentDiscussionMessageUsageFromUser(user, now, windowMs);
     const hasRecentBurst = recentUsage.some(
       (usedAt) => usedAt.getTime() > burstCutoff.getTime(),
     );
@@ -86,15 +90,15 @@ async function consumeDiscussionMessageQuota(userId) {
       return {
         ok: false,
         reason: "message_burst_limit",
-        retryAfterMs: DISCUSSION_MESSAGE_BURST_WINDOW_MS,
+        retryAfterMs: burstWindowMs,
       };
     }
-    return { ok: false, reason: "message_rate_limit", cap: DISCUSSION_MESSAGE_LIMIT };
+    return { ok: false, reason: "message_rate_limit", cap: messageLimit };
   }
 
   return {
     ok: true,
-    count: getRecentDiscussionMessageUsageFromUser(updated, now).length,
+    count: getRecentDiscussionMessageUsageFromUser(updated, now, windowMs).length,
   };
 }
 

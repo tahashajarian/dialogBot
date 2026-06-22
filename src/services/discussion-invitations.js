@@ -170,10 +170,18 @@ async function createDiscussionInvitation({
 
   const limits = getUserLimits(inviter);
   const cap = Number(limits.discussionInvitationsPer24h) || 3;
-  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const cutoff = new Date(now.getTime() - limits.discussionInvitationWindowHours * 60 * 60 * 1000);
   const used = await countCreatedInvitationsWithinWindow(inviter.userId, cutoff);
   if (used >= cap) {
-    return { ok: false, reason: "daily_limit", cap, used, discussion, invitee };
+    return {
+      ok: false,
+      reason: "daily_limit",
+      cap,
+      used,
+      windowHours: limits.discussionInvitationWindowHours,
+      discussion,
+      invitee,
+    };
   }
 
   const discussionCode = await ensurePublicDiscussionCode(discussion);

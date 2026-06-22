@@ -21,7 +21,7 @@ const {
 const {
   createOnboardingStarterInvitationsForUser,
 } = require("../services/discussion-invitations");
-const { AI_TOP_TEN_LIMIT } = require("../constants/ai");
+const { operationalLimits } = require("../services/operational-limits");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 
 const ONBOARDING_VERSION = 1;
@@ -251,7 +251,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     "random",
     "topTen",
     { title: item, comment: "" },
-    AI_TOP_TEN_LIMIT,
+    operationalLimits.aiTopTenItems,
   );
   const items = result.ok
     ? result.items
@@ -294,7 +294,7 @@ async function handleOnboardingText(ctx, lang) {
       "random",
       "topTen",
       { title: item, comment: "" },
-      AI_TOP_TEN_LIMIT,
+      operationalLimits.aiTopTenItems,
     );
 
     if (!result.ok) {

@@ -1,7 +1,6 @@
 const messages = require("../messages");
-const {
-  AI_TOP_TEN_LIMIT,
-} = require("../constants/ai");
+const { operationalLimits } = require("./operational-limits");
+const { formatOperationalLimitsText } = require("./operational-limits-ui");
 const {
   DEFAULT_TASTE_LABEL_BY_SECTION,
   getAiListItemsFromUser,
@@ -150,7 +149,7 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
       topTenTitleSet,
       includeWatched,
       includeActions: true,
-      canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < AI_TOP_TEN_LIMIT,
+      canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < operationalLimits.aiTopTenItems,
       lang,
       section,
       listType: "watchlist",
@@ -181,7 +180,7 @@ function formatTasteWithStoredEmoji(section, taste, labelTitle) {
 
 function buildTopTenInsightMessage(lang, section, items) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const goal = AI_TOP_TEN_LIMIT;
+  const goal = operationalLimits.aiTopTenItems;
   if (items.length < goal) {
     return messages[lang].aiTopTenInsightNeedComplete
       .replace("{section}", sectionLabel)
@@ -203,7 +202,7 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   const topTenItems = Array.isArray(topTenItemsOverride)
     ? topTenItemsOverride
     : getAiListItemsFromUser(ctx.user, section, "topTen");
-  if (topTenItems.length < AI_TOP_TEN_LIMIT) {
+  if (topTenItems.length < operationalLimits.aiTopTenItems) {
     const peopleHint = topTenItems.length <= 3 ? `\n\n${messages[lang].aiTopTenManagePeopleHint}` : "";
     if (topTenItems.length >= 3) {
       const taste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
@@ -230,7 +229,11 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
 function formatSuggestionLimitMessage(lang, resetAt) {
   const resetTime = resetAt ? new Date(resetAt).getTime() : Date.now();
   const minutes = Math.max(1, Math.ceil((resetTime - Date.now()) / (60 * 1000)));
-  return messages[lang].aiSuggestionHourlyLimit.replace("{minutes}", String(minutes));
+  return formatOperationalLimitsText(messages[lang].aiSuggestionHourlyLimit, { minutes });
+}
+
+function formatAiLimitMessage(lang, key) {
+  return formatOperationalLimitsText(messages[lang][key]);
 }
 
 function formatSuggestionResultMessage(lang, title, reason) {
@@ -264,13 +267,13 @@ function getDuplicateTopTenMessage(lang, result, count) {
   if (!duplicateTitle) {
     return messages[lang].aiTasteItemAlreadySent
       .replace("{count}", String(count))
-      .replace("{goal}", String(AI_TOP_TEN_LIMIT));
+      .replace("{goal}", String(operationalLimits.aiTopTenItems));
   }
 
   return messages[lang].aiTasteDuplicateMatch
     .replace("{item}", duplicateTitle)
     .replace("{count}", String(count))
-    .replace("{goal}", String(AI_TOP_TEN_LIMIT));
+    .replace("{goal}", String(operationalLimits.aiTopTenItems));
 }
 
 function getTopTenNextPrompt(lang, count) {
@@ -303,7 +306,7 @@ async function buildTopTenSavedMessage({
   savedMessageKey = "aiTasteItemSaved",
 }) {
   const count = items.length;
-  const goal = AI_TOP_TEN_LIMIT;
+  const goal = operationalLimits.aiTopTenItems;
   const itemTitles = items.map((entry) => entry.title);
   const inferredTaste = inferTasteLabel(section, itemTitles);
   const rawLabelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
@@ -371,6 +374,7 @@ async function buildTopTenSavedMessage({
 }
 
 module.exports = {
+  formatAiLimitMessage,
   buildTopTenInsightMessage,
   buildTopTenListMessage,
   buildTopTenSavedMessage,

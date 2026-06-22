@@ -36,6 +36,7 @@ const {
   createDiscussion,
 } = require("../services/discussions");
 const { isDiscussionCreateFlowCallback } = require("./discussions-callbacks");
+const { operationalLimits } = require("../services/operational-limits");
 
 function isDiscussionCreateCallback(data = "") {
   return (
@@ -404,7 +405,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 
     if (baseRule.type === "top_ten_completed") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
-      if (topTen.length < 10) return ctx.reply(getDiscussionErrorMessage(messages, lang, "requires_top_ten_completed"));
+      if (topTen.length < operationalLimits.aiTopTenItems) return ctx.reply(getDiscussionErrorMessage(messages, lang, "requires_top_ten_completed"));
     }
     return askDescription(nextRule, {
       cancelCallback: callBacks.discussionCreateCancel,
@@ -535,7 +536,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       title: ctx.user?.discussionDraftTitle || "",
       description: ctx.user?.discussionDraftDescription || "",
       joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
-      maxMembers: ctx.user?.discussionDraftMaxMembers || 20,
+      maxMembers: ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers,
     });
     if (!created.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);

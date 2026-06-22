@@ -1,5 +1,6 @@
 const { normalizeAiListItem, getAiListItemsFromUser, getAiTasteFromUser } = require("./users");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
+const { operationalLimits } = require("./operational-limits");
 
 const DISCUSSION_JOIN_RULE_TYPES = ["open", "top_ten_completed", "taste_label", "top_ten_item"];
 const DISCUSSION_JOIN_RULE_SECTIONS = ["movies", "music", "books", "random"];
@@ -47,7 +48,7 @@ async function validateJoinRules({ user, joinRule }) {
   const section = joinRule.section;
   if (type === "top_ten_completed") {
     const topTen = getAiListItemsFromUser(user, section, "topTen");
-    if (topTen.length >= 10) return { ok: true };
+    if (topTen.length >= operationalLimits.aiTopTenItems) return { ok: true };
     return { ok: false, reason: "requires_top_ten_completed", section };
   }
 

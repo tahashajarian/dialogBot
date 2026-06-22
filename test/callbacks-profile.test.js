@@ -6,6 +6,7 @@ const { callBacks } = require("../src/constants");
 const messages = require("../src/messages");
 const { sendPublicProfileByCode } = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
+const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
   const deletedIds = [];
@@ -62,7 +63,7 @@ test("help rules callback opens the rules card", async () => {
 
   assert.equal(edits.length, 1);
   assert.equal(edits[0].messageId, 321);
-  assert.equal(edits[0].text, messages.en.helpRulesText);
+  assert.equal(edits[0].text, formatOperationalLimitsText(messages.en.helpRulesText));
   const labels = edits[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
   assert.deepEqual(labels, [messages.en.helpBackToGuide, messages.en.helpBackToMain]);
 });

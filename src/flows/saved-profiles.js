@@ -1,6 +1,7 @@
 const messages = require("../messages");
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
+const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
 const {
   inlineKeyboard,
   peopleDiscoverListKeyboard,
@@ -293,7 +294,7 @@ async function saveProfileByCode(ctx, lang, code) {
   const saved = await addSavedProfileCode(ctx.userId, code);
   if (!saved.ok) {
     if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
-    if (saved.reason === "saved_profiles_limit") return ctx.reply(messages[lang].savedProfilesLimit);
+    if (saved.reason === "saved_profiles_limit") return ctx.reply(formatOperationalLimitsText(messages[lang].savedProfilesLimit));
     return ctx.reply(messages[lang].unknownAction);
   }
   await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);

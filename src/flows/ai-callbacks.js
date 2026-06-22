@@ -3,6 +3,7 @@ const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
+  aiSuggestionLimitKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
@@ -49,17 +50,16 @@ const {
 } = require("../services/ai-suggestion-cache");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
-  AI_WATCHLIST_LIMIT,
   AI_RECENT_SUGGESTIONS_LIMIT,
-  AI_SUGGESTIONS_PER_HOUR,
-  AI_TOP_TEN_LIMIT,
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
+const { operationalLimits } = require("../services/operational-limits");
 const {
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
   buildShareListMessage,
   formatAiItemsList,
+  formatAiLimitMessage,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
   getDuplicateListMessage,
@@ -205,13 +205,15 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
   ]);
-  const quota = await consumeAiSuggestionQuota(ctx.userId, section, AI_SUGGESTIONS_PER_HOUR);
+  const quota = await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
     return placeholder.finish(
       quota.reason === "limit"
         ? formatSuggestionLimitMessage(lang, quota.resetAt)
         : messages[lang].aiTemporaryUnavailable,
-      aiSuggestionNextKeyboard(lang, section),
+      quota.reason === "limit"
+        ? aiSuggestionLimitKeyboard(lang, section)
+        : aiSuggestionNextKeyboard(lang, section),
     );
   }
 
@@ -356,7 +358,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         includeWatched: true,
         topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
         includeActions: filter === "all",
-        canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < AI_TOP_TEN_LIMIT,
+        canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < operationalLimits.aiTopTenItems,
         lang,
         section,
         listType,
@@ -553,8 +555,8 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
-    if (topTenItems.length >= 10) {
-      return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
+    if (topTenItems.length >= operationalLimits.aiTopTenItems) {
+      return ctx.reply(formatAiLimitMessage(lang, "aiTopTenLimitReached"), aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
 
     const topTenTitleSet = toTitleSet(topTenItems);
@@ -589,11 +591,11 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
 
-    const promoteResult = await promoteWatchlistItemToTopTen(ctx.userId, section, itemTitle, 10);
+    const promoteResult = await promoteWatchlistItemToTopTen(ctx.userId, section, itemTitle, operationalLimits.aiTopTenItems);
     await helpers.deleteCallbackMessageIfPossible(ctx);
     if (!promoteResult.ok) {
       if (promoteResult.reason === "top_ten_limit") {
-        return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
+        return ctx.reply(formatAiLimitMessage(lang, "aiTopTenLimitReached"), aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       if (promoteResult.reason === "exists") {
         return ctx.reply(messages[lang].aiWatchlistPromoteAlreadyTopTen, aiListManageMenuKeyboard(lang, section, "watchlist"));
@@ -695,7 +697,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await clearAiPendingInputPrompt(ctx);
 
     const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
-    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, AI_TOP_TEN_LIMIT);
+    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.aiTopTenItems);
 
     if (!result.ok) {
       if (result.reason === "exists") {
@@ -707,7 +709,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (result.reason === "limit") {
         await updateUserState(ctx.userId, "ai_manage_random_top_ten");
         if (ctx.user) ctx.user.state = "ai_manage_random_top_ten";
-        return ctx.reply(messages[lang].aiTopTenLimitReachedHere, aiListManageMenuKeyboard(lang, "random", "topTen", {
+        return ctx.reply(formatAiLimitMessage(lang, "aiTopTenLimitReachedHere"), aiListManageMenuKeyboard(lang, "random", "topTen", {
           hasItems: currentItems.length > 0,
           itemCount: currentItems.length,
         }));
@@ -724,7 +726,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
       ctx.user.aiLists.random.topTen = result.items;
     }
-    const listIsFull = result.items.length >= AI_TOP_TEN_LIMIT;
+    const listIsFull = result.items.length >= operationalLimits.aiTopTenItems;
     await updateUserState(ctx.userId, listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input");
     if (ctx.user) ctx.user.state = listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input";
     const placeholder = await startAiPlaceholder(ctx, [
@@ -914,11 +916,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!title) return ctx.reply(messages[lang].aiSuggestionExpired || messages[lang].unknownAction);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    const result = await addAiListItem(ctx.userId, section, "watchlist", { title, comment, watched: markDone }, AI_WATCHLIST_LIMIT);
+    const result = await addAiListItem(ctx.userId, section, "watchlist", { title, comment, watched: markDone }, operationalLimits.aiWatchlistItems);
 
     if (!result.ok) {
       if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
-      if (result.reason === "limit") return ctx.reply(messages[lang].aiSuggestionListFull, aiListManageMenuKeyboard(lang, section, "watchlist"));
+      if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiSuggestionListFull"), aiListManageMenuKeyboard(lang, section, "watchlist"));
       return ctx.reply(messages[lang].aiTemporaryUnavailable);
     }
 

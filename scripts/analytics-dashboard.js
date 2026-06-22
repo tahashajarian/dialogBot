@@ -1,12 +1,16 @@
 require("dotenv").config();
 
 const http = require("http");
-const { URL } = require("url");
+const { URL, URLSearchParams } = require("url");
 const connectDB = require("../src/db");
 const { disconnectDB } = require("../src/db");
 const { getRuntimeConfig } = require("../src/config");
 const { getAnalyticsSnapshot } = require("../src/services/analytics-dashboard");
 const { logger } = require("../src/services/logger");
+const {
+  LIMIT_DEFINITIONS,
+  updateOperationalLimits,
+} = require("../src/services/operational-limits");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
@@ -123,7 +127,26 @@ function collapsibleSection(title, body, { open = false, note = "" } = {}) {
   </details>`;
 }
 
-function renderDashboard(snapshot) {
+function renderLimitsForm(values = {}, action = "/limits") {
+  const groups = {};
+  for (const [key, definition] of Object.entries(LIMIT_DEFINITIONS)) {
+    if (!groups[definition.group]) groups[definition.group] = [];
+    groups[definition.group].push({ key, ...definition, value: values[key] ?? definition.default });
+  }
+  return `<form method="post" action="${escapeHtml(action)}" class="limits-form">
+    ${Object.entries(groups).map(([group, fields]) => `<fieldset>
+      <legend>${escapeHtml(group)}</legend>
+      <div class="limit-grid">${fields.map((field) => `<label>
+        <span>${escapeHtml(field.label)}</span>
+        <input type="number" name="${escapeHtml(field.key)}" value="${escapeHtml(field.value)}"
+          min="${field.min}" max="${field.max}" step="1" required />
+      </label>`).join("")}</div>
+    </fieldset>`).join("")}
+    <div class="form-actions"><button type="submit">Save limits</button><span class="muted">Restart the bot to activate saved changes.</span></div>
+  </form>`;
+}
+
+function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
   const { users, discussions, aiCache, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
@@ -256,6 +279,14 @@ function renderDashboard(snapshot) {
     tbody tr + tr td { border-top: 1px solid var(--soft-line); }
     a { color: var(--accent); }
     .footer { margin-top: 24px; font-size: 13px; color: var(--muted); }
+    .limits-form { display: grid; gap: 18px; }
+    fieldset { border: 0; padding: 0; margin: 0; }
+    legend { font-weight: 700; margin-bottom: 8px; }
+    .limit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+    .limit-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 13px; }
+    input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+    .form-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    button { border: 0; border-radius: 6px; padding: 10px 16px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -269,6 +300,7 @@ function renderDashboard(snapshot) {
     </header>
 
     <div class="stack">
+      ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, `/limits${actionSuffix}`), { open: true, note: "editable product quotas" })}
       ${collapsibleSection("Health", `<div class="grid compact-grid">
       ${statusCard("Dashboard Server", true, `Up for ${formatNumber(Math.round(process.uptime()))}s`)}
       ${statusCard(
@@ -348,7 +380,7 @@ function renderDashboard(snapshot) {
     </div>`, { note: "reuse stats" })}
     </div>
 
-    <p class="footer">This dashboard updates every 30 seconds and remembers collapsed sections. It is read-only and stores analytics events without message text.</p>
+    <p class="footer">This dashboard updates every 30 seconds and remembers collapsed sections.</p>
   </main>
   <script>
     const sectionStateKey = "dialogbot.dashboard.sections";
@@ -373,9 +405,11 @@ function renderDashboard(snapshot) {
       }
       section.addEventListener("toggle", saveSectionState);
     });
+    let formDirty = false;
+    document.querySelector(".limits-form")?.addEventListener("input", () => { formDirty = true; });
     setTimeout(() => {
       saveSectionState();
-      window.location.reload();
+      if (!formDirty) window.location.reload();
     }, 30000);
   </script>
 </body>
@@ -388,6 +422,15 @@ async function writeResponse(res, statusCode, contentType, body) {
     "cache-control": "no-store",
   });
   res.end(body);
+}
+
+async function readFormBody(req) {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 100000) throw new Error("Request body too large");
+  }
+  return Object.fromEntries(new URLSearchParams(body));
 }
 
 async function handleRequest(req, res, { token }) {
@@ -405,9 +448,15 @@ async function handleRequest(req, res, { token }) {
     return writeResponse(res, 200, "application/json; charset=utf-8", JSON.stringify(snapshot, null, 2));
   }
 
+  if (url.pathname === "/limits" && req.method === "POST") {
+    await updateOperationalLimits(await readFormBody(req));
+    res.writeHead(303, { location: `/${url.search}`, "cache-control": "no-store" });
+    return res.end();
+  }
+
   if (url.pathname === "/") {
     const snapshot = await getAnalyticsSnapshot();
-    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard(snapshot));
+    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard(snapshot, { actionSuffix: url.search }));
   }
 
   return writeResponse(res, 404, "text/plain; charset=utf-8", "Not found");

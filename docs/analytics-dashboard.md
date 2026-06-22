@@ -1,8 +1,8 @@
 # Analytics Dashboard
 
-This is a small read-only dashboard for checking useful product data from the
-existing MongoDB collections. It is meant as the first practical analytics
-step, before adding full event tracking.
+This is a small admin dashboard for checking useful product data and changing
+bot-wide product limits. Limit values are stored in MongoDB and cached briefly
+by the bot process, so normal updates do not add database reads per message.
 
 ## Run Locally
 
@@ -60,12 +60,22 @@ http://127.0.0.1:8787/?token=your_token
 - simple seven-day funnel with unique users
 - Top 10 adds and suggestion requests by section
 
+## Bot Limits
+
+The **Bot Limits** section updates the enforced caps for lists, saved profiles,
+suggestions, discussions, room capacity, and direct invitations. Rolling-window
+durations and the discussion-message burst interval are editable too. Existing
+values remain the defaults until an admin saves the form, and running bot
+processes load the saved values once at startup. Restart the bot after saving
+changes in the dashboard.
+
+These settings are global. Lowering a cap does not delete existing user data;
+it only prevents new additions until usage is below the new cap.
+
 ## Next Step
 
 This dashboard reads the product state that already exists and records a very
-small amount of operational health data. It does not yet track user events such
-as button taps, funnel steps, or retention. Add a small event collection next
-when product usage needs deeper answers.
+small amount of operational health data.
 
 Operational health data is intentionally lightweight:
 

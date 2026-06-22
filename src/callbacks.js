@@ -13,6 +13,7 @@ const {
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
 const { callBacks } = require("./constants");
+const { formatOperationalLimitsText } = require("./services/operational-limits-ui");
 const {
   getMessageId,
   removeBottomKeyboard,
@@ -375,7 +376,7 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showInlineMenuAfterNavigation(ctx, messages[lang].helpRulesText, helpRulesKeyboard(lang), {
+    return showInlineMenuAfterNavigation(ctx, formatOperationalLimitsText(messages[lang].helpRulesText), helpRulesKeyboard(lang), {
       forceClearKeyboard: shouldClearKeyboard,
     });
   }

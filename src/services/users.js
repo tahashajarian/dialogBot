@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const { operationalLimits } = require("./operational-limits");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
@@ -254,8 +255,8 @@ function getRecentSuggestionUsageFromUser(user, section, now = new Date(), windo
 async function consumeAiSuggestionQuota(
   userId,
   section,
-  limit = AI_SUGGESTION_QUOTA_LIMIT,
-  windowMs = AI_SUGGESTION_QUOTA_WINDOW_MS,
+  limit = operationalLimits.aiSuggestionsPerWindow,
+  windowMs = operationalLimits.aiSuggestionWindowMinutes * 60 * 1000,
 ) {
   const user = await User.findOne({ userId });
   if (!user) {
@@ -495,6 +496,11 @@ async function syncAiTasteForSection(userId, section) {
 }
 
 async function addAiListItem(userId, section, listType, item, maxItems) {
+  const itemLimit = maxItems ?? (
+    listType === "topTen"
+      ? operationalLimits.aiTopTenItems
+      : operationalLimits.aiWatchlistItems
+  );
   const title = normalizeAiListItem(item?.title || item);
   const comment = normalizeAiListComment(item?.comment);
   if (!title) {
@@ -522,7 +528,7 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
     };
   }
 
-  if (current.length >= maxItems) {
+  if (current.length >= itemLimit) {
     return { ok: false, reason: "limit", items: current };
   }
 
@@ -645,7 +651,12 @@ async function setAiListItemComment(userId, section, listType, item, comment) {
   return { ok: true, items: updated, item: itemUpdated };
 }
 
-async function promoteWatchlistItemToTopTen(userId, section, item, maxTopTenItems = 10) {
+async function promoteWatchlistItemToTopTen(
+  userId,
+  section,
+  item,
+  maxTopTenItems = operationalLimits.aiTopTenItems,
+) {
   const cleanItem = normalizeAiListItem(item);
   if (!cleanItem) {
     return { ok: false, reason: "empty_item" };

@@ -22,8 +22,16 @@ const {
   aiListCancelAddKeyboard,
   aiListManageMenuKeyboard,
   aiInterestTopTenChipKeyboard,
+  aiSuggestionLimitKeyboard,
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
+
+test("suggestion limit keyboard returns to the current section", () => {
+  const keyboard = aiSuggestionLimitKeyboard("en", "music");
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(button.text, messages.en.aiBack);
+  assert.equal(button.callback_data, callBacks.aiSuggestMusic);
+});
 const {
   handleAiCallback,
   isAiCallback,

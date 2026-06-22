@@ -41,6 +41,7 @@ const {
 } = require("./discussion-notifications");
 const { getModerationConfig } = require("../config");
 const { EVENT_NAMES, trackEvent, trackThrottledEvent } = require("./analytics-events");
+const { operationalLimits } = require("./operational-limits");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -59,8 +60,13 @@ function normalizeDescription(value) {
 }
 
 function normalizeMaxMembers(value) {
-  const capacity = Number(value) || DISCUSSION_MEMBER_CAP;
-  return DISCUSSION_ALLOWED_MEMBER_CAPS.includes(capacity) ? capacity : DISCUSSION_MEMBER_CAP;
+  const maximum = operationalLimits.discussionMaxMembers;
+  const capacity = Number(value) || maximum;
+  const allowed = new Set([
+    ...DISCUSSION_ALLOWED_MEMBER_CAPS.filter((entry) => entry <= maximum),
+    maximum,
+  ]);
+  return allowed.has(capacity) ? capacity : maximum;
 }
 
 const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-quality");
@@ -102,11 +108,11 @@ async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
     status: "open",
   });
 
-  if (activeOwned >= DISCUSSION_ACTIVE_OWNED_LIMIT) {
-    return { ok: false, reason: "active_owned_limit", cap: DISCUSSION_ACTIVE_OWNED_LIMIT, count: activeOwned };
+  if (activeOwned >= operationalLimits.activeOwnedDiscussions) {
+    return { ok: false, reason: "active_owned_limit", cap: operationalLimits.activeOwnedDiscussions, count: activeOwned };
   }
 
-  return { ok: true, count: activeOwned, cap: DISCUSSION_ACTIVE_OWNED_LIMIT };
+  return { ok: true, count: activeOwned, cap: operationalLimits.activeOwnedDiscussions };
 }
 
 async function reconcileOwnedOpenDiscussionIds(userId) {
@@ -134,7 +140,7 @@ async function reserveOwnedDiscussionSlot(userId, discussionId) {
       $expr: {
         $lt: [
           { $size: { $ifNull: ["$ownedOpenDiscussionIds", []] } },
-          DISCUSSION_ACTIVE_OWNED_LIMIT,
+          operationalLimits.activeOwnedDiscussions,
         ],
       },
     },
@@ -162,7 +168,7 @@ async function rollbackOwnedDiscussionReservation(userId, discussionId, previous
   );
 }
 
-async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = DISCUSSION_MEMBER_CAP }) {
+async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = operationalLimits.discussionMaxMembers }) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
 
@@ -199,7 +205,7 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
   if (!reservedUser) {
     const activeOwned = await checkActiveOwnedDiscussionsLimit(creatorUserId);
     return activeOwned.ok
-      ? { ok: false, reason: "active_owned_limit", cap: DISCUSSION_ACTIVE_OWNED_LIMIT }
+      ? { ok: false, reason: "active_owned_limit", cap: operationalLimits.activeOwnedDiscussions }
       : activeOwned;
   }
 

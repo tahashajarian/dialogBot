@@ -1,5 +1,6 @@
 const { callBacks } = require("../constants");
 const messages = require("../messages");
+const { operationalLimits } = require("../services/operational-limits");
 
 function inlineKeyboard(rows) {
   return {
@@ -275,7 +276,10 @@ function discussionCreateConfirmKeyboard(lang) {
 }
 
 function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
-  const capacities = [2, 3, 4, 5, 10, 15, 20];
+  const maximum = operationalLimits.discussionMaxMembers;
+  const capacities = [...new Set([2, 3, 4, 5, 10, 15, 20, maximum])]
+    .filter((capacity) => capacity <= maximum)
+    .sort((a, b) => a - b);
   const rows = [];
   for (let index = 0; index < capacities.length; index += 4) {
     const row = capacities.slice(index, index + 4).map((capacity) => ({

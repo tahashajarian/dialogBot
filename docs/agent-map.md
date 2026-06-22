@@ -9,7 +9,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/db.js`: MongoDB connection only.
 - `src/bot.js`: text-message dispatcher. Keep this thin; route to flow/service helpers.
 - `src/callbacks.js`: callback-query dispatcher. Keep this thin; route to flow/service helpers.
-- `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: read-only Mongo snapshot metrics and local admin dashboard.
+- `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
+- `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.

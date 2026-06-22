@@ -63,15 +63,14 @@ const {
   rememberAiListMessage,
 } = require("./ai-cards");
 const {
-  AI_WATCHLIST_LIMIT,
-  AI_TOP_TEN_LIMIT,
   AI_RECENT_SUGGESTIONS_LIMIT,
-  AI_SUGGESTIONS_PER_HOUR,
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
+const { operationalLimits } = require("../services/operational-limits");
 const {
   buildTopTenSavedMessage,
   formatAiItemsList,
+  formatAiLimitMessage,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
   getDuplicateListMessage,
@@ -327,7 +326,7 @@ async function sendSingleSectionSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
   ]);
-  const quota = await consumeAiSuggestionQuota(ctx.userId, section, AI_SUGGESTIONS_PER_HOUR);
+  const quota = await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
     return placeholder.finish(
       quota.reason === "limit"
@@ -479,10 +478,10 @@ async function handleAiListActionCommand(ctx, lang, command) {
   }
 
   if (action === "top10") {
-    const promoted = await promoteWatchlistItemToTopTen(ctx.userId, section, itemTitle, AI_TOP_TEN_LIMIT);
+    const promoted = await promoteWatchlistItemToTopTen(ctx.userId, section, itemTitle, operationalLimits.aiTopTenItems);
     if (!promoted.ok) {
       if (promoted.reason === "top_ten_limit") {
-        return ctx.reply(messages[lang].aiTopTenLimitReached, aiListManageMenuKeyboard(lang, section, "watchlist"));
+        return ctx.reply(formatAiLimitMessage(lang, "aiTopTenLimitReached"), aiListManageMenuKeyboard(lang, section, "watchlist"));
       }
       if (promoted.reason === "exists") {
         return ctx.reply(messages[lang].aiWatchlistPromoteAlreadyTopTen, aiListManageMenuKeyboard(lang, section, "watchlist"));
@@ -588,7 +587,7 @@ async function handleAiText(ctx, lang, text, state) {
         section,
         listType,
         { title: item, comment },
-        isWatchlist ? AI_WATCHLIST_LIMIT : AI_TOP_TEN_LIMIT,
+        isWatchlist ? operationalLimits.aiWatchlistItems : operationalLimits.aiTopTenItems,
       );
 
       if (!result.ok) {
@@ -606,7 +605,7 @@ async function handleAiText(ctx, lang, text, state) {
         }
         if (result.reason === "limit") {
           return ctx.reply(
-            isWatchlist ? messages[lang].aiWatchlistLimitReached : messages[lang].aiTopTenLimitReachedHere,
+            formatAiLimitMessage(lang, isWatchlist ? "aiWatchlistLimitReached" : "aiTopTenLimitReachedHere"),
             aiListManageMenuKeyboard(lang, section, listType, {
               hasItems: currentItems.length > 0,
               itemCount: currentItems.length,
@@ -630,7 +629,7 @@ async function handleAiText(ctx, lang, text, state) {
       }
 
       rememberCtxAiListItems(ctx, section, listType, result.items);
-      const listIsFull = result.items.length >= (isWatchlist ? AI_WATCHLIST_LIMIT : AI_TOP_TEN_LIMIT);
+      const listIsFull = result.items.length >= (isWatchlist ? operationalLimits.aiWatchlistItems : operationalLimits.aiTopTenItems);
       const nextState = listIsFull
         ? getAiManageState(section, listType)
         : getAiManageState(section, listType, "add_input");
