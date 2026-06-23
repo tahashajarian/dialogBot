@@ -357,6 +357,9 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileActiveDiscussionHelpDone) {
     await ctx.answerCb?.();
+    const acknowledgedAt = new Date();
+    await updateProfileField(ctx.userId, "activeDiscussionHelpAcknowledgedAt", acknowledgedAt);
+    if (ctx.user) ctx.user.activeDiscussionHelpAcknowledgedAt = acknowledgedAt;
     await retireCallbackMessageIfPossible?.(ctx);
     return sendOwnProfile(ctx, lang, ctx.user || {});
   }

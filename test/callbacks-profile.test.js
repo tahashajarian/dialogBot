@@ -110,6 +110,56 @@ test("profile settings keeps the profile display with settings controls", async 
   );
 });
 
+test("active discussion help Got it hides future profile help link", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    updates.push({ query, update });
+    return { userId: query.userId };
+  };
+
+  const ctx = {
+    callbackData: callBacks.profileActiveDiscussionHelpDone,
+    callbackMessageId: 222,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      showActiveDiscussionOnProfile: false,
+      starBalance: 0,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(updates[0].query.userId, 999);
+  assert.ok(updates[0].update.activeDiscussionHelpAcknowledgedAt instanceof Date);
+  assert.deepEqual(deletedIds, [222]);
+  assert.match(replies[0].text, /Show active discussion/);
+  assert.doesNotMatch(replies[0].text, /\/ad_help/);
+});
+
 test("profile emoji insufficient Stars retires confirm card and shows acknowledgement", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

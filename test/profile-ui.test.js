@@ -30,11 +30,18 @@ const user = {
 
 test("buildProfileText shows active discussion visibility only for own profile", () => {
   const ownText = buildProfileText({ ...user, starBalance: 18 }, "en", messages, { isOwnProfile: true });
+  const acknowledgedText = buildProfileText({
+    ...user,
+    starBalance: 18,
+    activeDiscussionHelpAcknowledgedAt: new Date(),
+  }, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
   assert.match(ownText, /⭐ Stars: 18/);
   assert.match(ownText, /Show active discussion/);
   assert.match(ownText, /What is this\? \/ad_help/);
+  assert.match(acknowledgedText, /Show active discussion/);
+  assert.doesNotMatch(acknowledgedText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Show active discussion/);
   assert.doesNotMatch(publicText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Stars:/);

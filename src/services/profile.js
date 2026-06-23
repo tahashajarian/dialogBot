@@ -249,9 +249,9 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     lines.push(lineForLang(lang, `⭐ ${messages[lang].profileStarsLabel}: ${starBalance}`));
     const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
       .replace("{status}", activeDiscussionStatus);
-    lines.push(
-      `${activeDiscussionLine} (${messages[lang].profileActiveDiscussionHelpButton} ${ACTIVE_DISCUSSION_HELP_COMMAND})`,
-    );
+    lines.push(user?.activeDiscussionHelpAcknowledgedAt
+      ? activeDiscussionLine
+      : `${activeDiscussionLine} (${messages[lang].profileActiveDiscussionHelpButton} ${ACTIVE_DISCUSSION_HELP_COMMAND})`);
   }
 
   const baseText = lines.join("\n");
