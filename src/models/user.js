@@ -63,6 +63,7 @@ const UserSchema = new mongoose.Schema({
     longitude: Number,
     accuracy: Number,
     city: String,
+    cityLookupAttemptedAt: Date,
     sharedAt: Date,
   },
   photoFileId: String,

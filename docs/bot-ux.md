@@ -14,6 +14,7 @@
 - If an inline message contains item indexes, remove or edit it after a mutating action so old buttons cannot act on shifted indexes.
 - When deleting list items, delete the previous bot-sent list display if it is tracked, then confirm the removed item by name before showing the manage buttons again.
 - Pressing "back" in non-cancel flows should not send cancel copy (for example "operation canceled").
+- Back button labels should use `🔙` as the visible back emoji.
 - When leaving an AI section/manage flow via Back, remove temporary reply keyboards (for example Top 10/Suggestion bottom buttons) before showing the higher-level menu.
 - When clearing a temporary reply keyboard before an inline menu, avoid blank/placeholder bubbles. Send the actual destination menu text with `remove_keyboard`, then attach inline buttons to that same visible message when the platform allows it.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.

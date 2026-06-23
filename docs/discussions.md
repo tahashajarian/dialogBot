@@ -97,7 +97,7 @@ Discussion menu:
 🟢 بحث‌های فعال
 ➕ ساخت بحث جدید
 🗂 بحث‌های من
-⬅️ برگشت
+🔙 برگشت
 ```
 
 Show `🚪 خروج از بحث` only inside an active room's bottom controls, not in the general discussions menu.
@@ -202,7 +202,7 @@ Buttons:
 Create/edit navigation rules:
 
 - In create mode, title step shows only `لغو ساخت بحث`.
-- In create mode after title, show `لغو ساخت بحث` plus a `⬅️ برگشت` button to the previous step where relevant.
+- In create mode after title, show `لغو ساخت بحث` plus a `🔙 برگشت` button to the previous step where relevant.
 - In edit-from-preview mode, cancel actions should use `لغو ویرایش` and return to preview (not cancel the whole draft).
 - If user sends text while on inline-only pickers (for example join-rule picker), show a bot-authored "select an option" message and resend a fresh picker card.
 
@@ -1156,7 +1156,7 @@ People hub:
 👀 دیدن آدم‌ها
 ✨ آدم‌های احتمالاً شبیه تو
 🔖 ذخیره‌شده‌ها
-⬅️ برگشت
+🔙 برگشت
 ```
 
 ### Seeing People
@@ -1298,7 +1298,7 @@ Discussions list example:
    🏷 متال‌هد 🔒 | 3 نفر
    ورود 👈 /d_AB3C
 
-[⬅️ برگشت به ذخیره‌شده‌ها] (inline button)
+[🔙 برگشت به ذخیره‌شده‌ها] (inline button)
 ```
 
 Technical notes:

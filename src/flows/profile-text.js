@@ -7,6 +7,7 @@ const {
   petPreferenceKeyboard,
 } = require("../keyboards");
 const {
+  updateLocationCityForSharedAt,
   updateProfileField,
   updateUserFields,
   updateUserState,
@@ -167,6 +168,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       userId: ctx.userId,
       locationMessage: ctx.message.location,
       updateProfileField,
+      updateLocationCityForSharedAt,
       updateUserState,
       resolveCityByCoordinates,
     });

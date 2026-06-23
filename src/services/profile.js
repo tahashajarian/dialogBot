@@ -196,7 +196,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     ? messages[lang].profileActiveDiscussionShown
     : messages[lang].profileActiveDiscussionHidden;
 
-  const titleIcon = user?.gender === "female" ? "🌸" : user?.gender === "male" ? "💙" : "🪞";
+  const titleIcon = "🪞";
   const title = isOwnProfile
     ? messages[lang].profileTitle
     : (messages[lang].profilePublicTitle || messages[lang].profileTitle);
@@ -264,6 +264,7 @@ function buildLocationPayload(locationMessage) {
     longitude: Number(locationMessage.longitude),
     accuracy: locationMessage.horizontal_accuracy || null,
     city: null,
+    cityLookupAttemptedAt: null,
     sharedAt: new Date(),
   };
 }
@@ -272,6 +273,7 @@ async function saveLocationProfile({
   userId,
   locationMessage,
   updateProfileField,
+  updateLocationCityForSharedAt,
   updateUserState,
   resolveCityByCoordinates,
 }) {
@@ -284,14 +286,18 @@ async function saveLocationProfile({
   await updateUserState(userId, "idle");
 
   resolveCityByCoordinates(location.latitude, location.longitude)
-    .then(async (resolvedCity) => {
-      if (!resolvedCity) return;
-
-      await updateProfileField(userId, "location", {
-        ...location,
-        city: resolvedCity,
-      });
-    })
+    .then((resolvedCity) => updateLocationCityForSharedAt?.(
+        userId,
+        location.sharedAt,
+        resolvedCity || null,
+        new Date(),
+      ))
+    .catch(() => updateLocationCityForSharedAt?.(
+        userId,
+        location.sharedAt,
+        null,
+        new Date(),
+      ))
     .catch(() => {});
 
   return location;

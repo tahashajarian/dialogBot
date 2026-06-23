@@ -10,9 +10,11 @@ const {
 const {
   buildProfileText,
   sendProfileMessage,
+  saveLocationProfile,
   sanitizeProfileNameCandidate,
   validateProfileName,
 } = require("../src/services/profile");
+const { extractCityFromReverseGeocode } = require("../src/services/location");
 
 const user = {
   firstName: "Ali",
@@ -127,6 +129,75 @@ test("buildProfileText omits unset optional profile rows", () => {
   assert.doesNotMatch(text, /Location:/);
   assert.doesNotMatch(text, /Bio:/);
   assert.doesNotMatch(text, /—/);
+});
+
+test("saveLocationProfile returns before background city lookup resolves", async () => {
+  const updates = [];
+  const states = [];
+  const cityUpdates = [];
+  let resolveLookup;
+  const lookupPromise = new Promise((resolve) => {
+    resolveLookup = resolve;
+  });
+  const location = await saveLocationProfile({
+    userId: 123,
+    locationMessage: { latitude: 35.7, longitude: 51.4 },
+    updateProfileField: async (userId, field, value) => {
+      updates.push({ userId, field, value });
+    },
+    updateUserState: async (userId, state) => {
+      states.push({ userId, state });
+    },
+    updateLocationCityForSharedAt: async (userId, sharedAt, city) => {
+      cityUpdates.push({ userId, sharedAt, city });
+    },
+    resolveCityByCoordinates: async () => lookupPromise,
+  });
+
+  assert.equal(location.city, null);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].field, "location");
+  assert.equal(updates[0].value.city, null);
+  assert.deepEqual(states, [{ userId: 123, state: "idle" }]);
+  assert.equal(cityUpdates.length, 0);
+
+  resolveLookup("Tehran");
+  await lookupPromise;
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(cityUpdates.length, 1);
+  assert.equal(cityUpdates[0].city, "Tehran");
+  assert.equal(cityUpdates[0].sharedAt, location.sharedAt);
+});
+
+test("saveLocationProfile records failed background city lookup once", async () => {
+  const updates = [];
+  const cityUpdates = [];
+  const location = await saveLocationProfile({
+    userId: 123,
+    locationMessage: { latitude: 35.7, longitude: 51.4 },
+    updateProfileField: async (userId, field, value) => {
+      updates.push({ userId, field, value });
+    },
+    updateUserState: async () => {},
+    updateLocationCityForSharedAt: async (userId, sharedAt, city) => {
+      cityUpdates.push({ userId, sharedAt, city });
+    },
+    resolveCityByCoordinates: async () => null,
+  });
+
+  assert.equal(location.city, null);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].value.city, null);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(cityUpdates.length, 1);
+  assert.equal(cityUpdates[0].city, null);
+});
+
+test("extractCityFromReverseGeocode falls back to broader place fields", () => {
+  assert.equal(extractCityFromReverseGeocode({ address: { municipality: "Tehran" } }), "Tehran");
+  assert.equal(extractCityFromReverseGeocode({ address: { state: "Tehran Province" } }), "Tehran Province");
+  assert.equal(extractCityFromReverseGeocode({ address: {} }), null);
 });
 
 test("sendProfileMessage skips loading and default photo for text-only profiles", async () => {

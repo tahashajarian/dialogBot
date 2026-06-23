@@ -766,7 +766,7 @@ function ageRangeKeyboard(lang, startAge) {
     rows.push(ages.slice(index, index + 5).reverse());
   }
 
-  rows.push([{ text: "↩️", callback_data: callBacks.profileAgeRangeBack }]);
+  rows.push([{ text: "🔙", callback_data: callBacks.profileAgeRangeBack }]);
   rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
 
   return inlineKeyboard(rows);
@@ -884,7 +884,7 @@ function savedProfilesListKeyboard(lang, items = []) {
 
   if (normalizedPage > 0) {
     pageRows.push({
-      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      text: `🔙 ${messages[lang].discussionListPrevPage}`,
       callback_data: `${callBacks.savedProfilesPage}${normalizedPage - 1}`,
     });
   }
@@ -964,7 +964,7 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
 
   if (normalizedPage > 0) {
     pageRows.push({
-      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      text: `🔙 ${messages[lang].discussionListPrevPage}`,
       callback_data: `${pageCallback}${normalizedPage - 1}`,
     });
   }

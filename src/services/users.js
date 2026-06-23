@@ -70,6 +70,19 @@ async function updateProfileField(userId, field, value) {
   );
 }
 
+async function updateLocationCityForSharedAt(userId, sharedAt, city, attemptedAt = new Date()) {
+  return await User.findOneAndUpdate(
+    { userId, "location.sharedAt": sharedAt },
+    {
+      $set: {
+        "location.city": city,
+        "location.cityLookupAttemptedAt": attemptedAt,
+      },
+    },
+    { returnDocument: "after" },
+  );
+}
+
 async function updateUserFields(userId, fields = {}) {
   const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
   if (!entries.length) {
@@ -743,6 +756,7 @@ module.exports = {
   getOrCreateUser,
   updateLanguage,
   updateProfileField,
+  updateLocationCityForSharedAt,
   updateUserFields,
   normalizePlatformUserSource,
   updateUserState,
