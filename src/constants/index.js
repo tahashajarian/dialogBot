@@ -84,6 +84,7 @@ module.exports = {
     profileSettings: "profile:settings",
     profileSettingsBack: "profile:settings:back",
     profileEmoji: "profile:emoji",
+    profileEmojiPage: "profile:emoji:page:",
     profileEmojiChoose: "profile:emoji:choose:",
     profileEmojiConfirm: "profile:emoji:confirm:",
     profileEmojiCancel: "profile:emoji:cancel",

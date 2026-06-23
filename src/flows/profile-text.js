@@ -5,6 +5,8 @@ const {
   genderKeyboard,
   locationKeyboard,
   petPreferenceKeyboard,
+  profileEmojiKeyboard,
+  profileEmojiConfirmKeyboard,
   profileInterestsKeyboard,
 } = require("../keyboards");
 const {
@@ -34,7 +36,12 @@ const { awardProfileCompletionMilestone } = require("../services/star-milestones
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
+  formatStarNumber,
 } = require("../services/stars-ui");
+const {
+  getProfileEmojiCost,
+  getProfileEmojiIndex,
+} = require("../services/profile-emoji");
 
 async function buildProfileMilestoneNotice(ctx, updatedUser, lang) {
   const milestone = await awardProfileCompletionMilestone(ctx.userId, updatedUser);
@@ -82,7 +89,15 @@ function isProfileTextState(state = "") {
     "editing_pet_preference",
     "editing_bio",
     "editing_interests",
+    "editing_profile_emoji",
   ].includes(state);
+}
+
+function formatProfileEmojiText(lang, key, values = {}) {
+  return messages[lang][key]
+    .replace("{emoji}", values.emoji || "")
+    .replace("{cost}", formatStarNumber(values.cost ?? getProfileEmojiCost(), lang))
+    .replace("{balance}", formatStarNumber(values.balance ?? 0, lang));
 }
 
 async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboardLang }) {
@@ -294,6 +309,28 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
         .replace("{count}", String(result.items.length))
         .replace("{limit}", String(operationalLimits.profileInterestItems)),
       profileInterestsKeyboard(lang, result.items),
+    );
+  }
+
+  if (state === "editing_profile_emoji" && text) {
+    const emoji = String(text || "").trim();
+    const index = getProfileEmojiIndex(emoji);
+    if (index < 0) {
+      return sendProfileEditPrompt(ctx, messages[lang].profileEmojiInvalid, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
+    }
+
+    const nonce = Date.now().toString(36);
+    const cost = getProfileEmojiCost();
+    await updateUserState(ctx.userId, `profile_emoji_confirm:${index}:${cost}:${nonce}`);
+    if (ctx.user) ctx.user.state = `profile_emoji_confirm:${index}:${cost}:${nonce}`;
+    return sendProfileEditPrompt(
+      ctx,
+      formatProfileEmojiText(lang, "profileEmojiConfirmText", {
+        emoji,
+        cost,
+        balance: ctx.user?.starBalance || 0,
+      }),
+      profileEmojiConfirmKeyboard(lang, nonce, cost),
     );
   }
 

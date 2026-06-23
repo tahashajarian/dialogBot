@@ -101,7 +101,7 @@ The dashboard also reports aggregate Star ledger totals, outstanding balances, e
 
 ## Bot Appearance Administration
 
-The dashboard includes a small **Bot Appearance** section for the Muze marker emoji used in bot-authored guidance. The configured marker is cached briefly by bot processes, applied to newly sent or edited messages, and reserved from user profile emoji choices.
+The dashboard includes a small **Bot Appearance** section near the top, after **Bot Limits**, for the Muze marker emoji used in bot-authored guidance. The configured marker is cached briefly by bot processes, applied to newly sent or edited messages, and reserved from user profile emoji choices.
 
 ## Next Step
 

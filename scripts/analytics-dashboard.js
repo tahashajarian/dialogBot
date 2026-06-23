@@ -401,16 +401,16 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     updatedAt: snapshot.limitsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "1",
   }), { open: true, note: "editable product quotas" })}
+      ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, `/bot-appearance${actionSuffix}`, {
+    updatedAt: snapshot.botAppearanceUpdatedAt,
+    saved: new URLSearchParams(actionSuffix).get("saved") === "appearance",
+    cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
+  }), { open: true, note: "bot-authored message marker" })}
       ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, `/star-settings${actionSuffix}`, {
     updatedAt: snapshot.starSettingsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
     cacheTtlSeconds: snapshot.starSettingsCacheTtlSeconds,
   }), { open: false, note: "rewards, costs, safeguards, rollout" })}
-      ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, `/bot-appearance${actionSuffix}`, {
-    updatedAt: snapshot.botAppearanceUpdatedAt,
-    saved: new URLSearchParams(actionSuffix).get("saved") === "appearance",
-    cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
-  }), { open: false, note: "bot-authored message marker" })}
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
       ${card("Unique Earners", snapshot.stars?.earners || 0)}

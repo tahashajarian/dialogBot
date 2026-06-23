@@ -86,6 +86,7 @@ function isProfileSettingsOrEditCallback(data = "") {
     data === callBacks.profileSettings ||
     data === callBacks.profileSettingsBack ||
     data === callBacks.profileEmoji ||
+    data.startsWith(callBacks.profileEmojiPage) ||
     data.startsWith(callBacks.profileEmojiChoose) ||
     data.startsWith(callBacks.profileEmojiConfirm) ||
     data === callBacks.profileEmojiCancel ||
@@ -211,6 +212,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEmoji) {
     await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_profile_emoji");
+    if (ctx.user) ctx.user.state = "editing_profile_emoji";
     await retireCallbackMessageIfPossible?.(ctx);
     return ctx.reply(
       formatProfileEmojiText(lang, "profileEmojiPickerText", {
@@ -219,6 +222,24 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       }),
       profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
     );
+  }
+
+  if (data.startsWith(callBacks.profileEmojiPage)) {
+    await ctx.answerCb?.();
+    const page = Number(data.replace(callBacks.profileEmojiPage, ""));
+    const text = formatProfileEmojiText(lang, "profileEmojiPickerText", {
+      cost: getProfileEmojiCost(),
+      balance: ctx.user?.starBalance || 0,
+    });
+    if (ctx.callbackMessageId && ctx.editMessageText) {
+      const edited = await ctx.editMessageText(
+        ctx.callbackMessageId,
+        text,
+        profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page),
+      );
+      if (edited) return edited;
+    }
+    return ctx.reply(text, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page));
   }
 
   if (data.startsWith(callBacks.profileEmojiChoose)) {

@@ -743,14 +743,26 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
   ]);
 }
 
-function profileEmojiKeyboard(lang, currentEmoji = "") {
+const PROFILE_EMOJI_PAGE_SIZE = 12;
+
+function profileEmojiKeyboard(lang, currentEmoji = "", page = 0) {
   const options = getProfileEmojiOptions();
+  const pageCount = Math.max(1, Math.ceil(options.length / PROFILE_EMOJI_PAGE_SIZE));
+  const normalizedPage = Math.min(pageCount - 1, Math.max(0, Number(page) || 0));
+  const start = normalizedPage * PROFILE_EMOJI_PAGE_SIZE;
+  const visibleOptions = options.slice(start, start + PROFILE_EMOJI_PAGE_SIZE);
   const rows = [];
-  for (let i = 0; i < options.length; i += 4) {
-    rows.push(options.slice(i, i + 4).map((emoji, offset) => ({
+  for (let i = 0; i < visibleOptions.length; i += 4) {
+    rows.push(visibleOptions.slice(i, i + 4).map((emoji, offset) => ({
       text: emoji === currentEmoji ? `${emoji} ✓` : emoji,
-      callback_data: `${callBacks.profileEmojiChoose}${i + offset}`,
+      callback_data: `${callBacks.profileEmojiChoose}${start + i + offset}`,
     })));
+  }
+  if (pageCount > 1) {
+    rows.push([{
+      text: messages[lang].profileEmojiMoreButton,
+      callback_data: `${callBacks.profileEmojiPage}${(normalizedPage + 1) % pageCount}`,
+    }]);
   }
   rows.push([{ text: messages[lang].profileBackToSettings, callback_data: callBacks.profileSettings }]);
   return inlineKeyboard(rows);

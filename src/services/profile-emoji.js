@@ -33,6 +33,10 @@ function getProfileEmojiOption(index) {
   return getProfileEmojiOptions()[normalized] || "";
 }
 
+function getProfileEmojiIndex(emoji) {
+  return getProfileEmojiOptions().indexOf(String(emoji || "").trim());
+}
+
 async function setProfileEmojiWithStars({ userId, emoji, nonce }) {
   if (!getProfileEmojiOptions().includes(emoji)) {
     return { ok: false, reason: "invalid_emoji" };
@@ -74,6 +78,7 @@ module.exports = {
   PROFILE_EMOJI_CATALOG,
   getProfileEmojiOptions,
   getProfileEmojiCost,
+  getProfileEmojiIndex,
   getProfileEmojiOption,
   setProfileEmojiWithStars,
 };

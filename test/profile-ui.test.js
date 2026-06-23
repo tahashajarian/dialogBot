@@ -4,6 +4,7 @@ const { setImmediate } = require("node:timers");
 
 const messages = require("../src/messages");
 const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-appearance");
+const { getProfileEmojiIndex } = require("../src/services/profile-emoji");
 const {
   profileKeyboard,
   profileSettingsKeyboard,
@@ -365,7 +366,8 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
     assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
-    assert.equal(buttons.length > 40, true);
+    assert.equal(buttons.filter((button) => button.callback_data?.startsWith("profile:emoji:choose:")).length, 12);
+    assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:page:1"), true);
     assert.equal(buttons.some((button) => button.text === "🔥"), false);
     for (const reserved of FIXED_RESERVED_EMOJIS) {
       assert.equal(buttons.some((button) => button.text === reserved), false);
@@ -378,6 +380,13 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
+});
+
+test("profile emoji typed input must be one exact allowed emoji", () => {
+  assert.equal(getProfileEmojiIndex("🌙"), 0);
+  assert.equal(getProfileEmojiIndex(" 🌙 "), 0);
+  assert.equal(getProfileEmojiIndex("🌙 hi"), -1);
+  assert.equal(getProfileEmojiIndex("⭐"), -1);
 });
 
 test("profileActiveDiscussionHelpKeyboard returns to profile", () => {

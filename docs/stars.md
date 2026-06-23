@@ -250,7 +250,7 @@ Profile emoji is an optional cosmetic shown beside the user's display name on pr
 Recommended launch default:
 
 - cost: 3 Stars
-- curated inline picker only
+- paged curated inline picker; exact typed emoji is allowed only when it is in the same allowed set
 - confirmation shows selected emoji, cost, and balance
 - spend reason: `profile_emoji`
 
