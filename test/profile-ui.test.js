@@ -366,7 +366,7 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
     assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
-    assert.equal(buttons.filter((button) => button.callback_data?.startsWith("profile:emoji:choose:")).length, 12);
+    assert.equal(buttons.filter((button) => button.callback_data?.startsWith("profile:emoji:choose:")).length, 20);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:page:1"), true);
     assert.equal(buttons.some((button) => button.text === "🔥"), false);
     for (const reserved of FIXED_RESERVED_EMOJIS) {

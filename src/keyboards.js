@@ -743,7 +743,7 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
   ]);
 }
 
-const PROFILE_EMOJI_PAGE_SIZE = 12;
+const PROFILE_EMOJI_PAGE_SIZE = 20;
 
 function profileEmojiKeyboard(lang, currentEmoji = "", page = 0) {
   const options = getProfileEmojiOptions();
