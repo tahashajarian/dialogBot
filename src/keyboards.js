@@ -235,6 +235,12 @@ function aiSuggestionAddKeyboard(lang, section) {
         callback_data: `${callBacks.aiSectionAddSuggestionDone}${section}`,
       },
     ],
+    [
+      {
+        text: messages[lang].aiSuggestionRejectButton,
+        callback_data: `${callBacks.aiSectionRejectSuggestion}${section}`,
+      },
+    ],
   ]);
 }
 

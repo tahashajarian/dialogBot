@@ -24,6 +24,7 @@ const {
   getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
+  getAiRejectedSuggestionTitlesFromUser,
   setAiListItemComment,
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
@@ -342,10 +343,12 @@ async function sendSingleSectionSuggestion({
   paidSuggestion = null,
 }) {
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
+  const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
     ...recentSuggestionItems,
+    ...rejectedSuggestionItems,
   ].map((title) => ({ title }));
   const placeholder = await startAiPlaceholder(ctx, [
     messages[lang].aiThinking,
@@ -385,6 +388,7 @@ async function sendSingleSectionSuggestion({
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
+      rejectedSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });

@@ -106,6 +106,7 @@ function buildUserContext({
   topTenItems = [],
   watchlistItems = [],
   recentSuggestionItems = [],
+  rejectedSuggestionItems = [],
 }) {
   if (!personalized) {
     return "";
@@ -120,8 +121,11 @@ function buildUserContext({
   const recentSuggestions = recentSuggestionItems.length
     ? recentSuggestionItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
     : "None";
+  const rejectedSuggestions = rejectedSuggestionItems.length
+    ? rejectedSuggestionItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "None";
 
-  return `\nUser top 10:\n${topTen}\n\nUser watchlist:\n${watchlist}\n\nRecently suggested:\n${recentSuggestions}`;
+  return `\nUser top 10:\n${topTen}\n\nUser watchlist:\n${watchlist}\n\nRecently suggested:\n${recentSuggestions}\n\nUser rejected / not-for-me suggestions:\n${rejectedSuggestions}`;
 }
 
 function buildTasteStyleInstruction(tasteStyleHint, lang) {
@@ -154,6 +158,7 @@ async function getAiSingleSuggestion({
   topTenItems = [],
   watchlistItems = [],
   recentSuggestionItems = [],
+  rejectedSuggestionItems = [],
   personalized = false,
   tasteStyleHint = "",
 }) {
@@ -180,7 +185,7 @@ async function getAiSingleSuggestion({
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
       personalized
-        ? "Base the recommendation on specific overlaps with the user's top 10. Avoid repeating top 10, watchlist, or recently suggested items."
+        ? "Base the recommendation on specific overlaps with the user's top 10. Avoid repeating top 10, watchlist, recently suggested items, or rejected/not-for-me suggestions."
         : "",
       buildTasteStyleInstruction(tasteStyleHint, lang),
       getModeInstruction(mode, lang),
@@ -194,6 +199,7 @@ async function getAiSingleSuggestion({
         topTenItems,
         watchlistItems,
         recentSuggestionItems,
+        rejectedSuggestionItems,
       })}`,
     });
     const rawText = request.text;

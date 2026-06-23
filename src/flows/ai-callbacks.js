@@ -24,6 +24,7 @@ const {
   removeAiListItem,
   addAiListItem,
   addAiRecentSuggestion,
+  addAiRejectedSuggestion,
   consumeAiSuggestionQuota,
   refundAiSuggestionQuota,
   getAiListItemsFromUser,
@@ -33,6 +34,7 @@ const {
   syncAiTasteForSection,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
+  getAiRejectedSuggestionTitlesFromUser,
   getAiTasteFromUser,
 } = require("../services/users");
 const { getAiSingleSuggestion } = require("../services/ai");
@@ -138,6 +140,7 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiListManageBack) ||
     data.startsWith(callBacks.aiSectionAddSuggestion) ||
     data.startsWith(callBacks.aiSectionAddSuggestionDone) ||
+    data.startsWith(callBacks.aiSectionRejectSuggestion) ||
     data.startsWith(callBacks.aiSectionAnotherSuggestion) ||
     data.startsWith(callBacks.aiSectionSuggestFromTopTen) ||
     data.startsWith(callBacks.aiSectionSuggestWithContext) ||
@@ -220,10 +223,12 @@ async function sendFollowupSuggestion({
 }) {
   const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
+  const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
     ...recentSuggestionItems,
+    ...rejectedSuggestionItems,
   ].map((title) => ({ title }));
   const taste = getAiTasteFromUser(ctx.user, section);
   const tasteStyleHint = taste?.labelKey
@@ -270,6 +275,7 @@ async function sendFollowupSuggestion({
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
+      rejectedSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });
@@ -1003,6 +1009,28 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     if (sentSuggestion) return sentSuggestion;
     return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
+  }
+
+  if (data.startsWith(callBacks.aiSectionRejectSuggestion)) {
+    await ctx.answerCb?.(messages[lang].aiSuggestionRejectedNotification);
+    const section = data.replace(callBacks.aiSectionRejectSuggestion, "").trim();
+    if (!section) return ctx.reply(messages[lang].unknownAction);
+
+    const pending = getPendingSuggestion(ctx.userId, section);
+    const title = String(pending?.title || "").trim();
+    if (!title) return ctx.reply(messages[lang].aiSuggestionExpired || messages[lang].unknownAction);
+
+    const rejected = await addAiRejectedSuggestion(ctx.userId, section, title, AI_RECENT_SUGGESTIONS_LIMIT);
+    if (ctx.user && rejected.ok) {
+      if (!ctx.user.aiRejectedSuggestions) ctx.user.aiRejectedSuggestions = {};
+      ctx.user.aiRejectedSuggestions[section] = rejected.items;
+    }
+    clearPendingSuggestion(ctx.userId, section);
+    await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    const actionMessage = await ctx.reply(messages[lang].aiSuggestionRejected, aiSuggestionNextKeyboard(lang, section));
+    await rememberAiActionMessage(ctx, `suggest_rejected:${section}`, actionMessage);
+    return actionMessage;
   }
 
   if (data.startsWith(callBacks.aiSectionAddSuggestion) || data.startsWith(callBacks.aiSectionAddSuggestionDone)) {

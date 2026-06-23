@@ -265,6 +265,7 @@ Labels should be inferred from both typed items and suggested chips.
 - Paid extra suggestions do not bypass the requirement for at least 3 TopTen items in that section.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
+- Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button.
 
 ## Stars Milestones

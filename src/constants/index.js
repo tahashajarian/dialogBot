@@ -30,6 +30,7 @@ module.exports = {
     aiSuggestRandom: "ai:suggest:random",
     aiSectionAddSuggestion: "ai:section:add-suggestion:",
     aiSectionAddSuggestionDone: "ai:section:add-suggestion-done:",
+    aiSectionRejectSuggestion: "ai:section:reject-suggestion:",
     aiSectionAnotherSuggestion: "ai:section:another-suggestion:",
     aiSectionSuggestFromTopTen: "ai:section:suggest:top-ten:",
     aiSectionSuggestWithContext: "ai:section:suggest:context:",

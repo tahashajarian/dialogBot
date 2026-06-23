@@ -40,6 +40,13 @@ const AiRecentSuggestionsSchema = new mongoose.Schema({
   random: { type: [String], default: [] },
 }, { _id: false });
 
+const AiRejectedSuggestionsSchema = new mongoose.Schema({
+  movies: { type: [String], default: [] },
+  music: { type: [String], default: [] },
+  books: { type: [String], default: [] },
+  random: { type: [String], default: [] },
+}, { _id: false });
+
 const AiSuggestionUsageSchema = new mongoose.Schema({
   movies: { type: [Date], default: [] },
   music: { type: [Date], default: [] },
@@ -131,6 +138,7 @@ const UserSchema = new mongoose.Schema({
   aiLists: { type: AiListsSchema, default: () => ({}) },
   aiTaste: { type: AiTasteSchema, default: () => ({}) },
   aiRecentSuggestions: { type: AiRecentSuggestionsSchema, default: () => ({}) },
+  aiRejectedSuggestions: { type: AiRejectedSuggestionsSchema, default: () => ({}) },
   aiSuggestionUsage: { type: AiSuggestionUsageSchema, default: () => ({}) },
   aiWatchlistMovies: { type: [String], default: [] },
   aiTopTenMovies: { type: [String], default: [] },

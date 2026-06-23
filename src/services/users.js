@@ -245,6 +245,12 @@ function getAiRecentSuggestionTitlesFromUser(user, section) {
     .filter(Boolean);
 }
 
+function getAiRejectedSuggestionTitlesFromUser(user, section) {
+  return (user?.aiRejectedSuggestions?.[section] || [])
+    .map((entry) => normalizeAiListItem(entry))
+    .filter(Boolean);
+}
+
 async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
   const cleanTitle = normalizeAiListItem(title);
   if (!cleanTitle) {
@@ -269,6 +275,24 @@ async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
       goal: maxItems,
     },
   });
+  return { ok: true, items: updated };
+}
+
+async function addAiRejectedSuggestion(userId, section, title, maxItems = 20) {
+  const cleanTitle = normalizeAiListItem(title);
+  if (!cleanTitle) {
+    return { ok: false, reason: "empty" };
+  }
+
+  const user = await User.findOne({ userId });
+  if (!user) {
+    return { ok: false, reason: "missing_user" };
+  }
+
+  const current = getAiRejectedSuggestionTitlesFromUser(user, section);
+  const withoutDuplicate = current.filter((entry) => entry.toLowerCase() !== cleanTitle.toLowerCase());
+  const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
+  await updateProfileField(userId, `aiRejectedSuggestions.${section}`, updated);
   return { ok: true, items: updated };
 }
 
@@ -784,7 +808,9 @@ module.exports = {
   getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
+  getAiRejectedSuggestionTitlesFromUser,
   addAiRecentSuggestion,
+  addAiRejectedSuggestion,
   getRecentSuggestionUsageFromUser,
   consumeAiSuggestionQuota,
   refundAiSuggestionQuota,
