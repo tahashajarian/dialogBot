@@ -5,13 +5,17 @@ const {
   genderKeyboard,
   locationKeyboard,
   petPreferenceKeyboard,
+  profileInterestsKeyboard,
 } = require("../keyboards");
 const {
+  addAiListItem,
+  getAiListItemsFromUser,
   updateLocationCityForSharedAt,
   updateProfileField,
   updateUserFields,
   updateUserState,
 } = require("../services/users");
+const { operationalLimits } = require("../services/operational-limits");
 const {
   clearBottomKeyboardQuietly,
 } = require("../services/bot-navigation");
@@ -56,6 +60,17 @@ const FIELD_LIMITS = {
   bio: 120,
 };
 
+function formatProfileInterestMessage(lang, key, replacements = {}) {
+  return Object.entries({
+    limit: operationalLimits.profileInterestItems,
+    maxLength: operationalLimits.profileInterestCustomMaxLength,
+    ...replacements,
+  }).reduce(
+    (text, [placeholder, value]) => text.replaceAll(`{${placeholder}}`, String(value)),
+    messages[lang][key],
+  );
+}
+
 function isProfileTextState(state = "") {
   return [
     "editing_name",
@@ -66,6 +81,7 @@ function isProfileTextState(state = "") {
     "editing_gender",
     "editing_pet_preference",
     "editing_bio",
+    "editing_interests",
   ].includes(state);
 }
 
@@ -232,6 +248,53 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     updatedUser.bio = text;
     updatedUser.state = "idle";
     return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
+  }
+
+  if (state === "editing_interests" && text) {
+    const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    if (text.startsWith("/")) {
+      return sendProfileEditPrompt(
+        ctx,
+        formatProfileInterestMessage(lang, "profileEditHintInterests"),
+        profileInterestsKeyboard(lang, currentItems),
+      );
+    }
+
+    const item = String(text || "").trim().replace(/\s+/g, " ");
+    if (!item || Array.from(item).length > operationalLimits.profileInterestCustomMaxLength) {
+      return sendProfileEditPrompt(
+        ctx,
+        `${formatProfileInterestMessage(lang, "profileInterestTooLong")}\n${formatProfileInterestMessage(lang, "profileEditHintInterests")}`,
+        profileInterestsKeyboard(lang, currentItems),
+      );
+    }
+
+    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
+    if (!result.ok) {
+      const errorText = result.reason === "limit"
+        ? formatProfileInterestMessage(lang, "profileInterestsLimitReached")
+        : result.reason === "exists"
+          ? formatProfileInterestMessage(lang, "profileInterestsDuplicate")
+          : formatProfileInterestMessage(lang, "profileInterestsInvalid");
+      return sendProfileEditPrompt(
+        ctx,
+        `${errorText}\n${formatProfileInterestMessage(lang, "profileEditHintInterests")}`,
+        profileInterestsKeyboard(lang, result.items || currentItems),
+      );
+    }
+
+    if (ctx.user) {
+      if (!ctx.user.aiLists) ctx.user.aiLists = {};
+      if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
+      ctx.user.aiLists.random.topTen = result.items;
+    }
+    return sendProfileEditPrompt(
+      ctx,
+      messages[lang].profileInterestsSaved
+        .replace("{count}", String(result.items.length))
+        .replace("{limit}", String(operationalLimits.profileInterestItems)),
+      profileInterestsKeyboard(lang, result.items),
+    );
   }
 
   return false;

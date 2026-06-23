@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { setImmediate } = require("node:timers");
 
 const messages = require("../src/messages");
 const {

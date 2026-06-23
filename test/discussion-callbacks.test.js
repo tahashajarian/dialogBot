@@ -243,7 +243,7 @@ test("starter discussion list makes the first social step obvious", () => {
 
   assert.match(text, /✨ Start here: open to everyone\./);
   assert.match(text, /✨ Unlocked by your Interests: Gaming\./);
-  assert.match(text, /💡 Add Movies to your Interests Top 10 to unlock this room\./);
+  assert.match(text, /💡 Add Movies to your profile interests to unlock this room\./);
 });
 
 test("starter discussion item rules use Persian aliases in Persian UI", () => {

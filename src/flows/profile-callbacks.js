@@ -7,6 +7,8 @@ const {
   profileSettingsKeyboard,
   profileActiveDiscussionHelpKeyboard,
   profileStarsKeyboard,
+  profileInterestsKeyboard,
+  getInterestTopTenChipTitle,
   ageKeyboard,
   ageRangeKeyboard,
   genderKeyboard,
@@ -15,6 +17,9 @@ const {
   cancelEditKeyboard,
 } = require("../keyboards");
 const {
+  addAiListItem,
+  getAiListItemsFromUser,
+  removeAiListItem,
   updateProfileField,
   updateUserState,
 } = require("../services/users");
@@ -43,6 +48,30 @@ const {
 const {
   sendPublicProfileByCode,
 } = require("./saved-profiles");
+const { operationalLimits } = require("../services/operational-limits");
+
+function formatProfileInterestMessage(lang, key) {
+  return messages[lang][key]
+    .replace("{limit}", String(operationalLimits.profileInterestItems))
+    .replace("{maxLength}", String(operationalLimits.profileInterestCustomMaxLength));
+}
+
+function getProfileInterestItems(user) {
+  return getAiListItemsFromUser(user, "random", "topTen");
+}
+
+async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0) {
+  const items = getProfileInterestItems(user);
+  const text = messages[lang].profileInterestsEditPrompt
+    .replace("{count}", String(items.length))
+    .replace("{limit}", String(operationalLimits.profileInterestItems));
+  const keyboard = profileInterestsKeyboard(lang, items, page);
+  if (ctx.callbackMessageId && ctx.editMessageText) {
+    const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
+    if (edited) return edited;
+  }
+  return ctx.reply(text, keyboard);
+}
 
 function isProfileSettingsOrEditCallback(data = "") {
   return data === callBacks.profileEditName ||
@@ -58,6 +87,11 @@ function isProfileSettingsOrEditCallback(data = "") {
     data === callBacks.profileEditGender ||
     data === callBacks.profileEditPetPreference ||
     data === callBacks.profileEditBio ||
+    data === callBacks.profileEditInterests ||
+    data.startsWith(callBacks.profileInterestChip) ||
+    data.startsWith(callBacks.profileInterestRemove) ||
+    data.startsWith(callBacks.profileInterestMore) ||
+    data === callBacks.profileInterestsDone ||
     data === callBacks.profileEditLocation ||
     data.startsWith(callBacks.profileGenderSet) ||
     data.startsWith(callBacks.profilePetSet) ||
@@ -220,6 +254,61 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileEditBio) {
     await ctx.answerCb?.();
     return beginProfileEdit(ctx, "editing_bio", messages[lang].profileAskBio, cancelEditKeyboard(lang), { retireCallbackMessageIfPossible });
+  }
+
+  if (data === callBacks.profileEditInterests) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "editing_interests");
+    await retireCallbackMessageIfPossible?.(ctx);
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {});
+  }
+
+  if (data.startsWith(callBacks.profileInterestMore)) {
+    await ctx.answerCb?.();
+    if (ctx.user?.state !== "editing_interests") return ctx.reply(messages[lang].unknownAction);
+    const page = Number(data.replace(callBacks.profileInterestMore, "")) || 0;
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page);
+  }
+
+  if (data.startsWith(callBacks.profileInterestRemove)) {
+    await ctx.answerCb?.();
+    if (ctx.user?.state !== "editing_interests") return ctx.reply(messages[lang].unknownAction);
+    const index = Number(data.replace(callBacks.profileInterestRemove, ""));
+    const items = getProfileInterestItems(ctx.user);
+    const item = items[index]?.title;
+    if (!item) return ctx.reply(messages[lang].unknownAction);
+    const result = await removeAiListItem(ctx.userId, "random", "topTen", item);
+    if (ctx.user?.aiLists?.random) ctx.user.aiLists.random.topTen = result.items || [];
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {});
+  }
+
+  if (data.startsWith(callBacks.profileInterestChip)) {
+    if (ctx.user?.state !== "editing_interests") return ctx.reply(messages[lang].unknownAction);
+    const chipIndex = Number(data.replace(callBacks.profileInterestChip, ""));
+    const item = getInterestTopTenChipTitle(chipIndex, lang);
+    if (!item) return ctx.reply(messages[lang].unknownAction);
+    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
+    if (!result.ok && result.reason === "limit") {
+      return ctx.answerCb?.(formatProfileInterestMessage(lang, "profileInterestsLimitReached"), { show_alert: true });
+    }
+    if (!result.ok && result.reason !== "exists") return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsInvalid"));
+    await ctx.answerCb?.();
+    if (ctx.user) {
+      if (!ctx.user.aiLists) ctx.user.aiLists = {};
+      if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
+      ctx.user.aiLists.random.topTen = result.items || getProfileInterestItems(ctx.user);
+    }
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileInterestsDone) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
+    await updateUserState(ctx.userId, "idle");
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.state = "idle";
+    return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileEditLocation) {

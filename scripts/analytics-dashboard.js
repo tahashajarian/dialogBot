@@ -153,10 +153,12 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
   <form method="post" action="${escapeHtml(action)}" class="limits-form">
     ${Object.entries(groups).map(([group, fields]) => `<fieldset>
       <legend>${escapeHtml(group)}</legend>
-      <div class="limit-grid">${fields.map((field) => `<label>
-        <span>${escapeHtml(field.label)}</span>
+      <div class="limit-grid">${fields.map((field) => `<label class="setting-field">
+        <span class="setting-label">${escapeHtml(field.label)}</span>
+        ${field.description ? `<small>${escapeHtml(field.description)}</small>` : ""}
         <input type="number" name="${escapeHtml(field.key)}" value="${escapeHtml(field.value)}"
           min="${field.min}" max="${field.max}" step="1" required />
+        <small class="setting-range">Range ${formatNumber(field.min)}-${formatNumber(field.max)}</small>
       </label>`).join("")}</div>
     </fieldset>`).join("")}
     <div class="form-actions"><button type="submit">Save limits</button><span class="muted">Restart the bot to activate saved changes.</span></div>
@@ -180,18 +182,19 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
       <legend>${escapeHtml(group)}</legend>
       <div class="limit-grid">${fields.map((field) => {
     if (field.type === "boolean") {
-      return `<label>
-        <span>${escapeHtml(field.label)}</span>
+      return `<label class="setting-field">
+        <span class="setting-label">${escapeHtml(field.label)}</span>
         <small>${escapeHtml(field.description || "")}</small>
         <input type="hidden" name="${escapeHtml(field.key)}" value="false" />
         <input type="checkbox" name="${escapeHtml(field.key)}" value="true" ${field.value ? "checked" : ""} />
       </label>`;
     }
-    return `<label>
-      <span>${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}</span>
+    return `<label class="setting-field">
+      <span class="setting-label">${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}</span>
       <small>${escapeHtml(field.description || "")}</small>
       <input type="number" name="${escapeHtml(field.key)}" value="${escapeHtml(field.value)}"
         min="${field.min}" max="${field.max}" step="1" required />
+      <small class="setting-range">Range ${formatNumber(field.min)}-${formatNumber(field.max)}</small>
     </label>`;
   }).join("")}</div>
     </fieldset>`).join("")}
@@ -336,9 +339,21 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     .limits-form { display: grid; gap: 18px; }
     fieldset { border: 0; padding: 0; margin: 0; }
     legend { font-weight: 700; margin-bottom: 8px; }
-    .limit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-    .limit-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 13px; }
-    input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+    .limit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .setting-field {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--panel) 92%, var(--bg));
+    }
+    .setting-label { color: var(--text); font-weight: 700; }
+    .setting-range { font-size: 12px; }
+    input { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+    input[type="checkbox"] { width: 22px; height: 22px; }
     .form-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     button { border: 0; border-radius: 6px; padding: 10px 16px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; }
     .notice { padding: 10px 12px; margin-bottom: 14px; border-radius: 6px; }

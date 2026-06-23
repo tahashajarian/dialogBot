@@ -41,8 +41,8 @@ Discussions are live rooms with short memory.
 - Their English titles are `Free Discussion`, `Gaming Hangout`, `Movie Chat`, and `Metalheads`.
 - `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🧩 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🧩 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`. `Metalheads` requires the user's Music taste label to be `🤘 Metalhead`.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
-- The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the three-interest onboarding flow.
-- Normal onboarding completion or skip should prepare at most one bot invitation: the open `Free Discussion` room. Do not send locked starter-room invitations during onboarding; users can still discover those rooms from the active discussion list when their Interests unlock them.
+- The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the configurable Interest onboarding flow.
+- Normal onboarding completion should prepare at most one bot invitation: the open `Free Discussion` room. Do not send locked starter-room invitations during onboarding; users can still discover those rooms from the active discussion list when their Interests unlock them.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms say which Interest unlocked them, and locked rooms say which Interest TopTen item to add.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Muze-created rooms have no fake members or messages and show only a `🤖` marker beside their title.

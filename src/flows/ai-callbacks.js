@@ -1075,7 +1075,18 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data === callBacks.aiSuggestMovies) return enterAiSection(ctx, lang, "movies", helpers);
   if (data === callBacks.aiSuggestMusic) return enterAiSection(ctx, lang, "music", helpers);
   if (data === callBacks.aiSuggestBooks) return enterAiSection(ctx, lang, "books", helpers);
-  if (data === callBacks.aiSuggestRandom) return enterAiSection(ctx, lang, "random", helpers);
+  if (data === callBacks.aiSuggestRandom) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    return ctx.reply(messages[lang].profileInterestsMovedToProfile, {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: messages[lang].profileEditInterests, callback_data: callBacks.profileEditInterests },
+        ]],
+      },
+    });
+  }
 
   if (data === callBacks.aiBack) {
     await ctx.answerCb?.(messages[lang].mainMenuTitle);

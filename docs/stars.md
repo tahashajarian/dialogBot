@@ -205,7 +205,7 @@ Rules:
 
 Contextual next-step examples:
 
-- After onboarding/three Interests: explain the remaining items for the full Interests Top 10.
+- After onboarding/profile Interests: show actual earned Stars when a milestone is awarded, but do not show misleading full Top 10 progress for profile Interests.
 - After a list item is added: show progress only when approaching or reaching the relevant regular-list, first-3 TopTen, or full-TopTen milestone.
 - On an incomplete own profile: show the smallest privacy-safe set of choices that can complete the profile reward.
 - After the first discussion reward: explain boosting only as an optional use, not as the required next action.

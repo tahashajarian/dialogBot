@@ -620,7 +620,10 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
 }
 
 async function removeAiListItem(userId, section, listType, item) {
-  const cleanItem = normalizeAiListItem(item);
+  let cleanItem = normalizeAiListItem(item);
+  if (section === "random" && listType === "topTen") {
+    cleanItem = canonicalizeInterestChipTitle(cleanItem);
+  }
   if (!cleanItem) {
     return { ok: false, reason: "empty" };
   }

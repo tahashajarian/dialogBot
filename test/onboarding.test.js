@@ -56,7 +56,7 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
     assert.match(messages[lang].onboardingWelcome, /^🤖/);
     assert.match(messages[lang].onboardingWelcome, /💡/);
-    assert.match(messages[lang].onboardingWelcome, /3 interests|۳ علاقه/);
+    assert.match(messages[lang].onboardingWelcome, /some interests|چند علاقه/);
     assert.match(messages[lang].onboardingWelcomeWithName, /^🤖/);
     assert.match(messages[lang].onboardingWelcomeWithName, /💡/);
   }
@@ -91,29 +91,37 @@ test("bot-authored picker prompts start with the bot marker", () => {
   }
 });
 
-test("onboarding keyboard shows one page, removes selected interests, and keeps escape routes", () => {
+test("onboarding keyboard shows selected interests, real fill chips, and continue after minimum", () => {
   const keyboard = onboardingInterestsKeyboard("en", ["شطرنج"]);
   const buttons = keyboard.reply_markup.inline_keyboard.flat();
-  const interestButtons = buttons.filter((button) => button.callback_data.startsWith(callBacks.onboardingInterest));
+  const interestButtons = buttons.filter((button) => (
+    button.callback_data.startsWith(callBacks.onboardingInterest) &&
+    !button.callback_data.startsWith(callBacks.onboardingInterestRemove)
+  ));
 
-  assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
-  assert.equal(interestButtons.length, 9);
+  assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("×")), true);
+  assert.equal(interestButtons.length, 8);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
-  assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), true);
+  assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), false);
+  assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingContinue), false);
+
+  const readyKeyboard = onboardingInterestsKeyboard("en", ["Movies", "Books", "Chess"]);
+  const readyButtons = readyKeyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(readyButtons.some((button) => button.callback_data === callBacks.onboardingContinue), true);
 });
 
-test("onboarding chips hide selected built-ins across languages", () => {
+test("onboarding chips mark selected built-ins across languages", () => {
   const englishKeyboard = onboardingInterestsKeyboard("en", ["فیلم", "شطرنج"]);
   const persianKeyboard = onboardingInterestsKeyboard("fa", ["Movies", "Chess"]);
   const englishButtons = englishKeyboard.reply_markup.inline_keyboard.flat();
   const persianButtons = persianKeyboard.reply_markup.inline_keyboard.flat();
 
-  assert.equal(englishButtons.some((button) => button.text.includes("Movies")), false);
-  assert.equal(englishButtons.some((button) => button.text.includes("Chess")), false);
-  assert.equal(persianButtons.some((button) => button.text.includes("فیلم")), false);
-  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج")), false);
+  assert.equal(englishButtons.some((button) => button.text.includes("Movies") && button.text.includes("×")), true);
+  assert.equal(englishButtons.some((button) => button.text.includes("Chess") && button.text.includes("×")), true);
+  assert.equal(persianButtons.some((button) => button.text.includes("فیلم") && button.text.includes("×")), true);
+  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج") && button.text.includes("×")), true);
 });
 
 test("onboarding welcome waits for one clear start action", () => {
@@ -257,10 +265,10 @@ test("main menu uses the warmer Me label without renaming profile copy", () => {
 test("onboarding copy reports progress and a Persian starter vibe", () => {
   const progress = buildOnboardingPrompt("en", 2, "Coffee");
   const initial = buildOnboardingPrompt("en");
-  assert.match(progress, /2\/3/);
+  assert.match(progress, /2\/5/);
   assert.match(progress, /^🤖/);
   assert.match(progress, /💡/);
-  assert.ok(progress.length >= initial.length * 0.8);
+  assert.ok(progress.length >= initial.length * 0.6);
   assert.doesNotMatch(progress, /learn.*about you/i);
 
   const complete = buildOnboardingCompleteText("fa", [
@@ -280,10 +288,12 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
 test("onboarding callback predicate owns only onboarding actions", () => {
   assert.equal(isOnboardingCallback(callBacks.onboardingStart), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingInterest}2`), true);
+  assert.equal(isOnboardingCallback(`${callBacks.onboardingInterestRemove}2`), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingMore}1`), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingCustom}1`), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingCustomCancel}1`), true);
-  assert.equal(isOnboardingCallback(callBacks.onboardingSkip), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingContinue), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingSkip), false);
   assert.equal(isOnboardingCallback(callBacks.discussions), false);
-  assert.equal(messages.en.onboardingSkipButton.length > 0, true);
+  assert.equal(messages.en.onboardingContinueButton.length > 0, true);
 });

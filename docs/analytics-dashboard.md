@@ -62,18 +62,25 @@ http://127.0.0.1:8787/?token=your_token
 
 ## Bot Limits
 
-The **Bot Limits** section updates the enforced caps for lists, saved profiles,
-suggestions, discussions, room capacity, and direct invitations. Rolling-window
-durations and the discussion-message burst interval are editable too. Existing
-values remain the defaults until an admin saves the form, and running bot
-processes load the saved values once at startup. Restart the bot after saving
-changes in the dashboard.
+The **Bot Limits** section updates the enforced caps for lists, profile
+Interests, onboarding Interest selection, saved profiles, suggestions,
+discussions, room capacity, and in-bot saved-profile invitations. Rolling-window durations,
+typed-interest character limits, and the discussion-message burst interval are
+editable too. Existing values remain the defaults until an admin saves the form,
+and running bot processes load the saved values once at startup. Restart the bot
+after saving changes in the dashboard.
+
+The invitation cap applies only to stored user-to-user invitations created
+inside the bot, such as inviting a saved profile. Public shareable discussion
+links can be generated and used without this cap.
 
 After saving, the dashboard confirms the write and shows when the global limits
 were last changed. The form always displays the currently persisted values.
 
 These settings are global. Lowering a cap does not delete existing user data;
-it only prevents new additions until usage is below the new cap.
+it only prevents new additions until usage is below the new cap. Onboarding
+Interest values are normalized so the minimum cannot exceed the auto-complete
+maximum, and the onboarding maximum cannot exceed the profile Interest cap.
 
 ## Star Economy Administration
 

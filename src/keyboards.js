@@ -3,6 +3,7 @@ const {
   INTEREST_CHIPS,
   getInterestChipTitle,
   isInterestChipSelected,
+  localizeInterestChipTitle,
 } = require("./services/interest-chips");
 const messages = require("./messages");
 const { operationalLimits } = require("./services/operational-limits");
@@ -137,12 +138,6 @@ function aiAssistantKeyboard(lang) {
       {
         text: messages[lang].aiSuggestMusic,
         callback_data: callBacks.aiSuggestMusic,
-      },
-    ],
-    [
-      {
-        text: messages[lang].aiSuggestRandom,
-        callback_data: callBacks.aiSuggestRandom,
       },
     ],
     [
@@ -534,12 +529,26 @@ function onboardingWelcomeKeyboard(lang) {
 function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
   const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
+  const availableButtons = available.map(({ chip, index }) => ({
+    text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,
+    callback_data: `${callBacks.onboardingInterest}${index}`,
+  }));
 
-  for (let i = 0; i < available.length; i += 3) {
-    rows.push(available.slice(i, i + 3).map(({ chip, index }) => ({
-      text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,
-      callback_data: `${callBacks.onboardingInterest}${index}`,
-    })));
+  for (let i = 0; i < selectedTitles.length; i += 3) {
+    const row = selectedTitles.slice(i, i + 3).map((title, offset) => ({
+      text: `${localizeInterestChipTitle(title, lang)} ×`,
+      callback_data: `${callBacks.onboardingInterestRemove}${i + offset}`,
+    }));
+    while (row.length < 3) {
+      const nextButton = availableButtons.shift();
+      if (!nextButton) break;
+      row.push(nextButton);
+    }
+    rows.push(row);
+  }
+
+  for (let i = 0; i + 2 < availableButtons.length; i += 3) {
+    rows.push(availableButtons.slice(i, i + 3));
   }
 
   rows.push([{
@@ -550,10 +559,12 @@ function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
     callback_data: `${callBacks.onboardingCustom}${normalizedPage}`,
   }]);
 
-  rows.push([{
-    text: messages[lang].onboardingSkipButton,
-    callback_data: callBacks.onboardingSkip,
-  }]);
+  if (selectedTitles.length >= operationalLimits.onboardingInterestMinItems) {
+    rows.push([{
+      text: messages[lang].onboardingContinueButton,
+      callback_data: callBacks.onboardingContinue,
+    }]);
+  }
 
   return inlineKeyboard(rows);
 }
@@ -565,6 +576,45 @@ function onboardingCustomInterestKeyboard(lang, page = 0) {
       callback_data: `${callBacks.onboardingCustomCancel}${Number(page) || 0}`,
     },
   ]]);
+}
+
+function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
+  const selectedTitles = selectedItems.map((entry) => entry.title || entry);
+  const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
+  const rows = [];
+  const availableButtons = available.map(({ chip, index }) => ({
+    text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,
+    callback_data: `${callBacks.profileInterestChip}${index}`,
+  }));
+
+  for (let i = 0; i < selectedItems.length; i += 3) {
+    const row = selectedItems.slice(i, i + 3).map((entry, offset) => ({
+      text: `${localizeInterestChipTitle(entry.title || entry, lang)} ×`,
+      callback_data: `${callBacks.profileInterestRemove}${i + offset}`,
+    }));
+    while (row.length < 3) {
+      const nextButton = availableButtons.shift();
+      if (!nextButton) break;
+      row.push(nextButton);
+    }
+    rows.push(row);
+  }
+
+  for (let i = 0; i + 2 < availableButtons.length; i += 3) {
+    rows.push(availableButtons.slice(i, i + 3));
+  }
+
+  rows.push([{
+    text: messages[lang].onboardingMoreButton,
+    callback_data: `${callBacks.profileInterestMore}${(normalizedPage + 1) % totalPages}`,
+  }]);
+
+  rows.push([{
+    text: messages[lang].profileInterestsDone,
+    callback_data: callBacks.profileInterestsDone,
+  }]);
+
+  return inlineKeyboard(rows);
 }
 
 function onboardingCompleteKeyboard(lang, { invitationCount = 0 } = {}) {
@@ -645,6 +695,9 @@ function profileKeyboard(lang, hasPhoto = false) {
     [
       { text: messages[lang].profileEditCity, callback_data: callBacks.profileEditCity },
       { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
+    ],
+    [
+      { text: messages[lang].profileEditInterests, callback_data: callBacks.profileEditInterests },
     ],
     [
       { text: messages[lang].profileMoreSettings, callback_data: callBacks.profileSettings },
@@ -977,6 +1030,7 @@ module.exports = {
   onboardingInterestsKeyboard,
   onboardingCustomInterestKeyboard,
   onboardingCompleteKeyboard,
+  profileInterestsKeyboard,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,

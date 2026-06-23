@@ -32,31 +32,33 @@
 - Ask fresh users to choose Persian or English before showing the product overview.
 - After language selection, replace the language card with the localized welcome card and onboarding start action.
 - The welcome message should state the product promise: build taste, get personal suggestions, and find related discussions.
-- Offer recent, empty accounts a quick start that asks for three broad interests.
+- Offer recent, empty accounts a quick start that asks for some broad interests.
 - Show a small rotating set of interests instead of one oversized picker; let users request more options.
-- Let users type a custom interest through a dedicated input state with validation and a clear return action.
+- Let users type a custom interest through a dedicated input state with admin-managed length validation and a clear return action.
 - After a user types a custom interest, consume the old picker and send the updated progress or result as a fresh message below the user's text; do not edit a card above the user's message.
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
-- Show progress after each choice and remove selected chips from the picker.
-- After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
+- Show progress after each choice. Selected chips should remain visible with a remove marker, and tapping them removes the interest.
+- Show the Continue action after the admin-configured onboarding minimum. Auto-complete onboarding at the admin-configured onboarding maximum.
+- Keep Interest chip rows to three item buttons per row; do not render partial one- or two-chip rows.
+- Completion should show a clearly labeled preliminary vibe and explain that profile Interests improve related discussions.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
 - The About/guide should summarize Lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, Lists, and active discussions.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
-- Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
+- Show the product overview first with one clear "choose interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
-- After normal onboarding completion or skip, Muze may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. Do not send locked starter-room invitations during onboarding. These are Muze recommendations, not personal invites, and should not show Muze profile/mute controls. The active-discussions action can stay available as a secondary path for users who want to browse instead.
-- Onboarding must be skippable and must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
+- After normal onboarding completion, Muze may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. Do not send locked starter-room invitations during onboarding. These are Muze recommendations, not personal invites, and should not show Muze profile/mute controls. The active-discussions action can stay available as a secondary path for users who want to browse instead.
+- Onboarding must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
 - Some platforms may display only `/start` while still sending an old invite payload to the bot after the user clears chat history and presses Start. Once a `/start join_CODE` payload has opened an invite preview for that user, later repeats of the same start payload should be treated as normal `/start`. New start invite codes and explicit `/join_CODE` commands should still open the invite preview.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
 
 Stars UX rules:
 
 - Explain Stars briefly before or at the first reward, not as a store pitch on the welcome card.
-- The three onboarding Interests use the normal first-3 Interests milestone. Do not add a separate onboarding reward for the same data.
-- The completion card should say what milestone was completed, the configured Stars earned, the resulting balance, and one next eligible milestone such as completing the Interests Top 10.
-- `/start`, language selection, repeated onboarding callbacks, skip, and bot-created starter invitations never award Stars by themselves.
+- Onboarding Interests use the normal Interests milestone. Do not add a separate onboarding reward for the same data.
+- The onboarding card may show actual earned Stars, but should not show misleading Top 10 completion progress for profile Interests.
+- `/start`, language selection, repeated onboarding callbacks, and bot-created starter invitations never award Stars by themselves.
 - Preserve invite-first onboarding. A pending external invite/referral may be remembered through language selection, but reward qualification happens only after the configured product milestone.
 
 ## Stars Feedback And Purchase UX

@@ -11,6 +11,7 @@ const {
   addAiListItem,
   getAiListItemsFromUser,
   inferTasteLabel,
+  removeAiListItem,
   updateProfileField,
   updateUserState,
 } = require("../services/users");
@@ -31,14 +32,22 @@ const {
 } = require("../services/stars-ui");
 
 const ONBOARDING_VERSION = 1;
-const ONBOARDING_INTEREST_GOAL = 3;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
 const ONBOARDING_CHIPS_PER_PAGE = 9;
 
+function getOnboardingInterestGoal() {
+  return Math.min(operationalLimits.onboardingInterestMinItems, operationalLimits.onboardingInterestMaxItems);
+}
+
+function getOnboardingInterestLimit() {
+  return Math.max(getOnboardingInterestGoal(), operationalLimits.onboardingInterestMaxItems);
+}
+
 function isOnboardingCallback(data = "") {
   return data === callBacks.onboardingStart
-    || data === callBacks.onboardingSkip
+    || data === callBacks.onboardingContinue
     || data.startsWith(callBacks.onboardingInterest)
+    || data.startsWith(callBacks.onboardingInterestRemove)
     || data.startsWith(callBacks.onboardingMore)
     || data.startsWith(callBacks.onboardingCustom);
 }
@@ -115,7 +124,9 @@ function buildOnboardingPrompt(lang, count = 0, item = "") {
   const key = item ? "onboardingInterestAdded" : "onboardingInterestsPrompt";
   return messages[lang][key]
     .replace("{item}", item)
-    .replace("{count}", String(count));
+    .replace("{count}", String(count))
+    .replace("{goal}", String(getOnboardingInterestGoal()))
+    .replace("{limit}", String(getOnboardingInterestLimit()));
 }
 
 function buildOnboardingCompleteText(lang, items = []) {
@@ -137,6 +148,17 @@ function appendStarterInvitationsText(lang, text, count = 0) {
   const normalizedCount = Number(count) || 0;
   if (normalizedCount <= 0) return text;
   return `${text}\n\n${messages[lang].onboardingStarterInvitationsReady.replace("{count}", String(normalizedCount))}`;
+}
+
+function buildOnboardingStarNotice(lang, rewards = []) {
+  return buildStarRewardNotice({
+    ...messages,
+    [lang]: {
+      ...messages[lang],
+      starsReason_topten_first_milestone: messages[lang].onboardingStarsReasonInterests
+        .replace("{goal}", String(getOnboardingInterestGoal())),
+    },
+  }, lang, rewards);
 }
 
 async function completeOnboardingAndCreateStarterInvites(ctx, skipped = false) {
@@ -200,12 +222,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (data === callBacks.onboardingSkip) {
-    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx, true);
-    return helpers.editCallbackMessageOrReply(
-      ctx,
-      appendStarterInvitationsText(lang, messages[lang].onboardingSkipped, starterInvites.count),
-      onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
-    );
+    return helpers.deleteCallbackMessageIfPossible?.(ctx);
   }
 
   if (data.startsWith(callBacks.onboardingCustomCancel)) {
@@ -236,6 +253,41 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     );
   }
 
+  if (data === callBacks.onboardingContinue) {
+    const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    const goal = getOnboardingInterestGoal();
+    if (items.length < goal) {
+      return ctx.answerCb?.(
+        messages[lang].onboardingNeedMoreInterests.replace("{goal}", String(goal)),
+        { show_alert: true },
+      );
+    }
+    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
+    return helpers.editCallbackMessageOrReply(
+      ctx,
+      appendStarterInvitationsText(
+        lang,
+        buildOnboardingCompleteText(lang, items),
+        starterInvites.count,
+      ),
+      onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
+    );
+  }
+
+  if (data.startsWith(callBacks.onboardingInterestRemove)) {
+    const index = Number(data.replace(callBacks.onboardingInterestRemove, ""));
+    const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    const item = items[index]?.title;
+    if (!item) return ctx.reply(messages[lang].unknownAction);
+    const result = await removeAiListItem(ctx.userId, "random", "topTen", item);
+    if (ctx.user?.aiLists?.random) ctx.user.aiLists.random.topTen = result.items || [];
+    return helpers.editCallbackMessageOrReply(
+      ctx,
+      buildOnboardingPrompt(lang, (result.items || []).length),
+      onboardingInterestsKeyboard(lang, (result.items || []).map((entry) => entry.title)),
+    );
+  }
+
   if (data.startsWith(callBacks.onboardingCustom)) {
     const page = getOnboardingPage(data);
     await updateUserState(ctx.userId, `onboarding_custom_interest:${page}`);
@@ -258,32 +310,30 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     "random",
     "topTen",
     { title: item, comment: "" },
-    operationalLimits.aiTopTenItems,
+    getOnboardingInterestLimit(),
   );
   const items = result.ok
     ? result.items
     : getAiListItemsFromUser(ctx.user, "random", "topTen");
   applyStarRewardsToContext(ctx, result.starRewards);
   await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
-  const starNotice = buildStarRewardNotice(
-    messages,
-    lang,
-    result.starRewards,
-    result.starProgress,
-    { alwaysShowProgress: items.length >= ONBOARDING_INTEREST_GOAL },
-  );
+  const starNotice = buildOnboardingStarNotice(lang, result.starRewards);
 
   if (!result.ok && result.reason !== "exists") {
-    return ctx.reply(messages[lang].unknownAction);
+    return ctx.reply(
+      result.reason === "limit"
+        ? messages[lang].onboardingInterestLimitReached.replace("{limit}", String(getOnboardingInterestLimit()))
+        : messages[lang].unknownAction,
+    );
   }
 
-  if (items.length >= ONBOARDING_INTEREST_GOAL) {
+  if (result.ok && items.length >= getOnboardingInterestLimit()) {
     const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
     return helpers.editCallbackMessageOrReply(
       ctx,
       appendStarterInvitationsText(
         lang,
-        [buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)), starNotice]
+        [buildOnboardingCompleteText(lang, items), starNotice]
           .filter(Boolean)
           .join("\n\n"),
         starterInvites.count,
@@ -308,23 +358,31 @@ async function handleOnboardingText(ctx, lang) {
 
   if (state.startsWith("onboarding_custom_interest:")) {
     const page = getOnboardingPage(state);
-    const item = String(ctx.text || "").trim();
+    const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
+    if (!item || Array.from(item).length > operationalLimits.onboardingCustomInterestMaxLength) {
+      return sendFreshOnboardingPrompt(
+        ctx,
+        `${messages[lang].onboardingCustomInvalid}\n\n${messages[lang].onboardingCustomPrompt}`,
+        onboardingCustomInterestKeyboard(lang, page),
+      );
+    }
     const result = await addAiListItem(
       ctx.userId,
       "random",
       "topTen",
       { title: item, comment: "" },
-      operationalLimits.aiTopTenItems,
+      getOnboardingInterestLimit(),
     );
 
     if (!result.ok) {
       const errorKey = result.reason === "exists"
         ? "onboardingCustomDuplicate"
+        : result.reason === "limit"
+          ? "onboardingInterestLimitReached"
         : "onboardingCustomInvalid";
-      const errorText = messages[lang][errorKey].replace(
-        "{item}",
-        result.duplicate?.title || item,
-      );
+      const errorText = messages[lang][errorKey]
+        .replace("{item}", result.duplicate?.title || item)
+        .replace("{limit}", String(getOnboardingInterestLimit()));
       return sendFreshOnboardingPrompt(
         ctx,
         `${errorText}\n\n${messages[lang].onboardingCustomPrompt}`,
@@ -334,17 +392,11 @@ async function handleOnboardingText(ctx, lang) {
 
     applyStarRewardsToContext(ctx, result.starRewards);
     await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
-    const starNotice = buildStarRewardNotice(
-      messages,
-      lang,
-      result.starRewards,
-      result.starProgress,
-      { alwaysShowProgress: result.items.length >= ONBOARDING_INTEREST_GOAL },
-    );
+    const starNotice = buildOnboardingStarNotice(lang, result.starRewards);
 
-    if (result.items.length >= ONBOARDING_INTEREST_GOAL) {
+    if (result.items.length >= getOnboardingInterestLimit()) {
       const completeText = [
-        buildOnboardingCompleteText(lang, result.items.slice(0, ONBOARDING_INTEREST_GOAL)),
+        buildOnboardingCompleteText(lang, result.items),
         starNotice,
       ].filter(Boolean).join("\n\n");
       await retireOnboardingPrompt(ctx);
@@ -378,11 +430,12 @@ async function handleOnboardingText(ctx, lang) {
 
 module.exports = {
   NEW_USER_WINDOW_MS,
-  ONBOARDING_INTEREST_GOAL,
   ONBOARDING_VERSION,
   appendStarterInvitationsText,
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
+  getOnboardingInterestGoal,
+  getOnboardingInterestLimit,
   completeOnboardingAndCreateStarterInvites,
   getOnboardingPage,
   handleOnboardingCallback,
