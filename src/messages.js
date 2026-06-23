@@ -670,7 +670,7 @@ module.exports = {
     locationSet: "ثبت شده",
     bioMissing: "—",
     cancelEdit: "❌ لغو",
-    profileUpdated: "🤖✅ پروفایل با موفقیت به‌روزرسانی شد.",
+    profileUpdated: "🤖 پروفایل با موفقیت به‌روزرسانی شد.",
     cancel: "🔙 بازگشت به منوی اصلی",
     cancelMessage: "🤖 عملیات لغو شد."
   },
@@ -1346,7 +1346,7 @@ module.exports = {
     locationSet: "Set",
     bioMissing: "—",
     cancelEdit: "❌ Cancel",
-    profileUpdated: "🤖✅ Profile updated successfully.",
+    profileUpdated: "🤖 Profile updated successfully.",
     cancel: "🔙 Back to main menu",
     cancelMessage: "Operation cancelled."
   },
