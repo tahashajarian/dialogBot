@@ -379,7 +379,7 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
-  assert.match(messages.en.profileEmojiConfirmText, /This emoji will appear beside your name/);
+  assert.match(messages.en.profileEmojiConfirmText, /💡 This emoji will appear beside your name/);
   assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
