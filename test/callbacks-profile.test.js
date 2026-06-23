@@ -158,6 +158,52 @@ test("profile emoji insufficient Stars retires confirm card and shows acknowledg
   assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.profileEmojiInsufficientDone]);
 });
 
+test("profile emoji confirm Back returns to emoji picker", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  const states = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    states.push(update?.state);
+    return { userId: query.userId };
+  };
+
+  const ctx = {
+    callbackData: callBacks.profileEmojiCancel,
+    callbackMessageId: 333,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "profile_emoji_confirm:0:3:abc",
+      starBalance: 5,
+      profileEmoji: "",
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(states, ["editing_profile_emoji"]);
+  assert.deepEqual(deletedIds, [333]);
+  assert.match(replies[0].text, /Choose an emoji/);
+  const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(callbacks.includes("profile:emoji:choose:0"));
+});
+
 test("profile emoji insufficient Got it returns to profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];

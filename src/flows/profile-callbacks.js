@@ -308,10 +308,16 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEmojiCancel) {
     await ctx.answerCb?.();
-    await updateUserState(ctx.userId, "idle");
-    if (ctx.user) ctx.user.state = "idle";
+    await updateUserState(ctx.userId, "editing_profile_emoji");
+    if (ctx.user) ctx.user.state = "editing_profile_emoji";
     await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    return ctx.reply(
+      formatProfileEmojiText(lang, "profileEmojiPickerText", {
+        cost: getProfileEmojiCost(),
+        balance: ctx.user?.starBalance || 0,
+      }),
+      profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
+    );
   }
 
   if (data === callBacks.profileEmojiInsufficientDone) {
