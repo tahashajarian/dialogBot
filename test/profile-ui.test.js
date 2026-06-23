@@ -4,7 +4,7 @@ const { setImmediate } = require("node:timers");
 
 const messages = require("../src/messages");
 const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-appearance");
-const { getProfileEmojiIndex } = require("../src/services/profile-emoji");
+const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/services/profile-emoji");
 const {
   profileKeyboard,
   profileSettingsKeyboard,
@@ -107,10 +107,10 @@ test("buildProfileText shows profile emoji beside name", () => {
   const text = buildProfileText({
     firstName: "Ali",
     profileName: "Ali",
-    profileEmoji: "🌙",
+    profileEmoji: "💠",
   }, "en", messages, { isOwnProfile: false });
 
-  assert.match(text, /Name: 🌙 Ali/);
+  assert.match(text, /Name: 💠 Ali/);
 });
 
 test("buildProfileText localizes built-in interest chips", () => {
@@ -361,10 +361,11 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
 test("profile emoji keyboards use curated choices and explicit cost confirmation", () => {
   const previousBotEmoji = botAppearance.botEmoji;
   botAppearance.botEmoji = "🔥";
-  const picker = profileEmojiKeyboard("en", "🌙").reply_markup.inline_keyboard;
+  const selectedEmoji = getProfileEmojiOptions()[0];
+  const picker = profileEmojiKeyboard("en", selectedEmoji).reply_markup.inline_keyboard;
   const buttons = picker.flat();
   try {
-    assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
+    assert.equal(buttons.some((button) => button.text === `${selectedEmoji} ✓`), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
     assert.equal(buttons.filter((button) => button.callback_data?.startsWith("profile:emoji:choose:")).length, 20);
@@ -378,6 +379,7 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
+  assert.match(messages.en.profileEmojiConfirmText, /This emoji will appear beside your name/);
   assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
@@ -389,9 +391,10 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
 });
 
 test("profile emoji typed input must be one exact allowed emoji", () => {
-  assert.equal(getProfileEmojiIndex("🌙"), 0);
-  assert.equal(getProfileEmojiIndex(" 🌙 "), 0);
-  assert.equal(getProfileEmojiIndex("🌙 hi"), -1);
+  const selectedEmoji = getProfileEmojiOptions()[0];
+  assert.equal(getProfileEmojiIndex(selectedEmoji), 0);
+  assert.equal(getProfileEmojiIndex(` ${selectedEmoji} `), 0);
+  assert.equal(getProfileEmojiIndex(`${selectedEmoji} hi`), -1);
   assert.equal(getProfileEmojiIndex("⭐"), -1);
 });
 
