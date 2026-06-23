@@ -456,12 +456,14 @@ function aiListCancelAddKeyboard(lang, section, listType, { backToList = false }
   ]);
 }
 
-const ONBOARDING_CHIPS_PER_PAGE = 9;
+const INTEREST_CHIPS_PER_PAGE = 9;
+const ONBOARDING_CHIPS_PER_PAGE = 12;
 
-function getPagedInterestChips(lang, selectedTitles = [], page = 0) {
-  const totalPages = Math.ceil(INTEREST_CHIPS.length / ONBOARDING_CHIPS_PER_PAGE);
+function getPagedInterestChips(lang, selectedTitles = [], page = 0, pageSize = INTEREST_CHIPS_PER_PAGE) {
+  const chipsPerPage = Number(pageSize) || INTEREST_CHIPS_PER_PAGE;
+  const totalPages = Math.ceil(INTEREST_CHIPS.length / chipsPerPage);
   const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
-  const pageStart = normalizedPage * ONBOARDING_CHIPS_PER_PAGE;
+  const pageStart = normalizedPage * chipsPerPage;
   const available = [];
 
   for (let offset = 0; offset < INTEREST_CHIPS.length; offset += 1) {
@@ -469,7 +471,7 @@ function getPagedInterestChips(lang, selectedTitles = [], page = 0) {
     const chip = INTEREST_CHIPS[index];
     if (isInterestChipSelected(chip, selectedTitles)) continue;
     available.push({ chip, index });
-    if (available.length >= ONBOARDING_CHIPS_PER_PAGE) break;
+    if (available.length >= chipsPerPage) break;
   }
 
   return { available, normalizedPage, totalPages };
@@ -527,7 +529,12 @@ function onboardingWelcomeKeyboard(lang) {
 }
 
 function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
-  const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
+  const { available, normalizedPage, totalPages } = getPagedInterestChips(
+    lang,
+    selectedTitles,
+    page,
+    ONBOARDING_CHIPS_PER_PAGE,
+  );
   const rows = [];
   const availableButtons = available.map(({ chip, index }) => ({
     text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,

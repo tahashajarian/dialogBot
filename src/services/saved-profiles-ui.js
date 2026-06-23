@@ -106,7 +106,7 @@ function buildProfileSavedFooter(messages, lang, code, isSaved) {
   const action = lang === "fa"
     ? `${messages[lang].profileSaveButton} 👈 ${command}`
     : `${messages[lang].profileSaveButton} 👉 ${command}`;
-  return `🤖 ${action}`;
+  return `👩‍🦳 ${action}`;
 }
 
 module.exports = {

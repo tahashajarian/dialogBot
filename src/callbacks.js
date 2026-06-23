@@ -450,7 +450,7 @@ async function handleCallback(ctx) {
   }
 
   if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
-    await ctx.answerCb?.(messages[lang].unknownAction.replace(/^🤖\s*/, ""));
+    await ctx.answerCb?.(messages[lang].unknownAction.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     return deleteCallbackMessageIfPossible(ctx);
   }
 
@@ -626,7 +626,7 @@ async function handleCallback(ctx) {
     const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
-      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
       return ctx.reply(errorText);
     }
     return sendDiscussionRoom(ctx, lang, opened.discussion);
@@ -639,7 +639,7 @@ async function handleCallback(ctx) {
     const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
-      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
       return ctx.reply(errorText);
     }
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
@@ -665,12 +665,12 @@ async function handleCallback(ctx) {
     const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
-      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
       return ctx.reply(errorText);
     }
     if (opened.discussion.creatorUserId !== ctx.userId) {
       const errorText = getDiscussionErrorMessage(messages, lang, "not_owner");
-      await ctx.answerCb?.(errorText.replace(/^🤖\s*/, ""));
+      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
       return ctx.reply(errorText);
     }
     const memberUsers = await User.find({

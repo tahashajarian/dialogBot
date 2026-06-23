@@ -209,7 +209,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {
-    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^🤖\s*/, ""));
+    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     await updateUserState(ctx.userId, "discussion_create_preview");
     await clearDiscussionMenuNotice(ctx);
     await ctx.reply(messages[lang].discussionCreateCanceled, {
@@ -228,7 +228,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
   }
 
   if (data === callBacks.discussionCreateCancel) {
-    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^🤖\s*/, ""));
+    await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     await clearDiscussionMenuNotice(ctx);

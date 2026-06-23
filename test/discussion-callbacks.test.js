@@ -165,12 +165,12 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
   const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
   const persianPreviewText = buildDiscussionInvitePreviewText(messages, "fa", discussion);
 
-  assert.match(listText, /💬 🤖 Free Discussion/);
+  assert.match(listText, /💬 👩‍🦳 Free Discussion/);
   assert.match(listText, /A simple place to start chatting/);
-  assert.match(previewText, /💬 🤖 Free Discussion/);
-  assert.match(persianListText, /💬 .*🤖 گفتگوی آزاد/);
+  assert.match(previewText, /💬 👩‍🦳 Free Discussion/);
+  assert.match(persianListText, /💬 .*👩‍🦳 گفتگوی آزاد/);
   assert.match(persianListText, /یه جای ساده برای شروع گپ با بقیه/);
-  assert.match(persianPreviewText, /💬 .*🤖 گفتگوی آزاد/);
+  assert.match(persianPreviewText, /💬 .*👩‍🦳 گفتگوی آزاد/);
   assert.doesNotMatch(listText, /official/i);
 });
 
@@ -188,10 +188,10 @@ test("metalhead starter discussion uses localized copy and metalhead badge rule"
   const listText = buildDiscussionListText(messages, "en", "Active discussions", [discussion]);
   const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
 
-  assert.match(listText, /💬 🤖 Metalheads/);
+  assert.match(listText, /💬 👩‍🦳 Metalheads/);
   assert.match(listText, /Heavy riffs, loud albums, and metal recommendations/);
   assert.match(listText, /🏷 Music - 🤘 Metalhead ✅/);
-  assert.match(persianListText, /💬 .*🤖 متال‌هدها/);
+  assert.match(persianListText, /💬 .*👩‍🦳 متال‌هدها/);
   assert.match(persianListText, /ریف‌های سنگین/);
   assert.match(persianListText, /🤘/);
 });

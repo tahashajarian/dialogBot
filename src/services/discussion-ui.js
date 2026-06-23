@@ -248,7 +248,7 @@ function getDiscussionDisplayTitle(messages, lang, discussion = {}) {
   const title = String(discussion.title || "").trim() || "-";
   const messageKey = getBotDiscussionMessageKey(discussion, "title");
   const localizedTitle = messageKey ? messages?.[lang]?.[messageKey] : title;
-  return discussion.isBotCreated ? `🤖 ${localizedTitle || title}` : title;
+  return discussion.isBotCreated ? `👩‍🦳 ${localizedTitle || title}` : title;
 }
 
 function getDiscussionDisplayDescription(messages, lang, discussion = {}) {

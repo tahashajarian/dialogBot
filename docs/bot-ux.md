@@ -3,7 +3,7 @@
 ## Low-Noise Conversation
 
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
-- Bot-authored guidance, empty states, and safe error messages should start with `🤖` so they feel clearly from the bot. Short success confirmations can keep their action/status emoji.
+- Bot-authored guidance, empty states, and safe error messages should start with `👩‍🦳` so they feel clearly from the bot. Short success confirmations can keep their action/status emoji.
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
@@ -39,7 +39,7 @@
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
 - Show progress after each choice. Selected chips should remain visible with a remove marker, and tapping them removes the interest.
 - Show the Continue action after the admin-configured onboarding minimum. Auto-complete onboarding at the admin-configured onboarding maximum.
-- Keep Interest chip rows to three item buttons per row; do not render partial one- or two-chip rows.
+- Keep Interest chip rows to three item buttons per row; onboarding should show four chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
 - Completion should show a clearly labeled preliminary vibe and explain that profile Interests improve related discussions.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
@@ -104,7 +104,7 @@ Stars UX rules:
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
-- Profile display names must be emoji-free. The bot uses emoji, especially `🤖`, as authorship/status markers; users should get a clear retry prompt if they submit emoji in their name.
+- Profile display names must be emoji-free. The bot uses emoji, especially `👩‍🦳`, as authorship/status markers; users should get a clear retry prompt if they submit emoji in their name.
 - People and saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per row; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation.
 - Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.

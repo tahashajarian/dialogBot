@@ -46,18 +46,18 @@ test("onboarding is offered only to recent empty accounts", () => {
 
 test("welcome copy stays general while onboarding welcome carries the starter tip", () => {
   for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].welcome, /^🤖/);
-    assert.match(messages[lang].welcome, /🧩/);
+    assert.match(messages[lang].welcome, /^👩‍🦳/);
+    assert.match(messages[lang].welcome, /🌿/);
     assert.match(messages[lang].welcome, /🏆/);
     assert.match(messages[lang].welcome, /✨/);
     assert.match(messages[lang].welcome, /💬/);
     assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
-    assert.match(messages[lang].welcomeWithName, /^🤖/);
+    assert.match(messages[lang].welcomeWithName, /^👩‍🦳/);
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
-    assert.match(messages[lang].onboardingWelcome, /^🤖/);
+    assert.match(messages[lang].onboardingWelcome, /^👩‍🦳/);
     assert.match(messages[lang].onboardingWelcome, /💡/);
     assert.match(messages[lang].onboardingWelcome, /some interests|چند علاقه/);
-    assert.match(messages[lang].onboardingWelcomeWithName, /^🤖/);
+    assert.match(messages[lang].onboardingWelcomeWithName, /^👩‍🦳/);
     assert.match(messages[lang].onboardingWelcomeWithName, /💡/);
   }
 });
@@ -86,7 +86,7 @@ test("bot-authored picker prompts start with the bot marker", () => {
 
   for (const lang of ["fa", "en"]) {
     for (const key of promptKeys) {
-      assert.match(messages[lang][key], /^🤖/, `${lang}.${key}`);
+      assert.match(messages[lang][key], /^👩‍🦳/, `${lang}.${key}`);
     }
   }
 });
@@ -100,7 +100,7 @@ test("onboarding keyboard shows selected interests, real fill chips, and continu
   ));
 
   assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("×")), true);
-  assert.equal(interestButtons.length, 8);
+  assert.equal(interestButtons.length, 11);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
@@ -236,8 +236,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpRulesText, /3 per 24 hours/);
   assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
-  assert.match(messages.fa.helpText, /^🤖/);
-  assert.match(messages.en.helpText, /^🤖/);
+  assert.match(messages.fa.helpText, /^👩‍🦳/);
+  assert.match(messages.en.helpText, /^👩‍🦳/);
   assert.match(messages.fa.helpText, /🎬🎵📚 لیست‌ها/);
   assert.match(messages.en.helpText, /🎬🎵📚 Lists/);
   assert.match(messages.fa.helpText, /فهرست کارها/);
@@ -266,7 +266,7 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
   const progress = buildOnboardingPrompt("en", 2, "Coffee");
   const initial = buildOnboardingPrompt("en");
   assert.match(progress, /2\/5/);
-  assert.match(progress, /^🤖/);
+  assert.match(progress, /^👩‍🦳/);
   assert.match(progress, /💡/);
   assert.ok(progress.length >= initial.length * 0.6);
   assert.doesNotMatch(progress, /learn.*about you/i);
@@ -279,7 +279,7 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
 
   assert.match(complete, /گیم/);
   assert.match(complete, /گیمر/);
-  assert.match(complete, /^🤖/);
+  assert.match(complete, /^👩‍🦳/);
   assert.match(complete, /💡/);
   assert.doesNotMatch(complete, /بیشتر بشناسمت/);
   assert.doesNotMatch(complete, /\{(?:items|emoji|label|style)\}/);

@@ -86,7 +86,7 @@ test("getOrCreateUser still upserts when platform name sanitizes to empty", asyn
   };
 
   try {
-    await getOrCreateUser({ id: 789, username: "emoji_user", first_name: "🤖" });
+    await getOrCreateUser({ id: 789, username: "emoji_user", first_name: "😀" });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

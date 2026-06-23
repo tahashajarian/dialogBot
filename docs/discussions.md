@@ -13,7 +13,7 @@ The MVP described here is implemented. The current code supports:
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - member lists, public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
-- four Muze-created starter rooms, marked only with `🤖`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
+- four Muze-created starter rooms, marked only with `👩‍🦳`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
 - onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
 - private Stars, attributable invitation rewards, owner-only discussion boosts behind rollout switches, and the uncharged Advanced Search preview
 
@@ -39,13 +39,13 @@ Discussions are live rooms with short memory.
 - Four broad starter rooms are created idempotently at startup using the real bot account id returned by `getMe()`.
 - Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
 - Their English titles are `Free Discussion`, `Gaming Hangout`, `Movie Chat`, and `Metalheads`.
-- `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🧩 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🧩 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`. `Metalheads` requires the user's Music taste label to be `🤘 Metalhead`.
+- `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🌿 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🌿 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`. `Metalheads` requires the user's Music taste label to be `🤘 Metalhead`.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
 - The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the configurable Interest onboarding flow.
 - Normal onboarding completion should prepare at most one bot invitation: the open `Free Discussion` room. Do not send locked starter-room invitations during onboarding; users can still discover those rooms from the active discussion list when their Interests unlock them.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms say which Interest unlocked them, and locked rooms say which Interest TopTen item to add.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
-- Muze-created rooms have no fake members or messages and show only a `🤖` marker beside their title.
+- Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Lists -> Music -> complete Top 10` for a Music taste-label room, then return to a fresh list after acknowledgment.
@@ -160,7 +160,7 @@ Limits:
 Title prompt:
 
 ```text
-🤖 عنوان بحث رو بنویس.
+👩‍🦳 عنوان بحث رو بنویس.
 
 مثلاً:
 بهترین ریف تاریخ؟
@@ -249,7 +249,7 @@ Room capacity is editable from the preview step:
 For restricted topics, show a preview before creating:
 
 ```text
-🤖 این بحث ساخته بشه؟
+👩‍🦳 این بحث ساخته بشه؟
 
 💬 بهترین ریف تاریخ؟
 توضیح: بحث درباره ریف‌های ماندگار
@@ -274,7 +274,7 @@ At preview step, the creator should be able to edit title, description, or join 
 
 Label-restricted discussions should use only the creator's existing labels, not the full system label catalog. This prevents random gatekeeping and keeps the room connected to the creator's actual taste.
 
-Item-restricted discussions should use the creator's own TopTen items, especially from `🧩 علاقه‌مندی‌ها`, not arbitrary free text. This enables rooms like:
+Item-restricted discussions should use the creator's own TopTen items, especially from `🌿 علاقه‌مندی‌ها`, not arbitrary free text. This enables rooms like:
 
 ```text
 فقط کسانی که شطرنج توی تاپ ۱۰ علاقه‌مندی‌هاشونه
@@ -330,7 +330,7 @@ Example:
 ```text
 💬 وارد بحث «بهترین ریف تاریخ؟» شدی.
 
-🤖 آخرین پیام‌ها:
+👩‍🦳 آخرین پیام‌ها:
 👤 علی: Master of Puppets هنوز بی‌رقیبه.
 👤 سارا: من Painkiller رو می‌گم.
 
@@ -346,7 +346,7 @@ If there are no messages:
 If discussion is full:
 
 ```text
-🤖 ظرفیت این بحث تکمیل شده.
+👩‍🦳 ظرفیت این بحث تکمیل شده.
 
 💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
 ```
@@ -499,13 +499,13 @@ Invite preview:
 Unavailable invite state:
 
 ```text
-🤖 این بحث دیگه در دسترس نیست.
+👩‍🦳 این بحث دیگه در دسترس نیست.
 ```
 
 Full invite state:
 
 ```text
-🤖 ظرفیت این بحث تکمیل شده.
+👩‍🦳 ظرفیت این بحث تکمیل شده.
 
 💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
 ```
@@ -513,7 +513,7 @@ Full invite state:
 Already member state:
 
 ```text
-🤖 تو همین الان عضو این بحثی.
+👩‍🦳 تو همین الان عضو این بحثی.
 
 از این به بعد پیام‌هات برای همین بحث ارسال میشه.
 ```
@@ -521,7 +521,7 @@ Already member state:
 Locked invite state:
 
 ```text
-🤖 برای ورود به این بحث، باید شرط ورودش رو داشته باشی.
+👩‍🦳 برای ورود به این بحث، باید شرط ورودش رو داشته باشی.
 ```
 
 Specific locked hints:
@@ -534,7 +534,7 @@ Specific locked hints:
 Taste-label example:
 
 ```text
-🤖 برای ورود به این بحث باید این برچسب رو داشته باشی:
+👩‍🦳 برای ورود به این بحث باید این برچسب رو داشته باشی:
 🏷 موسیقی - 🤘 متال‌هد
 
 💡 اول تاپ ۱۰ موسیقی‌ات رو کامل کن تا برچسبت حساب بشه.
@@ -546,8 +546,8 @@ Taste-label example:
 TopTen-item example:
 
 ```text
-🤖 برای ورود به این بحث باید این مورد توی تاپ ۱۰ت باشه:
-🔑 🧩 علاقه‌مندی‌ها - شطرنج
+👩‍🦳 برای ورود به این بحث باید این مورد توی تاپ ۱۰ت باشه:
+🔑 🌿 علاقه‌مندی‌ها - شطرنج
 
 💡 اول این مورد رو به تاپ ۱۰ علاقه‌مندی‌هات اضافه کن.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
@@ -558,7 +558,7 @@ TopTen-item example:
 No active discussion state:
 
 ```text
-🤖 الان داخل هیچ بحث فعالی نیستی.
+👩‍🦳 الان داخل هیچ بحث فعالی نیستی.
 
 از بخش بحث‌ها وارد یک گفتگو شو، بعد می‌تونی دعوت بسازی.
 ```
@@ -566,7 +566,7 @@ No active discussion state:
 No longer a member state:
 
 ```text
-🤖 دیگه عضو این بحث نیستی، برای همین نمی‌تونم دعوت بسازم.
+👩‍🦳 دیگه عضو این بحث نیستی، برای همین نمی‌تونم دعوت بسازم.
 ```
 
 Invite abuse and rate limits:
@@ -701,9 +701,9 @@ Inside an active discussion, the bottom button `👥 اعضا` shows the current
 Example:
 
 ```text
-🤖👥 اعضای این بحث
+👩‍🦳👥 اعضای این بحث
 
-1. 👤 علی — 👑 میزبان
+1. 👤 علی — 🎙️ میزبان
 دیدن پروفایل 👈 /u_8K2P
 گزارش 👈 /report_8K2P
 
@@ -727,7 +727,7 @@ Rules:
 - Public profile codes reveal the matching profile.
 - The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
-- Mark the discussion host clearly with `👑 میزبان`. `⭐` is reserved for the Stars economy.
+- Mark the discussion host clearly with `🎙️ میزبان`. `⭐` is reserved for the Stars economy.
 - Do not show a separate active/presence marker. If a user is in the member list, they are currently in the discussion.
 - Member lists should be plain text command links, not inline button rows.
 - Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
@@ -739,7 +739,7 @@ Rules:
 Private profile response:
 
 ```text
-🤖 این کاربر پروفایلش رو خصوصی نگه داشته.
+👩‍🦳 این کاربر پروفایلش رو خصوصی نگه داشته.
 ```
 
 This keeps discussion messages clean while still making profile discovery possible.
@@ -751,9 +751,9 @@ The owner can remove members from their own discussion.
 In the owner view of `👥 اعضا`, show owner-only remove links/actions under non-owner members:
 
 ```text
-🤖👥 اعضای این بحث
+👩‍🦳👥 اعضای این بحث
 
-1. 👤 علی — 👑 میزبان
+1. 👤 علی — 🎙️ میزبان
 
 2. 👤 سارا
 دیدن پروفایل 👈 /u_9Q4M
@@ -780,7 +780,7 @@ Rules:
 - **Removed users see discussions but can't join**: Discussions where a user has been removed appear in the regular "Active Discussions" list, but are filtered out when "Show only joinable discussions" is enabled.
 - If a removed user somehow attempts to join (e.g., via a saved link or command), they get both:
   - A toast notification at the top: `میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
-  - A regular message: `🤖 میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
+  - A regular message: `👩‍🦳 میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
 - If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
 - If the removed member is not currently in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
@@ -788,25 +788,25 @@ Rules:
 Remove confirmation for owner:
 
 ```text
-🤖 عضو از بحث حذف شد.
+👩‍🦳 عضو از بحث حذف شد.
 ```
 
 Removed member notification:
 
 ```text
-🤖 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
+👩‍🦳 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
 If a non-owner somehow triggers remove:
 
 ```text
-🤖 فقط میزبان بحث می‌تونه اعضا رو حذف کنه.
+👩‍🦳 فقط میزبان بحث می‌تونه اعضا رو حذف کنه.
 ```
 
 Report confirmation:
 
 ```text
-🤖 گزارشت ثبت شد. فعالیت این کاربر بررسی میشه.
+👩‍🦳 گزارشت ثبت شد. فعالیت این کاربر بررسی میشه.
 ```
 
 Reports should store enough data for later review:
@@ -839,7 +839,7 @@ Member leaving:
 Response:
 
 ```text
-🤖 از بحث «بهترین ریف تاریخ؟» خارج شدی.
+👩‍🦳 از بحث «بهترین ریف تاریخ؟» خارج شدی.
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.
@@ -865,7 +865,7 @@ Closing behavior:
 Owner response:
 
 ```text
-🤖 بحث «بهترین ریف تاریخ؟» بسته شد.
+👩‍🦳 بحث «بهترین ریف تاریخ؟» بسته شد.
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.
@@ -873,7 +873,7 @@ After this response, remove the room bottom keyboard and show the discussions me
 Member notification:
 
 ```text
-🤖 میزبان بحث، این گفتگو رو بست.
+👩‍🦳 میزبان بحث، این گفتگو رو بست.
 
 💬 «بهترین ریف تاریخ؟»
 
@@ -896,35 +896,35 @@ Notifications should be useful but quiet.
 **Join notification:**
 
 ```text
-🤖 «سارا» وارد بحث شد.
+👩‍🦳 «سارا» وارد بحث شد.
 ```
 
 **Leave notification:**
 
 ```text
-🤖 «سارا» از بحث خارج شد.
+👩‍🦳 «سارا» از بحث خارج شد.
 ```
 
 **Remove notification (to removed member):**
 
 ```text
-🤖 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
+👩‍🦳 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
 **Remove notification (to other current members):**
 
 ```text
-🤖 «سارا» از بحث توسط میزبان حذف شد.
+👩‍🦳 «سارا» از بحث توسط میزبان حذف شد.
 ```
 
 **Close notification (to current members):**
 
 ```text
-🤖 بحث توسط میزبان بسته شد.
+👩‍🦳 بحث توسط میزبان بسته شد.
 ```
 
 **Format rules:**
-- All notifications use bot emoji 🤖 (not door 🚪)
+- All notifications use Muze emoji 👩‍🦳 (not door 🚪)
 - Member names appear in quotes/guillemets: «name»
 - Notifications are sent only to members actively viewing that discussion at the moment
 
@@ -935,7 +935,7 @@ Anti-noise rules:
 - If throttled, the next notification can summarize:
 
 ```text
-🤖 چند نفر جدید وارد بحثت شدن.
+👩‍🦳 چند نفر جدید وارد بحثت شدن.
 
 💬 بهترین ریف تاریخ؟
 👥 الان ۶ نفر داخل بحثن.
@@ -969,7 +969,7 @@ If the creator has no eligible taste label for the selected section during rule 
 
 User must have a specific item in their TopTen for a selected section.
 
-This is especially useful for `🧩 علاقه‌مندی‌ها`.
+This is especially useful for `🌿 علاقه‌مندی‌ها`.
 
 Example:
 
@@ -987,7 +987,7 @@ If the creator has no TopTen items in the selected section during rule selection
 
 Active discussion list should show both joinable and locked discussions.
 The joinable-only list should use smart discovery sorting so relevant and fresh joinable rooms appear above generic older rooms. Do not pin a current active discussion here; users leave the active room before browsing bot sections.
-Join-rule lines in list cards should use user-facing section names (for example `🧩 علاقه‌مندی‌ها`, not raw keys like `random`) and include a short join-condition header.
+Join-rule lines in list cards should use user-facing section names (for example `🌿 علاقه‌مندی‌ها`, not raw keys like `random`) and include a short join-condition header.
 Recommended compact rule formatting:
 
 - `🔐 شرط ورود:` / `🔐 Join condition:`
@@ -1120,8 +1120,8 @@ MVP message behavior:
 - Links are blocked in all discussion messages to prevent spam and phishing.
 - Accept at most one discussion message per user per second. Reject faster messages before storage or broadcast with a short localized slow-down notice.
 - Keep the broader limit of 30 accepted discussion messages per user within 10 minutes.
-- When an active-room user sends unsupported content (photos, stickers, files, forwards), do not forward or store it. Reply directly to that unsupported message with a short localized `🤖` notice explaining that discussions currently support text and voice only; fall back to a normal message if native reply metadata is rejected.
-- When a user sends a message containing links, reject it immediately with a localized `🤖` notice that links are not allowed in discussions.
+- When an active-room user sends unsupported content (photos, stickers, files, forwards), do not forward or store it. Reply directly to that unsupported message with a short localized `👩‍🦳` notice explaining that discussions currently support text and voice only; fall back to a normal message if native reply metadata is rejected.
+- When a user sends a message containing links, reject it immediately with a localized `👩‍🦳` notice that links are not allowed in discussions.
 - Keep this unsupported-content notice separate from valid-text delivery failures; a failed text send should ask the user to reopen the discussion and retry.
 
 ## Member/Profile Viewing
@@ -1196,7 +1196,7 @@ Locked/availability behavior:
 Insufficient-list-data state:
 
 ```text
-🤖🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ مورد به یکی از لیست‌هات اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ مورد به یکی از لیست‌هات اضافه کن.
 ```
 
 This state includes a direct button to Lists. When the viewer already has enough list data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 items again.
@@ -1231,13 +1231,13 @@ Recommended MVP limit:
 When viewing another user's profile from a discussion, show:
 
 ```text
-🤖 🔖 ذخیره پروفایل 👈 /save_8K2P
+👩‍🦳 🔖 ذخیره پروفایل 👈 /save_8K2P
 ```
 
 If already saved:
 
 ```text
-🤖 🔖 ذخیره‌شده
+👩‍🦳 🔖 ذخیره‌شده
 ```
 
 Do not show inline save/remove buttons on public profile views.
@@ -1276,7 +1276,7 @@ The discussions view shows:
 Empty state example:
 
 ```text
-🤖 علی هیچ بحثی نداره.
+👩‍🦳 علی هیچ بحثی نداره.
 
 [درست] (inline button → returns to saved profiles)
 ```

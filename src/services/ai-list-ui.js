@@ -300,7 +300,7 @@ function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
 }
 
 function formatAiComplimentFeedback(feedback) {
-  return `🤖 ${feedback}`;
+  return `👩‍🦳 ${feedback}`;
 }
 
 async function buildTopTenSavedMessage({

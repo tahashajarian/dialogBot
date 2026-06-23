@@ -261,7 +261,7 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
 test("music add prompt invites either an audio track or typed title", () => {
   assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicListManageAddPrompt);
   assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiListManageAddPrompt);
-  assert.match(messages.en.aiMusicListManageAddPrompt, /^🤖/);
+  assert.match(messages.en.aiMusicListManageAddPrompt, /^👩‍🦳/);
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
 });
 
@@ -703,7 +703,7 @@ test("Top Ten duplicate response stays in add mode with bot copy and continuous-
   const reply = replies.at(-1);
   const buttons = reply.extra.reply_markup.inline_keyboard.flat();
 
-  assert.match(reply.text, /^🤖/);
+  assert.match(reply.text, /^👩‍🦳/);
   assert.match(reply.text, /2\/10/);
   assert.equal(ctx.user.state, "ai_manage_movies_top_ten_add_input");
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
@@ -804,7 +804,7 @@ test("Top Ten add limit uses local bot-marked copy inside top-ten section", asyn
 
   const reply = replies.at(-1);
 
-  assert.match(reply.text, /^🤖/);
+  assert.match(reply.text, /^👩‍🦳/);
   assert.match(reply.text, /همین تاپ ۱۰/);
   assert.doesNotMatch(reply.text, /به بخش تاپ ۱۰ برو/);
 });

@@ -69,7 +69,7 @@ test("banned users receive only the ban notice", async () => {
 
 test("invite welcome copy leads into the invite instead of onboarding", () => {
   for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].discussionInviteWelcome, /^🤖/);
+    assert.match(messages[lang].discussionInviteWelcome, /^👩‍🦳/);
     assert.match(messages[lang].discussionInviteWelcome, /inv|دعوت/i);
     assert.doesNotMatch(messages[lang].discussionInviteWelcome, /3 interests|۳ علاقه/);
   }
@@ -204,7 +204,7 @@ test("profile name edit rejects emoji and does not save the name", async () => {
   };
 
   const ctx = {
-    text: "Ali 🤖",
+    text: "Ali 👩‍🦳",
     userId: 1,
     user: {
       userId: 1,
@@ -227,7 +227,7 @@ test("profile name edit rejects emoji and does not save the name", async () => {
 
   assert.equal(replies.length, 1);
   assert.match(replies[0].text, /Names cannot include emoji/);
-  assert.equal(updates.some((entry) => entry.update?.profileName === "Ali 🤖"), false);
+  assert.equal(updates.some((entry) => entry.update?.profileName === "Ali 👩‍🦳"), false);
 });
 
 test("active discussions reject non-text messages only in the normal room state", () => {
@@ -242,7 +242,7 @@ test("active discussions reject non-text messages only in the normal room state"
   assert.equal(isUnsupportedDiscussionMessage({ user: {}, message: activeMediaContext.message }, "idle", ""), false);
 
   for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].discussionMessageOnlyTextOrVoice, /^🤖/);
+    assert.match(messages[lang].discussionMessageOnlyTextOrVoice, /^👩‍🦳/);
   }
 });
 

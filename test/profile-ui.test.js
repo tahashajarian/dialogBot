@@ -51,10 +51,10 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.deepEqual(validateProfileName("Ali", 30), { ok: true, value: "Ali" });
   assert.deepEqual(validateProfileName("  علی   رضایی  ", 30), { ok: true, value: "علی رضایی" });
   assert.equal(validateProfileName("Al", 30).reason, "too_short");
-  assert.equal(validateProfileName("Ali 🤖", 30).reason, "emoji");
+  assert.equal(validateProfileName("Ali 😀", 30).reason, "emoji");
   assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
-  assert.equal(sanitizeProfileNameCandidate("Ali 🤖", 30), "Ali");
-  assert.equal(sanitizeProfileNameCandidate("🤖", 30), "");
+  assert.equal(sanitizeProfileNameCandidate("Ali 😀", 30), "Ali");
+  assert.equal(sanitizeProfileNameCandidate("😀", 30), "");
 });
 
 test("buildProfileText hides empty badge section", () => {
@@ -93,7 +93,7 @@ test("buildProfileText shows compact interests preview", () => {
 
   const text = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
 
-  assert.match(text, /🧩 Interests/);
+  assert.match(text, /🌿 Interests/);
   assert.match(text, /Chess, Coffee, Coding, Photography, Travel/);
   assert.doesNotMatch(text, /Cooking/);
 });
@@ -134,9 +134,9 @@ test("buildProfileText hides empty interests section", () => {
   const ownText = buildProfileText(emptyUser, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(emptyUser, "en", messages, { isOwnProfile: false });
 
-  assert.doesNotMatch(ownText, /🧩 Interests/);
+  assert.doesNotMatch(ownText, /🌿 Interests/);
   assert.doesNotMatch(ownText, /You have not added interests yet/);
-  assert.doesNotMatch(publicText, /🧩 Interests/);
+  assert.doesNotMatch(publicText, /🌿 Interests/);
   assert.doesNotMatch(publicText, /You have not added interests yet/);
 });
 

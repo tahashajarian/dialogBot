@@ -204,7 +204,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
 } = {}) {
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100 });
   if (!result.discussions.length) {
-    await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^🤖\s*/, ""));
+    await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
   }
   await ctx.answerCb?.();
@@ -251,7 +251,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     return ctx.reply(messages[lang].unknownAction);
   }
   if (!result.discussions.length) {
-    await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^🤖\s*/, ""));
+    await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     const emptyNotice = await editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionListMineEmpty,

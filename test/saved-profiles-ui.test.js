@@ -73,7 +73,7 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 
 test("buildProfileSavedFooter shows saved status or save command", () => {
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "🔖 Saved");
-  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "🤖 🔖 Save profile 👉 /save_A1");
+  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "👩‍🦳 🔖 Save profile 👉 /save_A1");
 });
 
 test("buildSavedProfilesListText uses Persian digits in fa", () => {

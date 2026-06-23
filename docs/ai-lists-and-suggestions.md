@@ -3,8 +3,8 @@
 ## Sections
 
 - AI assistant menu includes movies, music, books, and interests sections.
-- The internal `random` section should be treated as user-facing `🧩 علاقه‌مندی‌ها` / `🧩 Interests`, not as a leftover miscellaneous bucket.
-- `🧩 علاقه‌مندی‌ها` should feel first-class for users who are not strongly into movies, music, or books.
+- The internal `random` section should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
+- `🌿 علاقه‌مندی‌ها` should feel first-class for users who are not strongly into movies, music, or books.
 - AI section entry should be a guided hub message, not an open chat prompt.
 - Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
 - In a plain section hub, stray text should keep the bottom controls and clearly direct the user to List, Top 10, or Suggestion.
@@ -83,8 +83,8 @@ The `random` section is conceptually the broad interests section.
 
 User-facing naming should prefer:
 
-- Persian: `🧩 علاقه‌مندی‌ها`
-- English: `🧩 Interests`
+- Persian: `🌿 علاقه‌مندی‌ها`
+- English: `🌿 Interests`
 
 This section should welcome broad life/hobby interests such as:
 
@@ -209,7 +209,7 @@ Potential labels:
 - `🧘 آرام‌جو` / mindful
 - `🎉 اهل جمع` / people person
 - `📸 لحظه‌ساز` / photo/story seeker
-- `🧩 چندعلاقه‌ای` / multi-interest
+- `🌿 چندعلاقه‌ای` / multi-interest
 
 Labels should be inferred from both typed items and suggested chips.
 

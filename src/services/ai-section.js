@@ -129,7 +129,7 @@ const TASTE_LABEL_EMOJIS = {
     sporty: "🏃",
     mindful: "🧘",
     social: "🎉",
-    multi_interest: "🧩",
+    multi_interest: "🌿",
   },
 };
 

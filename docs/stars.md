@@ -30,7 +30,7 @@ Stars are not a public status score, reputation level, or measure of personal wo
 - Do not use a coin emoji or make Muze look like a game economy.
 - Do not place Star prices throughout main navigation. Show the price when a user opens an optional paid action and can understand what it does.
 - Saved-profile wording stays unchanged, but its emoji changes from `⭐` to `🔖` everywhere. This includes the People hub, saved-profile title, save state/action, invitation pickers, profile footer/action text, guide/rules examples, and both languages.
-- Discussion host labels currently also use `⭐`. Replace only that icon with `👑` (for example `👑 Host` / `👑 میزبان`) so `⭐` has one meaning throughout Muze.
+- Discussion host labels currently also use `⭐`. Replace only that icon with `🎙️` (for example `🎙️ Host` / `🎙️ میزبان`) so `⭐` has one meaning throughout Muze.
 
 ## Product Guardrails
 
@@ -294,7 +294,7 @@ Recommendation targeting:
 Suggested recommendation framing:
 
 ```text
-🤖 Based on your taste, this boosted discussion may interest you:
+👩‍🦳 Based on your taste, this boosted discussion may interest you:
 
 🚀 Best guitar riff ever?
 🎵 Music · Metal
@@ -602,7 +602,7 @@ This map describes the implemented module boundaries and is not permission to pl
 | Paid extra suggestions | `src/models/ai-paid-suggestion.js`, `src/services/ai-paid-suggestions.js`, AI text/callback flows, keyboards/messages | Confirmed one-off Star spend after free quota exhaustion; no requirement bypass; refund on generation failure |
 | Profile | `src/services/profile.js`, `src/flows/profile-text.js`, `src/flows/profile-callbacks.js`, `src/messages.js`, `src/keyboards.js` | Central profile milestone, self-only balance/progress, privacy-safe hints |
 | Saved-profile visuals | `src/messages.js`, `src/services/saved-profiles-ui.js`, `src/services/people-discovery-ui.js`, invitation pickers/keyboards | Replace only saved-profile `⭐` icons with `🔖`; preserve wording and behavior |
-| Discussion host visuals | `src/services/discussion-room-ui.js`, related messages/examples | Replace only host `⭐` with `👑`; preserve host semantics |
+| Discussion host visuals | `src/services/discussion-room-ui.js`, related messages/examples | Replace only host `⭐` with `🎙️`; preserve host semantics |
 | Discussion milestones | `src/services/discussions.js`, `src/services/discussion-actions.js`, discussion create/join flows | Reward first successful create/join after authoritative mutations |
 | Stored invitations | `src/models/discussion-invitation.js`, `src/services/discussion-invitations.js`, `src/flows/discussion-invitations.js`, invitation UI | Directed-pair qualification after successful accept/join, cap copy, idempotency |
 | Outside invitations | `src/services/invite-links.js`, `src/flows/discussions-text.js`, `src/flows/discussions-callbacks.js`, `src/bot.js` | Opaque inviter-attributed payloads, legacy link compatibility, first-start claim preservation |
@@ -651,7 +651,7 @@ Status: implemented.
 
 - Show balance only on the authenticated user's own profile.
 - Add a compact Stars explanation/progress surface.
-- Change saved-profile emoji from `⭐` to `🔖` and discussion-host emoji from `⭐` to `👑` everywhere without changing their wording or behavior.
+- Change saved-profile emoji from `⭐` to `🔖` and discussion-host emoji from `⭐` to `🎙️` everywhere without changing their wording or behavior.
 - Update Muze guide and rules with earning/spending/privacy language.
 - Add bilingual copy and translation validation.
 
@@ -789,7 +789,7 @@ This task is explicitly deferred and must not be bundled into the first Stars re
 
 - The currency is called Stars and uses `⭐`.
 - Saved-profile wording stays the same and only its emoji changes to `🔖`.
-- Discussion-host wording stays the same and only its emoji changes to `👑`.
+- Discussion-host wording stays the same and only its emoji changes to `🎙️`.
 - Star balance is visible on the user's own profile only.
 - Stars are earned from meaningful milestones and invitations.
 - Stored saved-profile invitation rewards are once per directed user pair across all discussions.
