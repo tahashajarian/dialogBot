@@ -781,6 +781,12 @@ function profileEmojiConfirmKeyboard(lang, nonce, cost) {
   ]);
 }
 
+function profileEmojiInsufficientKeyboard(lang) {
+  return inlineKeyboard([[
+    { text: messages[lang].acknowledgeButton, callback_data: callBacks.profileEmojiInsufficientDone },
+  ]]);
+}
+
 function profileActiveDiscussionHelpKeyboard(lang) {
   return inlineKeyboard([
     [
@@ -1086,6 +1092,7 @@ module.exports = {
   profileSettingsKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
+  profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
   profileStarsKeyboard,
   cancelEditKeyboard,

@@ -7,6 +7,7 @@ const {
   profileSettingsKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
+  profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
   profileStarsKeyboard,
   profileInterestsKeyboard,
@@ -90,6 +91,7 @@ function isProfileSettingsOrEditCallback(data = "") {
     data.startsWith(callBacks.profileEmojiChoose) ||
     data.startsWith(callBacks.profileEmojiConfirm) ||
     data === callBacks.profileEmojiCancel ||
+    data === callBacks.profileEmojiInsufficientDone ||
     data === callBacks.profileStars ||
     data === callBacks.profileStarsBack ||
     data === callBacks.profileActiveDiscussionHelp ||
@@ -280,7 +282,13 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (!result.ok) {
       if (result.reason === "insufficient_balance") {
         await ctx.answerCb?.();
-        return ctx.reply(formatProfileEmojiText(lang, "profileEmojiInsufficient", result), profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
+        await updateUserState(ctx.userId, "editing_profile_emoji");
+        if (ctx.user) ctx.user.state = "editing_profile_emoji";
+        await retireCallbackMessageIfPossible?.(ctx);
+        return ctx.reply(
+          formatProfileEmojiText(lang, "profileEmojiInsufficient", result),
+          profileEmojiInsufficientKeyboard(lang),
+        );
       }
       await ctx.answerCb?.();
       return ctx.reply(messages[lang].profileEmojiUnavailable, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
@@ -304,6 +312,12 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (ctx.user) ctx.user.state = "idle";
     await retireCallbackMessageIfPossible?.(ctx);
     return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileEmojiInsufficientDone) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    return true;
   }
 
   if (data === callBacks.profileStars) {

@@ -110,6 +110,54 @@ test("profile settings keeps the profile display with settings controls", async 
   );
 });
 
+test("profile emoji insufficient Stars retires confirm card and shows acknowledgement", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOne = () => ({
+    select: () => ({
+      lean: async () => ({ userId: 999, starBalance: 0, profileEmoji: "" }),
+    }),
+  });
+  User.findOneAndUpdate = async () => ({ userId: 999 });
+
+  const ctx = {
+    callbackData: `${callBacks.profileEmojiConfirm}abc`,
+    callbackMessageId: 321,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "profile_emoji_confirm:0:3:abc",
+      starBalance: 0,
+      profileEmoji: "",
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deletedIds, [321]);
+  assert.match(replies[0].text, /complete your profile/i);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.profileEmojiInsufficientDone]);
+});
+
 test("public profile viewing asks for basic profile first", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

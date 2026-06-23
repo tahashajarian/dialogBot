@@ -10,6 +10,7 @@ const {
   profileSettingsKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
+  profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
 } = require("../src/keyboards");
 const {
@@ -380,6 +381,11 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
+
+  const insufficient = profileEmojiInsufficientKeyboard("en").reply_markup.inline_keyboard.flat();
+  assert.equal(insufficient.length, 1);
+  assert.equal(insufficient[0].text, messages.en.acknowledgeButton);
+  assert.equal(insufficient[0].callback_data, "profile:emoji:insufficient:done");
 });
 
 test("profile emoji typed input must be one exact allowed emoji", () => {
