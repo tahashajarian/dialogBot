@@ -6,6 +6,7 @@ const { starEconomy } = require("./star-settings");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
+const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const { sanitizeProfileNameCandidate } = require("./profile");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
@@ -217,11 +218,21 @@ function getAiListItemsFromUser(user, section, listType) {
   if (hasStructuredAiList(user, section, listType)) {
     const structuredItems = normalizeAiListItems(user?.aiLists?.[section]?.[listType] || []);
     if (structuredItems.length > 0 || legacyItems.length === 0) {
-      return structuredItems;
+      return normalizeKnownInterestChipItems(structuredItems, section, listType);
     }
   }
 
-  return legacyItems;
+  return normalizeKnownInterestChipItems(legacyItems, section, listType);
+}
+
+function normalizeKnownInterestChipItems(items, section, listType) {
+  if (section !== "random" || listType !== "topTen") {
+    return items;
+  }
+  return items.map((entry) => ({
+    ...entry,
+    title: canonicalizeInterestChipTitle(entry.title),
+  }));
 }
 
 function getAiListTitlesFromUser(user, section, listType) {
@@ -517,7 +528,10 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
       ? operationalLimits.aiTopTenItems
       : operationalLimits.aiWatchlistItems
   );
-  const title = normalizeAiListItem(item?.title || item);
+  let title = normalizeAiListItem(item?.title || item);
+  if (section === "random" && listType === "topTen") {
+    title = canonicalizeInterestChipTitle(title);
+  }
   const comment = normalizeAiListComment(item?.comment);
   if (!title) {
     return { ok: false, reason: "empty" };

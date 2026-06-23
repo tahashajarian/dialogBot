@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const {
+  getAiListItemsFromUser,
   getOrCreateUser,
   normalizePlatformUserSource,
 } = require("../src/services/users");
@@ -31,6 +32,25 @@ test("normalizePlatformUserSource accepts Telegram and Bale-style user fields", 
     firstName: "Taha",
     languageCode: "fa",
   });
+});
+
+test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
+  const user = {
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "فیلم" },
+          { title: "زبان‌آموزی" },
+          { title: "Custom typed thing" },
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(
+    getAiListItemsFromUser(user, "random", "topTen").map((entry) => entry.title),
+    ["Movies", "Languages", "Custom typed thing"],
+  );
 });
 
 test("getOrCreateUser creates users from alternate name fields", async () => {

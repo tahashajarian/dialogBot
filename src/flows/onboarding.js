@@ -18,6 +18,7 @@ const {
   getTasteLabelStyleHint,
   getTasteLabelTitle,
 } = require("../services/ai-section");
+const { localizeInterestChipTitle } = require("../services/interest-chips");
 const {
   createOnboardingStarterInvitationsForUser,
 } = require("../services/discussion-invitations");
@@ -119,10 +120,11 @@ function buildOnboardingPrompt(lang, count = 0, item = "") {
 
 function buildOnboardingCompleteText(lang, items = []) {
   const titles = items.map((entry) => entry.title).filter(Boolean);
+  const displayTitles = titles.map((title) => localizeInterestChipTitle(title, lang));
   const taste = inferTasteLabel("random", titles);
   const label = getTasteLabelTitle(messages, lang, "random", taste.labelKey);
   const style = getTasteLabelStyleHint(messages, lang, "random", taste.labelKey);
-  const itemLines = titles.map((title) => `• ${title}`).join("\n");
+  const itemLines = displayTitles.map((title) => `• ${title}`).join("\n");
 
   return messages[lang].onboardingComplete
     .replace("{items}", itemLines)

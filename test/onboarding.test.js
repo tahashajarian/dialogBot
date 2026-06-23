@@ -92,7 +92,7 @@ test("bot-authored picker prompts start with the bot marker", () => {
 });
 
 test("onboarding keyboard shows one page, removes selected interests, and keeps escape routes", () => {
-  const keyboard = onboardingInterestsKeyboard("en", ["Chess"]);
+  const keyboard = onboardingInterestsKeyboard("en", ["شطرنج"]);
   const buttons = keyboard.reply_markup.inline_keyboard.flat();
   const interestButtons = buttons.filter((button) => button.callback_data.startsWith(callBacks.onboardingInterest));
 
@@ -102,6 +102,18 @@ test("onboarding keyboard shows one page, removes selected interests, and keeps 
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
   assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), true);
+});
+
+test("onboarding chips hide selected built-ins across languages", () => {
+  const englishKeyboard = onboardingInterestsKeyboard("en", ["فیلم", "شطرنج"]);
+  const persianKeyboard = onboardingInterestsKeyboard("fa", ["Movies", "Chess"]);
+  const englishButtons = englishKeyboard.reply_markup.inline_keyboard.flat();
+  const persianButtons = persianKeyboard.reply_markup.inline_keyboard.flat();
+
+  assert.equal(englishButtons.some((button) => button.text.includes("Movies")), false);
+  assert.equal(englishButtons.some((button) => button.text.includes("Chess")), false);
+  assert.equal(persianButtons.some((button) => button.text.includes("فیلم")), false);
+  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج")), false);
 });
 
 test("onboarding welcome waits for one clear start action", () => {

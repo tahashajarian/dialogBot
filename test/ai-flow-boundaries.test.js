@@ -852,7 +852,7 @@ test("watchlist add flow stays open for the next item", async () => {
 });
 
 test("Interests editor shares the paged onboarding chip catalog", () => {
-  const firstPage = aiInterestTopTenChipKeyboard("en", ["Chess"], 0);
+  const firstPage = aiInterestTopTenChipKeyboard("en", ["شطرنج"], 0);
   const secondPage = aiInterestTopTenChipKeyboard("en", [], 1);
   const firstButtons = firstPage.reply_markup.inline_keyboard.flat();
   const secondButtons = secondPage.reply_markup.inline_keyboard.flat();
@@ -862,10 +862,10 @@ test("Interests editor shares the paged onboarding chip catalog", () => {
 
   assert.equal(firstButtons.some((button) => button.text.includes("Chess")), false);
   assert.equal(firstInterestButtons.length, 9);
-  assert.equal(firstButtons.some((button) => button.text.includes("Travel")), true);
+  assert.equal(firstButtons.some((button) => button.text.includes("Movies")), true);
   assert.equal(firstButtons.some((button) => button.callback_data === `${callBacks.aiInterestTopTenMore}1`), true);
-  assert.equal(secondButtons.some((button) => button.text.includes("Travel")), true);
-  assert.equal(getInterestTopTenChipTitle(9, "en"), "Travel");
+  assert.equal(secondButtons.some((button) => button.text.includes("Art")), true);
+  assert.equal(getInterestTopTenChipTitle(9, "en"), "Art");
 });
 
 test("AI callback predicate keeps AI cards only for AI callbacks", () => {

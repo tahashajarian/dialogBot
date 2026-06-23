@@ -191,6 +191,7 @@ Implementation notes:
 - Known chips should have predefined meaningful feedback, so common choices such as `کدنویسی`, `گیم`, `شطرنج`, and `Coffee` do not need a first-time AI call.
 - Every built-in Interests chip should have predefined feedback, so choosing one never calls AI or shows unknown-item copy.
 - If a user types the same known chip text manually, the predefined feedback should still apply.
+- Built-in chip selections should be stored canonically and displayed in the current UI language; custom typed interests should keep the user's original text.
 
 ### Interests Labels
 

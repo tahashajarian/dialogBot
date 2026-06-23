@@ -1,4 +1,5 @@
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const { localizeInterestChipTitle } = require("./interest-chips");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -104,7 +105,7 @@ function buildTasteLabelsText(user, lang, messages) {
   return lines.join("\n");
 }
 
-function getProfileInterestTitles(user, limit = 5) {
+function getProfileInterestTitles(user, limit = 5, lang = "") {
   const modernItems = user?.aiLists?.random?.topTen;
   const legacyItems = user?.aiTopTenRandom;
   const items = Array.isArray(modernItems) && modernItems.length
@@ -114,7 +115,8 @@ function getProfileInterestTitles(user, limit = 5) {
   const titles = [];
 
   for (const item of items) {
-    const title = String(typeof item === "string" ? item : item?.title || "").trim();
+    const rawTitle = String(typeof item === "string" ? item : item?.title || "").trim();
+    const title = lang ? localizeInterestChipTitle(rawTitle, lang) : rawTitle;
     const key = title.toLowerCase();
     if (!title || seen.has(key)) continue;
     seen.add(key);
@@ -136,7 +138,7 @@ function getBasicProfileMissingFields(user) {
 }
 
 function buildProfileInterestsText(user, lang, messages) {
-  const interests = getProfileInterestTitles(user);
+  const interests = getProfileInterestTitles(user, 5, lang);
   if (!interests.length) return "";
 
   const lines = [

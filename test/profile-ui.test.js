@@ -97,6 +97,32 @@ test("buildProfileText shows compact interests preview", () => {
   assert.doesNotMatch(text, /Cooking/);
 });
 
+test("buildProfileText localizes built-in interest chips", () => {
+  const profileUser = {
+    firstName: "Ali",
+    profileName: "Ali",
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "فیلم" },
+          { title: "Chess" },
+          { title: "زبان‌آموزی" },
+          { title: "Custom typed thing" },
+        ],
+      },
+    },
+  };
+
+  const englishText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
+  const persianText = buildProfileText(profileUser, "fa", messages, { isOwnProfile: false });
+
+  assert.match(englishText, /Movies, Chess, Languages, Custom typed thing/);
+  assert.match(persianText, /فیلم/);
+  assert.match(persianText, /شطرنج/);
+  assert.match(persianText, /زبان‌آموزی/);
+  assert.match(persianText, /Custom typed thing/);
+});
+
 test("buildProfileText hides empty interests section", () => {
   const emptyUser = {
     firstName: "Ali",

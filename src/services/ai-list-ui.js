@@ -8,9 +8,15 @@ const {
   inferTasteLabel,
   syncAiTasteForSection,
 } = require("./users");
+const { localizeInterestChipItem } = require("./interest-chips");
 
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
 const AI_LIST_ITEM_DIVIDER = "────────";
+
+function localizeAiListItemsForDisplay(items, section, lang) {
+  if (section !== "random") return items;
+  return items.map((entry) => localizeInterestChipItem(entry, lang));
+}
 const { getAiTasteItemFeedback } = require("./ai");
 const { isSavedOnlyTasteFeedback } = require("./ai-feedback-quality");
 const { buildBotBaseLink } = require("./invite-links");
@@ -120,7 +126,7 @@ function withAiSectionTitle(lang, section, body) {
 
 function buildTopTenListMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const topTenEntries = getAiListItemsFromUser(ctx.user, section, "topTen");
+  const topTenEntries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang);
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
   return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText, {
@@ -134,8 +140,8 @@ function buildTopTenListMessage({ ctx, lang, section }) {
 function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
-  const entries = getAiListItemsFromUser(ctx.user, section, "watchlist");
-  const topTenTitleSet = toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen"));
+  const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "watchlist"), section, lang);
+  const topTenTitleSet = toTitleSet(localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang));
   const title = messages[lang].aiWatchlistTitle
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
@@ -160,7 +166,7 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
 function buildShareListMessage({ ctx, lang, section, listType, botLink = buildBotBaseLink() }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
-  const entries = getAiListItemsFromUser(ctx.user, section, listType);
+  const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, listType), section, lang);
   const title = (listType === "topTen" ? messages[lang].aiTopTenTitle : messages[lang].aiWatchlistTitle)
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
