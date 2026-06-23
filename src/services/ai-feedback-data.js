@@ -258,6 +258,22 @@ const PREDEFINED_TASTE_FEEDBACK = {
       fa: "پیاده‌روی یعنی کشف آرام و حرکت رو دوست داری.",
       en: "Walking means you like gentle movement and discovery.",
     },
+    "کوهنوردی": {
+      fa: "کوهنوردی یعنی مسیر و طبیعت برات جدی‌تر از مقصدن.",
+      en: "Hiking means you like nature with a bit of challenge.",
+    },
+    hiking: {
+      fa: "کوهنوردی یعنی مسیر و طبیعت برات جدی‌تر از مقصدن.",
+      en: "Hiking means you like nature with a bit of challenge.",
+    },
+    "حیوانات": {
+      fa: "حیوانات یعنی مهربونی و توجه به موجودات زنده برات مهمه.",
+      en: "Animals mean care and living presence matter to you.",
+    },
+    animals: {
+      fa: "حیوانات یعنی مهربونی و توجه به موجودات زنده برات مهمه.",
+      en: "Animals mean care and living presence matter to you.",
+    },
     "سلامتی": {
       fa: "سلامتی یعنی به حال خوب و دوام اهمیت می‌دی.",
       en: "Wellness means feeling good long-term matters to you.",
@@ -286,6 +302,18 @@ const PREDEFINED_TASTE_FEEDBACK = {
       fa: "کسب‌وکار یعنی فرصت و ساختن برات جذابه.",
       en: "Business means you notice opportunities and systems.",
     },
+    "زبان آموزی": {
+      fa: "زبان‌آموزی یعنی ارتباط و کشف فرهنگ‌ها برات جذابه.",
+      en: "Languages mean communication and new cultures interest you.",
+    },
+    "زبان‌آموزی": {
+      fa: "زبان‌آموزی یعنی ارتباط و کشف فرهنگ‌ها برات جذابه.",
+      en: "Languages mean communication and new cultures interest you.",
+    },
+    languages: {
+      fa: "زبان‌آموزی یعنی ارتباط و کشف فرهنگ‌ها برات جذابه.",
+      en: "Languages mean communication and new cultures interest you.",
+    },
     "سرمایه گذاری": {
       fa: "سرمایه‌گذاری یعنی آینده‌نگری و تصمیم برات مهمه.",
       en: "Investing means you think in decisions and future value.",
@@ -313,6 +341,22 @@ const PREDEFINED_TASTE_FEEDBACK = {
     mensch: {
       fa: "منچ یعنی رقابت سبک و دورهمی برات جذابه.",
       en: "Mensch means you enjoy light, social competition.",
+    },
+    "شنا": {
+      fa: "شنا یعنی حرکت، تمرکز و آرامش هم‌زمان برات جذابه.",
+      en: "Swimming means movement and calm focus appeal to you.",
+    },
+    swimming: {
+      fa: "شنا یعنی حرکت، تمرکز و آرامش هم‌زمان برات جذابه.",
+      en: "Swimming means movement and calm focus appeal to you.",
+    },
+    "خوانندگی": {
+      fa: "خوانندگی یعنی بیان احساس با صدا برات مهمه.",
+      en: "Singing means expression through voice matters to you.",
+    },
+    singing: {
+      fa: "خوانندگی یعنی بیان احساس با صدا برات مهمه.",
+      en: "Singing means expression through voice matters to you.",
     },
     "تئاتر": {
       fa: "تئاتر یعنی اجرای زنده و احساس انسانی برات مهمه.",
