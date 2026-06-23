@@ -268,7 +268,8 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
   assert.match(progress, /2\/5/);
   assert.match(progress, /^👩‍🦳/);
   assert.match(progress, /💡/);
-  assert.ok(progress.length >= initial.length * 0.6);
+  assert.match(progress, /first taste profile/);
+  assert.ok(progress.length >= initial.length * 0.85);
   assert.doesNotMatch(progress, /learn.*about you/i);
 
   const complete = buildOnboardingCompleteText("fa", [
