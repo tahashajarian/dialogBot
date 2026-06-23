@@ -1,5 +1,8 @@
 const User = require("../models/user");
 const { operationalLimits } = require("./operational-limits");
+const { awardListMilestones } = require("./star-milestones");
+const { qualifyReferralForUser } = require("./star-referrals");
+const { starEconomy } = require("./star-settings");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
@@ -535,6 +538,17 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const updated = [...current, { title, comment, watched }];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
+  const starMilestone = await awardListMilestones({
+    userId,
+    section,
+    listType,
+    count: updated.length,
+  });
+  const externalReferralReward = (
+    section === "random" &&
+    listType === "topTen" &&
+    updated.length >= starEconomy.firstTopTenMilestoneItems
+  ) ? await qualifyReferralForUser(userId) : null;
   void trackEvent({
     name: listType === "topTen" ? EVENT_NAMES.topTenItemAdded : EVENT_NAMES.watchlistItemAdded,
     userId,
@@ -545,7 +559,13 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
       goal: maxItems,
     },
   });
-  return { ok: true, items: updated };
+  return {
+    ok: true,
+    items: updated,
+    starRewards: starMilestone.rewards,
+    starProgress: starMilestone.progress,
+    externalReferralReward,
+  };
 }
 
 async function removeAiListItem(userId, section, listType, item) {
@@ -692,12 +712,25 @@ async function promoteWatchlistItemToTopTen(
   const nextTopTen = [...topTenItems, { title: watchlistItem.title, comment: watchlistItem.comment, watched: false }];
 
   await updateProfileField(userId, `aiLists.${section}.topTen`, nextTopTen);
+  const starMilestone = await awardListMilestones({
+    userId,
+    section,
+    listType: "topTen",
+    count: nextTopTen.length,
+  });
+  const externalReferralReward = (
+    section === "random" &&
+    nextTopTen.length >= starEconomy.firstTopTenMilestoneItems
+  ) ? await qualifyReferralForUser(userId) : null;
 
   return {
     ok: true,
     movedItem: { title: watchlistItem.title, comment: watchlistItem.comment },
     watchlistItems,
     topTenItems: nextTopTen,
+    starRewards: starMilestone.rewards,
+    starProgress: starMilestone.progress,
+    externalReferralReward,
   };
 }
 

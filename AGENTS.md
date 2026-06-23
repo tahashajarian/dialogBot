@@ -11,6 +11,7 @@
   - [Bot UX rules](docs/bot-ux.md)
   - [AI lists and suggestions](docs/ai-lists-and-suggestions.md)
   - [Discussions design](docs/discussions.md)
+  - [Stars economy](docs/stars.md)
 
 ## Working Rules
 
@@ -44,6 +45,7 @@
 - Discussions and saved profiles are implemented MVP features.
 - Keep implementation and documentation aligned when changing discussion behavior.
 - `docs/discussions.md` is the source of truth for discussion product behavior.
+- Stars are implemented behind rollout switches. `docs/stars.md` is the source of truth and phased task plan for Star rewards, spending, attribution, privacy, boosts, the Advanced Search preview, administration, and future payments.
 
 ## Critical UX Rules
 
@@ -65,6 +67,7 @@
 - AI suggestions should not trigger from free-form AI-section chat text; users should use the section buttons.
 - TopTen/list behavior and AI suggestion rules are documented in `docs/ai-lists-and-suggestions.md`.
 - Known Interests chips should use predefined feedback and the same visible placeholder/save flow as typed TopTen input.
+- For Stars, keep core Muze features free, keep balances self-only, reserve `⭐` for Stars, use `🔖` for saved profiles and `👑` for discussion hosts, and make every reward/spend/refund ledger-backed and idempotent.
 
 ## Data Model Reminders
 

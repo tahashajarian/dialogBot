@@ -4,6 +4,7 @@ const {
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
   aiSuggestionLimitKeyboard,
+  aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
@@ -84,6 +85,18 @@ const {
   replaceRememberedAiListMessage,
 } = require("./ai-cards");
 const { openAiListManager } = require("./ai-text");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+  formatStarNumber,
+  notifyExternalReferralReward,
+} = require("../services/stars-ui");
+const {
+  createPaidSuggestionQuote,
+  confirmPaidSuggestion,
+  completePaidSuggestion,
+  refundPaidSuggestion,
+} = require("../services/ai-paid-suggestions");
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -129,6 +142,8 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiSectionSuggestFromTopTen) ||
     data.startsWith(callBacks.aiSectionSuggestWithContext) ||
     data.startsWith(callBacks.aiSectionSuggestContextCancel) ||
+    data.startsWith(callBacks.aiPaidSuggestionConfirm) ||
+    data.startsWith(callBacks.aiPaidSuggestionCancel) ||
     data.startsWith(callBacks.aiInterestTopTenChip) ||
     data.startsWith(callBacks.aiInterestTopTenMore) ||
     data === callBacks.aiBack
@@ -162,9 +177,23 @@ function getSuggestionCallbackSection(data = "") {
     callBacks.aiSectionSuggestFromTopTen,
     callBacks.aiSectionSuggestContextCancel,
     callBacks.aiSectionSuggestWithContext,
+    callBacks.aiPaidSuggestionCancel,
   ];
   const prefix = prefixes.find((entry) => data.startsWith(entry));
   return prefix ? data.slice(prefix.length).trim() : "";
+}
+
+function getSuggestionResetMinutes(resetAt) {
+  const resetTime = new Date(resetAt).getTime();
+  if (!Number.isFinite(resetTime)) return 1;
+  return Math.max(1, Math.ceil((resetTime - Date.now()) / 60000));
+}
+
+function buildPaidSuggestionOfferText(lang, quote, balance, resetAt) {
+  return messages[lang].aiSuggestionPaidOffer
+    .replace("{minutes}", formatStarNumber(getSuggestionResetMinutes(resetAt), lang))
+    .replace("{cost}", formatStarNumber(quote.quotedCost, lang))
+    .replace("{balance}", formatStarNumber(balance, lang));
 }
 
 function isSuggestionCallbackValidForState(data = "", state = "") {
@@ -187,6 +216,7 @@ async function sendFollowupSuggestion({
   section,
   watchlistItems = [],
   userText = "",
+  paidSuggestion = null,
 }) {
   const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
@@ -205,8 +235,17 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
   ]);
-  const quota = await consumeAiSuggestionQuota(ctx.userId, section);
+  const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
+    if (quota.reason === "limit") {
+      const quoteResult = await createPaidSuggestionQuote(ctx.userId, section, { userText });
+      if (quoteResult.ok) {
+        return placeholder.finish(
+          buildPaidSuggestionOfferText(lang, quoteResult.quote, ctx.user?.starBalance || 0, quota.resetAt),
+          aiPaidSuggestionConfirmKeyboard(lang, quoteResult.quote.publicCode, quoteResult.quote.quotedCost, section),
+        );
+      }
+    }
     return placeholder.finish(
       quota.reason === "limit"
         ? formatSuggestionLimitMessage(lang, quota.resetAt)
@@ -256,10 +295,23 @@ async function sendFollowupSuggestion({
   }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    if (paidSuggestion) {
+      await refundPaidSuggestion(
+        paidSuggestion.quote._id,
+        paidSuggestion.spend?.transaction?._id,
+      );
+      return placeholder.finish(
+        messages[lang].aiSuggestionPaidRefunded,
+        aiSuggestionNextKeyboard(lang, section),
+      );
+    }
     await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
     return placeholder.finish(messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable);
   }
 
+  if (paidSuggestion) {
+    await completePaidSuggestion(paidSuggestion.quote._id, suggestionResult.title);
+  }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
   const resultMessage = await placeholder.finish(
@@ -604,7 +656,13 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     await syncAiTasteForSection(ctx.userId, section);
-    return ctx.reply(messages[lang].aiWatchlistPromotedToTopTen, aiListManageMenuKeyboard(lang, section, "watchlist"));
+    applyStarRewardsToContext(ctx, promoteResult.starRewards);
+    await notifyExternalReferralReward(ctx, messages, promoteResult.externalReferralReward);
+    const starNotice = buildStarRewardNotice(messages, lang, promoteResult.starRewards, promoteResult.starProgress);
+    return ctx.reply(
+      [messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"),
+      aiListManageMenuKeyboard(lang, section, "watchlist"),
+    );
   }
 
   if (data.startsWith(callBacks.aiListManageCancelAdd)) {
@@ -726,6 +784,9 @@ async function handleAiCallback(ctx, lang, helpers) {
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
       ctx.user.aiLists.random.topTen = result.items;
     }
+    applyStarRewardsToContext(ctx, result.starRewards);
+    await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+    const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
     const listIsFull = result.items.length >= operationalLimits.aiTopTenItems;
     await updateUserState(ctx.userId, listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input");
     if (ctx.user) ctx.user.state = listIsFull ? "ai_manage_random_top_ten" : "ai_manage_random_top_ten_add_input";
@@ -743,7 +804,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       savedMessageKey: "aiInterestTopTenChipSaved",
     });
     const saved = await placeholder.finish(
-      savedText,
+      [savedText, starNotice].filter(Boolean).join("\n\n"),
       listIsFull
         ? undefined
         : aiInterestTopTenChipKeyboard(lang, result.items.map((entry) => entry.title), 0, { backToList: true }),
@@ -841,6 +902,47 @@ async function handleAiCallback(ctx, lang, helpers) {
     return promptSuggestionMode(ctx, lang, section);
   }
 
+  if (data.startsWith(callBacks.aiPaidSuggestionCancel)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiPaidSuggestionCancel, "").trim();
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    if (!section) return ctx.reply(messages[lang].unknownAction);
+    return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, section));
+  }
+
+  if (data.startsWith(callBacks.aiPaidSuggestionConfirm)) {
+    await ctx.answerCb?.(messages[lang].aiSuggestionNotification);
+    const publicCode = data.replace(callBacks.aiPaidSuggestionConfirm, "").trim();
+    const paid = await confirmPaidSuggestion(ctx.userId, publicCode);
+    if (!paid.ok) {
+      const section = paid.quote?.section || "random";
+      if (paid.reason === "insufficient_balance") {
+        return helpers.editCallbackMessageOrReply(
+          ctx,
+          messages[lang].aiSuggestionPaidInsufficient,
+          aiSuggestionLimitKeyboard(lang, section),
+        );
+      }
+      if (paid.reason === "quote_expired" || paid.reason === "stale_price") {
+        return helpers.editCallbackMessageOrReply(ctx, messages[lang].aiSuggestionPaidExpired, aiSuggestionLimitKeyboard(lang, section));
+      }
+      return helpers.editCallbackMessageOrReply(ctx, messages[lang].aiSuggestionPaidUnavailable, aiSuggestionLimitKeyboard(lang, section));
+    }
+
+    if (ctx.user && paid.spend?.balance !== undefined) {
+      ctx.user.starBalance = Number(paid.spend.balance) || 0;
+    }
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    return sendFollowupSuggestion({
+      ctx,
+      lang,
+      section: paid.quote.section,
+      watchlistItems: getAiListTitlesFromUser(ctx.user, paid.quote.section, "watchlist"),
+      userText: paid.quote.userText || "",
+      paidSuggestion: paid,
+    });
+  }
+
   if (data.startsWith(callBacks.aiSectionSuggestContextCancel)) {
     const section = data.replace(callBacks.aiSectionSuggestContextCancel, "").trim();
     if (!section) {
@@ -925,12 +1027,21 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     clearPendingSuggestion(ctx.userId, section);
+    applyStarRewardsToContext(ctx, result.starRewards);
+    await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+    const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
     await updateUserState(ctx.userId, `ai_chat_${section}`);
     if (!markDone) {
-      return ctx.reply(messages[lang].aiSuggestionAdded, aiSuggestionAddedOptionsKeyboard(lang, section));
+      return ctx.reply(
+        [messages[lang].aiSuggestionAdded, starNotice].filter(Boolean).join("\n\n"),
+        aiSuggestionAddedOptionsKeyboard(lang, section),
+      );
     }
 
-    return ctx.reply(getSuggestionDoneCompliment(lang, section), aiSuggestionNextKeyboard(lang, section));
+    return ctx.reply(
+      [getSuggestionDoneCompliment(lang, section), starNotice].filter(Boolean).join("\n\n"),
+      aiSuggestionNextKeyboard(lang, section),
+    );
   }
 
   if (data === callBacks.aiSuggestMovies) return enterAiSection(ctx, lang, "movies", helpers);

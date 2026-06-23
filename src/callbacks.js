@@ -15,6 +15,10 @@ const {
 const { callBacks } = require("./constants");
 const { formatOperationalLimitsText } = require("./services/operational-limits-ui");
 const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+} = require("./services/stars-ui");
+const {
   getMessageId,
   removeBottomKeyboard,
   replyWithRemovedKeyboardThenInline,
@@ -95,6 +99,10 @@ const {
   isProfileSettingsOrEditCallback,
   sendOwnProfile,
 } = require("./flows/profile-callbacks");
+const {
+  handleDiscussionBoostCallback,
+  isDiscussionBoostCallback,
+} = require("./flows/discussion-boosts");
 const { requireDiscussionProfileName } = require("./flows/discussion-name-gate");
 const {
   clearViewedPublicProfileMessage,
@@ -476,6 +484,12 @@ async function handleCallback(ctx) {
     });
   }
 
+  if (isDiscussionBoostCallback(data)) {
+    return handleDiscussionBoostCallback(ctx, lang, {
+      deleteCallbackMessageIfPossible,
+    });
+  }
+
   if (isDiscussionCreateCallback(data)) {
     return handleDiscussionCreateCallback(ctx, lang, {
       editCallbackMessageOrReply,
@@ -517,7 +531,12 @@ async function handleCallback(ctx) {
         retireCallbackMessageIfPossible,
       });
     }
-    await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened);
+    applyStarRewardsToContext(ctx, joined.starRewards);
+    const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
+    await ctx.reply([
+      joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened,
+      starNotice,
+    ].filter(Boolean).join("\n\n"));
     const roomMessage = await sendDiscussionRoom(ctx, lang, joined.discussion);
     await clearDiscussionCardsAfterVisibleReply(ctx, [getMessageId(roomMessage)]);
     return roomMessage;

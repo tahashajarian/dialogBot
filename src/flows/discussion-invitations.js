@@ -48,6 +48,16 @@ const {
 } = require("../services/discussion-ui");
 const { joinDiscussionAndNotify } = require("../services/discussion-actions");
 const { updateProfileField } = require("../services/users");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+  formatStarNumber,
+} = require("../services/stars-ui");
+const { starEconomy } = require("../services/star-settings");
+const {
+  awardSavedInvitePair,
+  isSavedInvitePairRewardClaimed,
+} = require("../services/star-invitations");
 const { requireDiscussionProfileName } = require("./discussion-name-gate");
 
 const INVITATIONS_PAGE_SIZE = 5;
@@ -187,7 +197,17 @@ async function createInvitationAndAck(ctx, lang, {
   }
 
   await notifyInviteeOfInvitation(ctx, created);
-  return send(ctx, buildInvitationSentText(messages, lang, created.invitee), keyboard);
+  const pairClaimed = await isSavedInvitePairRewardClaimed(ctx.userId, created.invitee.userId);
+  const eligibilityText = !pairClaimed && Number(starEconomy.rewardSavedInvitePair) > 0
+    ? messages[lang].discussionInvitationStarEligible.replace(
+      "{amount}",
+      formatStarNumber(starEconomy.rewardSavedInvitePair, lang),
+    )
+    : "";
+  return send(ctx, [
+    buildInvitationSentText(messages, lang, created.invitee),
+    eligibilityText,
+  ].filter(Boolean).join("\n\n"), keyboard);
 }
 
 async function showDiscussionPickerForSavedProfile(ctx, lang, profileCode, {
@@ -306,9 +326,33 @@ async function acceptInvitationCommand(ctx, lang, text, {
   }
 
   await markInvitationAccepted(found.invitation);
-  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened);
-  if (sendRoom) return sendRoom(ctx, lang, joined.discussion);
-  return ctx.reply(messages[lang].discussionOpened, discussionRoomKeyboard(lang, joined.discussion.creatorUserId === ctx.userId));
+  const inviterReward = await awardSavedInvitePair({
+    inviterUserId: found.invitation.inviterUserId,
+    inviteeUserId: ctx.userId,
+    invitationId: found.invitation._id,
+    source: found.invitation.source,
+  });
+  if (inviterReward.ok && inviterReward.applied) {
+    const inviter = await User.findOne({ userId: found.invitation.inviterUserId }).select("lang").lean();
+    const inviterLang = messages[inviter?.lang] ? inviter.lang : "fa";
+    const inviterNotice = buildStarRewardNotice(messages, inviterLang, [{
+      milestone: "invite_pair_reward",
+      amount: inviterReward.transaction.amount,
+      balance: inviterReward.balance,
+    }]);
+    if (inviterNotice) await ctx.sendToUser?.(found.invitation.inviterUserId, inviterNotice);
+  }
+  applyStarRewardsToContext(ctx, joined.starRewards);
+  const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
+  const statusText = [
+    joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened,
+    starNotice,
+  ].filter(Boolean).join("\n\n");
+  if (sendRoom) {
+    await ctx.reply(statusText);
+    return sendRoom(ctx, lang, joined.discussion);
+  }
+  return ctx.reply(statusText, discussionRoomKeyboard(lang, joined.discussion.creatorUserId === ctx.userId));
 }
 
 async function removeInvitationCommand(ctx, lang, text) {

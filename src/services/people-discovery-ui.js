@@ -23,8 +23,14 @@ function formatSharedLine(messages, lang, sharedSection) {
     .replace("{count}", formatListIndex(lang, sharedSection.count));
 }
 
-function buildPeopleDiscoveryText(messages, lang, items = [], { startIndex = 0 } = {}) {
-  if (!items.length) return messages[lang].peopleDiscoverNoMatches;
+function buildPeopleDiscoveryText(messages, lang, items = [], {
+  startIndex = 0,
+  title = messages[lang].peopleDiscoverTitle,
+  intro = messages[lang].peopleDiscoverIntro,
+  emptyText = messages[lang].peopleDiscoverNoProfiles,
+  showSharedSections = false,
+} = {}) {
+  if (!items.length) return emptyText;
 
   const baseIndex = Math.max(0, Number(startIndex) || 0);
   const rows = items.map((entry, index) => {
@@ -37,12 +43,12 @@ function buildPeopleDiscoveryText(messages, lang, items = [], { startIndex = 0 }
     const saveAction = entry.isSaved
       ? messages[lang].profileSavedButton
       : lang === "fa"
-        ? `⭐ ${messages[lang].peopleDiscoverSaveProfile} 👈 ${saveCommand}`
-        : `⭐ ${messages[lang].peopleDiscoverSaveProfile} 👉 ${saveCommand}`;
-    const sharedLines = (entry.sharedSections || [])
+        ? `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👈 ${saveCommand}`
+        : `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👉 ${saveCommand}`;
+    const sharedLines = showSharedSections ? (entry.sharedSections || [])
       .slice(0, 2)
       .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`)
-      .join("\n");
+      .join("\n") : "";
     const nameLine = lang === "fa"
       ? `${RTL_MARK}👤 ${FSI}${entry.name}${PDI}`
       : `👤 ${entry.name}`;
@@ -56,12 +62,20 @@ function buildPeopleDiscoveryText(messages, lang, items = [], { startIndex = 0 }
     ].filter(Boolean).join("\n");
   });
 
-  return `${messages[lang].peopleDiscoverTitle}\n\n${messages[lang].peopleDiscoverIntro}\n\n${rows.join(`\n\n${PEOPLE_DIVIDER}\n\n`)}`;
+  return `${title}\n\n${intro}\n\n${rows.join(`\n\n${PEOPLE_DIVIDER}\n\n`)}`;
 }
 
 function isPeopleCallback(data = "") {
   return data === callBacks.people ||
     data === callBacks.peopleDiscover ||
+    data === callBacks.peopleTasteMatches ||
+    data === callBacks.peopleTasteMatchesUnlock ||
+    data === callBacks.peopleTasteMatchesCancel ||
+    data.startsWith(callBacks.peopleTasteMatchesConfirm) ||
+    data.startsWith(callBacks.peopleTasteMatchesPage) ||
+    data === callBacks.peopleAdvancedSearch ||
+    data === callBacks.peopleAdvancedSearchNotify ||
+    data === callBacks.peopleAdvancedSearchBack ||
     data.startsWith(callBacks.peopleDiscoverPage);
 }
 

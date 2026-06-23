@@ -13,7 +13,9 @@ const { seedBotDiscussions } = require("./services/discussion-starters");
 const { logger } = require("./services/logger");
 const { recordBotHeartbeat } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
+const { refreshStarSettings } = require("./services/star-settings");
 const messages = require("./messages");
+const User = require("./models/user");
 
 const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
@@ -67,6 +69,12 @@ async function processUpdate(ctx) {
     return;
   }
 
+  const normalizedSource = normalizePlatformUserSource(from);
+  const rawText = String(ctx.message?.text || "").trim();
+  const isReferralStart = /^\/start(?:@\w+)?(?:\s+|[?=])ref_[a-f0-9]{12}$/i.test(rawText);
+  const existedBeforeReferralStart = isReferralStart && normalizedSource
+    ? Boolean(await User.exists({ userId: normalizedSource.id }))
+    : true;
   const user = await getOrCreateUser(from);
   if (user?.bannedAt) {
     const lang = messages[user.lang] ? user.lang : "fa";
@@ -79,6 +87,7 @@ async function processUpdate(ctx) {
   }
 
   const appCtx = createAppContext(ctx, user, {
+    wasUserCreated: isReferralStart && !existedBeforeReferralStart,
   });
   const interaction = beginInteraction({
     userId: user?.userId || normalizePlatformUserSource(from)?.id,
@@ -173,6 +182,11 @@ async function retry(fn, {
       await refreshOperationalLimits({ force: true });
     } catch (limitsError) {
       logger.warn("Failed to load operational limits; using defaults", limitsError);
+    }
+    try {
+      await refreshStarSettings({ force: true });
+    } catch (starSettingsError) {
+      logger.warn("Failed to load Star economy settings; using defaults", starSettingsError);
     }
     logger.info("Checking bot token/API via getMe");
     const botInfo = await retry(

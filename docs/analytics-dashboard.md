@@ -75,6 +75,23 @@ were last changed. The form always displays the currently persisted values.
 These settings are global. Lowering a cap does not delete existing user data;
 it only prevents new additions until usage is below the new cap.
 
+## Star Economy Administration
+
+The dashboard includes a separate **Star Economy** section. It reuses the existing `AppSetting`, form, normalization, and cache patterns through a focused settings service rather than mixing financial configuration into Bot Limits.
+
+It exposes the rewards, costs, future entitlement durations, boost/notification caps, earning windows, milestone thresholds, and economy/feature kill switches defined in [Stars Economy](stars.md). Each field has a label, description, unit, default, minimum, maximum, and cross-setting validation where applicable.
+
+Implemented behavior:
+
+- show currently persisted values and last update time
+- explain the bounded cache/refresh delay after saving
+- audit old/new settings and update context
+- apply changes only to future transactions and confirmations
+- store the relevant settings snapshot with every Star transaction/effect
+- never provide an unaudited direct balance overwrite form
+
+The dashboard also reports aggregate Star ledger totals, outstanding balances, earners/spenders, qualified referrals, active boosts, and wallet reconciliation mismatches. Product events cover reward/spend activity, boost delivery and responses, and Advanced Search preview/notification interest. Analytics remains privacy-light and does not include message text, list item text, private profile values, sensitive filter values, or payment credentials.
+
 ## Next Step
 
 This dashboard reads the product state that already exists and records a very

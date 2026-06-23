@@ -61,6 +61,48 @@ That flow should remain. It is useful when the inviter has an outside/private wa
 
 This new feature adds a stored in-bot invite path for saved profiles.
 
+## Stars Integration
+
+[Stars Economy](stars.md) is the source of truth for invitation rewards, outside attribution, ledger integrity, reward copy, and admin-editable amounts. The invitation behavior in this document remains reusable even when no Star reward is available.
+
+### Stored Saved-Profile Invitations
+
+- Sending an invitation never awards Stars.
+- The inviter may earn the configured reward only after the invitee accepts and the normal discussion join succeeds.
+- Reward eligibility is lifetime-once for each directed inviter/invitee pair across all discussions.
+- A to B and B to A are separate directions and may each qualify once.
+- Repeated invitations, different rooms, leaving/rejoining, reopening accepted shortcuts, duplicate callbacks, and duplicate stored rows never award again.
+- Bot onboarding invitations and future boosted recommendations never count.
+- A configurable invitation-earning cap/window limits renewable abuse without changing the existing invitation sending limit.
+- Invitation send success copy may explain that the inviter can earn Stars if this is their first rewarded invitation to that person and the person joins. It must not promise or display an earned balance before acceptance.
+- The acceptance/join and reward must be idempotent. A reward failure must not cause a second membership mutation when retried.
+
+Stable reward identity:
+
+```text
+invite-pair:first-accepted:{inviterUserId}:{inviteeUserId}
+```
+
+### Outside Shareable Invitations
+
+Shareable outside links must be upgraded to carry opaque inviter attribution while keeping existing non-attributed `/join_CODE` and `start=join_CODE` links backward compatible.
+
+- The public token resolves internally to the inviter and optional target discussion; raw user IDs never appear in the URL.
+- `/start` and preview opening never award Stars.
+- The first valid referrer for a genuinely new account is locked and cannot be replaced by repeated or later start payloads.
+- Existing accounts, self-referrals, repeated `/start`, clearing chat history, previewing, and joining without the configured new-user qualification do not award.
+- Recommended qualification is completion of the first three onboarding Interests or the equivalent milestone outside onboarding.
+- Each new invitee can reward at most one outside inviter.
+- Preserve referral attribution through language selection and invite-first onboarding without forcing the general onboarding card before the invitation preview.
+- Existing repeated-start handling is UX protection only. Durable claim and transaction uniqueness provide financial protection.
+
+### Reward Privacy And Notifications
+
+- Do not tell the invitee whether the inviter was rewarded.
+- Do not expose inviter/invitee IDs or pair reward history.
+- Add the reward confirmation to the inviter's next appropriate bot response or send one low-noise private confirmation after successful acceptance. This is a Star event, not a room notification.
+- Normal invitation acceptance remains useful even after the pair's reward was already claimed.
+
 ## Product Summary
 
 Add a received invitations entry:
@@ -238,7 +280,7 @@ Do not use list indexes for mutating invite actions unless the picker card is de
 Recommended inline picker:
 
 ```text
-⭐ Saved profiles
+🔖 Saved profiles
 
 Choose who to invite to:
 Movie Night
@@ -733,23 +775,9 @@ Implementation note:
 - Query `DiscussionInvitation` by `inviterUserId` and `createdAt >= now - 24h`.
 - This is simpler and safer than storing a denormalized counter on `User` for MVP.
 - Keep the limit definition centralized, for example in `src/constants/limits.js` or `src/services/user-limits.js`.
-- Invitation code should ask that central place for the sender's limit, even if every user currently receives the same free-tier value of `3`.
-- This makes future premium/account-tier limits a data/config change instead of a scattered flow rewrite.
-
-Suggested shape:
-
-```js
-const USER_LIMITS = {
-  free: {
-    discussionInvitationsPer24h: 3,
-  },
-  premium: {
-    discussionInvitationsPer24h: 20,
-  },
-};
-```
-
-For MVP, users can all resolve to `free`. Do not implement premium account behavior until the product explicitly adds it.
+- Invitation code should read the global sender limit/window from the Mongo-backed operational limits service used by the admin dashboard.
+- The sending limit applies equally regardless of Star balance or purchases. Stars must not buy a spam allowance.
+- The separate Star invitation-earning cap/window belongs to Star economy settings and controls rewards only; it does not increase how many invitations can be sent.
 
 ### Invitation Mutes
 
@@ -837,6 +865,8 @@ Future:
 ## Data Model Recommendation
 
 Use a separate `DiscussionInvitation` model rather than embedding invites on `User`.
+
+Stars add separate transaction/referral records; do not overload the invitation document as a wallet ledger. The existing `inviterUserId` already attributes stored in-bot invitations. Outside shareable invitations need a separate opaque attribution record because their recipient is not known when the link is created. See [Stars Economy](stars.md).
 
 Reason:
 
@@ -1056,6 +1086,20 @@ Persian:
 ```
 
 ## Testing Checklist
+
+Stars-specific invitation tests are required in addition to the existing checklist:
+
+- [ ] Sending, opening, or viewing an invitation does not award Stars.
+- [ ] Stored invitation reward occurs only after successful acceptance/join.
+- [ ] A-to-B awards at most once across different discussions and repeated joins.
+- [ ] B-to-A can independently award once.
+- [ ] Simultaneous/repeated accept callbacks create one membership result and one reward.
+- [ ] Bot starter and boost recommendation sources never reward inviters.
+- [ ] Invitation Star earning cap/window is enforced atomically.
+- [ ] Attributable outside links do not expose raw IDs.
+- [ ] Repeated `/start`, language selection retries, cleared chat, old accounts, and self-referrals cannot duplicate/steal referral attribution.
+- [ ] One new invitee qualifies at most one outside inviter after the configured milestone.
+- [ ] Legacy public discussion links continue to preview and join without attribution rewards.
 
 Service tests:
 

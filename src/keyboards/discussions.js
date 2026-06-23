@@ -1,6 +1,7 @@
 const { callBacks } = require("../constants");
 const messages = require("../messages");
 const { operationalLimits } = require("../services/operational-limits");
+const { starEconomy } = require("../services/star-settings");
 
 function inlineKeyboard(rows) {
   return {
@@ -87,6 +88,10 @@ function discussionRoomKeyboard(lang, isOwner = false) {
         { text: messages[lang].discussionLeave },
       ],
   ];
+
+  if (isOwner && starEconomy.boostEnabled) {
+    rows.splice(1, 0, [{ text: messages[lang].discussionBoostButton }]);
+  }
 
   return {
     reply_markup: {

@@ -243,8 +243,24 @@ Labels should be inferred from both typed items and suggested chips.
 - Local duplicate checks must still use the full watchlist.
 - Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`.
 - Failed/no-response suggestion calls should refund the quota slot.
+- When the free suggestion limit is reached, Muze may offer one extra suggestion for the configured Star cost. This must be explicit: show the free-limit state, wait time, cost, balance, and Confirm/Cancel buttons. Never charge automatically.
+- Paid extra suggestions do not bypass the requirement for at least 3 TopTen items in that section.
+- If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button.
+
+## Stars Milestones
+
+The Stars economy rewards list completion without charging for normal list use. [Stars Economy](stars.md) is the source of truth.
+
+- Each section may award once when its TopTen reaches the configured first milestone, recommended as 3 distinct valid items.
+- Each section may award once again when its TopTen reaches the configured completion size.
+- Each regular/watchlist section may separately award once at its configured milestone, recommended as 5 distinct valid items.
+- Interests chosen during onboarding are ordinary Interests TopTen items and use the same milestone records; onboarding must not double-award them.
+- Removing and re-adding items never awards a milestone twice.
+- List mutation helpers remain centralized in `src/services/users.js`. Star qualification happens only after a successful mutation and uses an idempotent ledger key.
+- Relevant list success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.
+- Basic suggestions and list management remain free. Paid extra suggestions are only offered after the free quota is exhausted and must follow the explicit confirmation/refund rules above.
 
 ## AI Cost Rules
 

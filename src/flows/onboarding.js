@@ -23,6 +23,11 @@ const {
 } = require("../services/discussion-invitations");
 const { operationalLimits } = require("../services/operational-limits");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+  notifyExternalReferralReward,
+} = require("../services/stars-ui");
 
 const ONBOARDING_VERSION = 1;
 const ONBOARDING_INTEREST_GOAL = 3;
@@ -256,6 +261,15 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   const items = result.ok
     ? result.items
     : getAiListItemsFromUser(ctx.user, "random", "topTen");
+  applyStarRewardsToContext(ctx, result.starRewards);
+  await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+  const starNotice = buildStarRewardNotice(
+    messages,
+    lang,
+    result.starRewards,
+    result.starProgress,
+    { alwaysShowProgress: items.length >= ONBOARDING_INTEREST_GOAL },
+  );
 
   if (!result.ok && result.reason !== "exists") {
     return ctx.reply(messages[lang].unknownAction);
@@ -267,7 +281,9 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
       ctx,
       appendStarterInvitationsText(
         lang,
-        buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)),
+        [buildOnboardingCompleteText(lang, items.slice(0, ONBOARDING_INTEREST_GOAL)), starNotice]
+          .filter(Boolean)
+          .join("\n\n"),
         starterInvites.count,
       ),
       onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
@@ -277,7 +293,9 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   const page = Math.floor(chipIndex / ONBOARDING_CHIPS_PER_PAGE);
   return helpers.editCallbackMessageOrReply(
     ctx,
-    buildOnboardingPrompt(lang, items.length, result.ok ? item : ""),
+    [buildOnboardingPrompt(lang, items.length, result.ok ? item : ""), starNotice]
+      .filter(Boolean)
+      .join("\n\n"),
     onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
   );
 }
@@ -312,11 +330,21 @@ async function handleOnboardingText(ctx, lang) {
       );
     }
 
+    applyStarRewardsToContext(ctx, result.starRewards);
+    await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+    const starNotice = buildStarRewardNotice(
+      messages,
+      lang,
+      result.starRewards,
+      result.starProgress,
+      { alwaysShowProgress: result.items.length >= ONBOARDING_INTEREST_GOAL },
+    );
+
     if (result.items.length >= ONBOARDING_INTEREST_GOAL) {
-      const completeText = buildOnboardingCompleteText(
-        lang,
-        result.items.slice(0, ONBOARDING_INTEREST_GOAL),
-      );
+      const completeText = [
+        buildOnboardingCompleteText(lang, result.items.slice(0, ONBOARDING_INTEREST_GOAL)),
+        starNotice,
+      ].filter(Boolean).join("\n\n");
       await retireOnboardingPrompt(ctx);
       const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
       return ctx.reply(
@@ -328,7 +356,9 @@ async function handleOnboardingText(ctx, lang) {
     await updateUserState(ctx.userId, "onboarding_interests");
     return sendFreshOnboardingPrompt(
       ctx,
-      buildOnboardingPrompt(lang, result.items.length, item),
+      [buildOnboardingPrompt(lang, result.items.length, item), starNotice]
+        .filter(Boolean)
+        .join("\n\n"),
       onboardingInterestsKeyboard(
         lang,
         result.items.map((entry) => entry.title),

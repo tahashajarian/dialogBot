@@ -261,8 +261,16 @@ test("people hub opens discovery and saved profile choices", async () => {
   assert.equal(buttons[1].callback_data, callBacks.savedProfiles);
 });
 
-test("people discovery empty state uses the intentional no-results tip", async () => {
+test("free people discovery empty state uses the profile empty tip", async () => {
+  const originalFind = User.find;
   const replies = [];
+  User.find = () => ({
+    select: () => ({
+      limit: () => ({
+        lean: async () => [],
+      }),
+    }),
+  });
   const ctx = {
     callbackData: callBacks.peopleDiscover,
     callbackMessageId: 456,
@@ -283,12 +291,15 @@ test("people discovery empty state uses the intentional no-results tip", async (
     },
   };
 
-  await handleCallback(ctx);
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.find = originalFind;
+  }
 
-  assert.match(replies.at(-1).text, /فعلاً چیزی برای دیدن نیست/);
-  assert.match(replies.at(-1).text, /حداقل ۳ مورد/);
+  assert.match(replies.at(-1).text, /فعلاً پروفایلی برای نمایش نیست/);
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
-  assert.equal(buttons[0].callback_data, callBacks.aiAssistant);
+  assert.ok(!buttons.some((button) => button.callback_data === callBacks.aiAssistant));
   assert.equal(buttons.at(-1).callback_data, callBacks.people);
   assert.equal(ctx.user.peopleLastListMessageId, 77);
 });

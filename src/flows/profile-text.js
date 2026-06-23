@@ -25,6 +25,23 @@ const {
   clearProfileEditPrompt,
   sendProfileEditPrompt,
 } = require("./profile-edit");
+const { awardProfileCompletionMilestone } = require("../services/star-milestones");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+} = require("../services/stars-ui");
+
+async function buildProfileMilestoneNotice(ctx, updatedUser, lang) {
+  const milestone = await awardProfileCompletionMilestone(ctx.userId, updatedUser);
+  applyStarRewardsToContext(ctx, milestone.rewards);
+  if (ctx.user) updatedUser.starBalance = ctx.user.starBalance;
+  return buildStarRewardNotice(messages, lang, milestone.rewards);
+}
+
+async function sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile) {
+  const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
+  return sendProfile(ctx, updatedUser, lang, keyboardLang, { footerText });
+}
 const {
   getProfileNameErrorMessage,
 } = require("./discussion-name-gate");
@@ -94,10 +111,12 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const pendingCode = updatedUser.pendingProfileViewCode;
     if (pendingCode) {
       await updateProfileField(ctx.userId, "pendingProfileViewCode", "");
+      const starNotice = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
+      if (starNotice) await ctx.reply(starNotice);
       return sendPublicProfileByCode(ctx, lang, pendingCode);
     }
 
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_city" && text) {
@@ -119,7 +138,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.city = text;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_photo" && ctx.message?.photo?.length) {
@@ -130,7 +149,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = photo.file_id;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_photo" && ctx.message?.document?.file_id) {
@@ -140,7 +159,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.photoFileId = ctx.message.document.file_id;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_location" && ctx.message?.location) {
@@ -159,7 +178,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.location = location;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_photo") {
@@ -210,7 +229,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.bio = text;
     updatedUser.state = "idle";
-    return sendProfile(ctx, updatedUser, lang, keyboardLang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   return false;

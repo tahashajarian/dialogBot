@@ -21,13 +21,15 @@ const user = {
 };
 
 test("buildProfileText shows active discussion visibility only for own profile", () => {
-  const ownText = buildProfileText(user, "en", messages, { isOwnProfile: true });
+  const ownText = buildProfileText({ ...user, starBalance: 18 }, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
+  assert.match(ownText, /⭐ Stars: 18/);
   assert.match(ownText, /Show active discussion/);
   assert.match(ownText, /What is this\? \/ad_help/);
   assert.doesNotMatch(publicText, /Show active discussion/);
   assert.doesNotMatch(publicText, /\/ad_help/);
+  assert.doesNotMatch(publicText, /Stars:/);
 });
 
 test("buildProfileText uses public title when viewing someone else", () => {
@@ -208,6 +210,7 @@ test("profileKeyboard groups frequent profile edits into compact rows", () => {
   const cityGenderRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:city"));
 
   assert.ok(callbacks.includes("profile:settings"));
+  assert.ok(!callbacks.includes("profile:stars"));
   assert.ok(!callbacks.includes("profile:active-discussion:help"));
   assert.ok(!callbacks.includes("profile:toggle:discoverable"));
   assert.ok(!callbacks.includes("profile:edit:bio"));

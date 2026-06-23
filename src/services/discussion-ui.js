@@ -6,6 +6,7 @@ const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./a
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const User = require("../models/user");
+const { starEconomy } = require("./star-settings");
 const { formatOperationalLimitsText } = require("./operational-limits-ui");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
@@ -156,7 +157,7 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
   const savedCreatorIds = savedCreatorUserIds
     ? new Set([...savedCreatorUserIds].map(Number).filter(Boolean))
     : await getSavedCreatorUserIds(user);
-  return [...(discussions || [])]
+  const ranked = [...(discussions || [])]
     .map((discussion, index) => ({
       discussion,
       index,
@@ -173,6 +174,11 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
       (left.index - right.index)
     ))
     .map((entry) => entry.discussion);
+  const boostedSlots = Math.max(1, Math.min(2, Number(starEconomy.discussionBoostedSlotsPerPage) || 1));
+  const boosted = ranked.filter((discussion) => discussion.isBoosted && discussion.isJoinable).slice(0, boostedSlots);
+  if (!boosted.length) return ranked;
+  const pinned = new Set(boosted.map((discussion) => String(discussion._id)));
+  return [...boosted, ...ranked.filter((discussion) => !pinned.has(String(discussion._id)))];
 }
 
 function paginateDiscussions(discussions = [], page = 0) {
@@ -296,6 +302,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
     return [
       lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
       mixedValueLine(lang, "💬", getDiscussionDisplayTitle(messages, lang, entry)),
+      entry.isBoosted ? lineForLang(lang, messages[lang].discussionBoostedLabel) : "",
       mixedValueLine(lang, "📄", description),
       lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
       lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),

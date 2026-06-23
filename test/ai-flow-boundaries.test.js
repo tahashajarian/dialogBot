@@ -12,6 +12,8 @@ const {
   isAiTextState,
 } = require("../src/flows/ai-text");
 const User = require("../src/models/user");
+const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
+const { starEconomy } = require("../src/services/star-settings");
 const {
   getAiListAddPrompt,
   getMeaningfulMusicTitle,
@@ -22,6 +24,7 @@ const {
   aiListCancelAddKeyboard,
   aiListManageMenuKeyboard,
   aiInterestTopTenChipKeyboard,
+  aiPaidSuggestionConfirmKeyboard,
   aiSuggestionLimitKeyboard,
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
@@ -31,6 +34,83 @@ test("suggestion limit keyboard returns to the current section", () => {
   const [button] = keyboard.reply_markup.inline_keyboard.flat();
   assert.equal(button.text, messages.en.aiBack);
   assert.equal(button.callback_data, callBacks.aiSuggestMusic);
+});
+
+test("paid suggestion confirm keyboard is explicit and section-scoped", () => {
+  const keyboard = aiPaidSuggestionConfirmKeyboard("en", "ABC123", 1, "music");
+  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+
+  assert.equal(buttons[0].text, messages.en.aiSuggestionPaidConfirmButton.replace("{cost}", "1"));
+  assert.equal(buttons[0].callback_data, `${callBacks.aiPaidSuggestionConfirm}ABC123`);
+  assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
+  assert.equal(buttons[2].callback_data, callBacks.aiSuggestMusic);
+});
+
+test("suggestion limit offers paid confirmation when Stars spending is enabled", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalCreate = AiPaidSuggestion.create;
+  const originalSettings = { ...starEconomy };
+  const edits = [];
+  const now = new Date();
+
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    paidSuggestionsEnabled: true,
+    paidSuggestionCost: 1,
+  });
+  User.findOne = async () => ({
+    userId: 91,
+    aiSuggestionUsage: {
+      music: Array.from({ length: 10 }, () => now),
+    },
+  });
+  User.findOneAndUpdate = async () => ({});
+  AiPaidSuggestion.create = async (payload) => ({
+    ...payload,
+    publicCode: "PAID91",
+  });
+
+  const ctx = {
+    userId: 91,
+    user: {
+      userId: 91,
+      lang: "en",
+      state: "ai_suggest_context_music",
+      starBalance: 3,
+      aiLists: {
+        music: {
+          topTen: [{ title: "A" }, { title: "B" }, { title: "C" }],
+          watchlist: [],
+        },
+      },
+      aiSuggestionUsage: {
+        music: Array.from({ length: 10 }, () => now),
+      },
+    },
+    reply: async (text, extra) => ({ message_id: 1, text, extra }),
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId, text, extra };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "calm", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    AiPaidSuggestion.create = originalCreate;
+    Object.assign(starEconomy, originalSettings);
+  }
+
+  const finalEdit = edits.at(-1);
+  const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
+  assert.match(finalEdit.text, /free suggestions/);
+  assert.match(finalEdit.text, /1 Star/);
+  assert.equal(buttons[0].callback_data, `${callBacks.aiPaidSuggestionConfirm}PAID91`);
+  assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
 });
 const {
   handleAiCallback,

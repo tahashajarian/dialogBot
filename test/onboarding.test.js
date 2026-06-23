@@ -192,6 +192,7 @@ test("help is available from the main menu and onboarding completion", () => {
 
   assert.ok(mainCallbacks.includes(callBacks.help));
   assert.deepEqual(helpCallbacks, [
+    callBacks.profileStars,
     callBacks.helpRules,
     callBacks.aiAssistant,
     callBacks.discussionListActive,
@@ -224,9 +225,9 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.fa.helpText, /۳ مورد/);
   assert.match(messages.en.helpText, /3 Top 10 items/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
-  assert.match(messages.fa.helpText, /حداقل ۳ انتخاب مشترک/);
+  assert.match(messages.fa.helpText, /آدم‌های احتمالاً شبیه خودت/);
   assert.match(messages.en.helpText, /👥 People/);
-  assert.match(messages.en.helpText, /share at least 3 choices/);
+  assert.match(messages.en.helpText, /probably-similar people/);
   assert.ok(messages.fa.helpText.length < 900);
   assert.ok(messages.en.helpText.length < 900);
 });

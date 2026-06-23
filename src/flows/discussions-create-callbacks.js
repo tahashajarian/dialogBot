@@ -37,6 +37,10 @@ const {
 } = require("../services/discussions");
 const { isDiscussionCreateFlowCallback } = require("./discussions-callbacks");
 const { operationalLimits } = require("../services/operational-limits");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+} = require("../services/stars-ui");
 
 function isDiscussionCreateCallback(data = "") {
   return (
@@ -545,7 +549,9 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await deleteCallbackMessageIfPossible(ctx);
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
-    await ctx.reply(messages[lang].discussionJoined);
+    applyStarRewardsToContext(ctx, created.starRewards);
+    const starNotice = buildStarRewardNotice(messages, lang, created.starRewards);
+    await ctx.reply([messages[lang].discussionJoined, starNotice].filter(Boolean).join("\n\n"));
     return sendDiscussionRoom(ctx, lang, created.discussion);
   }
 

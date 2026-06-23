@@ -115,6 +115,7 @@ const {
   resetProfilePhotoCommand,
 } = require("./flows/profile-text");
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
+const { claimReferral } = require("./services/star-referrals");
 
 const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
@@ -148,6 +149,12 @@ function getStartInviteCode(text = "") {
   const value = String(text || "").trim();
   const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])(?:join_|d_)([a-z0-9]+)$/i);
   return match ? `d_${match[1].toUpperCase()}` : "";
+}
+
+function getStartReferralCode(text = "") {
+  const value = String(text || "").trim();
+  const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])ref_([a-f0-9]{12})$/i);
+  return match ? match[1].toUpperCase() : "";
 }
 
 function isRepeatedStartInvite(user, inviteCode) {
@@ -202,7 +209,20 @@ async function handleUpdate(ctx) {
   }
 
   const state = ctx.user?.state || "idle";
-  const startInviteCode = getStartInviteCode(text);
+  const startReferralCode = getStartReferralCode(text);
+  let startInviteCode = getStartInviteCode(text);
+  if (startReferralCode) {
+    const referral = await claimReferral({
+      code: startReferralCode,
+      inviteeUserId: ctx.userId,
+      wasUserCreated: ctx.wasUserCreated,
+    });
+    if (referral.link?.discussionPublicCode) {
+      startInviteCode = referral.link.discussionPublicCode;
+    } else if (!referral.ok) {
+      await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
+    }
+  }
   const repeatedStartInvite = startInviteCode && isRepeatedStartInvite(ctx.user, startInviteCode);
 
   if (startInviteCode && !repeatedStartInvite) {
@@ -568,12 +588,14 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
+    footerText: options.footerText || "",
   });
 }
 
 module.exports = {
   handleUpdate,
   getStartInviteCode,
+  getStartReferralCode,
   isRepeatedStartInvite,
   formatDiscussionOutboundMessage,
   getReplyMessageId,

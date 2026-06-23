@@ -15,6 +15,7 @@ The MVP described here is implemented. The current code supports:
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - four Muze-created starter rooms, marked only with `🤖`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
 - onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
+- private Stars, attributable invitation rewards, owner-only discussion boosts behind rollout switches, and the uncharged Advanced Search preview
 
 Future ideas in this document are not implemented unless explicitly identified otherwise.
 
@@ -602,6 +603,22 @@ Future possibilities:
 - Admin controls for disabling invites on a room.
 - Optional per-room invite settings if invite abuse becomes a problem.
 
+### Star-Funded Discussion Boost
+
+Boost behavior is specified in [Stars Economy](stars.md). It is an optional discovery amplifier, not a join bypass or replacement for organic ranking.
+
+- Only the discussion creator may buy a boost at launch.
+- Multiple creators may have boosted discussions simultaneously across Muze, but each creator and each discussion may have only one active boost.
+- The room action uses a clean `🚀 Boost discussion` label; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
+- Charge and boost creation must be atomic/idempotent, with exactly one automatic refund if activation fails after charge.
+- Boosted rooms are visibly labeled and still pass open status, capacity, join-rule, removal, mute/block, ban, moderation, relevance, freshness, cooldown, and owner-diversity checks.
+- A boost may improve list placement and send a capped Muze-authored recommendation to eligible taste-relevant users.
+- Recommendations are not personal invitations, never count toward invitation Star rewards, never expose selected recipients to the booster, and support opt-out/not-interested controls.
+- Recipient frequency, delivery count, boost duration, cost, cooldown, and per-owner active boost limit are editable Star economy settings.
+- Each viewer page reserves only one or two relevant boosted positions. If more eligible boosts exist, relevance and freshness rank/rotate them; Muze does not pin every active boost for every viewer.
+- A boost never guarantees joins, messages, or a fixed rank.
+- Basic discussion browsing, creating, joining, and participation remain free.
+
 ### My Discussions / Switching
 
 `🗂 بحث‌های من` shows discussions the user owns or has joined.
@@ -686,7 +703,7 @@ Example:
 ```text
 🤖👥 اعضای این بحث
 
-1. 👤 علی — ⭐ میزبان
+1. 👤 علی — 👑 میزبان
 دیدن پروفایل 👈 /u_8K2P
 گزارش 👈 /report_8K2P
 
@@ -710,7 +727,7 @@ Rules:
 - Public profile codes reveal the matching profile.
 - The member list can show all members because room capacity is capped at 20.
 - The current user can be shown as `تو` without a profile link.
-- Mark the discussion host clearly with `⭐ میزبان`.
+- Mark the discussion host clearly with `👑 میزبان`. `⭐` is reserved for the Stars economy.
 - Do not show a separate active/presence marker. If a user is in the member list, they are currently in the discussion.
 - Member lists should be plain text command links, not inline button rows.
 - Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
@@ -736,7 +753,7 @@ In the owner view of `👥 اعضا`, show owner-only remove links/actions under
 ```text
 🤖👥 اعضای این بحث
 
-1. 👤 علی — ⭐ میزبان
+1. 👤 علی — 👑 میزبان
 
 2. 👤 سارا
 دیدن پروفایل 👈 /u_9Q4M
@@ -1137,13 +1154,27 @@ People hub:
 👥 آدم‌ها
 
 👀 دیدن آدم‌ها
-⭐ ذخیره‌شده‌ها
+✨ آدم‌های احتمالاً شبیه تو
+🔖 ذخیره‌شده‌ها
 ⬅️ برگشت
 ```
 
 ### Seeing People
 
-`👀 دیدن آدم‌ها` helps users find public profiles through shared taste, without adding direct messages, friendship, or broad people search.
+`👀 دیدن آدم‌ها` helps users browse public Muze profiles, without adding direct messages, friendship, dating, private chat, or online status.
+
+Free browse rules:
+
+- Exclude the viewer, banned users, and users without a display name.
+- A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
+- Do not expose private profile fields or private discussion membership.
+- Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
+- Results are paginated with the same low-noise navigation style as other lists.
+- Do not show shared-item counts in the free browse list.
+
+### Stars-Gated Similar-People Lens
+
+`✨ آدم‌های احتمالاً شبیه تو` is the optional Stars-gated people lens. It shows people with at least 3 normalized shared items in one list section.
 
 Eligibility and matching:
 
@@ -1152,19 +1183,33 @@ Eligibility and matching:
 - Matching uses movies, music, books, and broad interests list data.
 - Exclude the viewer, banned users, and users without a display name.
 - A matching user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
-- Do not expose private profile fields or private discussion membership.
-- Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
-- Results are paginated with the same low-noise navigation style as other lists.
+- Shared lines may show the matching section and count, but never private list metadata beyond the overlap count.
+
+Locked/availability behavior:
+
+- Show the `✨ آدم‌های احتمالاً شبیه تو` button only when the Star spending switch, the people-taste feature switch, and the coarse availability check all pass.
+- If the user has no eligible matches, do not show the paid button.
+- If the user lacks enough list data and somehow reaches the view directly, explain that they need at least 3 items in one list section and offer a Lists button.
+- If available but not unlocked, show the configured cost, duration, and balance before confirmation.
+- The unlock is time-limited and returns profiles to the same paid list after profile viewing.
 
 Insufficient-list-data state:
 
 ```text
-🤖🤷‍♀️ فعلاً چیزی برای دیدن نیست.
-
-💡 برو به بخش لیست‌ها و حداقل ۳ مورد به یکی از بخش‌ها اضافه کن؛ بعد آدم‌هایی با سلیقه نزدیک‌تر به خودت می‌بینی.
+🤖🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ مورد به یکی از لیست‌هات اضافه کن.
 ```
 
 This state includes a direct button to Lists. When the viewer already has enough list data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 items again.
+
+### Advanced Search Preview
+
+V1 may show `🎛 Advanced Search` as a locked/unavailable entry. The filters and Star purchase are not implemented. [Stars Economy](stars.md) is the source of truth.
+
+- It must clearly say only that the feature is unavailable, show no price, charge no Stars, and return no pretend results.
+- Actions are `Let me know` and Back. Notification preference is recorded once.
+- Do not promise a launch date.
+- Actual age/gender filtering remains blocked until Muze chooses and documents an adults-only or mixed-age discovery policy.
+- City filtering may later be evaluated separately and may belong in free discovery rather than the paid feature.
 
 ### Saved Profiles
 
@@ -1186,13 +1231,13 @@ Recommended MVP limit:
 When viewing another user's profile from a discussion, show:
 
 ```text
-🤖 ⭐ ذخیره پروفایل 👈 /save_8K2P
+🤖 🔖 ذخیره پروفایل 👈 /save_8K2P
 ```
 
 If already saved:
 
 ```text
-🤖 ⭐ ذخیره‌شده
+🤖 🔖 ذخیره‌شده
 ```
 
 Do not show inline save/remove buttons on public profile views.
@@ -1200,7 +1245,7 @@ Do not show inline save/remove buttons on public profile views.
 Saved profiles inside the people hub:
 
 ```text
-⭐ آدم‌های ذخیره‌شده
+🔖 آدم‌های ذخیره‌شده
 
 1. 👤 علی
 دیدن پروفایل این کاربر 👈 /u_8K2P
@@ -1343,3 +1388,5 @@ The bot remains centered on:
 - taste labels
 - suggestions
 - taste-based discussion rooms
+
+Stars remain a private supporting economy. Paid boosts or filters must not turn discussions and People discovery into unrestricted advertising, dating, wealth ranking, or pay-to-bypass social access.

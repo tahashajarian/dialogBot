@@ -40,7 +40,7 @@
 - After three choices, show a clearly labeled preliminary vibe and explain that completing TopTen improves accuracy.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
-- The About/guide should summarize Lists, suggestions, discussions, profiles, people discovery, and private saved profiles, with direct actions to Lists and active discussions.
+- The About/guide should summarize Lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, Lists, and active discussions.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose 3 interests" inline action; replace that card with the interest picker after the user taps it.
@@ -49,6 +49,27 @@
 - Onboarding must be skippable and must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
 - Some platforms may display only `/start` while still sending an old invite payload to the bot after the user clears chat history and presses Start. Once a `/start join_CODE` payload has opened an invite preview for that user, later repeats of the same start payload should be treated as normal `/start`. New start invite codes and explicit `/join_CODE` commands should still open the invite preview.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
+
+Stars UX rules:
+
+- Explain Stars briefly before or at the first reward, not as a store pitch on the welcome card.
+- The three onboarding Interests use the normal first-3 Interests milestone. Do not add a separate onboarding reward for the same data.
+- The completion card should say what milestone was completed, the configured Stars earned, the resulting balance, and one next eligible milestone such as completing the Interests Top 10.
+- `/start`, language selection, repeated onboarding callbacks, skip, and bot-created starter invitations never award Stars by themselves.
+- Preserve invite-first onboarding. A pending external invite/referral may be remembered through language selection, but reward qualification happens only after the configured product milestone.
+
+## Stars Feedback And Purchase UX
+
+- Follow [Stars Economy](stars.md) for all earning, spending, refund, privacy, and admin-controlled amount rules.
+- Combine earning confirmation with the existing success/result message when possible; do not add a second celebratory bubble for every milestone.
+- State the completed action, amount earned, and resulting balance.
+- Show no more than one context-relevant next earning step, and never show a milestone already claimed.
+- Main navigation and room keyboards should use clean feature labels. Show the current Star price, duration/scope, balance, and confirm/cancel actions only after the user opens a paid capability.
+- A stale price confirmation must be replaced with the current price and reconfirmed.
+- Insufficient-balance copy should show the balance and one relevant earning path without pressuring the user to buy Stars.
+- Refunds and failed effects require clear, low-noise confirmation.
+- `⭐` is reserved for Stars. Saved-profile wording stays unchanged but uses `🔖` after the Stars UI rollout.
+- A coming-soon paid-feature preview must clearly say it is unavailable, show no price, and charge nothing. Advanced Search uses one low-noise preview card with `Let me know` and Back; repeated notification signup is idempotent.
 
 ## Long-Running Actions
 
@@ -85,8 +106,8 @@
 - Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.
 - Saved-profile discussion views should behave as their own return destination. If a join from that view fails, the "Got it" acknowledgment should return to the same saved user's discussions.
-- Profiles opened from `👀 دیدن آدم‌ها` should return to the people discovery list, not the saved-profile list.
-- Empty people discovery distinguishes insufficient list data from no current matches. Both states offer a direct Lists button, but only insufficient data asks the user to add their first 3 items in one section.
+- Profiles opened from either People list should return to the same People list mode, free browse or `✨ آدم‌های احتمالاً شبیه تو`, not the saved-profile list.
+- Free People browse has a simple no-profiles empty state. The Stars-gated similar-people lens distinguishes insufficient list data from no current matches; only insufficient data asks the user to add their first 3 items in one section.
 - Shareable discussion invites should be one ready-to-share bot message/card. Stored saved-profile invitations should stay in the invitation inbox, show unseen state through the count/marker, and use Back-only navigation from the list/profile views. Both invite types must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
 
 ## Pinning
@@ -106,7 +127,8 @@
 - Profiles are public inside bot social surfaces; do not show a public/private profile setting for now.
 - Showing a user's active discussion on their profile is a separate opt-in setting. The active room must not be exposed unless the setting is enabled.
 - The active-discussion visibility row on the user's own profile should include a short self-only explanation command link, such as `(یعنی چی؟ /ad_help)`. Keep it compact so the profile row stays readable; the explanation card should have one acknowledgement button that removes the help card and returns to the user's own profile.
-- Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat. People discovery should stay taste-based and should not imply matching, dating, friendship, private chat, or online status.
+- Saved profiles should feel like private bookmarks, not friendship. Saving/removing a profile should not notify the other user and should not imply private chat. People discovery should stay taste-first and should not imply dating, friendship, private chat, or online status. The paid 3-common-items lens should use uncertain language such as `آدم‌های احتمالاً شبیه تو`, not compatibility or matching claims.
 - When viewing another user's profile from discussions, check that the viewer has at least a display name. If missing, show a profile completion gate with inline edit buttons for missing fields.
 - The profile viewing gate requires only display name; age is optional and not enforced.
 - When a user completes their profile through the gate, redirect them to the intended profile they were trying to view, not their own profile. The intended profile code is stored in `pendingProfileViewCode` and cleared after redirect.
+- A Star balance is visible only on the authenticated user's own profile. Never include it in public profile cards, shareable text, member-list views, saved-profile views, discovery results, or invitation profile views.

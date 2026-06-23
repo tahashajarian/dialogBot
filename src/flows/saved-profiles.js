@@ -4,8 +4,10 @@ const Discussion = require("../models/discussion");
 const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
 const {
   inlineKeyboard,
+  advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
   peopleHubKeyboard,
+  peopleTasteMatchesUnlockKeyboard,
   profilePeopleBackKeyboard,
   profileInvitationBackKeyboard,
   profileViewBackKeyboard,
@@ -13,6 +15,7 @@ const {
 } = require("../keyboards");
 const { callBacks } = require("../constants");
 const { updateProfileField, updateUserFields } = require("../services/users");
+const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const {
   getBasicProfileMissingFields,
   sendProfileMessage,
@@ -33,6 +36,7 @@ const {
 } = require("../services/saved-profiles-ui");
 const {
   ensurePeopleDiscoveryCodes,
+  findPeopleForBrowse,
   findPeopleBySharedTaste,
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
@@ -40,6 +44,13 @@ const {
   buildPeopleDiscoveryText,
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
+const {
+  confirmTasteMatchUnlock,
+  createTasteMatchUnlockQuote,
+  getTasteMatchesAvailability,
+  hasTasteMatchCandidates,
+} = require("../services/people-taste-matches");
+const { formatStarNumber } = require("../services/stars-ui");
 const {
   decorateDiscussionsForList,
   buildDiscussionListText,
@@ -119,12 +130,22 @@ async function rememberPeopleListMessage(ctx, messageOrId, page = 0) {
   if (ctx.user) {
     ctx.user.peopleLastListMessageId = messageId;
     ctx.user.peopleLastListPage = normalizedPage;
+    ctx.user.peopleLastListMode = "browse";
   }
   if (canPersistUserMessageState(ctx)) {
     await updateUserFields(ctx.userId, {
       peopleLastListMessageId: messageId,
       peopleLastListPage: normalizedPage,
+      peopleLastListMode: "browse",
     });
+  }
+}
+
+async function rememberTastePeopleListMessage(ctx, messageOrId, page = 0) {
+  await rememberPeopleListMessage(ctx, messageOrId, page);
+  if (ctx.user) ctx.user.peopleLastListMode = "taste";
+  if (canPersistUserMessageState(ctx)) {
+    await updateProfileField(ctx.userId, "peopleLastListMode", "taste");
   }
 }
 
@@ -137,19 +158,27 @@ async function clearPeopleListMessage(ctx, exceptMessageIds = []) {
     : false;
   const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
   if (edited || deleted) {
-    if (ctx.user) ctx.user.peopleLastListMessageId = null;
+    if (ctx.user) {
+      ctx.user.peopleLastListMessageId = null;
+      ctx.user.peopleLastListMode = "";
+    }
     if (canPersistUserMessageState(ctx)) {
       await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
+      await updateProfileField(ctx.userId, "peopleLastListMode", "");
     }
   }
   return Boolean(edited || deleted);
 }
 
 async function forgetPeopleListMessage(ctx) {
-  if (ctx.user?.peopleLastListMessageId) {
-    if (ctx.user) ctx.user.peopleLastListMessageId = null;
+  if (ctx.user?.peopleLastListMessageId || ctx.user?.peopleLastListMode) {
+    if (ctx.user) {
+      ctx.user.peopleLastListMessageId = null;
+      ctx.user.peopleLastListMode = "";
+    }
     if (canPersistUserMessageState(ctx)) {
       await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
+      await updateProfileField(ctx.userId, "peopleLastListMode", "");
     }
   }
 }
@@ -240,25 +269,52 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
 async function sendPeopleHub(ctx, lang, { send = null } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
+  const showTasteMatches = getTasteMatchesAvailability(ctx.user || {}).ok &&
+    await hasTasteMatchCandidates(ctx.user || {});
   const sent = send
-    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang))
-    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang));
+    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang, { showTasteMatches }))
+    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang, { showTasteMatches }));
   return sent;
 }
 
 async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
+  const result = await findPeopleForBrowse(ctx.user || {});
+  const paged = paginatePeopleDiscovery(result.items || [], page);
+  const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
+  return {
+    page: paged.page,
+    text: buildPeopleDiscoveryText(messages, lang, pageItems, {
+      startIndex: paged.startIndex,
+      emptyText: messages[lang].peopleDiscoverNoProfiles,
+      showSharedSections: false,
+    }),
+    keyboard: peopleDiscoverListKeyboard(lang, {
+      page: paged.page,
+      totalPages: paged.totalPages,
+    }),
+  };
+}
+
+async function buildPeopleTasteMatchesPage(ctx, lang, page = 0) {
   const result = await findPeopleBySharedTaste(ctx.user || {});
   const paged = paginatePeopleDiscovery(result.items || [], page);
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
   return {
     page: paged.page,
     text: result.ok
-      ? buildPeopleDiscoveryText(messages, lang, pageItems, { startIndex: paged.startIndex })
+      ? buildPeopleDiscoveryText(messages, lang, pageItems, {
+        startIndex: paged.startIndex,
+        title: messages[lang].peopleTasteMatchesTitle,
+        intro: messages[lang].peopleTasteMatchesIntro,
+        emptyText: messages[lang].peopleDiscoverNoMatches,
+        showSharedSections: true,
+      })
       : messages[lang].peopleDiscoverNeedsLists,
     keyboard: peopleDiscoverListKeyboard(lang, {
+      mode: "taste",
       page: paged.page,
       totalPages: paged.totalPages,
-      showLists: pageItems.length === 0,
+      showLists: !result.ok || pageItems.length === 0,
     }),
   };
 }
@@ -271,6 +327,34 @@ async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}
     : await ctx.reply(discoveryPage.text, discoveryPage.keyboard);
   await rememberPeopleListMessage(ctx, sent, discoveryPage.page);
   return sent;
+}
+
+async function sendPeopleTasteMatchesList(ctx, lang, page = 0, { send = null } = {}) {
+  await forgetSavedProfilesListMessage(ctx);
+  const tastePage = await buildPeopleTasteMatchesPage(ctx, lang, page);
+  const sent = send
+    ? await send(tastePage.text, tastePage.keyboard)
+    : await ctx.reply(tastePage.text, tastePage.keyboard);
+  await rememberTastePeopleListMessage(ctx, sent, tastePage.page);
+  return sent;
+}
+
+function formatPeopleTasteUnlockText(lang, quote, balance) {
+  return messages[lang].peopleTasteMatchesLockedText
+    .replace("{hours}", formatStarNumber(quote.quotedDurationHours, lang))
+    .replace("{cost}", formatStarNumber(quote.quotedCost, lang))
+    .replace("{balance}", formatStarNumber(balance, lang));
+}
+
+function formatPeopleTasteUnlockedText(lang, until, balance) {
+  const date = until ? new Date(until) : new Date();
+  const formatted = date.toLocaleString(lang === "fa" ? "fa-IR" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  return messages[lang].peopleTasteMatchesUnlocked
+    .replace("{until}", formatted)
+    .replace("{balance}", formatStarNumber(balance, lang));
 }
 
 async function buildSavedProfilePage(codes = [], page = 0) {
@@ -380,7 +464,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     keyboard: fromSavedList
       ? profileViewBackKeyboard(lang)
       : fromPeopleList
-        ? profilePeopleBackKeyboard(lang)
+        ? profilePeopleBackKeyboard(lang, ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse")
         : fromInvitationList
         ? profileInvitationBackKeyboard(lang, target.userId)
         : undefined,
@@ -490,8 +574,125 @@ async function handleSavedProfilesCallback(ctx, lang, {
     await ctx.answerCb?.();
     await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible?.(ctx);
-    const page = Number(ctx.user?.peopleLastListPage) || 0;
+    const page = ctx.user?.peopleLastListMode === "browse" ? Number(ctx.user?.peopleLastListPage) || 0 : 0;
     return sendPeopleDiscoveryList(ctx, lang, page);
+  }
+
+  if (data === callBacks.peopleTasteMatches) {
+    await ctx.answerCb?.();
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    const availability = getTasteMatchesAvailability(ctx.user || {});
+    if (!availability.ok) {
+      return ctx.reply(messages[lang].peopleTasteMatchesDisabled);
+    }
+    if (availability.unlocked) {
+      const page = ctx.user?.peopleLastListMode === "taste" ? Number(ctx.user?.peopleLastListPage) || 0 : 0;
+      return sendPeopleTasteMatchesList(ctx, lang, page);
+    }
+    const quoteResult = await createTasteMatchUnlockQuote(ctx.user || {});
+    if (!quoteResult.ok) {
+      if (quoteResult.reason === "no_candidates") {
+        return ctx.reply(messages[lang].peopleDiscoverNoMatches, peopleDiscoverListKeyboard(lang, { showLists: true }));
+      }
+      return ctx.reply(messages[lang].peopleTasteMatchesDisabled);
+    }
+    return ctx.reply(
+      formatPeopleTasteUnlockText(lang, quoteResult.quote, ctx.user?.starBalance || 0),
+      peopleTasteMatchesUnlockKeyboard(lang, quoteResult.quote.publicCode, quoteResult.quote.quotedCost),
+    );
+  }
+
+  if (data.startsWith(callBacks.peopleTasteMatchesConfirm)) {
+    await ctx.answerCb?.();
+    const publicCode = data.replace(callBacks.peopleTasteMatchesConfirm, "");
+    const result = await confirmTasteMatchUnlock(ctx.user || {}, publicCode);
+    if (!result.ok) {
+      if (result.reason === "insufficient_balance") {
+        return editCallbackMessageOrReply(
+          ctx,
+          messages[lang].peopleTasteMatchesInsufficient
+            .replace("{cost}", formatStarNumber(result.amount || 0, lang))
+            .replace("{balance}", formatStarNumber(result.balance || ctx.user?.starBalance || 0, lang)),
+          peopleDiscoverListKeyboard(lang),
+        );
+      }
+      if (result.reason === "quote_expired") {
+        return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesQuoteExpired, peopleDiscoverListKeyboard(lang));
+      }
+      if (result.reason === "stale_price") {
+        return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesStalePrice, peopleDiscoverListKeyboard(lang));
+      }
+      if (result.reason === "activation_failed") {
+        return editCallbackMessageOrReply(
+          ctx,
+          result.refunded ? messages[lang].peopleTasteMatchesFailedRefunded : messages[lang].peopleTasteMatchesFailed,
+          peopleDiscoverListKeyboard(lang),
+        );
+      }
+      return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesDisabled, peopleDiscoverListKeyboard(lang));
+    }
+    if (ctx.user) {
+      if (result.spend?.balance !== undefined) ctx.user.starBalance = Number(result.spend.balance) || 0;
+      if (result.until) ctx.user.tasteMatchUnlockUntil = result.until;
+    }
+    await editCallbackMessageOrReply(
+      ctx,
+      formatPeopleTasteUnlockedText(lang, result.until, result.spend?.balance ?? ctx.user?.starBalance),
+      peopleDiscoverListKeyboard(lang, { mode: "taste" }),
+    );
+    return sendPeopleTasteMatchesList(ctx, lang, 0);
+  }
+
+  if (data === callBacks.peopleTasteMatchesCancel) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return sendPeopleHub(ctx, lang);
+  }
+
+  if (data === callBacks.peopleAdvancedSearch) {
+    await ctx.answerCb?.();
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    void trackEvent({
+      name: EVENT_NAMES.advancedSearchPreviewViewed,
+      userId: ctx.userId,
+      source: "people_hub",
+    });
+    return ctx.reply(
+      messages[lang].advancedSearchPreviewText,
+      advancedSearchPreviewKeyboard(lang, {
+        notified: Boolean(ctx.user?.advancedSearchNotifyRequestedAt),
+      }),
+    );
+  }
+
+  if (data === callBacks.peopleAdvancedSearchNotify) {
+    const requestedAt = ctx.user?.advancedSearchNotifyRequestedAt || new Date();
+    if (!ctx.user?.advancedSearchNotifyRequestedAt) {
+      await User.findOneAndUpdate(
+        { userId: ctx.userId, advancedSearchNotifyRequestedAt: null },
+        { $set: { advancedSearchNotifyRequestedAt: requestedAt } },
+      );
+      if (ctx.user) ctx.user.advancedSearchNotifyRequestedAt = requestedAt;
+      void trackEvent({
+        name: EVENT_NAMES.advancedSearchNotifyRequested,
+        userId: ctx.userId,
+        source: "advanced_search_preview",
+      });
+    }
+    await ctx.answerCb?.(messages[lang].advancedSearchNotifyAck);
+    return editCallbackMessageOrReply(
+      ctx,
+      `${messages[lang].advancedSearchPreviewText}\n\n${messages[lang].advancedSearchNotifyAck}`,
+      advancedSearchPreviewKeyboard(lang, { notified: true }),
+    );
+  }
+
+  if (data === callBacks.peopleAdvancedSearchBack) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return sendPeopleHub(ctx, lang);
   }
 
   if (data.startsWith(callBacks.peopleDiscoverPage)) {
@@ -505,6 +706,20 @@ async function handleSavedProfilesCallback(ctx, lang, {
       discoveryPage.keyboard,
     );
     await rememberPeopleListMessage(ctx, ctx.callbackMessageId || listMessage, discoveryPage.page);
+    return listMessage;
+  }
+
+  if (data.startsWith(callBacks.peopleTasteMatchesPage)) {
+    await ctx.answerCb?.();
+    const pageRaw = data.replace(callBacks.peopleTasteMatchesPage, "");
+    const page = Number(pageRaw);
+    const tastePage = await buildPeopleTasteMatchesPage(ctx, lang, page);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      tastePage.text,
+      tastePage.keyboard,
+    );
+    await rememberTastePeopleListMessage(ctx, ctx.callbackMessageId || listMessage, tastePage.page);
     return listMessage;
   }
 

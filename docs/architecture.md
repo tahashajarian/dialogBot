@@ -9,6 +9,7 @@
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - User schema lives in `src/models/user.js`.
 - For a quick file-by-file orientation, read [Agent map](agent-map.md).
+- The Stars economy, including rewards, spending, referrals, boosts, the Advanced Search preview, privacy, administration, rollout, and deferred payment work, is specified in [Stars Economy](stars.md).
 
 ## Flow Boundaries
 
@@ -39,7 +40,8 @@ Keep the router files thin:
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.
 - `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
 - `src/services/public-codes.js` owns public profile/discussion code normalization, generation, and lookup helpers.
-- `src/services/people-discovery.js` owns taste-based people discovery filtering, shared-item matching, ranking, and pagination.
+- `src/services/people-discovery.js` owns free People browse plus shared-item filtering, ranking, and pagination for the Stars-gated similar-people lens.
+- `src/services/people-taste-matches.js` owns the time-limited Stars entitlement for `✨ آدم‌های احتمالاً شبیه تو`, including quote, spend, unlock, and refund rules.
 - `src/services/people-discovery-ui.js` owns people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js` owns saved-profile bookmark mutation rules and caps.
 - Public share-link discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
@@ -60,6 +62,8 @@ Keep the router files thin:
   - `src/bot.js`
   - `src/callbacks.js`
 
+Stars must keep an immutable transaction ledger as the source of truth. A cached user balance is allowed only with atomic ledger/balance updates and reconciliation. Star economy settings should use the focused Mongo-backed settings service/AppSetting key instead of mixing financial settings into `operational-limits.js`. See [Stars Economy](stars.md) for the module boundaries.
+
 ## UI Helper Services
 
 To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI formatting helpers are split into service helpers:
@@ -69,6 +73,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/discussion-invitations-ui.js` for stored invitation inbox and picker text shaping.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
+- `src/services/ai-paid-suggestions.js` for paid extra suggestion quote/spend/refund state after free quota exhaustion.
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
@@ -94,6 +99,8 @@ Viewed public-profile cards are transient. Store and clear their last bot messag
 
 Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
 Profile display should stay compact: omit unset optional fields instead of showing placeholder or missing-value rows. Profiles without a real uploaded photo should render as text instead of uploading a default placeholder image.
+
+Star balance is a self-only profile field. Render it only through an explicit authenticated own-profile context; never include it in public, saved-profile, invitation, discovery, member-list, or shareable profile rendering.
 
 Saved profiles are private one-way bookmarks. They store references/public profile codes only, not duplicate private profile data.
 

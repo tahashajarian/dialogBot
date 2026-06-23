@@ -1,6 +1,7 @@
 const { callBacks } = require("./constants");
 const messages = require("./messages");
 const { operationalLimits } = require("./services/operational-limits");
+const { starEconomy } = require("./services/star-settings");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -77,6 +78,10 @@ function mainMenuKeyboard(lang) {
 
 function helpKeyboard(lang) {
   return inlineKeyboard([
+    [{
+      text: messages[lang].profileStarsButton,
+      callback_data: callBacks.profileStars,
+    }],
     [{
       text: messages[lang].helpRules,
       callback_data: callBacks.helpRules,
@@ -252,6 +257,29 @@ function aiSuggestionLimitKeyboard(lang, section) {
       callback_data: sectionCallbacks[section] || callBacks.aiBack,
     },
   ]]);
+}
+
+function aiPaidSuggestionConfirmKeyboard(lang, publicCode, cost, section) {
+  const sectionCallbacks = {
+    movies: callBacks.aiSuggestMovies,
+    music: callBacks.aiSuggestMusic,
+    books: callBacks.aiSuggestBooks,
+    random: callBacks.aiSuggestRandom,
+  };
+  return inlineKeyboard([
+    [{
+      text: messages[lang].aiSuggestionPaidConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
+      callback_data: `${callBacks.aiPaidSuggestionConfirm}${publicCode}`,
+    }],
+    [{
+      text: messages[lang].aiSuggestionPaidCancelButton,
+      callback_data: `${callBacks.aiPaidSuggestionCancel}${section}`,
+    }],
+    [{
+      text: messages[lang].aiBack,
+      callback_data: sectionCallbacks[section] || callBacks.aiBack,
+    }],
+  ]);
 }
 
 function aiSuggestionModeKeyboard(lang, section) {
@@ -645,10 +673,7 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
     ],
     [
-      {
-        text: messages[lang].profileMoreSettings,
-        callback_data: callBacks.profileSettings,
-      },
+      { text: messages[lang].profileMoreSettings, callback_data: callBacks.profileSettings },
     ],
   ];
 
@@ -689,6 +714,12 @@ function profileActiveDiscussionHelpKeyboard(lang) {
       },
     ],
   ]);
+}
+
+function profileStarsKeyboard(lang) {
+  return inlineKeyboard([[
+    { text: messages[lang].profileStarsBack, callback_data: callBacks.profileStarsBack },
+  ]]);
 }
 
 function cancelEditKeyboard(lang) {
@@ -816,8 +847,13 @@ function profileViewBackKeyboard(lang) {
   return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 
-function profilePeopleBackKeyboard(lang) {
-  return inlineKeyboard([[{ text: messages[lang].profileBackToPeople, callback_data: callBacks.peopleDiscover }]]);
+function profilePeopleBackKeyboard(lang, mode = "browse") {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].profileBackToPeople,
+      callback_data: mode === "taste" ? callBacks.peopleTasteMatches : callBacks.peopleDiscover,
+    },
+  ]]);
 }
 
 function profileInvitationBackKeyboard(lang, userId = "") {
@@ -861,11 +897,52 @@ function savedProfilesListKeyboard(lang, items = []) {
   return inlineKeyboard(rows);
 }
 
-function peopleHubKeyboard(lang) {
-  return inlineKeyboard([
+function peopleHubKeyboard(lang, { showTasteMatches = false } = {}) {
+  const rows = [
     [{ text: messages[lang].peopleDiscover, callback_data: callBacks.peopleDiscover }],
     [{ text: messages[lang].savedProfiles, callback_data: callBacks.savedProfiles }],
-    [{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }],
+  ];
+  if (showTasteMatches) {
+    rows.splice(1, 0, [{ text: messages[lang].peopleTasteMatchesButton, callback_data: callBacks.peopleTasteMatches }]);
+  }
+  if (starEconomy.advancedSearchPreviewEnabled) {
+    rows.push([{ text: messages[lang].advancedSearchButton, callback_data: callBacks.peopleAdvancedSearch }]);
+  }
+  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
+  return inlineKeyboard(rows);
+}
+
+function advancedSearchPreviewKeyboard(lang, { notified = false } = {}) {
+  const rows = [];
+  if (!notified && starEconomy.advancedSearchNotifyEnabled) {
+    rows.push([{
+      text: messages[lang].advancedSearchNotifyButton,
+      callback_data: callBacks.peopleAdvancedSearchNotify,
+    }]);
+  }
+  rows.push([{
+    text: messages[lang].peopleBackToHub,
+    callback_data: callBacks.peopleAdvancedSearchBack,
+  }]);
+  return inlineKeyboard(rows);
+}
+
+function formatKeyboardNumber(lang, value) {
+  const number = Number(value) || 0;
+  if (lang !== "fa") return String(number);
+  return new Intl.NumberFormat("fa-IR").format(number);
+}
+
+function peopleTasteMatchesUnlockKeyboard(lang, publicCode, cost) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].peopleTasteMatchesConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
+      callback_data: `${callBacks.peopleTasteMatchesConfirm}${publicCode}`,
+    }],
+    [{
+      text: messages[lang].peopleTasteMatchesCancelButton,
+      callback_data: callBacks.peopleTasteMatchesCancel,
+    }],
   ]);
 }
 
@@ -873,19 +950,22 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(options.page) || 0);
   const maxPage = Math.max(0, Number(options.totalPages || 1) - 1);
+  const pageCallback = options.mode === "taste"
+    ? callBacks.peopleTasteMatchesPage
+    : callBacks.peopleDiscoverPage;
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
     pageRows.push({
       text: `${messages[lang].discussionListMorePage} ➡️`,
-      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage + 1}`,
+      callback_data: `${pageCallback}${normalizedPage + 1}`,
     });
   }
 
   if (normalizedPage > 0) {
     pageRows.push({
       text: `⬅️ ${messages[lang].discussionListPrevPage}`,
-      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage - 1}`,
+      callback_data: `${pageCallback}${normalizedPage - 1}`,
     });
   }
 
@@ -909,6 +989,7 @@ module.exports = {
   aiSuggestionAddKeyboard,
   aiSuggestionNextKeyboard,
   aiSuggestionLimitKeyboard,
+  aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
@@ -927,6 +1008,7 @@ module.exports = {
   profileKeyboard,
   profileSettingsKeyboard,
   profileActiveDiscussionHelpKeyboard,
+  profileStarsKeyboard,
   cancelEditKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
@@ -961,5 +1043,7 @@ module.exports = {
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
   peopleHubKeyboard,
+  peopleTasteMatchesUnlockKeyboard,
+  advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
 };

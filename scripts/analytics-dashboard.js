@@ -11,6 +11,10 @@ const {
   LIMIT_DEFINITIONS,
   updateOperationalLimits,
 } = require("../src/services/operational-limits");
+const {
+  STAR_SETTING_DEFINITIONS,
+  updateStarSettings,
+} = require("../src/services/star-settings");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
@@ -96,6 +100,18 @@ function renderKeyCountTable(rows = [], emptyText = "No data yet") {
   </table>`;
 }
 
+function renderStarTransactionTable(rows = []) {
+  if (!rows.length) return `<p class="muted">No Star transactions yet</p>`;
+  return `<table>
+    <thead><tr><th>Type</th><th>Transactions</th><th>Net amount</th></tr></thead>
+    <tbody>${rows.map((row) => `<tr>
+      <td>${escapeHtml(row.key)}</td>
+      <td>${formatNumber(row.count)}</td>
+      <td>${formatNumber(row.amount)}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
 function renderEventTable(rows = [], emptyText = "No events yet") {
   if (!rows.length) return `<p class="muted">${escapeHtml(emptyText)}</p>`;
   return `<table>
@@ -144,6 +160,42 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
       </label>`).join("")}</div>
     </fieldset>`).join("")}
     <div class="form-actions"><button type="submit">Save limits</button><span class="muted">Restart the bot to activate saved changes.</span></div>
+    <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
+  </form>`;
+}
+
+function renderStarSettingsForm(values = {}, action = "/star-settings", {
+  updatedAt = null,
+  saved = false,
+  cacheTtlSeconds = 60,
+} = {}) {
+  const groups = {};
+  for (const [key, definition] of Object.entries(STAR_SETTING_DEFINITIONS)) {
+    if (!groups[definition.group]) groups[definition.group] = [];
+    groups[definition.group].push({ key, ...definition, value: values[key] ?? definition.default });
+  }
+  return `${saved ? `<div class="notice success">Star economy settings saved. Bot processes refresh them within about ${formatNumber(cacheTtlSeconds)} seconds.</div>` : ""}
+  <form method="post" action="${escapeHtml(action)}" class="limits-form star-settings-form">
+    ${Object.entries(groups).map(([group, fields]) => `<fieldset>
+      <legend>${escapeHtml(group)}</legend>
+      <div class="limit-grid">${fields.map((field) => {
+    if (field.type === "boolean") {
+      return `<label>
+        <span>${escapeHtml(field.label)}</span>
+        <small>${escapeHtml(field.description || "")}</small>
+        <input type="hidden" name="${escapeHtml(field.key)}" value="false" />
+        <input type="checkbox" name="${escapeHtml(field.key)}" value="true" ${field.value ? "checked" : ""} />
+      </label>`;
+    }
+    return `<label>
+      <span>${escapeHtml(field.label)}${field.unit ? ` (${escapeHtml(field.unit)})` : ""}</span>
+      <small>${escapeHtml(field.description || "")}</small>
+      <input type="number" name="${escapeHtml(field.key)}" value="${escapeHtml(field.value)}"
+        min="${field.min}" max="${field.max}" step="1" required />
+    </label>`;
+  }).join("")}</div>
+    </fieldset>`).join("")}
+    <div class="form-actions"><button type="submit">Save Star settings</button><span class="muted">Changes affect future transactions only.</span></div>
     <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
   </form>`;
 }
@@ -309,6 +361,25 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     updatedAt: snapshot.limitsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "1",
   }), { open: true, note: "editable product quotas" })}
+      ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, `/star-settings${actionSuffix}`, {
+    updatedAt: snapshot.starSettingsUpdatedAt,
+    saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
+    cacheTtlSeconds: snapshot.starSettingsCacheTtlSeconds,
+  }), { open: false, note: "rewards, costs, safeguards, rollout" })}
+      ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
+      ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
+      ${card("Unique Earners", snapshot.stars?.earners || 0)}
+      ${card("Unique Spenders", snapshot.stars?.spenders || 0)}
+      ${card("Active Boosts", snapshot.stars?.activeBoosts || 0)}
+      ${card("Qualified Referrals", snapshot.stars?.qualifiedReferrals || 0)}
+      ${statusCard(
+        "Balance Reconciliation",
+        snapshot.stars?.reconciliationMismatches === 0,
+        snapshot.stars?.reconciliationMismatches === null
+          ? "Reconciliation unavailable"
+          : `${formatNumber(snapshot.stars?.reconciliationMismatches || 0)} mismatches across ${formatNumber(snapshot.stars?.reconciliationChecked || 0)} checked wallets`,
+      )}
+    </div><div class="panel">${renderStarTransactionTable(snapshot.stars?.transactions || [])}</div>`, { note: "ledger and effects" })}
       ${collapsibleSection("Health", `<div class="grid compact-grid">
       ${statusCard("Dashboard Server", true, `Up for ${formatNumber(Math.round(process.uptime()))}s`)}
       ${statusCard(
@@ -414,7 +485,9 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       section.addEventListener("toggle", saveSectionState);
     });
     let formDirty = false;
-    document.querySelector(".limits-form")?.addEventListener("input", () => { formDirty = true; });
+    document.querySelectorAll(".limits-form").forEach((form) => {
+      form.addEventListener("input", () => { formDirty = true; });
+    });
     setTimeout(() => {
       saveSectionState();
       if (!formDirty) window.location.reload();
@@ -460,6 +533,14 @@ async function handleRequest(req, res, { token }) {
     await updateOperationalLimits(await readFormBody(req));
     const redirectParams = new URLSearchParams(url.searchParams);
     redirectParams.set("saved", "1");
+    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
+    return res.end();
+  }
+
+  if (url.pathname === "/star-settings" && req.method === "POST") {
+    await updateStarSettings(await readFormBody(req), { actor: "analytics-dashboard" });
+    const redirectParams = new URLSearchParams(url.searchParams);
+    redirectParams.set("saved", "stars");
     res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
     return res.end();
   }

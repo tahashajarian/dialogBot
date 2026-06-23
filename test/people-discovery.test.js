@@ -3,8 +3,11 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const messages = require("../src/messages");
+const { callBacks } = require("../src/constants");
+const { peopleHubKeyboard, peopleDiscoverListKeyboard } = require("../src/keyboards");
 const {
   ensurePeopleDiscoveryCodes,
+  findPeopleForBrowse,
   findPeopleBySharedTaste,
   getSharedSections,
   paginatePeopleDiscovery,
@@ -85,6 +88,35 @@ test("people discovery returns users with at least 3 shared items and skips self
   }
 });
 
+test("free people browse returns named public profiles without shared-taste filtering", async () => {
+  const originalFind = User.find;
+  User.find = () => ({
+    select: () => ({
+      limit: () => ({
+        lean: async () => [
+          userWithMusic(2, ["metallica"]),
+          userWithMusic(3, [], { profileName: "", firstName: "" }),
+          userWithMusic(4, ["queen"], { publicProfileCode: "u_SAVED" }),
+        ],
+      }),
+    }),
+  });
+
+  try {
+    const result = await findPeopleForBrowse({
+      ...userWithMusic(1, []),
+      savedProfileCodes: ["u_SAVED"],
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.items.map((item) => item.userId), [2, 4]);
+    assert.deepEqual(result.items[0].sharedSections, []);
+    assert.equal(result.items[1].isSaved, true);
+  } finally {
+    User.find = originalFind;
+  }
+});
+
 test("people discovery creates public codes only while preparing visible matches", async () => {
   const originalFind = User.find;
   const originalFindOne = User.findOne;
@@ -120,16 +152,54 @@ test("people discovery UI renders shared sections and save/view commands", () =>
     name: "طاها",
     isSaved: false,
     sharedSections: [{ section: "music", count: 4 }],
-  }]);
+  }], {
+    title: messages.fa.peopleTasteMatchesTitle,
+    intro: messages.fa.peopleTasteMatchesIntro,
+    showSharedSections: true,
+  });
 
-  assert.match(text, /دیدن آدم‌ها/);
+  assert.match(text, /آدم‌های احتمالاً شبیه تو/);
   assert.match(text, /۴ مورد مشترک/);
   assert.match(text, /\/u_AB12/);
   assert.match(text, /\/save_AB12/);
 });
 
+test("free people discovery UI hides shared sections", () => {
+  const text = buildPeopleDiscoveryText(messages, "fa", [{
+    code: "u_AB12",
+    name: "طاها",
+    isSaved: false,
+    sharedSections: [{ section: "music", count: 4 }],
+  }]);
+
+  assert.match(text, /دیدن آدم‌ها/);
+  assert.doesNotMatch(text, /۴ مورد مشترک/);
+  assert.match(text, /\/u_AB12/);
+});
+
+test("People hub shows probably-similar button only when requested", () => {
+  const hidden = peopleHubKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const visible = peopleHubKeyboard("fa", { showTasteMatches: true }).reply_markup.inline_keyboard.flat();
+
+  assert.ok(!hidden.some((button) => button.callback_data === callBacks.peopleTasteMatches));
+  assert.equal(
+    visible.find((button) => button.callback_data === callBacks.peopleTasteMatches)?.text,
+    messages.fa.peopleTasteMatchesButton,
+  );
+});
+
+test("taste people pagination uses taste callbacks", () => {
+  const buttons = peopleDiscoverListKeyboard("en", { mode: "taste", page: 0, totalPages: 2 })
+    .reply_markup.inline_keyboard.flat();
+
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleTasteMatchesPage}1`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
+});
+
 test("people discovery UI uses a distinct no-match message", () => {
-  const text = buildPeopleDiscoveryText(messages, "fa", []);
+  const text = buildPeopleDiscoveryText(messages, "fa", [], {
+    emptyText: messages.fa.peopleDiscoverNoMatches,
+  });
 
   assert.match(text, /کسی با حداقل ۳ انتخاب مشترک/);
   assert.doesNotMatch(text, /برو به بخش لیست‌ها/);

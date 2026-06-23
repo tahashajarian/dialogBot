@@ -71,7 +71,7 @@ test("formatDiscussionMemberLines marks host with host badge", () => {
     { userId: 10, profileName: "Owner", publicProfileCode: "u_A1" },
     { userId: 11, profileName: "Member", publicProfileCode: "u_B2" },
   ], 10);
-  assert.match(lines[0], /Owner — ⭐ host/);
+  assert.match(lines[0], /Owner — 👑 host/);
   assert.match(lines[1], /👁 View profile 👈 \/u_B2/);
   assert.match(lines[1], /🚩 Report 👈 \/report_B2/);
 });

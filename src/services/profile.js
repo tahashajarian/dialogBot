@@ -239,6 +239,9 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   }
 
   if (isOwnProfile) {
+    const starBalance = Math.max(0, Math.round(Number(user?.starBalance) || 0))
+      .toLocaleString(lang === "fa" ? "fa-IR" : "en-US");
+    lines.push(lineForLang(lang, `⭐ ${messages[lang].profileStarsLabel}: ${starBalance}`));
     const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
       .replace("{status}", activeDiscussionStatus);
     lines.push(

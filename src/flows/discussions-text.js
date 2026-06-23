@@ -44,8 +44,14 @@ const {
   formatDiscussionRoom,
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
+const { createReferralLink } = require("../services/star-referrals");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+} = require("../services/stars-ui");
 const { updateProfileField, updateUserState } = require("../services/users");
 const { requireDiscussionProfileName } = require("./discussion-name-gate");
+const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
 const {
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
@@ -127,6 +133,7 @@ function isDiscussionBottomControlText(text) {
     isDiscussionReturnToMenuText(text) ||
     isDiscussionMembersText(text) ||
     isDiscussionInviteText(text) ||
+    isDiscussionBoostText(text) ||
     isDiscussionLeaveText(text) ||
     isDiscussionCloseText(text)
   );
@@ -235,7 +242,17 @@ async function sendShareableInviteForActiveDiscussion(ctx, lang) {
   }
 
   const cleanCode = String(invite.code || "").replace(/^d_/i, "");
-  const deepLink = buildBotStartLink(`join_${cleanCode}`);
+  const legacyDeepLink = buildBotStartLink(`join_${cleanCode}`);
+  let deepLink = legacyDeepLink;
+  if (legacyDeepLink) {
+    const referral = await createReferralLink({
+      inviterUserId: ctx.userId,
+      discussionId: invite.discussion._id,
+      discussionPublicCode: invite.code,
+      source: "discussion_share",
+    });
+    if (referral.ok) deepLink = buildBotStartLink(`ref_${referral.link.publicCode}`) || legacyDeepLink;
+  }
   await ctx.reply(messages[lang].discussionInviteReady);
   return ctx.reply(buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink }));
 }
@@ -318,6 +335,10 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const sent = await ctx.reply(`${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`);
     await rememberDiscussionMembersMessage(ctx, sent);
     return sent;
+  }
+
+  if (isDiscussionBoostText(text)) {
+    return showBoostQuote(ctx, lang);
   }
 
   if (isDiscussionInviteText(text)) {
@@ -434,7 +455,12 @@ async function openDiscussionCommand(ctx, lang, code) {
 
   await clearRememberedDiscussionListMessage(ctx);
   await clearDiscussionMenuNotice(ctx);
-  await ctx.reply(joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened);
+  applyStarRewardsToContext(ctx, joined.starRewards);
+  const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
+  await ctx.reply([
+    joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened,
+    starNotice,
+  ].filter(Boolean).join("\n\n"));
   return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
 }
 
@@ -530,7 +556,9 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   const statusText = joined.joined
     ? messages[lang].discussionJoined
     : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionOpened);
-  await ctx.reply(statusText);
+  applyStarRewardsToContext(ctx, joined.starRewards);
+  const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
+  await ctx.reply([statusText, starNotice].filter(Boolean).join("\n\n"));
   if (sendRoom) return sendRoom(ctx, lang, joined.discussion);
   return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
 }
@@ -676,6 +704,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     });
     return sendRememberedDiscussionList(ctx, lang, previousListType);
   }
+
   return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussion), { removeKeyboard: true });
 }
 

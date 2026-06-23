@@ -9,12 +9,20 @@ const {
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   getStartInviteCode,
+  getStartReferralCode,
   handleUpdate,
   isRepeatedStartInvite,
   isUnsupportedDiscussionMessage,
   replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
 } = require("../src/bot");
+
+test("start referral parser accepts opaque referral payloads only", () => {
+  assert.equal(getStartReferralCode("/start ref_A1B2C3D4E5F6"), "A1B2C3D4E5F6");
+  assert.equal(getStartReferralCode("/start?ref_a1b2c3d4e5f6"), "A1B2C3D4E5F6");
+  assert.equal(getStartReferralCode("/start ref_42"), "");
+  assert.equal(getStartReferralCode("/start join_A1B2C3"), "");
+});
 
 test("start invite parser accepts deep-link payload variants", () => {
   assert.equal(getStartInviteCode("/start join_ab12"), "d_AB12");

@@ -68,6 +68,37 @@ function getPeopleDiscoveryScore(entry) {
   return sharedScore + tasteScore + profileScore;
 }
 
+async function findPeopleForBrowse(viewer, {
+  limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
+} = {}) {
+  const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
+  const candidates = await User.find({
+    userId: { $ne: Number(viewer?.userId) },
+    bannedAt: null,
+  })
+    .select("userId publicProfileCode firstName profileName")
+    .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
+    .lean();
+
+  const items = [];
+  for (const candidate of candidates || []) {
+    const name = candidate.profileName || candidate.firstName || "";
+    if (!name) continue;
+    items.push({
+      userId: candidate.userId,
+      code: candidate.publicProfileCode,
+      name,
+      sharedSections: [],
+      isSaved: savedCodes.has(String(candidate.publicProfileCode || "").toLowerCase()),
+      hasProfileName: Boolean(candidate.profileName),
+      score: candidate.profileName ? 3 : 0,
+    });
+  }
+
+  items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
+  return { ok: true, items };
+}
+
 async function findPeopleBySharedTaste(viewer, {
   limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
 } = {}) {
@@ -129,6 +160,7 @@ module.exports = {
   PEOPLE_DISCOVERY_MIN_SHARED_ITEMS,
   buildUserDiscoveryIndex,
   ensurePeopleDiscoveryCodes,
+  findPeopleForBrowse,
   findPeopleBySharedTaste,
   getSharedSections,
   paginatePeopleDiscovery,

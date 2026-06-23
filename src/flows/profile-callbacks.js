@@ -2,9 +2,11 @@ const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
   profileKeyboard,
+  helpKeyboard,
   mainMenuKeyboard,
   profileSettingsKeyboard,
   profileActiveDiscussionHelpKeyboard,
+  profileStarsKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
   genderKeyboard,
@@ -20,6 +22,15 @@ const {
   sendProfileMessage,
   toPlainUser,
 } = require("../services/profile");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+  buildStarsOverviewText,
+} = require("../services/stars-ui");
+const {
+  awardProfileCompletionMilestone,
+  claimExistingProfileAndListMilestones,
+} = require("../services/star-milestones");
 const {
   clearProfileEditPrompt,
   sendProfileEditPrompt,
@@ -37,6 +48,8 @@ function isProfileSettingsOrEditCallback(data = "") {
   return data === callBacks.profileEditName ||
     data === callBacks.profileSettings ||
     data === callBacks.profileSettingsBack ||
+    data === callBacks.profileStars ||
+    data === callBacks.profileStarsBack ||
     data === callBacks.profileActiveDiscussionHelp ||
     data === callBacks.profileActiveDiscussionHelpDone ||
     data === callBacks.profileToggleActiveDiscussionVisible ||
@@ -69,6 +82,7 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
+    footerText: options.footerText || "",
   });
 }
 
@@ -93,14 +107,19 @@ async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMe
 }
 
 async function handleProfileEditCompletion(ctx, lang, updatedUser) {
+  const milestone = await awardProfileCompletionMilestone(ctx.userId, updatedUser);
+  applyStarRewardsToContext(ctx, milestone.rewards);
+  if (ctx.user) updatedUser.starBalance = ctx.user.starBalance;
+  const starNotice = buildStarRewardNotice(messages, lang, milestone.rewards);
   // Check if user was trying to view another profile
   const pendingCode = updatedUser.pendingProfileViewCode;
   if (pendingCode) {
     await updateProfileField(ctx.userId, "pendingProfileViewCode", "");
+    if (starNotice) await ctx.reply(starNotice);
     return sendPublicProfileByCode(ctx, lang, pendingCode);
   }
   // Otherwise show their own profile
-  return sendOwnProfile(ctx, lang, updatedUser);
+  return sendOwnProfile(ctx, lang, updatedUser, { footerText: starNotice });
 }
 
 async function handleProfileSettingsOrEditCallback(ctx, lang, {
@@ -129,6 +148,24 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
     return sendOwnProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileStars) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    const claimedRewards = await claimExistingProfileAndListMilestones(ctx.user || {});
+    applyStarRewardsToContext(ctx, claimedRewards);
+    const rewardNotice = buildStarRewardNotice(messages, lang, claimedRewards);
+    return ctx.reply(
+      [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n"),
+      profileStarsKeyboard(lang),
+    );
+  }
+
+  if (data === callBacks.profileStarsBack) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
   }
 
   if (data === callBacks.profileActiveDiscussionHelp) {

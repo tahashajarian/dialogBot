@@ -42,6 +42,11 @@ const {
 const { getModerationConfig } = require("../config");
 const { EVENT_NAMES, trackEvent, trackThrottledEvent } = require("./analytics-events");
 const { operationalLimits } = require("./operational-limits");
+const {
+  awardFirstDiscussionCreated,
+  awardFirstDiscussionJoined,
+} = require("./star-milestones");
+const { decorateActiveBoosts, endBoostForDiscussion } = require("./discussion-boosts");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -229,10 +234,16 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
     },
   });
 
+  const starRewards = [
+    ...(await awardFirstDiscussionCreated(creatorUserId, discussion._id)),
+    ...(await awardFirstDiscussionJoined(creatorUserId, discussion._id)),
+  ];
+
   return {
     ok: true,
     discussion,
     membershipIds: reservedUser.discussionMembershipIds || [],
+    starRewards,
   };
 }
 
@@ -240,6 +251,7 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
   let discussions = await Discussion.find({ status: "open" })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
+  discussions = await decorateActiveBoosts(discussions);
 
   // Smart pinning: show bot discussions at top for new/less-engaged users
   if (userId) {
@@ -394,8 +406,16 @@ async function joinOrOpenDiscussion(userId, discussionId) {
 
     const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
     const otherMemberIds = joinedDiscussion.memberUserIds.filter((id) => id !== userId);
-    
-    return { ok: true, discussion: joinedDiscussion, joined: true, joinerName, otherMemberIds };
+    const starRewards = await awardFirstDiscussionJoined(userId, joinedDiscussion._id);
+
+    return {
+      ok: true,
+      discussion: joinedDiscussion,
+      joined: true,
+      joinerName,
+      otherMemberIds,
+      starRewards,
+    };
   }
 
   await User.findOneAndUpdate(
@@ -516,6 +536,8 @@ async function closeDiscussionAsOwner(ownerUserId, discussionId) {
     { activeDiscussionId: discussion._id },
     { $set: { activeDiscussionId: null } },
   );
+
+  await endBoostForDiscussion(discussion._id);
 
   return { ok: true, discussion, affectedMemberIds: memberIds, discussionTitle: discussion.title };
 }

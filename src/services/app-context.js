@@ -103,6 +103,7 @@ function createAppContext(ctx, user, options = {}) {
     callbackData: ctx.callbackQuery?.data,
     callbackMessage: ctx.callbackQuery?.message,
     callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
+    wasUserCreated: Boolean(options.wasUserCreated),
 
     reply: (...args) => ctx.reply(...args),
     replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),

@@ -3,6 +3,7 @@ const {
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiListManageMenuKeyboard,
@@ -79,6 +80,17 @@ const {
   getTopTenManageEntryMessage,
   toTitleSet,
 } = require("../services/ai-list-ui");
+const {
+  applyStarRewardsToContext,
+  buildStarRewardNotice,
+  formatStarNumber,
+  notifyExternalReferralReward,
+} = require("../services/stars-ui");
+const {
+  createPaidSuggestionQuote,
+  completePaidSuggestion,
+  refundPaidSuggestion,
+} = require("../services/ai-paid-suggestions");
 
 const AI_MANAGE_STATE_PATTERN = /^ai_manage_(movies|music|books|random)_(watchlist|top_ten)(?:_(add_input|comment_input))?$/;
 const AI_SUGGEST_CONTEXT_STATE_PATTERN = /^ai_suggest_context_(movies|music|books|random)$/;
@@ -175,6 +187,19 @@ async function promptSuggestionMode(ctx, lang, section) {
 
 function getPromptWatchlistItems(watchlistItems = []) {
   return watchlistItems.slice(-AI_WATCHLIST_PROMPT_LIMIT);
+}
+
+function getSuggestionResetMinutes(resetAt) {
+  const resetTime = new Date(resetAt).getTime();
+  if (!Number.isFinite(resetTime)) return 1;
+  return Math.max(1, Math.ceil((resetTime - Date.now()) / 60000));
+}
+
+function buildPaidSuggestionOfferText(lang, quote, balance, resetAt) {
+  return messages[lang].aiSuggestionPaidOffer
+    .replace("{minutes}", formatStarNumber(getSuggestionResetMinutes(resetAt), lang))
+    .replace("{cost}", formatStarNumber(quote.quotedCost, lang))
+    .replace("{balance}", formatStarNumber(balance, lang));
 }
 
 function parseAiManageState(state) {
@@ -314,6 +339,7 @@ async function sendSingleSectionSuggestion({
   watchlistItems,
   tasteStyleHint,
   userText = "",
+  paidSuggestion = null,
 }) {
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
@@ -326,8 +352,17 @@ async function sendSingleSectionSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
   ]);
-  const quota = await consumeAiSuggestionQuota(ctx.userId, section);
+  const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
+    if (quota.reason === "limit") {
+      const quoteResult = await createPaidSuggestionQuote(ctx.userId, section, { userText });
+      if (quoteResult.ok) {
+        return placeholder.finish(
+          buildPaidSuggestionOfferText(lang, quoteResult.quote, ctx.user?.starBalance || 0, quota.resetAt),
+          aiPaidSuggestionConfirmKeyboard(lang, quoteResult.quote.publicCode, quoteResult.quote.quotedCost, section),
+        );
+      }
+    }
     return placeholder.finish(
       quota.reason === "limit"
         ? formatSuggestionLimitMessage(lang, quota.resetAt)
@@ -375,6 +410,16 @@ async function sendSingleSectionSuggestion({
   }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    if (paidSuggestion) {
+      await refundPaidSuggestion(
+        paidSuggestion.quote._id,
+        paidSuggestion.spend?.transaction?._id,
+      );
+      return placeholder.finish(
+        messages[lang].aiSuggestionPaidRefunded,
+        aiSectionKeyboardForSection(lang, section),
+      );
+    }
     await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
     return placeholder.finish(
       messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable,
@@ -382,6 +427,9 @@ async function sendSingleSectionSuggestion({
     );
   }
 
+  if (paidSuggestion) {
+    await completePaidSuggestion(paidSuggestion.quote._id, suggestionResult.title);
+  }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
   const resultMessage = await placeholder.finish(
@@ -490,8 +538,11 @@ async function handleAiListActionCommand(ctx, lang, command) {
     }
     rememberCtxAiListItems(ctx, section, "watchlist", promoted.watchlistItems);
     rememberCtxAiListItems(ctx, section, "topTen", promoted.topTenItems);
+    applyStarRewardsToContext(ctx, promoted.starRewards);
+    await notifyExternalReferralReward(ctx, messages, promoted.externalReferralReward);
+    const starNotice = buildStarRewardNotice(messages, lang, promoted.starRewards, promoted.starProgress);
     await syncAiTasteForSection(ctx.userId, section);
-    await ctx.reply(messages[lang].aiWatchlistPromotedToTopTen);
+    await ctx.reply([messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"));
     return openAiListManager(ctx, lang, section, "watchlist");
   }
 
@@ -629,6 +680,9 @@ async function handleAiText(ctx, lang, text, state) {
       }
 
       rememberCtxAiListItems(ctx, section, listType, result.items);
+      applyStarRewardsToContext(ctx, result.starRewards);
+      await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+      const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
       const listIsFull = result.items.length >= (isWatchlist ? operationalLimits.aiWatchlistItems : operationalLimits.aiTopTenItems);
       const nextState = listIsFull
         ? getAiManageState(section, listType)
@@ -650,7 +704,7 @@ async function handleAiText(ctx, lang, text, state) {
           items: result.items,
         });
         const saved = await placeholder.finish(
-          savedMessage,
+          [savedMessage, starNotice].filter(Boolean).join("\n\n"),
           listIsFull
             ? undefined
             : getContinuousAddKeyboard(lang, section, listType, result.items),
@@ -666,7 +720,7 @@ async function handleAiText(ctx, lang, text, state) {
         `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, {
           topTenTitleSet: toTitleSet(topTenItems),
           includeWatched: true,
-        })}${listIsFull ? "" : `\n\n${messages[lang].aiListManageAddNextPrompt}`}`,
+        })}${starNotice ? `\n\n${starNotice}` : ""}${listIsFull ? "" : `\n\n${messages[lang].aiListManageAddNextPrompt}`}`,
         listIsFull
           ? aiListManageMenuKeyboard(lang, section, listType)
           : getContinuousAddKeyboard(lang, section, listType, result.items),

@@ -2,6 +2,9 @@ const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const DiscussionInvitation = require("../models/discussion-invitation");
 const AiResponseCache = require("../models/ai-response-cache");
+const StarTransaction = require("../models/star-transaction");
+const DiscussionBoost = require("../models/discussion-boost");
+const StarReferralClaim = require("../models/star-referral-claim");
 const { getOperationalHealthSnapshot } = require("./operational-health");
 const {
   operationalLimits,
@@ -9,11 +12,16 @@ const {
   getOperationalLimitsState,
 } = require("./operational-limits");
 const {
+  refreshStarSettings,
+  getStarSettingsState,
+} = require("./star-settings");
+const {
   EVENT_NAMES,
   countEventsByName,
   countEventsBySection,
   countUniqueUsersForEvents,
 } = require("./analytics-events");
+const { reconcileStarBalances } = require("./stars");
 
 const SECTIONS = ["movies", "music", "books", "random"];
 const SECTION_LABELS = {
@@ -89,6 +97,8 @@ async function countByField(Model, field) {
 async function getAnalyticsSnapshot({ now = new Date() } = {}) {
   const limits = { ...(await refreshOperationalLimits()) };
   const limitsState = getOperationalLimitsState();
+  const starSettings = { ...(await refreshStarSettings()) };
+  const starSettingsState = getStarSettingsState();
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -118,6 +128,13 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     topTenBySection7d,
     suggestionsBySection7d,
     funnel7d,
+    starTransactionTotals,
+    starEarners,
+    starSpenders,
+    activeBoosts,
+    qualifiedReferrals,
+    outstandingStars,
+    starReconciliation,
   ] = await Promise.all([
     User.find({})
       .select("createdAt onboardingCompletedAt onboardingSkippedAt profileName bannedAt activeDiscussionId savedProfileCodes aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
@@ -168,6 +185,25 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
         EVENT_NAMES.profileSaved,
       ],
     }),
+    StarTransaction.aggregate([
+      { $match: { status: "applied" } },
+      {
+        $group: {
+          _id: "$type",
+          transactions: { $sum: 1 },
+          amount: { $sum: "$amount" },
+        },
+      },
+    ]),
+    StarTransaction.distinct("userId", {
+      status: "applied",
+      type: { $in: ["earn", "grant", "purchase"] },
+    }),
+    StarTransaction.distinct("userId", { status: "applied", type: "spend" }),
+    DiscussionBoost.countDocuments({ status: "active", endsAt: { $gt: now } }),
+    StarReferralClaim.countDocuments({ status: "qualified" }),
+    User.aggregate([{ $group: { _id: null, total: { $sum: "$starBalance" } } }]),
+    reconcileStarBalances({ limit: 1000 }).catch(() => ({ checked: 0, mismatchCount: null, mismatches: [] })),
   ]);
 
   const discussionAgg = await Discussion.aggregate([
@@ -188,6 +224,9 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     generatedAt: now.toISOString(),
     limits,
     limitsUpdatedAt: limitsState.updatedAt,
+    starSettings,
+    starSettingsUpdatedAt: starSettingsState.updatedAt,
+    starSettingsCacheTtlSeconds: starSettingsState.cacheTtlSeconds,
     users: {
       total: totalUsers,
       new24h: newUsers24h,
@@ -213,6 +252,20 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       totalReports: discussionTotals.totalReports,
     },
     invitations: invitationStatusCounts,
+    stars: {
+      outstanding: Number(outstandingStars[0]?.total) || 0,
+      earners: starEarners.length,
+      spenders: starSpenders.length,
+      activeBoosts,
+      qualifiedReferrals,
+      reconciliationChecked: starReconciliation.checked,
+      reconciliationMismatches: starReconciliation.mismatchCount,
+      transactions: starTransactionTotals.map((row) => ({
+        key: row._id || "unknown",
+        count: row.transactions,
+        amount: row.amount,
+      })),
+    },
     aiCache: {
       total: cache.total || 0,
       usedEntries: cache.usedEntries || 0,

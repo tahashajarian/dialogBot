@@ -14,6 +14,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.
+- `docs/stars.md`: source of truth, rollout rules, and remaining tasks for the implemented Stars economy.
 
 ## Discussion Boundaries
 
@@ -95,7 +96,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
 - `src/flows/saved-profiles.js`: people hub callbacks, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
-- `src/services/people-discovery.js`: taste-based people discovery, shared-item matching, filtering, ranking, and pagination.
+- `src/services/people-discovery.js`: free public-profile People browse plus shared-item matching/ranking for the Stars-gated similar-people lens.
+- `src/services/people-taste-matches.js`: Stars-gated `✨ آدم‌های احتمالاً شبیه تو` entitlement quotes, spends, unlock duration, and refunds.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.
   - save/unsave public profile codes
@@ -103,7 +105,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - preserve concurrent saved-profile updates
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
-- People discovery is taste-based and should not imply matching, dating, friendship, private chat, or online status. Saved profiles are private one-way bookmarks. Do not notify the saved user.
+- People discovery is taste-first and should not imply dating, friendship, private chat, or online status. The 3-common-items lens is Stars-gated and should use uncertain language such as `آدم‌های احتمالاً شبیه تو`. Saved profiles are private one-way bookmarks. Do not notify the saved user.
 - Profile viewing gate requires only display name; after completion, users are redirected to the intended profile via `pendingProfileViewCode`.
 
 ## Onboarding
@@ -125,6 +127,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/users.js`: centralized AI list storage helpers and taste label inference.
 - `src/services/ai.js`: AI requests, predefined taste feedback, recommendation parsing.
 - `src/services/ai-list-ui.js`: AI list/taste/suggestion text rendering helpers.
+- `src/services/ai-paid-suggestions.js`: paid extra suggestion quote/spend/refund rules after free quota exhaustion.
 - `src/services/ai-response-cache.js`: reusable AI response cache.
 - `src/services/ai-section.js`: section labels, taste labels, state-to-section helpers.
 - `src/services/ai-list-duplicates.js`: duplicate matching.
@@ -135,6 +138,15 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/messages.js`: translation/copy keys.
 - `src/keyboards.js`: inline and reply keyboard builders.
 - `docs/bot-ux.md`: bot UX rules, stale-card cleanup, low-noise behavior.
+
+## Stars Economy
+
+- Keep `src/bot.js` and `src/callbacks.js` as dispatchers.
+- Use focused ledger, settings, milestone, referral, boost, People entitlement, future Advanced Search, and UI services described in `docs/stars.md`.
+- Do not put Star mutations directly in onboarding, list, profile, invitation, or discussion routers. Those flows should request an idempotent domain operation only after the underlying product action succeeds.
+- Own-profile balance rendering belongs in `src/services/profile.js`; other-user render paths must omit it.
+- Admin-editable Star rewards/costs belong in a separate Star economy settings service/AppSetting key, surfaced by the existing dashboard.
+- Outside invite attribution belongs in focused invite/referral services and must use opaque public tokens rather than raw user IDs.
 
 ## Where To Put New Work
 
@@ -165,8 +177,14 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.
 - New AI text state or section bottom-button behavior: `src/flows/ai-text.js`.
 - New first-session onboarding behavior: `src/flows/onboarding.js`.
+- New Star earning/spending/refund rule: the focused Stars ledger service specified in `docs/stars.md`.
+- New Star milestone qualification/hint: the focused milestone/UI helpers specified in `docs/stars.md`, called from the existing owning mutation service.
+- New discussion boost rule: focused boost services plus small hooks in discussion list/room flows.
+- New People Stars entitlement rule: keep 3-common-items unlocks in `src/services/people-taste-matches.js`, backed by the ledger and `src/services/people-discovery.js`.
+- New Advanced Search preview rule: keep it in the People flow/UI with no charging; any future entitlement/filter service must compose with `src/services/people-discovery.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.
+- New paid extra suggestion rule: `src/services/ai-paid-suggestions.js`; AI flows should only offer it after free quota exhaustion and explicit confirmation.
 - New AI list mutation or taste helper: `src/services/users.js`.
 
 ## Validation Shortcuts
