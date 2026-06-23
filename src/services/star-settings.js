@@ -119,6 +119,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   paidSuggestionCost: {
     label: "Extra suggestion cost", description: "Stars charged for one extra AI suggestion after the free limit.", group: "AI suggestions", type: "number", unit: "Stars", default: 1, min: 0, max: 1000000,
   },
+  profileEmojiCost: {
+    label: "Profile emoji cost", description: "Stars charged to choose a curated cosmetic profile emoji.", group: "Profile cosmetics", type: "number", unit: "Stars", default: 3, min: 0, max: 1000000,
+  },
 
   advancedSearchCost: {
     label: "Future Advanced Search cost", description: "Inactive until the filter product receives a separate safety approval.", group: "Future Advanced Search", type: "number", unit: "Stars", default: 5, min: 0, max: 1000000,

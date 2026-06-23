@@ -18,6 +18,7 @@ test("Star settings expose safe launch defaults", () => {
   assert.equal(values.advancedSearchPreviewEnabled, true);
   assert.equal(values.discussionBoostCost, 10);
   assert.equal(values.paidSuggestionCost, 1);
+  assert.equal(values.profileEmojiCost, 3);
   assert.equal(values.peopleTasteMatchesCost, 5);
   assert.equal(values.peopleTasteMatchesDurationHours, 24);
   assert.equal(values.discussionBoostsPerOwner, 1);
@@ -32,6 +33,7 @@ test("Star settings normalize form booleans and numeric boundaries", () => {
     rewardProfileCompletion: "-20",
     discussionBoostCost: "99999999",
     paidSuggestionCost: "99999999",
+    profileEmojiCost: "99999999",
     peopleTasteMatchesCost: "-1",
     peopleTasteMatchesDurationHours: "99999",
     discussionBoostsPerOwner: "50",
@@ -42,6 +44,7 @@ test("Star settings normalize form booleans and numeric boundaries", () => {
   assert.equal(values.rewardProfileCompletion, 0);
   assert.equal(values.discussionBoostCost, STAR_SETTING_DEFINITIONS.discussionBoostCost.max);
   assert.equal(values.paidSuggestionCost, STAR_SETTING_DEFINITIONS.paidSuggestionCost.max);
+  assert.equal(values.profileEmojiCost, STAR_SETTING_DEFINITIONS.profileEmojiCost.max);
   assert.equal(values.peopleTasteMatchesCost, 0);
   assert.equal(values.peopleTasteMatchesDurationHours, STAR_SETTING_DEFINITIONS.peopleTasteMatchesDurationHours.max);
   assert.equal(values.discussionBoostsPerOwner, 1);

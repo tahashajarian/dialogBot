@@ -182,6 +182,8 @@ function hasValidLocation(location) {
 
 function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const displayName = user?.profileName || user?.firstName || "—";
+  const profileEmoji = String(user?.profileEmoji || "").trim();
+  const displayNameWithEmoji = profileEmoji ? `${profileEmoji} ${displayName}` : displayName;
   const genderMap = {
     female: messages[lang].genderOptionFemaleDisplay,
     male: messages[lang].genderOptionMaleDisplay,
@@ -210,7 +212,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const lines = [
     lineForLang(lang, `${titleIcon} ${title}`),
     lineForLang(lang, `━━━━━━━━━━━━━━`),
-    lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayName)}` : `👤 ${messages[lang].profileName}: ${displayName}`),
+    lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayNameWithEmoji)}` : `👤 ${messages[lang].profileName}: ${displayNameWithEmoji}`),
   ];
 
   if (hasText(user?.city)) {

@@ -8,6 +8,7 @@ const {
 const messages = require("./messages");
 const { operationalLimits } = require("./services/operational-limits");
 const { starEconomy } = require("./services/star-settings");
+const { PROFILE_EMOJI_OPTIONS } = require("./services/profile-emoji");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -734,8 +735,36 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
       },
     ],
     [
+      { text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji },
+    ],
+    [
       { text: messages[lang].profileBackToProfile, callback_data: callBacks.profileSettingsBack },
     ],
+  ]);
+}
+
+function profileEmojiKeyboard(lang, currentEmoji = "") {
+  const rows = [];
+  for (let i = 0; i < PROFILE_EMOJI_OPTIONS.length; i += 4) {
+    rows.push(PROFILE_EMOJI_OPTIONS.slice(i, i + 4).map((emoji, offset) => ({
+      text: emoji === currentEmoji ? `${emoji} ✓` : emoji,
+      callback_data: `${callBacks.profileEmojiChoose}${i + offset}`,
+    })));
+  }
+  rows.push([{ text: messages[lang].profileBackToSettings, callback_data: callBacks.profileSettings }]);
+  return inlineKeyboard(rows);
+}
+
+function profileEmojiConfirmKeyboard(lang, nonce, cost) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].profileEmojiConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
+      callback_data: `${callBacks.profileEmojiConfirm}${nonce}`,
+    }],
+    [{
+      text: messages[lang].profileEmojiCancelButton,
+      callback_data: callBacks.profileEmojiCancel,
+    }],
   ]);
 }
 
@@ -1042,6 +1071,8 @@ module.exports = {
   aiListCancelCommentKeyboard,
   profileKeyboard,
   profileSettingsKeyboard,
+  profileEmojiKeyboard,
+  profileEmojiConfirmKeyboard,
   profileActiveDiscussionHelpKeyboard,
   profileStarsKeyboard,
   cancelEditKeyboard,

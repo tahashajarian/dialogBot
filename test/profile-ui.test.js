@@ -6,6 +6,8 @@ const messages = require("../src/messages");
 const {
   profileKeyboard,
   profileSettingsKeyboard,
+  profileEmojiKeyboard,
+  profileEmojiConfirmKeyboard,
   profileActiveDiscussionHelpKeyboard,
 } = require("../src/keyboards");
 const {
@@ -96,6 +98,16 @@ test("buildProfileText shows compact interests preview", () => {
   assert.match(text, /🌿 Interests/);
   assert.match(text, /Chess, Coffee, Coding, Photography, Travel/);
   assert.doesNotMatch(text, /Cooking/);
+});
+
+test("buildProfileText shows profile emoji beside name", () => {
+  const text = buildProfileText({
+    firstName: "Ali",
+    profileName: "Ali",
+    profileEmoji: "🌙",
+  }, "en", messages, { isOwnProfile: false });
+
+  assert.match(text, /Name: 🌙 Ali/);
 });
 
 test("buildProfileText localizes built-in interest chips", () => {
@@ -332,6 +344,7 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
   assert.ok(callbacks.includes("profile:edit:pet:preference"));
   assert.ok(callbacks.includes("profile:edit:location"));
   assert.ok(callbacks.includes("profile:toggle:active-discussion-visible"));
+  assert.ok(callbacks.includes("profile:emoji"));
   assert.ok(!callbacks.includes("profile:active-discussion:help"));
   assert.ok(callbacks.includes("profile:settings:back"));
   assert.deepEqual(bioPetRow.map((button) => button.callback_data), ["profile:edit:bio", "profile:edit:pet:preference"]);
@@ -340,6 +353,19 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
     buttons.find((button) => button.callback_data === "profile:toggle:active-discussion-visible").text,
     messages.en.profileHideActiveDiscussion,
   );
+});
+
+test("profile emoji keyboards use curated choices and explicit cost confirmation", () => {
+  const picker = profileEmojiKeyboard("en", "🌙").reply_markup.inline_keyboard;
+  const buttons = picker.flat();
+  assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
+  assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
+  assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
+
+  const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
+  assert.equal(confirm[0].text, "Confirm — 3 Stars");
+  assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
+  assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
 });
 
 test("profileActiveDiscussionHelpKeyboard returns to profile", () => {

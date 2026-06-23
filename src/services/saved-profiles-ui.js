@@ -42,9 +42,10 @@ function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
   const uniqueCodes = [...new Set((codes || []).map((entry) => normalizeCode(entry)).filter(Boolean))];
   return uniqueCodes.map((code) => {
     const user = usersByCode.get(code);
+    const name = user?.profileName || user?.firstName || code;
     return {
       code,
-      name: user?.profileName || user?.firstName || code,
+      name: [user?.profileEmoji, name].filter(Boolean).join(" "),
     };
   });
 }

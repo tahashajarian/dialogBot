@@ -5,6 +5,8 @@ const {
   helpKeyboard,
   mainMenuKeyboard,
   profileSettingsKeyboard,
+  profileEmojiKeyboard,
+  profileEmojiConfirmKeyboard,
   profileActiveDiscussionHelpKeyboard,
   profileStarsKeyboard,
   profileInterestsKeyboard,
@@ -31,6 +33,7 @@ const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
   buildStarsOverviewText,
+  formatStarNumber,
 } = require("../services/stars-ui");
 const {
   awardProfileCompletionMilestone,
@@ -49,6 +52,11 @@ const {
   sendPublicProfileByCode,
 } = require("./saved-profiles");
 const { operationalLimits } = require("../services/operational-limits");
+const {
+  getProfileEmojiCost,
+  getProfileEmojiOption,
+  setProfileEmojiWithStars,
+} = require("../services/profile-emoji");
 
 function formatProfileInterestMessage(lang, key) {
   return messages[lang][key]
@@ -77,6 +85,10 @@ function isProfileSettingsOrEditCallback(data = "") {
   return data === callBacks.profileEditName ||
     data === callBacks.profileSettings ||
     data === callBacks.profileSettingsBack ||
+    data === callBacks.profileEmoji ||
+    data.startsWith(callBacks.profileEmojiChoose) ||
+    data.startsWith(callBacks.profileEmojiConfirm) ||
+    data === callBacks.profileEmojiCancel ||
     data === callBacks.profileStars ||
     data === callBacks.profileStarsBack ||
     data === callBacks.profileActiveDiscussionHelp ||
@@ -102,6 +114,19 @@ function isProfileSettingsOrEditCallback(data = "") {
     data === callBacks.profileResetPhoto ||
     data === callBacks.profileCancelEdit ||
     data === callBacks.profileBack;
+}
+
+function formatProfileEmojiText(lang, key, values = {}) {
+  return messages[lang][key]
+    .replace("{emoji}", values.emoji || "")
+    .replace("{cost}", formatStarNumber(values.cost ?? getProfileEmojiCost(), lang))
+    .replace("{balance}", formatStarNumber(values.balance ?? 0, lang));
+}
+
+function parseProfileEmojiState(state = "") {
+  const [, index, cost, nonce] = String(state || "").match(/^profile_emoji_confirm:(\d+):(\d+):([a-z0-9]+)$/) || [];
+  if (!nonce) return null;
+  return { index: Number(index), cost: Number(cost), nonce };
 }
 
 async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
@@ -182,6 +207,82 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
     return sendOwnProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.profileEmoji) {
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    return ctx.reply(
+      formatProfileEmojiText(lang, "profileEmojiPickerText", {
+        cost: getProfileEmojiCost(),
+        balance: ctx.user?.starBalance || 0,
+      }),
+      profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
+    );
+  }
+
+  if (data.startsWith(callBacks.profileEmojiChoose)) {
+    await ctx.answerCb?.();
+    const index = Number(data.replace(callBacks.profileEmojiChoose, ""));
+    const emoji = getProfileEmojiOption(index);
+    if (!emoji) return ctx.reply(messages[lang].unknownAction);
+    const nonce = Date.now().toString(36);
+    const cost = getProfileEmojiCost();
+    await updateUserState(ctx.userId, `profile_emoji_confirm:${index}:${cost}:${nonce}`);
+    if (ctx.user) ctx.user.state = `profile_emoji_confirm:${index}:${cost}:${nonce}`;
+    const text = formatProfileEmojiText(lang, "profileEmojiConfirmText", {
+      emoji,
+      cost,
+      balance: ctx.user?.starBalance || 0,
+    });
+    if (ctx.callbackMessageId && ctx.editMessageText) {
+      const edited = await ctx.editMessageText(
+        ctx.callbackMessageId,
+        text,
+        profileEmojiConfirmKeyboard(lang, nonce, cost),
+      );
+      if (edited) return edited;
+    }
+    return ctx.reply(text, profileEmojiConfirmKeyboard(lang, nonce, cost));
+  }
+
+  if (data.startsWith(callBacks.profileEmojiConfirm)) {
+    const nonce = data.replace(callBacks.profileEmojiConfirm, "");
+    const pending = parseProfileEmojiState(ctx.user?.state);
+    if (!pending || pending.nonce !== nonce || pending.cost !== getProfileEmojiCost()) {
+      await ctx.answerCb?.(messages[lang].profileEmojiStale);
+      return ctx.reply(messages[lang].profileEmojiStale);
+    }
+    const emoji = getProfileEmojiOption(pending.index);
+    if (!emoji) return ctx.reply(messages[lang].unknownAction);
+    const result = await setProfileEmojiWithStars({ userId: ctx.userId, emoji, nonce });
+    if (!result.ok) {
+      if (result.reason === "insufficient_balance") {
+        await ctx.answerCb?.();
+        return ctx.reply(formatProfileEmojiText(lang, "profileEmojiInsufficient", result), profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
+      }
+      await ctx.answerCb?.();
+      return ctx.reply(messages[lang].profileEmojiUnavailable, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
+    }
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) {
+      ctx.user.profileEmoji = emoji;
+      ctx.user.starBalance = Number(result.balance) || 0;
+      ctx.user.state = "idle";
+    }
+    await retireCallbackMessageIfPossible?.(ctx);
+    return sendOwnProfile(ctx, lang, ctx.user || {}, {
+      footerText: formatProfileEmojiText(lang, "profileEmojiSaved", result),
+    });
+  }
+
+  if (data === callBacks.profileEmojiCancel) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
+    await retireCallbackMessageIfPossible?.(ctx);
+    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileStars) {

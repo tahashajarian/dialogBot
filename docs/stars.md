@@ -243,6 +243,17 @@ Check eligibility before charging whenever possible. On confirmation, revalidate
 
 Changing an admin price while a confirmation card is open makes the old card stale. On tap, show the updated price and require a new confirmation; never silently charge a different amount.
 
+### Profile Emoji
+
+Profile emoji is an optional cosmetic shown beside the user's display name on profile and social list surfaces. It is stored as a separate curated field, not mixed into `profileName`, and must not reuse Muze/system emojis such as the bot marker, Stars, saved profiles, or discussion host icons.
+
+Recommended launch default:
+
+- cost: 3 Stars
+- curated inline picker only
+- confirmation shows selected emoji, cost, and balance
+- spend reason: `profile_emoji`
+
 ### Discussion Boost
 
 Recommended launch default:
@@ -394,7 +405,7 @@ Before implementation, decide whether Muze is adults-only or supports a mixed-ag
 
 ### Future Star Uses
 
-Possible later uses include optional taste reports or profile cosmetics. Each needs a separate product rule, cost, refund behavior, and admin setting before implementation. Do not treat this list as authorization to build them.
+Possible later uses include optional taste reports or additional cosmetics. Each needs a separate product rule, cost, refund behavior, and admin setting before implementation. Do not treat this list as authorization to build them.
 
 ## Admin Dashboard And Economy Settings
 
@@ -428,6 +439,7 @@ Recommended settings groups:
 - people 3-common-items unlock cost
 - people 3-common-items unlock duration
 - paid extra AI suggestion cost
+- profile emoji cost
 - future Advanced Search cost
 - future Advanced Search duration
 
@@ -472,6 +484,7 @@ Recommended launch definitions:
 | `discussionBoostRecipientCap` | 10 | 0 | 100,000 | recipients/boost |
 | `boostRecipientWindowHours` | 24 | 1 | 8,760 | hours |
 | `boostRecommendationsPerRecipientWindow` | 1 | 0 | 1,000 | recommendations |
+| `profileEmojiCost` | 3 | 0 | 1,000,000 | Stars |
 | `advancedSearchCost` | 5 | 0 | 1,000,000 | future Stars setting; inactive |
 | `advancedSearchDurationHours` | 24 | 1 | 8,760 | future hours setting; inactive |
 

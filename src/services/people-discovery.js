@@ -76,14 +76,15 @@ async function findPeopleForBrowse(viewer, {
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
   })
-    .select("userId publicProfileCode firstName profileName")
+    .select("userId publicProfileCode firstName profileName profileEmoji")
     .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
     .lean();
 
   const items = [];
   for (const candidate of candidates || []) {
-    const name = candidate.profileName || candidate.firstName || "";
-    if (!name) continue;
+    const baseName = candidate.profileName || candidate.firstName || "";
+    if (!baseName) continue;
+    const name = [candidate.profileEmoji, baseName].filter(Boolean).join(" ");
     items.push({
       userId: candidate.userId,
       code: candidate.publicProfileCode,
@@ -112,14 +113,15 @@ async function findPeopleBySharedTaste(viewer, {
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
   })
-    .select("userId publicProfileCode firstName profileName aiLists aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+    .select("userId publicProfileCode firstName profileName profileEmoji aiLists aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
     .lean();
 
   const items = [];
   for (const candidate of candidates || []) {
-    const name = candidate.profileName || candidate.firstName || "";
-    if (!name) continue;
+    const baseName = candidate.profileName || candidate.firstName || "";
+    if (!baseName) continue;
+    const name = [candidate.profileEmoji, baseName].filter(Boolean).join(" ");
 
     const candidateIndex = buildUserDiscoveryIndex(candidate);
     const sharedSections = getSharedSections(viewerIndex, candidateIndex);

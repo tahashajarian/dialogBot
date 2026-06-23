@@ -60,6 +60,7 @@ const UserSchema = new mongoose.Schema({
   firstName: String,
   profileName: String,
   profileNameConfirmedAt: { type: Date, default: null },
+  profileEmoji: { type: String, default: "" },
   city: String,
   age: Number,
   gender: String,

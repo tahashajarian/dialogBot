@@ -244,7 +244,7 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName")
+      .select("publicProfileCode profileName firstName profileEmoji")
       .lean(),
   });
   const paged = paginateSavedProfiles(items, page);
@@ -362,7 +362,7 @@ async function buildSavedProfilePage(codes = [], page = 0) {
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName")
+      .select("publicProfileCode profileName firstName profileEmoji")
       .lean(),
   });
   return paginateSavedProfiles(items, page);

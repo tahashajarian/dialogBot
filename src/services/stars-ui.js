@@ -23,6 +23,7 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
     tasteMatchCost: formatStarNumber(settings.peopleTasteMatchesCost, lang),
     tasteMatchHours: formatStarNumber(settings.peopleTasteMatchesDurationHours, lang),
     paidSuggestionCost: formatStarNumber(settings.paidSuggestionCost, lang),
+    profileEmojiCost: formatStarNumber(settings.profileEmojiCost, lang),
   };
   return Object.entries(values).reduce(
     (text, [key, value]) => text.replaceAll(`{${key}}`, value),

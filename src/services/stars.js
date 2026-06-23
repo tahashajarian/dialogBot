@@ -13,6 +13,7 @@ const SAFE_METADATA_KEYS = new Set([
   "count",
   "goal",
   "settingsVersion",
+  "emoji",
 ]);
 
 class StarMutationError extends Error {
