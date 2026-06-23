@@ -160,6 +160,50 @@ test("active discussion help Got it hides future profile help link", async () =>
   assert.doesNotMatch(replies[0].text, /\/ad_help/);
 });
 
+test("active discussion help Got it edits stale card when delete fails", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const edits = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+
+  const ctx = {
+    callbackData: callBacks.profileActiveDiscussionHelpDone,
+    callbackMessageId: 333,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      showActiveDiscussionOnProfile: false,
+      starBalance: 0,
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => false,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 0);
+  assert.equal(edits[0].messageId, 333);
+  assert.match(edits[0].text, /Ali/);
+  assert.doesNotMatch(edits[0].text, /\/ad_help/);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.profileEditName);
+});
+
 test("profile emoji insufficient Stars retires confirm card and shows acknowledgement", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

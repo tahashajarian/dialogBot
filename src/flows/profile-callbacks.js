@@ -27,6 +27,7 @@ const {
   updateUserState,
 } = require("../services/users");
 const {
+  buildProfileText,
   sendProfileMessage,
   toPlainUser,
 } = require("../services/profile");
@@ -160,6 +161,18 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
     messages,
     isOwnProfile: true,
   });
+}
+
+async function editCallbackMessageToOwnProfileOrSend(ctx, lang, user = ctx.user) {
+  if (ctx.callbackMessageId && ctx.editMessageText) {
+    const edited = await ctx.editMessageText(
+      ctx.callbackMessageId,
+      buildProfileText(user || {}, lang, messages, { isOwnProfile: true }),
+      profileKeyboard(lang, Boolean(user?.photoFileId)),
+    );
+    if (edited) return edited;
+  }
+  return sendOwnProfile(ctx, lang, user || {});
 }
 
 async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMessageIfPossible } = {}) {
@@ -360,7 +373,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const acknowledgedAt = new Date();
     await updateProfileField(ctx.userId, "activeDiscussionHelpAcknowledgedAt", acknowledgedAt);
     if (ctx.user) ctx.user.activeDiscussionHelpAcknowledgedAt = acknowledgedAt;
-    await retireCallbackMessageIfPossible?.(ctx);
+    const deleted = await deleteCallbackMessageIfPossible?.(ctx);
+    if (!deleted) {
+      return editCallbackMessageToOwnProfileOrSend(ctx, lang, ctx.user || {});
+    }
     return sendOwnProfile(ctx, lang, ctx.user || {});
   }
 
