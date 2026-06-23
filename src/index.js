@@ -14,6 +14,7 @@ const { logger } = require("./services/logger");
 const { recordBotHeartbeat } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
+const { refreshBotAppearance } = require("./services/bot-appearance");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -59,6 +60,11 @@ bot.catch((err) => {
 
 async function processUpdate(ctx) {
   const from = resolveUpdateUserSource(ctx);
+  try {
+    await refreshBotAppearance();
+  } catch (appearanceError) {
+    logger.warn("Failed to refresh bot appearance settings; using cached/default values", appearanceError);
+  }
   if (!isAllowedUser(from)) {
     const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
     const text = messages[lang].betaAccessOnly;
@@ -187,6 +193,11 @@ async function retry(fn, {
       await refreshStarSettings({ force: true });
     } catch (starSettingsError) {
       logger.warn("Failed to load Star economy settings; using defaults", starSettingsError);
+    }
+    try {
+      await refreshBotAppearance({ force: true });
+    } catch (appearanceError) {
+      logger.warn("Failed to load bot appearance settings; using defaults", appearanceError);
     }
     logger.info("Checking bot token/API via getMe");
     const botInfo = await retry(

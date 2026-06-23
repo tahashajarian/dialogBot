@@ -1,12 +1,27 @@
 const User = require("../models/user");
+const { getReservedProfileEmojis } = require("./bot-appearance");
 const { starEconomy } = require("./star-settings");
 const { spendStars } = require("./stars");
 
-const PROFILE_EMOJI_OPTIONS = Object.freeze([
+const PROFILE_EMOJI_CATALOG = Object.freeze([
   "🌙", "✨", "🌿", "🔥", "🎧", "🎮",
   "📚", "🎬", "☕", "🧠", "🎨", "🏃",
   "🧘", "💻", "🪐", "🎭",
+  "💫", "🌞", "🌻", "🍀", "🌊", "⛰️",
+  "🕊️", "🦋", "🐚", "🍄", "🍒", "🍓",
+  "🍉", "🍯", "🫖", "🍰", "🎹", "🎸",
+  "🎲", "♟️", "🧩", "🪄", "🔮", "💎",
+  "🧭", "🗺️", "📷", "✏️", "🖋️", "🧵",
+  "🪴", "🛼", "🚲", "🏕️", "🌌", "🌅",
+  "🌈", "☁️", "⚡", "🪩", "🎀", "🪬",
+  "🧿", "🕯️", "🧸", "🛸", "🧬", "🧪",
+  "🔭", "🎐", "🪁", "🧺", "🏛️", "🗿",
 ]);
+
+function getProfileEmojiOptions() {
+  const reserved = getReservedProfileEmojis();
+  return PROFILE_EMOJI_CATALOG.filter((emoji) => !reserved.has(emoji));
+}
 
 function getProfileEmojiCost() {
   return Number(starEconomy.profileEmojiCost) || 0;
@@ -15,11 +30,11 @@ function getProfileEmojiCost() {
 function getProfileEmojiOption(index) {
   const normalized = Number(index);
   if (!Number.isInteger(normalized) || normalized < 0) return "";
-  return PROFILE_EMOJI_OPTIONS[normalized] || "";
+  return getProfileEmojiOptions()[normalized] || "";
 }
 
 async function setProfileEmojiWithStars({ userId, emoji, nonce }) {
-  if (!PROFILE_EMOJI_OPTIONS.includes(emoji)) {
+  if (!getProfileEmojiOptions().includes(emoji)) {
     return { ok: false, reason: "invalid_emoji" };
   }
 
@@ -56,7 +71,8 @@ async function setProfileEmojiWithStars({ userId, emoji, nonce }) {
 }
 
 module.exports = {
-  PROFILE_EMOJI_OPTIONS,
+  PROFILE_EMOJI_CATALOG,
+  getProfileEmojiOptions,
   getProfileEmojiCost,
   getProfileEmojiOption,
   setProfileEmojiWithStars,

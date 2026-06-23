@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { setImmediate } = require("node:timers");
 
 const messages = require("../src/messages");
+const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-appearance");
 const {
   profileKeyboard,
   profileSettingsKeyboard,
@@ -356,11 +357,22 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
 });
 
 test("profile emoji keyboards use curated choices and explicit cost confirmation", () => {
+  const previousBotEmoji = botAppearance.botEmoji;
+  botAppearance.botEmoji = "🔥";
   const picker = profileEmojiKeyboard("en", "🌙").reply_markup.inline_keyboard;
   const buttons = picker.flat();
-  assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
-  assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
-  assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
+  try {
+    assert.equal(buttons.some((button) => button.text === "🌙 ✓"), true);
+    assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
+    assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
+    assert.equal(buttons.length > 40, true);
+    assert.equal(buttons.some((button) => button.text === "🔥"), false);
+    for (const reserved of FIXED_RESERVED_EMOJIS) {
+      assert.equal(buttons.some((button) => button.text === reserved), false);
+    }
+  } finally {
+    botAppearance.botEmoji = previousBotEmoji;
+  }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
   assert.equal(confirm[0].text, "Confirm — 3 Stars");

@@ -245,7 +245,7 @@ Changing an admin price while a confirmation card is open makes the old card sta
 
 ### Profile Emoji
 
-Profile emoji is an optional cosmetic shown beside the user's display name on profile and social list surfaces. It is stored as a separate curated field, not mixed into `profileName`, and must not reuse Muze/system emojis such as the bot marker, Stars, saved profiles, or discussion host icons.
+Profile emoji is an optional cosmetic shown beside the user's display name on profile and social list surfaces. It is stored as a separate curated field, not mixed into `profileName`, and must not reuse Muze/system emojis such as the current configurable bot marker, Stars, saved profiles, or discussion host icons.
 
 Recommended launch default:
 

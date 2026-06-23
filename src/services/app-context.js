@@ -1,6 +1,7 @@
 const DEFAULT_API_OPERATION_TIMEOUT_MS = 2500;
 const PIN_RETRY_DELAY_MS = 400;
 const { logger } = require("./logger");
+const { formatBotText, formatBotExtra } = require("./bot-appearance");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,12 +106,12 @@ function createAppContext(ctx, user, options = {}) {
     callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
     wasUserCreated: Boolean(options.wasUserCreated),
 
-    reply: (...args) => ctx.reply(...args),
-    replyWithPhoto: (...args) => ctx.replyWithPhoto(...args),
+    reply: (text, extra = undefined) => ctx.reply(formatBotText(text), extra),
+    replyWithPhoto: (photo, extra = undefined) => ctx.replyWithPhoto(photo, formatBotExtra(extra)),
     answerCb: (text = "", extra = undefined) => {
       const payload = {
         callback_query_id: ctx.callbackQuery?.id,
-        text: String(text || ""),
+        text: formatBotText(String(text || "")),
         ...(extra && typeof extra === "object" ? extra : {}),
       };
       if (payload.callback_query_id && ctx.telegram?.callApi) {
@@ -123,7 +124,7 @@ function createAppContext(ctx, user, options = {}) {
           }
         });
       }
-      return ctx.answerCbQuery(String(text || "")).catch(() => {});
+      return ctx.answerCbQuery(formatBotText(String(text || ""))).catch(() => {});
     },
     sendToUser: async (userId, text, extra = {}) => {
       const targetUserId = Number(userId);
@@ -133,14 +134,14 @@ function createAppContext(ctx, user, options = {}) {
       try {
         return await sendApi("sendMessage", {
           chat_id: targetUserId,
-          text,
+          text: formatBotText(text),
           ...extra,
         });
       } catch {
         return false;
       }
     },
-    editMessage: (...args) => ctx.editMessageText(...args),
+    editMessage: (text, extra = undefined) => ctx.editMessageText(formatBotText(text), extra),
     editMessageText: async (messageId, text, extra = {}) => {
       const chatId = resolveChatId(ctx);
       const normalizedMessageId = Number(messageId);
@@ -152,7 +153,7 @@ function createAppContext(ctx, user, options = {}) {
         return await sendApi("editMessageText", {
           chat_id: chatId,
           message_id: normalizedMessageId,
-          text,
+          text: formatBotText(text),
           ...extra,
         });
       } catch (error) {

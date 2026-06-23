@@ -99,6 +99,10 @@ Implemented behavior:
 
 The dashboard also reports aggregate Star ledger totals, outstanding balances, earners/spenders, qualified referrals, active boosts, and wallet reconciliation mismatches. Product events cover reward/spend activity, boost delivery and responses, and Advanced Search preview/notification interest. Analytics remains privacy-light and does not include message text, list item text, private profile values, sensitive filter values, or payment credentials.
 
+## Bot Appearance Administration
+
+The dashboard includes a small **Bot Appearance** section for the Muze marker emoji used in bot-authored guidance. The configured marker is cached briefly by bot processes, applied to newly sent or edited messages, and reserved from user profile emoji choices.
+
 ## Next Step
 
 This dashboard reads the product state that already exists and records a very

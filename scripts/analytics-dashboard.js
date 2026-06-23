@@ -15,6 +15,9 @@ const {
   STAR_SETTING_DEFINITIONS,
   updateStarSettings,
 } = require("../src/services/star-settings");
+const {
+  updateBotAppearance,
+} = require("../src/services/bot-appearance");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
@@ -203,6 +206,28 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
   </form>`;
 }
 
+function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
+  updatedAt = null,
+  saved = false,
+  cacheTtlSeconds = 60,
+} = {}) {
+  return `${saved ? `<div class="notice success">Bot appearance saved. Bot processes refresh it within about ${formatNumber(cacheTtlSeconds)} seconds.</div>` : ""}
+  <form method="post" action="${escapeHtml(action)}" class="limits-form">
+    <fieldset>
+      <legend>Bot messages</legend>
+      <div class="limit-grid">
+        <label class="setting-field">
+          <span class="setting-label">Bot message emoji</span>
+          <small>Used where bot-authored guidance currently starts with the Muze marker. This emoji is reserved from profile emoji choices.</small>
+          <input type="text" name="botEmoji" value="${escapeHtml(values.botEmoji || "👩‍🦳")}" maxlength="16" required />
+        </label>
+      </div>
+    </fieldset>
+    <div class="form-actions"><button type="submit">Save bot appearance</button><span class="muted">Changes affect newly sent/edited messages.</span></div>
+    <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
+  </form>`;
+}
+
 function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
   const { users, discussions, aiCache, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
@@ -381,6 +406,11 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
     cacheTtlSeconds: snapshot.starSettingsCacheTtlSeconds,
   }), { open: false, note: "rewards, costs, safeguards, rollout" })}
+      ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, `/bot-appearance${actionSuffix}`, {
+    updatedAt: snapshot.botAppearanceUpdatedAt,
+    saved: new URLSearchParams(actionSuffix).get("saved") === "appearance",
+    cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
+  }), { open: false, note: "bot-authored message marker" })}
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
       ${card("Unique Earners", snapshot.stars?.earners || 0)}
@@ -556,6 +586,14 @@ async function handleRequest(req, res, { token }) {
     await updateStarSettings(await readFormBody(req), { actor: "analytics-dashboard" });
     const redirectParams = new URLSearchParams(url.searchParams);
     redirectParams.set("saved", "stars");
+    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
+    return res.end();
+  }
+
+  if (url.pathname === "/bot-appearance" && req.method === "POST") {
+    await updateBotAppearance(await readFormBody(req), { actor: "analytics-dashboard" });
+    const redirectParams = new URLSearchParams(url.searchParams);
+    redirectParams.set("saved", "appearance");
     res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
     return res.end();
   }

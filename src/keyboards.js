@@ -8,7 +8,7 @@ const {
 const messages = require("./messages");
 const { operationalLimits } = require("./services/operational-limits");
 const { starEconomy } = require("./services/star-settings");
-const { PROFILE_EMOJI_OPTIONS } = require("./services/profile-emoji");
+const { getProfileEmojiOptions } = require("./services/profile-emoji");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -744,9 +744,10 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
 }
 
 function profileEmojiKeyboard(lang, currentEmoji = "") {
+  const options = getProfileEmojiOptions();
   const rows = [];
-  for (let i = 0; i < PROFILE_EMOJI_OPTIONS.length; i += 4) {
-    rows.push(PROFILE_EMOJI_OPTIONS.slice(i, i + 4).map((emoji, offset) => ({
+  for (let i = 0; i < options.length; i += 4) {
+    rows.push(options.slice(i, i + 4).map((emoji, offset) => ({
       text: emoji === currentEmoji ? `${emoji} ✓` : emoji,
       callback_data: `${callBacks.profileEmojiChoose}${i + offset}`,
     })));
