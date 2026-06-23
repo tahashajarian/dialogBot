@@ -306,6 +306,14 @@ const PREDEFINED_TASTE_FEEDBACK = {
       fa: "بازی فکری یعنی از چالش‌های هوشمند لذت می‌بری.",
       en: "Board games mean you enjoy smart, social challenges.",
     },
+    "منچ": {
+      fa: "منچ یعنی رقابت سبک و دورهمی برات جذابه.",
+      en: "Mensch means you enjoy light, social competition.",
+    },
+    mensch: {
+      fa: "منچ یعنی رقابت سبک و دورهمی برات جذابه.",
+      en: "Mensch means you enjoy light, social competition.",
+    },
     "تئاتر": {
       fa: "تئاتر یعنی اجرای زنده و احساس انسانی برات مهمه.",
       en: "Theater means live emotion and presence matter to you.",

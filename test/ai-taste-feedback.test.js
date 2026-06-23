@@ -101,6 +101,7 @@ test("uses predefined feedback for every provided Interests chip", async () => {
     ["fa", "کسب‌وکار"],
     ["fa", "سرمایه‌گذاری"],
     ["fa", "بازی فکری"],
+    ["fa", "منچ"],
     ["fa", "تئاتر"],
     ["en", "Chess"],
     ["en", "Coding"],
@@ -134,6 +135,7 @@ test("uses predefined feedback for every provided Interests chip", async () => {
     ["en", "Business"],
     ["en", "Investing"],
     ["en", "Board games"],
+    ["en", "Mensch"],
     ["en", "Theater"],
   ];
 

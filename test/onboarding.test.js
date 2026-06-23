@@ -98,7 +98,7 @@ test("onboarding keyboard shows one page, removes selected interests, and keeps 
 
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
   assert.equal(interestButtons.length, 9);
-  assert.equal(buttons.some((button) => button.text.includes("Travel")), true);
+  assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
   assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), true);
@@ -130,7 +130,7 @@ test("onboarding rotates through stable interest pages", () => {
 
   assert.equal(firstPage.some((button) => button.text.includes("Travel")), false);
   assert.equal(secondPage.some((button) => button.text.includes("Travel")), true);
-  assert.equal(getOnboardingInterestChipTitle(9, "en"), "Travel");
+  assert.equal(getOnboardingInterestChipTitle(9, "en"), "Art");
   assert.equal(getOnboardingPage(`${callBacks.onboardingMore}2`), 2);
 });
 
