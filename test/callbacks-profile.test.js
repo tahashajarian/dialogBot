@@ -158,6 +158,56 @@ test("profile emoji insufficient Stars retires confirm card and shows acknowledg
   assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.profileEmojiInsufficientDone]);
 });
 
+test("profile emoji insufficient Got it returns to profile", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  const states = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    states.push(update?.state);
+    return { userId: query.userId };
+  };
+
+  const ctx = {
+    callbackData: callBacks.profileEmojiInsufficientDone,
+    callbackMessageId: 444,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      state: "editing_profile_emoji",
+      starBalance: 0,
+      profileEmoji: "",
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(states, ["idle"]);
+  assert.deepEqual(deletedIds, [444]);
+  assert.match(replies[0].text, /Ali/);
+  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.profileEditName);
+});
+
 test("public profile viewing asks for basic profile first", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

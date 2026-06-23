@@ -316,8 +316,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEmojiInsufficientDone) {
     await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
     await retireCallbackMessageIfPossible?.(ctx);
-    return true;
+    return sendOwnProfile(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileStars) {
