@@ -3,6 +3,11 @@ const messages = require("../messages");
 const { operationalLimits } = require("../services/operational-limits");
 const { isDiscussionBoostAvailable } = require("../services/star-settings");
 const { localizeInterestChipTitleWithEmoji } = require("../services/interest-chips");
+const {
+  formatCapacityOptionLabel,
+  getSelectableDiscussionCapacities,
+} = require("../services/discussion-capacities");
+const { formatStarNumber } = require("../services/stars-ui");
 
 function inlineKeyboard(rows) {
   return {
@@ -292,13 +297,12 @@ function discussionCreateConfirmKeyboard(lang) {
 
 function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
   const maximum = operationalLimits.discussionMaxMembers;
-  const capacities = [...new Set([2, 3, 4, 5, 10, 15, 20, maximum])]
-    .filter((capacity) => capacity <= maximum)
-    .sort((a, b) => a - b);
+  const capacities = getSelectableDiscussionCapacities()
+    .filter((capacity) => capacity <= maximum || capacity > 20);
   const rows = [];
   for (let index = 0; index < capacities.length; index += 4) {
     const row = capacities.slice(index, index + 4).map((capacity) => ({
-      text: Number(currentCapacity) === capacity ? "✅" : ltrText(String(capacity)),
+      text: Number(currentCapacity) === capacity ? "✅" : ltrText(formatCapacityOptionLabel(capacity, lang)),
       callback_data: `${callBacks.discussionCreateSetCapacity}${capacity}`,
     }));
     rows.push(row.reverse());
@@ -308,6 +312,29 @@ function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
     callback_data: callBacks.discussionCreatePreview,
   }]);
   return inlineKeyboard(rows);
+}
+
+function discussionPaidCapacityConfirmKeyboard(lang, capacity, cost) {
+  const formattedCost = formatStarNumber(cost, lang);
+  return inlineKeyboard([
+    [{
+      text: messages[lang].discussionPaidCapacityConfirmButton.replace("{cost}", formattedCost),
+      callback_data: `${callBacks.discussionCreatePaidCapacityConfirm}${capacity}:${cost}`,
+    }],
+    [{
+      text: messages[lang].discussionPaidCapacityCancelButton,
+      callback_data: callBacks.discussionCreatePaidCapacityCancel,
+    }],
+  ]);
+}
+
+function discussionPaidCapacityAckKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionCreatePaidCapacityAck,
+    },
+  ]]);
 }
 
 function discussionSelectTasteKeyboard(lang, section, tasteLabelKey, {
@@ -378,6 +405,8 @@ module.exports = {
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
   discussionCreateCapacityKeyboard,
+  discussionPaidCapacityConfirmKeyboard,
+  discussionPaidCapacityAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,

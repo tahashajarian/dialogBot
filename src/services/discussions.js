@@ -43,6 +43,10 @@ const { getModerationConfig } = require("../config");
 const { EVENT_NAMES, trackEvent, trackThrottledEvent } = require("./analytics-events");
 const { operationalLimits } = require("./operational-limits");
 const {
+  getConfiguredDiscussionCapacities,
+  isPaidDiscussionCapacity,
+} = require("./discussion-capacities");
+const {
   awardFirstDiscussionCreated,
   awardFirstDiscussionJoined,
 } = require("./star-milestones");
@@ -68,8 +72,7 @@ function normalizeMaxMembers(value) {
   const maximum = operationalLimits.discussionMaxMembers;
   const capacity = Number(value) || maximum;
   const allowed = new Set([
-    ...DISCUSSION_ALLOWED_MEMBER_CAPS.filter((entry) => entry <= maximum),
-    maximum,
+    ...getConfiguredDiscussionCapacities().filter((entry) => entry <= maximum || entry > 20),
   ]);
   return allowed.has(capacity) ? capacity : maximum;
 }
@@ -173,7 +176,14 @@ async function rollbackOwnedDiscussionReservation(userId, discussionId, previous
   );
 }
 
-async function createDiscussion({ creatorUserId, title, description, joinRule, maxMembers = operationalLimits.discussionMaxMembers }) {
+async function createDiscussion({
+  creatorUserId,
+  title,
+  description,
+  joinRule,
+  maxMembers = operationalLimits.discussionMaxMembers,
+  paidCapacityAuthorized = false,
+}) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
 
@@ -183,6 +193,9 @@ async function createDiscussion({ creatorUserId, title, description, joinRule, m
 
   const normalizedDescription = normalizeDescription(description);
   const normalizedMaxMembers = normalizeMaxMembers(maxMembers);
+  if (isPaidDiscussionCapacity(normalizedMaxMembers) && !paidCapacityAuthorized) {
+    return { ok: false, reason: "paid_capacity_required" };
+  }
   const parsedRule = validateJoinRulePayload(joinRule);
   if (!parsedRule.ok) return parsedRule;
 

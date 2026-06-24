@@ -20,6 +20,7 @@ const {
   discussionJoinErrorAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
   discussionRoomKeyboard,
+  discussionCreateCapacityKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
@@ -417,6 +418,9 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(shouldKeepDiscussionRoomCardsForCallback(callBacks.discussionCreateRuleTopTen), true);
   assert.equal(isDiscussionCreateCallback(callBacks.discussionCreateGuidanceAck), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateGuidanceAck), true);
+  assert.equal(isDiscussionCreateCallback(`${callBacks.discussionCreatePaidCapacityConfirm}2:3`), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityCancel), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityAck), true);
 });
 
 test("discussion create guidance uses Got it acknowledgement and deletes on tap", async () => {
@@ -470,6 +474,78 @@ test("discussion owner room keyboard includes leave and close", () => {
   assert.ok(labels.includes(messages.en.discussionLeave));
   assert.ok(labels.includes(messages.en.discussionCloseButton));
   assert.equal(labels.includes(messages.en.discussionReturnToMenu), false);
+});
+
+test("discussion capacity picker marks paid capacities only when spending is available", () => {
+  const originalSettings = { ...starEconomy };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    paidTwoPersonDiscussionsEnabled: true,
+    paidLargeDiscussionsEnabled: true,
+    paidLargeDiscussionCapacity: 50,
+  });
+  try {
+    const labels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || []).flat().map((button) => button.text);
+    assert.ok(labels.includes("\u200e2 ⭐"));
+    assert.ok(labels.includes("\u200e50 ⭐"));
+
+    starEconomy.spendingEnabled = false;
+    const disabledLabels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || []).flat().map((button) => button.text);
+    assert.equal(disabledLabels.includes("\u200e2 ⭐"), false);
+    assert.equal(disabledLabels.includes("\u200e50 ⭐"), false);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("paid capacity create confirm opens payment confirmation and cancel returns preview", async () => {
+  const originalSettings = { ...starEconomy };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    paidTwoPersonDiscussionsEnabled: true,
+    paidTwoPersonDiscussionCost: 3,
+  });
+  const renders = [];
+  const ctx = {
+    callbackData: callBacks.discussionCreateConfirm,
+    callbackMessageId: 44,
+    userId: 10,
+    user: {
+      starBalance: 8,
+      discussionDraftTitle: "Tiny room",
+      discussionDraftDescription: "A focused room",
+      discussionDraftJoinRule: { type: "open" },
+      discussionDraftMaxMembers: 2,
+    },
+    answerCb: async () => true,
+  };
+  try {
+    await handleDiscussionCreateCallback(ctx, "en", {
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        renders.push({ text, keyboard });
+        return true;
+      },
+    });
+    assert.match(renders[0].text, /costs 3 Stars/);
+    assert.equal(
+      renders[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
+      `${callBacks.discussionCreatePaidCapacityConfirm}2:3`,
+    );
+
+    ctx.callbackData = callBacks.discussionCreatePaidCapacityCancel;
+    await handleDiscussionCreateCallback(ctx, "en", {
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        renders.push({ text, keyboard });
+        return true;
+      },
+    });
+    assert.match(renders[1].text, /Tiny room/);
+    assert.equal(renders[1].keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionCreateConfirm);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+  }
 });
 
 test("discussion owner room keyboard shows boost only when boosts are available", () => {

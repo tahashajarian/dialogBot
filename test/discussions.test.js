@@ -27,6 +27,11 @@ const {
 } = require("../src/flows/discussion-name-gate");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
+const { starEconomy } = require("../src/services/star-settings");
+const {
+  getPaidDiscussionCapacity,
+  getSelectableDiscussionCapacities,
+} = require("../src/services/discussion-capacities");
 
 test("discussion caps match MVP defaults", () => {
   assert.equal(DISCUSSION_MEMBER_CAP, 20);
@@ -38,8 +43,45 @@ test("discussion caps match MVP defaults", () => {
 test("normalizes discussion capacity to allowed values", () => {
   assert.equal(normalizeMaxMembers(5), 5);
   assert.equal(normalizeMaxMembers("10"), 10);
+  assert.equal(normalizeMaxMembers(2), 2);
+  assert.equal(normalizeMaxMembers(50), 50);
   assert.equal(normalizeMaxMembers(7), 20);
   assert.equal(normalizeMaxMembers("nope"), 20);
+});
+
+test("paid discussion capacities depend on Star spending availability", () => {
+  const originalSettings = { ...starEconomy };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    paidTwoPersonDiscussionsEnabled: true,
+    paidTwoPersonDiscussionCost: 3,
+    paidLargeDiscussionsEnabled: true,
+    paidLargeDiscussionCapacity: 50,
+    paidLargeDiscussionCost: 10,
+  });
+  try {
+    assert.deepEqual(getPaidDiscussionCapacity(2), {
+      capacity: 2,
+      cost: 3,
+      kind: "two_person",
+      available: true,
+    });
+    assert.deepEqual(getPaidDiscussionCapacity(50), {
+      capacity: 50,
+      cost: 10,
+      kind: "large",
+      available: true,
+    });
+    assert.ok(getSelectableDiscussionCapacities().includes(2));
+    assert.ok(getSelectableDiscussionCapacities().includes(50));
+
+    starEconomy.spendingEnabled = false;
+    assert.equal(getPaidDiscussionCapacity(2).available, false);
+    assert.equal(getSelectableDiscussionCapacities().includes(2), false);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+  }
 });
 
 test("normalizePublicProfileCode normalizes and validates codes", () => {

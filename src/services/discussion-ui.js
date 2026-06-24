@@ -36,6 +36,7 @@ function getDiscussionErrorMessage(messages, lang, reason) {
   if (reason === "invalid_title") return messages[lang].discussionErrInvalidTitle;
   if (reason === "invalid_title_link") return messages[lang].discussionInvalidTitleLink;
   if (reason === "open_requires_description") return messages[lang].discussionErrOpenNeedsDescription;
+  if (reason === "paid_capacity_required") return messages[lang].discussionPaidCapacityUnavailable;
   if (reason === "invalid_report_target") return messages[lang].discussionErrInvalidReportTarget;
   if (reason === "duplicate_report") return messages[lang].discussionErrDuplicateReport;
   if (reason === "active_owned_limit") return formatOperationalLimitsText(messages[lang].discussionActiveOwnedLimit);

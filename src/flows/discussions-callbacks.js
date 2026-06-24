@@ -157,9 +157,12 @@ function isDiscussionCreateFlowCallback(data = "") {
     data === callBacks.discussionCreateBackToJoinRule ||
     data === callBacks.discussionCreateBackToSection ||
     data === callBacks.discussionCreateGuidanceAck ||
+    data === callBacks.discussionCreatePaidCapacityCancel ||
+    data === callBacks.discussionCreatePaidCapacityAck ||
     data.startsWith(callBacks.discussionCreateRuleSection) ||
     data.startsWith(callBacks.discussionCreateSelectTaste) ||
     data.startsWith(callBacks.discussionCreateSelectItem) ||
+    data.startsWith(callBacks.discussionCreatePaidCapacityConfirm) ||
     data.startsWith(callBacks.discussionCreateSetCapacity)
   );
 }

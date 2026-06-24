@@ -329,6 +329,17 @@ Refund policy:
 - Owner-closing or violating rules after activation is not normally refundable.
 - An administrative/system shutdown may receive a proportional or full refund according to a recorded reason; MVP may use full refund for simplicity.
 
+### Paid Discussion Capacities
+
+Normal discussion capacities remain free. Special capacities are optional Star spends controlled from the Star Economy dashboard:
+
+- 2-person focused room, default 3 Stars
+- large room, default 50 members for 10 Stars
+
+The capacity picker labels paid capacities with `⭐` only when Star spending and that paid-capacity switch are enabled. Selecting a paid capacity does not charge immediately. The final create action opens a paid-capacity confirmation showing the current cost and balance; cancel, stale settings, and insufficient-balance acknowledgements return to the draft preview. On confirmation, Muze revalidates the current cost and capacity, spends Stars, creates the room, and refunds automatically if room creation fails after charging.
+
+Paid capacity never bypasses discussion join rules, active-room limits, owner-created room caps, report/removal rules, or moderation.
+
 ### People Discovery Spending
 
 The free `👀 دیدن آدم‌ها` / `👀 See people` view shows public Muze profiles without exposing shared-item counts. The Stars-gated people lens shows profiles with at least 3 normalized shared items in one section.
@@ -438,6 +449,8 @@ Recommended settings groups:
 - max active boosted discussions per owner
 - max recommendation recipients per boost
 - boosted recommendation recipient window/cap
+- paid 2-person discussion enabled/cost
+- paid large discussion enabled/capacity/cost
 - people 3-common-items unlock cost
 - people 3-common-items unlock duration
 - paid extra AI suggestion cost
@@ -486,6 +499,11 @@ Recommended launch definitions:
 | `discussionBoostRecipientCap` | 10 | 0 | 100,000 | recipients/boost |
 | `boostRecipientWindowHours` | 24 | 1 | 8,760 | hours |
 | `boostRecommendationsPerRecipientWindow` | 1 | 0 | 1,000 | recommendations |
+| `paidTwoPersonDiscussionsEnabled` | true | false | true | rollout switch |
+| `paidTwoPersonDiscussionCost` | 3 | 0 | 1,000,000 | Stars |
+| `paidLargeDiscussionsEnabled` | true | false | true | rollout switch |
+| `paidLargeDiscussionCapacity` | 50 | 21 | 10,000 | members |
+| `paidLargeDiscussionCost` | 10 | 0 | 1,000,000 | Stars |
 | `profileEmojiCost` | 3 | 0 | 1,000,000 | Stars |
 | `advancedSearchCost` | 5 | 0 | 1,000,000 | future Stars setting; inactive |
 | `advancedSearchDurationHours` | 24 | 1 | 8,760 | future hours setting; inactive |

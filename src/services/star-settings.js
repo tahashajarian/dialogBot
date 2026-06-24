@@ -108,6 +108,22 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
     label: "Recommendations per recipient/window", description: "Maximum boosted recommendations delivered to one user per window.", group: "Discussion boosts", type: "number", unit: "messages", default: 1, min: 0, max: 1000,
   },
 
+  paidTwoPersonDiscussionsEnabled: {
+    label: "Paid 2-person discussions", description: "Require Stars for focused 2-person discussion rooms.", group: "Paid discussion capacities", type: "boolean", default: true,
+  },
+  paidTwoPersonDiscussionCost: {
+    label: "2-person discussion cost", description: "Stars charged when creating a 2-person discussion.", group: "Paid discussion capacities", type: "number", unit: "Stars", default: 3, min: 0, max: 1000000,
+  },
+  paidLargeDiscussionsEnabled: {
+    label: "Paid large discussions", description: "Allow a larger paid room capacity.", group: "Paid discussion capacities", type: "boolean", default: true,
+  },
+  paidLargeDiscussionCapacity: {
+    label: "Large discussion capacity", description: "Member cap offered as a paid large room.", group: "Paid discussion capacities", type: "number", unit: "members", default: 50, min: 21, max: 10000,
+  },
+  paidLargeDiscussionCost: {
+    label: "Large discussion cost", description: "Stars charged when creating the large paid-capacity discussion.", group: "Paid discussion capacities", type: "number", unit: "Stars", default: 10, min: 0, max: 1000000,
+  },
+
   peopleTasteMatchesCost: {
     label: "Closer-taste people cost", description: "Stars charged to unlock people with 3+ shared items.", group: "People discovery", type: "number", unit: "Stars", default: 5, min: 0, max: 1000000,
   },

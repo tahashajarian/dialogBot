@@ -31,7 +31,7 @@ Discussions are live rooms with short memory.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
 - Discussion membership means current room presence. Leaving the room removes membership.
-- Each discussion has an editable capacity from 2 to 20 current members.
+- Each discussion has an editable capacity. Normal capacities are free; special 2-person and large-room capacities can be Stars-gated from the admin dashboard.
 - Messages are broadcast live to current room members.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
@@ -154,7 +154,7 @@ Limits:
 - Description: 300 characters.
 - Description is required for open discussions.
 - Description is optional for restricted discussions.
-- Max current members: editable per discussion, capped at 20.
+- Max current members: editable per discussion. Normal capacities are capped at 20; the admin-controlled large paid capacity can exceed that.
 - Creator must satisfy restricted join rules they create.
 
 Title prompt:
@@ -240,9 +240,11 @@ For open topics, selecting `🌍 آزاد` moves to the required description ste
 
 Room capacity is editable from the preview step:
 
-- allowed values: 2, 3, 4, 5, 10, 15, 20 current members
+- free allowed values: 3, 4, 5, 10, 15, 20 current members
+- paid allowed values, when Star spending and the relevant rollout switch are enabled: 2 current members and the configured large capacity, default 50
 - default: 20 current members
-- max: 20 current members
+- paid capacity selection shows a `⭐` marker in the capacity picker
+- paid capacity is charged only after the user confirms the paid-capacity card; cancel and insufficient-balance acknowledgements return to the discussion preview
 - creator counts as a member
 - joining another discussion removes the user from the previous discussion
 

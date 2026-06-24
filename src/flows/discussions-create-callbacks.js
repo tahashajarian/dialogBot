@@ -10,6 +10,8 @@ const {
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
   discussionCreateCapacityKeyboard,
+  discussionPaidCapacityConfirmKeyboard,
+  discussionPaidCapacityAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
 } = require("../keyboards");
@@ -37,9 +39,12 @@ const {
 } = require("../services/discussions");
 const { isDiscussionCreateFlowCallback } = require("./discussions-callbacks");
 const { operationalLimits } = require("../services/operational-limits");
+const { getPaidDiscussionCapacity } = require("../services/discussion-capacities");
+const { spendStars, refundStars } = require("../services/stars");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
+  formatStarNumber,
 } = require("../services/stars-ui");
 
 function isDiscussionCreateCallback(data = "") {
@@ -75,6 +80,30 @@ function createStepBackButton(_messages, lang, callbackData) {
   return {
     text: messages[lang].discussionBack,
     callback_data: callbackData,
+  };
+}
+
+function fillPaidCapacityText(template, lang, values = {}) {
+  return String(template || "")
+    .replaceAll("{capacity}", formatStarNumber(values.capacity, lang))
+    .replaceAll("{cost}", formatStarNumber(values.cost, lang))
+    .replaceAll("{balance}", formatStarNumber(values.balance, lang));
+}
+
+function getPaidCapacityCallbackMessage(lang, capacityOption, balance) {
+  return fillPaidCapacityText(messages[lang].discussionPaidCapacityConfirmText, lang, {
+    capacity: capacityOption.capacity,
+    cost: capacityOption.cost,
+    balance,
+  });
+}
+
+function parsePaidCapacityConfirmPayload(data = "") {
+  const raw = data.replace(callBacks.discussionCreatePaidCapacityConfirm, "");
+  const [capacityRaw, costRaw] = raw.split(":");
+  return {
+    capacity: Number(capacityRaw) || 0,
+    cost: Number(costRaw) || 0,
   };
 }
 
@@ -183,10 +212,47 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return ctx.reply(text, discussionCreateGuidanceAckKeyboard(lang));
   };
 
+  const returnToDraftPreview = () => editCallbackMessageOrReply(
+    ctx,
+    buildDiscussionPreviewForCurrentUser(ctx, lang),
+    discussionCreateConfirmKeyboard(lang),
+  );
+
+  const createCurrentDraft = (paidCapacityAuthorized = false) => createDiscussion({
+    creatorUserId: ctx.userId,
+    title: ctx.user?.discussionDraftTitle || "",
+    description: ctx.user?.discussionDraftDescription || "",
+    joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
+    maxMembers: ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers,
+    paidCapacityAuthorized,
+  });
+
+  const showPaidCapacityQuote = async (capacityOption) => editCallbackMessageOrReply(
+    ctx,
+    getPaidCapacityCallbackMessage(lang, capacityOption, ctx.user?.starBalance || 0),
+    discussionPaidCapacityConfirmKeyboard(lang, capacityOption.capacity, capacityOption.cost),
+  );
+
+  const showPaidCapacityError = (text) => editCallbackMessageOrReply(
+    ctx,
+    text,
+    discussionPaidCapacityAckKeyboard(lang),
+  );
+
   if (data === callBacks.discussionCreateGuidanceAck) {
     await ctx.answerCb?.();
     await deleteCallbackMessageIfPossible(ctx);
     return sendJoinRulePrompt(getJoinRulePromptOptions(ctx, lang, { includeState: false }));
+  }
+
+  if (data === callBacks.discussionCreatePaidCapacityCancel) {
+    await ctx.answerCb?.(messages[lang].discussionPaidCapacityCanceled.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
+    return returnToDraftPreview();
+  }
+
+  if (data === callBacks.discussionCreatePaidCapacityAck) {
+    await ctx.answerCb?.();
+    return returnToDraftPreview();
   }
 
   if (data === callBacks.discussionCreateStart) {
@@ -535,16 +601,88 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 
   if (data === callBacks.discussionCreateConfirm) {
     await ctx.answerCb?.();
-    const created = await createDiscussion({
-      creatorUserId: ctx.userId,
-      title: ctx.user?.discussionDraftTitle || "",
-      description: ctx.user?.discussionDraftDescription || "",
-      joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
-      maxMembers: ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers,
-    });
+    const capacity = Number(ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers);
+    const paidCapacity = getPaidDiscussionCapacity(capacity);
+    if (paidCapacity) {
+      if (!paidCapacity.available) {
+        return showPaidCapacityError(messages[lang].discussionPaidCapacityUnavailable);
+      }
+      return showPaidCapacityQuote(paidCapacity);
+    }
+    const created = await createCurrentDraft(false);
     if (!created.ok) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);
     }
+    await clearDiscussionMenuNotice(ctx);
+    await deleteCallbackMessageIfPossible(ctx);
+    await clearDiscussionDraft(ctx.userId);
+    await updateUserState(ctx.userId, "idle");
+    applyStarRewardsToContext(ctx, created.starRewards);
+    const starNotice = buildStarRewardNotice(messages, lang, created.starRewards);
+    await ctx.reply([messages[lang].discussionJoined, starNotice].filter(Boolean).join("\n\n"));
+    return sendDiscussionRoom(ctx, lang, created.discussion);
+  }
+
+  if (data.startsWith(callBacks.discussionCreatePaidCapacityConfirm)) {
+    await ctx.answerCb?.();
+    const quoted = parsePaidCapacityConfirmPayload(data);
+    const paidCapacity = getPaidDiscussionCapacity(quoted.capacity);
+    if (!paidCapacity?.available) {
+      return showPaidCapacityError(messages[lang].discussionPaidCapacityUnavailable);
+    }
+    if (Number(paidCapacity.cost) !== Number(quoted.cost)) {
+      return showPaidCapacityError(messages[lang].discussionPaidCapacityStale);
+    }
+    if (Number(ctx.user?.discussionDraftMaxMembers) !== Number(quoted.capacity)) {
+      return showPaidCapacityError(messages[lang].discussionPaidCapacityStale);
+    }
+
+    const spend = quoted.cost > 0
+      ? await spendStars({
+        userId: ctx.userId,
+        amount: quoted.cost,
+        reason: "discussion_paid_capacity",
+        idempotencyKey: `discussion-paid-capacity:${ctx.userId}:${ctx.callbackMessageId || "message"}:${quoted.capacity}:${quoted.cost}`,
+        settingsSnapshot: {
+          paidCapacity: quoted.capacity,
+          paidCapacityCost: quoted.cost,
+        },
+        metadata: {
+          capacity: quoted.capacity,
+          kind: paidCapacity.kind,
+        },
+      })
+      : { ok: true, balance: ctx.user?.starBalance || 0 };
+    if (!spend.ok) {
+      if (spend.reason === "insufficient_balance") {
+        return showPaidCapacityError(fillPaidCapacityText(messages[lang].discussionPaidCapacityInsufficient, lang, {
+          capacity: quoted.capacity,
+          cost: quoted.cost,
+          balance: spend.balance || ctx.user?.starBalance || 0,
+        }));
+      }
+      return showPaidCapacityError(messages[lang].discussionPaidCapacityUnavailable);
+    }
+
+    if (ctx.user) ctx.user.starBalance = spend.balance;
+    const created = await createCurrentDraft(true);
+    if (!created.ok) {
+      let refunded = false;
+      if (spend.transaction?._id) {
+        const refund = await refundStars({
+          transactionId: spend.transaction._id,
+          idempotencyKey: `discussion-paid-capacity-refund:${spend.transaction._id}`,
+          reason: "discussion_paid_capacity_failed",
+          metadata: { capacity: quoted.capacity, createReason: created.reason },
+        });
+        refunded = Boolean(refund.ok);
+        if (ctx.user && refund.ok) ctx.user.starBalance = refund.balance;
+      }
+      return showPaidCapacityError(refunded
+        ? messages[lang].discussionPaidCapacityFailedRefunded
+        : messages[lang].discussionPaidCapacityFailed);
+    }
+
     await clearDiscussionMenuNotice(ctx);
     await deleteCallbackMessageIfPossible(ctx);
     await clearDiscussionDraft(ctx.userId);
