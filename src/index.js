@@ -15,6 +15,7 @@ const { recordBotHeartbeat } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
 const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
+const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -59,60 +60,72 @@ bot.catch((err) => {
 });
 
 async function processUpdate(ctx) {
+  const startedAt = Date.now();
   const from = resolveUpdateUserSource(ctx);
+  let user = null;
   try {
-    await refreshBotAppearance();
-  } catch (appearanceError) {
-    logger.warn("Failed to refresh bot appearance settings; using cached/default values", appearanceError);
-  }
-  if (!isAllowedUser(from)) {
-    const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
-    const text = formatBotText(messages[lang].betaAccessOnly);
-    if (ctx.callbackQuery) {
-      await ctx.answerCbQuery(text).catch(() => {});
+    try {
+      await refreshBotAppearance();
+    } catch (appearanceError) {
+      logger.warn("Failed to refresh bot appearance settings; using cached/default values", appearanceError);
     }
-    await ctx.reply(text).catch(() => {});
-    return;
-  }
-
-  const normalizedSource = normalizePlatformUserSource(from);
-  const rawText = String(ctx.message?.text || "").trim();
-  const isReferralStart = /^\/start(?:@\w+)?(?:\s+|[?=])ref_[a-f0-9]{12}$/i.test(rawText);
-  const existedBeforeReferralStart = isReferralStart && normalizedSource
-    ? Boolean(await User.exists({ userId: normalizedSource.id }))
-    : true;
-  const user = await getOrCreateUser(from);
-  if (user?.bannedAt) {
-    const lang = messages[user.lang] ? user.lang : "fa";
-    const text = formatBotText(messages[lang].userBannedAccessDenied);
-    if (ctx.callbackQuery) {
-      await ctx.answerCbQuery(text, { show_alert: true }).catch(() => {});
+    if (!isAllowedUser(from)) {
+      const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
+      const text = formatBotText(messages[lang].betaAccessOnly);
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery(text).catch(() => {});
+      }
+      await ctx.reply(text).catch(() => {});
+      return;
     }
-    await ctx.reply(text, { reply_markup: { remove_keyboard: true, selective: false } }).catch(() => {});
-    return;
-  }
 
-  const appCtx = createAppContext(ctx, user, {
-    wasUserCreated: isReferralStart && !existedBeforeReferralStart,
-  });
-  const interaction = beginInteraction({
-    userId: user?.userId || normalizePlatformUserSource(from)?.id,
-    callbackData: appCtx.callbackData,
-    text: appCtx.text,
-    state: user?.state || "idle",
-  });
-
-  if (!interaction.allowed) {
-    if (ctx.callbackQuery) {
-      await ctx.answerCbQuery().catch(() => {});
+    const normalizedSource = normalizePlatformUserSource(from);
+    const rawText = String(ctx.message?.text || "").trim();
+    const isReferralStart = /^\/start(?:@\w+)?(?:\s+|[?=])ref_[a-f0-9]{12}$/i.test(rawText);
+    const existedBeforeReferralStart = isReferralStart && normalizedSource
+      ? Boolean(await User.exists({ userId: normalizedSource.id }))
+      : true;
+    user = await getOrCreateUser(from);
+    if (user?.bannedAt) {
+      const lang = messages[user.lang] ? user.lang : "fa";
+      const text = formatBotText(messages[lang].userBannedAccessDenied);
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery(text, { show_alert: true }).catch(() => {});
+      }
+      await ctx.reply(text, { reply_markup: { remove_keyboard: true, selective: false } }).catch(() => {});
+      return;
     }
-    return;
-  }
 
-  try {
-    return await handleUpdate(appCtx);
-  } finally {
-    interaction.finish();
+    const appCtx = createAppContext(ctx, user, {
+      wasUserCreated: isReferralStart && !existedBeforeReferralStart,
+    });
+    const interaction = beginInteraction({
+      userId: user?.userId || normalizePlatformUserSource(from)?.id,
+      callbackData: appCtx.callbackData,
+      text: appCtx.text,
+      state: user?.state || "idle",
+    });
+
+    if (!interaction.allowed) {
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery().catch(() => {});
+      }
+      return;
+    }
+
+    try {
+      return await handleUpdate(appCtx);
+    } finally {
+      interaction.finish();
+    }
+  } catch (error) {
+    logger.error("Update processing failed", buildUpdateErrorLogDetails({
+      ctx,
+      user,
+      durationMs: Date.now() - startedAt,
+      error,
+    }));
+    throw error;
   }
 }
 
