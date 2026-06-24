@@ -15,5 +15,10 @@ DiscussionBoostDeliverySchema.index(
   { unique: true, name: "one_delivery_per_boost_recipient" },
 );
 DiscussionBoostDeliverySchema.index({ recipientUserId: 1, deliveredAt: -1 });
+DiscussionBoostDeliverySchema.index({ discussionId: 1, recipientUserId: 1 });
+DiscussionBoostDeliverySchema.index(
+  { deliveredAt: 1, reservedAt: 1 },
+  { partialFilterExpression: { deliveredAt: null }, name: "stale_reserved_boost_delivery" },
+);
 
 module.exports = mongoose.model("DiscussionBoostDelivery", DiscussionBoostDeliverySchema);

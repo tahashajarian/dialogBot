@@ -185,5 +185,13 @@ UserSchema.index(
     },
   },
 );
+UserSchema.index(
+  { bannedAt: 1, activeDiscussionId: 1, receiveBoostRecommendations: 1, userId: 1 },
+  { name: "boost_recipient_candidates" },
+);
+UserSchema.index(
+  { bannedAt: 1, profileName: 1, firstName: 1, userId: 1 },
+  { name: "people_browse_candidates" },
+);
 
 module.exports = mongoose.model("User", UserSchema);

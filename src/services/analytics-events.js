@@ -11,6 +11,8 @@ const EVENT_NAMES = Object.freeze({
   tasteLabelUnlocked: "taste_label_unlocked",
   suggestionRequested: "suggestion_requested",
   suggestionSaved: "suggestion_saved",
+  peopleDiscoveryQueried: "people_discovery_queried",
+  aiCacheLookup: "ai_cache_lookup",
   discussionListOpened: "discussion_list_opened",
   discussionJoined: "discussion_joined",
   discussionCreated: "discussion_created",
@@ -23,6 +25,7 @@ const EVENT_NAMES = Object.freeze({
   externalReferralQualified: "external_referral_qualified",
   discussionBoostViewed: "discussion_boost_viewed",
   discussionBoostActivated: "discussion_boost_activated",
+  boostRecipientSelection: "boost_recipient_selection",
   boostRecommendationSent: "boost_recommendation_sent",
   boostRecommendationNotInterested: "boost_recommendation_not_interested",
   advancedSearchPreviewViewed: "advanced_search_preview_viewed",
@@ -47,6 +50,12 @@ const SAFE_METADATA_KEYS = new Set([
   "milestone",
   "durationHours",
   "cost",
+  "mode",
+  "matchType",
+  "cached",
+  "candidateCount",
+  "selectedCount",
+  "skippedReasons",
 ]);
 const THROTTLE_CACHE_LIMIT = 1000;
 const throttleCache = new Map();

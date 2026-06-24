@@ -6,6 +6,7 @@ const {
   isMeaningfulNormalizedInput,
 } = require("./input-normalization");
 const { getAiCacheConfig } = require("../config");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const DEFAULT_CONFIG = getAiCacheConfig();
 
@@ -32,6 +33,17 @@ function incrementStats(matchType) {
   else if (matchType === "new_api_call") CACHE_STATS.newApiCall += 1;
   else if (matchType === "cache_disabled") CACHE_STATS.cacheDisabled += 1;
   else if (matchType === "new_api_call_failed") CACHE_STATS.newApiCallFailed += 1;
+}
+
+function trackCacheOutcome({ matchType, cached }) {
+  void trackEvent({
+    name: EVENT_NAMES.aiCacheLookup,
+    source: "ai_response_cache",
+    metadata: {
+      matchType,
+      cached: Boolean(cached),
+    },
+  });
 }
 
 function getAiResponseCacheStats() {
@@ -264,6 +276,7 @@ function createAiResponseCache({
   async function returnCacheHit({ entry, matchType, score, originalInput, normalizedInput }) {
     await store.markUsed(entry);
     incrementStats(matchType);
+    trackCacheOutcome({ matchType, cached: true });
     await logMatch({
       originalInput,
       normalizedInput,
@@ -389,6 +402,7 @@ function createAiResponseCache({
     if (!resolvedConfig.cacheEnabled) {
       const response = await generateResponse();
       incrementStats("cache_disabled");
+      trackCacheOutcome({ matchType: "cache_disabled", cached: false });
       await logMatch({
         originalInput,
         normalizedInput,
@@ -456,6 +470,7 @@ function createAiResponseCache({
     const response = await generateResponse();
     if (!response?.ok || !response.text) {
       incrementStats("new_api_call_failed");
+      trackCacheOutcome({ matchType: "new_api_call_failed", cached: false });
       await logMatch({
         originalInput,
         normalizedInput,
@@ -483,6 +498,7 @@ function createAiResponseCache({
     });
 
     incrementStats("new_api_call");
+    trackCacheOutcome({ matchType: "new_api_call", cached: false });
     await logMatch({
       originalInput,
       normalizedInput,

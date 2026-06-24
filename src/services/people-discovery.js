@@ -8,6 +8,7 @@ const {
   getAiListItemsFromUser,
   normalizeAiListItem,
 } = require("./users");
+const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 3;
@@ -68,6 +69,19 @@ function getPeopleDiscoveryScore(entry) {
   return sharedScore + tasteScore + profileScore;
 }
 
+function trackPeopleDiscovery(viewer, { mode, resultCount, reason } = {}) {
+  void trackEvent({
+    name: EVENT_NAMES.peopleDiscoveryQueried,
+    userId: viewer?.userId,
+    source: "people_discovery",
+    metadata: {
+      mode,
+      resultCount: Number(resultCount) || 0,
+      ...(reason ? { reason } : {}),
+    },
+  });
+}
+
 async function findPeopleForBrowse(viewer, {
   limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
 } = {}) {
@@ -97,6 +111,7 @@ async function findPeopleForBrowse(viewer, {
   }
 
   items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
+  trackPeopleDiscovery(viewer, { mode: "browse", resultCount: items.length });
   return { ok: true, items };
 }
 
@@ -105,6 +120,7 @@ async function findPeopleBySharedTaste(viewer, {
 } = {}) {
   const viewerIndex = buildUserDiscoveryIndex(viewer);
   if (!hasEligibleDiscoverySection(viewerIndex)) {
+    trackPeopleDiscovery(viewer, { mode: "taste", resultCount: 0, reason: "not_enough_data" });
     return { ok: false, reason: "not_enough_data", items: [] };
   }
 
@@ -141,6 +157,7 @@ async function findPeopleBySharedTaste(viewer, {
   }
 
   items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
+  trackPeopleDiscovery(viewer, { mode: "taste", resultCount: items.length });
   return { ok: true, items };
 }
 

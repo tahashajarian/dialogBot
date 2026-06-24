@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const Discussion = require("../models/discussion");
 const DiscussionBoost = require("../models/discussion-boost");
 const DiscussionBoostDelivery = require("../models/discussion-boost-delivery");
+const DiscussionInvitationMute = require("../models/discussion-invitation-mute");
 const User = require("../models/user");
 const { spendStars, refundStars } = require("./stars");
 const { isDiscussionBoostAvailable, starEconomy } = require("./star-settings");
@@ -10,7 +11,6 @@ const {
   buildUserDiscoveryIndex,
   getSharedSections,
 } = require("./people-discovery");
-const { hasInvitationMute } = require("./discussion-invitation-mutes");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const BOOST_QUOTE_TTL_MS = 10 * 60 * 1000;
@@ -187,6 +187,54 @@ async function decorateActiveBoosts(discussions = [], { now = new Date() } = {})
   return discussions;
 }
 
+function incrementSkip(skipped, reason) {
+  skipped[reason] = (skipped[reason] || 0) + 1;
+}
+
+function formatSkippedReasons(skipped = {}) {
+  return Object.entries(skipped)
+    .filter(([, count]) => count > 0)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([reason, count]) => `${reason}:${count}`)
+    .join(",");
+}
+
+async function getBoostRecipientBatchState(candidateIds, boost, discussion, cutoff) {
+  if (!candidateIds.length) {
+    return {
+      mutedPairs: new Set(),
+      recentDeliveryCounts: new Map(),
+      deliveredDiscussionRecipients: new Set(),
+    };
+  }
+
+  const [mutes, recentDeliveries, discussionDeliveries] = await Promise.all([
+    DiscussionInvitationMute.find({
+      $or: [
+        { muterUserId: { $in: candidateIds }, mutedUserId: Number(boost.creatorUserId) },
+        { muterUserId: Number(boost.creatorUserId), mutedUserId: { $in: candidateIds } },
+      ],
+    }).select("muterUserId mutedUserId").lean(),
+    DiscussionBoostDelivery.find({
+      recipientUserId: { $in: candidateIds },
+      deliveredAt: { $gte: cutoff },
+    }).select("recipientUserId").lean(),
+    DiscussionBoostDelivery.find({
+      discussionId: discussion._id,
+      recipientUserId: { $in: candidateIds },
+    }).select("recipientUserId").lean(),
+  ]);
+
+  const mutedPairs = new Set((mutes || []).map((mute) => `${Number(mute.muterUserId)}:${Number(mute.mutedUserId)}`));
+  const recentDeliveryCounts = new Map();
+  for (const delivery of recentDeliveries || []) {
+    const userId = Number(delivery.recipientUserId);
+    recentDeliveryCounts.set(userId, (recentDeliveryCounts.get(userId) || 0) + 1);
+  }
+  const deliveredDiscussionRecipients = new Set((discussionDeliveries || []).map((delivery) => Number(delivery.recipientUserId)));
+  return { mutedPairs, recentDeliveryCounts, deliveredDiscussionRecipients };
+}
+
 async function selectBoostRecipients(boost, discussion, { now = new Date() } = {}) {
   if (!starEconomy.boostRecommendationsEnabled) return [];
   await DiscussionBoostDelivery.deleteMany({
@@ -205,30 +253,52 @@ async function selectBoostRecipients(boost, discussion, { now = new Date() } = {
     receiveBoostRecommendations: { $ne: false },
   }).limit(Math.max(cap * 20, 100)).lean();
   const cutoff = new Date(now.getTime() - Number(starEconomy.boostRecipientWindowHours) * 60 * 60 * 1000);
+  const candidateIds = (candidates || [])
+    .map((candidate) => Number(candidate.userId))
+    .filter((userId) => Number.isInteger(userId));
+  const batchState = await getBoostRecipientBatchState(candidateIds, boost, discussion, cutoff);
   const recipients = [];
+  const skipped = {};
   for (const candidate of candidates) {
     if (recipients.length >= cap) break;
     const shared = getSharedSections(creatorIndex, buildUserDiscoveryIndex(candidate));
-    if (!shared.length) continue;
-    const [candidateMutedCreator, creatorMutedCandidate] = await Promise.all([
-      hasInvitationMute({ muterUserId: candidate.userId, mutedUserId: boost.creatorUserId }),
-      hasInvitationMute({ muterUserId: boost.creatorUserId, mutedUserId: candidate.userId }),
-    ]);
-    if (candidateMutedCreator || creatorMutedCandidate) continue;
+    if (!shared.length) {
+      incrementSkip(skipped, "no_shared_taste");
+      continue;
+    }
+    const candidateUserId = Number(candidate.userId);
+    const candidateMutedCreator = batchState.mutedPairs.has(`${candidateUserId}:${Number(boost.creatorUserId)}`);
+    const creatorMutedCandidate = batchState.mutedPairs.has(`${Number(boost.creatorUserId)}:${candidateUserId}`);
+    if (candidateMutedCreator || creatorMutedCandidate) {
+      incrementSkip(skipped, "muted");
+      continue;
+    }
     const join = await validateJoinRules({ user: candidate, joinRule: discussion.joinRule });
-    if (!join.ok) continue;
-    const recentCount = await DiscussionBoostDelivery.countDocuments({
-      recipientUserId: candidate.userId,
-      deliveredAt: { $gte: cutoff },
-    });
-    if (recentCount >= Number(starEconomy.boostRecommendationsPerRecipientWindow)) continue;
-    const sameDiscussion = await DiscussionBoostDelivery.exists({
-      discussionId: discussion._id,
-      recipientUserId: candidate.userId,
-    });
-    if (sameDiscussion) continue;
+    if (!join.ok) {
+      incrementSkip(skipped, "join_rule");
+      continue;
+    }
+    const recentCount = batchState.recentDeliveryCounts.get(candidateUserId) || 0;
+    if (recentCount >= Number(starEconomy.boostRecommendationsPerRecipientWindow)) {
+      incrementSkip(skipped, "recipient_cap");
+      continue;
+    }
+    if (batchState.deliveredDiscussionRecipients.has(candidateUserId)) {
+      incrementSkip(skipped, "same_discussion");
+      continue;
+    }
     recipients.push({ user: candidate, sharedSections: shared });
   }
+  void trackEvent({
+    name: EVENT_NAMES.boostRecipientSelection,
+    userId: boost.creatorUserId,
+    source: "discussion_boost",
+    metadata: {
+      candidateCount: candidates.length,
+      selectedCount: recipients.length,
+      skippedReasons: formatSkippedReasons(skipped),
+    },
+  });
   return recipients;
 }
 
