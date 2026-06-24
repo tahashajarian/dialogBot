@@ -67,7 +67,7 @@
 - AI suggestions should not trigger from free-form AI-section chat text; users should use the section buttons.
 - TopTen/list behavior and AI suggestion rules are documented in `docs/ai-lists-and-suggestions.md`.
 - Known Interests chips should use predefined feedback and the same visible placeholder/save flow as typed TopTen input.
-- For Stars, keep core Muze features free, keep balances self-only, reserve `⭐` for Stars, use `🔖` for saved profiles and `👑` for discussion hosts, and make every reward/spend/refund ledger-backed and idempotent.
+- For Stars, keep core Muze features free, keep balances self-only, reserve `⭐` for Stars, use `🔖` for saved profiles and `🎙️` for discussion hosts, and make every reward/spend/refund ledger-backed and idempotent.
 
 ## Data Model Reminders
 
