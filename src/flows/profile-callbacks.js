@@ -134,7 +134,7 @@ function parseProfileEmojiState(state = "") {
 }
 
 async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
-  return sendProfileMessage({
+  const sentProfile = await sendProfileMessage({
     ctx,
     user,
     lang,
@@ -147,6 +147,12 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
+  const messageId = Number(sentProfile?.message_id || sentProfile?.messageId);
+  if (Number.isInteger(messageId) && messageId > 0) {
+    await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
+    if (ctx.user) ctx.user.profileLastMessageId = messageId;
+  }
+  return sentProfile;
 }
 
 async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {

@@ -9,8 +9,15 @@ const User = require("../src/models/user");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const updates = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    updates.push({ query, update });
+    return { userId: query.userId };
+  };
 
   const ctx = {
     callbackData: callBacks.profile,
@@ -35,10 +42,15 @@ test("profile callback deletes current menu message before rendering profile", a
     replyWithPhoto: async () => ({ message_id: 2 }),
   };
 
-  await handleCallback(ctx);
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 
   assert.equal(deletedIds[0], 123);
   assert.ok(replies.length >= 1);
+  assert.equal(updates[0].update.profileLastMessageId, 1);
 });
 
 test("help rules callback opens the rules card", async () => {
@@ -259,7 +271,9 @@ test("profile emoji confirm Back returns to emoji picker", async () => {
   const states = [];
 
   User.findOneAndUpdate = async (query, update) => {
-    states.push(update?.state);
+    if (Object.hasOwn(update || {}, "state")) {
+      states.push(update.state);
+    }
     return { userId: query.userId };
   };
 
@@ -305,7 +319,9 @@ test("profile emoji insufficient Got it returns to profile", async () => {
   const states = [];
 
   User.findOneAndUpdate = async (query, update) => {
-    states.push(update?.state);
+    if (Object.hasOwn(update || {}, "state")) {
+      states.push(update.state);
+    }
     return { userId: query.userId };
   };
 

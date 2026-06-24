@@ -193,6 +193,48 @@ test("discussion outbound formatter stays plain for natural replies", () => {
   assert.equal(text, "Sara: I agree");
 });
 
+test("active discussion help command removes the current profile card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const deleteAttempts = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  const ctx = {
+    text: "/ad_help",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileLastMessageId: 42,
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleteAttempts, [42]);
+  assert.equal(ctx.user.profileLastMessageId, null);
+  assert.ok(updates.some((entry) => entry.update.profileLastMessageId === null));
+  assert.equal(replies[0].text, messages.en.profileActiveDiscussionHelpText);
+});
+
 test("profile name edit rejects emoji and does not save the name", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];

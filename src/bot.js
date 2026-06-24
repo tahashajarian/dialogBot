@@ -495,6 +495,7 @@ async function handleUpdate(ctx) {
 
   if (text === ACTIVE_DISCUSSION_HELP_COMMAND) {
     await clearViewedPublicProfileMessage(ctx);
+    await clearOwnProfileMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
     const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
@@ -576,8 +577,31 @@ async function handleUpdate(ctx) {
   return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));
 }
 
+function getSentMessageId(message) {
+  const messageId = Number(message?.message_id || message?.messageId);
+  return Number.isInteger(messageId) && messageId > 0 ? messageId : null;
+}
+
+async function rememberOwnProfileMessage(ctx, message) {
+  const messageId = getSentMessageId(message);
+  if (!messageId) return;
+  await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
+  if (ctx.user) ctx.user.profileLastMessageId = messageId;
+}
+
+async function clearOwnProfileMessage(ctx) {
+  const messageId = Number(ctx.user?.profileLastMessageId);
+  if (Number.isInteger(messageId) && messageId > 0 && ctx.deleteMessage) {
+    await ctx.deleteMessage(messageId);
+  }
+  if (messageId || ctx.user?.profileLastMessageId) {
+    await updateProfileField(ctx.userId, "profileLastMessageId", null);
+    if (ctx.user) ctx.user.profileLastMessageId = null;
+  }
+}
+
 async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
-  return sendProfileMessage({
+  const sentProfile = await sendProfileMessage({
     ctx,
     user,
     lang,
@@ -590,6 +614,8 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
+  await rememberOwnProfileMessage(ctx, sentProfile);
+  return sentProfile;
 }
 
 module.exports = {

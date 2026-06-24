@@ -120,6 +120,7 @@ const UserSchema = new mongoose.Schema({
   peopleLastListMode: { type: String, default: "" },
   savedProfilesLastListMessageId: { type: Number, default: null },
   publicProfileLastMessageId: { type: Number, default: null },
+  profileLastMessageId: { type: Number, default: null },
   profileEditPromptMessageId: { type: Number, default: null },
   pendingProfileViewCode: { type: String, default: "" },
   discussionDraftTitle: { type: String, default: "" },
