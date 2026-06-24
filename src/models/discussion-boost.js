@@ -29,5 +29,7 @@ DiscussionBoostSchema.index(
   { unique: true, partialFilterExpression: { status: "active" }, name: "one_active_boost_per_creator" },
 );
 DiscussionBoostSchema.index({ status: 1, endsAt: 1 });
+DiscussionBoostSchema.index({ discussionId: 1, cooldownUntil: -1 });
+DiscussionBoostSchema.index({ creatorUserId: 1, cooldownUntil: -1 });
 
 module.exports = mongoose.model("DiscussionBoost", DiscussionBoostSchema);
