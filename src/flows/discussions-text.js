@@ -592,6 +592,7 @@ async function leaveDiscussionCommand(ctx, lang, code) {
 async function closeDiscussionCommand(ctx, lang, code) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+  const listSource = ctx.user?.discussionLastListType === "mine" ? "mine" : "active";
   const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
     reply_markup: {
       keyboard: [
@@ -603,7 +604,7 @@ async function closeDiscussionCommand(ctx, lang, code) {
       selective: true,
     },
   });
-  await updateUserState(ctx.userId, `discussion_close_confirm:${discussion._id}:${getMessageId(sent) || ""}:list`);
+  await updateUserState(ctx.userId, `discussion_close_confirm:${discussion._id}:${getMessageId(sent) || ""}:${listSource}`);
   return sent;
 }
 
@@ -659,8 +660,10 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     if (parsed.messageId && ctx.deleteMessage) {
       await ctx.deleteMessage(parsed.messageId);
     }
-    if (parsed.source === "list") {
-      const previousListType = ctx.user?.discussionLastListType || "active";
+    if (["list", "active", "mine"].includes(parsed.source)) {
+      const previousListType = parsed.source === "list"
+        ? (ctx.user?.discussionLastListType || "active")
+        : parsed.source;
       await ctx.reply(messages[lang].discussionCloseCanceled, {
         reply_markup: { remove_keyboard: true },
       });
@@ -695,11 +698,12 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
   await clearDiscussionMembersMessage(ctx);
   await clearRememberedDiscussionListMessage(ctx);
   await updateUserState(ctx.userId, "idle");
-  if (parsed.source === "list") {
-    const remainingList = previousListType === "mine"
+  if (["list", "active", "mine"].includes(parsed.source)) {
+    const sourceListType = parsed.source === "list" ? previousListType : parsed.source;
+    const remainingList = sourceListType === "mine"
       ? await listMyDiscussions(ctx.userId, { limit: 1 })
       : null;
-    const noRemainingMineDiscussions = previousListType === "mine" && remainingList?.ok && !remainingList.discussions.length;
+    const noRemainingMineDiscussions = sourceListType === "mine" && remainingList?.ok && !remainingList.discussions.length;
     if (noRemainingMineDiscussions) {
       const closedEmptyText = messages[lang].discussionListMineEmptyAfterClose.replace(
         "{title}",
@@ -722,7 +726,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion), {
       reply_markup: { remove_keyboard: true },
     });
-    return sendRememberedDiscussionList(ctx, lang, previousListType);
+    return sendRememberedDiscussionList(ctx, lang, sourceListType);
   }
 
   return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussion), { removeKeyboard: true });

@@ -125,10 +125,25 @@ const {
   isOnboardingCallback,
 } = require("./flows/onboarding");
 
-function discussionCloseConfirmKeyboard(lang, discussionId) {
+function getDiscussionCloseReturnSource(ctx) {
+  return ctx.user?.discussionLastListType === "mine" ? "mine"
+    : ctx.user?.discussionLastListType === "active" ? "active"
+    : "room";
+}
+
+function parseDiscussionCloseCallbackPayload(raw = "") {
+  const [discussionId = "", source = "room"] = String(raw || "").split(":");
+  return {
+    discussionId,
+    source: ["mine", "active"].includes(source) ? source : "room",
+  };
+}
+
+function discussionCloseConfirmKeyboard(lang, discussionId, source = "room") {
+  const suffix = `${discussionId}:${source}`;
   return inlineKeyboard([
-    [{ text: messages[lang].discussionCloseConfirmYes, callback_data: `${callBacks.discussionCloseConfirm}${discussionId}` }],
-    [{ text: messages[lang].discussionCloseConfirmNo, callback_data: `${callBacks.discussionCloseCancel}${discussionId}` }],
+    [{ text: messages[lang].discussionCloseConfirmYes, callback_data: `${callBacks.discussionCloseConfirm}${suffix}` }],
+    [{ text: messages[lang].discussionCloseConfirmNo, callback_data: `${callBacks.discussionCloseCancel}${suffix}` }],
   ]);
 }
 
@@ -593,10 +608,11 @@ async function handleCallback(ctx) {
   ) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionClose, "");
+    const source = getDiscussionCloseReturnSource(ctx);
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionCloseConfirmPrompt,
-      discussionCloseConfirmKeyboard(lang, discussionId),
+      discussionCloseConfirmKeyboard(lang, discussionId, source),
     );
   }
 
@@ -607,7 +623,7 @@ async function handleCallback(ctx) {
     await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
-    const discussionId = data.replace(callBacks.discussionCloseConfirm, "");
+    const { discussionId, source } = parseDiscussionCloseCallbackPayload(data.replace(callBacks.discussionCloseConfirm, ""));
     
     const closed = await closeDiscussionAndNotify({
       ctx,
@@ -619,6 +635,14 @@ async function handleCallback(ctx) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
     }
 
+    if (source === "mine") {
+      await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion));
+      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    }
+    if (source === "active") {
+      await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion));
+      return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+    }
     return editCallbackMessageOrReply(
       ctx,
       `${formatDiscussionClosedMessage(lang, closed.discussion)}\n\n${messages[lang].discussionsMenu}`,
@@ -629,7 +653,15 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionCloseCancel)) {
     await ctx.answerCb?.();
     await deleteCallbackMessageIfPossible(ctx);
-    const discussionId = data.replace(callBacks.discussionCloseCancel, "");
+    const { discussionId, source } = parseDiscussionCloseCallbackPayload(data.replace(callBacks.discussionCloseCancel, ""));
+    if (source === "mine") {
+      await ctx.reply(messages[lang].discussionCloseCanceled);
+      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    }
+    if (source === "active") {
+      await ctx.reply(messages[lang].discussionCloseCanceled);
+      return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+    }
     const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);

@@ -63,11 +63,15 @@ const {
   clearDiscussionListMessage,
   renderActiveDiscussionList,
   renderMyDiscussionList,
+  rememberDiscussionMenuNotice,
 } = require("./flows/discussions-callbacks");
 const {
   isDiscussionCreateTextState,
   handleDiscussionCreateText,
 } = require("./flows/discussions-create-text");
+const {
+  startDiscussionCreateFlow,
+} = require("./flows/discussions-create-callbacks");
 const {
   clearAiPendingInputPrompt,
 } = require("./flows/ai-input-prompts");
@@ -144,7 +148,7 @@ function parseDiscussionCloseConfirmState(state = "") {
   return {
     discussionId,
     messageId: Number.isInteger(messageId) && messageId > 0 ? messageId : null,
-    source: source === "list" ? "list" : "room",
+    source: ["list", "active", "mine"].includes(source) ? source : "room",
   };
 }
 
@@ -417,6 +421,12 @@ async function handleUpdate(ctx) {
     if (pendingEntry?.source === "accept") {
       return acceptInvitationCommand(ctx, lang, `/accept_inv_${pendingEntry.token}`, {
         sendRoom: sendDiscussionRoomFromText,
+      });
+    }
+    if (pendingEntry?.source === "create") {
+      return startDiscussionCreateFlow(ctx, lang, {
+        editCallbackMessageOrReply: (_ctx, textToSend, keyboard) => _ctx.reply(textToSend, keyboard),
+        rememberDiscussionMenuNotice,
       });
     }
     return true;

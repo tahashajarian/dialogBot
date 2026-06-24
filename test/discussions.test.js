@@ -213,7 +213,7 @@ test("discussion entry requires a valid profile name before joining", async () =
     }), false);
 
     assert.deepEqual(events, ["cleanup", "prompt"]);
-    assert.match(replies[0].text, /Before entering a discussion/);
+    assert.match(replies[0].text, /Before creating or entering a discussion/);
     assert.equal(
       replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
       "profile:cancel:edit",

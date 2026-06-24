@@ -74,7 +74,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the list or invite preview they came from. Invitation accepts return to the invitations inbox; active-list joins return to the active discussions list.
+- Before creating or entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.
@@ -853,6 +853,7 @@ Joining another discussion leaves the old one after the new join succeeds. If th
 ### Close Discussion
 
 Only the owner can close a discussion.
+Close confirmations should remember their origin. Canceling from a room returns to the room, canceling from `🟢 بحث‌های فعال` returns to active discussions, and canceling from `🗂 بحث‌های من` returns to my discussions.
 
 Closing behavior:
 

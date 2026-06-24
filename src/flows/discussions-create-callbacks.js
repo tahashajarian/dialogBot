@@ -46,6 +46,7 @@ const {
   buildStarRewardNotice,
   formatStarNumber,
 } = require("../services/stars-ui");
+const { requireDiscussionProfileName } = require("./discussion-name-gate");
 
 function isDiscussionCreateCallback(data = "") {
   return (
@@ -182,6 +183,39 @@ async function sendDiscussionJoinRulePrompt(ctx, lang, {
   );
 }
 
+async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
+  const {
+    editCallbackMessageOrReply = (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
+    deleteCallbackMessageIfPossible = async () => false,
+    rememberDiscussionMenuNotice = async () => {},
+  } = helpers;
+
+  const hasName = await requireDiscussionProfileName(ctx, lang, {
+    source: "create",
+    token: "start",
+    beforePrompt: () => deleteCallbackMessageIfPossible(ctx),
+  });
+  if (!hasName) return true;
+
+  const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
+  if (!activeLimit.ok) {
+    await clearDiscussionDraft(ctx.userId);
+    await updateUserState(ctx.userId, "idle");
+    return editCallbackMessageOrReply(
+      ctx,
+      getDiscussionErrorMessage(messages, lang, activeLimit.reason) || messages[lang].discussionActiveOwnedLimit,
+      discussionJoinErrorAckKeyboard(lang, "discussions"),
+    );
+  }
+
+  await clearDiscussionDraft(ctx.userId);
+  return sendDiscussionCreateTitlePrompt(ctx, lang, {
+    includeTitlePin: true,
+    deleteCallbackMessageIfPossible,
+    rememberDiscussionMenuNotice,
+  });
+}
+
 async function handleDiscussionCreateCallback(ctx, lang, helpers) {
   const data = ctx.callbackData || "";
   const {
@@ -257,21 +291,11 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 
   if (data === callBacks.discussionCreateStart) {
     await ctx.answerCb?.();
-    
-    // Check active owned limit (applies to everyone, no bypass)
-    const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
-    if (!activeLimit.ok) {
-      await clearDiscussionDraft(ctx.userId);
-      await updateUserState(ctx.userId, "idle");
-      return editCallbackMessageOrReply(
-        ctx,
-        getDiscussionErrorMessage(messages, lang, activeLimit.reason) || messages[lang].discussionActiveOwnedLimit,
-        discussionJoinErrorAckKeyboard(lang, "discussions"),
-      );
-    }
-    
-    await clearDiscussionDraft(ctx.userId);
-    return sendTitlePrompt({ includeTitlePin: true });
+    return startDiscussionCreateFlow(ctx, lang, {
+      editCallbackMessageOrReply,
+      deleteCallbackMessageIfPossible,
+      rememberDiscussionMenuNotice,
+    });
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {
@@ -699,4 +723,5 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 module.exports = {
   isDiscussionCreateCallback,
   handleDiscussionCreateCallback,
+  startDiscussionCreateFlow,
 };

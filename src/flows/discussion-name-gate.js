@@ -1,5 +1,5 @@
 const messages = require("../messages");
-const { cancelEditKeyboard } = require("../keyboards");
+const { cancelEditKeyboard, discussionsMenuKeyboard } = require("../keyboards");
 const { clearProfileEditPrompt, sendProfileEditPrompt } = require("./profile-edit");
 const { validateProfileName } = require("../services/profile");
 const { updateUserState } = require("../services/users");
@@ -107,6 +107,9 @@ async function handleDiscussionNameCancel(ctx, lang, {
   }
   if (pendingEntry?.source === "join" && showDiscussionInvitePreviewCommand) {
     return showDiscussionInvitePreviewCommand(ctx, lang, pendingEntry.token);
+  }
+  if (pendingEntry?.source === "create") {
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 
   return true;

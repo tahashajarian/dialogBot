@@ -32,6 +32,10 @@ const {
   handleDiscussionCreateCallback,
   isDiscussionCreateCallback,
 } = require("../src/flows/discussions-create-callbacks");
+const {
+  handleDiscussionNameCancel,
+} = require("../src/flows/discussion-name-gate");
+const User = require("../src/models/user");
 
 test("discussion callback error mapping returns specific copy", () => {
   assert.equal(
@@ -456,6 +460,82 @@ test("discussion create guidance uses Got it acknowledgement and deletes on tap"
 
   assert.deepEqual(deletedIds, [88]);
   assert.deepEqual(renderedPrompts.map((entry) => entry.text), [messages.en.discussionJoinRulePrompt]);
+});
+
+test("discussion create start asks for profile name before title prompt", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const replies = [];
+  const deletedIds = [];
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  try {
+    const ctx = {
+      callbackData: callBacks.discussionCreateStart,
+      callbackMessageId: 91,
+      userId: 42,
+      user: { userId: 42, profileName: "" },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return { message_id: 92 };
+      },
+    };
+
+    await handleDiscussionCreateCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        deletedIds.push(callbackCtx.callbackMessageId);
+        return true;
+      },
+      editCallbackMessageOrReply: async () => {
+        throw new Error("create should not continue before name");
+      },
+    });
+
+    assert.deepEqual(deletedIds, [91]);
+    assert.match(replies[0].text, /Before creating or entering a discussion/);
+    assert.ok(updates.some((entry) => entry.update.state === "discussion_name_required:create:start"));
+    assert.ok(updates.some((entry) => entry.update.profileEditPromptMessageId === 92));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion name cancel returns create flow to discussions menu", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const calls = [];
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        state: "discussion_name_required:create:start",
+        profileEditPromptMessageId: 93,
+      },
+      deleteMessage: async (messageId) => {
+        calls.push(["delete", messageId]);
+        return true;
+      },
+      reply: async (text, keyboard) => {
+        calls.push(["reply", text, keyboard]);
+        return true;
+      },
+    };
+
+    await handleDiscussionNameCancel(ctx, "en");
+
+    assert.equal(calls[0][0], "delete");
+    assert.equal(calls[0][1], 93);
+    assert.equal(calls[1][0], "reply");
+    assert.equal(calls[1][1], messages.en.discussionsMenu);
+    assert.equal(ctx.user.state, "idle");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("discussion room keyboard includes invite and leave without menu button", () => {
