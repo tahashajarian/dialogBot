@@ -3,7 +3,6 @@ const AppSettingAudit = require("../models/app-setting-audit");
 const { operationalLimits } = require("./operational-limits");
 
 const SETTINGS_KEY = "star-economy";
-const CACHE_TTL_MS = 60 * 1000;
 
 const STAR_SETTING_DEFINITIONS = Object.freeze({
   economyEnabled: {
@@ -134,8 +133,8 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
 const starEconomy = Object.fromEntries(
   Object.entries(STAR_SETTING_DEFINITIONS).map(([key, definition]) => [key, definition.default]),
 );
-let cacheExpiresAt = 0;
-let refreshPromise = null;
+let settingsLoaded = false;
+let loadPromise = null;
 let settingsUpdatedAt = null;
 
 function normalizeBoolean(value, fallback) {
@@ -177,20 +176,24 @@ function applyStarSettings(values) {
   return starEconomy;
 }
 
+function isDiscussionBoostAvailable(settings = starEconomy) {
+  return Boolean(settings.economyEnabled && settings.spendingEnabled && settings.boostEnabled);
+}
+
 async function refreshStarSettings({ force = false } = {}) {
-  if (!force && Date.now() < cacheExpiresAt) return starEconomy;
-  if (refreshPromise) return refreshPromise;
-  refreshPromise = AppSetting.findOne({ key: SETTINGS_KEY }).lean()
+  if (!force && settingsLoaded) return starEconomy;
+  if (loadPromise) return loadPromise;
+  loadPromise = AppSetting.findOne({ key: SETTINGS_KEY }).lean()
     .then((setting) => {
       applyStarSettings(setting?.values || {});
       settingsUpdatedAt = setting?.updatedAt || null;
-      cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+      settingsLoaded = true;
       return starEconomy;
     })
     .finally(() => {
-      refreshPromise = null;
+      loadPromise = null;
     });
-  return refreshPromise;
+  return loadPromise;
 }
 
 async function updateStarSettings(values, { actor = "dashboard" } = {}) {
@@ -209,7 +212,7 @@ async function updateStarSettings(values, { actor = "dashboard" } = {}) {
     previousValues,
     nextValues: normalized,
   });
-  cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+  settingsLoaded = true;
   settingsUpdatedAt = updatedAt;
   return { ...applyStarSettings(normalized) };
 }
@@ -218,7 +221,7 @@ function getStarSettingsState() {
   return {
     values: { ...starEconomy },
     updatedAt: settingsUpdatedAt ? new Date(settingsUpdatedAt).toISOString() : null,
-    cacheTtlSeconds: Math.round(CACHE_TTL_MS / 1000),
+    activationRequiresRestart: true,
   };
 }
 
@@ -226,6 +229,7 @@ module.exports = {
   SETTINGS_KEY,
   STAR_SETTING_DEFINITIONS,
   starEconomy,
+  isDiscussionBoostAvailable,
   normalizeStarSettings,
   getStarSettingsState,
   refreshStarSettings,

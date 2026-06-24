@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
+const { starEconomy } = require("../src/services/star-settings");
 const {
   getDiscussionErrorMessage,
   buildDiscussionListText,
@@ -469,6 +470,29 @@ test("discussion owner room keyboard includes leave and close", () => {
   assert.ok(labels.includes(messages.en.discussionLeave));
   assert.ok(labels.includes(messages.en.discussionCloseButton));
   assert.equal(labels.includes(messages.en.discussionReturnToMenu), false);
+});
+
+test("discussion owner room keyboard shows boost only when boosts are available", () => {
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
+  try {
+    const enabledLabels = (discussionRoomKeyboard("en", true)?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+    assert.ok(enabledLabels.includes(messages.en.discussionBoostButton));
+
+    starEconomy.spendingEnabled = false;
+    const disabledLabels = (discussionRoomKeyboard("en", true)?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+    assert.equal(disabledLabels.includes(messages.en.discussionBoostButton), false);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+  }
 });
 
 test("discussion invite preview keyboard joins by public code", () => {

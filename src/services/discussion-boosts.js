@@ -4,7 +4,7 @@ const DiscussionBoost = require("../models/discussion-boost");
 const DiscussionBoostDelivery = require("../models/discussion-boost-delivery");
 const User = require("../models/user");
 const { spendStars, refundStars } = require("./stars");
-const { starEconomy } = require("./star-settings");
+const { isDiscussionBoostAvailable, starEconomy } = require("./star-settings");
 const { validateJoinRules } = require("./discussion-join-rules");
 const {
   buildUserDiscoveryIndex,
@@ -27,7 +27,7 @@ async function expireFinishedBoosts(now = new Date()) {
 }
 
 async function getBoostEligibility(userId, discussionId, { now = new Date() } = {}) {
-  if (!starEconomy.economyEnabled || !starEconomy.spendingEnabled || !starEconomy.boostEnabled) {
+  if (!isDiscussionBoostAvailable()) {
     return { ok: false, reason: "boost_disabled" };
   }
   await expireFinishedBoosts(now);

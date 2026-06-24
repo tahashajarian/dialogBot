@@ -504,7 +504,7 @@ All settings require:
 
 Economy settings should use a separate AppSetting key such as `star-economy`, with a focused service rather than expanding `operational-limits.js` into unrelated financial behavior. The same dashboard form/rendering patterns may be reused.
 
-Running bot processes should refresh settings predictably. The current limits documentation says restart after save despite a short cache; Star settings must explicitly choose and document either cache refresh or restart behavior. Preferred behavior is bounded cache refresh plus an admin-visible “changes may take up to N seconds” message.
+Running bot processes load Star settings at startup. After saving Star Economy changes in the dashboard, restart the bot process to activate them; running bot processes should not periodically refresh these settings.
 
 Admin settings changes affect only future qualification/spending confirmations. They do not rewrite historical rewards, charge existing entitlements again, or change active boost/entitlement duration unless an explicit migration is performed.
 

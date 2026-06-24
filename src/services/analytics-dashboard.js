@@ -232,7 +232,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     limitsUpdatedAt: limitsState.updatedAt,
     starSettings,
     starSettingsUpdatedAt: starSettingsState.updatedAt,
-    starSettingsCacheTtlSeconds: starSettingsState.cacheTtlSeconds,
+    starSettingsActivationRequiresRestart: starSettingsState.activationRequiresRestart,
     botAppearance,
     botAppearanceUpdatedAt: botAppearanceState.updatedAt,
     botAppearanceCacheTtlSeconds: botAppearanceState.cacheTtlSeconds,

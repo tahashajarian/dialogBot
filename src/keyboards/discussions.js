@@ -1,7 +1,7 @@
 const { callBacks } = require("../constants");
 const messages = require("../messages");
 const { operationalLimits } = require("../services/operational-limits");
-const { starEconomy } = require("../services/star-settings");
+const { isDiscussionBoostAvailable } = require("../services/star-settings");
 const { localizeInterestChipTitleWithEmoji } = require("../services/interest-chips");
 
 function inlineKeyboard(rows) {
@@ -90,7 +90,7 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       ],
   ];
 
-  if (isOwner && starEconomy.boostEnabled) {
+  if (isOwner && isDiscussionBoostAvailable()) {
     rows.splice(1, 0, [{ text: messages[lang].discussionBoostButton }]);
   }
 

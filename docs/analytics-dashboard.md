@@ -84,20 +84,22 @@ maximum, and the onboarding maximum cannot exceed the profile Interest cap.
 
 ## Star Economy Administration
 
-The dashboard includes a separate **Star Economy** section. It reuses the existing `AppSetting`, form, normalization, and cache patterns through a focused settings service rather than mixing financial configuration into Bot Limits.
+The dashboard includes a separate **Star Economy** section. It reuses the existing `AppSetting`, form, and normalization patterns through a focused settings service rather than mixing financial configuration into Bot Limits.
 
 It exposes the rewards, costs, future entitlement durations, boost/notification caps, earning windows, milestone thresholds, and economy/feature kill switches defined in [Stars Economy](stars.md). Each field has a label, description, unit, default, minimum, maximum, and cross-setting validation where applicable.
 
 Implemented behavior:
 
 - show currently persisted values and last update time
-- explain the bounded cache/refresh delay after saving
+- explain that bot restart is required after saving
 - audit old/new settings and update context
 - apply changes only to future transactions and confirmations
 - store the relevant settings snapshot with every Star transaction/effect
 - never provide an unaudited direct balance overwrite form
 
 The dashboard also reports aggregate Star ledger totals, outstanding balances, earners/spenders, qualified referrals, active boosts, and wallet reconciliation mismatches. Product events cover reward/spend activity, boost delivery and responses, and Advanced Search preview/notification interest. Analytics remains privacy-light and does not include message text, list item text, private profile values, sensitive filter values, or payment credentials.
+
+The dashboard page auto-refreshes every 60 seconds so admin-visible metrics stay current while being watched. It skips the automatic reload after a settings form has been edited, so unsaved admin input is not lost.
 
 ## Bot Appearance Administration
 

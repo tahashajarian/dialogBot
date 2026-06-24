@@ -7,7 +7,7 @@ const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const User = require("../models/user");
-const { starEconomy } = require("./star-settings");
+const { isDiscussionBoostAvailable, starEconomy } = require("./star-settings");
 const { formatOperationalLimitsText } = require("./operational-limits-ui");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
@@ -297,7 +297,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
     const openLink =
       code ? buildDiscussionActionLine(lang, joinLabel, `/${code}`) : "";
     const boostAction =
-      entry.listAction === "close" && code && starEconomy.boostEnabled
+      entry.listAction === "close" && code && isDiscussionBoostAvailable()
         ? buildDiscussionActionLine(lang, boostLabel, `/boost_${code.slice(2)}`)
         : "";
     const ownerAction =

@@ -172,14 +172,14 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
 function renderStarSettingsForm(values = {}, action = "/star-settings", {
   updatedAt = null,
   saved = false,
-  cacheTtlSeconds = 60,
+  activationRequiresRestart = true,
 } = {}) {
   const groups = {};
   for (const [key, definition] of Object.entries(STAR_SETTING_DEFINITIONS)) {
     if (!groups[definition.group]) groups[definition.group] = [];
     groups[definition.group].push({ key, ...definition, value: values[key] ?? definition.default });
   }
-  return `${saved ? `<div class="notice success">Star economy settings saved. Bot processes refresh them within about ${formatNumber(cacheTtlSeconds)} seconds.</div>` : ""}
+  return `${saved ? `<div class="notice success">Star economy settings saved.${activationRequiresRestart ? " Restart the bot to activate them." : ""}</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form star-settings-form">
     ${Object.entries(groups).map(([group, fields]) => `<fieldset>
       <legend>${escapeHtml(group)}</legend>
@@ -201,7 +201,7 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
     </label>`;
   }).join("")}</div>
     </fieldset>`).join("")}
-    <div class="form-actions"><button type="submit">Save Star settings</button><span class="muted">Changes affect future transactions only.</span></div>
+    <div class="form-actions"><button type="submit">Save Star settings</button><span class="muted">Restart the bot to activate saved changes.</span></div>
     <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
   </form>`;
 }
@@ -391,7 +391,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     <header>
       <div>
         <h1>DialogBot Analytics</h1>
-        <div class="muted">Generated ${escapeHtml(new Date(snapshot.generatedAt).toLocaleString())}</div>
+        <div class="muted">Generated ${escapeHtml(new Date(snapshot.generatedAt).toLocaleString())}. Auto-refreshes every 60 seconds while forms are unchanged.</div>
       </div>
       <a href="/api/snapshot">JSON</a>
     </header>
@@ -409,7 +409,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, `/star-settings${actionSuffix}`, {
     updatedAt: snapshot.starSettingsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
-    cacheTtlSeconds: snapshot.starSettingsCacheTtlSeconds,
+    activationRequiresRestart: snapshot.starSettingsActivationRequiresRestart,
   }), { open: false, note: "rewards, costs, safeguards, rollout" })}
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
@@ -536,7 +536,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     setTimeout(() => {
       saveSectionState();
       if (!formDirty) window.location.reload();
-    }, 30000);
+    }, 60000);
   </script>
 </body>
 </html>`;

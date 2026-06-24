@@ -55,9 +55,17 @@ test("discussion list labels boosted placement", () => {
   assert.match(text, /🚀 Boosted/);
 });
 
-test("my discussions list exposes Persian boost action when boosts are enabled", () => {
-  const originalEnabled = starEconomy.boostEnabled;
-  starEconomy.boostEnabled = true;
+test("my discussions list exposes Persian boost action when boosts are available", () => {
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
   try {
     const text = buildDiscussionListText(messages, "fa", "بحث‌های من", [{
       _id: "owned",
@@ -73,6 +81,36 @@ test("my discussions list exposes Persian boost action when boosts are enabled",
     assert.match(text, /ارتقا/);
     assert.match(text, /\/boost_AB12/);
   } finally {
-    starEconomy.boostEnabled = originalEnabled;
+    Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("my discussions list hides boost action when spending is disabled", () => {
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: false,
+    boostEnabled: true,
+  });
+  try {
+    const text = buildDiscussionListText(messages, "en", "My discussions", [{
+      _id: "owned",
+      title: "Movie night",
+      description: "A room",
+      isJoinable: true,
+      listAction: "close",
+      publicDiscussionCode: "d_AB12",
+      joinRule: { type: "open" },
+      memberUserIds: [],
+      maxMembers: 20,
+    }]);
+    assert.doesNotMatch(text, /Boost/);
+    assert.doesNotMatch(text, /\/boost_AB12/);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
   }
 });
