@@ -346,15 +346,8 @@ function formatPeopleTasteUnlockText(lang, quote, balance) {
     .replace("{balance}", formatStarNumber(balance, lang));
 }
 
-function formatPeopleTasteUnlockedText(lang, until, balance) {
-  const date = until ? new Date(until) : new Date();
-  const formatted = date.toLocaleString(lang === "fa" ? "fa-IR" : "en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  return messages[lang].peopleTasteMatchesUnlocked
-    .replace("{until}", formatted)
-    .replace("{balance}", formatStarNumber(balance, lang));
+function formatPeopleTasteUnlockedText(lang) {
+  return messages[lang].peopleTasteMatchesUnlocked;
 }
 
 async function buildSavedProfilePage(codes = [], page = 0) {
@@ -417,6 +410,7 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
 async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromPeopleList = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
+  const peopleReturnMode = ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse";
 
   if (fromPeopleList) {
     await clearPeopleListMessage(ctx, [ctx.callbackMessageId]);
@@ -464,7 +458,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     keyboard: fromSavedList
       ? profileViewBackKeyboard(lang)
       : fromPeopleList
-        ? profilePeopleBackKeyboard(lang, ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse")
+        ? profilePeopleBackKeyboard(lang, peopleReturnMode)
         : fromInvitationList
         ? profileInvitationBackKeyboard(lang, target.userId)
         : undefined,
@@ -638,8 +632,8 @@ async function handleSavedProfilesCallback(ctx, lang, {
     }
     await editCallbackMessageOrReply(
       ctx,
-      formatPeopleTasteUnlockedText(lang, result.until, result.spend?.balance ?? ctx.user?.starBalance),
-      peopleDiscoverListKeyboard(lang, { mode: "taste" }),
+      formatPeopleTasteUnlockedText(lang),
+      inlineKeyboard([]),
     );
     return sendPeopleTasteMatchesList(ctx, lang, 0);
   }

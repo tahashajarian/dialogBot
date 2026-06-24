@@ -604,6 +604,53 @@ test("people profile opened from discovery returns to people discovery", async (
   assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.peopleDiscover);
 });
 
+test("people profile opened from taste discovery returns to taste people list", async () => {
+  const originalFindOne = User.findOne;
+  const deletedIds = [];
+  const replies = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    profileName: "Taste Match",
+    firstName: "Taste",
+    showActiveDiscussionOnProfile: false,
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      peopleLastListMessageId: 42,
+      peopleLastListMode: "taste",
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", { fromPeopleList: true });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.deepEqual(deletedIds, [42]);
+  assert.equal(ctx.user.peopleLastListMode, "");
+  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.peopleTasteMatches);
+});
+
 test("saved profiles remembers the real list message id when edit returns true", async () => {
   const ctx = {
     callbackData: callBacks.savedProfiles,
