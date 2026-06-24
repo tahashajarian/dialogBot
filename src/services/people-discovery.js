@@ -9,6 +9,7 @@ const {
   normalizeAiListItem,
 } = require("./users");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
+const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 3;
@@ -125,6 +126,43 @@ async function findPeopleBySharedTaste(viewer, {
   }
 
   const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
+  const indexedCandidates = await findIndexedSharedTasteCandidates(viewer, { limit });
+  if (indexedCandidates) {
+    const sharedByUserId = new Map(indexedCandidates.map((entry) => [Number(entry.userId), entry.sharedSections || []]));
+    const candidateIds = indexedCandidates.map((entry) => Number(entry.userId)).filter((id) => Number.isInteger(id));
+    const hydrated = candidateIds.length
+      ? await User.find({
+        userId: { $in: candidateIds },
+        bannedAt: null,
+      })
+        .select("userId publicProfileCode firstName profileName profileEmoji")
+        .lean()
+      : [];
+    const byUserId = new Map((hydrated || []).map((candidate) => [Number(candidate.userId), candidate]));
+    const items = [];
+    for (const userId of candidateIds) {
+      const candidate = byUserId.get(userId);
+      if (!candidate) continue;
+      const baseName = candidate.profileName || candidate.firstName || "";
+      if (!baseName) continue;
+      const name = [baseName, candidate.profileEmoji].filter(Boolean).join(" ");
+      const code = candidate.publicProfileCode;
+      const entry = {
+        userId: candidate.userId,
+        code,
+        name,
+        sharedSections: sharedByUserId.get(userId) || [],
+        isSaved: savedCodes.has(String(code || "").toLowerCase()),
+        hasProfileName: Boolean(candidate.profileName),
+      };
+      entry.score = getPeopleDiscoveryScore(entry);
+      items.push(entry);
+    }
+    items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
+    trackPeopleDiscovery(viewer, { mode: "taste", resultCount: items.length });
+    return { ok: true, items };
+  }
+
   const candidates = await User.find({
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,

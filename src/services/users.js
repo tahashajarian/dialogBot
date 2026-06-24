@@ -9,6 +9,7 @@ const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const { sanitizeProfileNameCandidate } = require("./profile");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
+const { syncUserTasteIndex } = require("./user-taste-index");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 
@@ -589,6 +590,7 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const updated = [...current, { title, comment, watched }];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
+  await syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = await awardListMilestones({
     userId,
     section,
@@ -640,6 +642,7 @@ async function removeAiListItem(userId, section, listType, item) {
   }
 
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
+  await syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   return { ok: true, items: updated };
 }
 
@@ -766,6 +769,7 @@ async function promoteWatchlistItemToTopTen(
   const nextTopTen = [...topTenItems, { title: watchlistItem.title, comment: watchlistItem.comment, watched: false }];
 
   await updateProfileField(userId, `aiLists.${section}.topTen`, nextTopTen);
+  await syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = await awardListMilestones({
     userId,
     section,

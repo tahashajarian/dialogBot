@@ -11,6 +11,7 @@ const {
   buildUserDiscoveryIndex,
   getSharedSections,
 } = require("./people-discovery");
+const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const BOOST_QUOTE_TTL_MS = 10 * 60 * 1000;
@@ -246,12 +247,32 @@ async function selectBoostRecipients(boost, discussion, { now = new Date() } = {
   const creatorIndex = buildUserDiscoveryIndex(creator);
   const cap = Number(starEconomy.discussionBoostRecipientCap) || 0;
   if (cap <= 0) return [];
-  const candidates = await User.find({
-    userId: { $nin: discussion.memberUserIds || [] },
+  const candidateLimit = Math.max(cap * 20, 100);
+  const indexedCandidates = await findIndexedSharedTasteCandidates(creator, {
+    limit: candidateLimit,
+    excludeUserIds: discussion.memberUserIds || [],
+  });
+  const indexedSharedByUserId = indexedCandidates
+    ? new Map(indexedCandidates.map((entry) => [Number(entry.userId), entry.sharedSections || []]))
+    : null;
+  const indexedOrderByUserId = indexedCandidates
+    ? new Map(indexedCandidates.map((entry, index) => [Number(entry.userId), index]))
+    : null;
+  const candidateQuery = {
+    userId: indexedCandidates
+      ? { $in: indexedCandidates.map((entry) => Number(entry.userId)).filter((userId) => Number.isInteger(userId)) }
+      : { $nin: discussion.memberUserIds || [] },
     bannedAt: null,
     activeDiscussionId: null,
     receiveBoostRecommendations: { $ne: false },
-  }).limit(Math.max(cap * 20, 100)).lean();
+  };
+  const rawCandidates = await User.find(candidateQuery).limit(candidateLimit).lean();
+  const candidates = indexedSharedByUserId
+    ? [...(rawCandidates || [])].sort((a, b) => (
+      (indexedOrderByUserId.get(Number(a.userId)) ?? Number.MAX_SAFE_INTEGER) -
+      (indexedOrderByUserId.get(Number(b.userId)) ?? Number.MAX_SAFE_INTEGER)
+    ))
+    : rawCandidates;
   const cutoff = new Date(now.getTime() - Number(starEconomy.boostRecipientWindowHours) * 60 * 60 * 1000);
   const candidateIds = (candidates || [])
     .map((candidate) => Number(candidate.userId))
@@ -261,7 +282,9 @@ async function selectBoostRecipients(boost, discussion, { now = new Date() } = {
   const skipped = {};
   for (const candidate of candidates) {
     if (recipients.length >= cap) break;
-    const shared = getSharedSections(creatorIndex, buildUserDiscoveryIndex(candidate));
+    const shared = indexedSharedByUserId
+      ? indexedSharedByUserId.get(Number(candidate.userId)) || []
+      : getSharedSections(creatorIndex, buildUserDiscoveryIndex(candidate));
     if (!shared.length) {
       incrementSkip(skipped, "no_shared_taste");
       continue;

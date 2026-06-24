@@ -18,6 +18,7 @@
     "migrate:ai-lists": "node ./scripts/migrate-ai-lists.js --apply",
     "migrate:ai-lists:clear-legacy": "node ./scripts/migrate-ai-lists.js --apply --clear-legacy",
     "migrate:public-code-indexes": "node ./scripts/migrate-public-code-indexes.js",
+    "rebuild:taste-index": "node ./scripts/rebuild-taste-index.js",
     "rollback:ai-lists:dry": "node ./scripts/rollback-ai-lists.js",
     "rollback:ai-lists": "node ./scripts/rollback-ai-lists.js --apply"
   },

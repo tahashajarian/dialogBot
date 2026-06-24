@@ -11,32 +11,42 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
   - `users`: boost recommendation candidate filtering by ban/active-room/opt-out state.
   - `users`: People browse candidate filtering by ban/name presence.
   - `discussionboostdeliveries`: discussion-recipient lookup and stale reserved-delivery cleanup.
+- A denormalized `user_taste_indexes` collection now stores normalized list tokens per user/section. Successful list add/remove/promote mutations refresh the affected section.
+- Similar-people discovery and boost recipient selection prefer the taste index when it is populated, then hydrate only candidate user profiles and run the existing safety filters.
 
 ## Remaining Performance Risks
 
-- People discovery still scans a bounded candidate window and ranks in process. This is acceptable for small/private-beta usage, but the result quality and latency depend on scan order once the public user base grows.
-- The similar-people lens reconstructs normalized taste items from each candidate document on every request. This repeats normalization work and pulls list fields into application memory.
+- Free People browse still scans a bounded public-profile candidate window and ranks in process. This is acceptable for small/private-beta usage, but the result quality and latency depend on scan order once the public user base grows.
+- If `user_taste_indexes` is empty or unavailable, similar-people discovery falls back to the bounded legacy scan. Run `npm run rebuild:taste-index` after DB resets, imports, or legacy list migrations.
 - Boost recipient selection still validates join rules in process for candidates that survive taste/mute/delivery filters. That is currently safer than duplicating rule logic in Mongo, but it remains CPU-bound for large candidate batches.
 - AI cache fuzzy and semantic matching load recent candidates per category/purpose/lang and rank in process. The configured limit bounds the work, but high cache volume may reduce hit quality or increase lookup latency.
 
-## Future Taste Index
+## Taste Index
 
-Add a denormalized taste index only when metrics show it is needed. Useful triggers:
+Implemented shape:
+
+- Collection: `user_taste_indexes`.
+- One row per `{ userId, section }`.
+- Fields: normalized `items`, `itemCount`, and `updatedAt`.
+- Indexes:
+  - unique `{ userId, section }`
+  - `{ section, items, itemCount, userId }` for overlap candidate lookup
+  - `{ updatedAt }` for operational inspection/rebuild work
+- Rebuild command: `npm run rebuild:taste-index`.
+
+Future refinements become useful when metrics show one of these thresholds:
 
 - People discovery p95 latency above 500 ms for warm Mongo queries.
 - More than 10,000 public, non-banned users with names.
 - Similar-people scans regularly hit `PEOPLE_DISCOVERY_SCAN_LIMIT` while returning few/no matches.
 - Boost recipient selection p95 above 1 second or candidate batches above 500.
 
-Suggested shape:
+Possible refinements:
 
-- Store normalized tokens per user, section, and list type in a separate `user_taste_indexes` collection or a compact embedded `tasteIndex` field.
-- Keep section counts and first-class `hasThreeItemsBySection` booleans so insufficient-data checks and candidate filters are cheap.
-- Precompute normalized item tokens when list mutations succeed in `src/services/users.js`; do not recompute them inside discovery requests.
-- Index `{ section, normalizedItem, userId }` for overlap discovery and `{ userId, section }` for profile/list refresh.
-- Query candidate user IDs by intersecting three-or-more shared normalized items in the same section, then hydrate only the top candidate profiles.
-
-Do not run a broad migration until launch metrics justify it. A safe rollout would dual-write new list mutations first, backfill in bounded batches, compare old/new discovery results in logs, then switch reads behind a feature flag.
+- Add per-item rows if multikey array lookup becomes too broad at high scale.
+- Add language/city filters only when those product filters exist and privacy rules are settled.
+- Add sampled old/new result comparison before removing the legacy scan fallback.
+- Add operational dashboard rows for taste-index row count, stale rows, and rebuild age.
 
 ## UX Safety Review
 
