@@ -491,6 +491,8 @@ async function handleCallback(ctx) {
   if (isDiscussionBoostCallback(data)) {
     return handleDiscussionBoostCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
+      editCallbackMessageOrReply,
+      renderMyDiscussionList,
     });
   }
 

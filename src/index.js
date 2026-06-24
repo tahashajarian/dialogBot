@@ -14,7 +14,7 @@ const { logger } = require("./services/logger");
 const { recordBotHeartbeat } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
-const { refreshBotAppearance } = require("./services/bot-appearance");
+const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -67,7 +67,7 @@ async function processUpdate(ctx) {
   }
   if (!isAllowedUser(from)) {
     const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
-    const text = messages[lang].betaAccessOnly;
+    const text = formatBotText(messages[lang].betaAccessOnly);
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery(text).catch(() => {});
     }
@@ -84,7 +84,7 @@ async function processUpdate(ctx) {
   const user = await getOrCreateUser(from);
   if (user?.bannedAt) {
     const lang = messages[user.lang] ? user.lang : "fa";
-    const text = messages[lang].userBannedAccessDenied;
+    const text = formatBotText(messages[lang].userBannedAccessDenied);
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery(text, { show_alert: true }).catch(() => {});
     }

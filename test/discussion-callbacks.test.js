@@ -242,8 +242,8 @@ test("starter discussion list makes the first social step obvious", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", discussions);
 
   assert.match(text, /✨ Start here: open to everyone\./);
-  assert.match(text, /✨ Unlocked by your Interests: Gaming\./);
-  assert.match(text, /💡 Add Movies to your profile interests to unlock this room\./);
+  assert.match(text, /✨ Unlocked by your Interests: 🎮 Gaming\./);
+  assert.match(text, /💡 Add 🎬 Movies to your profile interests to unlock this room\./);
 });
 
 test("starter discussion item rules use Persian aliases in Persian UI", () => {
@@ -271,8 +271,8 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
   );
 
   assert.match(listText, /🔑 .*گیم/);
-  assert.match(listText, /برای باز شدن این اتاق، گیم/);
-  assert.match(lockedText, /«گیم»/);
+  assert.match(listText, /برای باز شدن این اتاق، 🎮 گیم/);
+  assert.match(lockedText, /«🎮 گیم»/);
   assert.doesNotMatch(lockedText, /Gaming/);
 });
 

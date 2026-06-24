@@ -2,6 +2,7 @@ const { callBacks } = require("../constants");
 const messages = require("../messages");
 const { operationalLimits } = require("../services/operational-limits");
 const { starEconomy } = require("../services/star-settings");
+const { localizeInterestChipTitleWithEmoji } = require("../services/interest-chips");
 
 function inlineKeyboard(rows) {
   return {
@@ -126,6 +127,15 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
       callback_data: `${callBacks.discussionJoinErrorAck}${normalizedListType}`,
     }],
   ]);
+}
+
+function discussionBoostAckKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionBoostAck,
+    },
+  ]]);
 }
 
 function discussionCreateGuidanceAckKeyboard(lang) {
@@ -291,7 +301,7 @@ function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
       text: Number(currentCapacity) === capacity ? "✅" : ltrText(String(capacity)),
       callback_data: `${callBacks.discussionCreateSetCapacity}${capacity}`,
     }));
-    rows.push(lang === "fa" ? row.reverse() : row);
+    rows.push(row.reverse());
   }
   rows.push([{
     text: messages[lang].discussionCancelEdit || messages[lang].discussionCreateCancel,
@@ -326,7 +336,7 @@ function discussionSelectItemKeyboard(lang, section, items = [], {
 } = {}) {
   const rows = items.slice(0, 10).map((entry, index) => ([
     {
-      text: entry.title,
+      text: section === "random" ? localizeInterestChipTitleWithEmoji(entry.title, lang) : entry.title,
       callback_data: `${callBacks.discussionCreateSelectItem}${section}:${index}`,
     },
   ]));
@@ -360,6 +370,7 @@ module.exports = {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,

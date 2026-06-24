@@ -609,7 +609,7 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 
 - Only the discussion creator may buy a boost at launch.
 - Multiple creators may have boosted discussions simultaneously across Muze, but each creator and each discussion may have only one active boost.
-- The room action uses a clean `🚀 Boost discussion` label; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
+- The room action uses `🚀 Boost discussion` in English and `🚀 ارتقای بحث` in Persian. Owners can start the same flow from `🗂 بحث‌های من` through the listed boost action; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
 - Charge and boost creation must be atomic/idempotent, with exactly one automatic refund if activation fails after charge.
 - Boosted rooms are visibly labeled and still pass open status, capacity, join-rule, removal, mute/block, ban, moderation, relevance, freshness, cooldown, and owner-diversity checks.
 - A boost may improve list placement and send a capped Muze-authored recommendation to eligible taste-relevant users.
@@ -993,7 +993,7 @@ Recommended compact rule formatting:
 - `🔐 شرط ورود:` / `🔐 Join condition:`
 - Open rule: `🌍 ...`
 - Taste-label rule: `🏷 {section} - {badge emoji} {badge title}`
-- TopTen-item rule: `🔑 {section} - {item}`
+- TopTen-item rule: `🔑 {section} - {item}`; known Interests items should include their chip emoji, for example `🔑 Interests - ♟ Chess`
 
 Joinable example:
 

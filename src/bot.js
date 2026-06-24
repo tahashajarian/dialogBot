@@ -46,6 +46,7 @@ const {
   joinDiscussionFromInvite,
   leaveDiscussionCommand,
   closeDiscussionCommand,
+  boostDiscussionCommand,
   removeDiscussionMemberCommand,
   reportDiscussionMemberCommand,
   sendDiscussionRoomFromText,
@@ -534,6 +535,11 @@ async function handleUpdate(ctx) {
   if (/^\/close_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
     return closeDiscussionCommand(ctx, lang, `d_${text.replace(/^\/close_/i, "")}`);
+  }
+
+  if (/^\/boost_[a-z0-9]+$/i.test(text)) {
+    await clearViewedPublicProfileMessage(ctx);
+    return boostDiscussionCommand(ctx, lang, `d_${text.replace(/^\/boost_/i, "")}`);
   }
 
   if (/^\/remove_(u_)?[a-z0-9]+$/i.test(text)) {

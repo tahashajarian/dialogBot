@@ -178,7 +178,16 @@ async function rememberDiscussionListMessage(ctx, listType, message) {
 }
 
 async function clearRememberedDiscussionListMessage(ctx) {
-  const messageId = Number(ctx.user?.discussionLastListMessageId);
+  let messageId = Number(ctx.user?.discussionLastListMessageId);
+  if ((!Number.isInteger(messageId) || messageId <= 0) && ctx.userId) {
+    const freshUser = await User.findOne({ userId: ctx.userId })
+      .select("discussionLastListMessageId discussionLastListType")
+      .lean();
+    messageId = Number(freshUser?.discussionLastListMessageId);
+    if (ctx.user && freshUser?.discussionLastListType) {
+      ctx.user.discussionLastListType = freshUser.discussionLastListType;
+    }
+  }
   if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
     return false;
   }
@@ -598,6 +607,13 @@ async function closeDiscussionCommand(ctx, lang, code) {
   return sent;
 }
 
+async function boostDiscussionCommand(ctx, lang, code) {
+  const discussion = await findDiscussionByPublicCode(code);
+  if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
+  await clearRememberedDiscussionListMessage(ctx);
+  return showBoostQuote(ctx, lang, discussion._id, "mine");
+}
+
 async function removeDiscussionMemberCommand(ctx, lang, text) {
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
   if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
@@ -727,6 +743,7 @@ module.exports = {
   sendShareableInviteForActiveDiscussion,
   leaveDiscussionCommand,
   closeDiscussionCommand,
+  boostDiscussionCommand,
   removeDiscussionMemberCommand,
   reportDiscussionMemberCommand,
 };

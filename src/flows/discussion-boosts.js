@@ -1,6 +1,10 @@
 const messages = require("../messages");
 const { callBacks } = require("../constants");
-const { inlineKeyboard } = require("../keyboards");
+const {
+  discussionBoostAckKeyboard,
+  discussionJoinErrorAckKeyboard,
+  inlineKeyboard,
+} = require("../keyboards");
 const {
   confirmBoost,
   createBoostQuote,
@@ -23,20 +27,22 @@ function isDiscussionBoostText(text = "") {
 function isDiscussionBoostCallback(data = "") {
   return data.startsWith(callBacks.discussionBoostConfirm)
     || data.startsWith(callBacks.discussionBoostCancel)
+    || data === callBacks.discussionBoostAck
     || data.startsWith(callBacks.discussionBoostNotInterested)
     || data === callBacks.discussionBoostOptOut;
 }
 
-function boostConfirmationKeyboard(lang, quote) {
+function boostConfirmationKeyboard(lang, quote, source = "room") {
   const cost = formatStarNumber(quote.quotedCost, lang);
+  const callbackToken = `${source === "mine" ? "mine" : "room"}:${quote.publicCode}`;
   return inlineKeyboard([
     [{
       text: messages[lang].discussionBoostConfirmButton.replace("{cost}", cost),
-      callback_data: `${callBacks.discussionBoostConfirm}${quote.publicCode}`,
+      callback_data: `${callBacks.discussionBoostConfirm}${callbackToken}`,
     }],
     [{
       text: messages[lang].discussionBoostCancelButton,
-      callback_data: `${callBacks.discussionBoostCancel}${quote.publicCode}`,
+      callback_data: `${callBacks.discussionBoostCancel}${callbackToken}`,
     }],
   ]);
 }
@@ -74,8 +80,29 @@ function getBoostErrorText(lang, result = {}) {
   return messages[lang][keyByReason[result.reason]] || messages[lang].discussionBoostFailed;
 }
 
-async function showBoostQuote(ctx, lang) {
-  const discussionId = String(ctx.user?.activeDiscussionId || "");
+function parseBoostCallbackPayload(ctx, data = "", prefix = "") {
+  const raw = data.replace(prefix, "");
+  const [maybeSource, maybeCode] = raw.split(":");
+  if (maybeCode) {
+    return {
+      source: maybeSource === "mine" ? "mine" : "room",
+      code: maybeCode,
+    };
+  }
+  return {
+    source: ctx?.user?.activeDiscussionId ? "room" : "mine",
+    code: raw,
+  };
+}
+
+function boostErrorKeyboard(lang, source) {
+  return source === "mine"
+    ? discussionJoinErrorAckKeyboard(lang, "mine")
+    : discussionBoostAckKeyboard(lang);
+}
+
+async function showBoostQuote(ctx, lang, discussionIdOverride = "", source = "room") {
+  const discussionId = String(discussionIdOverride || ctx.user?.activeDiscussionId || "");
   if (!discussionId) return ctx.reply(messages[lang].discussionNotMember);
   const quoted = await createBoostQuote(ctx.userId, discussionId);
   if (!quoted.ok) return ctx.reply(getBoostErrorText(lang, quoted));
@@ -86,7 +113,7 @@ async function showBoostQuote(ctx, lang) {
       cost: quoted.quote.quotedCost,
       balance: ctx.user?.starBalance || 0,
     }),
-    boostConfirmationKeyboard(lang, quoted.quote),
+    boostConfirmationKeyboard(lang, quoted.quote, source),
   );
 }
 
@@ -121,23 +148,37 @@ async function deliverBoostRecommendations(ctx, boost, discussion) {
   }
 }
 
-async function handleDiscussionBoostCallback(ctx, lang, { deleteCallbackMessageIfPossible } = {}) {
+async function handleDiscussionBoostCallback(ctx, lang, {
+  deleteCallbackMessageIfPossible,
+  editCallbackMessageOrReply,
+  renderMyDiscussionList,
+} = {}) {
   const data = ctx.callbackData || "";
-  if (data.startsWith(callBacks.discussionBoostCancel)) {
+  if (data === callBacks.discussionBoostAck) {
     await ctx.answerCb?.();
     return deleteCallbackMessageIfPossible?.(ctx);
   }
+  if (data.startsWith(callBacks.discussionBoostCancel)) {
+    const { source } = parseBoostCallbackPayload(ctx, data, callBacks.discussionBoostCancel);
+    await ctx.answerCb?.(messages[lang].discussionBoostCanceled.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
+    await deleteCallbackMessageIfPossible?.(ctx);
+    if (source === "mine" && renderMyDiscussionList) {
+      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    }
+    return ctx.reply(messages[lang].discussionBoostCanceled);
+  }
   if (data.startsWith(callBacks.discussionBoostConfirm)) {
     await ctx.answerCb?.();
-    const code = data.replace(callBacks.discussionBoostConfirm, "");
+    const { source, code } = parseBoostCallbackPayload(ctx, data, callBacks.discussionBoostConfirm);
     const confirmed = await confirmBoost(ctx.userId, code);
     if (!confirmed.ok) {
       const text = getBoostErrorText(lang, confirmed);
+      const keyboard = boostErrorKeyboard(lang, source);
       if (ctx.callbackMessageId && ctx.editMessageText) {
-        const edited = await ctx.editMessageText(ctx.callbackMessageId, text, inlineKeyboard([]));
+        const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
         if (edited) return edited;
       }
-      return ctx.reply(text);
+      return ctx.reply(text, keyboard);
     }
     if (ctx.user) ctx.user.starBalance = confirmed.spend.balance;
     const text = fillBoostText(messages[lang].discussionBoostActivated, lang, {
@@ -148,9 +189,18 @@ async function handleDiscussionBoostCallback(ctx, lang, { deleteCallbackMessageI
     if (confirmed.applied) void deliverBoostRecommendations(ctx, confirmed.boost, confirmed.discussion);
     if (ctx.callbackMessageId && ctx.editMessageText) {
       const edited = await ctx.editMessageText(ctx.callbackMessageId, text, inlineKeyboard([]));
-      if (edited) return edited;
+      if (edited) {
+        if (source === "mine" && renderMyDiscussionList) {
+          await renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+        }
+        return edited;
+      }
     }
-    return ctx.reply(text);
+    const sent = await ctx.reply(text);
+    if (source === "mine" && renderMyDiscussionList) {
+      await renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    }
+    return sent;
   }
   if (data.startsWith(callBacks.discussionBoostNotInterested)) {
     await ctx.answerCb?.(messages[lang].discussionBoostNotInterestedAck);

@@ -4,6 +4,7 @@
 
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
 - Bot-authored guidance, empty states, and safe error messages should start with the configured Muze marker emoji so they feel clearly from the bot. The default marker is `👩‍🦳`, and admins can change it from the dashboard. Short success confirmations can keep their action/status emoji.
+- Bot-authored messages sent before normal app-context routing, such as allowlist and banned-user blocks, should still apply the configured Muze marker emoji.
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
@@ -15,6 +16,7 @@
 - When deleting list items, delete the previous bot-sent list display if it is tracked, then confirm the removed item by name before showing the manage buttons again.
 - Pressing "back" in non-cancel flows should not send cancel copy (for example "operation canceled").
 - Back button labels should use `🔙` as the visible back emoji.
+- Numeric inline button rows should be ordered so the visible numbers start from the left in both Persian and English clients.
 - When leaving an AI section/manage flow via Back, remove temporary reply keyboards (for example Top 10/Suggestion bottom buttons) before showing the higher-level menu.
 - When clearing a temporary reply keyboard before an inline menu, avoid blank/placeholder bubbles. Send the actual destination menu text with `remove_keyboard`, then attach inline buttons to that same visible message when the platform allows it.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
@@ -104,7 +106,7 @@ Stars UX rules:
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
-- Profile display names must be emoji-free. Profile emoji is a separate paid cosmetic chosen from a paged curated picker; users may also type exactly one allowed emoji. Reserved system emojis, including the current bot marker, are not available there. Users should get a clear retry prompt if they submit emoji in their typed name.
+- Profile display names must be emoji-free. Profile emoji is a separate paid cosmetic chosen from a paged curated picker, appears after the display name, and users may also type exactly one allowed emoji. Reserved system emojis, including the current bot marker, are not available there. Users should get a clear retry prompt if they submit emoji in their typed name.
 - People and saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per row; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation. Their list Back buttons should use the generic Back label and return to the `👥 People` hub.
 - Opening a profile from the saved-profile list should clear the old list card when possible, then show the profile with a Back button to the saved-profile list. The Back button must not depend on whether deleting the old list card succeeded.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.

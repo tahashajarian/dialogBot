@@ -140,6 +140,7 @@ module.exports = {
     discussionInviteJoin: "discussion:invite:join:",
     discussionBoostConfirm: "discussion:boost:confirm:",
     discussionBoostCancel: "discussion:boost:cancel:",
+    discussionBoostAck: "discussion:boost:ack",
     discussionBoostNotInterested: "discussion:boost:not-interested:",
     discussionBoostOptOut: "discussion:boost:opt-out",
     discussionJoinErrorAck: "discussion:join-error:ack:",

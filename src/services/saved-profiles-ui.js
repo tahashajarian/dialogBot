@@ -45,7 +45,7 @@ function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
     const name = user?.profileName || user?.firstName || code;
     return {
       code,
-      name: [user?.profileEmoji, name].filter(Boolean).join(" "),
+      name: [name, user?.profileEmoji].filter(Boolean).join(" "),
     };
   });
 }

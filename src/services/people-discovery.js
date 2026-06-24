@@ -84,7 +84,7 @@ async function findPeopleForBrowse(viewer, {
   for (const candidate of candidates || []) {
     const baseName = candidate.profileName || candidate.firstName || "";
     if (!baseName) continue;
-    const name = [candidate.profileEmoji, baseName].filter(Boolean).join(" ");
+    const name = [baseName, candidate.profileEmoji].filter(Boolean).join(" ");
     items.push({
       userId: candidate.userId,
       code: candidate.publicProfileCode,
@@ -121,7 +121,7 @@ async function findPeopleBySharedTaste(viewer, {
   for (const candidate of candidates || []) {
     const baseName = candidate.profileName || candidate.firstName || "";
     if (!baseName) continue;
-    const name = [candidate.profileEmoji, baseName].filter(Boolean).join(" ");
+    const name = [baseName, candidate.profileEmoji].filter(Boolean).join(" ");
 
     const candidateIndex = buildUserDiscoveryIndex(candidate);
     const sharedSections = getSharedSections(viewerIndex, candidateIndex);

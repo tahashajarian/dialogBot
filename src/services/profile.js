@@ -183,7 +183,7 @@ function hasValidLocation(location) {
 function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const displayName = user?.profileName || user?.firstName || "—";
   const profileEmoji = String(user?.profileEmoji || "").trim();
-  const displayNameWithEmoji = profileEmoji ? `${profileEmoji} ${displayName}` : displayName;
+  const displayNameWithEmoji = profileEmoji ? `${displayName} ${profileEmoji}` : displayName;
   const genderMap = {
     female: messages[lang].genderOptionFemaleDisplay,
     male: messages[lang].genderOptionMaleDisplay,

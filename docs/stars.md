@@ -273,6 +273,8 @@ The active room may show a clean owner/member action:
 ```
 
 The cost appears on the confirmation card, not necessarily in the room keyboard label.
+Boost confirmations remember their source. From an active room, canceling or dismissing a recoverable error should remove only the confirmation/error card and keep the user in the room flow. From `My discussions`, opening the boost should remove the old list first; cancel, successful confirmation, or dismissing a recoverable error should then return to a fresh `My discussions` list.
+If boost confirmation fails for insufficient balance or another recoverable reason, show current cost and balance on a dismissible `Got it` card. Do not add extra text explaining what the `Got it` button does.
 
 A successful boost may:
 
@@ -562,7 +564,7 @@ Real-money purchase support is intentionally deferred, but the first implementat
 - Database unavailable: do not claim a reward or spend succeeded. Preserve the original product action when safe and tell the user Star processing could not complete if needed.
 - Reward service unavailable after a non-financial milestone succeeds: record/retry through a durable reconciliation path or show a safe pending state; do not make users repeat destructive actions.
 - Duplicate callback/retry: return the already-created transaction/effect.
-- Insufficient balance: do not partially charge; show current balance and one relevant earning path.
+- Insufficient balance: do not partially charge; show current cost and balance. For discussion boosts, show this as a dismissible `Got it` card; room-origin boosts stay in the active room flow, and My-discussions-origin boosts return to a fresh My discussions list after acknowledgement.
 - Stale confirmation: re-render with current settings and require confirmation.
 - User banned: earning and spending are disabled. Existing balance remains ledgered; do not delete it.
 - Discussion closes during boost confirmation: do not charge.

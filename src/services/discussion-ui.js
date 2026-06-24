@@ -3,6 +3,7 @@ const {
   validateJoinRules,
 } = require("./discussions");
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const User = require("../models/user");
@@ -44,12 +45,17 @@ function getDiscussionErrorMessage(messages, lang, reason) {
 
 function getLocalizedJoinRuleItemTitle(lang, joinRule = {}) {
   const aliases = Array.isArray(joinRule.itemAliases) ? joinRule.itemAliases : [];
+  let title = "";
   if (lang === "fa") {
     const persianAlias = aliases.find((alias) => /[\u0600-\u06FF]/.test(String(alias || "")));
-    return persianAlias || joinRule.itemTitle || "-";
+    title = persianAlias || joinRule.itemTitle || "-";
+  } else {
+    const latinAlias = aliases.find((alias) => /[A-Za-z]/.test(String(alias || "")));
+    title = latinAlias || joinRule.itemTitle || "-";
   }
-  const latinAlias = aliases.find((alias) => /[A-Za-z]/.test(String(alias || "")));
-  return latinAlias || joinRule.itemTitle || "-";
+  return joinRule.section === "random"
+    ? localizeInterestChipTitleWithEmoji(title, lang)
+    : title;
 }
 
 function getJoinRulePreviewText(messages, lang, joinRule = {}) {
@@ -287,8 +293,13 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
     const joinLabel = lang === "fa" ? "ورود" : "Join";
     const leaveLabel = lang === "fa" ? "خروج" : "Leave";
     const closeLabel = lang === "fa" ? "بستن" : "Close";
+    const boostLabel = messages[lang].discussionBoostActionLabel || messages[lang].discussionBoostButton;
     const openLink =
       code ? buildDiscussionActionLine(lang, joinLabel, `/${code}`) : "";
+    const boostAction =
+      entry.listAction === "close" && code && starEconomy.boostEnabled
+        ? buildDiscussionActionLine(lang, boostLabel, `/boost_${code.slice(2)}`)
+        : "";
     const ownerAction =
       entry.listAction === "close" && code
         ? buildDiscussionActionLine(lang, closeLabel, `/close_${code.slice(2)}`)
@@ -297,7 +308,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       entry.listAction === "leave" && code
         ? buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)
         : "";
-    const actions = [openLink, ownerAction, leaveAction].filter(Boolean).join("\n");
+    const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
     const actionsBlock = actions ? `\n\n${actions}` : "";
     return [
       lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),

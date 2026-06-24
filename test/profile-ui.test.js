@@ -110,14 +110,14 @@ test("buildProfileText shows compact interests preview", () => {
   assert.doesNotMatch(text, /Cooking/);
 });
 
-test("buildProfileText shows profile emoji beside name", () => {
+test("buildProfileText shows profile emoji after name", () => {
   const text = buildProfileText({
     firstName: "Ali",
     profileName: "Ali",
     profileEmoji: "💠",
   }, "en", messages, { isOwnProfile: false });
 
-  assert.match(text, /Name: 💠 Ali/);
+  assert.match(text, /Name: Ali 💠/);
 });
 
 test("buildProfileText localizes built-in interest chips", () => {
@@ -386,7 +386,7 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
-  assert.match(messages.en.profileEmojiConfirmText, /💡 This emoji will appear beside your name/);
+  assert.match(messages.en.profileEmojiConfirmText, /💡 This emoji will appear after your name/);
   assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].text, "🔙 Back");

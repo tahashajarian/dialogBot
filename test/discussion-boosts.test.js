@@ -54,3 +54,25 @@ test("discussion list labels boosted placement", () => {
   }]);
   assert.match(text, /🚀 Boosted/);
 });
+
+test("my discussions list exposes Persian boost action when boosts are enabled", () => {
+  const originalEnabled = starEconomy.boostEnabled;
+  starEconomy.boostEnabled = true;
+  try {
+    const text = buildDiscussionListText(messages, "fa", "بحث‌های من", [{
+      _id: "owned",
+      title: "شب فیلم",
+      description: "یک بحث",
+      isJoinable: true,
+      listAction: "close",
+      publicDiscussionCode: "d_AB12",
+      joinRule: { type: "open" },
+      memberUserIds: [],
+      maxMembers: 20,
+    }]);
+    assert.match(text, /ارتقا/);
+    assert.match(text, /\/boost_AB12/);
+  } finally {
+    starEconomy.boostEnabled = originalEnabled;
+  }
+});

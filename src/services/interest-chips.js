@@ -67,6 +67,12 @@ function localizeInterestChipTitle(title, lang) {
   return chip ? getInterestChipTitle(chip, lang) : String(title || "").trim();
 }
 
+function localizeInterestChipTitleWithEmoji(title, lang) {
+  const chip = getInterestChipByTitle(title);
+  if (!chip) return String(title || "").trim();
+  return `${chip.emoji} ${getInterestChipTitle(chip, lang)}`;
+}
+
 function localizeInterestChipItem(item, lang) {
   if (typeof item === "string") {
     return localizeInterestChipTitle(item, lang);
@@ -90,4 +96,5 @@ module.exports = {
   isInterestChipSelected,
   localizeInterestChipItem,
   localizeInterestChipTitle,
+  localizeInterestChipTitleWithEmoji,
 };
