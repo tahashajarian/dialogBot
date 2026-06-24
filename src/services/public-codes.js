@@ -68,6 +68,17 @@ async function ensurePublicProfileCode(userId) {
   return { ok: false, reason: "code_generation_failed" };
 }
 
+async function ensurePublicProfileCodes(users = []) {
+  return Promise.all((users || []).map(async (user) => {
+    const current = normalizePublicProfileCode(user?.publicProfileCode);
+    if (current) return { ...user, publicProfileCode: current };
+
+    const codeResult = await ensurePublicProfileCode(user?.userId);
+    if (!codeResult.ok) return user;
+    return { ...user, publicProfileCode: codeResult.code };
+  }));
+}
+
 async function ensurePublicDiscussionCode(discussion) {
   const discussionId = discussion?._id || discussion;
   const current = normalizePublicDiscussionCode(discussion?.publicDiscussionCode);
@@ -122,6 +133,7 @@ module.exports = {
   ensurePublicDiscussionCode,
   ensurePublicDiscussionCodes,
   ensurePublicProfileCode,
+  ensurePublicProfileCodes,
   findDiscussionByPublicCode,
   generatePublicCodeSuffix,
   getDiscussionInvitePreviewByCode,

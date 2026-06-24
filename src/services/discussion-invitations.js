@@ -8,6 +8,7 @@ const { hasInvitationMute } = require("./discussion-invitation-mutes");
 const {
   ensurePublicDiscussionCode,
   ensurePublicProfileCode,
+  ensurePublicProfileCodes,
   normalizePublicProfileCode,
   normalizeMaxMembers,
   validateJoinRules,
@@ -309,13 +310,10 @@ async function hydrateInvitations(invitations = []) {
     Discussion.find({ _id: { $in: discussionIds } }).lean(),
     User.find({ userId: { $in: inviterIds } }).select("userId profileName firstName publicProfileCode").lean(),
   ]);
-  await Promise.all(inviters.map((entry) => ensurePublicProfileCode(entry.userId)));
-  const refreshedInviters = await User.find({ userId: { $in: inviterIds } })
-    .select("userId profileName firstName publicProfileCode")
-    .lean();
+  const preparedInviters = await ensurePublicProfileCodes(inviters);
 
   const discussionsById = new Map(discussions.map((entry) => [String(entry._id), entry]));
-  const invitersById = new Map(refreshedInviters.map((entry) => [Number(entry.userId), entry]));
+  const invitersById = new Map(preparedInviters.map((entry) => [Number(entry.userId), entry]));
 
   return invitations.map((invitation) => ({
     invitation,

@@ -10,7 +10,7 @@ const {
 } = require("../keyboards");
 const User = require("../models/user");
 const {
-  ensurePublicProfileCode,
+  ensurePublicProfileCodes,
   findDiscussionByPublicCode,
   getActiveDiscussionInviteForUser,
   getDiscussionInvitePreviewByCode,
@@ -339,11 +339,8 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
       .select("userId profileName firstName publicProfileCode")
       .lean();
-    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
-    const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode")
-      .lean();
-    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
+    const preparedMembers = await ensurePublicProfileCodes(memberUsers);
+    const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     const sent = await ctx.reply(`${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`);
     await rememberDiscussionMembersMessage(ctx, sent);
     return sent;

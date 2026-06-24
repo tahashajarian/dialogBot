@@ -38,7 +38,7 @@ const Discussion = require("./models/discussion");
 const { updateUserState } = require("./services/users");
 const {
   joinOrOpenDiscussion,
-  ensurePublicProfileCode,
+  ensurePublicProfileCodes,
   ensurePublicDiscussionCode,
   normalizePublicProfileCode,
 } = require("./services/discussions");
@@ -684,11 +684,8 @@ async function handleCallback(ctx) {
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
       .select("userId profileName firstName publicProfileCode")
       .lean();
-    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
-    const refreshed = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode")
-      .lean();
-    const rows = formatDiscussionMemberLines(messages, lang, refreshed, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
+    const preparedMembers = await ensurePublicProfileCodes(memberUsers);
+    const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     const membersMessage = await editCallbackMessageOrReply(
       ctx,
       `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
@@ -717,16 +714,11 @@ async function handleCallback(ctx) {
         $in: opened.discussion.memberUserIds.filter((id) => id !== ctx.userId),
       },
     }).select("userId profileName firstName publicProfileCode").lean();
-    await Promise.all(memberUsers.map((entry) => ensurePublicProfileCode(entry.userId)));
-    const refreshed = await User.find({
-      userId: {
-        $in: opened.discussion.memberUserIds.filter((id) => id !== ctx.userId),
-      },
-    }).select("userId profileName firstName publicProfileCode").lean();
+    const preparedMembers = await ensurePublicProfileCodes(memberUsers);
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionRemoveMember,
-      discussionRemoveMembersKeyboard(lang, String(opened.discussion._id), refreshed),
+      discussionRemoveMembersKeyboard(lang, String(opened.discussion._id), preparedMembers),
     );
   }
 
