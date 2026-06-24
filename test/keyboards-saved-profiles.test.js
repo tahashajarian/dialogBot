@@ -8,6 +8,7 @@ const {
   savedProfilesListKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
+const messages = require("../src/messages");
 
 test("saved profiles keyboard includes next page button when paginated", () => {
   const keyboard = savedProfilesListKeyboard("en", { page: 0, totalPages: 2 });
@@ -25,6 +26,15 @@ test("saved profiles keyboard includes previous page button on later pages", () 
   const prevPageBtn = flatButtons.find((btn) => btn.callback_data === `${callBacks.savedProfilesPage}0`);
 
   assert.ok(prevPageBtn);
+});
+
+test("saved profiles keyboard returns to People hub", () => {
+  const keyboard = savedProfilesListKeyboard("fa", { page: 0, totalPages: 1 });
+  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+  const backButton = rows.at(-1)?.[0];
+
+  assert.equal(backButton.callback_data, callBacks.people);
+  assert.equal(backButton.text, messages.fa.aiBack);
 });
 
 test("invitations list keyboard only goes back to discussions menu", () => {

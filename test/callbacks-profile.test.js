@@ -483,7 +483,7 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
   assert.equal(deletedIds[0], 456);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.match(replies[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
-  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.menuMain);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
 });
 
 test("people hub opens discovery and saved profile choices", async () => {

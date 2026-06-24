@@ -196,6 +196,14 @@ test("taste people pagination uses taste callbacks", () => {
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
 });
 
+test("people discovery Back uses generic label and returns to People hub", () => {
+  const buttons = peopleDiscoverListKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const backButton = buttons.at(-1);
+
+  assert.equal(backButton.callback_data, callBacks.people);
+  assert.equal(backButton.text, messages.fa.aiBack);
+});
+
 test("people discovery UI uses a distinct no-match message", () => {
   const text = buildPeopleDiscoveryText(messages, "fa", [], {
     emptyText: messages.fa.peopleDiscoverNoMatches,

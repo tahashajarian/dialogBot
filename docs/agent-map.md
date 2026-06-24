@@ -115,7 +115,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - rotating interest pages, removable selected chips, custom typed interests, and validation
   - progress and completion rendering
   - onboarding chip/remove/more/custom/continue callback handling
-  - handoff to starter invitations, discussions, or the main menu
+  - handoff to starter invitations, Lists, discussions, or the main menu
 
 ## AI Lists And Suggestions
 

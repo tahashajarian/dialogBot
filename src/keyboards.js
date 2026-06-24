@@ -639,6 +639,10 @@ function onboardingCompleteKeyboard(lang, { invitationCount = 0 } = {}) {
       callback_data: callBacks.discussionListActive,
     }],
     [{
+      text: messages[lang].peopleGoToLists,
+      callback_data: callBacks.aiAssistant,
+    }],
+    [{
       text: messages[lang].onboardingMainMenuButton,
       callback_data: callBacks.menuMain,
     }],
@@ -975,7 +979,7 @@ function savedProfilesListKeyboard(lang, items = []) {
     rows.push(pageRows);
   }
 
-  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
+  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.people }]);
   return inlineKeyboard(rows);
 }
 
@@ -1055,7 +1059,7 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
   if (options.showLists) {
     rows.push([{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }]);
   }
-  rows.push([{ text: messages[lang].peopleBackToHub, callback_data: callBacks.people }]);
+  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.people }]);
   return inlineKeyboard(rows);
 }
 

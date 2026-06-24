@@ -61,6 +61,7 @@ const {
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   renderActiveDiscussionList,
+  renderMyDiscussionList,
 } = require("./flows/discussions-callbacks");
 const {
   isDiscussionCreateTextState,
@@ -83,6 +84,7 @@ const {
 const {
   DISCUSSION_PROFILE_NAME_MAX_LENGTH,
   getProfileNameErrorMessage,
+  getDiscussionOpenCodeFromNameState,
   handleDiscussionNameCancel,
   isDiscussionNameState,
   parseDiscussionNameState,
@@ -366,6 +368,8 @@ async function handleUpdate(ctx) {
     if (text === "/cancel") {
       return handleDiscussionNameCancel(ctx, lang, {
         renderActiveDiscussionList,
+        renderMyDiscussionList,
+        renderSavedProfileDiscussions,
         renderInvitationsList,
         showDiscussionInvitePreviewCommand,
       });
@@ -396,8 +400,13 @@ async function handleUpdate(ctx) {
       ctx.user.state = "idle";
     }
 
-    if (pendingEntry?.source === "open") {
-      return openDiscussionCommand(ctx, lang, pendingEntry.token);
+    if (
+      pendingEntry?.source === "open" ||
+      pendingEntry?.source === "open_active" ||
+      pendingEntry?.source === "open_mine" ||
+      pendingEntry?.source === "open_saved"
+    ) {
+      return openDiscussionCommand(ctx, lang, getDiscussionOpenCodeFromNameState(pendingEntry));
     }
     if (pendingEntry?.source === "join") {
       return joinDiscussionFromInvite(ctx, lang, pendingEntry.token, {

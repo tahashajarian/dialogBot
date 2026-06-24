@@ -28,6 +28,35 @@ function parseDiscussionNameState(state = "") {
   return { source, token };
 }
 
+function splitDiscussionOpenNameToken(token = "") {
+  const [returnToken = "", discussionCode = ""] = String(token || "").split("|");
+  return {
+    returnToken,
+    discussionCode: discussionCode || returnToken,
+  };
+}
+
+function getDiscussionOpenCodeFromNameState(entry = {}) {
+  return splitDiscussionOpenNameToken(entry.token).discussionCode;
+}
+
+function buildDiscussionOpenNameGate(ctx, discussionCode) {
+  const listType = String(ctx.user?.discussionLastListType || "");
+  if (listType.startsWith("saved:")) {
+    const savedProfileCode = listType.replace(/^saved:/, "");
+    if (savedProfileCode) {
+      return {
+        source: "open_saved",
+        token: `${savedProfileCode}|${discussionCode}`,
+      };
+    }
+  }
+  if (listType === "mine") {
+    return { source: "open_mine", token: discussionCode };
+  }
+  return { source: "open", token: discussionCode };
+}
+
 function isDiscussionNameState(state = "") {
   return Boolean(parseDiscussionNameState(state));
 }
@@ -49,6 +78,8 @@ async function requireDiscussionProfileName(ctx, lang, { source, token, beforePr
 
 async function handleDiscussionNameCancel(ctx, lang, {
   renderActiveDiscussionList,
+  renderMyDiscussionList,
+  renderSavedProfileDiscussions,
   renderInvitationsList,
   showDiscussionInvitePreviewCommand,
 } = {}) {
@@ -60,7 +91,16 @@ async function handleDiscussionNameCancel(ctx, lang, {
   if (pendingEntry?.source === "accept" && renderInvitationsList) {
     return renderInvitationsList(ctx, lang, 0);
   }
-  if (pendingEntry?.source === "open" && renderActiveDiscussionList) {
+  if (pendingEntry?.source === "open_saved" && renderSavedProfileDiscussions) {
+    const { returnToken } = splitDiscussionOpenNameToken(pendingEntry.token);
+    return renderSavedProfileDiscussions(ctx, lang, returnToken);
+  }
+  if (pendingEntry?.source === "open_mine" && renderMyDiscussionList) {
+    return renderMyDiscussionList(ctx, lang, 0, {
+      editCallbackMessageOrReply: (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
+    });
+  }
+  if ((pendingEntry?.source === "open" || pendingEntry?.source === "open_active") && renderActiveDiscussionList) {
     return renderActiveDiscussionList(ctx, lang, 0, false, {
       editCallbackMessageOrReply: (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
     });
@@ -79,7 +119,9 @@ function getProfileNameErrorMessage(lang, reason) {
 
 module.exports = {
   DISCUSSION_PROFILE_NAME_MAX_LENGTH,
+  buildDiscussionOpenNameGate,
   getProfileNameErrorMessage,
+  getDiscussionOpenCodeFromNameState,
   handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
   isDiscussionNameState,

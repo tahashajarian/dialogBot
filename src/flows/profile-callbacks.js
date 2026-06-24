@@ -208,6 +208,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   leaveDiscussionAndClearKeyboardForNavigation,
   removeBottomKeyboard,
   renderActiveDiscussionList,
+  renderMyDiscussionList,
+  renderSavedProfileDiscussions,
   renderInvitationsList,
   retireCallbackMessageIfPossible,
   showDiscussionInvitePreviewCommand,
@@ -596,6 +598,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (isDiscussionNameState(ctx.user?.state)) {
       return handleDiscussionNameCancel(ctx, lang, {
         renderActiveDiscussionList,
+        renderMyDiscussionList,
+        renderSavedProfileDiscussions,
         renderInvitationsList,
         showDiscussionInvitePreviewCommand,
       });

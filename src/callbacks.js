@@ -62,6 +62,7 @@ const {
   isDiscussionCreateState,
   isDiscussionListCallback,
   renderActiveDiscussionList,
+  renderMyDiscussionList,
   sendDiscussionJoinErrorAck,
 } = require("./flows/discussions-callbacks");
 const {
@@ -103,7 +104,10 @@ const {
   handleDiscussionBoostCallback,
   isDiscussionBoostCallback,
 } = require("./flows/discussion-boosts");
-const { requireDiscussionProfileName } = require("./flows/discussion-name-gate");
+const {
+  buildDiscussionOpenNameGate,
+  requireDiscussionProfileName,
+} = require("./flows/discussion-name-gate");
 const {
   clearViewedPublicProfileMessage,
   forgetPeopleListMessage,
@@ -513,9 +517,10 @@ async function handleCallback(ctx) {
     if (!codeResult.ok) {
       return ctx.reply(messages[lang].unknownAction);
     }
+    const nameGate = buildDiscussionOpenNameGate(ctx, codeResult.code);
     const hasName = await requireDiscussionProfileName(ctx, lang, {
-      source: "open",
-      token: codeResult.code,
+      source: nameGate.source,
+      token: nameGate.token,
       beforePrompt: () => clearDiscussionListMessage(ctx),
     });
     if (!hasName) return true;
@@ -751,6 +756,8 @@ async function handleCallback(ctx) {
       leaveDiscussionAndClearKeyboardForNavigation,
       removeBottomKeyboard,
       renderActiveDiscussionList,
+      renderMyDiscussionList,
+      renderSavedProfileDiscussions,
       renderInvitationsList,
       retireCallbackMessageIfPossible,
       showDiscussionInvitePreviewCommand,

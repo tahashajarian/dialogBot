@@ -18,6 +18,8 @@ const {
   sortBotStarterDiscussionsFirst,
 } = require("../src/services/discussions");
 const {
+  buildDiscussionOpenNameGate,
+  getDiscussionOpenCodeFromNameState,
   handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
   parseDiscussionNameState,
@@ -257,6 +259,92 @@ test("discussion name cancel returns active list opens to active discussions", a
     assert.deepEqual(calls, [
       ["delete", 88],
       ["active", "en", 0, false],
+    ]);
+    assert.equal(ctx.user.state, "idle");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion name gate preserves saved-profile discussion origin", () => {
+  const nameGate = buildDiscussionOpenNameGate({
+    user: {
+      discussionLastListType: "saved:u_ALI1",
+    },
+  }, "d_ROOM1");
+
+  assert.deepEqual(nameGate, {
+    source: "open_saved",
+    token: "u_ALI1|d_ROOM1",
+  });
+  assert.equal(getDiscussionOpenCodeFromNameState(nameGate), "d_ROOM1");
+});
+
+test("discussion name cancel returns saved-profile discussions to the same profile", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const calls = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        state: "discussion_name_required:open_saved:u_ALI1|d_ROOM1",
+        profileEditPromptMessageId: 99,
+      },
+      deleteMessage: async (messageId) => {
+        calls.push(["delete", messageId]);
+        return true;
+      },
+    };
+
+    await handleDiscussionNameCancel(ctx, "en", {
+      renderSavedProfileDiscussions: async (_ctx, lang, code) => {
+        calls.push(["saved", lang, code]);
+        return true;
+      },
+    });
+
+    assert.deepEqual(calls, [
+      ["delete", 99],
+      ["saved", "en", "u_ALI1"],
+    ]);
+    assert.equal(ctx.user.state, "idle");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion name cancel returns my-discussion opens to my discussions", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const calls = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        state: "discussion_name_required:open_mine:d_ROOM1",
+        profileEditPromptMessageId: 100,
+      },
+      deleteMessage: async (messageId) => {
+        calls.push(["delete", messageId]);
+        return true;
+      },
+    };
+
+    await handleDiscussionNameCancel(ctx, "en", {
+      renderMyDiscussionList: async (_ctx, lang, page) => {
+        calls.push(["mine", lang, page]);
+        return true;
+      },
+    });
+
+    assert.deepEqual(calls, [
+      ["delete", 100],
+      ["mine", "en", 0],
     ]);
     assert.equal(ctx.user.state, "idle");
   } finally {

@@ -50,7 +50,10 @@ const {
   buildStarRewardNotice,
 } = require("../services/stars-ui");
 const { updateProfileField, updateUserState } = require("../services/users");
-const { requireDiscussionProfileName } = require("./discussion-name-gate");
+const {
+  buildDiscussionOpenNameGate,
+  requireDiscussionProfileName,
+} = require("./discussion-name-gate");
 const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
 const {
   clearDiscussionMembersMessage,
@@ -441,10 +444,11 @@ async function openDiscussionCommand(ctx, lang, code) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
   const publicCode = discussion.publicDiscussionCode || code;
+  const nameGate = buildDiscussionOpenNameGate(ctx, publicCode);
 
   if (!await requireDiscussionProfileName(ctx, lang, {
-    source: "open",
-    token: publicCode,
+    source: nameGate.source,
+    token: nameGate.token,
     beforePrompt: () => clearRememberedDiscussionListMessage(ctx),
   })) {
     return { ok: false, reason: "requires_profile_name" };

@@ -184,11 +184,13 @@ test("onboarding completion offers clear next actions", () => {
   assert.deepEqual(callbackData, [
     callBacks.discussionInvitations,
     callBacks.discussionListActive,
+    callBacks.aiAssistant,
     callBacks.menuMain,
     callBacks.help,
   ]);
   assert.equal(buttons[0].text, "📨 Invitations (1)");
   assert.equal(buttons[1].text, messages.en.discussionActiveList);
+  assert.equal(buttons[2].text, messages.en.peopleGoToLists);
 });
 
 test("onboarding starter invitation note points users to invitations", () => {
@@ -196,6 +198,8 @@ test("onboarding starter invitation note points users to invitations", () => {
 
   assert.match(text, /^Done/);
   assert.match(text, /Muze prepared discussion invitations for you \(1\)/);
+  assert.match(text, /📨 Invitations/);
+  assert.doesNotMatch(text, /🎬🎵📚 Lists/);
   assert.match(text, /💡/);
 });
 
@@ -282,6 +286,8 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
   assert.match(complete, /گیمر/);
   assert.match(complete, /^👩‍🦳/);
   assert.match(complete, /💡/);
+  assert.match(complete, /🎬🎵📚 لیست‌ها/);
+  assert.match(complete, /سلیقه‌ات رو بهتر می‌شناسه/);
   assert.doesNotMatch(complete, /بیشتر بشناسمت/);
   assert.doesNotMatch(complete, /\{(?:items|emoji|label|style)\}/);
 });
