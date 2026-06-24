@@ -939,7 +939,7 @@ function profileViewBackKeyboard(lang) {
 function profilePeopleBackKeyboard(lang, mode = "browse") {
   return inlineKeyboard([[
     {
-      text: messages[lang].profileBackToPeople,
+      text: messages[lang].aiBack,
       callback_data: mode === "taste" ? callBacks.peopleTasteMatches : callBacks.peopleDiscover,
     },
   ]]);
