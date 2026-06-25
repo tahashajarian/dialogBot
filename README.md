@@ -38,6 +38,10 @@ MONGO_DB_NAME=bot
 # Optional custom Bot API root. Leave empty for normal Telegram Bot API.
 API_ROOT=
 
+# Optional HTTP(S) proxy for Telegram Bot API calls.
+# Useful when api.telegram.org is blocked unless routed through a local proxy.
+TELEGRAM_PROXY_URL=
+
 # OpenAI-compatible AI endpoint and credentials.
 API_BASE_URL=
 API_KEY=
@@ -67,6 +71,10 @@ ADMIN_DASHBOARD_TOKEN=
 For normal Telegram deployment, leave it empty so Telegraf uses Telegram's
 default API. `API_BASE_URL` belongs to the AI provider. They must never point
 to the same endpoint.
+
+If Telegram Bot API access is blocked on the host, set `TELEGRAM_PROXY_URL` to
+a local HTTP(S) proxy such as `http://127.0.0.1:7890`. SOCKS proxy URLs and
+generic proxy environment variables are not used by this setting.
 
 ## Commands
 

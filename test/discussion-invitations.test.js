@@ -212,9 +212,35 @@ test("bot onboarding invitations do not show an inviter profile link", async () 
   }]);
 
   assert.match(text, /From: Muze/);
+  assert.match(text, /🔐 Join condition:\n🌍 Everyone ✅/);
+  assert.doesNotMatch(text, /^✅ Available$/m);
   assert.match(text, /Join 👉 \/accept_inv_BOT123/);
   assert.doesNotMatch(text, /Inviter profile/);
   assert.doesNotMatch(text, /\/u_/);
+});
+
+test("locked invitations keep explicit locked state", async () => {
+  const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [1] }, [{
+    invitation: {
+      publicInvitationCode: "i_LOCKED1",
+      seenAt: new Date(),
+    },
+    discussion: {
+      title: "Metalheads",
+      description: "Heavy music chat.",
+      memberUserIds: [1],
+      maxMembers: 20,
+      joinRule: { type: "taste_label", section: "music", labelKey: "metalhead" },
+    },
+    inviter: {
+      profileName: "Sara",
+      publicProfileCode: "u_SARA1",
+    },
+    state: { state: "locked" },
+  }]);
+
+  assert.match(text, /🔐 Join condition:\n🏷/);
+  assert.match(text, /^🔒 Join condition not completed yet$/m);
 });
 
 test("received invitations can show accepted invites as recent shortcuts", async () => {

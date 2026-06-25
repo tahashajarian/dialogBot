@@ -432,8 +432,7 @@ From: Sara
 📄 Weekend movie talk
 👥 4/20
 🔐 Join condition:
-🌍 Open
-✅ Available
+🌍 Open ✅
 Join 👉 /accept_inv_ABC123
 Remove invitation 👉 /remove_inv_ABC123
 ```

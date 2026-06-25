@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const { clearInterval, setInterval } = require("timers");
+const createHttpsProxyAgent = require("https-proxy-agent");
 const { Telegraf } = require("telegraf");
 const connectDB = require("./db");
 const { disconnectDB } = require("./db");
@@ -21,6 +22,18 @@ const User = require("./models/user");
 
 const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
+const SLOW_UPDATE_MS = 1500;
+
+function buildTelegramOptions(config) {
+  const telegram = {};
+  if (config.botApiRoot) {
+    telegram.apiRoot = config.botApiRoot;
+  }
+  if (config.telegramProxyUrl) {
+    telegram.agent = createHttpsProxyAgent(config.telegramProxyUrl);
+  }
+  return Object.keys(telegram).length ? { telegram } : undefined;
+}
 
 function isAllowedUser(from) {
   if (ALLOWED_USERNAMES.size === 0) return true;
@@ -46,13 +59,7 @@ function resolveUpdateUserSource(ctx) {
 
 const bot = new Telegraf(
   config.botToken,
-  config.baleApiRoot
-    ? {
-      telegram: {
-        apiRoot: config.baleApiRoot,
-      },
-    }
-    : undefined,
+  buildTelegramOptions(config),
 );
 
 bot.catch((err) => {
@@ -61,6 +68,12 @@ bot.catch((err) => {
 
 async function processUpdate(ctx) {
   const startedAt = Date.now();
+  const apiMetrics = {
+    count: 0,
+    totalMs: 0,
+    maxMs: 0,
+    slowestMethod: "",
+  };
   const from = resolveUpdateUserSource(ctx);
   let user = null;
   try {
@@ -98,6 +111,7 @@ async function processUpdate(ctx) {
 
     const appCtx = createAppContext(ctx, user, {
       wasUserCreated: isReferralStart && !existedBeforeReferralStart,
+      apiMetrics,
     });
     const interaction = beginInteraction({
       userId: user?.userId || normalizePlatformUserSource(from)?.id,
@@ -114,7 +128,21 @@ async function processUpdate(ctx) {
     }
 
     try {
-      return await handleUpdate(appCtx);
+      const result = await handleUpdate(appCtx);
+      const durationMs = Date.now() - startedAt;
+      if (durationMs >= SLOW_UPDATE_MS) {
+        logger.warn("Slow update processed", {
+          durationMs,
+          hasCallback: Boolean(ctx.callbackQuery),
+          hasMessage: Boolean(ctx.message),
+          state: user?.state || "idle",
+          telegramApiCalls: apiMetrics.count,
+          telegramApiTotalMs: apiMetrics.totalMs,
+          telegramApiMaxMs: apiMetrics.maxMs,
+          telegramApiSlowestMethod: apiMetrics.slowestMethod,
+        });
+      }
+      return result;
     } finally {
       interaction.finish();
     }

@@ -169,11 +169,16 @@ async function clearDiscussionCardsAfterVisibleReply(ctx, exceptMessageIds = [])
 }
 
 async function deleteCallbackMessageIfPossible(ctx) {
-  if (!ctx.callbackMessageId || !ctx.deleteMessage) {
+  if (!ctx.callbackMessageId) {
     return false;
   }
 
-  return ctx.deleteMessage(ctx.callbackMessageId);
+  const retired = await removeCallbackInlineKeyboardIfPossible(ctx);
+  if (retired) {
+    return true;
+  }
+
+  return ctx.deleteMessage ? ctx.deleteMessage(ctx.callbackMessageId) : false;
 }
 
 async function removeCallbackInlineKeyboardIfPossible(ctx) {
@@ -187,11 +192,7 @@ async function retireCallbackMessageIfPossible(ctx) {
   if (!ctx.callbackMessageId) {
     return false;
   }
-  const deleted = await deleteCallbackMessageIfPossible(ctx);
-  if (deleted) {
-    return true;
-  }
-  return removeCallbackInlineKeyboardIfPossible(ctx);
+  return deleteCallbackMessageIfPossible(ctx);
 }
 
 function isProfileCallbackMessage(ctx) {

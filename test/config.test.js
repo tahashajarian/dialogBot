@@ -18,7 +18,7 @@ test("runtime config requires bot token and mongo uri", () => {
   );
 });
 
-test("config keeps Bale API root and AI base URL separate", () => {
+test("config keeps bot platform API root and AI base URL separate", () => {
   const issues = getConfigIssues(buildConfig({
     BOT_TOKEN: "token",
     MONGO_URI: "mongodb://localhost:27017/test",
@@ -26,7 +26,7 @@ test("config keeps Bale API root and AI base URL separate", () => {
     API_BASE_URL: "https://tapi.bale.ai",
   }), { requireRuntime: true });
 
-  assert.ok(issues.some((issue) => issue.includes("API_ROOT appears not to be a Bale")));
+  assert.ok(issues.some((issue) => issue.includes("API_ROOT appears not to be a bot platform")));
   assert.ok(issues.some((issue) => issue.includes("API_BASE_URL appears not to be an AI")));
 });
 
@@ -68,6 +68,38 @@ test("moderation config parses report ban threshold", () => {
     REPORT_BAN_THRESHOLD: "0",
   }), { requireRuntime: true });
   assert.ok(issues.some((issue) => issue.includes("REPORT_BAN_THRESHOLD")));
+});
+
+test("config accepts optional Telegram proxy URL", () => {
+  const config = getRuntimeConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    HTTPS_PROXY: "socks5://127.0.0.1:1080",
+    TELEGRAM_PROXY_URL: "http://127.0.0.1:7890",
+  });
+
+  assert.equal(config.telegramProxyUrl, "http://127.0.0.1:7890");
+});
+
+test("config ignores generic HTTPS_PROXY for Telegram proxy", () => {
+  const config = getRuntimeConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    HTTPS_PROXY: "socks5://127.0.0.1:1080",
+    BOT_API_PROXY_URL: "http://127.0.0.1:7890",
+  });
+
+  assert.equal(config.telegramProxyUrl, null);
+});
+
+test("config rejects invalid Telegram proxy URL", () => {
+  const issues = getConfigIssues(buildConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    TELEGRAM_PROXY_URL: "socks5://127.0.0.1:1080",
+  }), { requireRuntime: true });
+
+  assert.ok(issues.some((issue) => issue.includes("TELEGRAM_PROXY_URL")));
 });
 
 test("ai config can be used without runtime bot credentials", () => {

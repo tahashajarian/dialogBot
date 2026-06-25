@@ -55,9 +55,18 @@ function resolveAiCacheConfig(env = process.env) {
   };
 }
 
-function looksLikeBaleApiRoot(value) {
+function looksLikeBotApiRoot(value) {
   const normalized = clean(value).toLowerCase();
-  return !normalized || normalized.includes("bale") || normalized.includes("tapi") || normalized.includes("ble.ir");
+  return (
+    !normalized ||
+    normalized.includes("api.telegram.org") ||
+    normalized.includes("telegram") ||
+    normalized.includes("localhost") ||
+    normalized.includes("127.0.0.1") ||
+    normalized.includes("bale") ||
+    normalized.includes("tapi") ||
+    normalized.includes("ble.ir")
+  );
 }
 
 function looksLikeAiApiBaseUrl(value) {
@@ -84,19 +93,22 @@ function getConfigIssues(config, options = {}) {
   if (requireRuntime && !config.mongoUri) {
     issues.push("MONGO_URI is required.");
   }
-  if (config.baleApiRoot && !/^https?:\/\//i.test(config.baleApiRoot)) {
-    issues.push("API_ROOT must be an http(s) Bale Bot API root URL.");
+  if (config.botApiRoot && !/^https?:\/\//i.test(config.botApiRoot)) {
+    issues.push("API_ROOT must be an http(s) bot platform API root URL.");
   }
   if (config.aiBaseUrl && !/^https?:\/\//i.test(config.aiBaseUrl)) {
     issues.push("API_BASE_URL must be an http(s) AI endpoint base URL.");
   }
-  if (config.baleApiRoot && !looksLikeBaleApiRoot(config.baleApiRoot)) {
-    issues.push("API_ROOT appears not to be a Bale Bot API root. Use API_BASE_URL for AI endpoints.");
+  if (config.telegramProxyUrl && !/^https?:\/\//i.test(config.telegramProxyUrl)) {
+    issues.push("TELEGRAM_PROXY_URL must be an http(s) proxy URL.");
+  }
+  if (config.botApiRoot && !looksLikeBotApiRoot(config.botApiRoot)) {
+    issues.push("API_ROOT appears not to be a bot platform API root. Use API_BASE_URL for AI endpoints.");
   }
   if (config.aiBaseUrl && !looksLikeAiApiBaseUrl(config.aiBaseUrl)) {
-    issues.push("API_BASE_URL appears not to be an AI endpoint. Use API_ROOT for Bale Bot API root.");
+    issues.push("API_BASE_URL appears not to be an AI endpoint. Use API_ROOT only for a bot platform API root.");
   }
-  if (config.baleApiRoot && config.aiBaseUrl && config.baleApiRoot === config.aiBaseUrl) {
+  if (config.botApiRoot && config.aiBaseUrl && config.botApiRoot === config.aiBaseUrl) {
     issues.push("API_ROOT and API_BASE_URL must not point to the same URL.");
   }
   if (!Number.isFinite(config.aiTimeoutMs) || config.aiTimeoutMs <= 0) {
@@ -126,7 +138,8 @@ function buildConfig(env = process.env) {
     botToken: clean(env.BOT_TOKEN),
     mongoUri: clean(env.MONGO_URI),
     dbName: clean(env.MONGO_DB_NAME) || "bot",
-    baleApiRoot: clean(env.API_ROOT) || null,
+    botApiRoot: clean(env.API_ROOT) || null,
+    telegramProxyUrl: clean(env.TELEGRAM_PROXY_URL) || null,
     allowedUsernames: resolveAllowedUsernames(env),
     aiApiKey: clean(env.OPENAI_API_KEY || env.API_KEY),
     aiBaseUrl: clean(env.API_BASE_URL || env.api_base_url) || null,

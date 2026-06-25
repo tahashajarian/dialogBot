@@ -135,6 +135,7 @@ Age is optional and not enforced by the profile viewing gate.
 
 - This bot is intended to launch on Telegram via Telegraf.
 - `API_ROOT` is reserved for an optional custom bot platform API root (`Telegraf` `telegram.apiRoot`). Leave it empty for normal Telegram Bot API.
+- `TELEGRAM_PROXY_URL` is an optional HTTP(S) proxy for Telegram Bot API calls when the host cannot reach `api.telegram.org` directly.
 - `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.

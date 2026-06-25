@@ -60,6 +60,10 @@ function buildInvitationStateText(messages, lang, state = {}) {
   return messages[lang].discussionInvitationStateUnavailable;
 }
 
+function buildInvitationJoinRuleText(rule, state = {}) {
+  return state.state === "joinable" ? `${rule} ✅` : rule;
+}
+
 function buildInvitationEntryText(messages, lang, entry, index, { accepted = false } = {}) {
   const { invitation, discussion, inviter, state } = entry;
   const code = commandCode(invitation.publicInvitationCode);
@@ -86,9 +90,11 @@ function buildInvitationEntryText(messages, lang, entry, index, { accepted = fal
   }
   if (discussion) {
     lines.push(`👥 ${memberCount}/${maxMembers}`);
-    lines.push(`${messages[lang].discussionJoinConditionTitle}\n${rule}`);
+    lines.push(`${messages[lang].discussionJoinConditionTitle}\n${buildInvitationJoinRuleText(rule, state)}`);
   }
-  lines.push(buildInvitationStateText(messages, lang, state));
+  if (state.state !== "joinable") {
+    lines.push(buildInvitationStateText(messages, lang, state));
+  }
 
   if (state.state === "joinable" || state.state === "already_member") {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationAccept, `/accept_inv_${code}`));

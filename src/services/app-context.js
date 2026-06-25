@@ -1,4 +1,5 @@
 const DEFAULT_API_OPERATION_TIMEOUT_MS = 2500;
+const SLOW_TELEGRAM_API_MS = 1200;
 const PIN_RETRY_DELAY_MS = 400;
 const { logger } = require("./logger");
 const { formatBotText, formatBotExtra } = require("./bot-appearance");
@@ -46,7 +47,13 @@ function isRetriablePinError(error) {
 function isTransientEditError(error) {
   const code = getErrorCode(error);
   const text = String(getErrorDescription(error) || getErrorText(error) || "").toLowerCase();
-  return code === 500 || text.includes("internal server error") || text.includes("timed out");
+  return (
+    code === 500 ||
+    text.includes("internal server error") ||
+    text.includes("timed out") ||
+    text.includes("message can't be edited") ||
+    text.includes("message is not modified")
+  );
 }
 
 function resolveChatId(ctx) {
@@ -57,11 +64,22 @@ function resolveChatId(ctx) {
   );
 }
 
-async function callTelegramApiWithTimeout(ctx, method, payload, timeoutMs) {
+function recordApiMetric(metrics, method, durationMs) {
+  if (!metrics) return;
+  metrics.count += 1;
+  metrics.totalMs += durationMs;
+  if (durationMs > metrics.maxMs) {
+    metrics.maxMs = durationMs;
+    metrics.slowestMethod = method;
+  }
+}
+
+async function callTelegramApiWithTimeout(ctx, method, payload, timeoutMs, metrics) {
   if (!ctx.telegram?.callApi) {
     return false;
   }
 
+  const startedAt = Date.now();
   const supportsAbortController = typeof AbortController !== "undefined";
   const abortController = supportsAbortController ? new AbortController() : null;
   const callPromise = ctx.telegram.callApi(
@@ -78,21 +96,40 @@ async function callTelegramApiWithTimeout(ctx, method, payload, timeoutMs) {
   });
 
   try {
-    return await Promise.race([callPromise, timeoutPromise]);
+    const result = await Promise.race([callPromise, timeoutPromise]);
+    const durationMs = Date.now() - startedAt;
+    recordApiMetric(metrics, method, durationMs);
+    if (durationMs >= SLOW_TELEGRAM_API_MS) {
+      logger.warn("Slow Telegram API call", { method, durationMs });
+    }
+    return result;
   } finally {
     clearTimeout(timeoutId);
     callPromise.catch(() => {});
   }
 }
 
+async function withTelegramTiming(label, fn, metrics) {
+  const startedAt = Date.now();
+  const result = await fn();
+  const durationMs = Date.now() - startedAt;
+  recordApiMetric(metrics, label, durationMs);
+  if (durationMs >= SLOW_TELEGRAM_API_MS) {
+    logger.warn("Slow Telegram API call", { method: label, durationMs });
+  }
+  return result;
+}
+
 function createAppContext(ctx, user, options = {}) {
   const operationTimeoutMs = Number(options.operationTimeoutMs) || DEFAULT_API_OPERATION_TIMEOUT_MS;
+  const apiMetrics = options.apiMetrics || null;
 
   const sendApi = (method, payload) => callTelegramApiWithTimeout(
     ctx,
     method,
     payload,
     operationTimeoutMs,
+    apiMetrics,
   );
 
   return {
@@ -106,25 +143,52 @@ function createAppContext(ctx, user, options = {}) {
     callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
     wasUserCreated: Boolean(options.wasUserCreated),
 
-    reply: (text, extra = undefined) => ctx.reply(formatBotText(text), extra),
-    replyWithPhoto: (photo, extra = undefined) => ctx.replyWithPhoto(photo, formatBotExtra(extra)),
+    reply: (text, extra = undefined) => withTelegramTiming(
+      "sendMessage",
+      () => ctx.reply(formatBotText(text), extra),
+      apiMetrics,
+    ),
+    replyWithPhoto: (photo, extra = undefined) => withTelegramTiming(
+      "sendPhoto",
+      () => ctx.replyWithPhoto(photo, formatBotExtra(extra)),
+      apiMetrics,
+    ),
     answerCb: (text = "", extra = undefined) => {
       const payload = {
         callback_query_id: ctx.callbackQuery?.id,
         text: formatBotText(String(text || "")),
         ...(extra && typeof extra === "object" ? extra : {}),
       };
+      const shouldAwait = Boolean(payload.show_alert);
       if (payload.callback_query_id && ctx.telegram?.callApi) {
-        return ctx.telegram.callApi("answerCallbackQuery", payload).catch((error) => {
-          if (payload.show_alert) {
-            logger.warn("answerCallbackQuery show_alert failed", {
-              callbackQueryId: String(payload.callback_query_id || ""),
-              error: error?.message || error,
-            });
-          }
-        });
+        const promise = withTelegramTiming(
+          "answerCallbackQuery",
+          () => ctx.telegram.callApi("answerCallbackQuery", payload),
+          apiMetrics,
+        ).catch((error) => {
+            if (payload.show_alert) {
+              logger.warn("answerCallbackQuery show_alert failed", {
+                callbackQueryId: String(payload.callback_query_id || ""),
+                error: error?.message || error,
+              });
+            }
+          });
+        if (!shouldAwait) {
+          void promise;
+          return Promise.resolve(true);
+        }
+        return promise;
       }
-      return ctx.answerCbQuery(formatBotText(String(text || ""))).catch(() => {});
+      const promise = withTelegramTiming(
+        "answerCallbackQuery",
+        () => ctx.answerCbQuery(formatBotText(String(text || ""))),
+        apiMetrics,
+      ).catch(() => {});
+      if (!shouldAwait) {
+        void promise;
+        return Promise.resolve(true);
+      }
+      return promise;
     },
     sendToUser: async (userId, text, extra = {}) => {
       const targetUserId = Number(userId);

@@ -2,12 +2,19 @@ const messages = require("../messages");
 const { updateProfileField } = require("./users");
 const { leaveDiscussionAndNotify } = require("./discussion-actions");
 
+const KEYBOARD_CLEANUP_TEXT = ".";
+
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
-async function removeBottomKeyboard(ctx, text = " ", { deleteSentMessage = true } = {}) {
-  const sent = await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
+function normalizeKeyboardRemovalText(text) {
+  const value = String(text || "").trim();
+  return value || KEYBOARD_CLEANUP_TEXT;
+}
+
+async function removeBottomKeyboard(ctx, text = KEYBOARD_CLEANUP_TEXT, { deleteSentMessage = true } = {}) {
+  const sent = await ctx.reply(normalizeKeyboardRemovalText(text), { reply_markup: { remove_keyboard: true } });
   const messageId = getMessageId(sent);
   if (deleteSentMessage && messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(messageId);
@@ -26,7 +33,7 @@ async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
 }
 
 async function clearBottomKeyboardQuietly(ctx) {
-  return removeBottomKeyboard(ctx, " ");
+  return removeBottomKeyboard(ctx, KEYBOARD_CLEANUP_TEXT);
 }
 
 async function leaveActiveDiscussionForNavigation(ctx) {

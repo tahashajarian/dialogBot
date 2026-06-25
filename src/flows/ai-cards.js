@@ -121,12 +121,13 @@ async function clearAiActionMessage(ctx) {
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return true;
   }
-  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-  const retired = deleted || (
+  const retiredInline = (
     ctx.editMessageReplyMarkup
       ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
       : false
   );
+  const deleted = retiredInline ? false : ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const retired = retiredInline || deleted;
   await updateProfileField(ctx.userId, "aiActionMessageId", null);
   await updateProfileField(ctx.userId, "aiActionContext", "");
   if (ctx.user) {
