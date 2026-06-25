@@ -74,7 +74,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before creating or entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Platform/Bale names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
+- Before creating or entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.
@@ -389,7 +389,7 @@ First-time/deep-link handling:
 - Shared invite text should include one clear join action.
 - If `BOT_DEEP_LINK_BASE_URL`, `BOT_PUBLIC_URL`, or `BOT_USERNAME` is configured, use one public bot deep link.
 - If no public bot link can be built, fall back to `/join_CODE`.
-- Preferred public link payload is `start=join_CODE`, for example `https://ble.ir/@BOT_USERNAME?start=join_8K2P`.
+- Preferred public link payload is `start=join_CODE`, for example `https://t.me/BOT_USERNAME?start=join_8K2P`.
 - If the platform opens the bot through `/start join_CODE`, handle it as an invite preview.
 - If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
@@ -412,7 +412,7 @@ Example ready-to-share copy:
 🔐 شرط ورود:
 🌍 آزاد
 
-ورود به بحث 👈 https://ble.ir/@BOT_USERNAME?start=join_8K2P
+ورود به بحث 👈 https://t.me/BOT_USERNAME?start=join_8K2P
 ```
 
 For locked rooms, include the join condition:
@@ -425,14 +425,14 @@ For locked rooms, include the join condition:
 🔐 شرط ورود:
 🏷 موسیقی - 🤘 متال‌هد
 
-ورود به بحث 👈 https://ble.ir/@BOT_USERNAME?start=join_9Q4M
+ورود به بحث 👈 https://t.me/BOT_USERNAME?start=join_9Q4M
 ```
 
 Rules:
 
 - Invites must not bypass taste-label or TopTen-item join rules.
 - Invites must not bypass capacity, removed-user checks, or closed-room checks.
-- Invites must not reveal private member details, full member lists, raw ids, Bale ids, phone numbers, or location.
+- Invites must not reveal private member details, full member lists, raw ids, Telegram user ids, phone numbers, or location.
 - Invites should use the discussion public code, not the database id.
 - Invite codes should be stable public discussion codes, not per-user tokens, for MVP.
 - Invite links/messages can remain valid until the discussion is closed or unavailable.
@@ -724,7 +724,7 @@ The profile code acts like a bot command/link. When the user sends or taps `/u_8
 
 Rules:
 
-- Do not expose raw database ids, Bale user ids, phone numbers, or location.
+- Do not expose raw database ids, Telegram user ids, phone numbers, or location.
 - Use a stable short public profile code such as `publicProfileCode`.
 - Public profile codes reveal the matching profile.
 - The member list can show all members because room capacity is capped at 20.
@@ -824,7 +824,7 @@ Auto-ban rule:
 - `REPORT_BAN_THRESHOLD` controls how many different reporters are required before a user is banned. Default: `5`.
 - Count unique reporters across open discussion reports. Multiple reports from the same reporter against the same target should not move the target closer to a ban.
 - Every newly accepted report should notify the reported user privately with their current report count, the threshold, and how many unique reports remain before a full Muze ban.
-- Normal report warnings should not remove the user's current bottom keyboard; on Bale this can expose the platform fallback start button. Only the final ban/access-denied messages should clear the bottom keyboard.
+- Normal report warnings should not remove the user's current bottom keyboard; clearing it can expose platform fallback controls. Only the final ban/access-denied messages should clear the bottom keyboard.
 - When the threshold is reached, set a global Muze ban on the reported user. A banned user can no longer use messages, commands, callbacks, lists, profiles, invites, or discussions. Any future interaction should only return a short banned-account message with an admin-contact hint.
 - When a user is auto-banned, remove them from all active discussion memberships, clear their `activeDiscussionId`, and notify the remaining active members in each affected discussion that the user was removed. Keep the room notification calm and do not include report counts.
 - Do not let reports from banned users count toward another user's ban.
@@ -1138,7 +1138,7 @@ Profile-view interaction:
 3. User taps/sends a profile code.
 3. Bot shows the target user's profile.
 
-Bale may not support clickable names in plain bot text, so public profile codes are preferred over inline buttons under every message.
+Public profile codes are preferred over inline buttons under every message so member lists stay compact and work reliably as plain bot text.
 Implementation note: member lists can include `/u_CODE` buttons and still support manual typed `/u_CODE` lookup.
 
 ## People, Saved Profiles, And Discovery

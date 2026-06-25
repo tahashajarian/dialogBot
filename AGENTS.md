@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-- This repo contains a Bale bot using a Telegraf-compatible API, Node.js, and MongoDB.
+- This repo contains a Telegram bot using Telegraf, Node.js, and MongoDB.
 - Main entry point: `src/index.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - Read focused docs before changing related behavior:
@@ -92,7 +92,7 @@
 
 ## Environment Contract
 
-- `API_ROOT` is for Bale Bot API root.
+- `API_ROOT` is for an optional custom bot platform API root. Leave it empty for normal Telegram Bot API.
 - `API_BASE_URL` is for the GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is for AI auth.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.

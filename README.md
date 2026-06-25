@@ -1,8 +1,8 @@
 # Muze
 
-Muze is a bilingual Persian/English Bale bot built with Node.js, Telegraf's
-compatible API surface, MongoDB, and an OpenAI-compatible AI endpoint. The
-codebase is still named DialogBot internally.
+Muze is a bilingual Persian/English Telegram bot built with Node.js, Telegraf,
+MongoDB, and an OpenAI-compatible AI endpoint. The codebase is still named
+DialogBot internally.
 
 The bot combines:
 
@@ -17,7 +17,7 @@ The bot combines:
 
 - Node.js 20 or newer
 - MongoDB
-- a Bale bot token
+- a Telegram bot token from BotFather
 - an OpenAI-compatible API key for AI features
 
 ## Setup
@@ -35,7 +35,7 @@ BOT_TOKEN=
 MONGO_URI=mongodb://127.0.0.1:27017
 MONGO_DB_NAME=bot
 
-# Bale Bot API root, when a custom root is required.
+# Optional custom Bot API root. Leave empty for normal Telegram Bot API.
 API_ROOT=
 
 # OpenAI-compatible AI endpoint and credentials.
@@ -63,8 +63,10 @@ ADMIN_DASHBOARD_PORT=8787
 ADMIN_DASHBOARD_TOKEN=
 ```
 
-`API_ROOT` belongs to Bale. `API_BASE_URL` belongs to the AI provider. They
-must never point to the same endpoint.
+`API_ROOT` is only for the bot platform API root when a custom root is needed.
+For normal Telegram deployment, leave it empty so Telegraf uses Telegram's
+default API. `API_BASE_URL` belongs to the AI provider. They must never point
+to the same endpoint.
 
 ## Commands
 

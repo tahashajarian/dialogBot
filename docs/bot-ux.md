@@ -93,7 +93,7 @@ Stars UX rules:
 
 ## Callback Notifications
 
-- AI section entry uses Bale callback notifications (`answerCallbackQuery`) as a temporary top notification with the section name.
+- AI section entry uses callback notifications (`answerCallbackQuery`) as a temporary top notification with the section name.
 - Callback notifications are not persistent like a pin.
 - Use callback notifications for lightweight context changes when the platform supports them.
 - If a repeated button press keeps the visible message effectively unchanged, use a short callback notification so the user can tell the tap was handled without adding chat noise.
@@ -119,7 +119,7 @@ Stars UX rules:
 
 - Pin/unpin flows must use the active chat id and must not swallow API errors silently.
 - Only persist a pinned message id after the pin request succeeds.
-- If Bale pinning fails, log the chat id, message id, and error so the cause is visible.
+- If Telegram pinning fails, log the chat id, message id, and error so the cause is visible.
 
 ## Profile UX
 

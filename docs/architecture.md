@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-- This repo contains a Bale bot using a Telegraf-compatible API.
+- This repo contains a Telegram bot using Telegraf.
 - Runtime stack: Node.js and MongoDB.
 - Main entry point: `src/index.js`.
 - Runtime environment parsing and validation lives in `src/config.js`.
@@ -129,18 +129,18 @@ Age is optional and not enforced by the profile viewing gate.
 - Do not hardcode secrets.
 - Keep environment-specific values in `.env`.
 - Do not delete user data unless the task explicitly asks for it.
-- Prefer Bale/Telegraf docs for API-shape assumptions before changing helper signatures.
+- Prefer Telegram Bot API and Telegraf docs for API-shape assumptions before changing helper signatures.
 
 ## Environment Contract
 
-- This bot runs on Bale via Telegraf-compatible API.
-- `API_ROOT` is reserved for Bale Bot API root (`Telegraf` `telegram.apiRoot`).
+- This bot is intended to launch on Telegram via Telegraf.
+- `API_ROOT` is reserved for an optional custom bot platform API root (`Telegraf` `telegram.apiRoot`). Leave it empty for normal Telegram Bot API.
 - `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
-- `BOT_DEEP_LINK_BASE_URL` is the platform-neutral public bot URL for invite deep links. For Bale use `https://ble.ir/@BotUsername`; for Telegram later use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
-- `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings for Bale.
+- `BOT_DEEP_LINK_BASE_URL` is the public bot URL for invite deep links. For Telegram use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
+- `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings.
 - `REPORT_BAN_THRESHOLD` controls how many unique reporters trigger an automatic global user ban. Default: `5`.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
-- Keep Bale and AI endpoint configuration separate to avoid launch failures.
+- Keep bot-platform and AI endpoint configuration separate to avoid launch failures.
 - Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.

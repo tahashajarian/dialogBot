@@ -29,15 +29,16 @@ otherwise.
 
 Do not add payment or multi-language expansion before proving real usage.
 
-## Phase 1: Telegram Staging
+## Phase 1: Telegram Launch Prep
 
 Goal: prove the current bot works on Telegram without changing the product.
 
-- [ ] Use a clean Telegram database. Do not share the Bale database with Telegram,
-because users and discussion members are currently keyed by numeric user ids
-without a platform namespace.
+- [ ] Use a clean Telegram database for launch. If migrating from any older
+non-Telegram environment, do not share that database with Telegram because users
+and discussion members are currently keyed by numeric user ids without a
+platform namespace.
 
-Recommended Telegram staging environment:
+Recommended Telegram launch environment:
 
 ```dotenv
 BOT_TOKEN=telegram_botfather_token
@@ -218,7 +219,7 @@ User-to-user transfers, cash-out, creator revenue sharing, and Star trading rema
 
 Launch publicly only after:
 
-- [ ] Telegram staging is stable
+- [ ] Telegram launch prep is stable
 - [ ] analytics are implemented
 - [ ] private beta has real usage
 - [ ] the earn/spend Stars economy has healthy usage and abuse controls
@@ -253,7 +254,7 @@ When the Persian product proves retention, add language support intentionally:
 Recommended order:
 
 1. [ ] Add analytics/event tracking.
-2. [ ] Add Telegram deployment notes and staging checklist.
+2. [ ] Add Telegram deployment notes and launch checklist.
 3. [ ] Add optional city field and city-aware discussion discovery.
 4. [ ] Implement the earn-only Stars foundation and invitation attribution.
 5. [ ] Run private beta, tune rewards, and fix friction.
