@@ -151,8 +151,6 @@ const UserSchema = new mongoose.Schema({
   aiTopTenBooks: { type: [String], default: [] },
   aiWatchlistRandom: { type: [String], default: [] },
   aiTopTenRandom: { type: [String], default: [] },
-  aiSectionPinnedMessageId: Number,
-  aiSectionPinnedSection: String,
   aiLastListMessageId: Number,
   aiLastListSection: String,
   aiLastListType: String,

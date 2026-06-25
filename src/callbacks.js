@@ -438,7 +438,7 @@ async function handleCallback(ctx) {
   }
 
   if (data === callBacks.aiAssistant) {
-    await ctx.answerCb?.(messages[lang].aiAssistant);
+    await ctx.answerCb?.();
     const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });

@@ -91,12 +91,11 @@ Stars UX rules:
 - The guard should be conservative: block obvious duplicate interactions for a short window, but do not block normal follow-up text, different buttons, or intentional repeated actions after the window expires.
 - The guard should fail open if unsure, so bot features keep working even if guard state is missing or malformed.
 
-## Callback Notifications
+## Callback Acknowledgements
 
-- AI section entry uses callback notifications (`answerCallbackQuery`) as a temporary top notification with the section name.
-- Callback notifications are not persistent like a pin.
-- Use callback notifications for lightweight context changes when the platform supports them.
-- If a repeated button press keeps the visible message effectively unchanged, use a short callback notification so the user can tell the tap was handled without adding chat noise.
+- Answer callback buttons silently for normal AI section/list navigation; do not show top callback notifications for section changes.
+- Use visible bot messages or edits for user-facing context changes.
+- If a repeated button press keeps the visible message effectively unchanged, silently acknowledge it unless there is a real error or safety reason to show text.
 - If a callback belongs to an old/stale flow state, ignore it safely (or remove that stale card) instead of applying state changes from outdated buttons.
 - When a command-link action fails from a list, remove or refresh the stale list and show the relevant list again after the bot explanation when practical.
 - For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.

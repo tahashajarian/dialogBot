@@ -39,7 +39,7 @@
   - remove
 - Entering a list manager should not print item rows immediately. Show a compact manager card, and include a "show list" button only when that list has at least one item.
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
-- If a list has more than five items, also show a "share my list" button. Send a short intro first, then a separate shareable list message. The shareable message should omit the pinned section header and render titles/comments only, without management command links or status toggles, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
+- If a list has more than five items, also show a "share my list" button. Send a short intro first, then a separate shareable list message. The shareable message should omit the section header and render titles/comments only, without management command links or status toggles, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
 - Keep inline buttons for list-level controls only, such as add, filters, back/navigation, and input cancel.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.

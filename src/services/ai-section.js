@@ -153,46 +153,6 @@ function getTasteLabelStyleHint(messages, lang, section, labelKey) {
   return messages[lang]?.aiTasteLabelStyleFallback || "";
 }
 
-async function clearAiSectionPin({ ctx, updateProfileField }) {
-  const pinnedMessageId = Number(ctx.user?.aiSectionPinnedMessageId);
-
-  if (pinnedMessageId && ctx.unpinMessage) {
-    try {
-      await ctx.unpinMessage(pinnedMessageId);
-    } catch {}
-  }
-
-  await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", null);
-  await updateProfileField(ctx.userId, "aiSectionPinnedSection", null);
-}
-
-async function pinAiSectionTitle({
-  ctx,
-  lang,
-  section,
-  messages,
-  updateProfileField,
-}) {
-  await clearAiSectionPin({ ctx, updateProfileField });
-
-  const sectionLabel = getSectionLabel(messages, lang, section);
-  const titleText = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
-  const sentMessage = await ctx.reply(titleText);
-  const messageId = sentMessage?.message_id || sentMessage?.messageId;
-
-  let pinned = false;
-  if (messageId && ctx.pinMessage) {
-    try {
-      pinned = await ctx.pinMessage(messageId);
-    } catch {}
-  }
-
-  if (messageId && pinned) {
-    await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", Number(messageId));
-    await updateProfileField(ctx.userId, "aiSectionPinnedSection", section);
-  }
-}
-
 module.exports = {
   getAiSectionFromState,
   getSectionLabel,
@@ -202,6 +162,4 @@ module.exports = {
   getTasteLabelEmoji,
   getTasteLabelTitle,
   getTasteLabelStyleHint,
-  clearAiSectionPin,
-  pinAiSectionTitle,
 };

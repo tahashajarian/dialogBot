@@ -31,7 +31,6 @@ const {
 } = require("./services/profile");
 const {
   getAiSectionFromState,
-  clearAiSectionPin,
 } = require("./services/ai-section");
 const {
   normalizePublicProfileCode,
@@ -439,7 +438,6 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, "idle");
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
-      await clearAiSectionPin({ ctx, updateProfileField });
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 

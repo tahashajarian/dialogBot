@@ -692,7 +692,6 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
       userId: 1,
       lang: "fa",
       state: "idle",
-      aiSectionPinnedMessageId: null,
     },
     answerCb: async () => true,
     deleteMessage: async (messageId) => {

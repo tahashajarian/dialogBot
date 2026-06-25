@@ -120,7 +120,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
 
 function withAiSectionTitle(lang, section, body) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const heading = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
+  const heading = messages[lang].aiSectionTitle.replace("{section}", sectionLabel);
   return `${heading}\n\n${body}`;
 }
 

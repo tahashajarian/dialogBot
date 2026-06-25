@@ -45,7 +45,6 @@ const {
   getSectionListLabel,
   getTasteLabelTitle,
   getTasteLabelStyleHint,
-  clearAiSectionPin,
 } = require("../services/ai-section");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
@@ -567,7 +566,6 @@ async function handleAiText(ctx, lang, text, state) {
       await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
-      await clearAiSectionPin({ ctx, updateProfileField });
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
@@ -837,7 +835,6 @@ async function handleAiText(ctx, lang, text, state) {
       await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
-      await clearAiSectionPin({ ctx, updateProfileField });
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 

@@ -40,7 +40,6 @@ const {
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("../services/ai-placeholder");
 const {
-  clearAiSectionPin,
   getSectionLabel,
   getSectionListLabel,
   getSectionMessage,
@@ -342,26 +341,17 @@ function getSuggestionDoneCompliment(lang, section) {
 
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const title = messages[lang].aiSectionPinnedTitle.replace("{section}", sectionLabel);
+  const title = messages[lang].aiSectionTitle.replace("{section}", sectionLabel);
   const body = messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
   return `${title}\n\n${body}`;
 }
 
-function getAiSectionNotificationTitle(lang, section) {
-  return getSectionMessage(messages, lang, "aiSuggest", section, "aiSuggestRandom");
-}
-
 async function enterAiSection(ctx, lang, section, helpers) {
-  await ctx.answerCb?.(
-    messages[lang].aiSectionOpeningNotification
-      .replace("{section}", getAiSectionNotificationTitle(lang, section)),
-  );
+  await ctx.answerCb?.();
   await updateUserState(ctx.userId, `ai_chat_${section}`);
   await clearAiActionMessage(ctx);
   await clearRememberedAiListMessage(ctx);
   await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
-  await updateProfileField(ctx.userId, "aiSectionPinnedMessageId", null);
-  await updateProfileField(ctx.userId, "aiSectionPinnedSection", null);
   await helpers.deleteCallbackMessageIfPossible(ctx);
   const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
   const sent = await ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
@@ -463,7 +453,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiTopTenInsight)) {
-    await ctx.answerCb?.(messages[lang].aiTopTenInsightNotification);
+    await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTopTenInsight, "").trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
 
@@ -880,10 +870,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await ctx.answerCb?.(
-      messages[lang].aiSectionOpeningNotification
-        .replace("{section}", getAiSectionNotificationTitle(lang, section)),
-    );
+    await ctx.answerCb?.();
     await updateUserState(ctx.userId, `ai_chat_${section}`);
     await clearAiPendingInputPrompt(ctx);
     await clearAiActionMessage(ctx);
@@ -897,7 +884,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {
-    await ctx.answerCb?.(messages[lang].aiSuggestionNotification);
+    await ctx.answerCb?.();
     const section = data.replace(callBacks.aiSectionAnotherSuggestion, "").trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
 
@@ -917,7 +904,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiPaidSuggestionConfirm)) {
-    await ctx.answerCb?.(messages[lang].aiSuggestionNotification);
+    await ctx.answerCb?.();
     const publicCode = data.replace(callBacks.aiPaidSuggestionConfirm, "").trim();
     const paid = await confirmPaidSuggestion(ctx.userId, publicCode);
     if (!paid.ok) {
@@ -956,10 +943,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await ctx.answerCb?.(
-      messages[lang].aiSectionOpeningNotification
-        .replace("{section}", getAiSectionNotificationTitle(lang, section)),
-    );
+    await ctx.answerCb?.();
     await updateUserState(ctx.userId, `ai_chat_${section}`);
     await clearAiPendingInputPrompt(ctx);
     await helpers.deleteCallbackMessageIfPossible(ctx);
@@ -968,7 +952,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestWithContext)) {
-    await ctx.answerCb?.(messages[lang].aiSuggestionContextNotification);
+    await ctx.answerCb?.();
     const section = data.replace(callBacks.aiSectionSuggestWithContext, "").trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
 
@@ -992,7 +976,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestFromTopTen)) {
-    await ctx.answerCb?.(messages[lang].aiSuggestionTopTenNotification);
+    await ctx.answerCb?.();
     const section = data.replace(callBacks.aiSectionSuggestFromTopTen, "").trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
 
@@ -1012,7 +996,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data.startsWith(callBacks.aiSectionRejectSuggestion)) {
-    await ctx.answerCb?.(messages[lang].aiSuggestionRejectedNotification);
+    await ctx.answerCb?.();
     const section = data.replace(callBacks.aiSectionRejectSuggestion, "").trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
 
@@ -1089,11 +1073,10 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data === callBacks.aiBack) {
-    await ctx.answerCb?.(messages[lang].mainMenuTitle);
+    await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
     await clearAiPendingInputPrompt(ctx);
-    await clearAiSectionPin({ ctx, updateProfileField });
     await helpers.deleteCallbackMessageIfPossible?.(ctx);
     if (helpers.replyWithRemovedKeyboardThenInline) {
       return helpers.replyWithRemovedKeyboardThenInline(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
