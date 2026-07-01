@@ -1,8 +1,7 @@
 # Muze
 
 Muze is a bilingual Persian/English Telegram bot built with Node.js, Telegraf,
-MongoDB, and an OpenAI-compatible AI endpoint. The codebase is still named
-DialogBot internally.
+MongoDB, and an OpenAI-compatible AI endpoint.
 
 The bot combines:
 

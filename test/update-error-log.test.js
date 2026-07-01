@@ -63,7 +63,7 @@ test("update error log metadata includes callback category without full payload"
 
 test("command and callback sanitizers reject non-metadata payloads", () => {
   assert.equal(getCommandName("normal discussion text"), undefined);
-  assert.equal(getCommandName("/profile@MuzeBot extra private text"), "/profile");
+  assert.equal(getCommandName("/profile@hey_muze_bot extra private text"), "/profile");
   assert.equal(getCommandName("/bad-command secret"), undefined);
 
   assert.equal(getCallbackCategory("profile:view:123"), "profile");

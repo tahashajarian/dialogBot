@@ -974,12 +974,12 @@ test("AI share list appends configured bot link footer", () => {
     lang: "en",
     section: "music",
     listType: "topTen",
-    botLink: "https://ble.ir/@DialogBot",
+    botLink: "https://ble.ir/@Muze",
   });
 
   assert.match(shareText, /🏆 Music top 10/);
   assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
-  assert.match(shareText, /Made with: https:\/\/ble\.ir\/@DialogBot/);
+  assert.match(shareText, /Made with: https:\/\/ble\.ir\/@Muze/);
   assert.doesNotMatch(shareText, /📌/);
 });
 

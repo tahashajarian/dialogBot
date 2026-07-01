@@ -43,7 +43,7 @@ Recommended Telegram launch environment:
 ```dotenv
 BOT_TOKEN=telegram_botfather_token
 MONGO_URI=your_mongo_uri
-MONGO_DB_NAME=dialogbot_telegram
+MONGO_DB_NAME=muze_telegram
 API_ROOT=
 TELEGRAM_PROXY_URL=
 BOT_DEEP_LINK_BASE_URL=https://t.me/YourTelegramBot

@@ -36,7 +36,7 @@ async function resolveCityByCoordinates(latitude, longitude) {
       },
       timeout: GEOCODE_TIMEOUT_MS,
       headers: {
-        "User-Agent": "DialogBot/1.0",
+        "User-Agent": "Muze/1.0",
       },
     });
 

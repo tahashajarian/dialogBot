@@ -237,7 +237,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DialogBot Analytics</title>
+  <title>Muze Analytics</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -390,7 +390,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
   <main>
     <header>
       <div>
-        <h1>DialogBot Analytics</h1>
+        <h1>Muze Analytics</h1>
         <div class="muted">Generated ${escapeHtml(new Date(snapshot.generatedAt).toLocaleString())}. Auto-refreshes every 60 seconds while forms are unchanged.</div>
       </div>
       <a href="/api/snapshot">JSON</a>
@@ -507,7 +507,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     <p class="footer">This dashboard updates every 30 seconds and remembers collapsed sections.</p>
   </main>
   <script>
-    const sectionStateKey = "dialogbot.dashboard.sections";
+    const sectionStateKey = "muze.dashboard.sections";
     const loadSectionState = () => {
       try {
         return JSON.parse(localStorage.getItem(sectionStateKey) || "{}");

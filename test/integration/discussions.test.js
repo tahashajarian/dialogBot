@@ -38,7 +38,7 @@ const {
 const messages = require("../../src/messages");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
-const MONGODB_TEST_DB = `dialogbot_integration_${process.pid}_${Date.now()}`;
+const MONGODB_TEST_DB = `muze_integration_${process.pid}_${Date.now()}`;
 
 async function createUser(userId, overrides = {}) {
   return User.create({
@@ -65,7 +65,7 @@ async function createOpenDiscussion(creatorUserId, overrides = {}) {
 }
 
 test.before(async () => {
-  if (!MONGODB_TEST_DB.startsWith("dialogbot_integration_")) {
+  if (!MONGODB_TEST_DB.startsWith("muze_integration_")) {
     throw new Error("Refusing to run integration tests against a non-test database.");
   }
 

@@ -12,7 +12,7 @@ const { starEconomy } = require("../../src/services/star-settings");
 const { createStarsService } = require("../../src/services/stars");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
-const MONGODB_TEST_DB = `dialogbot_stars_integration_${process.pid}_${Date.now()}`;
+const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
 test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, { dbName: MONGODB_TEST_DB });
   await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init()]);

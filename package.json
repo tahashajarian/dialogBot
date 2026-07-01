@@ -1,5 +1,5 @@
 {
-  "name": "MuzeBot",
+  "name": "muze-bot",
   "version": "0.0.1",
   "description": "A bilingual Telegram social bot for profiles, AI taste lists, and live discussions.",
   "main": "src/index.js",
