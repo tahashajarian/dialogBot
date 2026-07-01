@@ -393,7 +393,7 @@ First-time/deep-link handling:
 - If the platform opens the bot through `/start join_CODE`, handle it as an invite preview.
 - If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
-- If the same user later receives the same hidden start payload again from the platform Start button, treat it as normal `/start` so clearing chat history does not reopen an old invite. A new start invite code and explicit `/join_CODE` still open the preview.
+- Repeated public invite links should still open the invite preview or re-focus the room. Star rewards remain protected by directed-pair ledger idempotency, not by blocking the preview.
 - Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
 - If the user is inside another discussion, the invite join action should ask them to leave the current room first.

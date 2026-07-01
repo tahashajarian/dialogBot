@@ -51,3 +51,19 @@ test("Star reward notice combines balance and one next milestone", () => {
   assert.match(text, /Balance: 8/);
   assert.match(text, /Add 7 more/);
 });
+
+test("invite Star reward notice uses a natural accepted-invite sentence", () => {
+  const fa = buildStarRewardNotice(messages, "fa", [{
+    milestone: "invite_pair_reward",
+    amount: 1,
+    balance: 4,
+  }]);
+  const en = buildStarRewardNotice(messages, "en", [{
+    milestone: "invite_pair_reward",
+    amount: 1,
+    balance: 4,
+  }]);
+
+  assert.equal(fa, "👩‍🦳⭐ یک نفر با دعوت تو وارد بحث شد؛ ۱ ستاره گرفتی.\nموجودی: ۴");
+  assert.equal(en, "👩‍🦳⭐ Someone joined a discussion through your invite; you earned 1 Stars.\nBalance: 4");
+});

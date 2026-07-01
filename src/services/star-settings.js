@@ -61,12 +61,6 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
     label: "Qualified outside referral reward", description: "Reward when a genuinely new referred user qualifies.", group: "Rewards", type: "number", unit: "Stars", default: 10, min: 0, max: 10000,
   },
 
-  savedInviteEarnCapStars: {
-    label: "Stored-invite earning cap", description: "Maximum Stars earned from stored invitations per window.", group: "Reward limits", type: "number", unit: "Stars", default: 5, min: 0, max: 10000,
-  },
-  savedInviteEarnWindowHours: {
-    label: "Stored-invite earning window", description: "Rolling window for the stored-invite Star cap.", group: "Reward limits", type: "number", unit: "hours", default: 24, min: 1, max: 8760,
-  },
   externalReferralLinkExpiryDays: {
     label: "Outside referral link expiry", description: "Days an attributable outside link remains claimable.", group: "Reward limits", type: "number", unit: "days", default: 30, min: 1, max: 3650,
   },

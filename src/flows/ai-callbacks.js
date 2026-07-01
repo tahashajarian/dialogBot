@@ -722,18 +722,12 @@ async function handleAiCallback(ctx, lang, helpers) {
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
       getAiListAddPrompt(lang, section, listType),
-      { reply_markup: { remove_keyboard: true } },
-    );
-    const editedPrompt = await editPlaceholder(
-      ctx,
-      prompt,
-      getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
         ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
         : aiListCancelAddKeyboard(lang, section, listType),
     );
-    await rememberAiPendingInputPrompt(ctx, editedPrompt || prompt);
-    return editedPrompt;
+    await rememberAiPendingInputPrompt(ctx, prompt);
+    return prompt;
   }
 
   if (data.startsWith(callBacks.aiInterestTopTenMore)) {

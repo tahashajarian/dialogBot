@@ -45,11 +45,12 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
+const { awardSavedInvitePair } = require("../services/star-invitations");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
 } = require("../services/stars-ui");
-const { updateProfileField, updateUserState } = require("../services/users");
+const { updateProfileField, updateUserFields, updateUserState } = require("../services/users");
 const {
   buildDiscussionOpenNameGate,
   requireDiscussionProfileName,
@@ -337,7 +338,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const opened = await joinOrOpenDiscussion(ctx.userId, activeDiscussionId);
     if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName publicProfileCode")
+      .select("userId profileName firstName profileEmoji publicProfileCode")
       .lean();
     const preparedMembers = await ensurePublicProfileCodes(memberUsers);
     const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
@@ -563,6 +564,43 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
 
   await clearListMessage?.();
   await clearMenuNotice?.();
+  const pendingShareCode = String(ctx.user?.pendingDiscussionShareCode || "");
+  const pendingShareInviterUserId = Number(ctx.user?.pendingDiscussionShareInviterUserId);
+  const pendingShareMatches = pendingShareCode.toLowerCase() === String(publicCode || "").toLowerCase();
+  if (
+    joined.joined &&
+    pendingShareCode &&
+    pendingShareMatches &&
+    Number.isInteger(pendingShareInviterUserId) &&
+    pendingShareInviterUserId > 0 &&
+    pendingShareInviterUserId !== Number(ctx.userId)
+  ) {
+    const inviterReward = await awardSavedInvitePair({
+      inviterUserId: pendingShareInviterUserId,
+      inviteeUserId: ctx.userId,
+      invitationId: null,
+      source: "discussion_share",
+    });
+    if (inviterReward.ok && inviterReward.applied) {
+      const inviter = await User.findOne({ userId: pendingShareInviterUserId }).select("lang").lean();
+      const inviterLang = messages[inviter?.lang] ? inviter.lang : "fa";
+      const inviterNotice = buildStarRewardNotice(messages, inviterLang, [{
+        milestone: "invite_pair_reward",
+        amount: inviterReward.transaction.amount,
+        balance: inviterReward.balance,
+      }]);
+      if (inviterNotice) await ctx.sendToUser?.(pendingShareInviterUserId, inviterNotice);
+    }
+  }
+  if (pendingShareCode && pendingShareMatches) {
+    const clearedShare = {
+      pendingDiscussionShareInviterUserId: null,
+      pendingDiscussionShareCode: "",
+      pendingDiscussionShareAt: null,
+    };
+    Object.assign(ctx.user || {}, clearedShare);
+    await updateUserFields(ctx.userId, clearedShare);
+  }
   const statusText = joined.joined
     ? messages[lang].discussionJoined
     : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionOpened);

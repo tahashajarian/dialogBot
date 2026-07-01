@@ -3,6 +3,7 @@ const {
   getDiscussionDisplayDescription,
   getDiscussionDisplayTitle,
 } = require("./discussion-ui");
+const { formatUserDisplayName } = require("./profile");
 
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
@@ -85,7 +86,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
     const isCurrentUser = Number(entry.userId) === Number(currentUserId);
     const isOwner = Number(entry.userId) === Number(creatorUserId);
     const currentUserIsOwner = Number(currentUserId) === Number(creatorUserId);
-    const name = isCurrentUser ? (lang === "fa" ? "تو" : "You") : (entry.profileName || entry.firstName || "کاربر");
+    const name = isCurrentUser ? (lang === "fa" ? "تو" : "You") : formatUserDisplayName(entry);
     const owner = isOwner ? ` — ${messages[lang].discussionOwnerMark}` : "";
     const code = entry.publicProfileCode || "";
     const codeSuffix = code.replace(/^u_/i, "");

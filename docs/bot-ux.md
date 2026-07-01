@@ -18,13 +18,13 @@
 - Back button labels should use `🔙` as the visible back emoji.
 - Numeric inline button rows should be ordered so the visible numbers start from the left in both Persian and English clients.
 - When leaving an AI section/manage flow via Back, remove temporary reply keyboards (for example Top 10/Suggestion bottom buttons) before showing the higher-level menu.
-- When clearing a temporary reply keyboard before an inline menu, avoid blank/placeholder bubbles. Send the actual destination menu text with `remove_keyboard`, then attach inline buttons to that same visible message when the platform allows it.
+- When clearing a temporary reply keyboard before an inline menu, avoid blank/placeholder bubbles. Send the actual destination menu text with `remove_keyboard`, then attach inline buttons to that same visible message when the platform allows it. If the edit fallback must send a fresh inline menu, delete the keyboard-removal copy first so the same text does not remain twice.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
 - Entering a section/list should show the relevant section/list title immediately, not only after returning from submenus.
 
 ## Input Collection
 
-- When collecting typed input, hide bottom keyboards and provide one inline cancel button.
+- When collecting typed input, provide one inline cancel button. Prefer hiding temporary bottom keyboards, but do not leave two visible prompt messages if the platform cannot combine keyboard removal and inline buttons reliably.
 - Cancel/back copy should match the action: "back" should not sound like an operation was canceled unless an input flow was actually canceled.
 - Text inputs should be length-limited and normalized before saving.
 - Profile name/city are short fields; bio can be longer.
@@ -52,7 +52,7 @@
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
 - After normal onboarding completion, Muze may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. The starter invitation note should point users to the Invitations section, while the completion hint can cover profile Interests and media Lists. Do not send locked starter-room invitations during onboarding. These are Muze recommendations, not personal invites, and should not show Muze profile/mute controls. The active-discussions action can stay available as a secondary path for users who want to browse instead.
 - Onboarding must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
-- Some platforms may display only `/start` while still sending an old invite payload to the bot after the user clears chat history and presses Start. Once a `/start join_CODE` payload has opened an invite preview for that user, later repeats of the same start payload should be treated as normal `/start`. New start invite codes and explicit `/join_CODE` commands should still open the invite preview.
+- Some platforms may display only `/start` while still sending an invite payload to the bot. Public discussion invite payloads should always open the invite preview or re-focus the room; Star rewards stay one-time through directed-pair ledger idempotency.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
 
 Stars UX rules:

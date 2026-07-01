@@ -19,6 +19,12 @@ function hasText(value) {
   return String(value || "").trim() !== "";
 }
 
+function formatUserDisplayName(user = {}, fallback = "کاربر") {
+  const baseName = String(user?.profileName || user?.firstName || fallback || "").trim();
+  const profileEmoji = String(user?.profileEmoji || "").trim();
+  return [baseName, profileEmoji].filter(Boolean).join(" ");
+}
+
 function toPlainUser(user) {
   if (!user) return {};
   if (typeof user.toObject === "function") {
@@ -181,9 +187,7 @@ function hasValidLocation(location) {
 }
 
 function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
-  const displayName = user?.profileName || user?.firstName || "—";
-  const profileEmoji = String(user?.profileEmoji || "").trim();
-  const displayNameWithEmoji = profileEmoji ? `${displayName} ${profileEmoji}` : displayName;
+  const displayNameWithEmoji = formatUserDisplayName(user, "—");
   const genderMap = {
     female: messages[lang].genderOptionFemaleDisplay,
     male: messages[lang].genderOptionMaleDisplay,
@@ -354,6 +358,7 @@ module.exports = {
   getBasicProfileMissingFields,
   getProfileInterestTitles,
   buildLocationPayload,
+  formatUserDisplayName,
   hasValidLocation,
   sendProfileMessage,
   saveLocationProfile,

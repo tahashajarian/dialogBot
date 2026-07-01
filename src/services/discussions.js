@@ -36,6 +36,7 @@ const {
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 } = require("./discussion-starters");
+const { formatUserDisplayName } = require("./profile");
 const {
   createActiveDiscussionNotifier,
   notifyDiscussionMembers,
@@ -418,7 +419,7 @@ async function joinOrOpenDiscussion(userId, discussionId) {
       },
     );
 
-    const joinerName = String(user.profileName || user.firstName || "کاربر").trim();
+    const joinerName = formatUserDisplayName(user);
     const otherMemberIds = joinedDiscussion.memberUserIds.filter((id) => id !== userId);
     const starRewards = await awardFirstDiscussionJoined(userId, joinedDiscussion._id);
 
@@ -489,7 +490,7 @@ async function leaveDiscussionAsMember(userId, discussionId) {
 
   await User.findOneAndUpdate({ userId }, updates);
   
-  const leaverName = String(user.profileName || user.firstName || "کاربر").trim();
+  const leaverName = formatUserDisplayName(user);
   const activeMemberIds = discussion.memberUserIds.filter((id) => id !== userId);
   
   return {
@@ -574,7 +575,7 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
       },
       { returnDocument: "before" },
     ),
-    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang profileName firstName").lean(),
+    User.findOne({ userId: memberUserId }).select("activeDiscussionId lang profileName firstName profileEmoji").lean(),
   ]);
 
   if (!discussion) {
@@ -596,7 +597,7 @@ async function removeMemberAsOwner(ownerUserId, discussionId, memberUserId) {
     { $set: { activeDiscussionId: null } },
   );
 
-  const removedMemberName = String(memberUser?.profileName || memberUser?.firstName || "کاربر").trim();
+  const removedMemberName = formatUserDisplayName(memberUser);
   const otherMemberIds = discussion.memberUserIds.filter((id) => id !== memberUserId && id !== ownerUserId);
   
   return {
@@ -633,7 +634,7 @@ async function reportDiscussionMember(reporterUserId, discussionId, targetUserId
     Discussion.findById(discussionId),
     User.findOne({ userId: reporterUserId }).select("bannedAt").lean(),
     User.findOne({ userId: targetUserId })
-      .select("userId lang profileName firstName reportReporterUserIds bannedAt")
+      .select("userId lang profileName firstName profileEmoji reportReporterUserIds bannedAt")
       .lean(),
   ]);
 
@@ -673,7 +674,7 @@ async function reportDiscussionMember(reporterUserId, discussionId, targetUserId
 
   const reportCount = (updatedTarget.reportReporterUserIds || []).length;
   const reportsLeft = Math.max(reportBanThreshold - reportCount, 0);
-  const targetName = String(updatedTarget.profileName || updatedTarget.firstName || "کاربر").trim();
+  const targetName = formatUserDisplayName(updatedTarget);
   const banned = reportCount >= reportBanThreshold;
   let affectedDiscussionIds = [];
 

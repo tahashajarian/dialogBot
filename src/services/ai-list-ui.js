@@ -91,7 +91,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   };
   const actionLine = (label, command) => `${label} ${pointer} ${command}`;
   const lines = items.map((entry, index) => {
-    const watchedBadge = includeWatched ? `${entry?.watched ? "✅" : "⬜"} ` : "";
+    const watchedBadge = includeWatched ? `${entry?.watched ? "✅" : "⏳"} ` : "";
     const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
     const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
     const itemLine = `${index + 1}. ${watchedBadge}${entry.title}${topTenBadge}${commentPart}`;

@@ -73,7 +73,7 @@ This new feature adds a stored in-bot invite path for saved profiles.
 - A to B and B to A are separate directions and may each qualify once.
 - Repeated invitations, different rooms, leaving/rejoining, reopening accepted shortcuts, duplicate callbacks, and duplicate stored rows never award again.
 - Bot onboarding invitations and future boosted recommendations never count.
-- A configurable invitation-earning cap/window limits renewable abuse without changing the existing invitation sending limit.
+- There is no reward cap/window: each different invitee can reward once, and the same invitee cannot reward the same inviter twice.
 - Invitation send success copy may explain that the inviter can earn Stars if this is their first rewarded invitation to that person and the person joins. It must not promise or display an earned balance before acceptance.
 - The acceptance/join and reward must be idempotent. A reward failure must not cause a second membership mutation when retried.
 
@@ -183,7 +183,7 @@ Recommended menu:
 ```text
 📨 دعوت به بحث
 
-می‌خوای چطور دعوت کنی؟
+💬 {discussion title}
 ```
 
 Actions:
@@ -197,7 +197,7 @@ English:
 ```text
 📨 Invite to discussion
 
-How do you want to invite?
+💬 {discussion title}
 ```
 
 Actions:
@@ -776,7 +776,7 @@ Implementation note:
 - Keep the limit definition centralized, for example in `src/constants/limits.js` or `src/services/user-limits.js`.
 - Invitation code should read the global sender limit/window from the Mongo-backed operational limits service used by the admin dashboard.
 - The sending limit applies equally regardless of Star balance or purchases. Stars must not buy a spam allowance.
-- The separate Star invitation-earning cap/window belongs to Star economy settings and controls rewards only; it does not increase how many invitations can be sent.
+- Star reward idempotency is per directed inviter/invitee pair; it does not increase how many invitations can be sent.
 
 ### Invitation Mutes
 
@@ -1094,7 +1094,7 @@ Stars-specific invitation tests are required in addition to the existing checkli
 - [ ] B-to-A can independently award once.
 - [ ] Simultaneous/repeated accept callbacks create one membership result and one reward.
 - [ ] Bot starter and boost recommendation sources never reward inviters.
-- [ ] Invitation Star earning cap/window is enforced atomically.
+- [ ] Invitation Star reward idempotency is enforced atomically per directed inviter/invitee pair.
 - [ ] Attributable outside links do not expose raw IDs.
 - [ ] Repeated `/start`, language selection retries, cleared chat, old accounts, and self-referrals cannot duplicate/steal referral attribution.
 - [ ] One new invitee qualifies at most one outside inviter after the configured milestone.

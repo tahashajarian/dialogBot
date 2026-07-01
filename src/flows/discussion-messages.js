@@ -2,6 +2,7 @@ const messages = require("../messages");
 const { discussionRoomKeyboard } = require("../keyboards");
 const { getMessageId } = require("../services/bot-navigation");
 const { addRecentMessage } = require("../services/discussion-messages");
+const { formatUserDisplayName } = require("../services/profile");
 const {
   findDiscussionDelivery,
   getReplyMessageIdForRecipient,
@@ -70,7 +71,7 @@ async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, r
 }
 
 async function handleDiscussionMessage(ctx, lang, messageType, payload) {
-  const senderName = String(ctx.user?.profileName || ctx.user?.firstName || "کاربر").trim();
+  const senderName = formatUserDisplayName(ctx.user);
   const added = await addRecentMessage({
     discussionId: ctx.user.activeDiscussionId,
     senderUserId: ctx.userId,

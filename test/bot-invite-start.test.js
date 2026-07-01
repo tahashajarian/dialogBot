@@ -11,7 +11,6 @@ const {
   getStartInviteCode,
   getStartReferralCode,
   handleUpdate,
-  isRepeatedStartInvite,
   isUnsupportedDiscussionMessage,
   replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
@@ -75,11 +74,22 @@ test("invite welcome copy leads into the invite instead of onboarding", () => {
   }
 });
 
-test("repeated same start invite payload falls back to normal start", async () => {
+test("repeated same start invite payload still opens invite preview", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
   const replies = [];
 
   User.findOneAndUpdate = async () => ({});
+  Discussion.findOne = async () => ({
+    _id: "discussion-id",
+    title: "Movie Chat",
+    description: "Films",
+    publicDiscussionCode: "d_AB12",
+    memberUserIds: [],
+    maxMembers: 20,
+    status: "open",
+    joinRule: { type: "open" },
+  });
 
   const ctx = {
     text: "/start join_AB12",
@@ -105,19 +115,31 @@ test("repeated same start invite payload falls back to normal start", async () =
     await handleUpdate(ctx);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
   }
 
-  assert.equal(replies.length, 2);
-  assert.match(replies[0].text, /Hi Taha, I’m Muze/);
-  assert.doesNotMatch(replies[0].text, /invite/i);
-  assert.equal(replies[1].text, messages.en.mainMenu);
+  assert.match(replies.at(-2).text, /Hi Taha, I’m Muze/);
+  assert.match(replies.at(-2).text, /invite/i);
+  assert.match(replies.at(-1).text, /Invite preview/);
+  assert.match(replies.at(-1).text, /Movie Chat/);
 });
 
 test("repeated start invite payload clears saved profile list card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
   const deleteAttempts = [];
 
   User.findOneAndUpdate = async () => ({});
+  Discussion.findOne = async () => ({
+    _id: "discussion-id",
+    title: "Movie Chat",
+    description: "Films",
+    publicDiscussionCode: "d_AB12",
+    memberUserIds: [],
+    maxMembers: 20,
+    status: "open",
+    joinRule: { type: "open" },
+  });
 
   const ctx = {
     text: "/start join_AB12",
@@ -144,38 +166,11 @@ test("repeated start invite payload clears saved profile list card", async () =>
     await handleUpdate(ctx);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
   }
 
-  assert.deepEqual(deleteAttempts, [42]);
+  assert.equal(deleteAttempts.includes(42), true);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
-});
-
-test("start invite repeat guard blocks handled hidden payloads but not new invite links", () => {
-  const now = new Date("2026-06-19T12:00:00Z");
-  assert.equal(isRepeatedStartInvite({
-    handledStartInviteCodes: ["d_AB12"],
-  }, "d_AB12", now), true);
-
-  assert.equal(isRepeatedStartInvite({
-    handledStartInviteCodes: ["d_AB12"],
-  }, "d_CD34", now), false);
-});
-
-test("start invite repeat guard still supports legacy handled-start fields", () => {
-  assert.equal(isRepeatedStartInvite({
-    lastStartInviteCode: "d_AB12",
-    lastStartInviteAt: new Date("2026-06-19T11:59:00Z"),
-  }, "d_AB12"), true);
-
-  assert.equal(isRepeatedStartInvite({
-    lastStartInviteCode: "d_AB12",
-    lastStartInviteAt: new Date("2026-06-19T11:59:00Z"),
-  }, "d_CD34"), false);
-
-  assert.equal(isRepeatedStartInvite({
-    lastStartInviteCode: "d_AB12",
-    lastStartInviteAt: new Date("2026-06-19T11:00:00Z"),
-  }, "d_AB12"), true);
 });
 
 test("discussion reply helper extracts replied message id", () => {

@@ -699,7 +699,11 @@ async function handleAiText(ctx, lang, text, state) {
           items: result.items,
         });
         const saved = await placeholder.finish(
-          [savedMessage, starNotice].filter(Boolean).join("\n\n"),
+          [
+            savedMessage,
+            starNotice,
+            listIsFull ? "" : messages[lang].aiListManageAddNextPrompt,
+          ].filter(Boolean).join("\n\n"),
           listIsFull
             ? undefined
             : getContinuousAddKeyboard(lang, section, listType, result.items),

@@ -76,6 +76,17 @@ test("formatDiscussionMemberLines marks host with host badge", () => {
   assert.match(lines[1], /🚩 Report 👈 \/report_B2/);
 });
 
+test("formatDiscussionMemberLines shows profile emoji for other members", () => {
+  const lines = formatDiscussionMemberLines(messages, "en", [
+    { userId: 10, profileName: "Owner", profileEmoji: "🎧", publicProfileCode: "u_A1" },
+    { userId: 11, profileName: "Member", profileEmoji: "💠", publicProfileCode: "u_B2" },
+  ], 10, 10);
+
+  assert.match(lines[0], /You/);
+  assert.doesNotMatch(lines[0], /🎧/);
+  assert.match(lines[1], /Member 💠/);
+});
+
 test("formatDiscussionMemberLines does not show presence marker", () => {
   const lines = formatDiscussionMemberLines(messages, "en", [
     { userId: 10, profileName: "Owner", publicProfileCode: "u_A1", activeDiscussionId: "d1" },

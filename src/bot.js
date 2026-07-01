@@ -163,16 +163,6 @@ function getStartReferralCode(text = "") {
   return match ? match[1].toUpperCase() : "";
 }
 
-function isRepeatedStartInvite(user, inviteCode) {
-  const lastCode = String(user?.lastStartInviteCode || "");
-  const handledCodes = Array.isArray(user?.handledStartInviteCodes)
-    ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
-    : [];
-
-  if (inviteCode && handledCodes.includes(inviteCode)) return true;
-  return Boolean(inviteCode && lastCode === inviteCode);
-}
-
 function addHandledStartInviteCode(user, inviteCode) {
   const existing = Array.isArray(user?.handledStartInviteCodes)
     ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
@@ -217,6 +207,7 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const startReferralCode = getStartReferralCode(text);
   let startInviteCode = getStartInviteCode(text);
+  let shareInviterUserId = null;
   if (startReferralCode) {
     const referral = await claimReferral({
       code: startReferralCode,
@@ -225,18 +216,27 @@ async function handleUpdate(ctx) {
     });
     if (referral.link?.discussionPublicCode) {
       startInviteCode = referral.link.discussionPublicCode;
+      shareInviterUserId = Number(referral.link.inviterUserId) || null;
     } else if (!referral.ok) {
       await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
     }
   }
-  const repeatedStartInvite = startInviteCode && isRepeatedStartInvite(ctx.user, startInviteCode);
 
-  if (startInviteCode && !repeatedStartInvite) {
+  if (startInviteCode) {
     void trackEvent({
       name: EVENT_NAMES.userStarted,
       userId: ctx.userId,
       source: "invite",
     });
+    if (shareInviterUserId && shareInviterUserId !== Number(ctx.userId)) {
+      const pendingShare = {
+        pendingDiscussionShareInviterUserId: shareInviterUserId,
+        pendingDiscussionShareCode: startInviteCode,
+        pendingDiscussionShareAt: new Date(),
+      };
+      Object.assign(ctx.user || {}, pendingShare);
+      await updateUserFields(ctx.userId, pendingShare);
+    }
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
     await clearBottomKeyboardQuietly(ctx);
@@ -293,11 +293,11 @@ async function handleUpdate(ctx) {
     return removeInvitationCommand(ctx, lang, text);
   }
 
-  if (text === "/start" || repeatedStartInvite) {
+  if (text === "/start") {
     void trackEvent({
       name: EVENT_NAMES.userStarted,
       userId: ctx.userId,
-      source: repeatedStartInvite ? "repeat_invite" : "direct",
+      source: "direct",
     });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
@@ -645,7 +645,6 @@ module.exports = {
   handleUpdate,
   getStartInviteCode,
   getStartReferralCode,
-  isRepeatedStartInvite,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   isUnsupportedDiscussionMessage,

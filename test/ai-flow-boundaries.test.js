@@ -281,6 +281,7 @@ test("pressing Add retires the remembered list card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
   User.findOneAndUpdate = async () => ({});
 
@@ -305,6 +306,10 @@ test("pressing Add retires the remembered list card", async () => {
       replies.push({ text, extra });
       return { message_id: 80 + replies.length };
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
   };
 
   try {
@@ -318,7 +323,52 @@ test("pressing Add retires the remembered list card", async () => {
   assert.equal(deletedIds.includes(39), true);
   assert.equal(deletedIds.includes(40), true);
   assert.equal(ctx.user.aiLastListMessageId, null);
+  assert.equal(replies.filter((reply) => reply.text === messages.en.aiListManageAddPrompt).length, 1);
+  assert.equal(replies.some((reply) => reply.text === "."), false);
+  assert.equal(ctx.user.aiPendingInputMessageId, 81);
+  assert.equal(edits.length, 0);
   assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+});
+
+test("pressing Add sends one visible prompt with Cancel when edit is unavailable", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageAdd}books:watchlist`,
+    callbackMessageId: 42,
+    userId: 80,
+    user: {
+      userId: 80,
+      lang: "en",
+      state: "ai_manage_books_watchlist",
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.filter((reply) => reply.text === messages.en.aiListManageAddPrompt).length, 1);
+  assert.equal(deletedIds.includes(91), false);
+  assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+  assert.equal(ctx.user.aiPendingInputMessageId, 91);
 });
 
 test("Top Ten saved message does not repeat saved-only fallback feedback", async () => {
@@ -666,6 +716,7 @@ test("Top Ten add flow stays open for the next item", async () => {
   assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
   assert.equal(replies.some((reply) => reply.text === "deleted:38"), true);
   assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
+  assert.match(finalEdit.text, /Send the next title here/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
@@ -851,7 +902,7 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Send the next item, or tap Back to list/);
+  assert.match(savedReply.text, /Send the next title here/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);
@@ -932,7 +983,7 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   );
 
   assert.match(rendered, /1\. ✅ Dune 🏆 — reread/);
-  assert.match(rendered, /2\. ⬜ Foundation/);
+  assert.match(rendered, /2\. ⏳ Foundation/);
 });
 
 test("AI list UI builds section-titled list messages from user data", () => {
@@ -954,8 +1005,8 @@ test("AI list UI builds section-titled list messages from user data", () => {
   assert.match(topTenText, /1\. Heat — tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
-  assert.match(watchlistText, /1\. ⬜ Heat 🏆/);
-  assert.match(watchlistText, /2\. ⬜ Arrival — rewatch/);
+  assert.match(watchlistText, /1\. ⏳ Heat 🏆/);
+  assert.match(watchlistText, /2\. ⏳ Arrival — rewatch/);
   assert.match(watchlistText, /────────/);
   assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
   assert.match(watchlistText, /Change to watched 👉 \/dn_mv_l_1/);
@@ -1063,7 +1114,7 @@ test("watchlist entry rendering always exposes done and not-done status", () => 
   const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
 
   assert.match(rendered, /1\. ✅ Lichess puzzles/);
-  assert.match(rendered, /2\. ⬜ Photo walk/);
+  assert.match(rendered, /2\. ⏳ Photo walk/);
 });
 
 test("AI list UI uses specific duplicate and Top Ten requirement copy", () => {

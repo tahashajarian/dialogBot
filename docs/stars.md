@@ -125,18 +125,19 @@ The profile completion rule must be centralized and reused by profile rendering,
 - Do not reward message count, repeated joining/leaving, closing, reporting, or member removal.
 - Additional discussion achievements may be designed later, but they need quality signals and explicit anti-spam rules before becoming renewable.
 
-### Saved-Profile Invitation Reward
+### Discussion Invitation Reward
 
-Stored invitations remain reusable, but the Star reward is lifetime-once for each direction of a user pair.
+Stored invitations and attributable discussion share links remain reusable, but the Star reward is lifetime-once for each direction of a user pair.
 
 - A to B's first accepted invitation that results in a successful join may reward A.
 - Later A to B invitations never reward A again, even for another discussion.
 - B may separately earn once for a successful B to A invitation.
-- The target must still be saved when the invitation is created, matching the existing invitation flow.
-- Award only after the join mutation succeeds and the invitation is atomically accepted.
+- For stored saved-profile invitations, the target must still be saved when the invitation is created.
+- For stored invitations, award only after the join mutation succeeds and the invitation is atomically accepted.
+- For attributable discussion share links, award only after the invitee successfully joins from the shared discussion link.
 - Leaving, rejoining, reopening an accepted invitation, repeated callbacks, duplicate invitation rows, or changing discussions creates no additional reward.
 - Bot onboarding invitations and boosted recommendations do not reward any user.
-- A daily admin-editable cap limits how many Stars a user can earn from stored invitations even when several unique pairs qualify. A qualified reward beyond the cap is not silently lost: record it as ineligible due to the cap and explain the limit in the invitation earning guide. Do not queue it for a later day.
+- There is no earning-window cap for this reward. Different invitees can each reward once; the same invitee cannot reward the same inviter twice.
 
 Stable reward identity:
 
@@ -166,7 +167,7 @@ Rules:
 - Self-referrals are rejected.
 - The referral becomes qualified only after the new user completes the configured milestone, recommended as onboarding's first three interests. Skipping onboarding does not qualify until the equivalent product milestone is completed elsewhere.
 - Each invitee can produce at most one new-user referral reward for one inviter.
-- Existing repeated-start protection remains useful for UX, but financial idempotency must come from the ledger/claim uniqueness rules, not from transient command handling.
+- Repeated discussion share links may keep opening the discussion preview or re-focus the room, but financial idempotency must come from the ledger/claim uniqueness rules, not from transient command handling.
 - If an outside discussion link belongs to an existing user, it may still open the discussion preview but does not create a new-user referral reward.
 
 Stable reward identity:
@@ -436,8 +437,6 @@ Recommended settings groups:
 - first discussion join reward
 - stored invitation pair reward
 - external new-user referral reward
-- stored-invitation Star earnings cap per window
-- invitation earning window duration
 - outside-referral qualification milestone/version
 
 ### Costs And Entitlements
@@ -485,8 +484,6 @@ Recommended launch definitions:
 | `rewardFirstDiscussionJoin` | 2 | 0 | 1,000 | Stars |
 | `rewardSavedInvitePair` | 1 | 0 | 1,000 | Stars |
 | `rewardExternalReferral` | 10 | 0 | 10,000 | Stars |
-| `savedInviteEarnCapStars` | 5 | 0 | 10,000 | Stars/window |
-| `savedInviteEarnWindowHours` | 24 | 1 | 8,760 | hours |
 | `firstTopTenMilestoneItems` | 3 | 1 | current TopTen cap | items |
 | `regularListMilestoneItems` | 5 | 1 | current regular-list cap | items |
 | `topTenCompletionItems` | 10 | first milestone | current TopTen cap | items |
@@ -637,8 +634,8 @@ This map describes the implemented module boundaries and is not permission to pl
 | Saved-profile visuals | `src/messages.js`, `src/services/saved-profiles-ui.js`, `src/services/people-discovery-ui.js`, invitation pickers/keyboards | Replace only saved-profile `⭐` icons with `🔖`; preserve wording and behavior |
 | Discussion host visuals | `src/services/discussion-room-ui.js`, related messages/examples | Replace only host `⭐` with `🎙️`; preserve host semantics |
 | Discussion milestones | `src/services/discussions.js`, `src/services/discussion-actions.js`, discussion create/join flows | Reward first successful create/join after authoritative mutations |
-| Stored invitations | `src/models/discussion-invitation.js`, `src/services/discussion-invitations.js`, `src/flows/discussion-invitations.js`, invitation UI | Directed-pair qualification after successful accept/join, cap copy, idempotency |
-| Outside invitations | `src/services/invite-links.js`, `src/flows/discussions-text.js`, `src/flows/discussions-callbacks.js`, `src/bot.js` | Opaque inviter-attributed payloads, legacy link compatibility, first-start claim preservation |
+| Stored invitations | `src/models/discussion-invitation.js`, `src/services/discussion-invitations.js`, `src/flows/discussion-invitations.js`, invitation UI | Directed-pair qualification after successful accept/join, idempotency |
+| Outside invitations | `src/services/invite-links.js`, `src/flows/discussions-text.js`, `src/flows/discussions-callbacks.js`, `src/bot.js` | Opaque inviter-attributed payloads, legacy link compatibility, repeated-link compatibility |
 | Boost purchase/effect | discussion room/list flows and UI plus new boost services/model | Owner action, confirmation, charge/refund, labeled ranking, targeting, delivery/opt-out |
 | People discovery | `src/services/people-discovery.js`, `src/services/people-discovery-ui.js`, `src/services/people-taste-matches.js`, `src/flows/saved-profiles.js`, keyboards/messages | Free public profile browse; Stars-gated 3-common-items lens; coming-soon Advanced Search preview/notify preference; future filters deferred |
 | Admin settings | `src/models/app-setting.js`, new Star settings service, `src/services/analytics-dashboard.js`, `scripts/analytics-dashboard.js`, `docs/analytics-dashboard.md` | Editable values, validation, cache state, audit, aggregate metrics |
@@ -717,10 +714,9 @@ Status: implemented.
 
 - Add lifetime directed-pair reward uniqueness.
 - Award only after a stored invitation is accepted and join succeeds.
-- Add configurable earning cap/window.
 - Exclude bot starter invitations, boost recommendations, duplicate/rejoin paths, and failed joins.
 - Explain reward eligibility at send time without promising it.
-- Test A-to-B versus B-to-A, different discussions, rejoin, duplicate callbacks, cap boundaries, and concurrent accepts.
+- Test A-to-B versus B-to-A, different discussions, rejoin, duplicate callbacks, public share links, and concurrent accepts.
 
 Acceptance criteria:
 
@@ -831,7 +827,7 @@ This task is explicitly deferred and must not be bundled into the first Stars re
 - Discussion boosting is the first implemented Star spending feature and remains rollout-controlled.
 - Advanced Search appears only as an uncharged coming-soon preview in the first release; its filters and Star purchase are deferred.
 - Multiple discussions may be boosted across Muze, but each creator and each discussion may have only one active boost.
-- Star prices, rewards, durations, caps, and feature switches are editable from the admin dashboard.
+- Star prices, rewards, durations, limits, and feature switches are editable from the admin dashboard.
 - Real-money Star purchases are a later phase.
 
 ## Remaining Launch Decisions

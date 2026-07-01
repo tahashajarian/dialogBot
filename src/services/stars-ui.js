@@ -41,7 +41,10 @@ function buildStarRewardNotice(messages, lang, rewards = [], progress = null, { 
   const blocks = [];
 
   if (applied.length) {
-    blocks.push(messages[lang].starsEarnedNotice
+    const rewardTemplate = applied.length === 1 && applied[0].milestone === "invite_pair_reward"
+      ? messages[lang].starsInvitePairRewardNotice
+      : messages[lang].starsEarnedNotice;
+    blocks.push(rewardTemplate
       .replace("{amount}", formatStarNumber(total, lang))
       .replace("{balance}", formatStarNumber(lastBalance, lang))
       .replace("{reason}", reasonLabels.join(lang === "fa" ? " و " : " and ")));

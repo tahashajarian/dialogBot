@@ -19,12 +19,11 @@ async function awardSavedInvitePair({
   inviteeUserId,
   invitationId,
   source,
-  now = new Date(),
 } = {}) {
   if (source === "bot_onboarding") return { ok: false, reason: "excluded_source" };
+  if (Number(inviterUserId) === Number(inviteeUserId)) return { ok: false, reason: "self_invite" };
   const amount = Number(starEconomy.rewardSavedInvitePair) || 0;
   if (amount <= 0) return { ok: false, reason: "reward_disabled" };
-  const windowHours = Number(starEconomy.savedInviteEarnWindowHours) || 24;
   try {
     return await earnStars({
       userId: inviterUserId,
@@ -35,15 +34,8 @@ async function awardSavedInvitePair({
       invitationId,
       settingsSnapshot: {
         rewardSavedInvitePair: amount,
-        savedInviteEarnCapStars: starEconomy.savedInviteEarnCapStars,
-        savedInviteEarnWindowHours: windowHours,
       },
       metadata: { source, milestone: "invite_pair_reward" },
-      windowLimit: {
-        cap: Number(starEconomy.savedInviteEarnCapStars) || 0,
-        since: new Date(now.getTime() - windowHours * 60 * 60 * 1000),
-        windowHours,
-      },
     });
   } catch (error) {
     logger.error("Failed to award stored invitation Stars", {
