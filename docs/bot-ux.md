@@ -124,7 +124,7 @@ Stars UX rules:
 
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
-- Age selection should use a two-step flow: 10-year ranges first, then exact ages inside the chosen range.
+- Age selection should use a two-step flow: age ranges first, then exact ages inside the chosen range. Start at 13, use compact buckets such as `13-17`, `18-24`, then decade-like adult ranges, and keep numeric inline rows ordered left to right in both languages.
 - Keep high-frequency profile edits on the main profile card: name, age, photo, city, and gender. Put longer/lower-frequency details/settings such as bio, pet preference, location, and active-discussion visibility behind the profile settings card.
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.

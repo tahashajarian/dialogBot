@@ -32,6 +32,10 @@ const {
   toPlainUser,
 } = require("../services/profile");
 const {
+  isValidProfileAge,
+  isValidProfileAgeRangeStart,
+} = require("../services/profile-age");
+const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
   buildStarsOverviewText,
@@ -532,12 +536,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
     await ctx.answerCb?.();
 
-    if (
-      !Number.isInteger(startAge) ||
-      startAge < 10 ||
-      startAge > 79 ||
-      startAge % 10 !== 0
-    ) {
+    if (!isValidProfileAgeRangeStart(startAge)) {
       return ctx.reply(messages[lang].unknownAction);
     }
 
@@ -562,7 +561,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
     await ctx.answerCb?.();
 
-    if (!Number.isInteger(age) || age < 10 || age > 79) {
+    if (!isValidProfileAge(age)) {
       return ctx.reply(messages[lang].unknownAction);
     }
 

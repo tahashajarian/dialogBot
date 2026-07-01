@@ -8,11 +8,18 @@ const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/service
 const {
   profileKeyboard,
   profileSettingsKeyboard,
+  ageKeyboard,
+  ageRangeKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
 } = require("../src/keyboards");
+const { callBacks } = require("../src/constants");
+const {
+  isValidProfileAge,
+  isValidProfileAgeRangeStart,
+} = require("../src/services/profile-age");
 const {
   buildProfileText,
   sendProfileMessage,
@@ -339,6 +346,48 @@ test("profileKeyboard groups frequent profile edits into compact rows", () => {
   assert.ok(!callbacks.includes("profile:toggle:active-discussion-visible"));
   assert.deepEqual(nameAgeRow.map((button) => button.callback_data), ["profile:edit:name", "profile:edit:age"]);
   assert.deepEqual(cityGenderRow.map((button) => button.callback_data), ["profile:edit:city", "profile:edit:gender"]);
+});
+
+test("age picker buttons are ordered left to right", () => {
+  const rangeRows = ageKeyboard("en")?.reply_markup?.inline_keyboard || [];
+  assert.deepEqual(
+    rangeRows[0].map((button) => button.callback_data),
+    [
+      `${callBacks.profileAgeRangeSet}13`,
+      `${callBacks.profileAgeRangeSet}18`,
+      `${callBacks.profileAgeRangeSet}25`,
+    ],
+  );
+  assert.deepEqual(
+    rangeRows[1].map((button) => button.callback_data),
+    [
+      `${callBacks.profileAgeRangeSet}35`,
+      `${callBacks.profileAgeRangeSet}45`,
+      `${callBacks.profileAgeRangeSet}55`,
+    ],
+  );
+
+  const ageRows = ageRangeKeyboard("en", 13)?.reply_markup?.inline_keyboard || [];
+  assert.deepEqual(
+    ageRows[0].map((button) => button.callback_data),
+    [
+      `${callBacks.profileAgeSet}13`,
+      `${callBacks.profileAgeSet}14`,
+      `${callBacks.profileAgeSet}15`,
+      `${callBacks.profileAgeSet}16`,
+      `${callBacks.profileAgeSet}17`,
+    ],
+  );
+});
+
+test("profile age validation starts at 13", () => {
+  assert.equal(isValidProfileAge(12), false);
+  assert.equal(isValidProfileAge(13), true);
+  assert.equal(isValidProfileAge(79), true);
+  assert.equal(isValidProfileAge(80), false);
+  assert.equal(isValidProfileAgeRangeStart(10), false);
+  assert.equal(isValidProfileAgeRangeStart(13), true);
+  assert.equal(isValidProfileAgeRangeStart(18), true);
 });
 
 test("profileSettingsKeyboard contains detail controls and back to profile", () => {

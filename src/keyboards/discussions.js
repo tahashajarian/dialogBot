@@ -302,10 +302,14 @@ function discussionCreateCapacityKeyboard(lang, currentCapacity = 20) {
   const rows = [];
   for (let index = 0; index < capacities.length; index += 4) {
     const row = capacities.slice(index, index + 4).map((capacity) => ({
-      text: Number(currentCapacity) === capacity ? "✅" : ltrText(formatCapacityOptionLabel(capacity, lang)),
+      text: ltrText(
+        Number(currentCapacity) === capacity
+          ? `✅ ${formatCapacityOptionLabel(capacity, lang)}`
+          : formatCapacityOptionLabel(capacity, lang),
+      ),
       callback_data: `${callBacks.discussionCreateSetCapacity}${capacity}`,
     }));
-    rows.push(row.reverse());
+    rows.push(row);
   }
   rows.push([{
     text: messages[lang].discussionCancelEdit || messages[lang].discussionCreateCancel,

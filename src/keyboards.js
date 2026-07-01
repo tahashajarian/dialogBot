@@ -9,6 +9,10 @@ const messages = require("./messages");
 const { operationalLimits } = require("./services/operational-limits");
 const { starEconomy } = require("./services/star-settings");
 const { getProfileEmojiOptions } = require("./services/profile-emoji");
+const {
+  AGE_RANGES,
+  getProfileAgeRange,
+} = require("./services/profile-age");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -822,18 +826,14 @@ function ltrText(value) {
 }
 
 function ageKeyboard(lang) {
-  const ranges = [];
-  for (let start = 10; start <= 79; start += 10) {
-    const end = Math.min(start + 9, 79);
-    ranges.push({
-      text: ltrText(`${start}-${end}`),
-      callback_data: `${callBacks.profileAgeRangeSet}${start}`,
-    });
-  }
+  const ranges = AGE_RANGES.map(([start, end]) => ({
+    text: ltrText(`${start}-${end}`),
+    callback_data: `${callBacks.profileAgeRangeSet}${start}`,
+  }));
 
   const rows = [];
   for (let index = 0; index < ranges.length; index += 3) {
-    rows.push(ranges.slice(index, index + 3).reverse());
+    rows.push(ranges.slice(index, index + 3));
   }
 
   rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
@@ -842,8 +842,7 @@ function ageKeyboard(lang) {
 }
 
 function ageRangeKeyboard(lang, startAge) {
-  const rangeStart = Math.max(10, Math.min(Number(startAge) || 10, 79));
-  const rangeEnd = Math.min(rangeStart + 9, 79);
+  const [rangeStart, rangeEnd] = getProfileAgeRange(startAge);
   const ages = [];
 
   for (let age = rangeStart; age <= rangeEnd; age += 1) {
@@ -852,7 +851,7 @@ function ageRangeKeyboard(lang, startAge) {
 
   const rows = [];
   for (let index = 0; index < ages.length; index += 5) {
-    rows.push(ages.slice(index, index + 5).reverse());
+    rows.push(ages.slice(index, index + 5));
   }
 
   rows.push([{ text: "🔙", callback_data: callBacks.profileAgeRangeBack }]);

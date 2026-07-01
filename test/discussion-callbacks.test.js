@@ -566,9 +566,27 @@ test("discussion capacity picker marks paid capacities only when spending is ava
     paidLargeDiscussionCapacity: 50,
   });
   try {
-    const labels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || []).flat().map((button) => button.text);
+    const keyboard = discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || [];
+    const labels = keyboard.flat().map((button) => button.text);
     assert.ok(labels.includes("\u200e2 ⭐"));
     assert.ok(labels.includes("\u200e50 ⭐"));
+    assert.deepEqual(
+      keyboard.slice(0, 2).map((row) => row.map((button) => button.callback_data)),
+      [
+        [
+          `${callBacks.discussionCreateSetCapacity}2`,
+          `${callBacks.discussionCreateSetCapacity}3`,
+          `${callBacks.discussionCreateSetCapacity}4`,
+          `${callBacks.discussionCreateSetCapacity}5`,
+        ],
+        [
+          `${callBacks.discussionCreateSetCapacity}10`,
+          `${callBacks.discussionCreateSetCapacity}15`,
+          `${callBacks.discussionCreateSetCapacity}20`,
+          `${callBacks.discussionCreateSetCapacity}50`,
+        ],
+      ],
+    );
 
     starEconomy.spendingEnabled = false;
     const disabledLabels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || []).flat().map((button) => button.text);
