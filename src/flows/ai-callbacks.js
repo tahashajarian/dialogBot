@@ -57,6 +57,7 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
+  buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
   buildShareListMessage,
@@ -67,7 +68,6 @@ const {
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
-  getTopTenManageEntryMessage,
   toTitleSet,
   withAiSectionTitle,
 } = require("../services/ai-list-ui");
@@ -339,6 +339,13 @@ function getSuggestionDoneCompliment(lang, section) {
   return getSectionMessage(messages, lang, "aiSuggestionDoneCompliment", section);
 }
 
+function setCtxAiListItems(ctx, section, listType, items = []) {
+  if (!ctx.user) return;
+  if (!ctx.user.aiLists) ctx.user.aiLists = {};
+  if (!ctx.user.aiLists[section]) ctx.user.aiLists[section] = {};
+  ctx.user.aiLists[section][listType] = items;
+}
+
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const title = messages[lang].aiSectionTitle.replace("{section}", sectionLabel);
@@ -461,7 +468,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await helpers.deleteCallbackMessageIfPossible(ctx);
     await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(lang, section, items)}`);
     const actionMessage = await ctx.reply(
-      await getTopTenManageEntryMessage(ctx, lang, section, items),
+      await buildAiListManagerMessage({ ctx, lang, section, listType: "topTen" }),
       aiListManageMenuKeyboard(lang, section, "topTen"),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:topTen`, actionMessage);
@@ -507,9 +514,16 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
     }
 
+    setCtxAiListItems(ctx, section, "watchlist", toggled.items);
     const statusCopy = getWatchStatusCopy(lang, section);
     return ctx.reply(
-      toggled.item?.watched ? statusCopy.doneText : statusCopy.pendingText,
+      await buildAiListManagerMessage({
+        ctx,
+        lang,
+        section,
+        listType: "watchlist",
+        prefix: toggled.item?.watched ? statusCopy.doneText : statusCopy.pendingText,
+      }),
       aiListManageMenuKeyboard(lang, section, "watchlist"),
     );
   }
@@ -652,11 +666,19 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     await syncAiTasteForSection(ctx.userId, section);
+    setCtxAiListItems(ctx, section, "watchlist", promoteResult.watchlistItems);
+    setCtxAiListItems(ctx, section, "topTen", promoteResult.topTenItems);
     applyStarRewardsToContext(ctx, promoteResult.starRewards);
     await notifyExternalReferralReward(ctx, messages, promoteResult.externalReferralReward);
     const starNotice = buildStarRewardNotice(messages, lang, promoteResult.starRewards, promoteResult.starProgress);
     return ctx.reply(
-      [messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"),
+      await buildAiListManagerMessage({
+        ctx,
+        lang,
+        section,
+        listType: "watchlist",
+        prefix: [messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"),
+      }),
       aiListManageMenuKeyboard(lang, section, "watchlist"),
     );
   }
@@ -845,20 +867,13 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!removeResult.ok) return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, listType));
 
     if (listType === "topTen") await syncAiTasteForSection(ctx.userId, section);
+    setCtxAiListItems(ctx, section, listType, removeResult.items);
 
     await deleteRememberedAiListMessage(ctx, section, listType);
     const removedText = messages[lang].aiListRemovedNamed.replace("{item}", itemTitle);
 
-    if (listType === "topTen") {
-      return ctx.reply(
-        `${removedText}\n\n${await getTopTenManageEntryMessage(ctx, lang, section, removeResult.items)}`,
-        aiListManageMenuKeyboard(lang, section, listType),
-      );
-    }
-
-    const listLabel = getSectionListLabel(messages, lang, section);
     return ctx.reply(
-      `${removedText}\n\n${messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel)}`,
+      await buildAiListManagerMessage({ ctx, lang, section, listType, prefix: removedText }),
       aiListManageMenuKeyboard(lang, section, listType),
     );
   }

@@ -383,20 +383,22 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   }
 
   const finalReply = replies.at(-1);
-  const labels = finalReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = finalReply.extra.reply_markup.inline_keyboard.flat();
+  const labels = buttons.map((button) => button.text);
 
   assert.deepEqual(deletedIds, [55]);
   assert.equal(ctx.user.aiSectionPendingCommentItem, null);
   assert.equal(ctx.user.aiSectionPendingCommentListType, null);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
-  assert.doesNotMatch(finalReply.text, /Arrival/);
+  assert.match(finalReply.text, /Arrival/);
+  assert.match(finalReply.text, /\/cm_mv_l_1/);
   assert.doesNotMatch(finalReply.text, /لغو شد/);
   assert.equal(labels.includes(messages.fa.cancelEdit), false);
   assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
-  assert.equal(labels.includes(messages.fa.aiListManageShow), true);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
-test("entering AI list manager hides item rows until Show list is tapped", async () => {
+test("entering AI list manager shows item rows without an all-items button", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -441,11 +443,12 @@ test("entering AI list manager hides item rows until Show list is tapped", async
   }
 
   const managerReply = replies.at(-1);
-  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.deepEqual(deletedIds, [60]);
-  assert.doesNotMatch(managerReply.text, /Arrival/);
-  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+  assert.match(managerReply.text, /Arrival/);
+  assert.match(managerReply.text, /\/cm_mv_l_1/);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
 test("empty AI watchlist manager uses an intentional empty-state message", async () => {
@@ -489,12 +492,13 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   }
 
   const managerReply = replies.at(-1);
-  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const labels = buttons.map((button) => button.text);
 
   assert.match(managerReply.text, /هنوز خالیه/);
   assert.match(managerReply.text, /اولین مورد/);
   assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
-  assert.equal(labels.includes(messages.fa.aiListManageShow), false);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);
 });
 
 test("sharing AI list renders clean titles and comments without management commands", async () => {
@@ -603,11 +607,12 @@ test("back to list after adding uses current item count for share button", async
   }
 
   const managerReply = replies.at(-1);
-  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
-  assert.doesNotMatch(managerReply.text, /Chess/);
-  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+  assert.match(managerReply.text, /Chess/);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}random:top_ten`), false);
   assert.equal(labels.includes(messages.en.aiListManageShare), true);
 });
 
@@ -760,12 +765,13 @@ test("Top Ten add flow returns to manager when the 10th item completes the list"
 
   const savedEdit = edits.at(-1);
   const managerReply = replies.at(-1);
-  const labels = managerReply.extra.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
   assert.equal(savedEdit.extra, undefined);
   assert.equal(labels.includes(messages.en.aiListManageAdd), false);
-  assert.equal(labels.includes(messages.en.aiListManageShow), true);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}random:top_ten`), false);
   assert.equal(labels.includes(messages.en.aiListManageShare), true);
 });
 
@@ -1010,17 +1016,19 @@ test("watchlist action labels use section-specific status wording", () => {
 
 test("AI list manager keyboard shows list/filter/share controls only when eligible", () => {
   const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
-  const emptyLabels = emptyKeyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const emptyButtons = emptyKeyboard.reply_markup.inline_keyboard.flat();
+  const emptyLabels = emptyButtons.map((button) => button.text);
   const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true });
-  const labels = keyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+  const labels = buttons.map((button) => button.text);
   const shareKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 6 });
   const shareLabels = shareKeyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
 
-  assert.equal(emptyLabels.includes(messages.en.aiListManageShow), false);
+  assert.equal(emptyButtons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShare), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
   assert.ok(labels.includes(messages.en.aiListManageAdd));
-  assert.ok(labels.includes(messages.en.aiListManageShow));
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.equal(labels.includes(messages.en.aiListManageShare), false);
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));

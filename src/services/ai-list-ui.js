@@ -232,6 +232,17 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
 }
 
+async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "" }) {
+  const listLabel = getSectionListLabel(messages, lang, section);
+  const items = getAiListItemsFromUser(ctx.user, section, listType);
+  const body = listType === "topTen"
+    ? `${buildTopTenListMessage({ ctx, lang, section })}\n\n${await getTopTenManageEntryMessage(ctx, lang, section)}`
+    : items.length
+      ? buildWatchlistMessage({ ctx, lang, section })
+      : messages[lang].aiListManageEmptyEntry.replace("{listName}", listLabel);
+  return [prefix, body].filter(Boolean).join("\n\n");
+}
+
 function formatSuggestionLimitMessage(lang, resetAt) {
   const resetTime = resetAt ? new Date(resetAt).getTime() : Date.now();
   const minutes = Math.max(1, Math.ceil((resetTime - Date.now()) / (60 * 1000)));
@@ -381,6 +392,7 @@ async function buildTopTenSavedMessage({
 
 module.exports = {
   formatAiLimitMessage,
+  buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenListMessage,
   buildTopTenSavedMessage,

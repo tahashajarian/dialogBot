@@ -69,6 +69,7 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
+  buildAiListManagerMessage,
   buildTopTenSavedMessage,
   formatAiItemsList,
   formatAiLimitMessage,
@@ -77,7 +78,6 @@ const {
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
-  getTopTenManageEntryMessage,
   toTitleSet,
 } = require("../services/ai-list-ui");
 const {
@@ -444,20 +444,13 @@ async function sendSingleSectionSuggestion({
 }
 
 async function openAiListManager(ctx, lang, section, listType) {
-  const listLabel = getSectionListLabel(messages, lang, section);
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   await clearAiPendingInputPrompt(ctx);
   await clearAiActionMessage(ctx);
   await updateUserState(ctx.userId, nextState);
   const items = getAiListItemsFromUser(ctx.user, section, listType);
-  const managerText = listType === "topTen"
-      ? await getTopTenManageEntryMessage(ctx, lang, section)
-      : (items.length
-        ? messages[lang].aiListManageInlineEntry
-        : messages[lang].aiListManageEmptyEntry
-      ).replace("{listName}", listLabel);
   const listMessage = await ctx.reply(
-    managerText,
+    await buildAiListManagerMessage({ ctx, lang, section, listType }),
     aiListManageMenuKeyboard(lang, section, listType, {
       hasItems: items.length > 0,
       itemCount: items.length,
@@ -775,11 +768,8 @@ async function handleAiText(ctx, lang, text, state) {
     }
 
     await clearAiActionMessage(ctx);
-    const manageDescription = listType === "topTen"
-      ? await getTopTenManageEntryMessage(ctx, lang, section, currentItems)
-      : messages[lang].aiListManageInlineEntry.replace("{listName}", listLabel);
     const actionMessage = await ctx.reply(
-      `${manageDescription}\n\n${messages[lang].aiListManageUseButtonsTip}`,
+      `${await buildAiListManagerMessage({ ctx, lang, section, listType })}\n\n${messages[lang].aiListManageUseButtonsTip}`,
       aiListManageMenuKeyboard(lang, section, listType),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);

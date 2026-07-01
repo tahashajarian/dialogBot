@@ -37,9 +37,9 @@
   - add comment / update comment, depending on whether the item already has a comment
   - move-to-TopTen, if TopTen has room
   - remove
-- Entering a list manager should not print item rows immediately. Show a compact manager card, and include a "show list" button only when that list has at least one item.
+- Entering a non-empty list manager should show the current items directly in the manager card with command-link item actions; do not include a separate "show all" button.
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
-- If a list has more than five items, also show a "share my list" button. Send a short intro first, then a separate shareable list message. The shareable message should omit the section header and render titles/comments only, without management command links or status toggles, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
+- If a list has more than five items, also show a "create shareable message" button. Send a short intro first, then a separate shareable list message. The shareable message should omit the section header and render titles/comments only, without management command links or status toggles, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
 - Keep inline buttons for list-level controls only, such as add, filters, back/navigation, and input cancel.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
@@ -68,8 +68,8 @@
 - Typed-item feedback should react to the item itself, not infer the user's personality.
 - For recognizable works, feedback should contain one concrete reaction about the creator, form, genre, joke, theme, feeling, or atmosphere. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
 - Reject generic praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
-- When a user enters TopTen in any section, send the current TopTen list as a separate message before the section/manage description and inline buttons.
-- TopTen menus should keep the "show all" action even though the list is also shown on entry.
+- When a user enters TopTen in any section, include the current TopTen list directly in the manager card before the section/manage description and inline buttons.
+- TopTen menus should not include a separate "show all" action.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.
 - TopTen includes a cheap "what does my Top 10 say about me?" insight button.
 - The TopTen insight should use existing taste label/style data; do not call AI for this insight unless explicitly redesigned later.

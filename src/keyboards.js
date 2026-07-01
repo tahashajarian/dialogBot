@@ -192,10 +192,12 @@ function aiSectionKeyboardForSection(lang, section) {
       keyboard: [
         [
           {
-            text: listButtonText,
-          },
-          {
             text: messages[lang].aiSectionTopTenButton,
+          },
+        ],
+        [
+          {
+            text: listButtonText,
           },
         ],
         [
@@ -379,15 +381,6 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
       {
         text: messages[lang].aiListManageAdd,
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
-      },
-    ]);
-  }
-
-  if (hasItems) {
-    rows.push([
-      {
-        text: messages[lang].aiListManageShow,
-        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}`,
       },
     ]);
   }
