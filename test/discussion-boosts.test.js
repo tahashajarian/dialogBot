@@ -8,6 +8,7 @@ const DiscussionInvitationMute = require("../src/models/discussion-invitation-mu
 const User = require("../src/models/user");
 const { starEconomy } = require("../src/services/star-settings");
 const { generateBoostCode, selectBoostRecipients } = require("../src/services/discussion-boosts");
+const { callBacks } = require("../src/constants");
 const {
   buildDiscussionListText,
   rankDiscussionsForDiscovery,
@@ -115,6 +116,162 @@ test("my discussions list hides boost action when spending is disabled", () => {
     assert.doesNotMatch(text, /\/boost_AB12/);
   } finally {
     Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("room boost acknowledgement restores discussion bottom keyboard", async () => {
+  const discussions = require("../src/services/discussions");
+  const originalJoinOrOpenDiscussion = discussions.joinOrOpenDiscussion;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  const flowPath = require.resolve("../src/flows/discussion-boosts");
+  delete require.cache[flowPath];
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
+  discussions.joinOrOpenDiscussion = async () => ({
+    ok: true,
+    discussion: {
+      _id: "discussion1",
+      creatorUserId: 10,
+      memberUserIds: [10],
+    },
+  });
+
+  try {
+    const { handleDiscussionBoostCallback } = require("../src/flows/discussion-boosts");
+    const replies = [];
+    const deletedIds = [];
+    const ctx = {
+      callbackData: callBacks.discussionBoostAck,
+      callbackMessageId: 41,
+      userId: 10,
+      user: { userId: 10, activeDiscussionId: "discussion1" },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await handleDiscussionBoostCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        deletedIds.push(callbackCtx.callbackMessageId);
+        return true;
+      },
+    });
+
+    assert.deepEqual(deletedIds, [41]);
+    assert.equal(replies[0].text, messages.en.discussionBoostCanceled);
+    const labels = (replies[0].keyboard?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+    assert.ok(labels.includes(messages.en.discussionBoostButton));
+    assert.ok(labels.includes(messages.en.discussionLeave));
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+    discussions.joinOrOpenDiscussion = originalJoinOrOpenDiscussion;
+    delete require.cache[flowPath];
+  }
+});
+
+test("room boost cancel restores keyboard with canceled message", async () => {
+  const discussions = require("../src/services/discussions");
+  const originalJoinOrOpenDiscussion = discussions.joinOrOpenDiscussion;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  const flowPath = require.resolve("../src/flows/discussion-boosts");
+  delete require.cache[flowPath];
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
+  discussions.joinOrOpenDiscussion = async () => ({
+    ok: true,
+    discussion: {
+      _id: "discussion1",
+      creatorUserId: 10,
+      memberUserIds: [10],
+    },
+  });
+
+  try {
+    const { handleDiscussionBoostCallback } = require("../src/flows/discussion-boosts");
+    const replies = [];
+    const ctx = {
+      callbackData: `${callBacks.discussionBoostCancel}room:ABC123`,
+      callbackMessageId: 42,
+      userId: 10,
+      user: { userId: 10, activeDiscussionId: "discussion1" },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await handleDiscussionBoostCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => true,
+    });
+
+    assert.equal(replies[0].text, messages.en.discussionBoostCanceled);
+    const labels = (replies[0].keyboard?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+    assert.ok(labels.includes(messages.en.discussionBoostButton));
+    assert.ok(labels.includes(messages.en.discussionLeave));
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+    discussions.joinOrOpenDiscussion = originalJoinOrOpenDiscussion;
+    delete require.cache[flowPath];
+  }
+});
+
+test("my discussions boost insufficient balance returns to my discussions acknowledgement", async () => {
+  const boostService = require("../src/services/discussion-boosts");
+  const originalConfirmBoost = boostService.confirmBoost;
+  const flowPath = require.resolve("../src/flows/discussion-boosts");
+  delete require.cache[flowPath];
+  boostService.confirmBoost = async () => ({
+    ok: false,
+    reason: "insufficient_balance",
+    amount: 10,
+    balance: 2,
+  });
+
+  try {
+    const { handleDiscussionBoostCallback } = require("../src/flows/discussion-boosts");
+    const edits = [];
+    const ctx = {
+      callbackData: `${callBacks.discussionBoostConfirm}mine:ABC123`,
+      callbackMessageId: 43,
+      userId: 10,
+      user: { userId: 10, activeDiscussionId: "discussion1" },
+      answerCb: async () => true,
+      editMessageText: async (messageId, text, keyboard) => {
+        edits.push({ messageId, text, keyboard });
+        return true;
+      },
+      reply: async () => {
+        throw new Error("my discussions boost error should edit the confirmation card");
+      },
+    };
+
+    await handleDiscussionBoostCallback(ctx, "en");
+
+    assert.equal(edits[0].messageId, 43);
+    assert.match(edits[0].text, /not have enough Stars/);
+    const button = edits[0].keyboard?.reply_markup?.inline_keyboard?.flat()?.[0];
+    assert.equal(button?.text, messages.en.acknowledgeButton);
+    assert.equal(button?.callback_data, `${callBacks.discussionJoinErrorAck}mine`);
+  } finally {
+    boostService.confirmBoost = originalConfirmBoost;
+    delete require.cache[flowPath];
   }
 });
 

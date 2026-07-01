@@ -3,6 +3,7 @@ const { callBacks } = require("../constants");
 const {
   discussionBoostAckKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionRoomKeyboard,
   inlineKeyboard,
 } = require("../keyboards");
 const {
@@ -14,6 +15,7 @@ const {
   releaseBoostDelivery,
   selectBoostRecipients,
 } = require("../services/discussion-boosts");
+const { joinOrOpenDiscussion } = require("../services/discussions");
 const { getDiscussionDisplayTitle } = require("../services/discussion-ui");
 const { formatStarNumber } = require("../services/stars-ui");
 const { starEconomy } = require("../services/star-settings");
@@ -101,6 +103,19 @@ function boostErrorKeyboard(lang, source) {
     : discussionBoostAckKeyboard(lang);
 }
 
+async function restoreRoomControls(ctx, lang, text = messages[lang].discussionBoostCanceled) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
+
+  const opened = await joinOrOpenDiscussion(ctx.userId, activeDiscussionId);
+  if (!opened.ok) return ctx.reply(messages[lang].discussionNotMember);
+
+  return ctx.reply(
+    text,
+    discussionRoomKeyboard(lang, Number(opened.discussion.creatorUserId) === Number(ctx.userId)),
+  );
+}
+
 async function showBoostQuote(ctx, lang, discussionIdOverride = "", source = "room") {
   const discussionId = String(discussionIdOverride || ctx.user?.activeDiscussionId || "");
   if (!discussionId) return ctx.reply(messages[lang].discussionNotMember);
@@ -156,7 +171,8 @@ async function handleDiscussionBoostCallback(ctx, lang, {
   const data = ctx.callbackData || "";
   if (data === callBacks.discussionBoostAck) {
     await ctx.answerCb?.();
-    return deleteCallbackMessageIfPossible?.(ctx);
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return restoreRoomControls(ctx, lang);
   }
   if (data.startsWith(callBacks.discussionBoostCancel)) {
     const { source } = parseBoostCallbackPayload(ctx, data, callBacks.discussionBoostCancel);
@@ -165,7 +181,7 @@ async function handleDiscussionBoostCallback(ctx, lang, {
     if (source === "mine" && renderMyDiscussionList) {
       return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
     }
-    return ctx.reply(messages[lang].discussionBoostCanceled);
+    return restoreRoomControls(ctx, lang, messages[lang].discussionBoostCanceled);
   }
   if (data.startsWith(callBacks.discussionBoostConfirm)) {
     await ctx.answerCb?.();
