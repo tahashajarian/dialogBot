@@ -6,7 +6,7 @@ MongoDB, and an OpenAI-compatible AI endpoint.
 The bot combines:
 
 - public social profiles and private saved-profile bookmarks
-- movie, music, book, and broad-interest lists
+- movie, music, and book lists, plus profile interests
 - AI taste feedback and suggestions
 - shared-taste people discovery with private profile bookmarks
 - live discussion rooms with taste-based join rules

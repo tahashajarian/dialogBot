@@ -277,7 +277,7 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
   );
 
   assert.match(listText, /🔑 .*گیم/);
-  assert.match(listText, /برای باز شدن این اتاق، 🎮 گیم/);
+  assert.match(listText, /برای باز شدن این بحث، 🎮 گیم/);
   assert.match(lockedText, /«🎮 گیم»/);
   assert.doesNotMatch(lockedText, /Gaming/);
 });
@@ -687,7 +687,7 @@ test("discussion invite locked hint names required update path", () => {
   });
 
   assert.match(text, /Chess/);
-  assert.match(text, /Go to Lists/);
+  assert.match(text, /Go to Me → Interests/);
   assert.match(text, /try this invite link again/);
   assert.doesNotMatch(text, /\{item\}/);
 });

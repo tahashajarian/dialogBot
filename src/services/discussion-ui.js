@@ -386,7 +386,10 @@ function buildDiscussionInviteLockedText(messages, lang, reason, discussion = {}
   }
   if (reason === "requires_top_ten_item") {
     const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
-    return messages[lang].discussionInviteLockedItem
+    const messageKey = joinRule.section === "random"
+      ? "discussionInviteLockedProfileInterest"
+      : "discussionInviteLockedItem";
+    return messages[lang][messageKey]
       .replace("{rule}", rule)
       .replaceAll("{item}", item)
       .replaceAll("{section}", sectionLabel || "-");
@@ -409,7 +412,10 @@ function buildDiscussionJoinLockedText(messages, lang, reason, discussion = {}) 
   }
   if (reason === "requires_top_ten_item") {
     const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
-    return messages[lang].discussionJoinLockedItem
+    const messageKey = joinRule.section === "random"
+      ? "discussionJoinLockedProfileInterest"
+      : "discussionJoinLockedItem";
+    return messages[lang][messageKey]
       .replace("{rule}", rule)
       .replaceAll("{item}", item)
       .replaceAll("{section}", sectionLabel || "-");

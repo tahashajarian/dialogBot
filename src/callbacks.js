@@ -554,6 +554,8 @@ async function handleCallback(ctx) {
         retireCallbackMessageIfPossible,
       });
     }
+    await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
+    await clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]);
     applyStarRewardsToContext(ctx, joined.starRewards);
     const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
     await ctx.reply([
@@ -570,8 +572,8 @@ async function handleCallback(ctx) {
     const code = data.replace(callBacks.discussionInviteJoin, "");
     return joinDiscussionFromInvite(ctx, lang, code, {
       editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
-      clearListMessage: () => {},
-      clearMenuNotice: () => {},
+      clearListMessage: () => clearDiscussionListMessage(ctx, [ctx.callbackMessageId]),
+      clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
       sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
     });
   }

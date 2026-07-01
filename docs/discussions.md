@@ -276,18 +276,18 @@ At preview step, the creator should be able to edit title, description, or join 
 
 Label-restricted discussions should use only the creator's existing labels, not the full system label catalog. This prevents random gatekeeping and keeps the room connected to the creator's actual taste.
 
-Item-restricted discussions should use the creator's own TopTen items, especially from `🌿 علاقه‌مندی‌ها`, not arbitrary free text. This enables rooms like:
+Item-restricted discussions should use the creator's own existing items, not arbitrary free text. For movies, music, and books this means TopTen items; for `🌿 علاقه‌مندی‌ها` this means profile interests. This enables rooms like:
 
 ```text
-فقط کسانی که شطرنج توی تاپ ۱۰ علاقه‌مندی‌هاشونه
-فقط کسانی که کدنویسی توی تاپ ۱۰ علاقه‌مندی‌هاشونه
-فقط کسانی که قهوه توی تاپ ۱۰ علاقه‌مندی‌هاشونه
+فقط کسانی که شطرنج توی علاقه‌مندی‌های پروفایلشونه
+فقط کسانی که کدنویسی توی علاقه‌مندی‌های پروفایلشونه
+فقط کسانی که قهوه توی علاقه‌مندی‌های پروفایلشونه
 ```
 
 Creator eligibility should be validated before creation confirm wherever possible:
 
 - Taste-label rule: creator must already have an existing label in the chosen section.
-- Top-10-item rule: creator must pick an existing item from their own Top 10.
+- Top-10-item rule: creator must pick an existing item from their own Top 10 for movies/music/books, or from profile interests for `🌿 علاقه‌مندی‌ها`.
 
 This rule is more approachable than labels for many users because it gates by a concrete shared interest.
 
@@ -295,13 +295,13 @@ If creator has no labels:
 
 ```text
 برای ساخت بحث مخصوص یک برچسب، اول باید حداقل یک برچسب سلیقه داشته باشی.
-از بخش لیست‌ها، تاپ ۱۰ یک بخش رو کامل کن.
+تاپ ۱۰ یکی از بخش‌های لیست‌ها رو کامل کن، یا چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
 
-If creator has no TopTen items for item-restricted rooms:
+If creator has no items for item-restricted rooms:
 
 ```text
-برای ساخت بحث مخصوص یک علاقه، اول باید تاپ ۱۰ علاقه‌مندی‌هات رو بسازی.
+برای ساخت بحث مخصوص یک علاقه، اول چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
 
 ### Join Discussion
@@ -545,16 +545,14 @@ Taste-label example:
 از منوی اصلی برو به بخش لیست‌ها.
 ```
 
-TopTen-item example:
+Profile-interest item example:
 
 ```text
-👩‍🦳 برای ورود به این بحث باید این مورد توی تاپ ۱۰ت باشه:
+👩‍🦳 برای ورود به این بحث، «شطرنج» باید توی علاقه‌مندی‌های پروفایلت باشه:
 🔑 🌿 علاقه‌مندی‌ها - شطرنج
 
-💡 اول این مورد رو به تاپ ۱۰ علاقه‌مندی‌هات اضافه کن.
+💡 از منوی اصلی برو به 👤 من ← علاقه‌مندی‌ها و «شطرنج» رو اضافه کن.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
-
-از منوی اصلی برو به بخش لیست‌ها.
 ```
 
 No active discussion state:
@@ -970,21 +968,21 @@ If the creator has no eligible taste label for the selected section during rule 
 
 ### Specific TopTen Item / Interest
 
-User must have a specific item in their TopTen for a selected section.
+User must have a specific item in the selected section. For movies, music, and books this is a TopTen item. For `🌿 علاقه‌مندی‌ها`, this is a profile interest.
 
-This is especially useful for `🌿 علاقه‌مندی‌ها`.
+Profile interests make this rule useful for broad interest rooms.
 
 Example:
 
 ```text
-فقط کسایی که شطرنج توی تاپ ۱۰ علاقه‌مندی‌هاشونه
+فقط کسایی که شطرنج توی علاقه‌مندی‌های پروفایلشونه
 ```
 
 Matching should use the same normalization/duplicate matching approach as list items, so small spelling differences do not block valid users.
 
-The creator must have the item in their own TopTen before creating this kind of room.
+The creator must have the item in their own TopTen or profile interests before creating this kind of room.
 
-If the creator has no TopTen items in the selected section during rule selection, show a bot message with the exact section name and a tip to add at least one TopTen item in that section first.
+If the creator has no eligible items in the selected section during rule selection, show a bot message with the exact section name and a tip to add at least one TopTen item in that section first, or a profile-interest-specific tip for `🌿 علاقه‌مندی‌ها`.
 
 ## Discussion Listing
 

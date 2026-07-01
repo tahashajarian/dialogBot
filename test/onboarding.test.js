@@ -286,7 +286,7 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
   assert.match(complete, /گیمر/);
   assert.match(complete, /^👩‍🦳/);
   assert.match(complete, /💡/);
-  assert.match(complete, /🎬🎵📚 لیست‌ها/);
+  assert.match(complete, /لیست‌های 🎬🎵📚/);
   assert.match(complete, /سلیقه‌ات رو بهتر می‌شناسه/);
   assert.doesNotMatch(complete, /بیشتر بشناسمت/);
   assert.doesNotMatch(complete, /\{(?:items|emoji|label|style)\}/);

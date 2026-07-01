@@ -84,6 +84,20 @@ function createStepBackButton(_messages, lang, callbackData) {
   };
 }
 
+function getNoEligibleTasteMessage(lang, section) {
+  const key = section === "random"
+    ? "discussionRuleNoEligibleProfileInterestTaste"
+    : "discussionRuleNoEligibleTaste";
+  return messages[lang][key].replace("{section}", getSectionLabel(messages, lang, section));
+}
+
+function getNoEligibleItemMessage(lang, section) {
+  const key = section === "random"
+    ? "discussionRuleNoEligibleProfileInterestItem"
+    : "discussionRuleNoEligibleItem";
+  return messages[lang][key].replace("{section}", getSectionLabel(messages, lang, section));
+}
+
 function fillPaidCapacityText(template, lang, values = {}) {
   return String(template || "")
     .replaceAll("{capacity}", formatStarNumber(values.capacity, lang))
@@ -437,10 +451,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     if (baseRule.type === "taste_label") {
       const taste = getAiTasteFromUser(ctx.user, section);
       if (!taste?.labelKey) {
-        return pauseOnJoinRuleGuidance(
-          messages[lang].discussionRuleNoEligibleTaste
-            .replace("{section}", getSectionLabel(messages, lang, section)),
-        );
+        return pauseOnJoinRuleGuidance(getNoEligibleTasteMessage(lang, section));
       }
       const finalizedRule = { ...nextRule, tasteLabelKey: taste.labelKey };
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", finalizedRule);
@@ -469,10 +480,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     if (baseRule.type === "top_ten_item") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
       if (!topTen.length) {
-        return pauseOnJoinRuleGuidance(
-          messages[lang].discussionRuleNoEligibleItem
-            .replace("{section}", getSectionLabel(messages, lang, section)),
-        );
+        return pauseOnJoinRuleGuidance(getNoEligibleItemMessage(lang, section));
       }
       await updateProfileField(ctx.userId, "discussionDraftJoinRule", nextRule);
       if (isEditingDiscussionRuleFromPreview(ctx)) {
