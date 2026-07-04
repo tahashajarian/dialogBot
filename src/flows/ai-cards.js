@@ -5,6 +5,11 @@ function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
+async function updateAiCardField(ctx, field, value) {
+  if (ctx.userId === undefined || ctx.userId === null) return null;
+  return updateProfileField(ctx.userId, field, value);
+}
+
 async function rememberAiListMessage(ctx, section, listType, message) {
   const messageId = getMessageId(message);
   if (!messageId) {
@@ -86,7 +91,8 @@ async function clearRememberedAiListMessage(ctx) {
 
 async function rememberAiSectionEntryMessage(ctx, message) {
   const messageId = getMessageId(message);
-  await updateProfileField(ctx.userId, "aiSectionEntryMessageId", messageId || null);
+  await updateAiCardField(ctx, "aiSectionEntryMessageId", messageId || null);
+  if (ctx.user) ctx.user.aiSectionEntryMessageId = messageId || null;
 }
 
 async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
@@ -97,7 +103,10 @@ async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
   }
   const deleted = await ctx.deleteMessage(messageId);
   if (deleted) {
-    await updateProfileField(ctx.userId, "aiSectionEntryMessageId", null);
+    if (ctx.user) {
+      ctx.user.aiSectionEntryMessageId = null;
+    }
+    await updateAiCardField(ctx, "aiSectionEntryMessageId", null);
   }
   return deleted;
 }
@@ -138,10 +147,7 @@ async function clearAiActionMessage(ctx) {
 }
 
 function shouldKeepAiListTitleForCallback(data = "", isAiCallback = () => false) {
-  return (
-    data.startsWith(callBacks.aiAssistant) ||
-    isAiCallback(data)
-  );
+  return data !== callBacks.aiAssistant && isAiCallback(data);
 }
 
 module.exports = {

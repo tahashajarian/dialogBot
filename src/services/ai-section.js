@@ -57,6 +57,14 @@ function getSectionLabel(messages, lang, section) {
   return messages[lang].aiSectionNameRandom;
 }
 
+function getSectionEmoji(section) {
+  if (section === "movies") return "🎬";
+  if (section === "music") return "🎵";
+  if (section === "books") return "📚";
+  if (section === "random") return "🌿";
+  return "✨";
+}
+
 function getSectionListButtonLabel(messages, lang, section) {
   if (section === "movies") return messages[lang].aiSectionListButtonMovies;
   if (section === "music") return messages[lang].aiSectionListButtonMusic;
@@ -155,6 +163,7 @@ function getTasteLabelStyleHint(messages, lang, section, labelKey) {
 
 module.exports = {
   getAiSectionFromState,
+  getSectionEmoji,
   getSectionLabel,
   getSectionListButtonLabel,
   getSectionListLabel,

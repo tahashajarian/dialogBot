@@ -40,6 +40,7 @@ const {
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("../services/ai-placeholder");
 const {
+  getSectionEmoji,
   getSectionLabel,
   getSectionListLabel,
   getSectionMessage,
@@ -68,6 +69,7 @@ const {
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
+  getSectionLabelWithEmoji,
   toTitleSet,
   withAiSectionTitle,
 } = require("../services/ai-list-ui");
@@ -348,7 +350,7 @@ function setCtxAiListItems(ctx, section, listType, items = []) {
 
 async function getAiSectionEntryMessage(ctx, lang, section) {
   const sectionLabel = getSectionLabel(messages, lang, section);
-  const title = messages[lang].aiSectionTitle.replace("{section}", sectionLabel);
+  const title = messages[lang].aiSectionTitle.replace("{section}", `${getSectionEmoji(section)} ${sectionLabel}`);
   const body = messages[lang].aiSectionEntryGuidance.replace("{section}", sectionLabel);
   return `${title}\n\n${body}`;
 }
@@ -395,7 +397,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    const sectionLabel = getSectionLabel(messages, lang, section);
+    const sectionLabel = listType === "topTen"
+      ? getSectionLabelWithEmoji(messages, lang, section)
+      : getSectionLabel(messages, lang, section);
     const listLabel = getSectionListLabel(messages, lang, section);
     const title = (listType === "watchlist" ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
       .replace("{section}", sectionLabel)

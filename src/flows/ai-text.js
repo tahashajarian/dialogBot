@@ -39,6 +39,7 @@ const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
 const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
 const {
   getAiSectionFromState,
+  getSectionEmoji,
   getSectionMessage,
   getSectionListButtonLabel,
   getSectionLabel,
@@ -58,6 +59,7 @@ const {
 } = require("./ai-input-prompts");
 const {
   clearAiActionMessage,
+  clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
   rememberAiActionMessage,
@@ -78,6 +80,7 @@ const {
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
+  getSectionLabelWithEmoji,
   toTitleSet,
 } = require("../services/ai-list-ui");
 const {
@@ -146,6 +149,10 @@ function isAiSectionTopTenText(text) {
   const labels = [
     messages.fa.aiSectionTopTenButton,
     messages.en.aiSectionTopTenButton,
+    ...["movies", "music", "books"].flatMap((section) => [
+      `${getSectionEmoji(section)} ${messages.fa.aiSectionTopTenButton}`,
+      `${getSectionEmoji(section)} ${messages.en.aiSectionTopTenButton}`,
+    ]),
   ].map(normalizeKeyboardText);
   return labels.includes(normalizedText);
 }
@@ -155,6 +162,10 @@ function isAiSectionSuggestText(text) {
   const labels = [
     messages.fa.aiSectionSuggestButton,
     messages.en.aiSectionSuggestButton,
+    ...["movies", "music", "books"].flatMap((section) => [
+      `${getSectionEmoji(section)} ${messages.fa.aiSectionSuggestButton}`,
+      `${getSectionEmoji(section)} ${messages.en.aiSectionSuggestButton}`,
+    ]),
   ].map(normalizeKeyboardText);
   return labels.includes(normalizedText);
 }
@@ -559,14 +570,17 @@ async function handleAiText(ctx, lang, text, state) {
       await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
+      await clearAiSectionEntryMessage(ctx);
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
     const section = manageState.section;
-    const sectionLabel = getSectionLabel(messages, lang, section);
-    const listLabel = getSectionListLabel(messages, lang, section);
     const isWatchlist = manageState.isWatchlist;
     const listType = manageState.listType;
+    const sectionLabel = listType === "topTen"
+      ? getSectionLabelWithEmoji(messages, lang, section)
+      : getSectionLabel(messages, lang, section);
+    const listLabel = getSectionListLabel(messages, lang, section);
     const topTenItems = getAiListItemsFromUser(ctx.user, section, "topTen");
     const topTenTitles = topTenItems.map((entry) => entry.title);
     const title = (isWatchlist ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
@@ -829,6 +843,7 @@ async function handleAiText(ctx, lang, text, state) {
       await clearAiActionMessage(ctx);
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
+      await clearAiSectionEntryMessage(ctx);
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 

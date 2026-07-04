@@ -21,6 +21,7 @@ const { getAiTasteItemFeedback } = require("./ai");
 const { isSavedOnlyTasteFeedback } = require("./ai-feedback-quality");
 const { buildBotBaseLink } = require("./invite-links");
 const {
+  getSectionEmoji,
   getSectionLabel,
   getSectionListLabel,
   getTasteLabelEmoji,
@@ -30,6 +31,10 @@ const {
 
 function toTitleSet(items = []) {
   return new Set(items.map((entry) => String(entry?.title || entry || "").trim().toLowerCase()).filter(Boolean));
+}
+
+function getSectionLabelWithEmoji(messages, lang, section) {
+  return `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}`;
 }
 
 function getAiListCommandSectionToken(section) {
@@ -119,13 +124,13 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
 }
 
 function withAiSectionTitle(lang, section, body) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
+  const sectionLabel = getSectionLabelWithEmoji(messages, lang, section);
   const heading = messages[lang].aiSectionTitle.replace("{section}", sectionLabel);
   return `${heading}\n\n${body}`;
 }
 
 function buildTopTenListMessage({ ctx, lang, section }) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
+  const sectionLabel = getSectionLabelWithEmoji(messages, lang, section);
   const topTenEntries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang);
   const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
@@ -164,7 +169,9 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
 }
 
 function buildShareListMessage({ ctx, lang, section, listType, botLink = buildBotBaseLink() }) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
+  const sectionLabel = listType === "topTen"
+    ? getSectionLabelWithEmoji(messages, lang, section)
+    : getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
   const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, listType), section, lang);
   const title = (listType === "topTen" ? messages[lang].aiTopTenTitle : messages[lang].aiWatchlistTitle)
@@ -406,6 +413,7 @@ module.exports = {
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
+  getSectionLabelWithEmoji,
   getTopTenManageEntryMessage,
   toTitleSet,
   withAiSectionTitle,

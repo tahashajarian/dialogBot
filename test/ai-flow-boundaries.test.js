@@ -21,6 +21,7 @@ const {
   resolveAiListAddInput,
 } = require("../src/flows/ai-list-input");
 const {
+  aiSectionKeyboardForSection,
   aiListCancelAddKeyboard,
   aiListManageMenuKeyboard,
   aiInterestTopTenChipKeyboard,
@@ -152,7 +153,23 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiSectionListText(messages.en.aiSectionListButtonMovies, "movies"), true);
   assert.equal(isAiSectionListText(messages.fa.aiSectionListButtonRandom, "random"), true);
   assert.equal(isAiSectionTopTenText(messages.en.aiSectionTopTenButton), true);
+  assert.equal(isAiSectionTopTenText(`🎵 ${messages.fa.aiSectionTopTenButton}`), true);
   assert.equal(isAiSectionSuggestText(messages.fa.aiSectionSuggestButton), true);
+  assert.equal(isAiSectionSuggestText(`🎬 ${messages.en.aiSectionSuggestButton}`), true);
+});
+
+test("AI section keyboard prefixes section actions with section emoji", () => {
+  const musicKeyboard = aiSectionKeyboardForSection("fa", "music");
+  const topTenButton = musicKeyboard.reply_markup.keyboard[0][0];
+  const suggestButton = musicKeyboard.reply_markup.keyboard[2][0];
+  const randomKeyboard = aiSectionKeyboardForSection("fa", "random");
+  const randomTopTenButton = randomKeyboard.reply_markup.keyboard[0][0];
+  const randomSuggestButton = randomKeyboard.reply_markup.keyboard[2][0];
+
+  assert.equal(topTenButton.text, `🎵 ${messages.fa.aiSectionTopTenButton}`);
+  assert.equal(suggestButton.text, `🎵 ${messages.fa.aiSectionSuggestButton}`);
+  assert.equal(randomTopTenButton.text, messages.fa.aiSectionTopTenButton);
+  assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
 test("AI bottom Back keeps the keyboard-removal message so Bale clears reply controls", async () => {
@@ -934,7 +951,7 @@ test("AI callback predicate keeps AI cards only for AI callbacks", () => {
 
   assert.equal(isAiCallback(callBacks.profile), false);
   assert.equal(isAiCallback(callBacks.discussions), false);
-  assert.equal(shouldKeepAiListTitleForCallback(callBacks.aiAssistant, isAiCallback), true);
+  assert.equal(shouldKeepAiListTitleForCallback(callBacks.aiAssistant, isAiCallback), false);
   assert.equal(shouldKeepAiListTitleForCallback(callBacks.profile, isAiCallback), false);
 });
 
@@ -1001,7 +1018,7 @@ test("AI list UI builds section-titled list messages from user data", () => {
   const topTenText = buildTopTenListMessage({ ctx, lang: "en", section: "movies" });
   const watchlistText = buildWatchlistMessage({ ctx, lang: "en", section: "movies" });
 
-  assert.match(topTenText, /Movies/);
+  assert.match(topTenText, /🏆 🎬 Movies top 10/);
   assert.match(topTenText, /1\. Heat — tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
@@ -1034,7 +1051,7 @@ test("AI share list appends configured bot link footer", () => {
     botLink: "https://ble.ir/@Muze",
   });
 
-  assert.match(shareText, /🏆 Music top 10/);
+  assert.match(shareText, /🏆 🎵 Music top 10/);
   assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
   assert.match(shareText, /Made with: https:\/\/ble\.ir\/@Muze/);
   assert.doesNotMatch(shareText, /📌/);

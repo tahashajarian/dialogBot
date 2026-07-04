@@ -13,6 +13,7 @@ const {
   AGE_RANGES,
   getProfileAgeRange,
 } = require("./services/profile-age");
+const { getSectionEmoji } = require("./services/ai-section");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -186,13 +187,19 @@ function aiSectionKeyboardForSection(lang, section) {
       : section === "books"
         ? messages[lang].aiSectionListButtonBooks
         : messages[lang].aiSectionListButtonRandom;
+  const topTenButtonText = ["movies", "music", "books"].includes(section)
+    ? `${getSectionEmoji(section)} ${messages[lang].aiSectionTopTenButton}`
+    : messages[lang].aiSectionTopTenButton;
+  const suggestButtonText = ["movies", "music", "books"].includes(section)
+    ? `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`
+    : messages[lang].aiSectionSuggestButton;
 
   return {
     reply_markup: {
       keyboard: [
         [
           {
-            text: messages[lang].aiSectionTopTenButton,
+            text: topTenButtonText,
           },
         ],
         [
@@ -202,7 +209,7 @@ function aiSectionKeyboardForSection(lang, section) {
         ],
         [
           {
-            text: messages[lang].aiSectionSuggestButton,
+            text: suggestButtonText,
           },
         ],
         [

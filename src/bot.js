@@ -79,6 +79,7 @@ const {
   isAiTextState,
 } = require("./flows/ai-text");
 const {
+  clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
 } = require("./flows/ai-cards");
 const {
@@ -438,6 +439,7 @@ async function handleUpdate(ctx) {
       await updateUserState(ctx.userId, "idle");
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
+      await clearAiSectionEntryMessage(ctx);
       return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
     }
 
