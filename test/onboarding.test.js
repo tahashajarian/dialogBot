@@ -20,10 +20,13 @@ const {
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
   getOnboardingPage,
+  handleOnboardingCallback,
   isOnboardingCallback,
   retireOnboardingPrompt,
   shouldOfferOnboarding,
+  shouldOfferTasteSetupNudge,
 } = require("../src/flows/onboarding");
+const User = require("../src/models/user");
 
 test("onboarding is offered only to recent empty accounts", () => {
   const now = new Date("2026-06-13T10:00:00.000Z");
@@ -44,6 +47,24 @@ test("onboarding is offered only to recent empty accounts", () => {
   }, now), false);
 });
 
+test("post-invite taste setup nudge is separate from fresh onboarding", () => {
+  const oldInviteUser = {
+    createdAt: new Date("2026-06-13T09:00:00.000Z"),
+    onboardingVersion: 0,
+    state: "idle",
+  };
+  const now = new Date("2026-06-13T10:00:00.000Z");
+
+  assert.equal(shouldOfferOnboarding(oldInviteUser, now), false);
+  assert.equal(shouldOfferTasteSetupNudge(oldInviteUser), true);
+  assert.equal(shouldOfferTasteSetupNudge({ ...oldInviteUser, onboardingTasteSetupNudgedAt: new Date() }), false);
+  assert.equal(shouldOfferTasteSetupNudge({ ...oldInviteUser, onboardingVersion: 1 }), false);
+  assert.equal(shouldOfferTasteSetupNudge({
+    ...oldInviteUser,
+    aiLists: { random: { topTen: [{ title: "Chess" }, { title: "Movies" }, { title: "Books" }] } },
+  }), false);
+});
+
 test("welcome copy stays general while onboarding welcome carries the starter tip", () => {
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].welcome, /^👩‍🦳/);
@@ -59,6 +80,61 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
     assert.match(messages[lang].onboardingWelcome, /some interests|چند علاقه/);
     assert.match(messages[lang].onboardingWelcomeWithName, /^👩‍🦳/);
     assert.match(messages[lang].onboardingWelcomeWithName, /💡/);
+  }
+});
+
+test("post-invite taste setup callbacks start or dismiss without completing onboarding", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const edits = [];
+  const deleted = [];
+
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  const ctx = {
+    callbackData: callBacks.onboardingTasteSetupStart,
+    callbackMessageId: 42,
+    userId: 7,
+    user: {
+      userId: 7,
+      lang: "en",
+      state: "idle",
+      onboardingVersion: 0,
+    },
+    answerCb: async () => {},
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+  };
+
+  try {
+    await handleOnboardingCallback(ctx, "en", {
+      editCallbackMessageOrReply: (_ctx, text, keyboard) => ctx.editMessageText(ctx.callbackMessageId, text, keyboard),
+      deleteCallbackMessageIfPossible: (_ctx) => ctx.deleteMessage(_ctx.callbackMessageId),
+    });
+
+    assert.ok(updates.some((entry) => entry.update.state === "onboarding_taste_setup_interests"));
+    assert.equal(updates.some((entry) => entry.update.onboardingVersion), false);
+    assert.equal(edits[0].messageId, 42);
+    assert.match(edits[0].text, /Choose some interests/);
+
+    ctx.callbackData = callBacks.onboardingTasteSetupDismiss;
+    await handleOnboardingCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: (_ctx) => ctx.deleteMessage(_ctx.callbackMessageId),
+    });
+
+    assert.deepEqual(deleted, [42]);
+    assert.equal(updates.some((entry) => entry.update.onboardingSkippedAt), false);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 });
 
@@ -300,6 +376,8 @@ test("onboarding callback predicate owns only onboarding actions", () => {
   assert.equal(isOnboardingCallback(`${callBacks.onboardingCustom}1`), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingCustomCancel}1`), true);
   assert.equal(isOnboardingCallback(callBacks.onboardingContinue), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingTasteSetupStart), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingTasteSetupDismiss), true);
   assert.equal(isOnboardingCallback(callBacks.onboardingSkip), false);
   assert.equal(isOnboardingCallback(callBacks.discussions), false);
   assert.equal(messages.en.onboardingContinueButton.length > 0, true);

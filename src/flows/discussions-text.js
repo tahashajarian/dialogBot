@@ -58,6 +58,7 @@ const {
   requireDiscussionProfileName,
 } = require("./discussion-name-gate");
 const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
+const { sendTasteSetupNudge } = require("./onboarding");
 const {
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
@@ -658,8 +659,11 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   applyStarRewardsToContext(ctx, joined.starRewards);
   const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
   await ctx.reply([statusText, starNotice].filter(Boolean).join("\n\n"));
-  if (sendRoom) return sendRoom(ctx, lang, joined.discussion);
-  return sendDiscussionRoomFromText(ctx, lang, joined.discussion);
+  const roomMessage = sendRoom
+    ? await sendRoom(ctx, lang, joined.discussion)
+    : await sendDiscussionRoomFromText(ctx, lang, joined.discussion);
+  await sendTasteSetupNudge(ctx, lang).catch(() => null);
+  return roomMessage;
 }
 
 async function leaveDiscussionCommand(ctx, lang, code) {

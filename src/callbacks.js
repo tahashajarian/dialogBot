@@ -124,6 +124,7 @@ const {
 const {
   handleOnboardingCallback,
   isOnboardingCallback,
+  sendTasteSetupNudge,
 } = require("./flows/onboarding");
 
 function getDiscussionCloseReturnSource(ctx) {
@@ -625,11 +626,13 @@ async function handleCallback(ctx) {
     } catch {
       // Dismissal cleanup is best-effort; do not leave the callback stuck on a stale preview.
     }
-    return restoreActiveDiscussionKeyboardAfterInviteDismiss(
+    const restored = await restoreActiveDiscussionKeyboardAfterInviteDismiss(
       ctx,
       lang,
       data.replace(callBacks.discussionInviteCancel, ""),
     );
+    if (restored || ctx.user?.activeDiscussionId) return restored;
+    return sendTasteSetupNudge(ctx, lang).catch(() => null);
   }
 
   if (data === callBacks.discussionLeave || data.startsWith(callBacks.discussionLeave)) {

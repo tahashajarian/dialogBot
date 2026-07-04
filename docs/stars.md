@@ -166,6 +166,7 @@ Rules:
 - “Genuinely new” means the user record was inserted as part of that attributable start event. An account that already existed before the event is not a new-user referral, even if it had no onboarding activity, chat history was cleared, or `/start` is repeated.
 - Self-referrals are rejected.
 - The referral becomes qualified only after the new user completes the configured milestone, recommended as onboarding's first three interests. Skipping onboarding does not qualify until the equivalent product milestone is completed elsewhere.
+- Invite-first users may be offered an optional quick taste setup after the invite path. It writes to the same Interests TopTen and qualifies referrals only through the same configured product milestone; dismissing the nudge does not qualify or skip onboarding.
 - Each invitee can produce at most one new-user referral reward for one inviter.
 - Repeated discussion share links may keep opening the discussion preview or re-focus the room, but financial idempotency must come from the ledger/claim uniqueness rules, not from transient command handling.
 - If an outside discussion link belongs to an existing user, it may still open the discussion preview but does not create a new-user referral reward.

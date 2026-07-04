@@ -6,6 +6,7 @@ const {
   onboardingCustomInterestKeyboard,
   onboardingInterestsKeyboard,
   onboardingLanguageKeyboard,
+  onboardingTasteSetupNudgeKeyboard,
 } = require("../keyboards");
 const {
   addAiListItem,
@@ -34,6 +35,10 @@ const {
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
 const ONBOARDING_CHIPS_PER_PAGE = 9;
+const ONBOARDING_INTERESTS_STATE = "onboarding_interests";
+const TASTE_SETUP_INTERESTS_STATE = "onboarding_taste_setup_interests";
+const ONBOARDING_CUSTOM_PREFIX = "onboarding_custom_interest:";
+const TASTE_SETUP_CUSTOM_PREFIX = "onboarding_taste_setup_custom_interest:";
 
 function getOnboardingInterestGoal() {
   return Math.min(operationalLimits.onboardingInterestMinItems, operationalLimits.onboardingInterestMaxItems);
@@ -46,6 +51,8 @@ function getOnboardingInterestLimit() {
 function isOnboardingCallback(data = "") {
   return data === callBacks.onboardingStart
     || data === callBacks.onboardingContinue
+    || data === callBacks.onboardingTasteSetupStart
+    || data === callBacks.onboardingTasteSetupDismiss
     || data.startsWith(callBacks.onboardingInterest)
     || data.startsWith(callBacks.onboardingInterestRemove)
     || data.startsWith(callBacks.onboardingMore)
@@ -55,6 +62,18 @@ function isOnboardingCallback(data = "") {
 function getOnboardingPage(value = "") {
   const page = Number(String(value).split(":").at(-1));
   return Number.isInteger(page) && page >= 0 ? page : 0;
+}
+
+function isTasteSetupState(state = "") {
+  return state === TASTE_SETUP_INTERESTS_STATE || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX);
+}
+
+function isInterestPickerState(state = "") {
+  return state === ONBOARDING_INTERESTS_STATE || state === TASTE_SETUP_INTERESTS_STATE;
+}
+
+function getCustomInterestPrefixForState(state = "") {
+  return isTasteSetupState(state) ? TASTE_SETUP_CUSTOM_PREFIX : ONBOARDING_CUSTOM_PREFIX;
 }
 
 function getMessageId(messageOrId) {
@@ -120,6 +139,13 @@ function shouldOfferOnboarding(user, now = new Date()) {
   return accountAge >= 0 && accountAge <= NEW_USER_WINDOW_MS;
 }
 
+function shouldOfferTasteSetupNudge(user) {
+  if (!user || Number(user.onboardingVersion) >= ONBOARDING_VERSION) return false;
+  if (user.onboardingTasteSetupNudgedAt) return false;
+  if (String(user.state || "").startsWith("onboarding_")) return false;
+  return getAiListItemsFromUser(user, "random", "topTen").length < getOnboardingInterestGoal();
+}
+
 function buildOnboardingPrompt(lang, count = 0, item = "") {
   const key = item ? "onboardingInterestAdded" : "onboardingInterestsPrompt";
   return messages[lang][key]
@@ -170,6 +196,25 @@ async function completeOnboardingAndCreateStarterInvites(ctx, skipped = false) {
   }
 }
 
+async function completeOnboardingForState(ctx, state, skipped = false) {
+  if (!isTasteSetupState(state)) {
+    return completeOnboardingAndCreateStarterInvites(ctx, skipped);
+  }
+  await completeOnboarding(ctx, skipped);
+  return { ok: true, count: 0 };
+}
+
+async function sendTasteSetupNudge(ctx, lang) {
+  if (!shouldOfferTasteSetupNudge(ctx.user)) return null;
+  const nudgedAt = new Date();
+  if (ctx.user) ctx.user.onboardingTasteSetupNudgedAt = nudgedAt;
+  await updateProfileField(ctx.userId, "onboardingTasteSetupNudgedAt", nudgedAt);
+  return ctx.reply(
+    messages[lang].onboardingTasteSetupNudge,
+    onboardingTasteSetupNudgeKeyboard(lang),
+  );
+}
+
 async function startOnboardingLanguage(ctx, lang, inviteCode = "") {
   const state = inviteCode
     ? `onboarding_invite_language:${inviteCode}`
@@ -205,6 +250,27 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   const state = String(ctx.user?.state || "");
   await ctx.answerCb?.();
 
+  if (data === callBacks.onboardingTasteSetupDismiss) {
+    if (!ctx.user?.onboardingTasteSetupNudgedAt) {
+      await updateProfileField(ctx.userId, "onboardingTasteSetupNudgedAt", new Date());
+    }
+    return helpers.deleteCallbackMessageIfPossible?.(ctx);
+  }
+
+  if (data === callBacks.onboardingTasteSetupStart) {
+    if (Number(ctx.user?.onboardingVersion) >= ONBOARDING_VERSION) {
+      return helpers.deleteCallbackMessageIfPossible?.(ctx);
+    }
+    const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    await updateUserState(ctx.userId, TASTE_SETUP_INTERESTS_STATE);
+    await rememberOnboardingPrompt(ctx, ctx.callbackMessageId);
+    return helpers.editCallbackMessageOrReply(
+      ctx,
+      buildOnboardingPrompt(lang, items.length),
+      onboardingInterestsKeyboard(lang, items.map((entry) => entry.title)),
+    );
+  }
+
   if (!state.startsWith("onboarding_")) {
     return helpers.deleteCallbackMessageIfPossible?.(ctx);
   }
@@ -226,12 +292,12 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (data.startsWith(callBacks.onboardingCustomCancel)) {
-    if (!state.startsWith("onboarding_custom_interest:")) {
+    if (!state.startsWith(ONBOARDING_CUSTOM_PREFIX) && !state.startsWith(TASTE_SETUP_CUSTOM_PREFIX)) {
       return helpers.deleteCallbackMessageIfPossible?.(ctx);
     }
     const page = getOnboardingPage(data);
     const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
-    await updateUserState(ctx.userId, "onboarding_interests");
+    await updateUserState(ctx.userId, isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, items.length),
@@ -239,7 +305,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     );
   }
 
-  if (state !== "onboarding_interests") {
+  if (!isInterestPickerState(state)) {
     return helpers.deleteCallbackMessageIfPossible?.(ctx);
   }
 
@@ -262,7 +328,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
         { show_alert: true },
       );
     }
-    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
+    const starterInvites = await completeOnboardingForState(ctx, state);
     return helpers.editCallbackMessageOrReply(
       ctx,
       appendStarterInvitationsText(
@@ -290,7 +356,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
 
   if (data.startsWith(callBacks.onboardingCustom)) {
     const page = getOnboardingPage(data);
-    await updateUserState(ctx.userId, `onboarding_custom_interest:${page}`);
+    await updateUserState(ctx.userId, `${getCustomInterestPrefixForState(state)}${page}`);
     await rememberOnboardingPrompt(ctx, ctx.callbackMessageId);
     return helpers.editCallbackMessageOrReply(
       ctx,
@@ -328,7 +394,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (result.ok && items.length >= getOnboardingInterestLimit()) {
-    const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
+    const starterInvites = await completeOnboardingForState(ctx, state);
     return helpers.editCallbackMessageOrReply(
       ctx,
       appendStarterInvitationsText(
@@ -356,7 +422,7 @@ async function handleOnboardingText(ctx, lang) {
   const state = String(ctx.user?.state || "");
   const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
 
-  if (state.startsWith("onboarding_custom_interest:")) {
+  if (state.startsWith(ONBOARDING_CUSTOM_PREFIX) || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX)) {
     const page = getOnboardingPage(state);
     const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
     if (!item || Array.from(item).length > operationalLimits.onboardingCustomInterestMaxLength) {
@@ -400,14 +466,14 @@ async function handleOnboardingText(ctx, lang) {
         starNotice,
       ].filter(Boolean).join("\n\n");
       await retireOnboardingPrompt(ctx);
-      const starterInvites = await completeOnboardingAndCreateStarterInvites(ctx);
+      const starterInvites = await completeOnboardingForState(ctx, state);
       return ctx.reply(
         appendStarterInvitationsText(lang, completeText, starterInvites.count),
         onboardingCompleteKeyboard(lang, { invitationCount: starterInvites.count }),
       );
     }
 
-    await updateUserState(ctx.userId, "onboarding_interests");
+    await updateUserState(ctx.userId, isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE);
     return sendFreshOnboardingPrompt(
       ctx,
       [buildOnboardingPrompt(lang, result.items.length, item), starNotice]
@@ -443,5 +509,7 @@ module.exports = {
   isOnboardingCallback,
   retireOnboardingPrompt,
   shouldOfferOnboarding,
+  shouldOfferTasteSetupNudge,
+  sendTasteSetupNudge,
   startOnboardingLanguage,
 };

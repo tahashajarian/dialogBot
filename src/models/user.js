@@ -165,6 +165,7 @@ const UserSchema = new mongoose.Schema({
   onboardingSkippedAt: { type: Date, default: null },
   onboardingPromptMessageId: { type: Number, default: null },
   onboardingStarterInvitationsAt: { type: Date, default: null },
+  onboardingTasteSetupNudgedAt: { type: Date, default: null },
   lastStartInviteCode: { type: String, default: "" },
   lastStartInviteAt: { type: Date, default: null },
   handledStartInviteCodes: { type: [String], default: [] },

@@ -788,6 +788,56 @@ test("dismissing invite preview for current discussion stays quiet", async () =>
   assert.equal(replies.length, 0);
 });
 
+test("dismissing invite preview can offer optional taste setup when no room is active", async () => {
+  const originalFindOneDiscussion = Discussion.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  const replies = [];
+  const updates = [];
+
+  Discussion.findOne = () => Promise.resolve(null);
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  const ctx = {
+    callbackData: `${callBacks.discussionInviteCancel}d_AB12`,
+    callbackMessageId: 44,
+    userId: 7,
+    user: {
+      userId: 7,
+      lang: "en",
+      state: "idle",
+      onboardingVersion: 0,
+      activeDiscussionId: null,
+    },
+    answerCb: async () => {},
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findOne = originalFindOneDiscussion;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, [44]);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Want closer discussion matches/);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.find((button) => button.callback_data === callBacks.onboardingTasteSetupStart));
+  assert.ok(updates.some((entry) => entry.update.onboardingTasteSetupNudgedAt instanceof Date));
+});
+
 test("discussion invite share and preview text stay privacy-safe", () => {
   const discussion = {
     title: "Metal room",

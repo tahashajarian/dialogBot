@@ -593,6 +593,19 @@ function onboardingCustomInterestKeyboard(lang, page = 0) {
   ]]);
 }
 
+function onboardingTasteSetupNudgeKeyboard(lang) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].onboardingTasteSetupStartButton,
+      callback_data: callBacks.onboardingTasteSetupStart,
+    }],
+    [{
+      text: messages[lang].onboardingTasteSetupLaterButton,
+      callback_data: callBacks.onboardingTasteSetupDismiss,
+    }],
+  ]);
+}
+
 function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
   const selectedTitles = selectedItems.map((entry) => entry.title || entry);
   const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
@@ -1090,6 +1103,7 @@ module.exports = {
   onboardingWelcomeKeyboard,
   onboardingInterestsKeyboard,
   onboardingCustomInterestKeyboard,
+  onboardingTasteSetupNudgeKeyboard,
   onboardingCompleteKeyboard,
   profileInterestsKeyboard,
   aiListActionItemsKeyboard,

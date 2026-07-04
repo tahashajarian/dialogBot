@@ -26,6 +26,8 @@ module.exports = {
     onboardingCustomCancel: "onboarding:custom:cancel:",
     onboardingContinue: "onboarding:continue",
     onboardingSkip: "onboarding:skip",
+    onboardingTasteSetupStart: "onboarding:taste-setup:start",
+    onboardingTasteSetupDismiss: "onboarding:taste-setup:dismiss",
     aiSuggestMovies: "ai:suggest:movies",
     aiSuggestMusic: "ai:suggest:music",
     aiSuggestBooks: "ai:suggest:books",
