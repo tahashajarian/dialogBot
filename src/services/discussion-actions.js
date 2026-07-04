@@ -16,9 +16,22 @@ const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
 
-async function joinDiscussionAndNotify({ ctx, messages, discussionId }) {
-  const joined = await joinOrOpenDiscussion(ctx.userId, discussionId);
+async function joinDiscussionAndNotify({ ctx, messages, discussionId, allowActiveSwitch = false }) {
+  const joined = await joinOrOpenDiscussion(ctx.userId, discussionId, { allowActiveSwitch });
   if (!joined.ok) return joined;
+
+  if (joined.previousActiveDiscussionId) {
+    const left = await leaveDiscussionAsMember(ctx.userId, joined.previousActiveDiscussionId);
+    if (left.ok && left.leaverName && left.discussionId) {
+      await notifyActiveMembersInDiscussion(
+        ctx,
+        messages,
+        left.discussionId,
+        [ctx.userId],
+        (msgs, lang) => msgs[lang].discussionLeftNotice.replace("{name}", left.leaverName),
+      );
+    }
+  }
 
   if (joined.joined) {
     void trackEvent({

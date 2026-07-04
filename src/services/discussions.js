@@ -325,7 +325,7 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
 }
 
-async function joinOrOpenDiscussion(userId, discussionId) {
+async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = false } = {}) {
   const [user, discussion] = await Promise.all([
     User.findOne({ userId }),
     Discussion.findById(discussionId),
@@ -334,10 +334,12 @@ async function joinOrOpenDiscussion(userId, discussionId) {
   if (!user) return { ok: false, reason: "missing_user" };
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
-  if (
+  const previousActiveDiscussionId = (
     user.activeDiscussionId &&
     String(user.activeDiscussionId) !== String(discussion._id)
-  ) {
+  ) ? user.activeDiscussionId : null;
+
+  if (previousActiveDiscussionId && !allowActiveSwitch) {
     return { ok: false, reason: "leave_current_first" };
   }
 
@@ -430,6 +432,7 @@ async function joinOrOpenDiscussion(userId, discussionId) {
       joinerName,
       otherMemberIds,
       starRewards,
+      previousActiveDiscussionId,
     };
   }
 
@@ -438,7 +441,7 @@ async function joinOrOpenDiscussion(userId, discussionId) {
     { $set: { activeDiscussionId: discussion._id } },
   );
 
-  return { ok: true, discussion, joined: false };
+  return { ok: true, discussion, joined: false, previousActiveDiscussionId };
 }
 
 async function getActiveDiscussionInviteForUser(userId, discussionId) {

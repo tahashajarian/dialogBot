@@ -164,6 +164,14 @@ function getStartReferralCode(text = "") {
   return match ? match[1].toUpperCase() : "";
 }
 
+function hasTemporaryReplyKeyboard(ctx, state = "") {
+  return Boolean(
+    ctx.user?.activeDiscussionId ||
+    isAiTextState(state) ||
+    state === "editing_location"
+  );
+}
+
 function addHandledStartInviteCode(user, inviteCode) {
   const existing = Array.isArray(user?.handledStartInviteCodes)
     ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
@@ -240,7 +248,6 @@ async function handleUpdate(ctx) {
     }
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
-    await clearBottomKeyboardQuietly(ctx);
 
     if (shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, startInviteCode);
@@ -254,14 +261,15 @@ async function handleUpdate(ctx) {
 
     await updateUserState(ctx.userId, "idle");
     await rememberStartInvite(ctx, startInviteCode);
-    await ctx.reply(welcomeMessage);
+    if (ctx.wasUserCreated) {
+      await ctx.reply(welcomeMessage);
+    }
     return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
   }
 
   if (/^\/join_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
-    await clearBottomKeyboardQuietly(ctx);
     const inviteCode = `d_${text.replace(/^\/join_/i, "")}`;
     if (shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, inviteCode);
@@ -302,7 +310,7 @@ async function handleUpdate(ctx) {
     });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
-    const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx, state);
     const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
     const userName = rawUserName.trim().replace(/\s+/g, " ");
     const welcomeMessage = userName

@@ -40,6 +40,7 @@ const {
   joinOrOpenDiscussion,
   ensurePublicProfileCodes,
   ensurePublicDiscussionCode,
+  findDiscussionByPublicCode,
   normalizePublicProfileCode,
 } = require("./services/discussions");
 const {
@@ -195,6 +196,30 @@ async function retireCallbackMessageIfPossible(ctx) {
   return deleteCallbackMessageIfPossible(ctx);
 }
 
+async function restoreActiveDiscussionKeyboardAfterInviteDismiss(ctx, lang, inviteCode = "") {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (!activeDiscussionId) return null;
+
+  let invitedDiscussion = null;
+  try {
+    invitedDiscussion = await findDiscussionByPublicCode(inviteCode);
+  } catch {
+    // If the lookup fails, still try to restore the active room controls below.
+  }
+  if (invitedDiscussion && String(invitedDiscussion._id) === activeDiscussionId) {
+    return null;
+  }
+
+  const discussion = await Discussion.findById(activeDiscussionId).lean();
+  if (!discussion || discussion.status !== "open") return null;
+
+  const title = getDiscussionDisplayTitle(messages, lang, discussion);
+  return ctx.reply(
+    messages[lang].discussionInviteStillInRoom.replace("{title}", title),
+    discussionRoomKeyboard(lang, Number(discussion.creatorUserId) === Number(ctx.userId)),
+  );
+}
+
 function isProfileCallbackMessage(ctx) {
   const message = ctx.callbackMessage || {};
   return Boolean(message.caption || message.photo || message.document);
@@ -250,6 +275,8 @@ function getStaleCallbackFields(data = "") {
     data === callBacks.discussions ||
     data.startsWith(callBacks.discussionOpen) ||
     data.startsWith(callBacks.discussionInviteJoin) ||
+    data.startsWith(callBacks.discussionInviteSwitchJoin) ||
+    data.startsWith(callBacks.discussionInviteCancel) ||
     data.startsWith(callBacks.discussionLeave) ||
     data.startsWith(callBacks.discussionClose) ||
     data.startsWith(callBacks.discussionMembers) ||
@@ -576,6 +603,33 @@ async function handleCallback(ctx) {
       clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
       sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
     });
+  }
+
+  if (data.startsWith(callBacks.discussionInviteSwitchJoin)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.discussionInviteSwitchJoin, "");
+    return joinDiscussionFromInvite(ctx, lang, code, {
+      editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
+      clearListMessage: () => clearDiscussionListMessage(ctx, [ctx.callbackMessageId]),
+      clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
+      clearInvitePreview: () => (ctx.deleteMessage ? ctx.deleteMessage(ctx.callbackMessageId) : deleteCallbackMessageIfPossible(ctx)),
+      sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
+      allowActiveSwitch: true,
+    });
+  }
+
+  if (data.startsWith(callBacks.discussionInviteCancel)) {
+    await ctx.answerCb?.();
+    try {
+      await deleteCallbackMessageIfPossible(ctx);
+    } catch {
+      // Dismissal cleanup is best-effort; do not leave the callback stuck on a stale preview.
+    }
+    return restoreActiveDiscussionKeyboardAfterInviteDismiss(
+      ctx,
+      lang,
+      data.replace(callBacks.discussionInviteCancel, ""),
+    );
   }
 
   if (data === callBacks.discussionLeave || data.startsWith(callBacks.discussionLeave)) {

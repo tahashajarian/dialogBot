@@ -486,3 +486,39 @@ test("joining another room requires leaving the active room first", async () => 
     Discussion.findById = originalFindById;
   }
 });
+
+test("explicit discussion switch can activate target room", async () => {
+  const originalFindOne = User.findOne;
+  const originalUserFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindById = Discussion.findById;
+  const activeDiscussionId = new Discussion()._id;
+  const targetDiscussionId = new Discussion()._id;
+  const userUpdates = [];
+
+  User.findOne = async () => ({
+    userId: 42,
+    activeDiscussionId,
+  });
+  User.findOneAndUpdate = async (query, update) => {
+    userUpdates.push({ query, update });
+    return {};
+  };
+  Discussion.findById = async () => ({
+    _id: targetDiscussionId,
+    status: "open",
+    memberUserIds: [42],
+    creatorUserId: 7,
+  });
+
+  try {
+    const result = await joinOrOpenDiscussion(42, targetDiscussionId, { allowActiveSwitch: true });
+    assert.equal(result.ok, true);
+    assert.equal(result.joined, false);
+    assert.equal(String(result.previousActiveDiscussionId), String(activeDiscussionId));
+    assert.equal(String(userUpdates.at(-1).update.$set.activeDiscussionId), String(targetDiscussionId));
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+    Discussion.findById = originalFindById;
+  }
+});

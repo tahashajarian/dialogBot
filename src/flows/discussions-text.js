@@ -17,7 +17,9 @@ const {
   joinOrOpenDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
+  normalizeMaxMembers,
   normalizePublicProfileCode,
+  validateJoinRules,
 } = require("../services/discussions");
 const {
   closeDiscussionAndNotify,
@@ -488,12 +490,44 @@ async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
   }
 
   const publicCode = preview.code || preview.discussion.publicDiscussionCode;
-  if (openExistingMember && (preview.discussion.memberUserIds || []).includes(Number(ctx.userId))) {
+  const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  const activeElsewhere = Boolean(activeDiscussionId && activeDiscussionId !== String(preview.discussion._id));
+  if (
+    openExistingMember &&
+    !activeElsewhere &&
+    (preview.discussion.memberUserIds || []).includes(Number(ctx.userId))
+  ) {
     return joinDiscussionFromInvite(ctx, lang, publicCode);
   }
 
-  const text = buildDiscussionInvitePreviewText(messages, lang, preview.discussion);
-  const inviteKeyboard = keyboard || discussionInvitePreviewKeyboard(lang, publicCode);
+  let blockedReason = "";
+  if (activeElsewhere && !(preview.discussion.memberUserIds || []).includes(Number(ctx.userId))) {
+    const isOwner = Number(preview.discussion.creatorUserId) === Number(ctx.userId);
+    if (
+      !isOwner &&
+      Array.isArray(preview.discussion.removedUserIds) &&
+      preview.discussion.removedUserIds.includes(Number(ctx.userId))
+    ) {
+      blockedReason = "removed_by_owner";
+    } else if (!isOwner && (preview.discussion.memberUserIds || []).length >= normalizeMaxMembers(preview.discussion.maxMembers)) {
+      blockedReason = "discussion_full";
+    } else if (!isOwner) {
+      const eligibility = await validateJoinRules({ user: ctx.user, joinRule: preview.discussion.joinRule });
+      if (!eligibility.ok) blockedReason = eligibility.reason;
+    }
+  }
+
+  const text = blockedReason === "discussion_full"
+    ? messages[lang].discussionInviteFull
+    : blockedReason === "removed_by_owner"
+      ? messages[lang].discussionErrRemovedByOwner
+      : blockedReason
+        ? buildDiscussionInviteLockedText(messages, lang, blockedReason, preview.discussion)
+        : buildDiscussionInvitePreviewText(messages, lang, preview.discussion);
+  const inviteKeyboard = keyboard || discussionInvitePreviewKeyboard(lang, publicCode, {
+    activeElsewhere,
+    cancelOnly: Boolean(blockedReason),
+  });
   if (editMessage) {
     return editMessage(text, inviteKeyboard);
   }
@@ -504,7 +538,9 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   editMessage = null,
   clearListMessage = null,
   clearMenuNotice = null,
+  clearInvitePreview = null,
   sendRoom = null,
+  allowActiveSwitch = false,
 } = {}) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion || discussion.status !== "open") {
@@ -524,7 +560,12 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   }
 
   const wasActiveInDiscussion = String(ctx.user?.activeDiscussionId || "") === String(discussion._id);
-  const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
+  const joined = await joinDiscussionAndNotify({
+    ctx,
+    messages,
+    discussionId: discussion._id,
+    allowActiveSwitch,
+  });
   if (!joined.ok) {
     let text = getDiscussionErrorMessage(messages, lang, joined.reason);
     let keyboardToShow = discussionsMenuKeyboard(lang);
@@ -532,6 +573,8 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
 
     if (joined.reason === "discussion_full") {
       text = messages[lang].discussionInviteFull;
+    } else if (joined.reason === "leave_current_first") {
+      keyboardToShow = discussionInvitePreviewKeyboard(lang, publicCode, { activeElsewhere: true });
     } else if (joined.reason === "removed_by_owner") {
       text = messages[lang].discussionErrRemovedByOwner;
       keyboardToShow = mainMenuKeyboard(lang);
@@ -542,8 +585,10 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
       joined.reason === "requires_top_ten_completed"
     ) {
       text = buildDiscussionInviteLockedText(messages, lang, joined.reason, discussion);
-      keyboardToShow = mainMenuKeyboard(lang);
-      returnToMainMenu = true;
+      keyboardToShow = allowActiveSwitch
+        ? discussionInvitePreviewKeyboard(lang, publicCode, { cancelOnly: true })
+        : mainMenuKeyboard(lang);
+      returnToMainMenu = !allowActiveSwitch;
     }
 
     if (editMessage) {
@@ -564,6 +609,12 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
 
   await clearListMessage?.();
   await clearMenuNotice?.();
+  try {
+    await clearInvitePreview?.();
+  } catch {
+    // Preview cleanup is best-effort; joining feedback and room rendering should continue.
+  }
+  if (ctx.user) ctx.user.activeDiscussionId = joined.discussion._id;
   const pendingShareCode = String(ctx.user?.pendingDiscussionShareCode || "");
   const pendingShareInviterUserId = Number(ctx.user?.pendingDiscussionShareInviterUserId);
   const pendingShareMatches = pendingShareCode.toLowerCase() === String(publicCode || "").toLowerCase();

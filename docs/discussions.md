@@ -394,10 +394,12 @@ First-time/deep-link handling:
 - If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
 - `/start d_CODE` may also resolve to the same invite preview for compatibility.
 - Repeated public invite links should still open the invite preview or re-focus the room. Star rewards remain protected by directed-pair ledger idempotency, not by blocking the preview.
-- Starting from an invite should not auto-join the user. It should welcome them, then show the invite preview.
-- If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview.
-- If the user is inside another discussion, the invite join action should ask them to leave the current room first.
-- If the invite join fails, keep the user in their current discussion.
+- Starting from an invite should not auto-join the user. New users can receive the invite welcome before the preview; existing users should go straight to the invite preview or room re-focus without repeating the generic intro.
+- If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview. Dismissing a same-room invite notice should stay quiet after removing the preview.
+- If the user is inside another discussion, the invite preview should show `leave current and join` plus `cancel`, not a normal join button.
+- If that invite is already known to be locked for the user, show the locked reason in the preview before offering any switch action.
+- Canceling that invite preview must only remove/dismiss the preview and must not leave the current discussion.
+- The explicit `leave current and join` action should keep the user in their current discussion if the target join fails; only leave the old discussion after the target join/open succeeds.
 - Invite start commands and `/join_CODE` should be handled before section-specific states, so links work even if the user is currently inside profile edit, AI lists, saved profiles, or another bot section.
 
 Example ready-to-share copy:
@@ -475,7 +477,7 @@ Join attempt validation order:
 6. Check discussion capacity.
 7. Check the discussion join rule.
 8. Atomically join the target discussion.
-9. A user who is already active elsewhere must leave that discussion before joining from the invite.
+9. If the user explicitly chose `leave current and join`, leave the previous active discussion only after the target join/open succeeds.
 
 This order keeps sensitive details quiet while still giving useful recovery messages. If a room is closed or missing, do not reveal whether the user would have satisfied its join rule.
 It also keeps users from being ejected from their current room when a target join fails because of capacity, permissions, closure, or stale invite/list state.

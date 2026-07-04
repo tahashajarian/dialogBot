@@ -118,10 +118,116 @@ test("repeated same start invite payload still opens invite preview", async () =
     Discussion.findOne = originalFindOneDiscussion;
   }
 
-  assert.match(replies.at(-2).text, /Hi Taha, I’m Muze/);
-  assert.match(replies.at(-2).text, /invite/i);
+  assert.equal(replies.length, 1);
   assert.match(replies.at(-1).text, /Invite preview/);
   assert.match(replies.at(-1).text, /Movie Chat/);
+});
+
+test("start invite preview offers switch action when active elsewhere", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+
+  User.findOneAndUpdate = async () => ({});
+  Discussion.findOne = async () => ({
+    _id: "target-discussion-id",
+    title: "Movie Chat",
+    description: "Films",
+    publicDiscussionCode: "d_AB12",
+    memberUserIds: [],
+    maxMembers: 20,
+    status: "open",
+    joinRule: { type: "open" },
+  });
+
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Taha",
+      profileName: "Taha",
+      onboardingVersion: 1,
+      activeDiscussionId: "other-discussion-id",
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  assert.notEqual(replies[0].text, ".");
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteSwitchJoin}d_AB12`));
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`));
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`), false);
+});
+
+test("start invite preview shows lock reason before switching rooms", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+
+  User.findOneAndUpdate = async () => ({});
+  Discussion.findOne = async () => ({
+    _id: "target-discussion-id",
+    title: "Movie Chat",
+    description: "Films",
+    publicDiscussionCode: "d_AB12",
+    memberUserIds: [],
+    maxMembers: 20,
+    status: "open",
+    joinRule: {
+      type: "top_ten_item",
+      section: "movies",
+      itemTitle: "Heat",
+      itemAliases: ["Heat"],
+    },
+  });
+
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Taha",
+      profileName: "Taha",
+      onboardingVersion: 1,
+      activeDiscussionId: "other-discussion-id",
+      aiLists: { movies: { topTen: [{ title: "Arrival" }] } },
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  assert.notEqual(replies[0].text, ".");
+  const finalReply = replies.at(-1);
+  const buttons = finalReply.extra.reply_markup.inline_keyboard.flat();
+  assert.match(finalReply.text, /Heat/);
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`));
+  assert.equal(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`).text, messages.en.acknowledgeButton);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteSwitchJoin}d_AB12`), false);
+  assert.notEqual(finalReply.extra.reply_markup.remove_keyboard, true);
 });
 
 test("repeated start invite payload clears saved profile list card", async () => {

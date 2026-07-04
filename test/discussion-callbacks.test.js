@@ -35,6 +35,8 @@ const {
 const {
   handleDiscussionNameCancel,
 } = require("../src/flows/discussion-name-gate");
+const { handleCallback } = require("../src/callbacks");
+const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
 
 test("discussion callback error mapping returns specific copy", () => {
@@ -673,6 +675,117 @@ test("discussion invite preview keyboard joins by public code", () => {
   const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12");
   const buttons = keyboard?.reply_markup?.inline_keyboard.flat() || [];
   assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`));
+});
+
+test("discussion invite preview keyboard can switch from active room", () => {
+  const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12", { activeElsewhere: true });
+  const buttons = keyboard?.reply_markup?.inline_keyboard.flat() || [];
+
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteSwitchJoin}d_AB12`));
+  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`));
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`), false);
+});
+
+test("locked discussion invite preview uses Got it dismissal", () => {
+  const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12", { cancelOnly: true });
+  const button = keyboard?.reply_markup?.inline_keyboard.flat()[0];
+
+  assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(button.callback_data, `${callBacks.discussionInviteCancel}d_AB12`);
+});
+
+test("dismissing invite preview restores active discussion keyboard", async () => {
+  const originalFindOne = Discussion.findOne;
+  const originalFindById = Discussion.findById;
+  const deleted = [];
+  const replies = [];
+
+  Discussion.findOne = () => Promise.resolve(null);
+  Discussion.findById = () => ({
+    lean: async () => ({
+      _id: "active-room",
+      title: "Movie Room",
+      status: "open",
+      creatorUserId: 7,
+    }),
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.discussionInviteCancel}d_AB12`,
+    callbackMessageId: 44,
+    userId: 7,
+    user: {
+      userId: 7,
+      lang: "en",
+      activeDiscussionId: "active-room",
+    },
+    answerCb: async () => {},
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findOne = originalFindOne;
+    Discussion.findById = originalFindById;
+  }
+
+  assert.deepEqual(deleted, [44]);
+  assert.match(replies[0].text, /Movie Room/);
+  const labels = (replies[0].extra.reply_markup.keyboard || []).flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.en.discussionLeave));
+});
+
+test("dismissing invite preview for current discussion stays quiet", async () => {
+  const originalFindOne = Discussion.findOne;
+  const originalFindById = Discussion.findById;
+  const deleted = [];
+  const replies = [];
+
+  Discussion.findOne = () => Promise.resolve({
+    _id: "active-room",
+    publicDiscussionCode: "d_AB12",
+  });
+  Discussion.findById = () => {
+    throw new Error("active room should not be restored for the same invite");
+  };
+
+  const ctx = {
+    callbackData: `${callBacks.discussionInviteCancel}d_AB12`,
+    callbackMessageId: 44,
+    userId: 7,
+    user: {
+      userId: 7,
+      lang: "en",
+      activeDiscussionId: "active-room",
+    },
+    answerCb: async () => {},
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findOne = originalFindOne;
+    Discussion.findById = originalFindById;
+  }
+
+  assert.deepEqual(deleted, [44]);
+  assert.equal(replies.length, 0);
 });
 
 test("discussion invite share and preview text stay privacy-safe", () => {
