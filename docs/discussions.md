@@ -1117,6 +1117,7 @@ MVP message behavior:
 
 - If a user has `activeDiscussionId` set, normal text messages should be sent to that active discussion.
 - Sending text should append to `recentMessages` (capped to last 10) and be broadcast to current members.
+- Delivered text messages keep the compact `sender: message` shape. Render the sender display name in bold using Telegram HTML parse mode, and HTML-escape both sender names and message text before delivery.
 - If the message replies to a previous bot-delivered discussion message, forward it as a platform-native reply when the runtime delivery map can resolve the matching message id in each member's chat. Do not add "replying to..." text and do not persist reply metadata in `recentMessages`.
 - Sender should receive a short delivery confirmation.
 - Text and voice messages are supported (no photos/stickers/files/forwards).

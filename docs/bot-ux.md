@@ -102,6 +102,7 @@ Stars UX rules:
 - For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.
 - Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.
 - Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
+- Delivered discussion text should stay compact as `sender: message`; distinguish the sender with formatting only, currently bold sender names via escaped Telegram HTML.
 - Discussion message replies should use platform-native replies when the runtime delivery map can resolve the target message. Do not add visible "replying to..." text, persist reply metadata, or create thread cards/extra acknowledgements for simple replies.
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.

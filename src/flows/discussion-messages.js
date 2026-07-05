@@ -15,10 +15,18 @@ function getReplyMessageId(message = {}) {
   return Number.isInteger(messageId) && messageId > 0 ? messageId : null;
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function formatDiscussionOutboundMessage(messagesByLang, lang, { senderDisplayName, text }) {
+  const sender = senderDisplayName || (lang === "fa" ? "کاربر" : "User");
   return messagesByLang[lang].discussionMessageInbound
-    .replace("{sender}", senderDisplayName || (lang === "fa" ? "کاربر" : "User"))
-    .replace("{text}", String(text || "").trim());
+    .replace("{sender}", `<b>${escapeHtml(sender)}</b>`)
+    .replace("{text}", escapeHtml(String(text || "").trim()));
 }
 
 function isUnsupportedDiscussionMessage(ctx, state, text) {
@@ -59,11 +67,13 @@ async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, r
   }
 
   const text = typeof payload === "string" ? payload : payload?.text;
+  const payloadExtra = typeof payload === "object" && payload?.extra ? payload.extra : {};
   if (!replyMessageId) {
-    return ctx.sendToUser?.(recipientUserId, text);
+    return ctx.sendToUser?.(recipientUserId, text, payloadExtra);
   }
 
   const sent = await ctx.sendToUser?.(recipientUserId, text, {
+    ...payloadExtra,
     reply_to_message_id: replyMessageId,
   });
   if (sent) return sent;
@@ -108,7 +118,10 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
       recipientUserId,
       messageType === "voice"
         ? { voice: { file_id: payload.voiceFileId, duration: payload.voiceDuration || 0 } }
-        : formatDiscussionOutboundMessage(messages, lang, { senderDisplayName: senderName, text: payload.text }),
+        : {
+            text: formatDiscussionOutboundMessage(messages, lang, { senderDisplayName: senderName, text: payload.text }),
+            extra: { parse_mode: "HTML" },
+          },
       messageType === "text" ? findDiscussionDelivery({
         userId: ctx.userId,
         messageId: getReplyMessageId(ctx.message),

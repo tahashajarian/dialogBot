@@ -285,13 +285,22 @@ test("discussion reply helper extracts replied message id", () => {
   assert.equal(getReplyMessageId({}), null);
 });
 
-test("discussion outbound formatter stays plain for natural replies", () => {
+test("discussion outbound formatter bolds only the sender", () => {
   const text = formatDiscussionOutboundMessage(messages, "en", {
     senderDisplayName: "Sara",
     text: "I agree",
   });
 
-  assert.equal(text, "Sara: I agree");
+  assert.equal(text, "<b>Sara</b>: I agree");
+});
+
+test("discussion outbound formatter escapes user text for HTML parse mode", () => {
+  const text = formatDiscussionOutboundMessage(messages, "en", {
+    senderDisplayName: "A < B",
+    text: "Use <tag> & go",
+  });
+
+  assert.equal(text, "<b>A &lt; B</b>: Use &lt;tag&gt; &amp; go");
 });
 
 test("active discussion help command removes the current profile card", async () => {
@@ -442,6 +451,29 @@ test("discussion message sender uses platform reply id when available", async ()
     userId: 2,
     text: "Sara: I agree",
     extra: { reply_to_message_id: 55 },
+  }]);
+  assert.equal(sent.message_id, 99);
+});
+
+test("discussion message sender preserves text parse mode with reply id", async () => {
+  const sends = [];
+  const ctx = {
+    sendToUser: async (userId, text, extra = {}) => {
+      sends.push({ userId, text, extra });
+      return { message_id: 99 };
+    },
+  };
+  const sent = await sendDiscussionMessageToRecipient(ctx, 2, {
+    text: "<b>Sara</b>: I agree",
+    extra: { parse_mode: "HTML" },
+  }, {
+    deliveries: { 2: 55 },
+  });
+
+  assert.deepEqual(sends, [{
+    userId: 2,
+    text: "<b>Sara</b>: I agree",
+    extra: { parse_mode: "HTML", reply_to_message_id: 55 },
   }]);
   assert.equal(sent.message_id, 99);
 });
