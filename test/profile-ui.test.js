@@ -26,6 +26,7 @@ const {
   saveLocationProfile,
   sanitizeProfileNameCandidate,
   validateProfileName,
+  isValidTextInput,
 } = require("../src/services/profile");
 const { extractCityFromReverseGeocode } = require("../src/services/location");
 
@@ -72,7 +73,10 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(validateProfileName("Al", 30).reason, "too_short");
   assert.equal(validateProfileName("Ali 😀", 30).reason, "emoji");
   assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
+  assert.equal(validateProfileName("/start", 30).reason, "command_like");
+  assert.equal(isValidTextInput("/start", 120), false);
   assert.equal(sanitizeProfileNameCandidate("Ali 😀", 30), "Ali");
+  assert.equal(sanitizeProfileNameCandidate("/start", 30), "");
   assert.equal(sanitizeProfileNameCandidate("😀", 30), "");
 });
 

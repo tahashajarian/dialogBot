@@ -33,7 +33,7 @@
 
 ☐ به لیست اضافه شد شود بی چنیج
 
-☐ change command format line to italic or code, or whaterve, let's them have a different style and the snder in discussion should be different style too,
+✔ change command format line to italic or code, or whaterve, let's them have a different style and the snder in discussion should be different style too, first let's talk about it @done (7/4/2026, 11:49:07 PM)
 
 ✔ change icon of not watched @done (7/1/2026, 10:10:46 PM)
 
@@ -50,7 +50,20 @@
 
 ☐ do a smoke test and spot all buges
 
-☐ ✅ به لیست اضافه شد.
+☐ ✅ به لیست اضافه شد. based on whatever we are i mean wherever we are should be change to like playlist or watchlist or readlist or whatever we are doing, or just do it like we handle when user press i have done it or i have read it or i have listend to it,
 
 💡 ۱ مورد دیگه تا پاداش لیست معمولی و ۲ ستاره می‌گیری.
 this should update not say list or normal list should say watchlist if is movie play list if is song and read list if is book and so on,
+
+
+✔ think about if user has to go through onboarding or not after getting invited @done (7/5/2026, 1:34:13 PM)
+
+☐ test onboarding after inivitaion and normal
+
+✔ make sure users can't send command like messages and not command like name on anythings @done (7/5/2026, 1:44:29 PM)
+
+☐ 👱‍♀️ این پیام لیسته؛ می‌تونی برای هر کسی خواستی بفرستیش 👇
+this should be removed after we removed the shareable list or not delete the shareable list at all
+
+☐     aiTasteAskNext_7: "سه جای خالی مونده؛ انتخاب بعدی چیه؟",
+this kind of message should come with bot emoji as well

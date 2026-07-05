@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const {
+  addAiListItem,
   getAiListItemsFromUser,
   getOrCreateUser,
   normalizePlatformUserSource,
@@ -51,6 +52,25 @@ test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
     getAiListItemsFromUser(user, "random", "topTen").map((entry) => entry.title),
     ["Movies", "Languages", "Custom typed thing"],
   );
+});
+
+test("addAiListItem rejects command-like titles before persistence", async () => {
+  const originalFindOne = User.findOne;
+  let findOneCalled = false;
+
+  User.findOne = async () => {
+    findOneCalled = true;
+    return null;
+  };
+
+  try {
+    const result = await addAiListItem(123, "random", "topTen", "/start", 10);
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "invalid_item_quality");
+    assert.equal(findOneCalled, false);
+  } finally {
+    User.findOne = originalFindOne;
+  }
 });
 
 test("getOrCreateUser creates users from alternate name fields", async () => {

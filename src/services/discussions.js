@@ -26,6 +26,7 @@ const {
   hasLink,
   normalizeDiscussionText,
 } = require("./discussion-text");
+const { isCommandLikeText } = require("./command-like-text");
 const {
   SAVED_PROFILE_CAP,
   addSavedProfileCode,
@@ -87,6 +88,10 @@ const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-qu
  * Returns { valid: boolean, reason?: string }
  */
 function validateDiscussionTitle(title) {
+  if (isCommandLikeText(title)) {
+    return { valid: false, reason: "command_like" };
+  }
+
   const lengthCheck = validateMinimumLength(title);
   if (!lengthCheck.valid) {
     return lengthCheck;
@@ -102,6 +107,10 @@ function validateDiscussionTitle(title) {
  * Returns { valid: boolean, reason?: string }
  */
 function validateDiscussionDescription(description) {
+  if (isCommandLikeText(description)) {
+    return { valid: false, reason: "command_like" };
+  }
+
   const lengthCheck = validateMinimumLength(description);
   if (!lengthCheck.valid) {
     return lengthCheck;
@@ -192,8 +201,12 @@ async function createDiscussion({
   const normalizedTitle = normalizeTitle(title);
   if (!normalizedTitle) return { ok: false, reason: "invalid_title" };
   if (hasLink(normalizedTitle)) return { ok: false, reason: "invalid_title_link" };
+  if (!validateDiscussionTitle(normalizedTitle).valid) return { ok: false, reason: "invalid_title" };
 
   const normalizedDescription = normalizeDescription(description);
+  if (normalizedDescription && !validateDiscussionDescription(normalizedDescription).valid) {
+    return { ok: false, reason: "invalid_description" };
+  }
   const normalizedMaxMembers = normalizeMaxMembers(maxMembers);
   if (isPaidDiscussionCapacity(normalizedMaxMembers) && !paidCapacityAuthorized) {
     return { ok: false, reason: "paid_capacity_required" };

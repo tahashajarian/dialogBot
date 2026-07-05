@@ -8,6 +8,8 @@ const {
   validateJoinRules,
   joinOrOpenDiscussion,
   hasLink,
+  validateDiscussionDescription,
+  validateDiscussionTitle,
   normalizeMaxMembers,
   DISCUSSION_MEMBER_CAP,
   DISCUSSION_ALLOWED_MEMBER_CAPS,
@@ -420,6 +422,13 @@ test("discussion title link detector catches common links", () => {
   assert.equal(hasLink("watch this https://example.com"), true);
   assert.equal(hasLink("join t.me/example"), true);
   assert.equal(hasLink("Best riffs ever"), false);
+});
+
+test("discussion title and description reject command-like text", () => {
+  assert.equal(validateDiscussionTitle("/start").valid, false);
+  assert.equal(validateDiscussionTitle(" /join_ROOM").reason, "command_like");
+  assert.equal(validateDiscussionDescription("/help me").reason, "command_like");
+  assert.equal(validateDiscussionTitle("Best riffs ever").valid, true);
 });
 
 test("top ten item join rule tolerates near-duplicate spelling", async () => {

@@ -1,6 +1,7 @@
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 const { localizeInterestChipTitle } = require("./interest-chips");
 const { operationalLimits } = require("./operational-limits");
+const { isCommandLikeText } = require("./command-like-text");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -37,6 +38,7 @@ function isValidTextInput(text, maxLength) {
   const normalized = String(text || "").trim().replace(/\s+/g, " ");
   if (!normalized) return false;
   if (normalized.length > maxLength) return false;
+  if (isCommandLikeText(normalized)) return false;
   if (/[<>]/.test(normalized)) return false;
   return true;
 }
@@ -57,6 +59,9 @@ function sanitizeProfileNameCandidate(name, maxLength) {
 
 function validateProfileName(name, maxLength) {
   const normalized = normalizeProfileName(name);
+  if (isCommandLikeText(normalized)) {
+    return { ok: false, reason: "command_like" };
+  }
   if (!isValidTextInput(name, maxLength)) {
     return { ok: false, reason: "invalid_text" };
   }

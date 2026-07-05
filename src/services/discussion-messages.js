@@ -1,6 +1,7 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
 const { hasLink, normalizeDiscussionText } = require("./discussion-text");
+const { isCommandLikeText } = require("./command-like-text");
 const { operationalLimits } = require("./operational-limits");
 
 const DISCUSSION_RECENT_MESSAGES_CAP = 10;
@@ -113,6 +114,7 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
   const cleanName = normalizeDiscussionText(senderDisplayName, 80);
 
   if (!cleanText && !isVoiceMessage) return { ok: false, reason: "empty_message" };
+  if (cleanText && isCommandLikeText(cleanText)) return { ok: false, reason: "message_command_like" };
   if (cleanText && hasLink(cleanText)) return { ok: false, reason: "message_contains_link" };
 
   const quota = await consumeDiscussionMessageQuota(senderUserId);

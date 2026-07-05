@@ -8,6 +8,7 @@ const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const { sanitizeProfileNameCandidate } = require("./profile");
+const { isCommandLikeText } = require("./command-like-text");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { syncUserTasteIndex } = require("./user-taste-index");
 
@@ -560,6 +561,9 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const comment = normalizeAiListComment(item?.comment);
   if (!title) {
     return { ok: false, reason: "empty" };
+  }
+  if (isCommandLikeText(title)) {
+    return { ok: false, reason: "invalid_item_quality" };
   }
   if (listType === "topTen" && isLowQualityAiListItem(title)) {
     return { ok: false, reason: "invalid_item_quality" };

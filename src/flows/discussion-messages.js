@@ -105,6 +105,9 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
     if (added.reason === "message_contains_link") {
       return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageNoLinks);
     }
+    if (added.reason === "message_command_like") {
+      return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageNoCommands);
+    }
     return ctx.reply(messages[lang].discussionMessageSendFailed);
   }
 
