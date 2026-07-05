@@ -209,6 +209,7 @@ Contextual next-step examples:
 
 - After onboarding/profile Interests: show actual earned Stars when a milestone is awarded, but do not show misleading full Top 10 progress for profile Interests.
 - After a list item is added: show progress only when approaching or reaching the relevant regular-list, first-3 TopTen, or full-TopTen milestone.
+- List reward and progress wording should use the user-facing list name for the current section. For example, say Movies watchlist, Music playlist, Books reading list, or Interests list instead of exposing internal "regular list" wording.
 - On an incomplete own profile: show the smallest privacy-safe set of choices that can complete the profile reward.
 - After the first discussion reward: explain boosting only as an optional use, not as the required next action.
 - After sending a stored invitation: say Stars are awarded only if this is the first rewarded pair and the invitee successfully joins; do not claim the reward at send time.
@@ -229,6 +230,7 @@ Persian uses localized label and number formatting consistent with the rest of t
 - Do not infer ownership from a user ID embedded in callback data alone; use the authenticated current user and rendering context.
 - Admin analytics may show aggregate economy metrics, but ordinary users never see another user's balance.
 - The profile surface may show the user's private balance line, but the `Stars` action belongs in the Muze guide/help section so profile editing stays focused. The Stars action explains current balance, earning milestones, claimed milestones, and available uses without becoming a noisy store homepage.
+- The own-profile surface may also show one private growth hint. It should be compact, privacy-safe, and limited to one actionable next step; public profile render paths must omit it.
 
 ## Spending Stars
 

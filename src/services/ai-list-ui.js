@@ -302,7 +302,8 @@ function getDuplicateTopTenMessage(lang, result, count) {
 
 function getTopTenNextPrompt(lang, count) {
   const key = `aiTasteAskNext_${count}`;
-  return messages[lang][key] || messages[lang].aiTasteAskNext;
+  const text = messages[lang][key] || messages[lang].aiTasteAskNext;
+  return text.startsWith("👩‍🦳") ? text : `👩‍🦳 ${text}`;
 }
 
 function isWeakTasteLabel(section, taste) {

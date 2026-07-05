@@ -31,13 +31,37 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
   );
 }
 
+function getSectionAwareLabel(messages, lang, section, listType) {
+  const normalizedSection = String(section || "").trim();
+  const normalizedListType = listType === "topTen" ? "topTen" : "watchlist";
+  return messages[lang][`starsListName_${normalizedSection}_${normalizedListType}`]
+    || messages[lang][`starsListName_${normalizedListType}`]
+    || messages[lang].starsListName_generic;
+}
+
+function getRewardReasonLabel(messages, lang, reward) {
+  const sectionListLabel = getSectionAwareLabel(messages, lang, reward?.section, reward?.listType);
+  const sectionAwareKey = `starsReason_${reward?.milestone}_section`;
+  if (messages[lang][sectionAwareKey] && sectionListLabel) {
+    return messages[lang][sectionAwareKey].replace("{listName}", sectionListLabel);
+  }
+  return messages[lang][`starsReason_${reward?.milestone}`] || messages[lang].starsReason_generic;
+}
+
+function getNextMilestoneLabel(messages, lang, progress) {
+  const sectionListLabel = getSectionAwareLabel(messages, lang, progress?.section, progress?.listType);
+  const sectionAwareKey = `starsNext_${progress?.milestone}_section`;
+  if (messages[lang][sectionAwareKey] && sectionListLabel) {
+    return messages[lang][sectionAwareKey].replace("{listName}", sectionListLabel);
+  }
+  return messages[lang][`starsNext_${progress?.milestone}`] || messages[lang].starsNext_generic;
+}
+
 function buildStarRewardNotice(messages, lang, rewards = [], progress = null, { alwaysShowProgress = false } = {}) {
   const applied = Array.isArray(rewards) ? rewards.filter((reward) => Number(reward?.amount) > 0) : [];
   const total = applied.reduce((sum, reward) => sum + Number(reward.amount || 0), 0);
   const lastBalance = applied.length ? applied.at(-1).balance : null;
-  const reasonLabels = applied.map((reward) => (
-    messages[lang][`starsReason_${reward.milestone}`] || messages[lang].starsReason_generic
-  ));
+  const reasonLabels = applied.map((reward) => getRewardReasonLabel(messages, lang, reward));
   const blocks = [];
 
   if (applied.length) {
@@ -58,10 +82,7 @@ function buildStarRewardNotice(messages, lang, rewards = [], progress = null, { 
     blocks.push(messages[lang].starsNextMilestone
       .replace("{remaining}", formatStarNumber(progress.remaining, lang))
       .replace("{amount}", formatStarNumber(progress.reward, lang))
-      .replace(
-        "{milestone}",
-        messages[lang][`starsNext_${progress.milestone}`] || messages[lang].starsNext_generic,
-      ));
+      .replace("{milestone}", getNextMilestoneLabel(messages, lang, progress)));
   }
 
   return blocks.join("\n\n");

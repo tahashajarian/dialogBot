@@ -25,7 +25,7 @@ test("limit messages use the startup-loaded values", () => {
     assert.match(suggestion, /about 37 minutes/);
 
     const rules = formatOperationalLimitsText(messages.en.helpRulesText);
-    assert.match(rules, /Top 10: 12 items; regular list: 150 items; saved profiles: 75/);
+    assert.match(rules, /Top 10: 12 items; section list: 150 items; saved profiles: 75/);
     assert.match(rules, /45 messages per 15 minutes/);
     assert.match(rules, /In-bot saved-profile invitations: 5 per 48 hours/);
   } finally {

@@ -101,6 +101,8 @@ The dashboard also reports aggregate Star ledger totals, outstanding balances, e
 
 The dashboard page auto-refreshes every 60 seconds so admin-visible metrics stay current while being watched. It skips the automatic reload after a settings form has been edited, so unsaved admin input is not lost.
 
+Use [Stars Operations Checklist](stars-operations.md) for the daily Star Economy operating habit. Dashboard metrics are for inspection and alerting; balances remain ledger-backed and should not be overwritten directly.
+
 ## Bot Appearance Administration
 
 The dashboard includes a small **Bot Appearance** section near the top, after **Bot Limits**, for the Muze marker emoji used in bot-authored guidance. The configured marker is cached briefly by bot processes, applied to newly sent or edited messages, and reserved from user profile emoji choices.

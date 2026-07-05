@@ -320,8 +320,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpText, /^👩‍🦳/);
   assert.match(messages.fa.helpText, /🎬🎵📚 لیست‌ها/);
   assert.match(messages.en.helpText, /🎬🎵📚 Lists/);
-  assert.match(messages.fa.helpText, /فهرست کارها/);
-  assert.match(messages.en.helpText, /to-do list/);
+  assert.match(messages.fa.helpText, /واچ‌لیست فیلم/);
+  assert.match(messages.en.helpText, /Movies watchlist/);
   assert.match(messages.fa.helpText, /۳ مورد/);
   assert.match(messages.en.helpText, /3 Top 10 items/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);

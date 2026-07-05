@@ -1,19 +1,48 @@
-☐ find a way if we want to show top 10s on profile or not and how we are gonna do it
+# Muze Plan / Backlog
 
-☐ find out a way to filled up account looks stronger and they fill growth during the time
+Use `next-steps.todo` for the short launch queue. This file keeps product decisions, later ideas, and things we explicitly do not want to implement right now.
 
-☐ think about changing wording like a goodness actually
+## Later Product Decisions / Not In Current Next Steps
 
-☐ double check performance and think of 1000000 available user performance issues
+☐ decide if we want to show top 10s on profile or not and how we are gonna do it
+    Current leaning: do not implement before launch. Evaluate compact taste preview vs exact Top 10 items.
+
+☐ find out a way to make a filled up account feel stronger and make users feel growth over time
+    Current launch version: private own-profile growth hint is done. Do not add public scores/leaderboards/status.
+
+✔ think about changing wording like a goodness actually @done (7/5/2026, 3:05 PM)
+
+✔ double check performance and think of 1000000 available user performance issues @done (7/5/2026, 3:05 PM)
 
 ☐ after fill up any top 10 if there is a relative discussion bot should send a invitation to the user
+    Not for launch. Needs frequency cap, active-room handling, join-rule safety, and no invitation Star reward.
 
 ☐ add inline mode chat to save item to lists
+    Not for launch. Decide supported sections, Top 10 vs watchlist/list only, and duplicate behavior first.
+
+☐ later: add another label if all items in a Top 10 relate to one person, band, or creator and call it "X fan"
+    Not for launch. Define exact criteria first, avoid false claims, and keep it fun rather than ranking/status.
+
+☐ decide shareable list card behavior
+    Current copy: `👱‍♀️ این پیام لیسته؛ می‌تونی برای هر کسی خواستی بفرستیش 👇`
+    Decide later whether shareable lists stay. If they stay, make this intro low-noise and keep the shareable card. If they are removed, clean up copy and UI together.
 
 
 ☐ 👱‍♀️ برای ارتقای این بحث ستاره کافی نداری.
     make this message and message like this alert, like the way when user want to select an interst and it's more than capacity, i want have the sme behavior instead of this message
     and just say 👱‍♀️ ارتقا لغو شد. after that
+    Be careful: docs/stars.md currently says insufficient boost balance should show current cost and balance on a dismissible card.
+
+☐ do not add real-money Star purchases yet
+    Wait until earned/spent Stars prove useful and wallet operations are stable.
+
+☐ do not add public Star status, account strength scores, or leaderboards
+    Stars are private credits, not public reputation.
+
+☐ do not make free flows worse to make Star spending attractive
+    Core Muze features must stay useful for free users.
+
+## Completed / Historical Notes
 
 
 
@@ -26,12 +55,12 @@
 
 ✔ when add thing to list ux is weak and user don't know it can enter new thihngns @done (7/1/2026, 9:38:27 PM)
 
-☐ add hint to profile for fill list
+✔ add hint to profile for fill list @done (7/5/2026, 2:25 PM)
 
-☐ change lists title
+✔ change lists title @done (7/5/2026, 2:25 PM)
 
 
-☐ به لیست اضافه شد شود بی چنیج
+✔ به لیست اضافه شد شود بی چنیج @done (7/5/2026, 2:25 PM)
 
 ✔ change command format line to italic or code, or whaterve, let's them have a different style and the snder in discussion should be different style too, first let's talk about it @done (7/4/2026, 11:49:07 PM)
 
@@ -46,11 +75,7 @@
 ✔ shared link to invite to discusion should always work but only onee tiem give star for repeated users @done (7/1/2026, 11:02:53 PM)
 
 
-☐ we need to have another label if all item in top 10 related to one person or one band or whatever and call it x fan, (let think more about it ofcures)
-
-☐ do a smoke test and spot all buges
-
-☐ ✅ به لیست اضافه شد. based on whatever we are i mean wherever we are should be change to like playlist or watchlist or readlist or whatever we are doing, or just do it like we handle when user press i have done it or i have read it or i have listend to it,
+✔ ✅ به لیست اضافه شد. based on whatever we are i mean wherever we are should be change to like playlist or watchlist or readlist or whatever we are doing, or just do it like we handle when user press i have done it or i have read it or i have listend to it, @done (7/5/2026, 2:25 PM)
 
 💡 ۱ مورد دیگه تا پاداش لیست معمولی و ۲ ستاره می‌گیری.
 this should update not say list or normal list should say watchlist if is movie play list if is song and read list if is book and so on,
@@ -58,12 +83,7 @@ this should update not say list or normal list should say watchlist if is movie 
 
 ✔ think about if user has to go through onboarding or not after getting invited @done (7/5/2026, 1:34:13 PM)
 
-☐ test onboarding after inivitaion and normal
-
 ✔ make sure users can't send command like messages and not command like name on anythings @done (7/5/2026, 1:44:29 PM)
 
-☐ 👱‍♀️ این پیام لیسته؛ می‌تونی برای هر کسی خواستی بفرستیش 👇
-this should be removed after we removed the shareable list or not delete the shareable list at all
-
-☐     aiTasteAskNext_7: "سه جای خالی مونده؛ انتخاب بعدی چیه؟",
+✔     aiTasteAskNext_7: "سه جای خالی مونده؛ انتخاب بعدی چیه؟", @done (7/5/2026, 2:25 PM)
 this kind of message should come with bot emoji as well

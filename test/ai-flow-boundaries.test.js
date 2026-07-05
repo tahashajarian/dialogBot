@@ -399,6 +399,7 @@ test("Top Ten saved message does not repeat saved-only fallback feedback", async
 
   assert.match(text, /^✅/);
   assert.match(text, /✅ «نتاشایباشسمنیاب» ثبت شد\. \(1\/10\)/);
+  assert.match(text, /👩‍🦳 خوبه؛ یکی دیگه هم بفرست/);
   assert.doesNotMatch(text, /ذخیره شد/);
 });
 

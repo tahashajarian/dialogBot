@@ -63,6 +63,8 @@ function appliedRewards(results = []) {
       amount: Number(result.transaction.amount) || 0,
       balance: Number(result.balance) || 0,
       transactionId: result.transaction._id,
+      section: result.transaction.metadata?.section || "",
+      listType: result.transaction.metadata?.listType || "",
     }));
 }
 
@@ -89,6 +91,8 @@ async function awardListMilestones({ userId, section, listType, count }) {
     } else if (!await safelyHasReward(idempotencyKey)) {
       progress = {
         milestone: "regular_list_milestone",
+        section,
+        listType,
         remaining: goal - normalizedCount,
         reward: starEconomy.rewardRegularListPerSection,
       };
@@ -125,12 +129,16 @@ async function awardListMilestones({ userId, section, listType, count }) {
     if (normalizedCount < firstGoal && !firstClaimed) {
       progress = {
         milestone: "topten_first_milestone",
+        section,
+        listType,
         remaining: firstGoal - normalizedCount,
         reward: starEconomy.rewardFirstThreePerSection,
       };
     } else if (normalizedCount < fullGoal && !fullClaimed) {
       progress = {
         milestone: "topten_completed",
+        section,
+        listType,
         remaining: fullGoal - normalizedCount,
         reward: starEconomy.rewardFullTopTenPerSection,
       };

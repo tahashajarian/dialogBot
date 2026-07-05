@@ -2,6 +2,8 @@ const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./a
 const { localizeInterestChipTitle } = require("./interest-chips");
 const { operationalLimits } = require("./operational-limits");
 const { isCommandLikeText } = require("./command-like-text");
+const { getProfileStarCompletionStatus } = require("./star-milestones");
+const { starEconomy } = require("./star-settings");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -163,6 +165,49 @@ function buildProfileInterestsText(user, lang, messages) {
   return lines.join("\n");
 }
 
+function getAiTopTenCount(user, section) {
+  const modernItems = user?.aiLists?.[section]?.topTen;
+  const legacyKey = {
+    movies: "aiTopTenMovies",
+    music: "aiTopTenMusic",
+    books: "aiTopTenBooks",
+    random: "aiTopTenRandom",
+  }[section];
+  const legacyItems = legacyKey ? user?.[legacyKey] : [];
+  const items = Array.isArray(modernItems) && modernItems.length
+    ? modernItems
+    : Array.isArray(legacyItems) ? legacyItems : [];
+  return items.length;
+}
+
+function buildOwnProfileGrowthHint(user, lang, messages) {
+  const firstGoal = Math.max(1, Number(starEconomy.firstTopTenMilestoneItems) || 3);
+  const interestsCount = getAiTopTenCount(user, "random");
+  if (interestsCount < firstGoal) {
+    return messages[lang].profileGrowthHintInterests
+      .replace("{remaining}", Math.max(1, firstGoal - interestsCount).toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
+  }
+
+  const mediaSection = ["movies", "music", "books"].find((section) => getAiTopTenCount(user, section) < firstGoal);
+  if (mediaSection) {
+    const sectionLabel = getSectionLabel(messages, lang, mediaSection);
+    return messages[lang].profileGrowthHintTopTen
+      .replace("{section}", sectionLabel)
+      .replace("{remaining}", Math.max(1, firstGoal - getAiTopTenCount(user, mediaSection)).toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
+  }
+
+  const profileStatus = getProfileStarCompletionStatus(user);
+  if (!profileStatus.complete) {
+    if (!profileStatus.hasBio) return messages[lang].profileGrowthHintBio;
+    if (profileStatus.optionalNeeded > 0) {
+      return messages[lang].profileGrowthHintProfile
+        .replace("{remaining}", profileStatus.optionalNeeded.toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
+    }
+  }
+
+  return "";
+}
+
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
@@ -261,6 +306,8 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     lines.push(user?.activeDiscussionHelpAcknowledgedAt
       ? activeDiscussionLine
       : `${activeDiscussionLine} (${messages[lang].profileActiveDiscussionHelpButton} ${ACTIVE_DISCUSSION_HELP_COMMAND})`);
+    const growthHint = buildOwnProfileGrowthHint(user, lang, messages);
+    if (growthHint) lines.push(lineForLang(lang, growthHint));
   }
 
   const baseText = lines.join("\n");
@@ -359,6 +406,7 @@ module.exports = {
   ACTIVE_DISCUSSION_HELP_COMMAND,
   buildProfileText,
   buildProfileInterestsText,
+  buildOwnProfileGrowthHint,
   buildTasteLabelsText,
   getBasicProfileMissingFields,
   getProfileInterestTitles,

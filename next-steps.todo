@@ -1,0 +1,65 @@
+# Muze Next Steps
+
+This file is the short, doable launch queue. Deferred product ideas and "do not implement now" notes live in `plan.todo`.
+
+Start with the current next step. Everything else in this file is supporting detail.
+
+## Current Next Step
+
+☐ Run the manual production smoke test in the real bot chat
+  Why: automated tests are green, but only a real Telegram/Bale chat pass can catch noisy message order, stale cards, bad invite-link feel, and awkward bilingual copy.
+  Use:
+  - `docs/production-smoke-test-checklist.md`
+  Minimum pass before deploy:
+  - Normal fresh `/start` onboarding in Persian and English.
+  - Invite-first onboarding in Persian and English.
+  - Repeated `/start` and repeated invite link do not double-award Stars.
+  - Own profile shows self-only Stars/growth hint; public profile surfaces do not.
+  - One discussion create/join/leave/close flow works cleanly.
+  Status:
+  - Automated onboarding/invite-start checks passed on 7/5/2026.
+  - Manual Telegram/Bale chat smoke test is still needed.
+
+## Completed Launch Prep
+
+✔ Focused copy polish pass @done (7/5/2026, 3:05 PM)
+  Why: small wording problems can make the bot feel less trustworthy even when behavior is correct.
+  Include:
+  - Remaining Star invite/reward copy beyond list milestone wording.
+  - Any message that sounds translated, too mechanical, or uses internal labels.
+  Boundaries:
+  - Batch related copy changes together.
+  - Avoid changing behavior during this pass unless needed by the wording.
+  - Run `npm.cmd run validate:translations`.
+
+✔ Review performance assumptions for large user counts @done (7/5/2026, 3:05 PM)
+  Why: 1,000,000 users is not an immediate optimization target, but risky query shapes should be known before growth.
+  Focus areas:
+  - People discovery and taste index queries.
+  - Boost recipient selection.
+  - Analytics dashboard aggregate queries.
+  - Reconciliation job limits.
+  - Mongo indexes on `User`, discussion, boost, referral, and transaction models.
+  Output:
+  - A short performance note listing the riskiest queries, expected indexes, and what should be load-tested first.
+  Avoid:
+  - Premature rewrites without measured bottlenecks.
+
+✔ Define a daily Stars operations habit @done (7/5/2026, 3:05 PM)
+  Why: the wallet design is strong, but production needs visible checks.
+  Include:
+  - Reconciliation mismatch count.
+  - Pending Star transactions.
+  - Refund failures.
+  - Duplicate idempotency rates.
+  - Boost delivery failures.
+  - Suspicious invitation/referral concentration.
+  Suggested source:
+  - Dashboard metrics and `reconcileStarBalances`.
+
+## Done In The Last Pass
+
+✔ Clean up list reward/progress wording @done (7/5/2026, 2:25 PM)
+✔ Add Muze marker emoji to bot-authored taste prompt messages such as `aiTasteAskNext_*` @done (7/5/2026, 2:25 PM)
+✔ Add a private own-profile hint for filling taste lists @done (7/5/2026, 2:25 PM)
+✔ Create a production smoke-test checklist @done (7/5/2026, 2:25 PM)

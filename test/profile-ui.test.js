@@ -55,6 +55,21 @@ test("buildProfileText shows active discussion visibility only for own profile",
   assert.doesNotMatch(publicText, /Stars:/);
 });
 
+test("buildProfileText shows one private growth hint only on own profile", () => {
+  const profileUser = {
+    firstName: "Ali",
+    profileName: "Ali",
+    starBalance: 0,
+    showActiveDiscussionOnProfile: false,
+    aiLists: { random: { topTen: [{ title: "Chess" }] } },
+  };
+  const ownText = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
+  const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
+
+  assert.match(ownText, /Next: add 2 more Interests/);
+  assert.doesNotMatch(publicText, /Next:/);
+});
+
 test("buildProfileText uses public title when viewing someone else", () => {
   const ownText = buildProfileText(user, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });

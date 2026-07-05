@@ -42,14 +42,39 @@ test("Star reward notice combines balance and one next milestone", () => {
     milestone: "topten_first_milestone",
     amount: 3,
     balance: 8,
+    section: "music",
+    listType: "topTen",
   }], {
     milestone: "topten_completed",
+    section: "music",
+    listType: "topTen",
     remaining: 7,
     reward: 7,
   });
   assert.match(text, /earned 3 Stars/);
+  assert.match(text, /Music Top 10/);
   assert.match(text, /Balance: 8/);
-  assert.match(text, /Add 7 more/);
+  assert.match(text, /Add 7 more to complete your Music Top 10/);
+});
+
+test("Star progress names regular lists by section", () => {
+  const fa = buildStarRewardNotice(messages, "fa", [], {
+    milestone: "regular_list_milestone",
+    section: "movies",
+    listType: "watchlist",
+    remaining: 1,
+    reward: 2,
+  }, { alwaysShowProgress: true });
+  const en = buildStarRewardNotice(messages, "en", [], {
+    milestone: "regular_list_milestone",
+    section: "music",
+    listType: "watchlist",
+    remaining: 1,
+    reward: 2,
+  }, { alwaysShowProgress: true });
+
+  assert.match(fa, /واچ‌لیست فیلم‌ها/);
+  assert.match(en, /Music playlist/);
 });
 
 test("invite Star reward notice uses a natural accepted-invite sentence", () => {

@@ -21,6 +21,47 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 - Boost recipient selection still validates join rules in process for candidates that survive taste/mute/delivery filters. That is currently safer than duplicating rule logic in Mongo, but it remains CPU-bound for large candidate batches.
 - AI cache fuzzy and semantic matching load recent candidates per category/purpose/lang and rank in process. The configured limit bounds the work, but high cache volume may reduce hit quality or increase lookup latency.
 
+## Large-User-Count Review
+
+The current codebase is suitable for launch and private-beta scale. A 1,000,000-user environment should be treated as a separate capacity target, not as a reason to rewrite before launch.
+
+Highest-risk query/work areas:
+
+- People discovery:
+  - Free browse depends on a bounded candidate window from `users`, then in-process ranking. At large scale this can become order-biased even if latency stays bounded.
+  - The probably-similar people lens should keep using `user_taste_indexes` for overlap candidates, then hydrate only the small visible page.
+  - Load-test first with many named, non-banned public profiles and sparse taste overlap.
+- Taste index:
+  - The multikey `{ section, items, itemCount, userId }` index is the current scaling path for shared-item lookup.
+  - Watch stale-row count and rebuild age after imports, migrations, or failed list mutation jobs.
+  - If overlap queries become broad, evaluate per-item rows before changing product behavior.
+- Boost recipient selection:
+  - Taste-index candidate lookup, mute/delivery-history batching, and recipient caps keep database calls bounded.
+  - Join-rule validation remains in process. Load-test candidate batches above 500 and p95 above 1 second before denormalizing join-rule eligibility.
+- Analytics dashboard:
+  - Aggregate Star/event metrics should remain operational, not user-facing request-path dependencies.
+  - At high volume, prefer daily rollups or cached dashboard snapshots over repeatedly aggregating unbounded event/ledger collections.
+- Star reconciliation:
+  - `reconcileStarBalances` is deliberately bounded. Run it as an operational check with a limit, then investigate mismatches rather than increasing limits blindly.
+  - Pending transaction recovery should stay capped so one bad deployment cannot monopolize the process.
+
+Expected index coverage to verify before high-scale rollout:
+
+- `users`: public-profile discovery filters, banned-state filters, profile-name presence, active-room/boost-recipient fields, and cached `starBalance` lookup by `userId`.
+- `user_taste_indexes`: unique `{ userId, section }`, overlap lookup `{ section, items, itemCount, userId }`, and stale-row inspection by `updatedAt`.
+- `startransactions`: unique idempotency key, per-user transaction history, pending status recovery, and reconciliation scans.
+- `starreferrallinks` / `starreferralclaims`: public code lookup, invitee uniqueness, pending claim lookup, and qualification status.
+- `discussionboosts` / `discussionboostdeliveries`: active boost lookup, owner/discussion active uniqueness, recipient delivery dedupe, and stale reserved delivery cleanup.
+- `discussions`: active/open room listing, owner/member lookup, public code lookup, and join-rule fields used by current list queries.
+
+Load-test first:
+
+- People free browse with 100k+ named users and limited profile data.
+- Similar-people lookup with 1M taste-index rows and unevenly popular items.
+- Boost recipient selection with many eligible users, mutes, and prior deliveries.
+- Dashboard Star/event aggregate refresh with production-like ledger/event counts.
+- Star reconciliation and pending recovery with realistic ledger volume and a small injected mismatch set.
+
 ## Taste Index
 
 Implemented shape:
