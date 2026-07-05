@@ -18,7 +18,7 @@
 - Back button labels should use `🔙` as the visible back emoji.
 - Numeric inline button rows should be ordered so the visible numbers start from the left in both Persian and English clients.
 - When leaving an AI section/manage flow via Back, remove temporary reply keyboards (for example Top 10/Suggestion bottom buttons) before showing the higher-level menu.
-- When clearing a temporary reply keyboard before an inline menu, avoid blank/placeholder bubbles. Send the actual destination menu text with `remove_keyboard`, then attach inline buttons to that same visible message when the platform allows it. If the edit fallback must send a fresh inline menu, delete the keyboard-removal copy first so the same text does not remain twice.
+- When clearing a temporary reply keyboard before an inline menu, use a short keyboard-cleanup message, delete it, then send the actual destination menu once with inline buttons. Do not send the same visible menu text first without buttons and then again with buttons.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
 - Entering a section/list should show the relevant section/list title immediately, not only after returning from submenus.
 

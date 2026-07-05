@@ -15,6 +15,7 @@ const {
   getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
+  inlineKeyboard,
   mainMenuKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
@@ -111,6 +112,32 @@ function toAiManageStateListType(value) {
   return value === "topTen" ? "top_ten" : "watchlist";
 }
 
+function aiListShareReturnKeyboard(lang, section, listType) {
+  const listTypeToken = listType === "topTen" ? "top_ten" : "watchlist";
+  const target = listType === "topTen"
+    ? `${getSectionEmoji(section)} ${lang === "fa" ? "تاپ ۱۰" : "Top 10"}`
+    : getSectionListLabel(messages, lang, section);
+  return inlineKeyboard([
+    [{
+      text: messages[lang].aiListShareBackToList.replace("{target}", target),
+      callback_data: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
+    }],
+  ]);
+}
+
+async function retireShareGuidanceMessage(ctx, helpers) {
+  if (ctx.callbackMessageId && ctx.deleteMessage) {
+    try {
+      const deleted = await ctx.deleteMessage(ctx.callbackMessageId);
+      if (deleted !== false) return true;
+    } catch {
+      // Fall back to removing inline buttons below.
+    }
+  }
+
+  return helpers.deleteCallbackMessageIfPossible(ctx);
+}
+
 function normalizeWatchlistFilter(value) {
   if (value === "watched") return "watched";
   if (value === "not_watched") return "not_watched";
@@ -126,6 +153,7 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiListManageMenu) ||
     data.startsWith(callBacks.aiListManageShow) ||
     data.startsWith(callBacks.aiListManageShare) ||
+    data.startsWith(callBacks.aiListShareBack) ||
     data.startsWith(callBacks.aiTopTenInsight) ||
     data.startsWith(callBacks.aiListManageTogglePicker) ||
     data.startsWith(callBacks.aiListManageToggleItem) ||
@@ -438,6 +466,18 @@ async function handleAiCallback(ctx, lang, helpers) {
     return listMessage;
   }
 
+  if (data.startsWith(callBacks.aiListShareBack)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.aiListShareBack, "");
+    const [section = "", rawListType = ""] = payload.split(":");
+    const listType = normalizeAiListTypeToken(rawListType);
+    if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
+
+    await retireShareGuidanceMessage(ctx, helpers);
+    await rememberAiActionMessage(ctx, "", null);
+    return openAiListManager(ctx, lang, section, listType);
+  }
+
   if (data.startsWith(callBacks.aiListManageShare)) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.aiListManageShare, "");
@@ -446,21 +486,19 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
     const items = getAiListItemsFromUser(ctx.user, section, listType);
-    await helpers.deleteCallbackMessageIfPossible(ctx);
     if (items.length <= 5) {
+      await helpers.deleteCallbackMessageIfPossible(ctx);
       return openAiListManager(ctx, lang, section, listType);
     }
 
-    await ctx.reply(messages[lang].aiListShareIntro);
-    const listMessage = await ctx.reply(
-      buildShareListMessage({ ctx, lang, section, listType }),
-      aiListManageMenuKeyboard(lang, section, listType, {
-        hasItems: true,
-        itemCount: items.length,
-      }),
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    await ctx.reply(buildShareListMessage({ ctx, lang, section, listType }));
+    const guidanceMessage = await ctx.reply(
+      messages[lang].aiListShareIntro,
+      aiListShareReturnKeyboard(lang, section, listType),
     );
-    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
-    return listMessage;
+    await rememberAiActionMessage(ctx, `share:${section}:${listType}`, guidanceMessage);
+    return guidanceMessage;
   }
 
   if (data.startsWith(callBacks.aiTopTenInsight)) {

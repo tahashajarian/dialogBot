@@ -43,7 +43,7 @@ test("keyboard removal normalizes whitespace-only text", async () => {
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
 });
 
-test("inline navigation fallback deletes the keyboard-removal copy", async () => {
+test("inline navigation clears bottom keyboard quietly before one real menu", async () => {
   const replies = [];
   const deletedIds = [];
   const keyboard = { reply_markup: { inline_keyboard: [[{ text: "Go", callback_data: "go" }]] } };
@@ -62,7 +62,7 @@ test("inline navigation fallback deletes the keyboard-removal copy", async () =>
   await replyWithRemovedKeyboardThenInline(ctx, "Choose one", keyboard);
 
   assert.equal(replies.length, 2);
-  assert.equal(replies[0].text, "Choose one");
+  assert.equal(replies[0].text, ".");
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.equal(replies[1].text, "Choose one");
   assert.equal(replies[1].extra.reply_markup.inline_keyboard[0][0].text, "Go");

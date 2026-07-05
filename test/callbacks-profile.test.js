@@ -449,7 +449,6 @@ test("main menu entries open sections without hard delete-first gap", async () =
 test("saved profiles clears stale cards and bottom keyboard before rendering list", async () => {
   const deletedIds = [];
   const replies = [];
-  const edits = [];
   const ctx = {
     callbackData: callBacks.savedProfiles,
     callbackMessageId: 456,
@@ -467,10 +466,6 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
       deletedIds.push(messageId);
       return true;
     },
-    editMessageText: async (messageId, text, extra) => {
-      edits.push({ messageId, text, extra });
-      return { message_id: messageId };
-    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -482,8 +477,10 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
 
   assert.equal(deletedIds[0], 456);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.match(replies[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
-  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
+  assert.equal(replies[0].text, ".");
+  assert.equal(deletedIds.includes(1), true);
+  assert.match(replies[1].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.equal(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
 });
 
 test("people hub opens discovery and saved profile choices", async () => {
@@ -680,7 +677,6 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
-  const edits = [];
 
   User.findOneAndUpdate = async () => ({});
 
@@ -698,10 +694,6 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
       deletedIds.push(messageId);
       return true;
     },
-    editMessageText: async (messageId, text, extra) => {
-      edits.push({ messageId, text, extra });
-      return { message_id: messageId };
-    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -715,10 +707,11 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
   }
 
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.match(replies[0].text, /منوی اصلی/);
-  assert.equal(deletedIds.includes(1), false);
+  assert.equal(replies[0].text, ".");
+  assert.equal(deletedIds.includes(1), true);
+  assert.match(replies[1].text, /منوی اصلی/);
   assert.deepEqual(
-    edits[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    replies[1].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.language,
   );
 });

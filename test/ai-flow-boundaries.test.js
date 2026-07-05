@@ -172,11 +172,10 @@ test("AI section keyboard prefixes section actions with section emoji", () => {
   assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
-test("AI bottom Back keeps the keyboard-removal message so Bale clears reply controls", async () => {
+test("AI bottom Back quietly clears reply controls before sending the inline menu", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
-  const edits = [];
 
   User.findOneAndUpdate = async () => ({});
 
@@ -210,10 +209,10 @@ test("AI bottom Back keeps the keyboard-removal message so Bale clears reply con
 
   const keyboardRemovalReply = replies.find((reply) => reply.extra?.reply_markup?.remove_keyboard);
   assert.equal(Boolean(keyboardRemovalReply), true);
-  assert.match(keyboardRemovalReply.text, /یکی از بخش‌ها رو انتخاب کن/);
-  assert.equal(deletedIds.includes(1), false);
+  assert.equal(keyboardRemovalReply.text, ".");
+  assert.equal(deletedIds.includes(1), true);
   assert.deepEqual(
-    edits.find((edit) => edit.extra?.reply_markup?.inline_keyboard)
+    replies.find((reply) => reply.extra?.reply_markup?.inline_keyboard)
       .extra.reply_markup.inline_keyboard.at(-1)[0].callback_data,
     callBacks.aiBack,
   );
@@ -322,10 +321,6 @@ test("pressing Add retires the remembered list card", async () => {
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: 80 + replies.length };
-    },
-    editMessageText: async (messageId, text, extra) => {
-      edits.push({ messageId, text, extra });
-      return { message_id: messageId };
     },
   };
 
@@ -616,16 +611,88 @@ test("sharing AI list renders clean titles and comments without management comma
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  const introReply = replies.at(-2);
-  const sharedReply = replies.at(-1);
+  const sharedReply = replies.at(-2);
+  const introReply = replies.at(-1);
 
   assert.equal(introReply.text, messages.en.aiListShareIntro);
+  assert.equal(
+    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.callback_data === `${callBacks.aiListShareBack}movies:watchlist`),
+    true,
+  );
+  assert.equal(
+    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === "🔙 Back to 🎬 watchlist"),
+    true,
+  );
+  assert.equal(introReply.extra.reply_markup.inline_keyboard.flat().length, 1);
+  assert.match(introReply.text, /👆/);
+  assert.equal(ctx.user.aiActionMessageId, 112);
+  assert.equal(ctx.user.aiActionContext, "share:movies:watchlist");
   assert.doesNotMatch(sharedReply.text, /📌/);
   assert.match(sharedReply.text, /Arrival — quiet sci-fi/);
   assert.match(sharedReply.text, /Jaws — classic/);
   assert.doesNotMatch(sharedReply.text, /\/cm_mv_l_1/);
   assert.doesNotMatch(sharedReply.text, /\/rm_mv_l_1/);
   assert.doesNotMatch(sharedReply.text, /Change to watched/);
+  assert.equal(sharedReply.extra, undefined);
+});
+
+test("AI share return button consumes guidance card before reopening list", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const deleted = [];
+  const ctx = {
+    callbackData: `${callBacks.aiListShareBack}movies:watchlist`,
+    callbackMessageId: 77,
+    userId: 84,
+    user: {
+      userId: 84,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [
+            { title: "Arrival", watched: true },
+            { title: "Heat" },
+            { title: "Dune" },
+            { title: "Alien" },
+            { title: "Her" },
+            { title: "Jaws" },
+          ],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 210 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        throw new Error("generic fallback should not be needed");
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, [77]);
+  assert.equal(ctx.user.aiActionMessageId, null);
+  assert.equal(ctx.user.aiActionContext, "");
+  assert.match(replies.at(-1).text, /Movies .*watchlist/);
+  assert.ok(replies.at(-1).extra?.reply_markup?.inline_keyboard);
 });
 
 test("back to list after adding uses current item count for share button", async () => {
