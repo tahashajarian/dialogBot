@@ -2,11 +2,12 @@
 
 ## Sections
 
-- AI assistant menu includes movies, music, books, and interests sections.
-- The internal `random` section should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
-- `🌿 علاقه‌مندی‌ها` should feel first-class for users who are not strongly into movies, music, or books.
+- AI assistant/List menu includes the media sections only: movies, music, and books.
+- Interests are edited from Profile and collected during onboarding, not shown as a fourth button inside the Lists hub.
+- The internal `random` section stores profile/onboarding interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
+- `🌿 علاقه‌مندی‌ها` should feel first-class in Profile and onboarding for users who are not strongly into movies, music, or books.
 - AI section entry should be a guided hub message, not an open chat prompt.
-- Media section entry titles and bottom actions should carry the active section emoji for orientation, such as `🎵 🏆 My top 10` and `🎵 ✨ Suggestion`; keep the Interests/random TopTen and Suggestion controls plain unless that section is redesigned as a list hub again.
+- Media section entry titles and bottom actions should carry the active section emoji for orientation, such as `🎵 🏆 My top 10` and `🎵 ✨ Suggestion`.
 - Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
 - In a plain section hub, stray text should keep the bottom controls and clearly direct the user to List, Top 10, or Suggestion.
 - In list, Top 10, or suggestion inline-action states, stray text should retire the current inline card and send one fresh guidance card with the same relevant options.
@@ -63,7 +64,7 @@
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
 - After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. The first untouched add prompt should show Cancel; post-save prompts should show Back to list and explicitly say the user can send the next title in chat.
 - Post-save TopTen continuation prompts are bot-authored guidance and should carry the configured Muze marker. The success line itself may keep the short success emoji.
-- List and suggestion save confirmations should use the active user-facing list name where possible: Movies watchlist, Music playlist, Books reading list, or Interests list. Avoid generic/internal wording such as "regular list" in user-facing progress copy.
+- List and suggestion save confirmations should use the active user-facing list name where possible: Movies watchlist, Music playlist, or Books reading list. Avoid generic/internal wording such as "regular list" in user-facing progress copy.
 - Entering add mode should send one visible prompt with its inline Cancel button. Do not send a keyboard-removal copy and then a second identical prompt with buttons.
 - Entering add mode should retire the remembered list display, including empty TopTen/List cards, so old list summaries do not remain in chat while the user is adding items.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
@@ -81,7 +82,7 @@
 
 ## Interests Section
 
-The `random` section is conceptually the broad interests section.
+The `random` section is conceptually the broad interests section, but it is surfaced through Profile and onboarding rather than as a fourth Lists hub button.
 
 User-facing naming should prefer:
 
