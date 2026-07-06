@@ -21,8 +21,6 @@
 - Item objects are `{ title, comment, watched }`.
 - `watchlist` is capped at 100 items per section.
 - `topTen` is capped at 10 items per section.
-- Use `scripts/migrate-ai-lists.js` to move legacy flat lists into `aiLists`.
-- Use `scripts/rollback-ai-lists.js` to restore legacy fields if needed.
 
 ## Watchlist
 

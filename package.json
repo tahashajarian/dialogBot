@@ -12,15 +12,8 @@
     "dev": "nodemon --no-deprecation ./src/index.js",
     "check": "npm run lint && npm run validate:translations && npm test && npm run test:integration",
     "validate:translations": "node ./scripts/validate-translations.js",
-    "clear:data:dry": "node ./scripts/clear-data.js --dry-run",
-    "clear:data": "node ./scripts/clear-data.js",
-    "migrate:ai-lists:dry": "node ./scripts/migrate-ai-lists.js",
-    "migrate:ai-lists": "node ./scripts/migrate-ai-lists.js --apply",
-    "migrate:ai-lists:clear-legacy": "node ./scripts/migrate-ai-lists.js --apply --clear-legacy",
-    "migrate:public-code-indexes": "node ./scripts/migrate-public-code-indexes.js",
-    "rebuild:taste-index": "node ./scripts/rebuild-taste-index.js",
-    "rollback:ai-lists:dry": "node ./scripts/rollback-ai-lists.js",
-    "rollback:ai-lists": "node ./scripts/rollback-ai-lists.js --apply"
+    "clear:user-data:dry": "node ./scripts/clear-user-data.js --dry-run",
+    "clear:user-data": "node ./scripts/clear-user-data.js"
   },
   "keywords": [],
   "author": "",

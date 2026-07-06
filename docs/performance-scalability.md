@@ -17,7 +17,7 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 ## Remaining Performance Risks
 
 - Free People browse still scans a bounded public-profile candidate window and ranks in process. This is acceptable for small/private-beta usage, but the result quality and latency depend on scan order once the public user base grows.
-- If `user_taste_indexes` is empty or unavailable, similar-people discovery falls back to the bounded legacy scan. Run `npm run rebuild:taste-index` after DB resets, imports, or legacy list migrations.
+- If `user_taste_indexes` is empty or unavailable, similar-people discovery falls back to the bounded legacy scan. For the launch workflow, new list mutations repopulate the index as users test the bot.
 - Boost recipient selection still validates join rules in process for candidates that survive taste/mute/delivery filters. That is currently safer than duplicating rule logic in Mongo, but it remains CPU-bound for large candidate batches.
 - AI cache fuzzy and semantic matching load recent candidates per category/purpose/lang and rank in process. The configured limit bounds the work, but high cache volume may reduce hit quality or increase lookup latency.
 
@@ -73,8 +73,6 @@ Implemented shape:
   - unique `{ userId, section }`
   - `{ section, items, itemCount, userId }` for overlap candidate lookup
   - `{ updatedAt }` for operational inspection/rebuild work
-- Rebuild command: `npm run rebuild:taste-index`.
-
 Future refinements become useful when metrics show one of these thresholds:
 
 - People discovery p95 latency above 500 ms for warm Mongo queries.

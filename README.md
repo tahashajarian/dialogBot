@@ -86,19 +86,13 @@ npm.cmd test
 npm.cmd run test:integration
 npm.cmd run lint
 npm.cmd run validate:translations
+npm.cmd run clear:user-data:dry
+npm.cmd run clear:user-data
 ```
 
-Data cleanup and migrations have dry-run commands in `package.json`. Review
-their output before using an applying command.
-
-After deploying the supported partial public-code index definition, run:
-
-```powershell
-npm.cmd run migrate:public-code-indexes
-```
-
-This checks for duplicate non-empty codes before replacing the legacy sparse
-indexes.
+Use `clear:user-data:dry` before `clear:user-data` when preparing a clean test
+run. It clears user/product state while preserving AI response caches and admin
+settings.
 
 ## Architecture
 
