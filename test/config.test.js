@@ -115,8 +115,19 @@ test("ai config can be used without runtime bot credentials", () => {
     baseUrl: "https://api.openai.com/v1",
     model: "test-model",
     embeddingModel: "text-embedding-3-small",
+    suggestionProvider: "auto",
     timeoutMs: 1234,
   });
+});
+
+test("ai suggestion provider accepts documented modes", () => {
+  assert.equal(getAiConfig({ AI_SUGGESTION_PROVIDER: "chat" }).suggestionProvider, "chat");
+  assert.equal(getAiConfig({ AI_SUGGESTION_PROVIDER: "responses" }).suggestionProvider, "responses");
+
+  const issues = getConfigIssues(buildConfig({
+    AI_SUGGESTION_PROVIDER: "other",
+  }));
+  assert.ok(issues.some((issue) => issue.includes("AI_SUGGESTION_PROVIDER")));
 });
 
 test("normalizeUsername strips at signs and lowercases", () => {

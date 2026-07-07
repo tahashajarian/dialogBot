@@ -13,6 +13,7 @@ class MemoryCacheStore {
   constructor() {
     this.entries = [];
     this.nextId = 1;
+    this.candidateLookups = 0;
   }
 
   async findExact({ normalizedInput, category, purpose, lang }) {
@@ -25,6 +26,7 @@ class MemoryCacheStore {
   }
 
   async findCandidates({ category, purpose, lang }) {
+    this.candidateLookups += 1;
     return this.entries.filter((entry) => (
       entry.category === category &&
       entry.purpose === purpose &&
@@ -223,6 +225,7 @@ test("semantic matching reuses close entity when exact and fuzzy fail", async ()
   assert.equal(result.matchType, "semantic");
   assert.equal(result.text, "Sandman-level classic.");
   assert.equal(apiCalls, 0);
+  assert.equal(store.candidateLookups, 1);
 });
 
 test("false positives are not reused", async () => {

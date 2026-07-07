@@ -102,8 +102,11 @@ async function requestSuggestionText(openai, {
   recordEvent = recordAiApiEvent,
 }) {
   const errors = [];
+  const provider = config.suggestionProvider || "auto";
+  const useChatCompletions = provider !== "responses";
+  const useResponses = provider !== "chat";
 
-  if (openai?.chat?.completions?.create) {
+  if (useChatCompletions && openai?.chat?.completions?.create) {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(
@@ -148,7 +151,7 @@ async function requestSuggestionText(openai, {
     }
   }
 
-  if (openai?.responses?.create) {
+  if (useResponses && openai?.responses?.create) {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(

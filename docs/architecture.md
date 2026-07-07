@@ -139,6 +139,7 @@ Age is optional and not enforced by the profile viewing gate.
 - `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
 - `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
+- `AI_SUGGESTION_PROVIDER` controls suggestion API routing: `auto` tries chat completions then responses, `chat` uses only chat completions, and `responses` uses only the Responses API.
 - `BOT_DEEP_LINK_BASE_URL` is the public bot URL for invite deep links. For Telegram use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
 - `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings.
 - `REPORT_BAN_THRESHOLD` controls how many unique reporters trigger an automatic global user ban. Default: `5`.

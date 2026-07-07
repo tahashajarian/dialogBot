@@ -121,6 +121,24 @@ test("discussion schema accepts open join rule without section", () => {
   assert.ok(discussion.lastActivityAt instanceof Date);
 });
 
+test("discussion schema indexes creator activity lists", () => {
+  const indexes = Discussion.schema.indexes();
+  assert.ok(indexes.some(([fields, options]) => (
+    options?.name === "creator_open_discussions_activity_sort" &&
+    fields.creatorUserId === 1 &&
+    fields.status === 1 &&
+    fields.lastActivityAt === -1
+  )));
+});
+
+test("user schema indexes active discussion cleanup", () => {
+  const indexes = User.schema.indexes();
+  assert.ok(indexes.some(([fields, options]) => (
+    options?.name === "active_discussion_membership_cleanup" &&
+    fields.activeDiscussionId === 1
+  )));
+});
+
 test("bot starter discussions use the bot id without fake members", async () => {
   const originalFindOneAndUpdate = Discussion.findOneAndUpdate;
   const calls = [];

@@ -35,6 +35,14 @@ DiscussionInvitationSchema.index(
 
 DiscussionInvitationSchema.index({ inviteeUserId: 1, status: 1, createdAt: -1 });
 DiscussionInvitationSchema.index(
+  { inviteeUserId: 1, status: 1, seenAt: 1, createdAt: -1 },
+  { name: "received_invitation_seen_state" },
+);
+DiscussionInvitationSchema.index(
+  { inviterUserId: 1, createdAt: -1 },
+  { name: "inviter_invitation_rate_limit" },
+);
+DiscussionInvitationSchema.index(
   { inviteeUserId: 1, discussionId: 1, status: 1 },
   {
     name: "pending_invitation_per_discussion_recipient",

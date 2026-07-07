@@ -55,6 +55,10 @@ DiscussionSchema.index(
   { status: 1, lastActivityAt: -1, updatedAt: -1, createdAt: -1 },
   { name: "open_discussions_activity_sort" },
 );
+DiscussionSchema.index(
+  { creatorUserId: 1, status: 1, lastActivityAt: -1, updatedAt: -1, createdAt: -1 },
+  { name: "creator_open_discussions_activity_sort" },
+);
 DiscussionSchema.index({ memberUserIds: 1, status: 1 });
 DiscussionSchema.index(
   { publicDiscussionCode: 1 },

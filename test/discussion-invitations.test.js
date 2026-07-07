@@ -47,6 +47,22 @@ test("discussion invitation schema accepts pending invitation", () => {
   assert.equal(invitation.source, "room");
 });
 
+test("discussion invitation schema indexes inbox and rate-limit queries", () => {
+  const indexes = DiscussionInvitation.schema.indexes();
+  assert.ok(indexes.some(([fields, options]) => (
+    options?.name === "received_invitation_seen_state" &&
+    fields.inviteeUserId === 1 &&
+    fields.status === 1 &&
+    fields.seenAt === 1 &&
+    fields.createdAt === -1
+  )));
+  assert.ok(indexes.some(([fields, options]) => (
+    options?.name === "inviter_invitation_rate_limit" &&
+    fields.inviterUserId === 1 &&
+    fields.createdAt === -1
+  )));
+});
+
 test("pending invitation count includes seen pending invitations", async () => {
   const originalAggregate = DiscussionInvitation.aggregate;
   let pipeline = null;

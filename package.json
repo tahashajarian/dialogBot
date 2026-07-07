@@ -12,6 +12,7 @@
     "dev": "nodemon --no-deprecation ./src/index.js",
     "check": "npm run lint && npm run validate:translations && npm test && npm run test:integration",
     "validate:translations": "node ./scripts/validate-translations.js",
+    "create:indexes": "node ./scripts/create-indexes.js",
     "clear:user-data:dry": "node ./scripts/clear-user-data.js --dry-run",
     "clear:user-data": "node ./scripts/clear-user-data.js"
   },

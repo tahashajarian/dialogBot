@@ -80,3 +80,61 @@ test("requestSuggestionText records provider health without changing result", as
   assert.equal(events[1].ok, true);
   assert.equal(events[1].provider, "responses");
 });
+
+test("requestSuggestionText can use only chat completions", async () => {
+  const calls = [];
+  const openai = {
+    chat: {
+      completions: {
+        create: async () => {
+          calls.push("chat");
+          return { choices: [{ message: { content: "Chat suggestion" } }] };
+        },
+      },
+    },
+    responses: {
+      create: async () => {
+        calls.push("responses");
+        return { output_text: "Responses suggestion" };
+      },
+    },
+  };
+
+  const result = await requestSuggestionText(openai, {
+    config: { model: "test-model", timeoutMs: 1000, suggestionProvider: "chat" },
+    instructions: "test",
+    input: "input",
+  });
+
+  assert.deepEqual(calls, ["chat"]);
+  assert.deepEqual(result, { text: "Chat suggestion", api: "chat_completions" });
+});
+
+test("requestSuggestionText can use only responses", async () => {
+  const calls = [];
+  const openai = {
+    chat: {
+      completions: {
+        create: async () => {
+          calls.push("chat");
+          return { choices: [{ message: { content: "Chat suggestion" } }] };
+        },
+      },
+    },
+    responses: {
+      create: async () => {
+        calls.push("responses");
+        return { output_text: "Responses suggestion" };
+      },
+    },
+  };
+
+  const result = await requestSuggestionText(openai, {
+    config: { model: "test-model", timeoutMs: 1000, suggestionProvider: "responses" },
+    instructions: "test",
+    input: "input",
+  });
+
+  assert.deepEqual(calls, ["responses"]);
+  assert.deepEqual(result, { text: "Responses suggestion", api: "responses" });
+});

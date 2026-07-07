@@ -10,7 +10,13 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 - Mongo indexes now better match current candidate scans:
   - `users`: boost recommendation candidate filtering by ban/active-room/opt-out state.
   - `users`: People browse candidate filtering by ban/name presence.
+  - `users`: active discussion membership cleanup by `activeDiscussionId`.
+  - `discussions`: creator-owned open room lists sorted by recent activity.
+  - `discussioninvitations`: inbox unseen-state queries and inviter daily rate-limit scans.
   - `discussionboostdeliveries`: discussion-recipient lookup and stale reserved-delivery cleanup.
+- `npm run create:indexes` creates declared Mongoose indexes during deployment without dropping existing indexes.
+- AI suggestion routing can be pinned with `AI_SUGGESTION_PROVIDER=chat` or `responses` to avoid sequential provider timeouts when one API shape is unsupported or too slow.
+- AI cache reads use lean/projection reads and share candidate loading between fuzzy and semantic matching.
 - A denormalized `user_taste_indexes` collection now stores normalized list tokens per user/section. Successful list add/remove/promote mutations refresh the affected section.
 - Similar-people discovery and boost recipient selection prefer the taste index when it is populated, then hydrate only candidate user profiles and run the existing safety filters.
 

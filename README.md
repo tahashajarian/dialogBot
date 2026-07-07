@@ -46,6 +46,7 @@ API_BASE_URL=
 API_KEY=
 MODEL_NAME=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
+AI_SUGGESTION_PROVIDER=auto
 AI_TIMEOUT_MS=8000
 
 # Private-beta usernames, comma-separated.
@@ -71,6 +72,11 @@ For normal Telegram deployment, leave it empty so Telegraf uses Telegram's
 default API. `API_BASE_URL` belongs to the AI provider. They must never point
 to the same endpoint.
 
+`AI_SUGGESTION_PROVIDER` controls which OpenAI-compatible API is used for
+one-item suggestions. Use `auto` to try chat completions and then responses,
+`chat` for chat-completions-only providers, or `responses` for providers where
+the Responses API is the working path.
+
 If Telegram Bot API access is blocked on the host, set `TELEGRAM_PROXY_URL` to
 a local HTTP(S) proxy such as `http://127.0.0.1:7890`. SOCKS proxy URLs and
 generic proxy environment variables are not used by this setting.
@@ -84,6 +90,7 @@ npm.cmd run dashboard
 npm.cmd run check
 npm.cmd test
 npm.cmd run test:integration
+npm.cmd run create:indexes
 npm.cmd run lint
 npm.cmd run validate:translations
 npm.cmd run clear:user-data:dry
@@ -93,6 +100,10 @@ npm.cmd run clear:user-data
 Use `clear:user-data:dry` before `clear:user-data` when preparing a clean test
 run. It clears user/product state while preserving AI response caches and admin
 settings.
+
+Use `create:indexes` before starting a fresh deployment database or after
+adding schema indexes. It calls MongoDB `createIndexes()` for the declared
+Mongoose models, so it creates missing indexes without dropping existing ones.
 
 ## Architecture
 

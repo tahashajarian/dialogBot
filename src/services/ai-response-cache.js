@@ -20,6 +20,8 @@ const CACHE_STATS = {
   newApiCallFailed: 0,
 };
 
+const CACHE_READ_FIELDS = "aiResponse normalizedInput embedding hitCount";
+
 function cloneStats() {
   return { ...CACHE_STATS };
 }
@@ -207,11 +209,14 @@ function createMongoCacheStore() {
         category,
         purpose,
         lang,
-      }));
+      })
+        .select(CACHE_READ_FIELDS)
+        .lean());
     },
 
     async findCandidates({ category, purpose, lang, limit }) {
       const docs = await AiResponseCache.find({ category, purpose, lang })
+        .select(CACHE_READ_FIELDS)
         .sort({ updatedAt: -1 })
         .limit(limit)
         .lean();
@@ -298,7 +303,7 @@ function createAiResponseCache({
     };
   }
 
-  async function findFuzzyMatch({ normalizedInput, category, purpose, lang }) {
+  async function findFuzzyMatch({ normalizedInput, loadCandidates }) {
     if (
       normalizedInput.length < resolvedConfig.minFuzzyInputLength ||
       tokenizeNormalizedInput(normalizedInput).some((token) => token.length <= 2)
@@ -306,12 +311,7 @@ function createAiResponseCache({
       return null;
     }
 
-    const candidates = await store.findCandidates({
-      category,
-      purpose,
-      lang,
-      limit: resolvedConfig.candidateLimit,
-    });
+    const candidates = await loadCandidates();
     if (!candidates.length) return null;
 
     const fuse = new Fuse(candidates, {
@@ -351,17 +351,12 @@ function createAiResponseCache({
     return best;
   }
 
-  async function findSemanticMatch({ normalizedInput, category, purpose, lang, embedding }) {
+  async function findSemanticMatch({ normalizedInput, embedding, loadCandidates }) {
     if (!resolvedConfig.enableSemanticMatching || !Array.isArray(embedding) || !embedding.length) {
       return null;
     }
 
-    const candidates = await store.findCandidates({
-      category,
-      purpose,
-      lang,
-      limit: resolvedConfig.candidateLimit,
-    });
+    const candidates = await loadCandidates();
 
     const scored = candidates
       .filter((entry) => Array.isArray(entry.embedding) && entry.embedding.length === embedding.length)
@@ -430,11 +425,22 @@ function createAiResponseCache({
       });
     }
 
+    let candidatesPromise = null;
+    const loadCandidates = () => {
+      if (!candidatesPromise) {
+        candidatesPromise = store.findCandidates({
+          category: cacheCategory,
+          purpose,
+          lang: cacheLang,
+          limit: resolvedConfig.candidateLimit,
+        });
+      }
+      return candidatesPromise;
+    };
+
     const fuzzy = await findFuzzyMatch({
       normalizedInput,
-      category: cacheCategory,
-      purpose,
-      lang: cacheLang,
+      loadCandidates,
     });
     if (fuzzy?.entry?.aiResponse) {
       return returnCacheHit({
@@ -451,10 +457,8 @@ function createAiResponseCache({
       embedding = await generateEmbedding(normalizedInput);
       const semantic = await findSemanticMatch({
         normalizedInput,
-        category: cacheCategory,
-        purpose,
-        lang: cacheLang,
         embedding,
+        loadCandidates,
       });
       if (semantic?.entry?.aiResponse) {
         return returnCacheHit({

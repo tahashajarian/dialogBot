@@ -207,7 +207,12 @@ async function getAiSingleSuggestion({
       if (mode === "random" && topTenItems.length) {
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }
-      logger.warn("AI suggestion providers returned no text", { errors: request.errors || [] });
+      logger.warn("AI suggestion providers returned no text", {
+        errors: request.errors || [],
+        model: aiConfig.model,
+        provider: aiConfig.suggestionProvider,
+        timeoutMs: aiConfig.timeoutMs,
+      });
       return { ok: false, reason: "empty_output" };
     }
 

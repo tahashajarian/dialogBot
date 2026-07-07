@@ -283,7 +283,7 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
 
   // Smart pinning: show bot discussions at top for new/less-engaged users
   if (userId) {
-    const user = await User.findOne({ userId }).select("discussionMembershipIds");
+    const user = await User.findOne({ userId }).select("discussionMembershipIds").lean();
     const membershipCount = Array.isArray(user?.discussionMembershipIds) 
       ? user.discussionMembershipIds.length 
       : 0;
@@ -310,7 +310,7 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
 }
 
 async function listMyDiscussions(userId, { limit = 50 } = {}) {
-  const user = await User.findOne({ userId });
+  const user = await User.findOne({ userId }).select("activeDiscussionId discussionMembershipIds").lean();
   if (!user) return { ok: false, reason: "missing_user" };
 
   const ids = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];

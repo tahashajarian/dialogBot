@@ -188,6 +188,10 @@ UserSchema.index(
   },
 );
 UserSchema.index(
+  { activeDiscussionId: 1 },
+  { name: "active_discussion_membership_cleanup" },
+);
+UserSchema.index(
   { bannedAt: 1, activeDiscussionId: 1, receiveBoostRecommendations: 1, userId: 1 },
   { name: "boost_recipient_candidates" },
 );

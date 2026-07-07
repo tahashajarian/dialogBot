@@ -2,6 +2,7 @@ const DEFAULT_ALLOWED_USERNAMES = [];
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_AI_TIMEOUT_MS = 8000;
+const DEFAULT_AI_SUGGESTION_PROVIDER = "auto";
 const DEFAULT_REPORT_BAN_THRESHOLD = 5;
 const DEFAULT_AI_CACHE_CONFIG = {
   cacheEnabled: true,
@@ -53,6 +54,11 @@ function resolveAiCacheConfig(env = process.env) {
     ambiguousFuzzyScoreGap: parseNumberEnv(env, "FUZZY_AMBIGUOUS_SCORE_GAP", DEFAULT_AI_CACHE_CONFIG.ambiguousFuzzyScoreGap),
     ambiguousSemanticScoreGap: parseNumberEnv(env, "SEMANTIC_AMBIGUOUS_SCORE_GAP", DEFAULT_AI_CACHE_CONFIG.ambiguousSemanticScoreGap),
   };
+}
+
+function normalizeAiSuggestionProvider(value) {
+  const normalized = clean(value).toLowerCase();
+  return normalized || DEFAULT_AI_SUGGESTION_PROVIDER;
 }
 
 function looksLikeBotApiRoot(value) {
@@ -114,6 +120,9 @@ function getConfigIssues(config, options = {}) {
   if (!Number.isFinite(config.aiTimeoutMs) || config.aiTimeoutMs <= 0) {
     issues.push("AI_TIMEOUT_MS must be a positive number when set.");
   }
+  if (!["auto", "chat", "responses"].includes(config.aiSuggestionProvider)) {
+    issues.push("AI_SUGGESTION_PROVIDER must be one of: auto, chat, responses.");
+  }
   if (!Number.isInteger(config.moderation.reportBanThreshold) || config.moderation.reportBanThreshold <= 0) {
     issues.push("REPORT_BAN_THRESHOLD must be a positive integer when set.");
   }
@@ -145,6 +154,7 @@ function buildConfig(env = process.env) {
     aiBaseUrl: clean(env.API_BASE_URL || env.api_base_url) || null,
     aiModel: clean(env.OPENAI_MODEL || env.MODEL_NAME) || DEFAULT_AI_MODEL,
     embeddingModel: clean(env.EMBEDDING_MODEL) || DEFAULT_EMBEDDING_MODEL,
+    aiSuggestionProvider: normalizeAiSuggestionProvider(env.AI_SUGGESTION_PROVIDER),
     aiTimeoutMs,
     aiCache: resolveAiCacheConfig(env),
     moderation: {
@@ -179,6 +189,7 @@ function getAiConfig(env = process.env) {
     baseUrl: config.aiBaseUrl,
     model: config.aiModel,
     embeddingModel: config.embeddingModel,
+    suggestionProvider: config.aiSuggestionProvider,
     timeoutMs: config.aiTimeoutMs,
   };
 }
@@ -200,6 +211,7 @@ module.exports = {
   DEFAULT_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_AI_TIMEOUT_MS,
+  DEFAULT_AI_SUGGESTION_PROVIDER,
   DEFAULT_REPORT_BAN_THRESHOLD,
   DEFAULT_AI_CACHE_CONFIG,
   buildConfig,

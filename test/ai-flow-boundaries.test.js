@@ -176,6 +176,7 @@ test("AI bottom Back quietly clears reply controls before sending the inline men
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
   User.findOneAndUpdate = async () => ({});
 
