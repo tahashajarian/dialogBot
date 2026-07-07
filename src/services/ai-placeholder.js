@@ -18,8 +18,11 @@ async function editPlaceholder(ctx, placeholder, text, extra) {
   return ctx.reply(text, extra);
 }
 
-async function startAiPlaceholder(ctx, steps) {
-  const placeholder = await ctx.reply(steps[0]);
+async function startAiPlaceholder(ctx, steps, options = {}) {
+  const initialPlaceholder = options.placeholder || null;
+  const placeholder = initialPlaceholder
+    ? await editPlaceholder(ctx, initialPlaceholder, steps[0])
+    : await ctx.reply(steps[0]);
   const timers = [];
 
   for (let index = 1; index < steps.length; index += 1) {

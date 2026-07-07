@@ -249,6 +249,7 @@ async function sendFollowupSuggestion({
   watchlistItems = [],
   userText = "",
   paidSuggestion = null,
+  placeholderMessage = null,
 }) {
   const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
@@ -268,7 +269,7 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinking,
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
-  ]);
+  ], { placeholder: placeholderMessage });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
     if (quota.reason === "limit") {
@@ -976,7 +977,6 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (ctx.user && paid.spend?.balance !== undefined) {
       ctx.user.starBalance = Number(paid.spend.balance) || 0;
     }
-    await helpers.deleteCallbackMessageIfPossible(ctx);
     return sendFollowupSuggestion({
       ctx,
       lang,
@@ -984,6 +984,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       watchlistItems: getAiListTitlesFromUser(ctx.user, paid.quote.section, "watchlist"),
       userText: paid.quote.userText || "",
       paidSuggestion: paid,
+      placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
     });
   }
 
@@ -1040,6 +1041,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       lang,
       section,
       watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
+      placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
     });
 
     if (sentSuggestion) return sentSuggestion;

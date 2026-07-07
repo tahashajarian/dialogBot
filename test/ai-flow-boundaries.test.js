@@ -1038,6 +1038,66 @@ test("suggestion callbacks are valid only inside their matching AI state", () =>
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
 });
 
+test("suggestion callback reuses the tapped card as the waiting/result card", async () => {
+  const originalFindOne = User.findOne;
+  const edits = [];
+  const replies = [];
+  const deletedIds = [];
+  const now = new Date();
+
+  User.findOne = async () => ({
+    userId: 77,
+    aiSuggestionUsage: {
+      music: Array.from({ length: 10 }, () => now),
+    },
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.aiSectionSuggestFromTopTen}music`,
+    callbackMessageId: 55,
+    userId: 77,
+    user: {
+      userId: 77,
+      lang: "en",
+      state: "ai_chat_music",
+      aiLists: {
+        music: {
+          topTen: [{ title: "A" }, { title: "B" }, { title: "C" }],
+          watchlist: [],
+        },
+      },
+    },
+    answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId, text, extra };
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 + replies.length, text, extra };
+    },
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, []);
+  assert.equal(edits[0].messageId, 55);
+  assert.equal(edits[0].text, messages.en.aiThinking);
+  assert.equal(edits.at(-1).messageId, 55);
+  assert.match(edits.at(-1).text, /free suggestions/);
+});
+
 test("AI remembered-card cleanup leaves kept or missing cards alone", async () => {
   const deletedIds = [];
   const ctx = {
