@@ -48,7 +48,7 @@ Discussions are live rooms with short memory.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
-- When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Lists -> Music -> complete Top 10` for a Music taste-label room, then return to a fresh list after acknowledgment.
+- When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete Top 10` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
 ## Non-Goals For MVP
 
@@ -295,7 +295,7 @@ If creator has no labels:
 
 ```text
 برای ساخت بحث مخصوص یک برچسب، اول باید حداقل یک برچسب سلیقه داشته باشی.
-تاپ ۱۰ یکی از بخش‌های لیست‌ها رو کامل کن، یا چند علاقه‌مندی به پروفایلت اضافه کن.
+تاپ ۱۰ فیلم، موسیقی یا کتاب رو کامل کن، یا چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
 
 If creator has no items for item-restricted rooms:
@@ -544,7 +544,7 @@ Taste-label example:
 💡 اول تاپ ۱۰ موسیقی‌ات رو کامل کن تا برچسبت حساب بشه.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
 
-از منوی اصلی برو به بخش لیست‌ها.
+از منوی اصلی برو به 🎬🎵📚 فیلم، موسیقی، کتاب.
 ```
 
 Profile-interest item example:
@@ -1193,17 +1193,17 @@ Locked/availability behavior:
 
 - Show the `✨ آدم‌های احتمالاً شبیه تو` button only when the Star spending switch, the people-taste feature switch, and the coarse availability check all pass.
 - If the user has no eligible matches, do not show the paid button.
-- If the user lacks enough list data and somehow reaches the view directly, explain that they need at least 3 items in one list section and offer a Lists button.
+- If the user lacks enough taste data and somehow reaches the view directly, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button.
 - If available but not unlocked, show the configured cost, duration, and balance before confirmation.
 - The unlock is time-limited and returns profiles to the same paid list after profile viewing.
 
 Insufficient-list-data state:
 
 ```text
-👩‍🦳🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ مورد به یکی از لیست‌هات اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ انتخاب به یکی از تاپ ۱۰های فیلم، موسیقی، کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
 ```
 
-This state includes a direct button to Lists. When the viewer already has enough list data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 items again.
+This state includes a direct button to `🎬🎵📚 Movies, Music, Books`. When the viewer already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
 
 ### Advanced Search Preview
 

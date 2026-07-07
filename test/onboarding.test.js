@@ -275,7 +275,7 @@ test("onboarding starter invitation note points users to invitations", () => {
   assert.match(text, /^Done/);
   assert.match(text, /Muze prepared discussion invitations for you \(1\)/);
   assert.match(text, /📨 Invitations/);
-  assert.doesNotMatch(text, /🎬🎵📚 Lists/);
+  assert.doesNotMatch(text, /🎬🎵📚 Movies, Music, Books/);
   assert.match(text, /💡/);
 });
 
@@ -318,12 +318,12 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
   assert.match(messages.fa.helpText, /^👩‍🦳/);
   assert.match(messages.en.helpText, /^👩‍🦳/);
-  assert.match(messages.fa.helpText, /🎬🎵📚 لیست‌ها/);
-  assert.match(messages.en.helpText, /🎬🎵📚 Lists/);
+  assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی، کتاب/);
+  assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music, Books/);
   assert.match(messages.fa.helpText, /واچ‌لیست فیلم/);
   assert.match(messages.en.helpText, /Movies watchlist/);
-  assert.match(messages.fa.helpText, /۳ مورد/);
-  assert.match(messages.en.helpText, /3 Top 10 items/);
+  assert.match(messages.fa.helpText, /۳ انتخاب/);
+  assert.match(messages.en.helpText, /3 Top 10 picks/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
   assert.match(messages.fa.helpText, /آدم‌های احتمالاً شبیه خودت/);
   assert.match(messages.en.helpText, /👥 People/);
@@ -362,7 +362,7 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
   assert.match(complete, /گیمر/);
   assert.match(complete, /^👩‍🦳/);
   assert.match(complete, /💡/);
-  assert.match(complete, /لیست‌های 🎬🎵📚/);
+  assert.match(complete, /تاپ ۱۰های فیلم، موسیقی یا کتاب/);
   assert.match(complete, /سلیقه‌ات رو بهتر می‌شناسه/);
   assert.doesNotMatch(complete, /بیشتر بشناسمت/);
   assert.doesNotMatch(complete, /\{(?:items|emoji|label|style)\}/);

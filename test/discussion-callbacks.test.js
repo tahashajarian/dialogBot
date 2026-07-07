@@ -296,7 +296,7 @@ test("locked discussion list join text explains the exact unlock path", () => {
 
   assert.match(text, /موسیقی/);
   assert.match(text, /Metalhead|متال/);
-  assert.match(text, /لیست‌ها ←/);
+  assert.match(text, /فیلم، موسیقی، کتاب ←/);
   assert.match(text, /تاپ ۱۰/);
   assert.match(text, /لیست بحث‌ها/);
 });
