@@ -172,9 +172,8 @@ test("AI section keyboard prefixes section actions with section emoji", () => {
   assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
-test("AI bottom Back quietly clears reply controls before sending the inline menu", async () => {
+test("AI bottom Back clears reply controls on the destination menu message", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const deletedIds = [];
   const replies = [];
   const edits = [];
 
@@ -187,10 +186,6 @@ test("AI bottom Back quietly clears reply controls before sending the inline men
       userId: 1,
       lang: "fa",
       state: "ai_manage_random_top_ten",
-    },
-    deleteMessage: async (messageId) => {
-      deletedIds.push(messageId);
-      return true;
     },
     reply: async (text, extra) => {
       replies.push({ text, extra });
@@ -208,16 +203,13 @@ test("AI bottom Back quietly clears reply controls before sending the inline men
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  const keyboardRemovalReply = replies.find((reply) => reply.extra?.reply_markup?.remove_keyboard);
-  assert.equal(Boolean(keyboardRemovalReply), true);
-  assert.equal(keyboardRemovalReply.text.length > 0, true);
-  assert.notEqual(keyboardRemovalReply.text, ".");
-  assert.equal(deletedIds.includes(1), true);
-  assert.deepEqual(
-    replies.find((reply) => reply.extra?.reply_markup?.inline_keyboard)
-      .extra.reply_markup.inline_keyboard.at(-1)[0].callback_data,
-    callBacks.aiBack,
-  );
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.aiAssistantMenu);
+  assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 1);
+  assert.equal(edits[0].text, messages.fa.aiAssistantMenu);
+  assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.aiBack);
 });
 
 test("music add flow accepts meaningful audio titles and rejects untitled media", () => {

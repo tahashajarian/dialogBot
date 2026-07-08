@@ -50,7 +50,17 @@ async function removeBottomKeyboardWithoutWaitingForDelete(ctx, text = KEYBOARD_
 }
 
 async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
-  await removeBottomKeyboardWithoutWaitingForDelete(ctx, KEYBOARD_CLEANUP_TEXT);
+  const sent = await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
+  const messageId = getMessageId(sent);
+  if (messageId && ctx.editMessageText) {
+    const edited = await ctx.editMessageText(messageId, text, inlineKeyboard);
+    if (edited) {
+      return edited;
+    }
+  }
+  if (messageId && ctx.deleteMessage) {
+    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+  }
   return ctx.reply(text, inlineKeyboard);
 }
 
