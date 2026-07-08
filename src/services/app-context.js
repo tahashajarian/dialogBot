@@ -35,7 +35,10 @@ function getErrorText(error) {
 function isMessageNotFoundError(error) {
   const code = getErrorCode(error);
   const description = String(getErrorDescription(error) || "").toLowerCase();
-  return code === 404 && description.includes("message not found");
+  return (
+    (code === 404 && description.includes("message not found")) ||
+    (code === 400 && description.includes("message to edit not found"))
+  );
 }
 
 function isRetriablePinError(error) {

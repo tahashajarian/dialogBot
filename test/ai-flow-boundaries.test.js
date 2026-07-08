@@ -210,7 +210,8 @@ test("AI bottom Back quietly clears reply controls before sending the inline men
 
   const keyboardRemovalReply = replies.find((reply) => reply.extra?.reply_markup?.remove_keyboard);
   assert.equal(Boolean(keyboardRemovalReply), true);
-  assert.equal(keyboardRemovalReply.text, ".");
+  assert.equal(keyboardRemovalReply.text.length > 0, true);
+  assert.notEqual(keyboardRemovalReply.text, ".");
   assert.equal(deletedIds.includes(1), true);
   assert.deepEqual(
     replies.find((reply) => reply.extra?.reply_markup?.inline_keyboard)

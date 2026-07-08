@@ -24,7 +24,7 @@ async function rememberAiPendingInputPrompt(ctx, messageOrId) {
   }
 }
 
-async function clearAiPendingInputPrompt(ctx) {
+async function clearAiPendingInputPrompt(ctx, { waitForDelete = true, fallbackToEdit = true } = {}) {
   if (!ctx?.userId) {
     return true;
   }
@@ -32,9 +32,17 @@ async function clearAiPendingInputPrompt(ctx) {
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return true;
   }
-  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  let deleted = false;
+  if (ctx.deleteMessage) {
+    if (waitForDelete) {
+      deleted = await ctx.deleteMessage(messageId);
+    } else {
+      Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+      deleted = true;
+    }
+  }
   const retired = deleted || (
-    ctx.editMessageReplyMarkup
+    fallbackToEdit && ctx.editMessageReplyMarkup
       ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
       : false
   );

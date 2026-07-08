@@ -1,0 +1,35 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const { createAppContext } = require("../src/services/app-context");
+const { logger } = require("../src/services/logger");
+
+test("editMessageText treats missing edit targets as stale without warning", async () => {
+  const originalWarn = logger.warn;
+  const warnings = [];
+  logger.warn = (message, details) => {
+    warnings.push({ message, details });
+  };
+
+  const ctx = {
+    chat: { id: 123 },
+    telegram: {
+      callApi: async () => {
+        const error = new Error("400: Bad Request: message to edit not found");
+        error.code = 400;
+        error.description = "Bad Request: message to edit not found";
+        throw error;
+      },
+    },
+  };
+
+  try {
+    const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 100 });
+    const edited = await appCtx.editMessageText(99, "Fresh card");
+
+    assert.equal(edited, false);
+    assert.deepEqual(warnings, []);
+  } finally {
+    logger.warn = originalWarn;
+  }
+});

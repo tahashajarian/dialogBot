@@ -456,8 +456,8 @@ async function sendSingleSectionSuggestion({
 
 async function openAiListManager(ctx, lang, section, listType) {
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
-  await clearAiPendingInputPrompt(ctx);
-  await clearAiActionMessage(ctx);
+  await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
+  await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
   await updateUserState(ctx.userId, nextState);
   const items = getAiListItemsFromUser(ctx.user, section, listType);
   const listMessage = await ctx.reply(
@@ -494,7 +494,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
   }
 
   if (action === "comment") {
-    await deleteRememberedAiListMessage(ctx, section, listType);
+    await deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: false });
     await updateUserState(ctx.userId, getAiManageState(section, listType, "comment_input"));
     if (ctx.user) ctx.user.state = getAiManageState(section, listType, "comment_input");
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", itemTitle);
@@ -507,7 +507,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
     return prompt;
   }
 
-  await deleteRememberedAiListMessage(ctx, section, listType);
+  await deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: false });
 
   if (action === "remove") {
     const removed = await removeAiListItem(ctx.userId, section, listType, itemTitle);
@@ -639,8 +639,8 @@ async function handleAiText(ctx, lang, text, state) {
         );
       }
 
-      await deleteRememberedAiListMessage(ctx, section, listType);
-      await clearAiPendingInputPrompt(ctx);
+      await deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: false });
+      await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
 
       const result = await addAiListItem(
         ctx.userId,

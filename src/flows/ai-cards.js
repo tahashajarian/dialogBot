@@ -44,7 +44,7 @@ async function replaceRememberedAiListMessage(ctx, section, listType, message) {
   await rememberAiListMessage(ctx, section, listType, message);
 }
 
-async function deleteRememberedAiListMessage(ctx, section, listType) {
+async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete = true } = {}) {
   const messageId = ctx.user?.aiLastListMessageId;
   if (
     !messageId ||
@@ -55,7 +55,13 @@ async function deleteRememberedAiListMessage(ctx, section, listType) {
     return false;
   }
 
-  const deleted = await ctx.deleteMessage(messageId);
+  let deleted = false;
+  if (waitForDelete) {
+    deleted = await ctx.deleteMessage(messageId);
+  } else {
+    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+    deleted = true;
+  }
   if (deleted) {
     await updateProfileField(ctx.userId, "aiLastListMessageId", null);
     await updateProfileField(ctx.userId, "aiLastListSection", "");
@@ -69,13 +75,19 @@ async function deleteRememberedAiListMessage(ctx, section, listType) {
   return deleted;
 }
 
-async function clearRememberedAiListMessage(ctx) {
+async function clearRememberedAiListMessage(ctx, { waitForDelete = true } = {}) {
   const messageId = ctx.user?.aiLastListMessageId;
   if (!messageId || !ctx.deleteMessage) {
     return false;
   }
 
-  const deleted = await ctx.deleteMessage(messageId);
+  let deleted = false;
+  if (waitForDelete) {
+    deleted = await ctx.deleteMessage(messageId);
+  } else {
+    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+    deleted = true;
+  }
   if (deleted) {
     await updateProfileField(ctx.userId, "aiLastListMessageId", null);
     await updateProfileField(ctx.userId, "aiLastListSection", "");
@@ -125,7 +137,7 @@ async function rememberAiActionMessage(ctx, context, message) {
   }
 }
 
-async function clearAiActionMessage(ctx) {
+async function clearAiActionMessage(ctx, { waitForDelete = true, fallbackToEdit = true } = {}) {
   const messageId = Number(ctx.user?.aiActionMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return true;
@@ -133,13 +145,18 @@ async function clearAiActionMessage(ctx) {
   let deleted = false;
   if (ctx.deleteMessage) {
     try {
-      deleted = await ctx.deleteMessage(messageId);
+      if (waitForDelete) {
+        deleted = await ctx.deleteMessage(messageId);
+      } else {
+        Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+        deleted = true;
+      }
     } catch {
       deleted = false;
     }
   }
   const retiredInline = deleted ? false : (
-    ctx.editMessageReplyMarkup
+    fallbackToEdit && ctx.editMessageReplyMarkup
       ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
       : false
   );

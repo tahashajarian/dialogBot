@@ -435,6 +435,119 @@ test("unsupported discussion notice falls back when native reply fails", async (
   ]);
 });
 
+test("active discussions reject non-start global slash commands before navigation", async () => {
+  const replies = [];
+  const ctx = {
+    text: "/lang",
+    message: { message_id: 77, text: "/lang" },
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      activeDiscussionId: "discussion-id",
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 78 };
+    },
+  };
+
+  await handleUpdate(ctx);
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.discussionMessageNoCommands);
+  assert.deepEqual(replies[0].extra, { reply_to_message_id: 77 });
+  assert.equal(ctx.user.activeDiscussionId, "discussion-id");
+});
+
+test("start command still recovers from active discussion state", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalDiscussionFindOneAndUpdate = Discussion.findOneAndUpdate;
+  const originalDiscussionFindById = Discussion.findById;
+  const replies = [];
+  const deletes = [];
+  const updates = [];
+  User.findOne = async () => ({ userId: 1 });
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+  Discussion.findOneAndUpdate = async () => null;
+  Discussion.findById = () => ({
+    select: () => ({
+      lean: async () => null,
+    }),
+  });
+
+  const ctx = {
+    text: "/start",
+    message: { message_id: 77, text: "/start" },
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      firstName: "A",
+      activeDiscussionId: "discussion-id",
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    deleteMessage: async (messageId) => {
+      deletes.push(messageId);
+      return true;
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOneAndUpdate = originalDiscussionFindOneAndUpdate;
+    Discussion.findById = originalDiscussionFindById;
+  }
+
+  assert.equal(ctx.user.activeDiscussionId, null);
+  assert.equal(replies[0].text, messages.en.welcomeWithName.replace("{name}", "A"));
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.equal(replies[1].text, messages.en.mainMenu);
+  assert.equal(updates.some((entry) => entry.update?.activeDiscussionId === null), true);
+  assert.deepEqual(deletes, []);
+});
+
+test("legacy global commands show main menu outside discussions", async () => {
+  for (const command of ["/lang", "/menu", "/profile", "/resetphoto"]) {
+    const replies = [];
+    const ctx = {
+      text: command,
+      message: { message_id: 77, text: command },
+      userId: 1,
+      user: {
+        userId: 1,
+        lang: "en",
+        state: "idle",
+      },
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: replies.length };
+      },
+      deleteMessage: async () => {
+        throw new Error("no cleanup message should be deleted");
+      },
+    };
+
+    await handleUpdate(ctx);
+
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0].text, messages.en.maintenance);
+    assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.language);
+  }
+});
+
 test("discussion message sender uses platform reply id when available", async () => {
   const sends = [];
   const ctx = {

@@ -25,6 +25,7 @@ const {
 const { callBacks } = require("../src/constants");
 const {
   handleDiscussionListCallback,
+  renderMyDiscussionList,
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
 } = require("../src/flows/discussions-callbacks");
@@ -385,6 +386,59 @@ test("my discussions empty state uses a tip and Got it acknowledgement", () => {
   assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
   assert.equal(button.text, messages.en.acknowledgeButton);
   assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}discussions`);
+});
+
+test("my discussions empty callback uses visible card without toast text", async () => {
+  const originalUserFindOne = User.findOne;
+  const originalDiscussionFind = Discussion.find;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const answerTexts = [];
+  const rendered = [];
+
+  User.findOne = () => ({
+    select: () => ({
+      lean: async () => ({
+        activeDiscussionId: null,
+        discussionMembershipIds: [],
+      }),
+    }),
+  });
+  Discussion.find = () => ({
+    sort: () => ({
+      limit: async () => [],
+    }),
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    callbackMessageId: 42,
+    userId: 1,
+    user: { userId: 1 },
+    answerCb: async (text) => {
+      answerTexts.push(text);
+      return true;
+    },
+  };
+
+  try {
+    await renderMyDiscussionList(ctx, "en", 0, {
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        rendered.push({ text, keyboard });
+        return { message_id: 42 };
+      },
+    });
+
+    assert.deepEqual(answerTexts, [undefined]);
+    assert.equal(rendered[0].text, messages.en.discussionListMineEmpty);
+    assert.equal(
+      rendered[0].keyboard.reply_markup.inline_keyboard.flat()[0].callback_data,
+      `${callBacks.discussionJoinErrorAck}discussions`,
+    );
+  } finally {
+    User.findOne = originalUserFindOne;
+    Discussion.find = originalDiscussionFind;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("discussion join error acknowledgement can return to saved profile discussions", async () => {

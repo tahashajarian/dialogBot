@@ -175,12 +175,14 @@ async function deleteCallbackMessageIfPossible(ctx) {
     return false;
   }
 
-  const retired = await removeCallbackInlineKeyboardIfPossible(ctx);
-  if (retired) {
-    return true;
+  if (ctx.deleteMessage) {
+    const deleted = await ctx.deleteMessage(ctx.callbackMessageId);
+    if (deleted) {
+      return true;
+    }
   }
 
-  return ctx.deleteMessage ? ctx.deleteMessage(ctx.callbackMessageId) : false;
+  return removeCallbackInlineKeyboardIfPossible(ctx);
 }
 
 async function removeCallbackInlineKeyboardIfPossible(ctx) {
@@ -507,6 +509,7 @@ async function handleCallback(ctx) {
       clearRememberedAiListMessage,
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
+      hasTemporaryReplyKeyboard,
       isProfileCallbackMessage,
       leaveDiscussionAndClearKeyboardForNavigation,
       removeBottomKeyboard,
@@ -831,6 +834,7 @@ async function handleCallback(ctx) {
     return handleAiCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
+      hasTemporaryReplyKeyboard,
       removeBottomKeyboard,
       replyWithRemovedKeyboardThenInline,
     });

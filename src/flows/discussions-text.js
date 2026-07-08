@@ -63,6 +63,7 @@ const {
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
 } = require("./discussions-callbacks");
+const { removeBottomKeyboardWithoutWaitingForDelete } = require("../services/bot-navigation");
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -596,13 +597,7 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
       await editMessage(text, keyboardToShow);
     } else {
       const destination = returnToMainMenu ? "main" : "discussions";
-      const cleanupMessage = await ctx.reply(" ", {
-        reply_markup: { remove_keyboard: true },
-      });
-      const cleanupMessageId = getMessageId(cleanupMessage);
-      if (cleanupMessageId && ctx.deleteMessage) {
-        await ctx.deleteMessage(cleanupMessageId);
-      }
+      await removeBottomKeyboardWithoutWaitingForDelete(ctx);
       await ctx.reply(text, discussionJoinErrorAckKeyboard(lang, destination));
     }
     return joined;
@@ -799,13 +794,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
         "{title}",
         closed.discussion?.title || "-",
       );
-      const cleanupMessage = await ctx.reply(" ", {
-        reply_markup: { remove_keyboard: true },
-      });
-      const cleanupMessageId = getMessageId(cleanupMessage);
-      if (cleanupMessageId && ctx.deleteMessage) {
-        await ctx.deleteMessage(cleanupMessageId);
-      }
+      await removeBottomKeyboardWithoutWaitingForDelete(ctx);
       const emptyNotice = await ctx.reply(
         closedEmptyText,
         discussionJoinErrorAckKeyboard(lang, "discussions"),

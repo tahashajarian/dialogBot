@@ -546,6 +546,7 @@ async function handleSavedProfilesCallback(ctx, lang, {
   editCallbackMessageOrReply,
   forgetSavedProfilesListMessage: forgetSavedProfilesList = forgetSavedProfilesListMessage,
   isProfileCallbackMessage,
+  hasTemporaryReplyKeyboard = () => false,
   leaveDiscussionAndClearKeyboardForNavigation,
   replyWithRemovedKeyboardThenInline,
 } = {}) {
@@ -553,13 +554,18 @@ async function handleSavedProfilesCallback(ctx, lang, {
 
   if (data === callBacks.people) {
     await ctx.answerCb?.();
-    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage?.(ctx);
     await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
-    await deleteCallbackMessageIfPossible?.(ctx);
+    if (shouldClearKeyboard) {
+      await deleteCallbackMessageIfPossible?.(ctx);
+    }
     return sendPeopleHub(ctx, lang, {
-      send: replyWithRemovedKeyboardThenInline
+      send: shouldClearKeyboard && replyWithRemovedKeyboardThenInline
         ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
+        : editCallbackMessageOrReply
+          ? (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard)
         : null,
     });
   }
@@ -719,14 +725,17 @@ async function handleSavedProfilesCallback(ctx, lang, {
 
   if (data === callBacks.savedProfiles) {
     await ctx.answerCb?.();
-    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
+    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
+    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage?.(ctx);
     if (isProfileCallbackMessage?.(ctx)) {
       const cleared = await clearViewedPublicProfile(ctx);
       if (!cleared) await deleteCallbackMessageIfPossible?.(ctx);
     } else {
       await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
-      await deleteCallbackMessageIfPossible?.(ctx);
+      if (shouldClearKeyboard) {
+        await deleteCallbackMessageIfPossible?.(ctx);
+      }
     }
     await forgetSavedProfilesList(ctx);
     await forgetPeopleListMessage(ctx);
@@ -734,8 +743,10 @@ async function handleSavedProfilesCallback(ctx, lang, {
     return sendSavedProfilesList(ctx, lang, codes, 0, {
       send: isProfileCallbackMessage?.(ctx)
         ? null
-        : replyWithRemovedKeyboardThenInline
+        : shouldClearKeyboard && replyWithRemovedKeyboardThenInline
           ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
+          : editCallbackMessageOrReply
+            ? (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard)
           : null,
     });
   }

@@ -256,7 +256,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     return ctx.reply(messages[lang].unknownAction);
   }
   if (!result.discussions.length) {
-    await ctx.answerCb?.(messages[lang].discussionListMineEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
+    await ctx.answerCb?.();
     const emptyNotice = await editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionListMineEmpty,

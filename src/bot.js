@@ -119,7 +119,6 @@ const {
 const {
   handleProfileCancelText,
   handleProfileText,
-  resetProfilePhotoCommand,
 } = require("./flows/profile-text");
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 const { claimReferral } = require("./services/star-referrals");
@@ -169,6 +168,36 @@ function hasTemporaryReplyKeyboard(ctx, state = "") {
     ctx.user?.activeDiscussionId ||
     isAiTextState(state) ||
     state === "editing_location"
+  );
+}
+
+function isAllowedDiscussionCommandLink(text = "") {
+  const value = String(text || "").trim();
+  return (
+    /^\/start(?:@\w+)?(?:$|[\s?=])/i.test(value) ||
+    /^\/join_[a-z0-9]+$/i.test(value) ||
+    /^\/(?:invite|iv)_[a-z0-9]+$/i.test(value) ||
+    /^\/accept_inv_[a-z0-9]+$/i.test(value) ||
+    /^\/remove_inv_[a-z0-9]+$/i.test(value) ||
+    /^\/d_[a-z0-9]+$/i.test(value) ||
+    /^\/leave_[a-z0-9]+$/i.test(value) ||
+    /^\/close_[a-z0-9]+$/i.test(value) ||
+    /^\/boost_[a-z0-9]+$/i.test(value) ||
+    /^\/remove_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/report_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/save_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/u_[a-z0-9]+$/i.test(value)
+  );
+}
+
+function shouldRejectDiscussionSlashCommand(ctx, state = "", text = "") {
+  return Boolean(
+    state === "idle" &&
+    ctx.user?.activeDiscussionId &&
+    String(text || "").trim().startsWith("/") &&
+    !isAllowedDiscussionCommandLink(text)
   );
 }
 
@@ -229,6 +258,10 @@ async function handleUpdate(ctx) {
     } else if (!referral.ok) {
       await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
     }
+  }
+
+  if (shouldRejectDiscussionSlashCommand(ctx, state, text)) {
+    return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageNoCommands);
   }
 
   if (startInviteCode) {
@@ -492,35 +525,6 @@ async function handleUpdate(ctx) {
     return handleAiText(ctx, lang, text, state);
   }
 
-  if (text === "/lang") {
-    await clearViewedPublicProfileMessage(ctx);
-    await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
-    return replyWithRemovedKeyboardThenInline(ctx, messages[lang].chooseLanguage, languageKeyboard());
-  }
-
-  if (text === "/menu") {
-    await clearViewedPublicProfileMessage(ctx);
-    await clearDiscussionMenuNotice(ctx);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
-    if (!userLang) {
-      return replyWithRemovedKeyboardThenInline(ctx, messages["fa"].chooseLanguage, languageKeyboard());
-    }
-
-    return replyWithRemovedKeyboardThenInline(ctx, messages[userLang].mainMenu, mainMenuKeyboard(userLang));
-  }
-
-  if (text === "/profile") {
-    await clearViewedPublicProfileMessage(ctx);
-    await clearDiscussionMenuNotice(ctx);
-    const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
-    if (shouldClearKeyboard) {
-      await removeBottomKeyboard(ctx, messages[lang].profile, { deleteSentMessage: false });
-    }
-    return sendProfile(ctx, ctx.user || {}, lang, keyboardLang, { loading: true });
-  }
-
   if (text === ACTIVE_DISCUSSION_HELP_COMMAND) {
     await clearViewedPublicProfileMessage(ctx);
     await clearOwnProfileMessage(ctx);
@@ -598,13 +602,6 @@ async function handleUpdate(ctx) {
       await clearDiscussionMembersMessage(ctx);
     }
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList });
-  }
-
-  if (text === "/resetphoto") {
-    return resetProfilePhotoCommand(ctx, lang, {
-      sendProfile,
-      keyboardLang,
-    });
   }
 
   return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));

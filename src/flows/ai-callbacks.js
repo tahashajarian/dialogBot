@@ -1127,11 +1127,14 @@ async function handleAiCallback(ctx, lang, helpers) {
 
   if (data === callBacks.aiBack) {
     await ctx.answerCb?.();
+    const shouldClearKeyboard = helpers.hasTemporaryReplyKeyboard?.(ctx);
     await updateUserState(ctx.userId, "idle");
     await updateProfileField(ctx.userId, "activeDiscussionId", null);
     await clearAiPendingInputPrompt(ctx);
-    await helpers.deleteCallbackMessageIfPossible?.(ctx);
-    if (helpers.replyWithRemovedKeyboardThenInline) {
+    if (shouldClearKeyboard) {
+      await helpers.deleteCallbackMessageIfPossible?.(ctx);
+    }
+    if (shouldClearKeyboard && helpers.replyWithRemovedKeyboardThenInline) {
       return helpers.replyWithRemovedKeyboardThenInline(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
     }
     return helpers.editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));

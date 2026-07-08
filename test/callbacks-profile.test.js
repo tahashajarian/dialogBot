@@ -446,7 +446,7 @@ test("main menu entries open sections without hard delete-first gap", async () =
   }
 });
 
-test("saved profiles clears stale cards and bottom keyboard before rendering list", async () => {
+test("saved profiles clears bottom keyboard before rendering list when one is active", async () => {
   const deletedIds = [];
   const replies = [];
   const ctx = {
@@ -459,6 +459,7 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
       firstName: "A",
       profileName: "A",
       savedProfileCodes: [],
+      state: "editing_location",
       showActiveDiscussionOnProfile: false,
     },
     answerCb: async () => true,
@@ -477,14 +478,58 @@ test("saved profiles clears stale cards and bottom keyboard before rendering lis
 
   assert.equal(deletedIds[0], 456);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[0].text, ".");
+  assert.equal(replies[0].text.length > 0, true);
+  assert.notEqual(replies[0].text, ".");
   assert.equal(deletedIds.includes(1), true);
   assert.match(replies[1].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
   assert.equal(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
 });
 
+test("saved profiles edits inline menu without dot cleanup", async () => {
+  const replies = [];
+  const edits = [];
+  const deletedIds = [];
+  const ctx = {
+    callbackData: callBacks.savedProfiles,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      firstName: "A",
+      profileName: "A",
+      savedProfileCodes: [],
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async () => ({ message_id: 99 }),
+  };
+
+  await handleCallback(ctx);
+
+  assert.deepEqual(replies, []);
+  assert.deepEqual(deletedIds, []);
+  assert.equal(edits[0].messageId, 456);
+  assert.match(edits[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
+});
+
 test("people hub opens discovery and saved profile choices", async () => {
   const replies = [];
+  const edits = [];
+  const deletedIds = [];
   const ctx = {
     callbackData: callBacks.people,
     callbackMessageId: 456,
@@ -497,7 +542,14 @@ test("people hub opens discovery and saved profile choices", async () => {
       showActiveDiscussionOnProfile: false,
     },
     answerCb: async () => true,
-    deleteMessage: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -506,8 +558,11 @@ test("people hub opens discovery and saved profile choices", async () => {
 
   await handleCallback(ctx);
 
-  assert.match(replies.at(-1).text, /آدم‌ها/);
-  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.deepEqual(replies, []);
+  assert.deepEqual(deletedIds, []);
+  assert.equal(edits[0].messageId, 456);
+  assert.match(edits[0].text, /آدم‌ها/);
+  const buttons = edits[0].extra.reply_markup.inline_keyboard.flat();
   assert.equal(buttons[0].callback_data, callBacks.peopleDiscover);
   assert.equal(buttons[1].callback_data, callBacks.savedProfiles);
 });
@@ -663,20 +718,21 @@ test("saved profiles remembers the real list message id when edit returns true",
     },
     answerCb: async () => true,
     deleteMessage: async () => true,
-    editMessageText: async () => true,
+    editMessageText: async (messageId) => ({ message_id: messageId }),
     reply: async () => ({ message_id: 77 }),
     replyWithPhoto: async () => ({ message_id: 99 }),
   };
 
   await handleCallback(ctx);
 
-  assert.equal(ctx.user.savedProfilesLastListMessageId, 77);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, 456);
 });
 
-test("AI back clears the section bottom keyboard before main menu", async () => {
+test("AI inline back edits to main menu without dot cleanup", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
   User.findOneAndUpdate = async () => ({});
 
@@ -694,6 +750,10 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -706,12 +766,12 @@ test("AI back clears the section bottom keyboard before main menu", async () => 
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[0].text, ".");
-  assert.equal(deletedIds.includes(1), true);
-  assert.match(replies[1].text, /منوی اصلی/);
+  assert.deepEqual(replies, []);
+  assert.deepEqual(deletedIds, []);
+  assert.equal(edits[0].messageId, 456);
+  assert.match(edits[0].text, /منوی اصلی/);
   assert.deepEqual(
-    replies[1].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    edits[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.language,
   );
 });
