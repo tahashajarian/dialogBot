@@ -3,7 +3,6 @@ const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
-  languageKeyboard,
   onboardingLanguageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,

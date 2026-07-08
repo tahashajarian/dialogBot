@@ -15,6 +15,8 @@ const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 
 const BOOST_QUOTE_TTL_MS = 10 * 60 * 1000;
+const BOOST_LIST_EXPIRE_SWEEP_MS = 60 * 1000;
+let lastListExpireSweepAt = 0;
 
 function generateBoostCode() {
   return crypto.randomBytes(6).toString("hex").toUpperCase();
@@ -169,9 +171,14 @@ async function confirmBoost(userId, publicCode, { now = new Date() } = {}) {
 }
 
 async function decorateActiveBoosts(discussions = [], { now = new Date() } = {}) {
-  await expireFinishedBoosts(now);
   const ids = discussions.map((discussion) => discussion._id).filter(Boolean);
   if (!ids.length) return discussions;
+
+  if (now.getTime() - lastListExpireSweepAt >= BOOST_LIST_EXPIRE_SWEEP_MS) {
+    lastListExpireSweepAt = now.getTime();
+    await expireFinishedBoosts(now);
+  }
+
   const boosts = await DiscussionBoost.find({
     discussionId: { $in: ids },
     status: "active",

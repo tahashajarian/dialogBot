@@ -924,14 +924,23 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, `ai_chat_${section}`);
-    await clearAiPendingInputPrompt(ctx);
-    await clearAiActionMessage(ctx);
-    await clearRememberedAiListMessage(ctx);
-    await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
-    await helpers.deleteCallbackMessageIfPossible(ctx);
+    const oldSectionEntryMessageId = Number(ctx.user?.aiSectionEntryMessageId);
+    await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
+    await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
     const entryMessage = await getAiSectionEntryMessage(ctx, lang, section);
     const sent = await ctx.reply(entryMessage, aiSectionKeyboardForSection(lang, section));
     await rememberAiSectionEntryMessage(ctx, sent);
+    await clearRememberedAiListMessage(ctx, { waitForDelete: false });
+    if (
+      Number.isInteger(oldSectionEntryMessageId) &&
+      oldSectionEntryMessageId > 0 &&
+      oldSectionEntryMessageId !== ctx.callbackMessageId &&
+      oldSectionEntryMessageId !== sent?.message_id &&
+      oldSectionEntryMessageId !== sent?.messageId &&
+      ctx.deleteMessage
+    ) {
+      Promise.resolve(ctx.deleteMessage(oldSectionEntryMessageId)).catch(() => {});
+    }
     return sent;
   }
 

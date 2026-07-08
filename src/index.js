@@ -24,6 +24,40 @@ const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
 const SLOW_UPDATE_MS = 1500;
 
+function normalizeCallbackRoute(data = "") {
+  const value = String(data || "");
+  if (!value) return "callback:unknown";
+  if (value.startsWith("menu:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
+  if (value.startsWith("ai:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("discussion:create:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("discussion:list:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("discussion:invite:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("discussion:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
+  if (value.startsWith("profile:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("people:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
+  if (value.startsWith("saved:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
+  if (value.startsWith("onboarding:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
+  if (value.startsWith("lang:set:")) return "callback:lang:set";
+  return `callback:${value.split(":").slice(0, 2).join(":") || "unknown"}`;
+}
+
+function getUpdateRouteLabel(ctx, user, rawText = "") {
+  const callbackData = ctx.callbackQuery?.data;
+  if (callbackData) return normalizeCallbackRoute(callbackData);
+
+  const text = String(rawText || "").trim();
+  const state = String(user?.state || "idle");
+  if (text.startsWith("/start")) return text === "/start" ? "text:/start" : "text:/start_payload";
+  if (/^\/(?:d|join|leave|close|boost|remove|report|save|unsave|rm|discussions|ds|u|invite|iv|accept_inv|remove_inv)_/i.test(text)) {
+    return `text:${text.split("_")[0].toLowerCase()}`;
+  }
+  if (state !== "idle") return `text:state:${state.split(":")[0]}`;
+  if (user?.activeDiscussionId && ctx.message?.voice) return "text:active_discussion_voice";
+  if (user?.activeDiscussionId && text && !text.startsWith("/")) return "text:active_discussion_message";
+  if (text === "/cancel") return "text:/cancel";
+  return text.startsWith("/") ? "text:command" : "text:fallback";
+}
+
 function buildTelegramOptions(config) {
   const telegram = {};
   if (config.botApiRoot) {
@@ -113,6 +147,7 @@ async function processUpdate(ctx) {
       wasUserCreated: isReferralStart && !existedBeforeReferralStart,
       apiMetrics,
     });
+    const updateRoute = getUpdateRouteLabel(ctx, user, rawText);
     const interaction = beginInteraction({
       userId: user?.userId || normalizePlatformUserSource(from)?.id,
       callbackData: appCtx.callbackData,
@@ -136,6 +171,7 @@ async function processUpdate(ctx) {
           hasCallback: Boolean(ctx.callbackQuery),
           hasMessage: Boolean(ctx.message),
           state: user?.state || "idle",
+          route: updateRoute,
           telegramApiCalls: apiMetrics.count,
           telegramApiTotalMs: apiMetrics.totalMs,
           telegramApiMaxMs: apiMetrics.maxMs,

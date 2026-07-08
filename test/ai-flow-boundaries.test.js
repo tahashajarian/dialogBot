@@ -508,6 +508,65 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
+test("AI list Back shows section controls before retiring old list card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const events = [];
+  const updates = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageBack}movies`,
+    callbackMessageId: 77,
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "en",
+      state: "ai_manage_movies_top_ten",
+      aiLastListMessageId: 77,
+      aiLastListSection: "movies",
+      aiLastListType: "topTen",
+      aiSectionEntryMessageId: 44,
+      aiLists: {
+        movies: {
+          topTen: [{ title: "Arrival" }],
+          watchlist: [],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      events.push(`delete:${messageId}`);
+      return true;
+    },
+    reply: async (text, extra) => {
+      events.push("reply");
+      return { message_id: 120, text, extra };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    updates.push(update);
+    if (update?.$set) Object.assign(ctx.user, update.$set);
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        throw new Error("Back should not block on generic callback deletion");
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.state, "ai_chat_movies");
+  assert.equal(ctx.user.aiSectionEntryMessageId, 120);
+  assert.equal(events[0], "reply");
+  assert.deepEqual(events.slice(1), ["delete:77", "delete:44"]);
+  assert.ok(updates.some((update) => update?.state === "ai_chat_movies"));
+});
+
 test("empty AI watchlist manager uses an intentional empty-state message", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
