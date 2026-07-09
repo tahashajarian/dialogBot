@@ -1010,6 +1010,43 @@ function profilePeopleBackKeyboard(lang, mode = "browse") {
   ]]);
 }
 
+function profilePublicActionsKeyboard(lang, code, {
+  isSaved = false,
+  source = "people",
+  peopleMode = "browse",
+} = {}) {
+  const normalizedCode = String(code || "");
+  const discussionSource = source === "saved" ? "saved" : peopleMode === "taste" ? "taste" : "browse";
+  const rows = [];
+
+  if (isSaved) {
+    rows.push([{
+      text: messages[lang].savedProfileDiscussions,
+      callback_data: `${callBacks.savedProfilesDiscussions}${discussionSource}:${normalizedCode}`,
+    }]);
+    rows.push([{
+      text: messages[lang].savedProfileRemove,
+      callback_data: `${callBacks.profileUnsaveByCode}${normalizedCode}`,
+    }]);
+  } else {
+    rows.push([{
+      text: messages[lang].profileSaveButton,
+      callback_data: `${callBacks.profileSaveByCode}${normalizedCode}`,
+    }]);
+  }
+
+  if (source === "saved") {
+    rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
+  } else {
+    rows.push([{
+      text: messages[lang].aiBack,
+      callback_data: peopleMode === "taste" ? callBacks.peopleTasteMatches : callBacks.peopleDiscover,
+    }]);
+  }
+
+  return inlineKeyboard(rows);
+}
+
 function profileInvitationBackKeyboard(lang, userId = "") {
   const rows = [[{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]];
   const mutedUserId = Number(userId);
@@ -1203,6 +1240,7 @@ module.exports = {
   discussionRemoveMembersKeyboard,
   profileViewBackKeyboard,
   profilePeopleBackKeyboard,
+  profilePublicActionsKeyboard,
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
   peopleHubKeyboard,

@@ -102,8 +102,23 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
 }
 
 function buildProfileSavedFooter(messages, lang, code, isSaved) {
-  if (isSaved) return messages[lang].profileSavedButton;
-  const command = `/save_${String(code || "").replace(/^u_/i, "")}`;
+  const shortCode = String(code || "").replace(/^u_/i, "");
+  if (isSaved) {
+    const discussionsCommand = `/ds_${shortCode}`;
+    const removeCommand = `/rm_${shortCode}`;
+    const discussionsAction = lang === "fa"
+      ? `${messages[lang].savedProfileDiscussions} 👈 ${discussionsCommand}`
+      : `${messages[lang].savedProfileDiscussions} 👉 ${discussionsCommand}`;
+    const removeAction = lang === "fa"
+      ? `🗑 ${messages[lang].savedProfileRemove} 👈 ${removeCommand}`
+      : `🗑 ${messages[lang].savedProfileRemove} 👉 ${removeCommand}`;
+    return [
+      messages[lang].profileSavedButton,
+      discussionsAction,
+      removeAction,
+    ].join("\n");
+  }
+  const command = `/save_${shortCode}`;
   const action = lang === "fa"
     ? `${messages[lang].profileSaveButton} 👈 ${command}`
     : `${messages[lang].profileSaveButton} 👉 ${command}`;

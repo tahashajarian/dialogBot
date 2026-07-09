@@ -14,7 +14,9 @@
     "validate:translations": "node ./scripts/validate-translations.js",
     "create:indexes": "node ./scripts/create-indexes.js",
     "clear:user-data:dry": "node ./scripts/clear-user-data.js --dry-run",
-    "clear:user-data": "node ./scripts/clear-user-data.js"
+    "clear:user-data": "node ./scripts/clear-user-data.js",
+    "seed:people": "node ./scripts/seed-people-test-data.js",
+    "seed:discussions": "node ./scripts/seed-discussions-test-data.js"
   },
   "keywords": [],
   "author": "",

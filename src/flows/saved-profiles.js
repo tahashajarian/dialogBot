@@ -8,9 +8,8 @@ const {
   peopleDiscoverListKeyboard,
   peopleHubKeyboard,
   peopleTasteMatchesUnlockKeyboard,
-  profilePeopleBackKeyboard,
+  profilePublicActionsKeyboard,
   profileInvitationBackKeyboard,
-  profileViewBackKeyboard,
   savedProfilesListKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
@@ -32,7 +31,6 @@ const {
   buildSavedProfileListItems,
   paginateSavedProfiles,
   buildSavedProfilesListText,
-  buildProfileSavedFooter,
 } = require("../services/saved-profiles-ui");
 const {
   ensurePeopleDiscoveryCodes,
@@ -86,6 +84,66 @@ function normalizeProfileCodeFromActionCommand(value) {
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
 }
 
+function hasPeopleSurfaceContext(ctx) {
+  return Number(ctx.user?.peopleLastListMessageId) > 0 ||
+    ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
+}
+
+function shouldRefreshProfileAfterSave(ctx) {
+  return Number(ctx.user?.publicProfileLastMessageId) > 0 || hasPeopleSurfaceContext(ctx);
+}
+
+function getPublicProfileActionKeyboard(lang, code, {
+  fromSavedList = false,
+  peopleReturnMode = "browse",
+  isSaved = false,
+} = {}) {
+  return profilePublicActionsKeyboard(lang, code, {
+    isSaved,
+    source: fromSavedList ? "saved" : "people",
+    peopleMode: peopleReturnMode,
+  });
+}
+
+function parseProfileDiscussionRequest(raw = "", ctx = {}) {
+  const value = String(raw || "");
+  const parts = value.split(":");
+  const knownSources = new Set(["saved", "browse", "taste"]);
+  if (parts.length >= 2 && knownSources.has(parts[0])) {
+    return {
+      source: parts[0] === "saved" ? "saved" : "people",
+      peopleMode: parts[0] === "taste" ? "taste" : "browse",
+      code: normalizePublicProfileCode(parts.slice(1).join(":")),
+    };
+  }
+  const peopleMode = String(ctx.user?.peopleLastListMode || "") === "taste" ? "taste" : "browse";
+  return {
+    source: hasPeopleSurfaceContext(ctx) ? "people" : "saved",
+    peopleMode,
+    code: normalizePublicProfileCode(value),
+  };
+}
+
+function buildProfileDiscussionReturnType(profileCode, { source = "saved", peopleMode = "browse" } = {}) {
+  const code = normalizePublicProfileCode(profileCode);
+  if (!code) return "";
+  return source === "people" ? `people:${peopleMode === "taste" ? "taste" : "browse"}:${code}` : `saved:${code}`;
+}
+
+function isProfileDiscussionListType(value = "") {
+  const type = String(value || "");
+  return type.startsWith("saved:") || type.startsWith("people:");
+}
+
+function profileDiscussionBackKeyboard(lang, profileCode) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].aiBack,
+      callback_data: `${callBacks.profileViewByCode}${profileCode}`,
+    },
+  ]]);
+}
+
 async function rememberSavedProfilesListMessage(ctx, messageOrId) {
   if (typeof messageOrId === "boolean") return;
   const messageId = Number(getMessageId(messageOrId) || messageOrId);
@@ -100,10 +158,10 @@ async function clearSavedProfilesListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageText)) return false;
-  const edited = ctx.editMessageText
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const edited = !deleted && ctx.editMessageText
     ? await ctx.editMessageText(messageId, " ", { reply_markup: { inline_keyboard: [] } })
     : false;
-  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
   if (edited || deleted) {
     if (ctx.user) ctx.user.savedProfilesLastListMessageId = null;
     if (canPersistUserMessageState(ctx)) {
@@ -142,10 +200,21 @@ async function rememberPeopleListMessage(ctx, messageOrId, page = 0) {
 }
 
 async function rememberTastePeopleListMessage(ctx, messageOrId, page = 0) {
-  await rememberPeopleListMessage(ctx, messageOrId, page);
+  if (typeof messageOrId === "boolean") return;
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) return;
+  const normalizedPage = Math.max(0, Number(page) || 0);
   if (ctx.user) ctx.user.peopleLastListMode = "taste";
+  if (ctx.user) {
+    ctx.user.peopleLastListMessageId = messageId;
+    ctx.user.peopleLastListPage = normalizedPage;
+  }
   if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "peopleLastListMode", "taste");
+    await updateUserFields(ctx.userId, {
+      peopleLastListMessageId: messageId,
+      peopleLastListPage: normalizedPage,
+      peopleLastListMode: "taste",
+    });
   }
 }
 
@@ -153,18 +222,20 @@ async function clearPeopleListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.peopleLastListMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageText)) return false;
-  const edited = ctx.editMessageText
+  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  const edited = !deleted && ctx.editMessageText
     ? await ctx.editMessageText(messageId, " ", { reply_markup: { inline_keyboard: [] } })
     : false;
-  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
   if (edited || deleted) {
     if (ctx.user) {
       ctx.user.peopleLastListMessageId = null;
       ctx.user.peopleLastListMode = "";
     }
     if (canPersistUserMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
-      await updateProfileField(ctx.userId, "peopleLastListMode", "");
+      await updateUserFields(ctx.userId, {
+        peopleLastListMessageId: null,
+        peopleLastListMode: "",
+      });
     }
   }
   return Boolean(edited || deleted);
@@ -177,8 +248,10 @@ async function forgetPeopleListMessage(ctx) {
       ctx.user.peopleLastListMode = "";
     }
     if (canPersistUserMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "peopleLastListMessageId", null);
-      await updateProfileField(ctx.userId, "peopleLastListMode", "");
+      await updateUserFields(ctx.userId, {
+        peopleLastListMessageId: null,
+        peopleLastListMode: "",
+      });
     }
   }
 }
@@ -201,7 +274,7 @@ async function clearViewedPublicProfileMessage(ctx, exceptMessageIds = []) {
 }
 
 async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
-  if (!String(ctx.user?.discussionLastListType || "").startsWith("saved:")) return false;
+  if (!isProfileDiscussionListType(ctx.user?.discussionLastListType)) return false;
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionLastListMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || (!ctx.deleteMessage && !ctx.editMessageReplyMarkup)) return false;
@@ -216,8 +289,10 @@ async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
     ctx.user.discussionLastListType = "";
   }
   if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
-    await updateProfileField(ctx.userId, "discussionLastListType", "");
+    await updateUserFields(ctx.userId, {
+      discussionLastListMessageId: null,
+      discussionLastListType: "",
+    });
   }
   return retired;
 }
@@ -346,10 +421,6 @@ function formatPeopleTasteUnlockText(lang, quote, balance) {
     .replace("{balance}", formatStarNumber(balance, lang));
 }
 
-function formatPeopleTasteUnlockedText(lang) {
-  return messages[lang].peopleTasteMatchesUnlocked;
-}
-
 async function buildSavedProfilePage(codes = [], page = 0) {
   const items = await buildSavedProfileListItems({
     codes,
@@ -370,12 +441,20 @@ async function saveProfileCommand(ctx, lang, text) {
 async function saveProfileByCode(ctx, lang, code) {
   const saved = await addSavedProfileCode(ctx.userId, code);
   if (!saved.ok) {
-    if (saved.reason === "exists") return ctx.reply(messages[lang].savedProfileAlreadySaved);
+    if (saved.reason === "exists") {
+      if (shouldRefreshProfileAfterSave(ctx)) {
+        return sendPublicProfileByCode(ctx, lang, code, { fromPeopleList: hasPeopleSurfaceContext(ctx) });
+      }
+      return ctx.reply(messages[lang].savedProfileAlreadySaved);
+    }
     if (saved.reason === "saved_profiles_limit") return ctx.reply(formatOperationalLimitsText(messages[lang].savedProfilesLimit));
     return ctx.reply(messages[lang].unknownAction);
   }
   await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
   if (ctx.user) ctx.user.savedProfileCodes = saved.items || [];
+  if (shouldRefreshProfileAfterSave(ctx)) {
+    return sendPublicProfileByCode(ctx, lang, code, { fromPeopleList: hasPeopleSurfaceContext(ctx) });
+  }
   await clearViewedPublicProfileMessage(ctx);
   return ctx.reply(messages[lang].savedProfileSaved);
 }
@@ -399,7 +478,10 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
     await ctx.reply(messages[lang].savedProfileRemoved);
   }
   if (refreshProfile) {
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
+    return sendPublicProfileByCode(ctx, lang, code, {
+      fromPeopleList: hasPeopleSurfaceContext(ctx),
+      fromSavedList: !hasPeopleSurfaceContext(ctx),
+    });
   }
   if (!returnToList) {
     return true;
@@ -411,8 +493,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
   const peopleReturnMode = ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse";
+  const fromPeopleSurface = fromPeopleList || ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
 
-  if (fromPeopleList) {
+  if (fromPeopleSurface) {
     await clearPeopleListMessage(ctx, [ctx.callbackMessageId]);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await clearSavedProfileDiscussionMessage(ctx, [ctx.callbackMessageId]);
@@ -444,37 +527,35 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     );
   }
 
-  let footerText = "";
-  if (!fromSavedList && !fromInvitationList && ctx.user?.activeDiscussionId) {
-    const current = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
-    const saved = isCodeSaved(current, code);
-    footerText = buildProfileSavedFooter(messages, lang, code, saved);
-  }
+  const currentSavedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+  const isSavedProfile = fromSavedList || isCodeSaved(currentSavedCodes, code);
+  const keyboard = fromInvitationList
+    ? profileInvitationBackKeyboard(lang, target.userId)
+    : getPublicProfileActionKeyboard(lang, code, {
+      fromSavedList,
+      peopleReturnMode,
+      isSaved: isSavedProfile,
+    });
 
   const result = await sendProfileMessage({
     ctx,
     user: target,
     lang,
-    keyboard: fromSavedList
-      ? profileViewBackKeyboard(lang)
-      : fromPeopleList
-        ? profilePeopleBackKeyboard(lang, peopleReturnMode)
-        : fromInvitationList
-        ? profileInvitationBackKeyboard(lang, target.userId)
-        : undefined,
+    keyboard,
     messages,
     loadingText: messages[lang].profileLoading,
     isOwnProfile: false,
-    footerText,
+    footerText: "",
   });
 
   await rememberViewedPublicProfileMessage(ctx, result);
   return result;
 }
 
-async function renderSavedProfileDiscussions(ctx, lang, code) {
+async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
   const profileCode = normalizePublicProfileCode(code);
   if (!profileCode) return ctx.reply(messages[lang].profileCodeNotFound);
+  const returnType = buildProfileDiscussionReturnType(profileCode, options);
 
   await clearSavedProfileSurfaceMessages(ctx, [ctx.callbackMessageId]);
 
@@ -514,17 +595,29 @@ async function renderSavedProfileDiscussions(ctx, lang, code) {
 
   if (!hasAny) {
     const noDiscussionsText = messages[lang].savedProfileNoDiscussions.replace("{name}", name);
-    const keyboard = inlineKeyboard([[{ text: messages[lang].acknowledgeButton, callback_data: "saved:back" }]]);
+    const keyboard = profileDiscussionBackKeyboard(lang, profileCode);
     const sentEmpty = await ctx.reply(noDiscussionsText, keyboard);
-    await updateProfileField(ctx.userId, "discussionLastListMessageId", getMessageId(sentEmpty) || null);
-    await updateProfileField(ctx.userId, "discussionLastListType", `saved:${profileCode}`);
+    if (ctx.user) {
+      ctx.user.discussionLastListMessageId = getMessageId(sentEmpty) || null;
+      ctx.user.discussionLastListType = returnType;
+    }
+    await updateUserFields(ctx.userId, {
+      discussionLastListMessageId: getMessageId(sentEmpty) || null,
+      discussionLastListType: returnType,
+    });
     return sentEmpty;
   }
 
-  const keyboard = inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
+  const keyboard = profileDiscussionBackKeyboard(lang, profileCode);
   const sent = await ctx.reply(textParts.join("\n"), keyboard);
-  await updateProfileField(ctx.userId, "discussionLastListMessageId", getMessageId(sent) || null);
-  await updateProfileField(ctx.userId, "discussionLastListType", `saved:${profileCode}`);
+  if (ctx.user) {
+    ctx.user.discussionLastListMessageId = getMessageId(sent) || null;
+    ctx.user.discussionLastListType = returnType;
+  }
+  await updateUserFields(ctx.userId, {
+    discussionLastListMessageId: getMessageId(sent) || null,
+    discussionLastListType: returnType,
+  });
   return sent;
 }
 
@@ -636,11 +729,10 @@ async function handleSavedProfilesCallback(ctx, lang, {
       if (result.spend?.balance !== undefined) ctx.user.starBalance = Number(result.spend.balance) || 0;
       if (result.until) ctx.user.tasteMatchUnlockUntil = result.until;
     }
-    await editCallbackMessageOrReply(
-      ctx,
-      formatPeopleTasteUnlockedText(lang),
-      inlineKeyboard([]),
-    );
+    await deleteCallbackMessageIfPossible?.(ctx);
+    if (result.duplicate && Number(ctx.user?.peopleLastListMessageId) > 0) {
+      return true;
+    }
     return sendPeopleTasteMatchesList(ctx, lang, 0);
   }
 
@@ -786,9 +878,12 @@ async function handleSavedProfilesCallback(ctx, lang, {
 
   if (data.startsWith(callBacks.savedProfilesDiscussions)) {
     await ctx.answerCb?.();
-    const code = data.replace(callBacks.savedProfilesDiscussions, "");
+    const request = parseProfileDiscussionRequest(data.replace(callBacks.savedProfilesDiscussions, ""), ctx);
     await deleteCallbackMessageIfPossible?.(ctx);
-    return renderSavedProfileDiscussions(ctx, lang, code);
+    return renderSavedProfileDiscussions(ctx, lang, request.code, {
+      source: request.source,
+      peopleMode: request.peopleMode,
+    });
   }
 
   if (data.startsWith(callBacks.savedProfilesRemove)) {

@@ -593,7 +593,8 @@ async function handleUpdate(ctx) {
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
     const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
-    const hasPeopleListContext = Number(ctx.user?.peopleLastListMessageId) > 0;
+    const hasPeopleListContext = Number(ctx.user?.peopleLastListMessageId) > 0 ||
+      ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
     const fromSavedList = hasSavedProfilesListContext;
     const fromPeopleList = !fromSavedList && hasPeopleListContext;
     const fromInvitationList = !fromSavedList && !fromPeopleList && ctx.user?.discussionLastListType === "invitations";

@@ -136,6 +136,18 @@ function getDiscussionCloseReturnSource(ctx) {
     : "room";
 }
 
+function getPublicProfileReturnContext(ctx) {
+  const type = String(ctx.user?.discussionLastListType || "");
+  const parts = type.split(":");
+  if (parts[0] === "saved") return { fromSavedList: true, fromPeopleList: false, fromProfileDiscussion: true };
+  if (parts[0] === "people") {
+    const peopleMode = parts[1] === "taste" ? "taste" : "browse";
+    if (ctx.user) ctx.user.peopleLastListMode = peopleMode;
+    return { fromSavedList: false, fromPeopleList: true, fromProfileDiscussion: true };
+  }
+  return { fromSavedList: false, fromPeopleList: false, fromProfileDiscussion: false };
+}
+
 function parseDiscussionCloseCallbackPayload(raw = "") {
   const [discussionId = "", source = "room"] = String(raw || "").split(":");
   return {
@@ -814,9 +826,20 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.profileViewByCode)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.profileViewByCode, "");
+    const returnContext = getPublicProfileReturnContext(ctx);
     await deleteCallbackMessageIfPossible(ctx);
+    if (returnContext.fromProfileDiscussion) {
+      if (ctx.user) {
+        ctx.user.discussionLastListMessageId = null;
+        ctx.user.discussionLastListType = "";
+      }
+      await User.findOneAndUpdate(
+        { userId: ctx.userId },
+        { $set: { discussionLastListMessageId: null, discussionLastListType: "" } },
+      );
+    }
     await clearDiscussionMembersMessage(ctx);
-    return sendPublicProfileByCode(ctx, lang, code);
+    return sendPublicProfileByCode(ctx, lang, code, returnContext);
   }
 
   if (data.startsWith(callBacks.profileSaveByCode)) {

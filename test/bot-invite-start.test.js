@@ -637,11 +637,10 @@ test("saved profile command clears saved list before opening profile", async () 
   }
 
   assert.equal(deleteAttempts.includes(42), true);
-  assert.equal(
-    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
-    callBacks.savedProfiles,
-  );
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard.length, 1);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_3HNU`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
+  assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 
@@ -695,7 +694,10 @@ test("discussion profile command does not use saved-profile back button for save
 
   assert.deepEqual(deleteAttempts, [88]);
   assert.match(replies[0].text, /User profile:/);
-  assert.equal(replies[0].extra, undefined);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_3HNU`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
+  assert.notEqual(buttons.at(-1).callback_data, callBacks.savedProfiles);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 

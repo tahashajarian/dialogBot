@@ -4,8 +4,9 @@ const assert = require("node:assert/strict");
 const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
 const messages = require("../src/messages");
-const { sendPublicProfileByCode } = require("../src/flows/saved-profiles");
+const { saveProfileCommand, sendPublicProfileByCode } = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
+const Discussion = require("../src/models/discussion");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 
 test("profile callback deletes current menu message before rendering profile", async () => {
@@ -653,7 +654,9 @@ test("people profile opened from discovery returns to people discovery", async (
 
   assert.deepEqual(deletedIds, [42]);
   assert.equal(ctx.user.peopleLastListMessageId, null);
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.peopleDiscover);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
 
 test("people profile opened from taste discovery returns to taste people list", async () => {
@@ -700,7 +703,202 @@ test("people profile opened from taste discovery returns to taste people list", 
 
   assert.deepEqual(deletedIds, [42]);
   assert.equal(ctx.user.peopleLastListMode, "");
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.peopleTasteMatches);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+});
+
+test("typed people profile code keeps people actions when only mode context remains", async () => {
+  const originalFindOne = User.findOne;
+  const replies = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    profileName: "Taste Match",
+    firstName: "Taste",
+    showActiveDiscussionOnProfile: false,
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      peopleLastListMessageId: null,
+      peopleLastListMode: "taste",
+      savedProfileCodes: [],
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1");
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+});
+
+test("saving from people profile refreshes profile with saved actions", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const updates = [];
+
+  User.findOneAndUpdate = (query, update) => {
+    updates.push({ query, update });
+    return {
+      lean: async () => ({
+        userId: 1,
+        savedProfileCodes: ["u_A1"],
+      }),
+    };
+  };
+  User.findOne = async (query) => {
+    if (query.publicProfileCode === "u_A1") {
+      return {
+        userId: 2,
+        publicProfileCode: "u_A1",
+        profileName: "Taste Match",
+        firstName: "Taste",
+        showActiveDiscussionOnProfile: false,
+      };
+    }
+    return { userId: 1, savedProfileCodes: ["u_A1"] };
+  };
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      peopleLastListMessageId: null,
+      peopleLastListMode: "taste",
+      savedProfileCodes: [],
+      publicProfileLastMessageId: 44,
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 101 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await saveProfileCommand(ctx, "en", "/save_A1");
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(ctx.user.savedProfileCodes, ["u_A1"]);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}taste:u_A1`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
+  assert.doesNotMatch(replies[0].text, /Profile saved/);
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.ok(updates.some((entry) => entry.update.savedProfileCodes));
+});
+
+test("profile discussions Back returns to profile with people source intact", async () => {
+  const originalFindOneUser = User.findOne;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const originalFindDiscussion = Discussion.find;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const deletedIds = [];
+  const updates = [];
+
+  User.findOne = async (query) => {
+    if (query.publicProfileCode === "u_A1") {
+      return {
+        userId: 2,
+        publicProfileCode: "u_A1",
+        profileName: "Taste Match",
+        firstName: "Taste",
+        showActiveDiscussionOnProfile: false,
+      };
+    }
+    return { userId: 1, savedProfileCodes: ["u_A1"] };
+  };
+  User.findOneAndUpdate = async (query, update) => {
+    updates.push({ query, update });
+    return { userId: query.userId };
+  };
+  Discussion.findOne = async () => null;
+  Discussion.find = () => ({
+    limit: () => ({ lean: async () => [] }),
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.savedProfilesDiscussions}taste:u_A1`,
+    callbackMessageId: 50,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      peopleLastListMode: "taste",
+      savedProfileCodes: ["u_A1"],
+      publicProfileLastMessageId: 50,
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 101 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+
+    const discussionButtons = replies[0].extra.reply_markup.inline_keyboard.flat();
+    assert.equal(discussionButtons.at(-1).callback_data, `${callBacks.profileViewByCode}u_A1`);
+    assert.equal(ctx.user.discussionLastListType, "people:taste:u_A1");
+
+    ctx.callbackData = `${callBacks.profileViewByCode}u_A1`;
+    ctx.callbackMessageId = 101;
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOneUser;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
+    Discussion.find = originalFindDiscussion;
+  }
+
+  const profileButtons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(profileButtons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}taste:u_A1`));
+  assert.equal(profileButtons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.equal(ctx.user.discussionLastListType, "");
+  assert.ok(deletedIds.includes(50));
+  assert.ok(updates.some((entry) => entry.update.$set?.discussionLastListType === "people:taste:u_A1"));
 });
 
 test("saved profiles remembers the real list message id when edit returns true", async () => {
@@ -857,7 +1055,10 @@ test("opening saved profile clears old list and previous profile before renderin
   assert.deepEqual(deletedIds, [42, 55]);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
   assert.equal(ctx.user.publicProfileLastMessageId, 100);
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.savedProfiles);
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
+  assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
 });
 
 test("opening saved profile retires old list text when delete fails", async () => {

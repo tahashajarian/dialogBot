@@ -72,7 +72,10 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 });
 
 test("buildProfileSavedFooter shows saved status or save command", () => {
-  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", true), "🔖 Saved");
+  const savedFooter = buildProfileSavedFooter(messages, "en", "u_A1", true);
+  assert.match(savedFooter, /🔖 Saved/);
+  assert.match(savedFooter, /\/ds_A1/);
+  assert.match(savedFooter, /\/rm_A1/);
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "👩‍🦳 🔖 Save profile 👉 /save_A1");
 });
 

@@ -1232,19 +1232,22 @@ Recommended MVP limit:
 
 - max saved profiles per user: 50
 
-When viewing another user's profile from a discussion, show:
+When viewing another user's profile from a discussion, People, or saved profiles, show inline profile-level actions so the user is not left with only a static card:
 
 ```text
-👩‍🦳 🔖 ذخیره پروفایل 👈 /save_8K2P
+🔖 ذخیره پروفایل
+🔙 برگشت
 ```
 
 If already saved:
 
 ```text
-👩‍🦳 🔖 ذخیره‌شده
+💬 دیدن بحث‌ها
+🗑 حذف از ذخیره‌شده‌ها
+🔙 برگشت
 ```
 
-Do not show inline save/remove buttons on public profile views.
+Back should return to the surface the profile was opened from: saved profiles, free People browse, or the Stars-gated similar-people lens.
 
 Saved profiles inside the people hub:
 
@@ -1264,7 +1267,7 @@ Saved profiles inside the people hub:
 
 Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons.
 The saved-profile list can use inline list-navigation controls (pagination + Back) only.
-When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should have only one inline Back button to render a fresh saved-profile list.
+When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should render action buttons for discussions/remove plus a Back button to render a fresh saved-profile list.
 
 ### Viewing Discussions From Saved Profiles
 
@@ -1309,8 +1312,7 @@ Technical notes:
 - Query discussions by `creatorUserId` field (not `ownerId`)
 - Active discussion only shows if `showActiveDiscussionOnProfile: true`
 - Discussions are formatted using `buildDiscussionListText` for consistency
-- Empty state uses acknowledgment button (`saved:back` callback)
-- Non-empty lists use regular back button (`savedProfiles` callback)
+- Empty and non-empty lists use a profile Back button (`profile:view:code:` callback) so Back returns to the profile card first.
 - If joining one of these discussions fails, the "Got it" acknowledgment must return to this saved user's discussions, not the generic active-discussions list.
 
 Rules:
