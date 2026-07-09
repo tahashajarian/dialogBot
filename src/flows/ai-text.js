@@ -471,6 +471,16 @@ async function openAiListManager(ctx, lang, section, listType) {
   return listMessage;
 }
 
+function formatAiCommentPrompt(lang, listType, itemTitle) {
+  const key = listType === "topTen" ? "aiTopTenCommentAskText" : "aiWatchlistCommentAskText";
+  return messages[lang][key].replace("{item}", itemTitle);
+}
+
+function formatAiCommentSaved(lang, listType, itemTitle) {
+  const key = listType === "topTen" ? "aiTopTenCommentSaved" : "aiWatchlistCommentSaved";
+  return messages[lang][key].replace("{item}", itemTitle);
+}
+
 async function handleAiListActionCommand(ctx, lang, command) {
   const { action, section, listType, itemIndex } = command;
   const expectedState = getAiManageState(section, listType);
@@ -500,7 +510,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", itemTitle);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", listType);
     const prompt = await ctx.reply(
-      listType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
+      formatAiCommentPrompt(lang, listType, itemTitle),
       aiListCancelCommentKeyboard(lang, section, listType),
     );
     await rememberAiPendingInputPrompt(ctx, prompt);
@@ -729,8 +739,9 @@ async function handleAiText(ctx, lang, text, state) {
         return saved;
       }
 
+      const listLabel = getSectionListLabel(messages, lang, section);
       const saved = await ctx.reply(
-        `${messages[lang].aiListSaved}\n${formatAiItemsList(title, result.items, emptyText, {
+        `${messages[lang].aiListSaved.replace("{listName}", listLabel)}\n${formatAiItemsList(title, result.items, emptyText, {
           topTenTitleSet: toTitleSet(topTenItems),
           includeWatched: true,
         })}${starNotice ? `\n\n${starNotice}` : ""}${listIsFull ? "" : `\n\n${messages[lang].aiListManageAddNextPrompt}`}`,
@@ -756,7 +767,7 @@ async function handleAiText(ctx, lang, text, state) {
       if (text.startsWith("/")) {
         await clearAiPendingInputPrompt(ctx);
         const prompt = await ctx.reply(
-          pendingListType === "topTen" ? messages[lang].aiTopTenCommentAskText : messages[lang].aiWatchlistCommentAskText,
+          formatAiCommentPrompt(lang, pendingListType, pendingItem),
           aiListCancelCommentKeyboard(lang, section, pendingListType),
         );
         await rememberAiPendingInputPrompt(ctx, prompt);
@@ -778,10 +789,10 @@ async function handleAiText(ctx, lang, text, state) {
       rememberCtxAiListItems(ctx, section, pendingListType, updated.items);
       if (pendingListType === "topTen") {
         await syncAiTasteForSection(ctx.userId, section);
-        await ctx.reply(messages[lang].aiTopTenCommentSaved);
+        await ctx.reply(formatAiCommentSaved(lang, pendingListType, pendingItem));
         return openAiListManager(ctx, lang, section, pendingListType);
       }
-      await ctx.reply(messages[lang].aiWatchlistCommentSaved);
+      await ctx.reply(formatAiCommentSaved(lang, pendingListType, pendingItem));
       return openAiListManager(ctx, lang, section, pendingListType);
     }
 
@@ -900,6 +911,8 @@ async function handleAiText(ctx, lang, text, state) {
 module.exports = {
   handleAiText,
   openAiListManager,
+  formatAiCommentPrompt,
+  formatAiCommentSaved,
   isAiBackText,
   isAiSectionListText,
   isAiSectionSuggestText,

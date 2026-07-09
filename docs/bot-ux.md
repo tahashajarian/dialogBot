@@ -17,7 +17,7 @@
 - Pressing "back" in non-cancel flows should not send cancel copy (for example "operation canceled").
 - Back button labels should use `🔙` as the visible back emoji.
 - Numeric inline button rows should be ordered so the visible numbers start from the left in both Persian and English clients.
-- When leaving an AI section/manage flow via Back, remove temporary reply keyboards (for example Top 10/Suggestion bottom buttons) before showing the higher-level menu.
+- When leaving an AI section/manage flow via Back, return from the section Top 10 to the AI assistant menu and clear any tracked section title/list cards.
 - When clearing a temporary reply keyboard before an inline menu, prefer sending the destination menu text with `remove_keyboard`, then editing that same message to attach inline buttons. Avoid separate invisible/empty cleanup bubbles and avoid sending the same visible menu text twice.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
 - Entering a section/list should show the relevant section/list title immediately, not only after returning from submenus.

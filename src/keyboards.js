@@ -13,7 +13,10 @@ const {
   AGE_RANGES,
   getProfileAgeRange,
 } = require("./services/profile-age");
-const { getSectionEmoji } = require("./services/ai-section");
+const {
+  getSectionEmoji,
+  getSectionListLabel,
+} = require("./services/ai-section");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
@@ -226,6 +229,7 @@ function aiSectionKeyboardForSection(lang, section) {
 }
 
 function aiSuggestionAddKeyboard(lang, section) {
+  const listLabel = getSectionListLabel(messages, lang, section);
   const doneButtonText = section === "music"
     ? messages[lang].aiSuggestionAddDoneButtonMusic
     : section === "books"
@@ -237,7 +241,7 @@ function aiSuggestionAddKeyboard(lang, section) {
   return inlineKeyboard([
     [
       {
-        text: messages[lang].aiSuggestionAddToListButton,
+        text: messages[lang].aiSuggestionAddToListButton.replace("{listName}", listLabel),
         callback_data: `${callBacks.aiSectionAddSuggestion}${section}`,
       },
     ],
@@ -262,6 +266,12 @@ function aiSuggestionNextKeyboard(lang, section) {
       {
         text: messages[lang].aiSuggestionAnotherButton,
         callback_data: `${callBacks.aiSectionAnotherSuggestion}${section}`,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiListBackToTopTen,
+        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
   ]);
@@ -319,7 +329,22 @@ function aiSuggestionModeKeyboard(lang, section) {
         callback_data: `${callBacks.aiSectionSuggestWithContext}${section}`,
       },
     ],
+    [
+      {
+        text: messages[lang].aiBack,
+        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
+      },
+    ],
   ]);
+}
+
+function aiSuggestionNeedTopTenKeyboard(lang, section) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: `${callBacks.aiSectionSuggestNeedTopTenAck}${section}`,
+    },
+  ]]);
 }
 
 function aiSuggestionContextCancelKeyboard(lang, section) {
@@ -334,6 +359,7 @@ function aiSuggestionContextCancelKeyboard(lang, section) {
 }
 
 function aiSuggestionAddedOptionsKeyboard(lang, section) {
+  const listLabel = getSectionListLabel(messages, lang, section);
   return inlineKeyboard([
     [
       {
@@ -343,8 +369,14 @@ function aiSuggestionAddedOptionsKeyboard(lang, section) {
     ],
     [
       {
-        text: messages[lang].aiSuggestionGoToListButton,
+        text: messages[lang].aiSuggestionGoToListButton.replace("{listName}", listLabel),
         callback_data: `${callBacks.aiListManageShow}${section}:watchlist`,
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiListBackToTopTen,
+        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
   ]);
@@ -382,12 +414,33 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
+  const isMediaSection = ["movies", "music", "books"].includes(section);
 
   if (canAdd) {
     rows.push([
       {
         text: messages[lang].aiListManageAdd,
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
+      },
+    ]);
+  }
+
+  if (listType === "topTen" && isMediaSection) {
+    const listButtonText = section === "movies"
+      ? messages[lang].aiSectionListButtonMovies
+      : section === "music"
+        ? messages[lang].aiSectionListButtonMusic
+        : messages[lang].aiSectionListButtonBooks;
+    rows.push([
+      {
+        text: listButtonText,
+        callback_data: `${callBacks.aiListManageMenu}${section}:watchlist`,
+      },
+    ]);
+    rows.push([
+      {
+        text: `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`,
+        callback_data: `${callBacks.aiSectionSuggestMenu}${section}`,
       },
     ]);
   }
@@ -425,7 +478,7 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
 
   rows.push([
     {
-      text: messages[lang].aiBack,
+      text: listType === "watchlist" ? messages[lang].aiListBackToTopTen : messages[lang].aiBack,
       callback_data: `${callBacks.aiListManageBack}${section}`,
     },
   ]);
@@ -1092,6 +1145,7 @@ module.exports = {
   aiSuggestionLimitKeyboard,
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
+  aiSuggestionNeedTopTenKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,

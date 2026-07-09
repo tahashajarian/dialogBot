@@ -6,14 +6,16 @@
 - Interests are edited from Profile and collected during onboarding, not shown as a fourth button inside the Lists hub.
 - The internal `random` section stores profile/onboarding interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
 - `🌿 علاقه‌مندی‌ها` should feel first-class in Profile and onboarding for users who are not strongly into movies, music, or books.
-- AI section entry should be a guided hub message, not an open chat prompt.
-- Media section entry titles and bottom actions should carry the active section emoji for orientation, such as `🎵 🏆 My top 10` and `🎵 ✨ Suggestion`.
-- Free-form text in AI section chat state should not trigger AI suggestions; reply with guidance to use the bottom buttons.
-- In a plain section hub, stray text should keep the bottom controls and clearly direct the user to List, Top 10, or Suggestion.
+- Media section entry opens the section TopTen manager directly; there is no separate section home/lobby.
+- Media section entry should keep a small persistent section title card, such as `📚 Books`, above the active manager so users can see their path.
+- The TopTen manager is the section home and should include direct actions for add, the concrete section list name, suggestion, and Back.
+- The list/watchlist manager is secondary storage. Its Back action returns to the section TopTen, not to a separate section home.
+- Media section actions should carry the active section emoji for orientation, such as `🎵 🏆 My top 10`, `🎵 ✨ Suggestion`, and `🎵 Playlist`.
+- Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
+- There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
 - In list, Top 10, or suggestion inline-action states, stray text should retire the current inline card and send one fresh guidance card with the same relevant options.
 - Replacement list-management cards should preserve their useful description. In Top 10, keep current taste-label/progress context and append only a short button-use tip.
-- In AI sections, users stay in chat state until pressing the bottom text back button.
-- Bottom AI-section back returns users to the AI assistant menu.
+- Media sections stay in the active list-management state; Back from the TopTen returns to the AI assistant menu.
 - The inline AI assistant back button returns to the main menu.
 
 ## AI Lists
@@ -248,12 +250,14 @@ Labels should be inferred from both typed items and suggested chips.
 - Do not include type labels such as `(activity)` / `(فعالیت)` in saved suggestion titles.
 - OpenAI-compatible providers may use either Chat Completions or Responses payloads; suggestion handling should accept both response shapes and show a visible fallback instead of failing silently.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
+- If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `Got it` acknowledgement card that returns to the section TopTen manager.
 - Pressing the section suggestion button should first show a choice prompt:
   - suggest from TopTen
   - or collect one short mood/genre note
+- The suggestion choice prompt must include a Back action that returns to the section TopTen manager.
 - Do not call AI until the user chooses.
-- The mood/genre suggestion input state should hide the bottom keyboard and provide an inline cancel button.
-- Cancel returns to the same section entry message and keyboard.
+- The mood/genre suggestion input state should provide an inline cancel button.
+- Cancel returns to the section TopTen manager.
 - Suggestions should avoid duplicates from:
   - user's TopTen
   - user's watchlist
@@ -268,7 +272,8 @@ Labels should be inferred from both typed items and suggested chips.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
-- Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button.
+- Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button, or Back to return to the section TopTen manager.
+- After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
 
 ## Stars Milestones
 
