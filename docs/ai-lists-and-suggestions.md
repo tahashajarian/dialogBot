@@ -189,7 +189,7 @@ Initial common chips can include:
 Implementation notes:
 
 - Profile Interests and onboarding should share the same curated chip catalog.
-- Profile/onboarding Interest pickers should keep selected chips visible with a remove marker and fill rows with available chips; do not render partial one- or two-chip item rows.
+- Profile/onboarding Interest pickers should keep selected built-in chips in their original grid position with a `✓` marker; tapping a selected chip removes it. Custom typed interests can appear as removable selected chips above the built-in grid. Do not render partial one- or two-chip item rows.
 - Show a rotating page of Interest chips with a More Options action instead of displaying the full catalog at once.
 - Profile and onboarding Interest limits and typed-interest character limits are admin-managed operational limits.
 - Known chips should have predefined meaningful feedback, so common choices such as `کدنویسی`, `گیم`, `شطرنج`, and `Coffee` do not need a first-time AI call.

@@ -64,6 +64,11 @@ function getOnboardingPage(value = "") {
   return Number.isInteger(page) && page >= 0 ? page : 0;
 }
 
+function getOnboardingIndex(value = "", prefix = "") {
+  const index = Number(String(value).replace(prefix, "").split(":")[0]);
+  return Number.isInteger(index) && index >= 0 ? index : -1;
+}
+
 function isTasteSetupState(state = "") {
   return state === TASTE_SETUP_INTERESTS_STATE || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX);
 }
@@ -341,7 +346,8 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (data.startsWith(callBacks.onboardingInterestRemove)) {
-    const index = Number(data.replace(callBacks.onboardingInterestRemove, ""));
+    const index = getOnboardingIndex(data, callBacks.onboardingInterestRemove);
+    const page = getOnboardingPage(data);
     const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
     const item = items[index]?.title;
     if (!item) return ctx.reply(messages[lang].unknownAction);
@@ -350,7 +356,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, (result.items || []).length),
-      onboardingInterestsKeyboard(lang, (result.items || []).map((entry) => entry.title)),
+      onboardingInterestsKeyboard(lang, (result.items || []).map((entry) => entry.title), page),
     );
   }
 
@@ -365,7 +371,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     );
   }
 
-  const chipIndex = Number(data.replace(callBacks.onboardingInterest, ""));
+  const chipIndex = getOnboardingIndex(data, callBacks.onboardingInterest);
   const item = getOnboardingInterestChipTitle(chipIndex, lang);
   if (!item) {
     return ctx.reply(messages[lang].unknownAction);
@@ -408,7 +414,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     );
   }
 
-  const page = Math.floor(chipIndex / ONBOARDING_CHIPS_PER_PAGE);
+  const page = getOnboardingPage(data) || Math.floor(chipIndex / ONBOARDING_CHIPS_PER_PAGE);
   return helpers.editCallbackMessageOrReply(
     ctx,
     [buildOnboardingPrompt(lang, items.length, result.ok ? item : ""), starNotice]

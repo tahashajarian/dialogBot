@@ -74,6 +74,16 @@ function getProfileInterestItems(user) {
   return getAiListItemsFromUser(user, "random", "topTen");
 }
 
+function parseInterestCallbackPayload(data = "", prefix = "") {
+  const [indexValue, pageValue] = String(data).replace(prefix, "").split(":");
+  const index = Number(indexValue);
+  const page = Number(pageValue);
+  return {
+    index: Number.isInteger(index) && index >= 0 ? index : -1,
+    page: Number.isInteger(page) && page >= 0 ? page : 0,
+  };
+}
+
 async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0) {
   const items = getProfileInterestItems(user);
   const text = messages[lang].profileInterestsEditPrompt
@@ -448,18 +458,18 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data.startsWith(callBacks.profileInterestRemove)) {
     await ctx.answerCb?.();
     if (ctx.user?.state !== "editing_interests") return ctx.reply(messages[lang].unknownAction);
-    const index = Number(data.replace(callBacks.profileInterestRemove, ""));
+    const { index, page } = parseInterestCallbackPayload(data, callBacks.profileInterestRemove);
     const items = getProfileInterestItems(ctx.user);
     const item = items[index]?.title;
     if (!item) return ctx.reply(messages[lang].unknownAction);
     const result = await removeAiListItem(ctx.userId, "random", "topTen", item);
     if (ctx.user?.aiLists?.random) ctx.user.aiLists.random.topTen = result.items || [];
-    return showProfileInterestsEditor(ctx, lang, ctx.user || {});
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page);
   }
 
   if (data.startsWith(callBacks.profileInterestChip)) {
     if (ctx.user?.state !== "editing_interests") return ctx.reply(messages[lang].unknownAction);
-    const chipIndex = Number(data.replace(callBacks.profileInterestChip, ""));
+    const { index: chipIndex, page } = parseInterestCallbackPayload(data, callBacks.profileInterestChip);
     const item = getInterestTopTenChipTitle(chipIndex, lang);
     if (!item) return ctx.reply(messages[lang].unknownAction);
     const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
@@ -473,7 +483,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
       ctx.user.aiLists.random.topTen = result.items || getProfileInterestItems(ctx.user);
     }
-    return showProfileInterestsEditor(ctx, lang, ctx.user || {});
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page);
   }
 
   if (data === callBacks.profileInterestsDone) {

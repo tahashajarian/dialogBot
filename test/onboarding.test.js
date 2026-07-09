@@ -175,8 +175,9 @@ test("onboarding keyboard shows selected interests, real fill chips, and continu
     !button.callback_data.startsWith(callBacks.onboardingInterestRemove)
   ));
 
-  assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("×")), true);
+  assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
   assert.equal(interestButtons.length, 11);
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingInterestRemove}0:0`), true);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
@@ -194,10 +195,22 @@ test("onboarding chips mark selected built-ins across languages", () => {
   const englishButtons = englishKeyboard.reply_markup.inline_keyboard.flat();
   const persianButtons = persianKeyboard.reply_markup.inline_keyboard.flat();
 
-  assert.equal(englishButtons.some((button) => button.text.includes("Movies") && button.text.includes("×")), true);
-  assert.equal(englishButtons.some((button) => button.text.includes("Chess") && button.text.includes("×")), true);
-  assert.equal(persianButtons.some((button) => button.text.includes("فیلم") && button.text.includes("×")), true);
-  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج") && button.text.includes("×")), true);
+  assert.equal(englishButtons.some((button) => button.text.includes("Movies") && button.text.includes("✓")), true);
+  assert.equal(englishButtons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
+  assert.equal(persianButtons.some((button) => button.text.includes("فیلم") && button.text.includes("✓")), true);
+  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج") && button.text.includes("✓")), true);
+});
+
+test("onboarding keeps selected built-in chips in their original grid positions", () => {
+  const plainRows = onboardingInterestsKeyboard("en", []).reply_markup.inline_keyboard;
+  const selectedRows = onboardingInterestsKeyboard("en", ["Chess"]).reply_markup.inline_keyboard;
+  const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
+  const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
+
+  assert.equal(plainRows[1][0], plainChess);
+  assert.equal(selectedRows[1][0], selectedChess);
+  assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
+  assert.equal(selectedRows[1][0].callback_data, `${callBacks.onboardingInterestRemove}0:0`);
 });
 
 test("onboarding welcome waits for one clear start action", () => {

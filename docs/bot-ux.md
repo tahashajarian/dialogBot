@@ -39,9 +39,9 @@
 - Let users type a custom interest through a dedicated input state with admin-managed length validation and a clear return action.
 - After a user types a custom interest, consume the old picker and send the updated progress or result as a fresh message below the user's text; do not edit a card above the user's message.
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
-- Show progress after each choice. Selected chips should remain visible with a remove marker, and tapping them removes the interest.
+- Show progress after each choice. Selected chips should remain in their original grid position with a `✓` marker, and tapping them removes the interest.
 - Show the Continue action after the admin-configured onboarding minimum. Auto-complete onboarding at the admin-configured onboarding maximum.
-- Keep Interest chip rows to three item buttons per row; onboarding should show four chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
+- Keep Interest chip rows to three item buttons per row; onboarding should show four stable chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
 - Completion should show a clearly labeled preliminary vibe and explain that adding more profile Interests and building a Movies, Music, or Books Top 10 helps Muze understand the user's taste and show more relevant discussions.
 - End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Offer the profile or main menu as follow-up for users who want to fill out more Interests, and `🎬🎵📚 Movies, Music, Books` for media taste. Keep main menu and help as secondary exits.
 - Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.

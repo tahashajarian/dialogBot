@@ -13,7 +13,7 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 - Fresh user opens `/start`, chooses Persian, sees the localized welcome card, and can start quick interests.
 - Fresh user opens `/start`, chooses English, sees the localized welcome card, and can start quick interests.
-- User selects Interest chips, selected chips remain visible with remove markers, and Continue appears only after the configured minimum.
+- User selects Interest chips, selected built-in chips stay in place with `✓` markers, and Continue appears only after the configured minimum.
 - User types one custom Interest; the old picker is consumed and the fresh progress/result appears below the user's text.
 - Completing onboarding stores choices in Interests Top 10 and does not create duplicate rewards on repeated callbacks.
 - Repeated `/start` sends a returning user with meaningful activity to the main menu.

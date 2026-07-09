@@ -7,6 +7,7 @@ const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-ap
 const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/services/profile-emoji");
 const {
   profileKeyboard,
+  profileInterestsKeyboard,
   profileSettingsKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
@@ -365,6 +366,19 @@ test("profileKeyboard groups frequent profile edits into compact rows", () => {
   assert.ok(!callbacks.includes("profile:toggle:active-discussion-visible"));
   assert.deepEqual(nameAgeRow.map((button) => button.callback_data), ["profile:edit:name", "profile:edit:age"]);
   assert.deepEqual(cityGenderRow.map((button) => button.callback_data), ["profile:edit:city", "profile:edit:gender"]);
+});
+
+test("profile interests keep selected built-in chips in place", () => {
+  const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard;
+  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.inline_keyboard;
+  const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
+  const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
+
+  assert.equal(plainRows[1][0], plainChess);
+  assert.equal(selectedRows[1][0], selectedChess);
+  assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
+  assert.equal(selectedRows[1][0].callback_data, `${callBacks.profileInterestRemove}0:0`);
+  assert.equal(selectedRows.flat().some((button) => button.callback_data === `${callBacks.profileInterestChip}3:0`), false);
 });
 
 test("age picker buttons are ordered left to right", () => {

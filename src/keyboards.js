@@ -1,6 +1,7 @@
 const { callBacks } = require("./constants");
 const {
   INTEREST_CHIPS,
+  getInterestChipByTitle,
   getInterestChipTitle,
   isInterestChipSelected,
   localizeInterestChipTitle,
@@ -538,6 +539,58 @@ function getPagedInterestChips(lang, selectedTitles = [], page = 0, pageSize = I
   return { available, normalizedPage, totalPages };
 }
 
+function getFixedInterestChipPage(page = 0, pageSize = INTEREST_CHIPS_PER_PAGE) {
+  const chipsPerPage = Number(pageSize) || INTEREST_CHIPS_PER_PAGE;
+  const totalPages = Math.ceil(INTEREST_CHIPS.length / chipsPerPage);
+  const normalizedPage = ((Number(page) || 0) % totalPages + totalPages) % totalPages;
+  const pageStart = normalizedPage * chipsPerPage;
+  const pageChips = [];
+
+  for (let offset = 0; offset < chipsPerPage; offset += 1) {
+    const index = (pageStart + offset) % INTEREST_CHIPS.length;
+    pageChips.push({ chip: INTEREST_CHIPS[index], index });
+  }
+
+  return { pageChips, normalizedPage, totalPages };
+}
+
+function getSelectedChipIndex(selectedTitles = [], chip) {
+  return selectedTitles.findIndex((title) => getInterestChipByTitle(title) === chip);
+}
+
+function buildFixedInterestRows(lang, selectedItems = [], page = 0, {
+  pageSize = INTEREST_CHIPS_PER_PAGE,
+  chipCallbackPrefix,
+  removeCallbackPrefix,
+} = {}) {
+  const selectedTitles = selectedItems.map((entry) => entry.title || entry);
+  const customSelectedItems = selectedItems
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => !getInterestChipByTitle(entry.title || entry));
+  const { pageChips, normalizedPage, totalPages } = getFixedInterestChipPage(page, pageSize);
+  const rows = [];
+
+  for (let i = 0; i < customSelectedItems.length; i += 3) {
+    rows.push(customSelectedItems.slice(i, i + 3).map(({ entry, index }) => ({
+      text: `${localizeInterestChipTitle(entry.title || entry, lang)} ✓`,
+      callback_data: `${removeCallbackPrefix}${index}:${normalizedPage}`,
+    })));
+  }
+
+  for (let i = 0; i < pageChips.length; i += 3) {
+    rows.push(pageChips.slice(i, i + 3).map(({ chip, index }) => {
+      const selectedIndex = getSelectedChipIndex(selectedTitles, chip);
+      const selected = selectedIndex >= 0;
+      return {
+        text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}${selected ? " ✓" : ""}`,
+        callback_data: selected ? `${removeCallbackPrefix}${selectedIndex}:${normalizedPage}` : `${chipCallbackPrefix}${index}:${normalizedPage}`,
+      };
+    }));
+  }
+
+  return { rows, normalizedPage, totalPages };
+}
+
 function aiInterestTopTenChipKeyboard(lang, selectedTitles = [], page = 0, { backToList = false } = {}) {
   const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
   const rows = [];
@@ -590,34 +643,11 @@ function onboardingWelcomeKeyboard(lang) {
 }
 
 function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
-  const { available, normalizedPage, totalPages } = getPagedInterestChips(
-    lang,
-    selectedTitles,
-    page,
-    ONBOARDING_CHIPS_PER_PAGE,
-  );
-  const rows = [];
-  const availableButtons = available.map(({ chip, index }) => ({
-    text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,
-    callback_data: `${callBacks.onboardingInterest}${index}`,
-  }));
-
-  for (let i = 0; i < selectedTitles.length; i += 3) {
-    const row = selectedTitles.slice(i, i + 3).map((title, offset) => ({
-      text: `${localizeInterestChipTitle(title, lang)} ×`,
-      callback_data: `${callBacks.onboardingInterestRemove}${i + offset}`,
-    }));
-    while (row.length < 3) {
-      const nextButton = availableButtons.shift();
-      if (!nextButton) break;
-      row.push(nextButton);
-    }
-    rows.push(row);
-  }
-
-  for (let i = 0; i + 2 < availableButtons.length; i += 3) {
-    rows.push(availableButtons.slice(i, i + 3));
-  }
+  const { rows, normalizedPage, totalPages } = buildFixedInterestRows(lang, selectedTitles, page, {
+    pageSize: ONBOARDING_CHIPS_PER_PAGE,
+    chipCallbackPrefix: callBacks.onboardingInterest,
+    removeCallbackPrefix: callBacks.onboardingInterestRemove,
+  });
 
   rows.push([{
     text: messages[lang].onboardingMoreButton,
@@ -660,30 +690,10 @@ function onboardingTasteSetupNudgeKeyboard(lang) {
 }
 
 function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
-  const selectedTitles = selectedItems.map((entry) => entry.title || entry);
-  const { available, normalizedPage, totalPages } = getPagedInterestChips(lang, selectedTitles, page);
-  const rows = [];
-  const availableButtons = available.map(({ chip, index }) => ({
-    text: `${chip.emoji} ${getInterestChipTitle(chip, lang)}`,
-    callback_data: `${callBacks.profileInterestChip}${index}`,
-  }));
-
-  for (let i = 0; i < selectedItems.length; i += 3) {
-    const row = selectedItems.slice(i, i + 3).map((entry, offset) => ({
-      text: `${localizeInterestChipTitle(entry.title || entry, lang)} ×`,
-      callback_data: `${callBacks.profileInterestRemove}${i + offset}`,
-    }));
-    while (row.length < 3) {
-      const nextButton = availableButtons.shift();
-      if (!nextButton) break;
-      row.push(nextButton);
-    }
-    rows.push(row);
-  }
-
-  for (let i = 0; i + 2 < availableButtons.length; i += 3) {
-    rows.push(availableButtons.slice(i, i + 3));
-  }
+  const { rows, normalizedPage, totalPages } = buildFixedInterestRows(lang, selectedItems, page, {
+    chipCallbackPrefix: callBacks.profileInterestChip,
+    removeCallbackPrefix: callBacks.profileInterestRemove,
+  });
 
   rows.push([{
     text: messages[lang].onboardingMoreButton,
