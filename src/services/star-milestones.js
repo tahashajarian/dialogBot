@@ -72,77 +72,57 @@ async function awardListMilestones({ userId, section, listType, count }) {
   if (!AI_SECTIONS.has(section) || !["watchlist", "topTen"].includes(listType)) {
     return { rewards: [], progress: null };
   }
+  if (listType === "watchlist") {
+    return { rewards: [], progress: null };
+  }
   const normalizedCount = Math.max(0, Math.round(Number(count) || 0));
   const results = [];
   let progress = null;
 
-  if (listType === "watchlist") {
-    const goal = starEconomy.regularListMilestoneItems;
-    const idempotencyKey = `milestone:regular-list:${userId}:${section}`;
-    if (normalizedCount >= goal) {
-      results.push(await safelyEarn({
-        userId,
-        amount: starEconomy.rewardRegularListPerSection,
-        reason: "regular_list_milestone",
-        idempotencyKey,
-        settingsSnapshot: snapshotSettings(["regularListMilestoneItems", "rewardRegularListPerSection"]),
-        metadata: { section, listType, count: normalizedCount, goal, milestone: "regular_list" },
-      }));
-    } else if (!await safelyHasReward(idempotencyKey)) {
-      progress = {
-        milestone: "regular_list_milestone",
-        section,
-        listType,
-        remaining: goal - normalizedCount,
-        reward: starEconomy.rewardRegularListPerSection,
-      };
-    }
-  } else {
-    const firstGoal = starEconomy.firstTopTenMilestoneItems;
-    const fullGoal = starEconomy.topTenCompletionItems;
-    const firstIdempotencyKey = `milestone:topten-first:${userId}:${section}`;
-    const fullIdempotencyKey = `milestone:topten-full:${userId}:${section}`;
-    if (normalizedCount >= firstGoal) {
-      results.push(await safelyEarn({
-        userId,
-        amount: starEconomy.rewardFirstThreePerSection,
-        reason: "topten_first_milestone",
-        idempotencyKey: firstIdempotencyKey,
-        settingsSnapshot: snapshotSettings(["firstTopTenMilestoneItems", "rewardFirstThreePerSection"]),
-        metadata: { section, listType, count: normalizedCount, goal: firstGoal, milestone: "topten_first" },
-      }));
-    }
-    if (normalizedCount >= fullGoal) {
-      results.push(await safelyEarn({
-        userId,
-        amount: starEconomy.rewardFullTopTenPerSection,
-        reason: "topten_completed",
-        idempotencyKey: fullIdempotencyKey,
-        settingsSnapshot: snapshotSettings(["topTenCompletionItems", "rewardFullTopTenPerSection"]),
-        metadata: { section, listType, count: normalizedCount, goal: fullGoal, milestone: "topten_full" },
-      }));
-    }
-    const [firstClaimed, fullClaimed] = await Promise.all([
-      safelyHasReward(firstIdempotencyKey),
-      safelyHasReward(fullIdempotencyKey),
-    ]);
-    if (normalizedCount < firstGoal && !firstClaimed) {
-      progress = {
-        milestone: "topten_first_milestone",
-        section,
-        listType,
-        remaining: firstGoal - normalizedCount,
-        reward: starEconomy.rewardFirstThreePerSection,
-      };
-    } else if (normalizedCount < fullGoal && !fullClaimed) {
-      progress = {
-        milestone: "topten_completed",
-        section,
-        listType,
-        remaining: fullGoal - normalizedCount,
-        reward: starEconomy.rewardFullTopTenPerSection,
-      };
-    }
+  const firstGoal = starEconomy.firstTopTenMilestoneItems;
+  const fullGoal = starEconomy.topTenCompletionItems;
+  const firstIdempotencyKey = `milestone:topten-first:${userId}:${section}`;
+  const fullIdempotencyKey = `milestone:topten-full:${userId}:${section}`;
+  if (normalizedCount >= firstGoal) {
+    results.push(await safelyEarn({
+      userId,
+      amount: starEconomy.rewardFirstThreePerSection,
+      reason: "topten_first_milestone",
+      idempotencyKey: firstIdempotencyKey,
+      settingsSnapshot: snapshotSettings(["firstTopTenMilestoneItems", "rewardFirstThreePerSection"]),
+      metadata: { section, listType, count: normalizedCount, goal: firstGoal, milestone: "topten_first" },
+    }));
+  }
+  if (normalizedCount >= fullGoal) {
+    results.push(await safelyEarn({
+      userId,
+      amount: starEconomy.rewardFullTopTenPerSection,
+      reason: "topten_completed",
+      idempotencyKey: fullIdempotencyKey,
+      settingsSnapshot: snapshotSettings(["topTenCompletionItems", "rewardFullTopTenPerSection"]),
+      metadata: { section, listType, count: normalizedCount, goal: fullGoal, milestone: "topten_full" },
+    }));
+  }
+  const [firstClaimed, fullClaimed] = await Promise.all([
+    safelyHasReward(firstIdempotencyKey),
+    safelyHasReward(fullIdempotencyKey),
+  ]);
+  if (normalizedCount < firstGoal && !firstClaimed) {
+    progress = {
+      milestone: "topten_first_milestone",
+      section,
+      listType,
+      remaining: firstGoal - normalizedCount,
+      reward: starEconomy.rewardFirstThreePerSection,
+    };
+  } else if (normalizedCount < fullGoal && !fullClaimed) {
+    progress = {
+      milestone: "topten_completed",
+      section,
+      listType,
+      remaining: fullGoal - normalizedCount,
+      reward: starEconomy.rewardFullTopTenPerSection,
+    };
   }
 
   return { rewards: appliedRewards(results), progress };
@@ -194,11 +174,9 @@ async function claimExistingProfileAndListMilestones(user = {}) {
   const rewards = [];
   for (const section of AI_SECTIONS) {
     const lists = user.aiLists?.[section] || {};
-    for (const listType of ["watchlist", "topTen"]) {
-      const count = Array.isArray(lists[listType]) ? lists[listType].length : 0;
-      const result = await awardListMilestones({ userId, section, listType, count });
-      rewards.push(...result.rewards);
-    }
+    const count = Array.isArray(lists.topTen) ? lists.topTen.length : 0;
+    const result = await awardListMilestones({ userId, section, listType: "topTen", count });
+    rewards.push(...result.rewards);
   }
   const profile = await awardProfileCompletionMilestone(userId, user);
   rewards.push(...profile.rewards);

@@ -186,9 +186,9 @@ Goal: prove that a private participation economy improves the existing product b
 - [x] Implement the idempotent Star ledger, balance reconciliation, economy settings, and kill switches from [Stars Economy](stars.md).
 - [x] Show balance only on the user's own profile.
 - [x] Change only the saved-profile icon from `⭐` to `🔖` and discussion-host icon from `⭐` to `🎙️`; keep their wording and behavior.
-- [x] Reward regular-list/first-3/full-Top-10 milestones, privacy-safe profile completion, first discussion creation/join, first successful directed saved-profile invitation pair, and qualified outside referrals.
+- [x] Reward first-3/full-Top-10 milestones, privacy-safe profile completion, first discussion creation/join, first successful directed saved-profile invitation pair, and qualified outside referrals.
 - [x] Add clear combined earning confirmations and one eligible next-step hint.
-- [x] Keep list reward/progress copy user-facing, using watchlist/playlist/reading-list/interests wording instead of internal regular-list labels.
+- [x] Keep list reward/progress copy user-facing and never imply watchlist/playlist/reading-list additions award Stars.
 - [x] Add one private own-profile growth hint for weak taste/profile data.
 - [x] Update onboarding so its profile Interest choices use the normal Interests milestone without double rewards.
 - [x] Add opaque inviter attribution to outside links without breaking old discussion invite links.

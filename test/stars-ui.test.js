@@ -10,7 +10,6 @@ const {
 
 test("Stars overview uses live settings and private balance", () => {
   const text = buildStarsOverviewText(messages, "en", { starBalance: 18 }, {
-    rewardRegularListPerSection: 2,
     rewardFirstThreePerSection: 3,
     rewardFullTopTenPerSection: 7,
     rewardProfileCompletion: 5,
@@ -25,6 +24,8 @@ test("Stars overview uses live settings and private balance", () => {
     peopleTasteMatchesDurationHours: 48,
   });
   assert.match(text, /Balance: 18/);
+  assert.match(text, /Watchlists, playlists, and reading lists are free and do not award Stars/);
+  assert.doesNotMatch(text, /Build the first/);
   assert.match(text, /Profile emoji: 3 Stars/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
   assert.match(text, /Boost one discussion: 12 Stars/);
@@ -55,26 +56,6 @@ test("Star reward notice combines balance and one next milestone", () => {
   assert.match(text, /Music Top 10/);
   assert.match(text, /Balance: 8/);
   assert.match(text, /Add 7 more to complete your Music Top 10/);
-});
-
-test("Star progress names regular lists by section", () => {
-  const fa = buildStarRewardNotice(messages, "fa", [], {
-    milestone: "regular_list_milestone",
-    section: "movies",
-    listType: "watchlist",
-    remaining: 1,
-    reward: 2,
-  }, { alwaysShowProgress: true });
-  const en = buildStarRewardNotice(messages, "en", [], {
-    milestone: "regular_list_milestone",
-    section: "music",
-    listType: "watchlist",
-    remaining: 1,
-    reward: 2,
-  }, { alwaysShowProgress: true });
-
-  assert.match(fa, /واچ‌لیست فیلم‌ها/);
-  assert.match(en, /Music playlist/);
 });
 
 test("invite Star reward notice uses a natural accepted-invite sentence", () => {

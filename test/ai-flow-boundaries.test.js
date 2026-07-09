@@ -1381,6 +1381,7 @@ test("watchlist add flow stays open for the next item", async () => {
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
   assert.match(savedReply.text, /Saved to 🎬 watchlist/);
   assert.match(savedReply.text, /Send the next title here/);
+  assert.doesNotMatch(savedReply.text, /Star|⭐/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);

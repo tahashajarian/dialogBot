@@ -8,6 +8,7 @@ const {
   getOrCreateUser,
   normalizePlatformUserSource,
 } = require("../src/services/users");
+const { awardListMilestones } = require("../src/services/star-milestones");
 
 test("normalizePlatformUserSource accepts Telegram and Bale-style user fields", () => {
   assert.deepEqual(normalizePlatformUserSource({
@@ -71,6 +72,17 @@ test("addAiListItem rejects command-like titles before persistence", async () =>
   } finally {
     User.findOne = originalFindOne;
   }
+});
+
+test("watchlist milestones do not award Stars or progress", async () => {
+  const result = await awardListMilestones({
+    userId: 123,
+    section: "movies",
+    listType: "watchlist",
+    count: 100,
+  });
+
+  assert.deepEqual(result, { rewards: [], progress: null });
 });
 
 test("getOrCreateUser creates users from alternate name fields", async () => {

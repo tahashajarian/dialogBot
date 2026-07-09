@@ -36,9 +36,6 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
     label: "Advanced Search purchase", description: "Reserved for the future reviewed filter product.", group: "Rollout", type: "boolean", default: false,
   },
 
-  rewardRegularListPerSection: {
-    label: "Regular-list milestone reward", description: "Stars awarded once per section at the regular-list milestone.", group: "Rewards", type: "number", unit: "Stars", default: 2, min: 0, max: 1000,
-  },
   rewardFirstThreePerSection: {
     label: "First TopTen milestone reward", description: "Stars awarded once per section at the first TopTen milestone.", group: "Rewards", type: "number", unit: "Stars", default: 3, min: 0, max: 1000,
   },
@@ -63,9 +60,6 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
 
   externalReferralLinkExpiryDays: {
     label: "Outside referral link expiry", description: "Days an attributable outside link remains claimable.", group: "Reward limits", type: "number", unit: "days", default: 30, min: 1, max: 3650,
-  },
-  regularListMilestoneItems: {
-    label: "Regular-list milestone", description: "Distinct items needed for the regular-list reward.", group: "Milestones", type: "number", unit: "items", default: 5, min: 1, max: 10000,
   },
   firstTopTenMilestoneItems: {
     label: "First TopTen milestone", description: "Distinct TopTen items needed for the first reward.", group: "Milestones", type: "number", unit: "items", default: 3, min: 1, max: 1000,
@@ -166,10 +160,6 @@ function normalizeStarSettings(values = {}) {
     return [key, Math.min(definition.max, Math.max(definition.min, value))];
   }));
 
-  normalized.regularListMilestoneItems = Math.min(
-    normalized.regularListMilestoneItems,
-    operationalLimits.aiWatchlistItems,
-  );
   normalized.firstTopTenMilestoneItems = Math.min(
     normalized.firstTopTenMilestoneItems,
     operationalLimits.aiTopTenItems,

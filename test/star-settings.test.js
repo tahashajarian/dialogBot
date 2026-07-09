@@ -67,11 +67,9 @@ test("Star milestone thresholds respect current list limits", () => {
   Object.assign(operationalLimits, { aiTopTenItems: 8, aiWatchlistItems: 4 });
   try {
     const values = normalizeStarSettings({
-      regularListMilestoneItems: 50,
       firstTopTenMilestoneItems: 7,
       topTenCompletionItems: 2,
     });
-    assert.equal(values.regularListMilestoneItems, 4);
     assert.equal(values.firstTopTenMilestoneItems, 7);
     assert.equal(values.topTenCompletionItems, 7);
   } finally {

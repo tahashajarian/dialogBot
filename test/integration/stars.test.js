@@ -150,8 +150,8 @@ test("opening Stars lazily claims verifiable existing milestones once", async ()
   const first = await claimExistingProfileAndListMilestones(user);
   const second = await claimExistingProfileAndListMilestones(user);
 
-  assert.equal(first.reduce((sum, reward) => sum + reward.amount, 0), 17);
+  assert.equal(first.reduce((sum, reward) => sum + reward.amount, 0), 15);
   assert.equal(second.length, 0);
-  assert.equal((await User.findOne({ userId: 504 }).lean()).starBalance, 17);
-  assert.equal(await StarTransaction.countDocuments({ userId: 504, status: "applied" }), 4);
+  assert.equal((await User.findOne({ userId: 504 }).lean()).starBalance, 15);
+  assert.equal(await StarTransaction.countDocuments({ userId: 504, status: "applied" }), 3);
 });

@@ -281,11 +281,11 @@ The Stars economy rewards list completion without charging for normal list use. 
 
 - Each section may award once when its TopTen reaches the configured first milestone, recommended as 3 distinct valid items.
 - Each section may award once again when its TopTen reaches the configured completion size.
-- Each regular/watchlist section may separately award once at its configured milestone, recommended as 5 distinct valid items.
+- Watchlists, playlists, and reading lists do not award Stars.
 - Interests chosen during onboarding are ordinary Interests TopTen items and use the same milestone records; onboarding must not double-award them.
 - Removing and re-adding items never awards a milestone twice.
 - List mutation helpers remain centralized in `src/services/users.js`. Star qualification happens only after a successful mutation and uses an idempotent ledger key.
-- Relevant list success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.
+- Relevant Top 10 success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.
 - Basic suggestions and list management remain free. Paid extra suggestions are only offered after the free quota is exhausted and must follow the explicit confirmation/refund rules above.
 
 ## AI Cost Rules

@@ -81,7 +81,6 @@ The exact amounts are admin-editable. The values below are recommended launch de
 
 | Milestone | Default | Frequency | Qualification |
 | --- | ---: | --- | --- |
-| Build a regular list section | 2 | Once per section | Five valid, distinct items exist in that section's regular/watchlist |
 | First 3 TopTen items in a section | 3 | Once per section | Three valid, distinct items exist in that section's Top 10 |
 | Complete a Top 10 section | 7 | Once per section | The section reaches the configured completion size; this is additional to the first-3 reward |
 | Complete profile milestone | 5 | Once per account | Display name and the configured non-sensitive completion rule are satisfied |
@@ -93,14 +92,13 @@ The exact amounts are admin-editable. The values below are recommended launch de
 ### List And Top 10 Milestones
 
 - The four eligible sections are movies, music, books, and broad interests (`random` internally).
-- Regular lists and Top Tens have separate milestones. The recommended regular-list milestone is 5 items once per section.
+- Watchlists, playlists, and reading lists are free organization surfaces and do not award Stars.
 - The first-3 TopTen reward is once per section, not once per item.
 - The full Top 10 reward is once per section and may be earned after the first-3 reward.
 - Removing items does not revoke an earned milestone and adding them again does not reward it again.
 - Existing users lazily receive currently verifiable list and profile milestones when they open their private Stars overview. This is a bounded scan of four list sections and the profile, protected by the same idempotency keys. Historical discussion participation is not inferred; discussion creation/join rewards begin from live successful actions after rollout.
 - Onboarding writes its three choices into Interests TopTen. Completing those three choices should trigger the normal Interests first-3 milestone; do not stack a second reward merely for the onboarding screen.
 - The configured Top 10 completion threshold must not exceed the current TopTen item cap. The admin dashboard must validate this relationship.
-- The configured regular-list milestone must not exceed the current regular-list item cap.
 
 ### Profile Completion Milestone
 
@@ -208,8 +206,8 @@ Rules:
 Contextual next-step examples:
 
 - After onboarding/profile Interests: show actual earned Stars when a milestone is awarded, but do not show misleading full Top 10 progress for profile Interests.
-- After a list item is added: show progress only when approaching or reaching the relevant regular-list, first-3 TopTen, or full-TopTen milestone.
-- List reward and progress wording should use the user-facing list name for the current section. For example, say Movies watchlist, Music playlist, Books reading list, or Interests list instead of exposing internal "regular list" wording.
+- After a Top 10 item is added: show progress only when approaching or reaching the relevant first-3 TopTen or full-TopTen milestone.
+- List reward and progress wording should use the user-facing list name for Top 10 milestones and must not imply that adding to a watchlist, playlist, or reading list awards Stars.
 - On an incomplete own profile: show the smallest privacy-safe set of choices that can complete the profile reward.
 - After the first discussion reward: explain boosting only as an optional use, not as the required next action.
 - After sending a stored invitation: say Stars are awarded only if this is the first rewarded pair and the invitee successfully joins; do not claim the reward at send time.
@@ -432,7 +430,6 @@ Recommended settings groups:
 
 ### Rewards
 
-- regular-list-per-section reward
 - first-3-TopTen-per-section reward
 - full-TopTen-per-section reward
 - profile completion reward
@@ -463,7 +460,6 @@ Recommended settings groups:
 ### Milestone Thresholds And Rollout
 
 - first TopTen milestone item count, default 3
-- regular-list milestone item count, default 5
 - Top 10 completion count, constrained by the TopTen operational cap
 - economy enabled/disabled switch
 - earning enabled/disabled switch
@@ -480,7 +476,6 @@ Recommended launch definitions:
 | Setting key | Default | Min | Max | Unit/group |
 | --- | ---: | ---: | ---: | --- |
 | `rewardFirstThreePerSection` | 3 | 0 | 1,000 | Stars |
-| `rewardRegularListPerSection` | 2 | 0 | 1,000 | Stars |
 | `rewardFullTopTenPerSection` | 7 | 0 | 1,000 | Stars |
 | `rewardProfileCompletion` | 5 | 0 | 1,000 | Stars |
 | `rewardFirstDiscussion` | 3 | 0 | 1,000 | Stars |
@@ -488,7 +483,6 @@ Recommended launch definitions:
 | `rewardSavedInvitePair` | 1 | 0 | 1,000 | Stars |
 | `rewardExternalReferral` | 10 | 0 | 10,000 | Stars |
 | `firstTopTenMilestoneItems` | 3 | 1 | current TopTen cap | items |
-| `regularListMilestoneItems` | 5 | 1 | current regular-list cap | items |
 | `topTenCompletionItems` | 10 | first milestone | current TopTen cap | items |
 | `discussionBoostCost` | 10 | 0 | 1,000,000 | Stars |
 | `discussionBoostDurationHours` | 24 | 1 | 8,760 | hours |
@@ -600,7 +594,7 @@ Recommended focused modules:
 - optional `src/models/discussion-boost.js`: boost lifecycle, targeting/delivery state, and refund linkage
 - `src/services/stars.js`: atomic earn/spend/refund/grant operations and balance reads
 - `src/services/star-settings.js`: cached Mongo-backed economy settings and validation
-- `src/services/star-milestones.js`: pure qualification and next-milestone helpers
+- `src/services/star-milestones.js`: pure qualification and next-milestone helpers; watchlists, playlists, and reading lists do not qualify for Stars
 - `src/services/star-referrals.js`: outside attribution and qualification
 - `src/services/discussion-boosts.js`: boost eligibility/lifecycle/data mutations
 - `src/services/discussion-boost-notifications.js`: low-noise, best-effort targeted delivery
@@ -696,12 +690,12 @@ Acceptance criteria:
 
 ### Task 3: Milestone Rewards And Contextual Guidance
 
-Status: implemented, including bounded lazy claiming for existing list/profile progress.
+Status: implemented, including bounded lazy claiming for existing Top 10/profile progress.
 
-- Implement centralized qualification for regular-list, first-3 TopTen, full Top 10, profile completion, first discussion creation, and first discussion join milestones.
+- Implement centralized qualification for first-3 TopTen, full Top 10, profile completion, first discussion creation, and first discussion join milestones.
 - Decide and implement existing-user backfill/on-next-open policy.
 - Attach rewards only after successful underlying mutations.
-- Add combined success copy with amount, balance, and at most one eligible next step.
+- Add combined success copy with amount, balance, and at most one eligible next step. Watchlist, playlist, and reading-list additions should show only the normal save copy.
 - Ensure onboarding uses the Interests first-3 milestone and does not double-award.
 - Add tests for removals/re-adds, preexisting users, concurrent list additions, repeated create callbacks, and profile privacy choices.
 

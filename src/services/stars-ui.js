@@ -8,8 +8,6 @@ function formatStarNumber(value, lang = "en") {
 function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
   const values = {
     balance: formatStarNumber(user?.starBalance, lang),
-    regularListGoal: formatStarNumber(settings.regularListMilestoneItems, lang),
-    regularListReward: formatStarNumber(settings.rewardRegularListPerSection, lang),
     firstTopTenGoal: formatStarNumber(settings.firstTopTenMilestoneItems, lang),
     firstTopTenReward: formatStarNumber(settings.rewardFirstThreePerSection, lang),
     fullTopTenGoal: formatStarNumber(settings.topTenCompletionItems, lang),
