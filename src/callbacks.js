@@ -97,6 +97,9 @@ const {
   shouldKeepAiListTitleForCallback,
 } = require("./flows/ai-cards");
 const {
+  buildAiAssistantMenuMessage,
+} = require("./services/ai-list-ui");
+const {
   handleProfileSettingsOrEditCallback,
   isProfileSettingsOrEditCallback,
   sendOwnProfile,
@@ -476,7 +479,7 @@ async function handleCallback(ctx) {
     await forgetPeopleListMessage(ctx);
     return showInlineMenuAfterNavigation(
       ctx,
-      `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`,
+      buildAiAssistantMenuMessage(lang),
       aiAssistantKeyboard(lang),
       { forceClearKeyboard: shouldClearKeyboard },
     );

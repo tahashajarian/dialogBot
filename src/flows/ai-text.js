@@ -71,6 +71,7 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
+  buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
   buildTopTenSavedMessage,
   formatAiItemsList,
@@ -581,7 +582,7 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
     }
 
     const section = manageState.section;
@@ -855,7 +856,7 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
     }
 
     if (isAiSectionListText(text, section)) {

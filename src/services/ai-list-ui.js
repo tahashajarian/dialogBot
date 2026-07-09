@@ -129,6 +129,10 @@ function withAiSectionTitle(lang, section, body) {
   return `${heading}\n\n${body}`;
 }
 
+function buildAiAssistantMenuMessage(lang) {
+  return `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`;
+}
+
 function buildTopTenListMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabelWithEmoji(messages, lang, section);
   const topTenEntries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang);
@@ -401,6 +405,7 @@ async function buildTopTenSavedMessage({
 module.exports = {
   formatAiLimitMessage,
   buildAiListManagerMessage,
+  buildAiAssistantMenuMessage,
   buildTopTenInsightMessage,
   buildTopTenListMessage,
   buildTopTenSavedMessage,

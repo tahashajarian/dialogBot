@@ -225,11 +225,11 @@ test("AI bottom Back clears reply controls on the destination menu message", asy
   }
 
   assert.equal(replies.length, 1);
-  assert.equal(replies[0].text, messages.fa.aiAssistantMenu);
+  assert.equal(replies[0].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
   assert.equal(edits.length, 1);
   assert.equal(edits[0].messageId, 1);
-  assert.equal(edits[0].text, messages.fa.aiAssistantMenu);
+  assert.equal(edits[0].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
   assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.aiBack);
 });
 
@@ -607,6 +607,7 @@ test("entering a media section keeps a small section title above Top Ten", async
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
   const ctx = {
     callbackData: callBacks.aiSuggestBooks,
@@ -633,6 +634,10 @@ test("entering a media section keeps a small section title above Top Ten", async
       replies.push({ text, extra });
       return { message_id: 100 + replies.length, text, extra };
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId, text, extra };
+    },
   };
 
   User.findOneAndUpdate = async (query, update) => {
@@ -644,16 +649,20 @@ test("entering a media section keeps a small section title above Top Ten", async
   try {
     await handleAiCallback(ctx, "en", {
       deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+      editCallbackMessageOrReply: async (callbackCtx, text, extra) => (
+        callbackCtx.editMessageText(callbackCtx.callbackMessageId, text, extra)
+      ),
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [44, 60]);
-  assert.equal(replies[0].text, "📚 Books");
-  assert.match(replies[1].text, /Dune/);
-  assert.equal(ctx.user.aiSectionEntryMessageId, 101);
-  assert.equal(ctx.user.aiLastListMessageId, 102);
+  assert.deepEqual(deletedIds, [44]);
+  assert.equal(edits[0].messageId, 60);
+  assert.equal(edits[0].text, "📚 Books");
+  assert.match(replies[0].text, /Dune/);
+  assert.equal(ctx.user.aiSectionEntryMessageId, 60);
+  assert.equal(ctx.user.aiLastListMessageId, 101);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten");
 });
 
@@ -880,6 +889,11 @@ test("AI top-ten Back returns to the AI section picker", async () => {
       replies.push({ text, extra });
       return { message_id: 120, text, extra };
     },
+    editMessageText: async (messageId, text, extra) => {
+      events.push(`edit:${messageId}`);
+      replies.push({ text, extra });
+      return { message_id: messageId, text, extra };
+    },
   };
 
   User.findOneAndUpdate = async (query, update) => {
@@ -894,6 +908,9 @@ test("AI top-ten Back returns to the AI section picker", async () => {
       deleteCallbackMessageIfPossible: async () => {
         throw new Error("Back should not block on generic callback deletion");
       },
+      editCallbackMessageOrReply: async (callbackCtx, text, extra) => (
+        callbackCtx.editMessageText(callbackCtx.callbackMessageId, text, extra)
+      ),
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -901,9 +918,69 @@ test("AI top-ten Back returns to the AI section picker", async () => {
 
   assert.equal(ctx.user.state, "idle");
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
-  assert.deepEqual(events, ["delete:77", "delete:44", "reply"]);
-  assert.equal(replies.at(-1).text, messages.en.aiAssistantMenu);
+  assert.deepEqual(events, ["delete:44", "edit:77"]);
+  assert.equal(replies.at(-1).text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
   assert.ok(updates.some((update) => update?.state === "idle"));
+});
+
+test("AI top-ten Back deletes the list card before fallback reply when edit fails", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const events = [];
+
+  const ctx = {
+    callbackData: `${callBacks.aiListManageBack}movies`,
+    callbackMessageId: 77,
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "en",
+      state: "ai_manage_movies_top_ten",
+      aiLastListMessageId: 77,
+      aiLastListSection: "movies",
+      aiLastListType: "topTen",
+      aiSectionEntryMessageId: 44,
+      aiLists: {
+        movies: {
+          topTen: [{ title: "Arrival" }],
+          watchlist: [],
+        },
+      },
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      events.push(`delete:${messageId}`);
+      return true;
+    },
+    editMessageText: async (messageId) => {
+      events.push(`edit:${messageId}:false`);
+      return false;
+    },
+    reply: async (text, extra) => {
+      events.push("reply");
+      return { message_id: 120, text, extra };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    if (update?.$set) Object.assign(ctx.user, update.$set);
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        throw new Error("Back should delete the tracked list card directly");
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(events, ["delete:44", "edit:77:false", "delete:77", "reply"]);
+  assert.equal(ctx.user.aiLastListMessageId, null);
+  assert.equal(ctx.user.aiLastListSection, "");
+  assert.equal(ctx.user.aiLastListType, "");
 });
 
 test("empty AI watchlist manager uses an intentional empty-state message", async () => {

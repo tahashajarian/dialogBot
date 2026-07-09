@@ -1,5 +1,5 @@
 const { callBacks } = require("../constants");
-const { updateProfileField } = require("../services/users");
+const { updateProfileField, updateUserFields } = require("../services/users");
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
@@ -16,9 +16,11 @@ async function rememberAiListMessage(ctx, section, listType, message) {
     return;
   }
 
-  await updateProfileField(ctx.userId, "aiLastListMessageId", messageId);
-  await updateProfileField(ctx.userId, "aiLastListSection", section);
-  await updateProfileField(ctx.userId, "aiLastListType", listType);
+  await updateUserFields(ctx.userId, {
+    aiLastListMessageId: messageId,
+    aiLastListSection: section,
+    aiLastListType: listType,
+  });
   if (ctx.user) {
     ctx.user.aiLastListMessageId = messageId;
     ctx.user.aiLastListSection = section;
@@ -63,9 +65,11 @@ async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDe
     deleted = true;
   }
   if (deleted) {
-    await updateProfileField(ctx.userId, "aiLastListMessageId", null);
-    await updateProfileField(ctx.userId, "aiLastListSection", "");
-    await updateProfileField(ctx.userId, "aiLastListType", "");
+    await updateUserFields(ctx.userId, {
+      aiLastListMessageId: null,
+      aiLastListSection: "",
+      aiLastListType: "",
+    });
     if (ctx.user) {
       ctx.user.aiLastListMessageId = null;
       ctx.user.aiLastListSection = "";
@@ -89,9 +93,11 @@ async function clearRememberedAiListMessage(ctx, { waitForDelete = true } = {}) 
     deleted = true;
   }
   if (deleted) {
-    await updateProfileField(ctx.userId, "aiLastListMessageId", null);
-    await updateProfileField(ctx.userId, "aiLastListSection", "");
-    await updateProfileField(ctx.userId, "aiLastListType", "");
+    await updateUserFields(ctx.userId, {
+      aiLastListMessageId: null,
+      aiLastListSection: "",
+      aiLastListType: "",
+    });
     if (ctx.user) {
       ctx.user.aiLastListMessageId = null;
       ctx.user.aiLastListSection = "";
@@ -101,19 +107,38 @@ async function clearRememberedAiListMessage(ctx, { waitForDelete = true } = {}) 
   return deleted;
 }
 
+async function forgetRememberedAiListMessage(ctx) {
+  await updateUserFields(ctx.userId, {
+    aiLastListMessageId: null,
+    aiLastListSection: "",
+    aiLastListType: "",
+  });
+  if (ctx.user) {
+    ctx.user.aiLastListMessageId = null;
+    ctx.user.aiLastListSection = "";
+    ctx.user.aiLastListType = "";
+  }
+}
+
 async function rememberAiSectionEntryMessage(ctx, message) {
   const messageId = getMessageId(message);
   await updateAiCardField(ctx, "aiSectionEntryMessageId", messageId || null);
   if (ctx.user) ctx.user.aiSectionEntryMessageId = messageId || null;
 }
 
-async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
+async function clearAiSectionEntryMessage(ctx, exceptMessageIds = [], { waitForDelete = true } = {}) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.aiSectionEntryMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
     return false;
   }
-  const deleted = await ctx.deleteMessage(messageId);
+  let deleted = false;
+  if (waitForDelete) {
+    deleted = await ctx.deleteMessage(messageId);
+  } else {
+    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
+    deleted = true;
+  }
   if (deleted) {
     if (ctx.user) {
       ctx.user.aiSectionEntryMessageId = null;
@@ -125,12 +150,10 @@ async function clearAiSectionEntryMessage(ctx, exceptMessageIds = []) {
 
 async function rememberAiActionMessage(ctx, context, message) {
   const messageId = Number(getMessageId(message));
-  await updateProfileField(
-    ctx.userId,
-    "aiActionMessageId",
-    Number.isInteger(messageId) && messageId > 0 ? messageId : null,
-  );
-  await updateProfileField(ctx.userId, "aiActionContext", String(context || ""));
+  await updateUserFields(ctx.userId, {
+    aiActionMessageId: Number.isInteger(messageId) && messageId > 0 ? messageId : null,
+    aiActionContext: String(context || ""),
+  });
   if (ctx.user) {
     ctx.user.aiActionMessageId = Number.isInteger(messageId) && messageId > 0 ? messageId : null;
     ctx.user.aiActionContext = String(context || "");
@@ -161,8 +184,10 @@ async function clearAiActionMessage(ctx, { waitForDelete = true, fallbackToEdit 
       : false
   );
   const retired = retiredInline || deleted;
-  await updateProfileField(ctx.userId, "aiActionMessageId", null);
-  await updateProfileField(ctx.userId, "aiActionContext", "");
+  await updateUserFields(ctx.userId, {
+    aiActionMessageId: null,
+    aiActionContext: "",
+  });
   if (ctx.user) {
     ctx.user.aiActionMessageId = null;
     ctx.user.aiActionContext = "";
@@ -179,6 +204,7 @@ module.exports = {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
+  forgetRememberedAiListMessage,
   rememberAiListMessage,
   rememberAiActionMessage,
   rememberAiSectionEntryMessage,

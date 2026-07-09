@@ -61,6 +61,7 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
+  buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
@@ -86,6 +87,7 @@ const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
+  forgetRememberedAiListMessage,
   rememberAiActionMessage,
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
@@ -397,11 +399,22 @@ function getAiSectionTitleMessage(lang, section) {
 
 async function enterAiSection(ctx, lang, section, helpers) {
   await ctx.answerCb?.();
-  await clearAiActionMessage(ctx);
-  await clearRememberedAiListMessage(ctx);
+  await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
+  await clearRememberedAiListMessage(ctx, { waitForDelete: false });
   await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
-  await helpers.deleteCallbackMessageIfPossible(ctx);
-  const titleMessage = await ctx.reply(getAiSectionTitleMessage(lang, section));
+
+  const titleText = getAiSectionTitleMessage(lang, section);
+  let titleMessage = null;
+  if (ctx.callbackMessageId && ctx.editMessageText) {
+    titleMessage = await ctx.editMessageText(ctx.callbackMessageId, titleText);
+  }
+  if (titleMessage) {
+    await rememberAiSectionEntryMessage(ctx, titleMessage);
+    return openAiListManager(ctx, lang, section, "topTen");
+  }
+
+  await helpers.deleteCallbackMessageIfPossible?.(ctx);
+  titleMessage = await ctx.reply(titleText);
   await rememberAiSectionEntryMessage(ctx, titleMessage);
   return openAiListManager(ctx, lang, section, "topTen");
 }
@@ -749,9 +762,12 @@ async function handleAiCallback(ctx, lang, helpers) {
       return helpers.deleteCallbackMessageIfPossible(ctx);
     }
 
-    await clearAiPendingInputPrompt(ctx);
+    const promptMessageId = Number(ctx.user?.aiPendingInputMessageId);
+    await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
-    await helpers.deleteCallbackMessageIfPossible(ctx);
+    if (promptMessageId !== Number(ctx.callbackMessageId)) {
+      await helpers.deleteCallbackMessageIfPossible(ctx);
+    }
     if (action === "back") {
       return openAiListManager(ctx, lang, section, listType);
     }
@@ -771,8 +787,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     const currentItems = isInterestTopTen
       ? getAiListItemsFromUser(ctx.user, "random", "topTen")
       : [];
-    await deleteRememberedAiListMessage(ctx, section, listType);
-    await helpers.deleteCallbackMessageIfPossible(ctx);
+    const trackedListMessageId = Number(ctx.user?.aiLastListMessageId);
+    await deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: false });
+    if (trackedListMessageId !== Number(ctx.callbackMessageId)) {
+      await helpers.deleteCallbackMessageIfPossible(ctx);
+    }
     const prompt = await ctx.reply(
       getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
@@ -942,12 +961,36 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     await updateUserState(ctx.userId, "idle");
-    await clearRememberedAiListMessage(ctx, { waitForDelete: false });
-    await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
-    if (helpers.replyWithRemovedKeyboardThenInline) {
-      return helpers.replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+    const callbackMessageId = Number(ctx.callbackMessageId);
+    const currentListIsCallbackMessage = Number(ctx.user?.aiLastListMessageId) === callbackMessageId;
+    await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId], { waitForDelete: false });
+    const shouldClearKeyboard = helpers.hasTemporaryReplyKeyboard?.(ctx);
+    if (
+      !shouldClearKeyboard &&
+      currentListIsCallbackMessage &&
+      Number.isInteger(callbackMessageId) &&
+      callbackMessageId > 0 &&
+      ctx.editMessageText
+    ) {
+      const edited = await ctx.editMessageText(callbackMessageId, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      if (edited) {
+        await forgetRememberedAiListMessage(ctx);
+        return edited;
+      }
     }
-    return ctx.reply(messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+
+    if (currentListIsCallbackMessage) {
+      await deleteRememberedAiListMessage(ctx, section, stateListType);
+    } else {
+      await clearRememberedAiListMessage(ctx, { waitForDelete: false });
+    }
+    if (shouldClearKeyboard && helpers.replyWithRemovedKeyboardThenInline) {
+      return helpers.replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+    }
+    if (!currentListIsCallbackMessage && helpers.editCallbackMessageOrReply) {
+      return helpers.editCallbackMessageOrReply(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+    }
+    return ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {

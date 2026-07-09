@@ -32,6 +32,9 @@ const {
   getAiSectionFromState,
 } = require("./services/ai-section");
 const {
+  buildAiAssistantMenuMessage,
+} = require("./services/ai-list-ui");
+const {
   normalizePublicProfileCode,
 } = require("./services/discussions");
 const {
@@ -480,7 +483,7 @@ async function handleUpdate(ctx) {
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, messages[lang].aiAssistantMenu, aiAssistantKeyboard(lang));
+      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
     }
 
     const handledProfileCancel = await handleProfileCancelText(ctx, lang, state, {
