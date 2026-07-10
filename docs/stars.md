@@ -34,7 +34,7 @@ Stars are not a public status score, reputation level, or measure of personal wo
 
 ## Product Guardrails
 
-- A free user can still complete onboarding, build all lists and Top 10s, receive basic suggestions, create and join discussions within normal limits, browse public profiles in People, save profiles, and send invitations. The 3-common-items people lens is optional and may be unlocked with Stars for a configured time window.
+- A free user can still complete onboarding, build all lists and Top 10s, receive basic suggestions, create and join discussions within normal limits, use `👀 دیدن آدم‌ها` / `👀 See people`, save profiles, and send invitations.
 - Do not sell moderation privileges, privacy access, join-rule bypasses, message delivery, or access to hidden profile data.
 - Do not show a user's Star balance to other users.
 - Do not add public Star leaderboards, wealth badges, or spending indicators.
@@ -342,31 +342,29 @@ The capacity picker labels paid capacities with `⭐` only when Star spending an
 
 Paid capacity never bypasses discussion join rules, active-room limits, owner-created room caps, report/removal rules, or moderation.
 
-### People Discovery Spending
-
-The free `👀 دیدن آدم‌ها` / `👀 See people` view shows public Muze profiles without exposing shared-item counts. The Stars-gated people lens shows profiles with at least 3 normalized shared items in one section.
+### People Discovery
 
 User-facing entry:
 
 ```text
-✨ آدم‌های احتمالاً شبیه تو
+👀 دیدن آدم‌ها
 ```
 
 English:
 
 ```text
-✨ Probably similar people
+👀 See people
 ```
 
 Rules:
 
-- Show the entry only when Star spending and the people-taste feature switch are enabled and a coarse availability check finds at least one eligible result.
-- If the user has an active entitlement, tapping the entry opens the list directly.
-- If not unlocked, show a confirmation card with the configured Star cost, duration, current balance, and Confirm/Cancel actions.
-- Charge only through the Star ledger with an idempotent spend key. If the entitlement cannot be recorded after spending, refund with a linked ledger transaction.
-- Unlocks are time-limited through `tasteMatchUnlockUntil` and do not reveal hidden profile data. They only reveal the same public profiles plus shared-section counts already derived from the user's own list overlap.
-- Keep the language uncertain and low-pressure. Do not call it dating, matching, friendship, private chat, or compatibility scoring.
-- Pagination and profile-return behavior should return to the same free or paid people list the profile was opened from.
+- `👀 دیدن آدم‌ها` is a core free Muze feature and must not charge Stars.
+- It shows people with at least 3 normalized shared items in one section, based on public/social taste data the viewer has already entered.
+- If the viewer lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer the lists entry.
+- If the viewer has enough taste data but no eligible match exists, show a distinct no-match message.
+- Shared-section counts may be shown, but hidden profile data, private discussion membership, and Star balances must never be exposed.
+- Keep the language low-pressure. Do not call it dating, matching, friendship, private chat, or compatibility scoring.
+- Pagination and profile-return behavior should return to the People list the profile was opened from. Legacy `people:taste` callbacks may route to the free list for old inline cards.
 
 ### Advanced Search Preview
 
@@ -450,8 +448,6 @@ Recommended settings groups:
 - boosted recommendation recipient window/cap
 - paid 2-person discussion enabled/cost
 - paid large discussion enabled/capacity/cost
-- people 3-common-items unlock cost
-- people 3-common-items unlock duration
 - paid extra AI suggestion cost
 - profile emoji cost
 - future Advanced Search cost
@@ -465,7 +461,6 @@ Recommended settings groups:
 - earning enabled/disabled switch
 - spending enabled/disabled switch
 - boost recommendations enabled/disabled switch
-- people 3-common-items unlock enabled/disabled switch
 - paid extra AI suggestions enabled/disabled switch
 - Advanced Search preview enabled/disabled switch
 - Advanced Search notification signup enabled/disabled switch
@@ -634,7 +629,7 @@ This map describes the implemented module boundaries and is not permission to pl
 | Stored invitations | `src/models/discussion-invitation.js`, `src/services/discussion-invitations.js`, `src/flows/discussion-invitations.js`, invitation UI | Directed-pair qualification after successful accept/join, idempotency |
 | Outside invitations | `src/services/invite-links.js`, `src/flows/discussions-text.js`, `src/flows/discussions-callbacks.js`, `src/bot.js` | Opaque inviter-attributed payloads, legacy link compatibility, repeated-link compatibility |
 | Boost purchase/effect | discussion room/list flows and UI plus new boost services/model | Owner action, confirmation, charge/refund, labeled ranking, targeting, delivery/opt-out |
-| People discovery | `src/services/people-discovery.js`, `src/services/people-discovery-ui.js`, `src/services/people-taste-matches.js`, `src/flows/saved-profiles.js`, keyboards/messages | Free public profile browse; Stars-gated 3-common-items lens; coming-soon Advanced Search preview/notify preference; future filters deferred |
+| People discovery | `src/services/people-discovery.js`, `src/services/people-discovery-ui.js`, `src/flows/saved-profiles.js`, keyboards/messages | Free shared-taste People discovery; coming-soon Advanced Search preview/notify preference; future filters deferred |
 | Admin settings | `src/models/app-setting.js`, new Star settings service, `src/services/analytics-dashboard.js`, `scripts/analytics-dashboard.js`, `docs/analytics-dashboard.md` | Editable values, validation, cache state, audit, aggregate metrics |
 | Analytics | `src/services/analytics-events.js`, `src/services/analytics-dashboard.js` | Privacy-light Star/referral/boost/entitlement events and funnels; never authorize balances from analytics |
 | Translations | `src/messages.js`, `src/keyboards.js` | Persian/English earning, progress, confirmation, refund, privacy, and guide/rules copy using live values |

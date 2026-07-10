@@ -568,7 +568,7 @@ test("people hub opens discovery and saved profile choices", async () => {
   assert.equal(buttons[1].callback_data, callBacks.savedProfiles);
 });
 
-test("free people discovery empty state uses the profile empty tip", async () => {
+test("people discovery insufficient data state links users to lists", async () => {
   const originalFind = User.find;
   const replies = [];
   User.find = () => ({
@@ -604,9 +604,9 @@ test("free people discovery empty state uses the profile empty tip", async () =>
     User.find = originalFind;
   }
 
-  assert.match(replies.at(-1).text, /فعلاً پروفایلی برای نمایش نیست/);
+  assert.match(replies.at(-1).text, /برای دیدن آدم‌ها/);
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
-  assert.ok(!buttons.some((button) => button.callback_data === callBacks.aiAssistant));
+  assert.ok(buttons.some((button) => button.callback_data === callBacks.aiAssistant));
   assert.equal(buttons.at(-1).callback_data, callBacks.people);
   assert.equal(ctx.user.peopleLastListMessageId, 77);
 });
@@ -705,7 +705,7 @@ test("people profile opened from taste discovery returns to taste people list", 
   assert.equal(ctx.user.peopleLastListMode, "");
   const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
-  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
 
 test("typed people profile code keeps people actions when only mode context remains", async () => {
@@ -748,7 +748,7 @@ test("typed people profile code keeps people actions when only mode context rema
 
   const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
-  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
 
 test("saving from people profile refreshes profile with saved actions", async () => {
@@ -811,10 +811,10 @@ test("saving from people profile refreshes profile with saved actions", async ()
 
   assert.deepEqual(ctx.user.savedProfileCodes, ["u_A1"]);
   const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
-  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}taste:u_A1`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_A1`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
   assert.doesNotMatch(replies[0].text, /Profile saved/);
-  assert.equal(buttons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
   assert.ok(updates.some((entry) => entry.update.savedProfileCodes));
 });
 
@@ -894,8 +894,8 @@ test("profile discussions Back returns to profile with people source intact", as
   }
 
   const profileButtons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
-  assert.ok(profileButtons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}taste:u_A1`));
-  assert.equal(profileButtons.at(-1).callback_data, callBacks.peopleTasteMatches);
+  assert.ok(!profileButtons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_A1`));
+  assert.equal(profileButtons.at(-1).callback_data, callBacks.peopleDiscover);
   assert.equal(ctx.user.discussionLastListType, "");
   assert.ok(deletedIds.includes(50));
   assert.ok(updates.some((entry) => entry.update.$set?.discussionLastListType === "people:taste:u_A1"));
@@ -1056,9 +1056,57 @@ test("opening saved profile clears old list and previous profile before renderin
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
   assert.equal(ctx.user.publicProfileLastMessageId, 100);
   const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
-  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
   assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
+});
+
+test("saved profile shows discussions action when user has an open discussion", async () => {
+  const originalFindOneUser = User.findOne;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    firstName: "Saved User",
+    profileName: "Saved User",
+  });
+  Discussion.findOne = (query) => ({
+    select: () => ({
+      lean: async () => (Number(query.creatorUserId) === 2 ? { _id: "discussion-id" } : null),
+    }),
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: ["u_A1"],
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", { fromSavedList: true });
+  } finally {
+    User.findOne = originalFindOneUser;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
 });
 
 test("opening saved profile retires old list text when delete fails", async () => {

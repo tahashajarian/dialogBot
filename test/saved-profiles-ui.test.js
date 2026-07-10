@@ -18,8 +18,8 @@ test("toSavedProfileListItems builds stable rows with deduped codes", () => {
   ]);
   const rows = toSavedProfileListItems(["u_A1", "u_B2", "u_A1", ""], byCode);
   assert.deepEqual(rows, [
-    { code: "u_A1", name: "Ali" },
-    { code: "u_B2", name: "Sara" },
+    { code: "u_A1", name: "Ali", userId: undefined, hasDiscussions: false },
+    { code: "u_B2", name: "Sara", userId: undefined, hasDiscussions: false },
   ]);
 });
 
@@ -41,19 +41,20 @@ test("buildSavedProfileListItems normalizes and hydrates user labels", async () 
     ]),
   });
   assert.deepEqual(rows, [
-    { code: "u_A1", name: "Ali" },
-    { code: "u_B2", name: "Sara" },
+    { code: "u_A1", name: "Ali", userId: undefined, hasDiscussions: false },
+    { code: "u_B2", name: "Sara", userId: undefined, hasDiscussions: false },
   ]);
 });
 
-test("buildSavedProfilesListText separates rows with readable action links", () => {
+test("buildSavedProfilesListText separates rows and hides discussions without visible rooms", () => {
   const text = buildSavedProfilesListText(messages, "en", [
-    { code: "u_A1", name: "Ali" },
+    { code: "u_A1", name: "Ali", hasDiscussions: true },
     { code: "u_B2", name: "Sara" },
   ]);
 
   assert.match(text, new RegExp(messages.en.savedProfilesTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n🗑 Remove from saved 👉 \/rm_A1/);
+  assert.doesNotMatch(text, /\/ds_B2/);
   assert.doesNotMatch(text, /Invite this user/);
   assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);
 });
@@ -72,10 +73,11 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 });
 
 test("buildProfileSavedFooter shows saved status or save command", () => {
-  const savedFooter = buildProfileSavedFooter(messages, "en", "u_A1", true);
+  const savedFooter = buildProfileSavedFooter(messages, "en", "u_A1", true, { hasDiscussions: true });
   assert.match(savedFooter, /🔖 Saved/);
   assert.match(savedFooter, /\/ds_A1/);
   assert.match(savedFooter, /\/rm_A1/);
+  assert.doesNotMatch(buildProfileSavedFooter(messages, "en", "u_A1", true), /\/ds_A1/);
   assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "👩‍🦳 🔖 Save profile 👉 /save_A1");
 });
 

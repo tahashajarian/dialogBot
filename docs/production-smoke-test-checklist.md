@@ -48,7 +48,7 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 - Saved profiles behave as private bookmarks: save/remove does not notify the saved user.
 - Saved-profile list/profile Back navigation returns to the saved-profile list.
 - People browse profile Back navigation returns to the same People mode.
-- Public profile cards offer useful save/discussions/remove actions and do not leave the user stuck after saving or opening discussions.
+- Public profile cards offer useful save/remove actions, show discussions only when the viewed user has visible/open discussions, and do not leave the user stuck after saving or opening discussions.
 
 ## Discussions
 

@@ -83,39 +83,6 @@ function trackPeopleDiscovery(viewer, { mode, resultCount, reason } = {}) {
   });
 }
 
-async function findPeopleForBrowse(viewer, {
-  limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
-} = {}) {
-  const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
-  const candidates = await User.find({
-    userId: { $ne: Number(viewer?.userId) },
-    bannedAt: null,
-  })
-    .select("userId publicProfileCode firstName profileName profileEmoji")
-    .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
-    .lean();
-
-  const items = [];
-  for (const candidate of candidates || []) {
-    const baseName = candidate.profileName || candidate.firstName || "";
-    if (!baseName) continue;
-    const name = [baseName, candidate.profileEmoji].filter(Boolean).join(" ");
-    items.push({
-      userId: candidate.userId,
-      code: candidate.publicProfileCode,
-      name,
-      sharedSections: [],
-      isSaved: savedCodes.has(String(candidate.publicProfileCode || "").toLowerCase()),
-      hasProfileName: Boolean(candidate.profileName),
-      score: candidate.profileName ? 3 : 0,
-    });
-  }
-
-  items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
-  trackPeopleDiscovery(viewer, { mode: "browse", resultCount: items.length });
-  return { ok: true, items };
-}
-
 async function findPeopleBySharedTaste(viewer, {
   limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
 } = {}) {
@@ -217,7 +184,6 @@ module.exports = {
   PEOPLE_DISCOVERY_MIN_SHARED_ITEMS,
   buildUserDiscoveryIndex,
   ensurePeopleDiscoveryCodes,
-  findPeopleForBrowse,
   findPeopleBySharedTaste,
   getSharedSections,
   paginatePeopleDiscovery,

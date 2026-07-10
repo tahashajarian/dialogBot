@@ -18,8 +18,6 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
     inviteReward: formatStarNumber(settings.rewardSavedInvitePair, lang),
     referralReward: formatStarNumber(settings.rewardExternalReferral, lang),
     boostCost: formatStarNumber(settings.discussionBoostCost, lang),
-    tasteMatchCost: formatStarNumber(settings.peopleTasteMatchesCost, lang),
-    tasteMatchHours: formatStarNumber(settings.peopleTasteMatchesDurationHours, lang),
     paidSuggestionCost: formatStarNumber(settings.paidSuggestionCost, lang),
     profileEmojiCost: formatStarNumber(settings.profileEmojiCost, lang),
   };

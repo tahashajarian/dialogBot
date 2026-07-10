@@ -46,6 +46,8 @@ function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
     return {
       code,
       name: [name, user?.profileEmoji].filter(Boolean).join(" "),
+      userId: user?.userId,
+      hasDiscussions: Boolean(user?.hasDiscussions),
     };
   });
 }
@@ -60,11 +62,19 @@ async function buildSavedProfileListItems({
   codes = [],
   normalizePublicProfileCode,
   findUsersByCodes,
+  findDiscussionUserIds,
 }) {
   const normalized = [...new Set((codes || []).map((entry) => normalizePublicProfileCode(entry)).filter(Boolean))];
   if (!normalized.length) return [];
   const users = await findUsersByCodes(normalized);
-  const byCode = new Map((users || []).map((entry) => [entry.publicProfileCode, entry]));
+  const discussionUserIds = findDiscussionUserIds ? await findDiscussionUserIds(users || []) : new Set();
+  const byCode = new Map((users || []).map((entry) => [
+    entry.publicProfileCode,
+    {
+      ...entry,
+      hasDiscussions: discussionUserIds.has(Number(entry.userId)),
+    },
+  ]));
   return toSavedProfileListItems(normalized, byCode);
 }
 
@@ -90,18 +100,26 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
     const removeAction = lang === "fa"
       ? `🗑 ${removeLabel} 👈 ${removeCommand}`
       : `🗑 ${removeLabel} 👉 ${removeCommand}`;
-    const discussionsAction = lang === "fa"
-      ? `${discussionsLabel} 👈 ${discussionsCommand}`
-      : `${discussionsLabel} 👉 ${discussionsCommand}`;
+    const discussionsAction = entry.hasDiscussions
+      ? lang === "fa"
+        ? `${discussionsLabel} 👈 ${discussionsCommand}`
+        : `${discussionsLabel} 👉 ${discussionsCommand}`
+      : "";
     const isLast = index === arr.length - 1;
-    const item = `${lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`)}\n${mixedValueLine(lang, "👤", entry.name)}\n${lineForLang(lang, viewAction)}\n${lineForLang(lang, discussionsAction)}\n${lineForLang(lang, removeAction)}`;
+    const item = [
+      lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
+      mixedValueLine(lang, "👤", entry.name),
+      lineForLang(lang, viewAction),
+      discussionsAction ? lineForLang(lang, discussionsAction) : "",
+      lineForLang(lang, removeAction),
+    ].filter(Boolean).join("\n");
     return isLast ? `${item}\n\n${SAVED_PROFILES_DIVIDER}` : item;
   });
 
   return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
 }
 
-function buildProfileSavedFooter(messages, lang, code, isSaved) {
+function buildProfileSavedFooter(messages, lang, code, isSaved, { hasDiscussions = false } = {}) {
   const shortCode = String(code || "").replace(/^u_/i, "");
   if (isSaved) {
     const discussionsCommand = `/ds_${shortCode}`;
@@ -114,9 +132,9 @@ function buildProfileSavedFooter(messages, lang, code, isSaved) {
       : `🗑 ${messages[lang].savedProfileRemove} 👉 ${removeCommand}`;
     return [
       messages[lang].profileSavedButton,
-      discussionsAction,
+      hasDiscussions ? discussionsAction : "",
       removeAction,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
   const command = `/save_${shortCode}`;
   const action = lang === "fa"

@@ -20,8 +20,6 @@ test("Stars overview uses live settings and private balance", () => {
     discussionBoostCost: 12,
     paidSuggestionCost: 1,
     profileEmojiCost: 3,
-    peopleTasteMatchesCost: 4,
-    peopleTasteMatchesDurationHours: 48,
   });
   assert.match(text, /Balance: 18/);
   assert.match(text, /Watchlists, playlists, and reading lists are free and do not award Stars/);
@@ -29,7 +27,7 @@ test("Stars overview uses live settings and private balance", () => {
   assert.match(text, /Profile emoji: 3 Stars/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
   assert.match(text, /Boost one discussion: 12 Stars/);
-  assert.match(text, /Probably similar people: 4 Stars for 48 hours/);
+  assert.doesNotMatch(text, /Probably similar people/);
   assert.match(text, /Advanced Search is not available yet/);
 });
 

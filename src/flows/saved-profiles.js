@@ -7,7 +7,6 @@ const {
   advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
   peopleHubKeyboard,
-  peopleTasteMatchesUnlockKeyboard,
   profilePublicActionsKeyboard,
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
@@ -34,7 +33,6 @@ const {
 } = require("../services/saved-profiles-ui");
 const {
   ensurePeopleDiscoveryCodes,
-  findPeopleForBrowse,
   findPeopleBySharedTaste,
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
@@ -43,16 +41,12 @@ const {
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
 const {
-  confirmTasteMatchUnlock,
-  createTasteMatchUnlockQuote,
-  getTasteMatchesAvailability,
-  hasTasteMatchCandidates,
-} = require("../services/people-taste-matches");
-const { formatStarNumber } = require("../services/stars-ui");
-const {
   decorateDiscussionsForList,
   buildDiscussionListText,
 } = require("../services/discussion-ui");
+
+const defaultDiscussionFind = Discussion.find;
+const defaultDiscussionFindOne = Discussion.findOne;
 
 function getProfileCompletionFieldLine(messages, lang, field) {
   if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
@@ -97,12 +91,91 @@ function getPublicProfileActionKeyboard(lang, code, {
   fromSavedList = false,
   peopleReturnMode = "browse",
   isSaved = false,
+  hasDiscussions = false,
 } = {}) {
   return profilePublicActionsKeyboard(lang, code, {
     isSaved,
+    hasDiscussions,
     source: fromSavedList ? "saved" : "people",
     peopleMode: peopleReturnMode,
   });
+}
+
+async function runLeanQuery(query, select = "") {
+  if (!query) return query;
+  if (query.select) {
+    const selected = select ? query.select(select) : query;
+    return selected.lean ? selected.lean() : selected;
+  }
+  if (query.lean) return query.lean();
+  return query;
+}
+
+async function hasVisibleProfileDiscussions(target) {
+  if (!target || !target.userId) return false;
+  const discussionQueryAvailable = Discussion.db?.readyState === 1 ||
+    Discussion.find !== defaultDiscussionFind ||
+    Discussion.findOne !== defaultDiscussionFindOne;
+  if (!discussionQueryAvailable) return false;
+
+  if (target.activeDiscussionId && target.showActiveDiscussionOnProfile) {
+    const activeQuery = Discussion.findOne({
+      _id: target.activeDiscussionId,
+      status: "open",
+    });
+    const activeDiscussion = await runLeanQuery(activeQuery, "_id");
+    if (activeDiscussion) return true;
+  }
+
+  const createdQuery = Discussion.findOne({
+    creatorUserId: target.userId,
+    status: "open",
+    ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
+  });
+  const createdDiscussion = await runLeanQuery(createdQuery, "_id");
+  return Boolean(createdDiscussion);
+}
+
+async function findVisibleProfileDiscussionUserIds(users = []) {
+  const normalizedUsers = (users || []).filter((user) => Number.isFinite(Number(user?.userId)));
+  if (!normalizedUsers.length) return new Set();
+  const discussionQueryAvailable = Discussion.db?.readyState === 1 ||
+    Discussion.find !== defaultDiscussionFind ||
+    Discussion.findOne !== defaultDiscussionFindOne;
+  if (!discussionQueryAvailable) return new Set();
+
+  const result = new Set();
+  const activeById = new Map();
+  for (const user of normalizedUsers) {
+    if (user.activeDiscussionId && user.showActiveDiscussionOnProfile) {
+      activeById.set(String(user.activeDiscussionId), Number(user.userId));
+    }
+  }
+
+  if (activeById.size) {
+    const activeQuery = Discussion.find({
+      _id: { $in: [...activeById.keys()] },
+      status: "open",
+    });
+    const activeDiscussions = await runLeanQuery(activeQuery, "_id") || [];
+    for (const discussion of activeDiscussions) {
+      const userId = activeById.get(String(discussion?._id));
+      if (userId) result.add(userId);
+    }
+  }
+
+  const userIds = normalizedUsers.map((user) => Number(user.userId));
+  const createdQuery = Discussion.find({
+    creatorUserId: { $in: userIds },
+    status: "open",
+  });
+  const createdDiscussions = await runLeanQuery(createdQuery, "creatorUserId") || [];
+  for (const discussion of createdDiscussions) {
+    const userId = Number(discussion?.creatorUserId);
+    if (Number.isFinite(userId)) result.add(userId);
+  }
+
+  return result;
 }
 
 function parseProfileDiscussionRequest(raw = "", ctx = {}) {
@@ -195,25 +268,6 @@ async function rememberPeopleListMessage(ctx, messageOrId, page = 0) {
       peopleLastListMessageId: messageId,
       peopleLastListPage: normalizedPage,
       peopleLastListMode: "browse",
-    });
-  }
-}
-
-async function rememberTastePeopleListMessage(ctx, messageOrId, page = 0) {
-  if (typeof messageOrId === "boolean") return;
-  const messageId = Number(getMessageId(messageOrId) || messageOrId);
-  if (!Number.isInteger(messageId) || messageId <= 0) return;
-  const normalizedPage = Math.max(0, Number(page) || 0);
-  if (ctx.user) ctx.user.peopleLastListMode = "taste";
-  if (ctx.user) {
-    ctx.user.peopleLastListMessageId = messageId;
-    ctx.user.peopleLastListPage = normalizedPage;
-  }
-  if (canPersistUserMessageState(ctx)) {
-    await updateUserFields(ctx.userId, {
-      peopleLastListMessageId: messageId,
-      peopleLastListPage: normalizedPage,
-      peopleLastListMode: "taste",
     });
   }
 }
@@ -319,8 +373,9 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName profileEmoji")
+      .select("userId publicProfileCode profileName firstName profileEmoji activeDiscussionId showActiveDiscussionOnProfile")
       .lean(),
+    findDiscussionUserIds: findVisibleProfileDiscussionUserIds,
   });
   const paged = paginateSavedProfiles(items, page);
   const text = buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex });
@@ -344,33 +399,13 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
 async function sendPeopleHub(ctx, lang, { send = null } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
-  const showTasteMatches = getTasteMatchesAvailability(ctx.user || {}).ok &&
-    await hasTasteMatchCandidates(ctx.user || {});
   const sent = send
-    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang, { showTasteMatches }))
-    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang, { showTasteMatches }));
+    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang))
+    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang));
   return sent;
 }
 
 async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
-  const result = await findPeopleForBrowse(ctx.user || {});
-  const paged = paginatePeopleDiscovery(result.items || [], page);
-  const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
-  return {
-    page: paged.page,
-    text: buildPeopleDiscoveryText(messages, lang, pageItems, {
-      startIndex: paged.startIndex,
-      emptyText: messages[lang].peopleDiscoverNoProfiles,
-      showSharedSections: false,
-    }),
-    keyboard: peopleDiscoverListKeyboard(lang, {
-      page: paged.page,
-      totalPages: paged.totalPages,
-    }),
-  };
-}
-
-async function buildPeopleTasteMatchesPage(ctx, lang, page = 0) {
   const result = await findPeopleBySharedTaste(ctx.user || {});
   const paged = paginatePeopleDiscovery(result.items || [], page);
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
@@ -379,14 +414,11 @@ async function buildPeopleTasteMatchesPage(ctx, lang, page = 0) {
     text: result.ok
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
-        title: messages[lang].peopleTasteMatchesTitle,
-        intro: messages[lang].peopleTasteMatchesIntro,
         emptyText: messages[lang].peopleDiscoverNoMatches,
         showSharedSections: true,
       })
       : messages[lang].peopleDiscoverNeedsLists,
     keyboard: peopleDiscoverListKeyboard(lang, {
-      mode: "taste",
       page: paged.page,
       totalPages: paged.totalPages,
       showLists: !result.ok || pageItems.length === 0,
@@ -405,20 +437,7 @@ async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}
 }
 
 async function sendPeopleTasteMatchesList(ctx, lang, page = 0, { send = null } = {}) {
-  await forgetSavedProfilesListMessage(ctx);
-  const tastePage = await buildPeopleTasteMatchesPage(ctx, lang, page);
-  const sent = send
-    ? await send(tastePage.text, tastePage.keyboard)
-    : await ctx.reply(tastePage.text, tastePage.keyboard);
-  await rememberTastePeopleListMessage(ctx, sent, tastePage.page);
-  return sent;
-}
-
-function formatPeopleTasteUnlockText(lang, quote, balance) {
-  return messages[lang].peopleTasteMatchesLockedText
-    .replace("{hours}", formatStarNumber(quote.quotedDurationHours, lang))
-    .replace("{cost}", formatStarNumber(quote.quotedCost, lang))
-    .replace("{balance}", formatStarNumber(balance, lang));
+  return sendPeopleDiscoveryList(ctx, lang, page, { send });
 }
 
 async function buildSavedProfilePage(codes = [], page = 0) {
@@ -426,8 +445,9 @@ async function buildSavedProfilePage(codes = [], page = 0) {
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName profileEmoji")
+      .select("userId publicProfileCode profileName firstName profileEmoji activeDiscussionId showActiveDiscussionOnProfile")
       .lean(),
+    findDiscussionUserIds: findVisibleProfileDiscussionUserIds,
   });
   return paginateSavedProfiles(items, page);
 }
@@ -529,12 +549,14 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const currentSavedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const isSavedProfile = fromSavedList || isCodeSaved(currentSavedCodes, code);
+  const hasDiscussions = isSavedProfile ? await hasVisibleProfileDiscussions(target) : false;
   const keyboard = fromInvitationList
     ? profileInvitationBackKeyboard(lang, target.userId)
     : getPublicProfileActionKeyboard(lang, code, {
       fromSavedList,
       peopleReturnMode,
       isSaved: isSavedProfile,
+      hasDiscussions,
     });
 
   const result = await sendProfileMessage({
@@ -675,65 +697,16 @@ async function handleSavedProfilesCallback(ctx, lang, {
     await ctx.answerCb?.();
     await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible?.(ctx);
-    const availability = getTasteMatchesAvailability(ctx.user || {});
-    if (!availability.ok) {
-      return ctx.reply(messages[lang].peopleTasteMatchesDisabled);
-    }
-    if (availability.unlocked) {
-      const page = ctx.user?.peopleLastListMode === "taste" ? Number(ctx.user?.peopleLastListPage) || 0 : 0;
-      return sendPeopleTasteMatchesList(ctx, lang, page);
-    }
-    const quoteResult = await createTasteMatchUnlockQuote(ctx.user || {});
-    if (!quoteResult.ok) {
-      if (quoteResult.reason === "no_candidates") {
-        return ctx.reply(messages[lang].peopleDiscoverNoMatches, peopleDiscoverListKeyboard(lang, { showLists: true }));
-      }
-      return ctx.reply(messages[lang].peopleTasteMatchesDisabled);
-    }
-    return ctx.reply(
-      formatPeopleTasteUnlockText(lang, quoteResult.quote, ctx.user?.starBalance || 0),
-      peopleTasteMatchesUnlockKeyboard(lang, quoteResult.quote.publicCode, quoteResult.quote.quotedCost),
-    );
+    const page = ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""))
+      ? Number(ctx.user?.peopleLastListPage) || 0
+      : 0;
+    return sendPeopleDiscoveryList(ctx, lang, page);
   }
 
   if (data.startsWith(callBacks.peopleTasteMatchesConfirm)) {
     await ctx.answerCb?.();
-    const publicCode = data.replace(callBacks.peopleTasteMatchesConfirm, "");
-    const result = await confirmTasteMatchUnlock(ctx.user || {}, publicCode);
-    if (!result.ok) {
-      if (result.reason === "insufficient_balance") {
-        return editCallbackMessageOrReply(
-          ctx,
-          messages[lang].peopleTasteMatchesInsufficient
-            .replace("{cost}", formatStarNumber(result.amount || 0, lang))
-            .replace("{balance}", formatStarNumber(result.balance || ctx.user?.starBalance || 0, lang)),
-          peopleDiscoverListKeyboard(lang),
-        );
-      }
-      if (result.reason === "quote_expired") {
-        return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesQuoteExpired, peopleDiscoverListKeyboard(lang));
-      }
-      if (result.reason === "stale_price") {
-        return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesStalePrice, peopleDiscoverListKeyboard(lang));
-      }
-      if (result.reason === "activation_failed") {
-        return editCallbackMessageOrReply(
-          ctx,
-          result.refunded ? messages[lang].peopleTasteMatchesFailedRefunded : messages[lang].peopleTasteMatchesFailed,
-          peopleDiscoverListKeyboard(lang),
-        );
-      }
-      return editCallbackMessageOrReply(ctx, messages[lang].peopleTasteMatchesDisabled, peopleDiscoverListKeyboard(lang));
-    }
-    if (ctx.user) {
-      if (result.spend?.balance !== undefined) ctx.user.starBalance = Number(result.spend.balance) || 0;
-      if (result.until) ctx.user.tasteMatchUnlockUntil = result.until;
-    }
     await deleteCallbackMessageIfPossible?.(ctx);
-    if (result.duplicate && Number(ctx.user?.peopleLastListMessageId) > 0) {
-      return true;
-    }
-    return sendPeopleTasteMatchesList(ctx, lang, 0);
+    return sendPeopleDiscoveryList(ctx, lang, 0);
   }
 
   if (data === callBacks.peopleTasteMatchesCancel) {
@@ -805,13 +778,13 @@ async function handleSavedProfilesCallback(ctx, lang, {
     await ctx.answerCb?.();
     const pageRaw = data.replace(callBacks.peopleTasteMatchesPage, "");
     const page = Number(pageRaw);
-    const tastePage = await buildPeopleTasteMatchesPage(ctx, lang, page);
+    const tastePage = await buildPeopleDiscoveryPage(ctx, lang, page);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
       tastePage.text,
       tastePage.keyboard,
     );
-    await rememberTastePeopleListMessage(ctx, ctx.callbackMessageId || listMessage, tastePage.page);
+    await rememberPeopleListMessage(ctx, ctx.callbackMessageId || listMessage, tastePage.page);
     return listMessage;
   }
 

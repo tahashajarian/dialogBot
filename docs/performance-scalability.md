@@ -34,8 +34,7 @@ The current codebase is suitable for launch and private-beta scale. A 1,000,000-
 Highest-risk query/work areas:
 
 - People discovery:
-  - Free browse depends on a bounded candidate window from `users`, then in-process ranking. At large scale this can become order-biased even if latency stays bounded.
-  - The probably-similar people lens should keep using `user_taste_indexes` for overlap candidates, then hydrate only the small visible page.
+  - `👀 دیدن آدم‌ها` should keep using `user_taste_indexes` for overlap candidates, then hydrate only the small visible page.
   - Load-test first with many named, non-banned public profiles and sparse taste overlap.
 - Taste index:
   - The multikey `{ section, items, itemCount, userId }` index is the current scaling path for shared-item lookup.
@@ -62,7 +61,7 @@ Expected index coverage to verify before high-scale rollout:
 
 Load-test first:
 
-- People free browse with 100k+ named users and limited profile data.
+- Shared-taste People discovery with 100k+ named users and limited profile data.
 - Similar-people lookup with 1M taste-index rows and unevenly popular items.
 - Boost recipient selection with many eligible users, mutes, and prior deliveries.
 - Dashboard Star/event aggregate refresh with production-like ledger/event counts.

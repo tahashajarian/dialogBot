@@ -338,9 +338,9 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.fa.helpText, /۳ انتخاب/);
   assert.match(messages.en.helpText, /3 Top 10 picks/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
-  assert.match(messages.fa.helpText, /آدم‌های احتمالاً شبیه خودت/);
+  assert.match(messages.fa.helpText, /آدم‌هایی با انتخاب‌های مشترک/);
   assert.match(messages.en.helpText, /👥 People/);
-  assert.match(messages.en.helpText, /probably-similar people/);
+  assert.match(messages.en.helpText, /people with shared choices/);
   assert.ok(messages.fa.helpText.length < 900);
   assert.ok(messages.en.helpText.length < 900);
 });

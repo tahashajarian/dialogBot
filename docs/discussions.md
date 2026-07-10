@@ -1158,52 +1158,37 @@ People hub:
 👥 آدم‌ها
 
 👀 دیدن آدم‌ها
-✨ آدم‌های احتمالاً شبیه تو
 🔖 ذخیره‌شده‌ها
 🔙 برگشت
 ```
 
 ### Seeing People
 
-`👀 دیدن آدم‌ها` helps users browse public Muze profiles, without adding direct messages, friendship, dating, private chat, or online status.
+`👀 دیدن آدم‌ها` is the free, taste-first People discovery entry. It helps users browse public Muze profiles with at least a few shared choices, without adding direct messages, friendship, dating, private chat, or online status.
 
-Free browse rules:
-
-- Exclude the viewer, banned users, and users without a display name.
-- A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
-- Do not expose private profile fields or private discussion membership.
-- Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
-- Results are paginated with the same low-noise navigation style as other lists.
-- Do not show shared-item counts in the free browse list.
-
-### Stars-Gated Similar-People Lens
-
-`✨ آدم‌های احتمالاً شبیه تو` is the optional Stars-gated people lens. It shows people with at least 3 normalized shared items in one list section.
-
-Eligibility and matching:
+Discovery rules:
 
 - The viewer must have at least 3 items in one AI list section.
 - A candidate appears only when they share at least 3 normalized items with the viewer in the same section.
 - Matching uses movies, music, books, and broad interests list data.
 - Exclude the viewer, banned users, and users without a display name.
-- A matching user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
+- A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
+- Do not expose private profile fields or private discussion membership.
+- Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
+- Results are paginated with the same low-noise navigation style as other lists.
 - Shared lines may show the matching section and count, but never private list metadata beyond the overlap count.
 
-Locked/availability behavior:
+Empty-state behavior:
 
-- Show the `✨ آدم‌های احتمالاً شبیه تو` button only when the Star spending switch, the people-taste feature switch, and the coarse availability check all pass.
-- If the user has no eligible matches, do not show the paid button.
-- If the user lacks enough taste data and somehow reaches the view directly, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button.
-- If available but not unlocked, show the configured cost, duration, and balance before confirmation.
-- The unlock is time-limited and returns profiles to the same paid list after profile viewing.
+- If the user lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button.
+- If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
+- The old `people:taste` callbacks may route to the free `👀 دیدن آدم‌ها` list so stale inline cards do not break.
 
 Insufficient-list-data state:
 
 ```text
-👩‍🦳🤷‍♀️ برای دیدن آدم‌های احتمالاً شبیه خودت، اول حداقل ۳ انتخاب به یکی از تاپ ۱۰های فیلم، موسیقی، کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۳ انتخاب به یکی از تاپ ۱۰های فیلم، موسیقی، کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
 ```
-
-This state includes a direct button to `🎬🎵📚 Movies, Music, Books`. When the viewer already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
 
 ### Advanced Search Preview
 
@@ -1242,12 +1227,19 @@ When viewing another user's profile from a discussion, People, or saved profiles
 If already saved:
 
 ```text
+🗑 حذف از ذخیره‌شده‌ها
+🔙 برگشت
+```
+
+If the saved user has at least one visible/open discussion, add the discussion action above remove:
+
+```text
 💬 دیدن بحث‌ها
 🗑 حذف از ذخیره‌شده‌ها
 🔙 برگشت
 ```
 
-Back should return to the surface the profile was opened from: saved profiles, free People browse, or the Stars-gated similar-people lens.
+Back should return to the surface the profile was opened from: saved profiles or the People discovery list.
 
 Saved profiles inside the people hub:
 
@@ -1261,17 +1253,16 @@ Saved profiles inside the people hub:
 
 2. 👤 سارا
 دیدن پروفایل این کاربر 👈 /u_9Q4M
-💬 دیدن بحث‌های این کاربر 👈 /ds_9Q4M
 حذف از ذخیره‌شده‌ها 👈 /rm_9Q4M
 ```
 
-Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons.
+Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion.
 The saved-profile list can use inline list-navigation controls (pagination + Back) only.
-When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should render action buttons for discussions/remove plus a Back button to render a fresh saved-profile list.
+When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should render remove plus a Back button to render a fresh saved-profile list, and include discussions only when the target has a visible/open discussion.
 
 ### Viewing Discussions From Saved Profiles
 
-Users can view discussions of people in their saved profiles list via `/ds_CODE` command.
+Users can view discussions of people in their saved profiles list via `/ds_CODE` command when that command is shown. Manually typed/stale `/ds_CODE` commands may still open the discussions view and show the empty state if no visible discussions remain.
 
 The discussions view shows:
 - Title with user's name: `💬 بحث‌های {name}`

@@ -159,7 +159,7 @@ Suggested early signals:
 
 Goal: help users find relevant people and discussions.
 
-Current baseline: free People browse shows public profiles. The 3-common-items lens is a Stars-gated optional discovery mode (`آدم‌های احتمالاً شبیه تو`) and should improve relevance without implying dating, friendship, private chat, or unrestricted people search.
+Current baseline: `👀 دیدن آدم‌ها` is a free shared-taste discovery mode. It should improve relevance without implying dating, friendship, private chat, compatibility scoring, online status, or unrestricted people search.
 
 - [ ] Add city/area only as an optional profile field. Do not require exact GPS.
 

@@ -96,8 +96,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
 - `src/flows/saved-profiles.js`: people hub callbacks, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
-- `src/services/people-discovery.js`: free public-profile People browse plus shared-item matching/ranking for the Stars-gated similar-people lens.
-- `src/services/people-taste-matches.js`: Stars-gated `✨ آدم‌های احتمالاً شبیه تو` entitlement quotes, spends, unlock duration, and refunds.
+- `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
+- `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.
   - save/unsave public profile codes
@@ -105,7 +105,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - preserve concurrent saved-profile updates
 - `src/services/profile.js`: profile validation, profile text/photo rendering, location payload helpers.
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
-- People discovery is taste-first and should not imply dating, friendship, private chat, or online status. The 3-common-items lens is Stars-gated and should use uncertain language such as `آدم‌های احتمالاً شبیه تو`. Saved profiles are private one-way bookmarks. Do not notify the saved user.
+- People discovery is free, taste-first, and should not imply dating, friendship, private chat, online status, or compatibility scoring. Saved profiles are private one-way bookmarks. Do not notify the saved user.
 - Profile viewing gate requires only display name; after completion, users are redirected to the intended profile via `pendingProfileViewCode`.
 
 ## Onboarding
@@ -181,7 +181,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New Star earning/spending/refund rule: the focused Stars ledger service specified in `docs/stars.md`.
 - New Star milestone qualification/hint: the focused milestone/UI helpers specified in `docs/stars.md`, called from the existing owning mutation service.
 - New discussion boost rule: focused boost services plus small hooks in discussion list/room flows.
-- New People Stars entitlement rule: keep 3-common-items unlocks in `src/services/people-taste-matches.js`, backed by the ledger and `src/services/people-discovery.js`.
+- New People discovery rule: keep matching/ranking in `src/services/people-discovery.js`; do not add Star charging to `👀 دیدن آدم‌ها`.
 - New Advanced Search preview rule: keep it in the People flow/UI with no charging; any future entitlement/filter service must compose with `src/services/people-discovery.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.

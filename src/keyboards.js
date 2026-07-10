@@ -1015,25 +1015,29 @@ function profilePeopleBackKeyboard(lang, mode = "browse") {
   return inlineKeyboard([[
     {
       text: messages[lang].aiBack,
-      callback_data: mode === "taste" ? callBacks.peopleTasteMatches : callBacks.peopleDiscover,
+      callback_data: callBacks.peopleDiscover,
     },
   ]]);
 }
 
 function profilePublicActionsKeyboard(lang, code, {
   isSaved = false,
+  hasDiscussions = false,
   source = "people",
   peopleMode = "browse",
 } = {}) {
   const normalizedCode = String(code || "");
-  const discussionSource = source === "saved" ? "saved" : peopleMode === "taste" ? "taste" : "browse";
+  const discussionSource = source === "saved" ? "saved" : "browse";
   const rows = [];
 
-  if (isSaved) {
+  if (isSaved && hasDiscussions) {
     rows.push([{
       text: messages[lang].savedProfileDiscussions,
       callback_data: `${callBacks.savedProfilesDiscussions}${discussionSource}:${normalizedCode}`,
     }]);
+  }
+
+  if (isSaved) {
     rows.push([{
       text: messages[lang].savedProfileRemove,
       callback_data: `${callBacks.profileUnsaveByCode}${normalizedCode}`,
@@ -1050,7 +1054,7 @@ function profilePublicActionsKeyboard(lang, code, {
   } else {
     rows.push([{
       text: messages[lang].aiBack,
-      callback_data: peopleMode === "taste" ? callBacks.peopleTasteMatches : callBacks.peopleDiscover,
+      callback_data: callBacks.peopleDiscover,
     }]);
   }
 
@@ -1098,14 +1102,11 @@ function savedProfilesListKeyboard(lang, items = []) {
   return inlineKeyboard(rows);
 }
 
-function peopleHubKeyboard(lang, { showTasteMatches = false } = {}) {
+function peopleHubKeyboard(lang) {
   const rows = [
     [{ text: messages[lang].peopleDiscover, callback_data: callBacks.peopleDiscover }],
     [{ text: messages[lang].savedProfiles, callback_data: callBacks.savedProfiles }],
   ];
-  if (showTasteMatches) {
-    rows.splice(1, 0, [{ text: messages[lang].peopleTasteMatchesButton, callback_data: callBacks.peopleTasteMatches }]);
-  }
   if (starEconomy.advancedSearchPreviewEnabled) {
     rows.push([{ text: messages[lang].advancedSearchButton, callback_data: callBacks.peopleAdvancedSearch }]);
   }
@@ -1134,26 +1135,11 @@ function formatKeyboardNumber(lang, value) {
   return new Intl.NumberFormat("fa-IR").format(number);
 }
 
-function peopleTasteMatchesUnlockKeyboard(lang, publicCode, cost) {
-  return inlineKeyboard([
-    [{
-      text: messages[lang].peopleTasteMatchesConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
-      callback_data: `${callBacks.peopleTasteMatchesConfirm}${publicCode}`,
-    }],
-    [{
-      text: messages[lang].peopleTasteMatchesCancelButton,
-      callback_data: callBacks.peopleTasteMatchesCancel,
-    }],
-  ]);
-}
-
 function peopleDiscoverListKeyboard(lang, options = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(options.page) || 0);
   const maxPage = Math.max(0, Number(options.totalPages || 1) - 1);
-  const pageCallback = options.mode === "taste"
-    ? callBacks.peopleTasteMatchesPage
-    : callBacks.peopleDiscoverPage;
+  const pageCallback = callBacks.peopleDiscoverPage;
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
@@ -1254,7 +1240,6 @@ module.exports = {
   profileInvitationBackKeyboard,
   savedProfilesListKeyboard,
   peopleHubKeyboard,
-  peopleTasteMatchesUnlockKeyboard,
   advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
 };
