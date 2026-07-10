@@ -6,11 +6,16 @@
 - Interests are edited from Profile and collected during onboarding, not shown as a fourth button inside the Lists hub.
 - The internal `random` section stores profile/onboarding interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
 - `🌿 علاقه‌مندی‌ها` should feel first-class in Profile and onboarding for users who are not strongly into movies, music, or books.
-- Media section entry opens the section TopTen manager directly; there is no separate section home/lobby.
+- Media section entry opens the section TopTen manager directly; there is no separate section home/lobby. User-facing copy presents this as Favorites while the internal storage name remains `topTen`.
 - Media section entry should keep a small persistent section title card, such as `📚 Books`, above the active manager so users can see their path.
-- The TopTen manager is the section home and should include direct actions for add, the concrete section list name, suggestion, and Back.
+- The TopTen/Favorites manager is the section home. Its actions are progressive: add a favorite, open the concrete save-for-later list, show suggestion only after three favorites, and Back.
 - The list/watchlist manager is secondary storage. Its Back action returns to the section TopTen, not to a separate section home.
-- Media section actions should carry the active section emoji for orientation, such as `🎵 🏆 My top 10`, `🎵 ✨ Suggestion`, and `🎵 Playlist`.
+- Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should describe intent clearly: Movies `Watch later`, Music `Listen later`, and Books `Read later` (with natural Persian equivalents).
+- Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
+- Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
+- Media Favorites titles and add buttons should name the item directly: favorite movies, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
+- Media add prompts should be section-specific: an exact movie title, a song (or clearly titled audio), or a book title. Send one item per message.
+- Persian suggestion actions must make the direction explicit with wording such as `از میوز پیشنهاد بگیر`; avoid a standalone `پیشنهاد` button that could be mistaken for submitting a recommendation to someone else.
 - Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
 - In list, Top 10, or suggestion inline-action states, stray text should retire the current inline card and send one fresh guidance card with the same relevant options.
@@ -249,6 +254,7 @@ Labels should be inferred from both typed items and suggested chips.
 - Avoid repeating the same recommendation family across recent Interests suggestions even when the wording differs.
 - Do not include type labels such as `(activity)` / `(فعالیت)` in saved suggestion titles.
 - OpenAI-compatible providers may use either Chat Completions or Responses payloads; suggestion handling should accept both response shapes and show a visible fallback instead of failing silently.
+- Animated AI placeholders must serialize edits so a late loading step cannot overwrite the final result. Suggestion placeholders must also end in a visible retry state after a bounded timeout.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
 - If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `Got it` acknowledgement card that returns to the section TopTen manager.
 - Pressing the section suggestion button should first show a choice prompt:

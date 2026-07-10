@@ -365,7 +365,10 @@ async function sendSingleSectionSuggestion({
     messages[lang].aiThinking,
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
-  ]);
+  ], {
+    fallbackText: messages[lang].aiTemporaryUnavailable,
+    fallbackExtra: aiSectionKeyboardForSection(lang, section),
+  });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
     if (quota.reason === "limit") {

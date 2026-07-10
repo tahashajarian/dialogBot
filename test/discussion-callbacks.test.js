@@ -64,7 +64,7 @@ test("discussion preview text reflects draft edits", () => {
   const preview = buildDiscussionPreviewText(messages, "en", user);
   assert.match(preview, /Best riffs/);
   assert.match(preview, /Metal only/);
-  assert.match(preview, /Completed Top 10 \(Music\)/);
+  assert.match(preview, /Completed 10 favorites \(Music\)/);
 });
 
 test("discussion preview includes selected top ten item", () => {
@@ -298,7 +298,7 @@ test("locked discussion list join text explains the exact unlock path", () => {
   assert.match(text, /موسیقی/);
   assert.match(text, /Metalhead|متال/);
   assert.match(text, /فیلم، موسیقی، کتاب ←/);
-  assert.match(text, /تاپ ۱۰/);
+  assert.match(text, /۱۰ انتخاب محبوب/);
   assert.match(text, /لیست بحث‌ها/);
 });
 

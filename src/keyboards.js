@@ -417,10 +417,27 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
   const isMediaSection = ["movies", "music", "books"].includes(section);
 
+  const getAddButtonText = () => {
+    if (!isMediaSection) return messages[lang].aiListManageAdd;
+    if (listType === "watchlist") {
+      if (section === "movies") return messages[lang].aiListManageAddLaterMovies;
+      if (section === "music") return messages[lang].aiListManageAddLaterMusic;
+      return messages[lang].aiListManageAddLaterBooks;
+    }
+    const firstKey = section === "movies" ? "aiFavoritesAddFirstMovies"
+      : section === "music" ? "aiFavoritesAddFirstMusic" : "aiFavoritesAddFirstBooks";
+    const anotherKey = section === "movies" ? "aiFavoritesAddAnotherMovies"
+      : section === "music" ? "aiFavoritesAddAnotherMusic" : "aiFavoritesAddAnotherBooks";
+    if (itemCount === 0) return messages[lang][firstKey];
+    return messages[lang][anotherKey]
+      .replace("{count}", String(itemCount))
+      .replace("{goal}", String(operationalLimits.aiTopTenItems));
+  };
+
   if (canAdd) {
     rows.push([
       {
-        text: messages[lang].aiListManageAdd,
+        text: getAddButtonText(),
         callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
       },
     ]);
@@ -438,12 +455,14 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
         callback_data: `${callBacks.aiListManageMenu}${section}:watchlist`,
       },
     ]);
-    rows.push([
-      {
-        text: `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`,
-        callback_data: `${callBacks.aiSectionSuggestMenu}${section}`,
-      },
-    ]);
+    if (itemCount >= 3) {
+      rows.push([
+        {
+          text: `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`,
+          callback_data: `${callBacks.aiSectionSuggestMenu}${section}`,
+        },
+      ]);
+    }
   }
 
   if (itemCount > 5) {

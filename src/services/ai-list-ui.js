@@ -136,7 +136,10 @@ function buildAiAssistantMenuMessage(lang) {
 function buildTopTenListMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabelWithEmoji(messages, lang, section);
   const topTenEntries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang);
-  const title = messages[lang].aiTopTenTitle.replace("{section}", sectionLabel);
+  const favoritesTitleKey = section === "movies" ? "aiFavoritesTitleMovies"
+    : section === "music" ? "aiFavoritesTitleMusic"
+      : section === "books" ? "aiFavoritesTitleBooks" : "aiTopTenTitle";
+  const title = messages[lang][favoritesTitleKey].replace("{section}", sectionLabel);
   const emptyText = messages[lang].aiTopTenEmpty.replace("{section}", sectionLabel);
   return withAiSectionTitle(lang, section, formatAiItemsList(title, topTenEntries, emptyText, {
     includeActions: true,
@@ -178,7 +181,10 @@ function buildShareListMessage({ ctx, lang, section, listType, botLink = buildBo
     : getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
   const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, listType), section, lang);
-  const title = (listType === "topTen" ? messages[lang].aiTopTenTitle : messages[lang].aiWatchlistTitle)
+  const favoritesTitleKey = section === "movies" ? "aiFavoritesTitleMovies"
+    : section === "music" ? "aiFavoritesTitleMusic"
+      : section === "books" ? "aiFavoritesTitleBooks" : "aiTopTenTitle";
+  const title = (listType === "topTen" ? messages[lang][favoritesTitleKey] : messages[lang].aiWatchlistTitle)
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
   const emptyText = (listType === "topTen" ? messages[lang].aiTopTenEmpty : messages[lang].aiWatchlistEmpty)
@@ -219,15 +225,29 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   const topTenItems = Array.isArray(topTenItemsOverride)
     ? topTenItemsOverride
     : getAiListItemsFromUser(ctx.user, section, "topTen");
+  const count = topTenItems.length;
+  const goal = operationalLimits.aiTopTenItems;
+  const isMediaSection = ["movies", "music", "books"].includes(section);
+  if (isMediaSection && count === 0) {
+    return messages[lang].aiFavoritesIntro
+      .replace("{goal}", String(goal));
+  }
+  if (isMediaSection && count < 3) {
+    return messages[lang].aiFavoritesEarlyProgress
+      .replace("{count}", String(count))
+      .replace("{remaining}", String(3 - count));
+  }
   if (topTenItems.length < operationalLimits.aiTopTenItems) {
-    const peopleHint = topTenItems.length <= 3 ? `\n\n${messages[lang].aiTopTenManagePeopleHint}` : "";
     if (topTenItems.length >= 3) {
       const taste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
       const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
       const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
-      return `${messages[lang].aiTopTenManageInlineEntryWithLabel.replace("{label}", label)}${peopleHint}`;
+      return messages[lang].aiFavoritesUnlockedProgress
+        .replace("{count}", String(count))
+        .replace("{goal}", String(goal))
+        .replace("{label}", label);
     }
-    return `${messages[lang].aiTopTenManageInlineEntry}${peopleHint}`;
+    return messages[lang].aiTopTenManageInlineEntry;
   }
 
   let taste = getAiTasteFromUser(ctx.user, section);

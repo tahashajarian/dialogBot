@@ -23,6 +23,8 @@ Future ideas in this document are not implemented unless explicitly identified o
 
 Discussions add a social layer to Muze without turning it into a generic matching or chat app. They let users talk around taste, lists, labels, and interests while keeping the existing Muze identity centered on profiles, lists, Top 10, taste labels, and suggestions.
 
+`TopTen` remains the internal discussion-rule/storage term. User-facing discussion copy must use the current media label, Favorites / «محبوب‌ها»: ask users to add a required item to their favorites or complete all 10 favorites, rather than sending them to a screen named “Top 10” that no longer exists.
+
 ## MVP Concept
 
 Discussions are live rooms with short memory.
@@ -48,7 +50,7 @@ Discussions are live rooms with short memory.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
-- When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete Top 10` for a Music taste-label room, then return to a fresh list after acknowledgment.
+- When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
 ## Non-Goals For MVP
 

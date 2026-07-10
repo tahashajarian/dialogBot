@@ -137,6 +137,7 @@ const {
   formatAiItemsList,
   getDuplicateListMessage,
   getNeedTopTenMessage,
+  getTopTenManageEntryMessage,
   toTitleSet,
 } = require("../src/services/ai-list-ui");
 
@@ -169,13 +170,13 @@ test("suggestion save buttons name the concrete section list", () => {
   const booksAddedButtons = aiSuggestionAddedOptionsKeyboard("fa", "books").reply_markup.inline_keyboard.flat();
   const rejectedButtons = aiSuggestionNextKeyboard("fa", "movies").reply_markup.inline_keyboard.flat();
 
-  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 playlist");
-  assert.equal(booksAddedButtons[1].text, "🗂 📚 لیست خواندن");
+  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 listen later");
+  assert.equal(booksAddedButtons[1].text, "🗂 📚 برای بعد خواندن");
   assert.equal(booksAddedButtons[2].text, messages.fa.aiListBackToTopTen);
   assert.equal(booksAddedButtons[2].callback_data, `${callBacks.aiListManageMenu}books:top_ten`);
   assert.equal(rejectedButtons[1].text, messages.fa.aiListBackToTopTen);
   assert.equal(rejectedButtons[1].callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
-  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 reading list"), "✅ Saved to 📚 reading list.");
+  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later"), "✅ Saved to 📚 read later.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
 });
 
@@ -290,8 +291,8 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
 });
 
 test("music add prompt invites either an audio track or typed title", () => {
-  assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicListManageAddPrompt);
-  assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiListManageAddPrompt);
+  assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicFavoritesAddPrompt);
+  assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiBookFavoritesAddPrompt);
   assert.match(messages.en.aiMusicListManageAddPrompt, /^👩‍🦳/);
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
 });
@@ -350,7 +351,7 @@ test("pressing Add retires the remembered list card", async () => {
   assert.equal(deletedIds.includes(39), true);
   assert.equal(deletedIds.includes(40), true);
   assert.equal(ctx.user.aiLastListMessageId, null);
-  assert.equal(replies.filter((reply) => reply.text === messages.en.aiListManageAddPrompt).length, 1);
+  assert.equal(replies.filter((reply) => reply.text === messages.en.aiMovieFavoritesAddPrompt).length, 1);
   assert.equal(replies.some((reply) => reply.text === "."), false);
   assert.equal(ctx.user.aiPendingInputMessageId, 81);
   assert.equal(edits.length, 0);
@@ -472,7 +473,7 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   assert.match(finalReply.text, /\/cm_mv_l_1/);
   assert.doesNotMatch(finalReply.text, /لغو شد/);
   assert.equal(labels.includes(messages.fa.cancelEdit), false);
-  assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
+  assert.equal(labels.includes(messages.fa.aiListManageAddLaterMovies), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
@@ -719,7 +720,7 @@ test("section suggestion need-state consumes Top Ten card and shows Got it ackno
 
   assert.deepEqual(deletedIds, [77]);
   assert.equal(replies.length, 1);
-  assert.match(replies[0].text, /add at least 3 items/);
+  assert.match(replies[0].text, /add at least 3 things/);
   assert.deepEqual(
     replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.text),
     [messages.en.acknowledgeButton],
@@ -781,7 +782,7 @@ test("suggestion need-state Got it returns to the section Top Ten", async () => 
 
   assert.deepEqual(deletedIds, [101]);
   assert.equal(replies.length, 1);
-  assert.match(replies[0].text, /Music top 10/);
+  assert.match(replies[0].text, /Music favorites/);
   assert.equal(ctx.user.aiActionMessageId, null);
   assert.equal(ctx.user.aiActionContext, "");
   assert.equal(ctx.user.state, "ai_manage_music_top_ten");
@@ -1029,7 +1030,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
 
   assert.match(managerReply.text, /هنوز خالیه/);
   assert.match(managerReply.text, /اولین مورد/);
-  assert.equal(labels.includes(messages.fa.aiListManageAdd), true);
+  assert.equal(labels.includes(messages.fa.aiListManageAddLaterMusic), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);
 });
 
@@ -1089,7 +1090,7 @@ test("sharing AI list renders clean titles and comments without management comma
     true,
   );
   assert.equal(
-    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === "🔙 Back to 🎬 watchlist"),
+    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === "🔙 Back to 🎬 watch later"),
     true,
   );
   assert.equal(introReply.extra.reply_markup.inline_keyboard.flat().length, 1);
@@ -1160,7 +1161,7 @@ test("AI share return button consumes guidance card before reopening list", asyn
   assert.deepEqual(deleted, [77]);
   assert.equal(ctx.user.aiActionMessageId, null);
   assert.equal(ctx.user.aiActionContext, "");
-  assert.match(replies.at(-1).text, /Movies .*watchlist/);
+  assert.match(replies.at(-1).text, /🎬 watch later/);
   assert.ok(replies.at(-1).extra?.reply_markup?.inline_keyboard);
 });
 
@@ -1456,7 +1457,7 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Saved to 🎬 watchlist/);
+  assert.match(savedReply.text, /Saved to 🎬 watch later/);
   assert.match(savedReply.text, /Send the next title here/);
   assert.doesNotMatch(savedReply.text, /Star|⭐/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
@@ -1617,7 +1618,7 @@ test("AI list UI builds section-titled list messages from user data", () => {
   const topTenText = buildTopTenListMessage({ ctx, lang: "en", section: "movies" });
   const watchlistText = buildWatchlistMessage({ ctx, lang: "en", section: "movies" });
 
-  assert.match(topTenText, /🏆 🎬 Movies top 10/);
+  assert.match(topTenText, /❤️ My favorite movies/);
   assert.match(topTenText, /1\. Heat — tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
@@ -1629,6 +1630,37 @@ test("AI list UI builds section-titled list messages from user data", () => {
   assert.match(watchlistText, /Add comment 👉 \/cm_mv_l_1/);
   assert.match(watchlistText, /Update comment 👉 \/cm_mv_l_2/);
   assert.match(watchlistText, /Remove 👉 \/rm_mv_l_2/);
+});
+
+test("media favorites guidance progresses from first pick to suggestion unlock and completion", async () => {
+  const makeCtx = (count) => ({
+    userId: 501,
+    user: {
+      aiLists: {
+        movies: {
+          topTen: Array.from({ length: count }, (_, index) => ({ title: `Movie ${index + 1}` })),
+        },
+      },
+    },
+  });
+
+  const empty = await getTopTenManageEntryMessage(makeCtx(0), "en", "movies");
+  const early = await getTopTenManageEntryMessage(makeCtx(2), "en", "movies");
+  const unlocked = await getTopTenManageEntryMessage(makeCtx(3), "en", "movies");
+
+  assert.match(empty, /genuinely love/);
+  assert.match(empty, /Start with 3 favorites/);
+  assert.match(early, /2\/3 favorites/);
+  assert.match(early, /Add 1 more/);
+  assert.match(unlocked, /Suggestions unlocked/);
+  assert.match(unlocked, /3\/10/);
+
+  const emptyButtons = aiListManageMenuKeyboard("en", "books", "topTen", { itemCount: 0 })
+    .reply_markup.inline_keyboard.flat();
+  const earlyButtons = aiListManageMenuKeyboard("fa", "music", "topTen", { hasItems: true, itemCount: 2 })
+    .reply_markup.inline_keyboard.flat();
+  assert.equal(emptyButtons[0].text, messages.en.aiFavoritesAddFirstBooks);
+  assert.equal(earlyButtons[0].text, messages.fa.aiFavoritesAddAnotherMusic.replace("{count}", "2").replace("{goal}", "10"));
 });
 
 test("AI share list appends configured bot link footer", () => {
@@ -1650,7 +1682,7 @@ test("AI share list appends configured bot link footer", () => {
     botLink: "https://ble.ir/@Muze",
   });
 
-  assert.match(shareText, /🏆 🎵 Music top 10/);
+  assert.match(shareText, /❤️ My favorite songs/);
   assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
   assert.match(shareText, /Made with: https:\/\/ble\.ir\/@Muze/);
   assert.doesNotMatch(shareText, /📌/);
@@ -1694,7 +1726,7 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
   assert.equal(emptyButtons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShare), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
-  assert.ok(labels.includes(messages.en.aiListManageAdd));
+  assert.ok(labels.includes(messages.en.aiListManageAddLaterMovies));
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.equal(labels.includes(messages.en.aiListManageShare), false);
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
@@ -1712,8 +1744,14 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
       .reply_markup.inline_keyboard.flat()
       .some((button) => button.callback_data === `${callBacks.aiListManageMenu}movies:watchlist`),
   );
-  assert.ok(
+  assert.equal(
     aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 })
+      .reply_markup.inline_keyboard.flat()
+      .some((button) => button.callback_data === `${callBacks.aiSectionSuggestMenu}movies`),
+    false,
+  );
+  assert.ok(
+    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 3 })
       .reply_markup.inline_keyboard.flat()
       .some((button) => button.callback_data === `${callBacks.aiSectionSuggestMenu}movies`),
   );

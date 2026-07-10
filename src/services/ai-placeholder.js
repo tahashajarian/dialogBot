@@ -24,20 +24,45 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
     ? await editPlaceholder(ctx, initialPlaceholder, steps[0])
     : await ctx.reply(steps[0]);
   const timers = [];
+  let settled = false;
+  let editQueue = Promise.resolve(placeholder);
+
+  const queueEdit = (text, extra, { terminal = false } = {}) => {
+    editQueue = editQueue.then(() => {
+      if (settled && !terminal) return placeholder;
+      return editPlaceholder(ctx, placeholder, text, extra);
+    });
+    return editQueue;
+  };
 
   for (let index = 1; index < steps.length; index += 1) {
-    const delayMs = index === 1 ? 2500 : 5500;
+    const configuredDelay = Array.isArray(options.stepDelays) ? Number(options.stepDelays[index - 1]) : NaN;
+    const delayMs = Number.isFinite(configuredDelay) ? Math.max(0, configuredDelay) : (index === 1 ? 2500 : 5500);
     const timer = setTimeout(() => {
-      editPlaceholder(ctx, placeholder, steps[index]).catch(() => {});
+      if (settled) return;
+      queueEdit(steps[index]).catch(() => {});
     }, delayMs);
     timers.push(timer);
+  }
+
+  if (options.fallbackText) {
+    const fallbackTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      timers.forEach(clearTimeout);
+      queueEdit(options.fallbackText, options.fallbackExtra, { terminal: true }).catch(() => {});
+    }, Math.max(10, Number(options.timeoutMs) || 20000));
+    fallbackTimer.unref?.();
+    timers.push(fallbackTimer);
   }
 
   return {
     placeholder,
     finish: (text, extra) => {
+      if (settled) return null;
+      settled = true;
       timers.forEach(clearTimeout);
-      return editPlaceholder(ctx, placeholder, text, extra);
+      return queueEdit(text, extra, { terminal: true });
     },
   };
 }
