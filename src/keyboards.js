@@ -676,13 +676,6 @@ function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
     callback_data: `${callBacks.onboardingCustom}${normalizedPage}`,
   }]);
 
-  if (selectedTitles.length >= operationalLimits.onboardingInterestMinItems) {
-    rows.push([{
-      text: messages[lang].onboardingContinueButton,
-      callback_data: callBacks.onboardingContinue,
-    }]);
-  }
-
   return inlineKeyboard(rows);
 }
 
@@ -727,30 +720,19 @@ function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
   return inlineKeyboard(rows);
 }
 
-function onboardingCompleteKeyboard(lang, { invitationCount = 0 } = {}) {
+function onboardingCompleteKeyboard(lang) {
   return inlineKeyboard([
-    [{
-      text: messages[lang].discussionInvitationsWithCount.replace(
-        "{count}",
-        String(Math.max(0, Number(invitationCount) || 0)),
-      ),
-      callback_data: callBacks.discussionInvitations,
-    }],
     [{
       text: messages[lang].discussionActiveList,
       callback_data: callBacks.discussionListActive,
     }],
     [{
-      text: messages[lang].peopleGoToLists,
+      text: messages[lang].onboardingFavoritesButton,
       callback_data: callBacks.aiAssistant,
     }],
     [{
       text: messages[lang].onboardingMainMenuButton,
       callback_data: callBacks.menuMain,
-    }],
-    [{
-      text: messages[lang].help,
-      callback_data: callBacks.help,
     }],
   ]);
 }

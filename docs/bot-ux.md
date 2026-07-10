@@ -34,23 +34,23 @@
 - Ask fresh users to choose Persian or English before showing the product overview.
 - After language selection, replace the language card with the localized welcome card and onboarding start action.
 - The welcome message should state the product promise: build taste, get personal suggestions, and find related discussions.
-- Offer recent, empty accounts a quick start that asks for some broad interests.
+- Offer recent, empty accounts a quick start that asks for three broad interests by default.
 - Show a small rotating set of interests instead of one oversized picker; let users request more options.
 - Let users type a custom interest through a dedicated input state with admin-managed length validation and a clear return action.
 - After a user types a custom interest, consume the old picker and send the updated progress or result as a fresh message below the user's text; do not edit a card above the user's message.
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
-- Show progress after each choice. Selected chips should remain in their original grid position with a `✓` marker, and tapping them removes the interest.
-- Show the Continue action after the admin-configured onboarding minimum. Auto-complete onboarding at the admin-configured onboarding maximum.
+- Show compact progress after each choice without repeating the product explanation. Selected chips should remain in their original grid position with a `✓` marker, and tapping them removes the interest.
+- Auto-complete onboarding immediately when the admin-configured minimum is reached; it defaults to three. Do not require a separate Continue action after the final choice.
 - Keep Interest chip rows to three item buttons per row; onboarding should show four stable chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
-- Completion should show a clearly labeled preliminary vibe and explain that adding more profile Interests and building a Movies, Music, or Books Top 10 helps Muze understand the user's taste and show more relevant discussions.
-- End with clear next actions. When a starter invitation was prepared, make `📨 Invitations` the primary action; otherwise use active discussions as the primary discussion action. Offer the profile or main menu as follow-up for users who want to fill out more Interests, and `🎬🎵📚 Movies, Music, Books` for media taste. Keep main menu and help as secondary exits.
-- Keep a reusable Muze guide in the main menu and expose the same guide from onboarding completion.
+- Completion should confirm the number of saved interests without repeating the full selection list or inferring a taste label from only three broad choices. Briefly explain that media favorites improve personal suggestions and help users find relevant discussions.
+- End with active discussions as the primary action so users can choose a room themselves. Offer `🎬🎵📚 Movies, Music, Books` and the main menu as secondary actions.
+- Keep a reusable Muze guide in the main menu; onboarding completion can reach it through the main menu.
 - The About/guide should summarize Movies/Music/Books Top 10s and lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, `🎬🎵📚 Movies, Music, Books`, and active discussions.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear "choose interests" inline action; replace that card with the interest picker after the user taps it.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
-- After normal onboarding completion, Muze may prepare one starter invitation to the open/free discussion and make `📨 Invitations` the primary next action. The starter invitation note should point users to the Invitations section, while the completion hint can cover profile Interests and media Top 10s. Do not send locked starter-room invitations during onboarding. These are Muze recommendations, not personal invites, and should not show Muze profile/mute controls. The active-discussions action can stay available as a secondary path for users who want to browse instead.
+- Normal onboarding does not prepare an automatic invitation. Its primary action opens the active-discussions list, where the global room can appear alongside other available rooms.
 - Onboarding must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
 - Invitation deep links are intent-first: users who arrive from a discussion invite should see that invite before full onboarding. If they have not completed onboarding and still have too few Interests, Muze may offer a one-time optional quick taste setup after the invite is joined or dismissed, but dismissing that nudge must not mark onboarding complete.
 - Some platforms may display only `/start` while still sending an invite payload to the bot. Public discussion invite payloads should always open the invite preview or re-focus the room; Star rewards stay one-time through directed-pair ledger idempotency.

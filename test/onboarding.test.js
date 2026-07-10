@@ -16,7 +16,6 @@ const {
 } = require("../src/keyboards");
 const {
   NEW_USER_WINDOW_MS,
-  appendStarterInvitationsText,
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
   getOnboardingPage,
@@ -69,17 +68,15 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].welcome, /^👩‍🦳/);
     assert.match(messages[lang].welcome, /🌿/);
-    assert.match(messages[lang].welcome, /🏆/);
-    assert.match(messages[lang].welcome, /✨/);
+    assert.match(messages[lang].welcome, /🏷/);
     assert.match(messages[lang].welcome, /💬/);
     assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
     assert.match(messages[lang].welcomeWithName, /^👩‍🦳/);
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
     assert.match(messages[lang].onboardingWelcome, /^👩‍🦳/);
-    assert.match(messages[lang].onboardingWelcome, /💡/);
-    assert.match(messages[lang].onboardingWelcome, /some interests|چند علاقه/);
+    assert.match(messages[lang].onboardingWelcome, /shared interests|هم‌سلیقه/);
     assert.match(messages[lang].onboardingWelcomeWithName, /^👩‍🦳/);
-    assert.match(messages[lang].onboardingWelcomeWithName, /💡/);
+    assert.match(messages[lang].onboardingWelcomeWithName, /shared interests|هم‌سلیقه/);
   }
 });
 
@@ -124,7 +121,7 @@ test("post-invite taste setup callbacks start or dismiss without completing onbo
     assert.ok(updates.some((entry) => entry.update.state === "onboarding_taste_setup_interests"));
     assert.equal(updates.some((entry) => entry.update.onboardingVersion), false);
     assert.equal(edits[0].messageId, 42);
-    assert.match(edits[0].text, /Choose some interests/);
+    assert.match(edits[0].text, /Choose 3 things you like/);
 
     ctx.callbackData = callBacks.onboardingTasteSetupDismiss;
     await handleOnboardingCallback(ctx, "en", {
@@ -167,7 +164,7 @@ test("bot-authored picker prompts start with the bot marker", () => {
   }
 });
 
-test("onboarding keyboard shows selected interests, real fill chips, and continue after minimum", () => {
+test("onboarding keyboard shows selected interests without a separate continue action", () => {
   const keyboard = onboardingInterestsKeyboard("en", ["شطرنج"]);
   const buttons = keyboard.reply_markup.inline_keyboard.flat();
   const interestButtons = buttons.filter((button) => (
@@ -186,7 +183,7 @@ test("onboarding keyboard shows selected interests, real fill chips, and continu
 
   const readyKeyboard = onboardingInterestsKeyboard("en", ["Movies", "Books", "Chess"]);
   const readyButtons = readyKeyboard.reply_markup.inline_keyboard.flat();
-  assert.equal(readyButtons.some((button) => button.callback_data === callBacks.onboardingContinue), true);
+  assert.equal(readyButtons.some((button) => button.callback_data === callBacks.onboardingContinue), false);
 });
 
 test("onboarding chips mark selected built-ins across languages", () => {
@@ -266,30 +263,17 @@ test("typed onboarding input retires the old picker before a fresh reply", async
   assert.equal(ctx.user.onboardingPromptMessageId, null);
 });
 
-test("onboarding completion offers clear next actions", () => {
-  const buttons = onboardingCompleteKeyboard("en", { invitationCount: 1 }).reply_markup.inline_keyboard.flat();
+test("onboarding completion leads with active discussions", () => {
+  const buttons = onboardingCompleteKeyboard("en").reply_markup.inline_keyboard.flat();
   const callbackData = buttons.map((button) => button.callback_data);
 
   assert.deepEqual(callbackData, [
-    callBacks.discussionInvitations,
     callBacks.discussionListActive,
     callBacks.aiAssistant,
     callBacks.menuMain,
-    callBacks.help,
   ]);
-  assert.equal(buttons[0].text, "📨 Invitations (1)");
-  assert.equal(buttons[1].text, messages.en.discussionActiveList);
-  assert.equal(buttons[2].text, messages.en.peopleGoToLists);
-});
-
-test("onboarding starter invitation note points users to invitations", () => {
-  const text = appendStarterInvitationsText("en", "Done", 1);
-
-  assert.match(text, /^Done/);
-  assert.match(text, /Muze prepared discussion invitations for you \(1\)/);
-  assert.match(text, /📨 Invitations/);
-  assert.doesNotMatch(text, /🎬🎵📚 Movies, Music, Books/);
-  assert.match(text, /💡/);
+  assert.equal(buttons[0].text, messages.en.discussionActiveList);
+  assert.equal(buttons[1].text, messages.en.onboardingFavoritesButton);
 });
 
 test("help is available from the main menu and onboarding completion", () => {
@@ -333,10 +317,10 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpText, /^👩‍🦳/);
   assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی، کتاب/);
   assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music, Books/);
-  assert.match(messages.fa.helpText, /واچ‌لیست فیلم/);
-  assert.match(messages.en.helpText, /Movies watchlist/);
+  assert.match(messages.fa.helpText, /برای بعد/);
+  assert.match(messages.en.helpText, /Save for later/);
   assert.match(messages.fa.helpText, /۳ انتخاب/);
-  assert.match(messages.en.helpText, /3 Top 10 picks/);
+  assert.match(messages.en.helpText, /3 favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
   assert.match(messages.fa.helpText, /آدم‌هایی با انتخاب‌های مشترک/);
   assert.match(messages.en.helpText, /👥 People/);
@@ -355,14 +339,13 @@ test("main menu uses the warmer Me label without renaming profile copy", () => {
   assert.equal(messages.en.profile, "👤 Profile");
 });
 
-test("onboarding copy reports progress and a Persian starter vibe", () => {
+test("onboarding copy reports compact progress without inferring a vibe", () => {
   const progress = buildOnboardingPrompt("en", 2, "Coffee");
   const initial = buildOnboardingPrompt("en");
-  assert.match(progress, /2\/5/);
+  assert.match(progress, /2 of 3 selected/);
   assert.match(progress, /^👩‍🦳/);
-  assert.match(progress, /💡/);
-  assert.match(progress, /first taste profile/);
-  assert.ok(progress.length >= initial.length * 0.85);
+  assert.doesNotMatch(progress, /first taste profile/);
+  assert.ok(progress.length <= initial.length * 1.1);
   assert.doesNotMatch(progress, /learn.*about you/i);
 
   const complete = buildOnboardingCompleteText("fa", [
@@ -371,12 +354,13 @@ test("onboarding copy reports progress and a Persian starter vibe", () => {
     { title: "پادکست" },
   ]);
 
-  assert.match(complete, /گیم/);
-  assert.match(complete, /گیمر/);
   assert.match(complete, /^👩‍🦳/);
-  assert.match(complete, /💡/);
-  assert.match(complete, /تاپ ۱۰های فیلم، موسیقی یا کتاب/);
-  assert.match(complete, /سلیقه‌ات رو بهتر می‌شناسه/);
+  assert.match(complete, /گفت‌وگوهای فعال/);
+  assert.match(complete, /پیشنهادهای شخصی‌تری/);
+  assert.match(complete, /گفت‌وگوهای مرتبط/);
+  assert.doesNotMatch(complete, /گیم/);
+  assert.doesNotMatch(complete, /گیمر/);
+  assert.doesNotMatch(complete, /تاپ ۱۰/);
   assert.doesNotMatch(complete, /بیشتر بشناسمت/);
   assert.doesNotMatch(complete, /\{(?:items|emoji|label|style)\}/);
 });
@@ -393,5 +377,4 @@ test("onboarding callback predicate owns only onboarding actions", () => {
   assert.equal(isOnboardingCallback(callBacks.onboardingTasteSetupDismiss), true);
   assert.equal(isOnboardingCallback(callBacks.onboardingSkip), false);
   assert.equal(isOnboardingCallback(callBacks.discussions), false);
-  assert.equal(messages.en.onboardingContinueButton.length > 0, true);
 });
