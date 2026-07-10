@@ -472,12 +472,17 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const { index: chipIndex, page } = parseInterestCallbackPayload(data, callBacks.profileInterestChip);
     const item = getInterestTopTenChipTitle(chipIndex, lang);
     if (!item) return ctx.reply(messages[lang].unknownAction);
-    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
-    if (!result.ok && result.reason === "limit") {
+    if (getProfileInterestItems(ctx.user).length >= operationalLimits.profileInterestItems) {
       return ctx.answerCb?.(formatProfileInterestMessage(lang, "profileInterestsLimitReached"), { show_alert: true });
     }
-    if (!result.ok && result.reason !== "exists") return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsInvalid"));
+    // Stop Telegram's button spinner before the database mutation. The loaded
+    // profile check above preserves the normal limit alert without delaying taps.
     await ctx.answerCb?.();
+    const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
+    if (!result.ok && result.reason === "limit") {
+      return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsLimitReached"));
+    }
+    if (!result.ok && result.reason !== "exists") return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsInvalid"));
     if (ctx.user) {
       if (!ctx.user.aiLists) ctx.user.aiLists = {};
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
