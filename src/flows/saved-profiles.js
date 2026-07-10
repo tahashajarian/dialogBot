@@ -436,10 +436,6 @@ async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}
   return sent;
 }
 
-async function sendPeopleTasteMatchesList(ctx, lang, page = 0, { send = null } = {}) {
-  return sendPeopleDiscoveryList(ctx, lang, page, { send });
-}
-
 async function buildSavedProfilePage(codes = [], page = 0) {
   const items = await buildSavedProfileListItems({
     codes,

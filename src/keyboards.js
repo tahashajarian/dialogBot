@@ -1012,7 +1012,7 @@ function profileViewBackKeyboard(lang) {
   return inlineKeyboard([[{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]]);
 }
 
-function profilePeopleBackKeyboard(lang, mode = "browse") {
+function profilePeopleBackKeyboard(lang) {
   return inlineKeyboard([[
     {
       text: messages[lang].aiBack,
@@ -1025,7 +1025,6 @@ function profilePublicActionsKeyboard(lang, code, {
   isSaved = false,
   hasDiscussions = false,
   source = "people",
-  peopleMode = "browse",
 } = {}) {
   const normalizedCode = String(code || "");
   const discussionSource = source === "saved" ? "saved" : "browse";
