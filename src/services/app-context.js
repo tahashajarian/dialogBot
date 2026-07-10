@@ -47,14 +47,13 @@ function isRetriablePinError(error) {
   return code === 500 || text.includes("internal server error") || text.includes("timed out");
 }
 
-function isTransientEditError(error) {
+function isAmbiguousEditError(error) {
   const code = getErrorCode(error);
   const text = String(getErrorDescription(error) || getErrorText(error) || "").toLowerCase();
   return (
     code === 500 ||
     text.includes("internal server error") ||
     text.includes("timed out") ||
-    text.includes("message can't be edited") ||
     text.includes("message is not modified")
   );
 }
@@ -224,8 +223,19 @@ function createAppContext(ctx, user, options = {}) {
           ...extra,
         });
       } catch (error) {
-        if (isMessageNotFoundError(error) || isTransientEditError(error)) {
+        if (isMessageNotFoundError(error)) {
           return false;
+        }
+        // A timeout/5xx does not tell us whether Telegram applied the edit. Treat
+        // it as handled so callers do not send a duplicate fallback message.
+        if (isAmbiguousEditError(error)) {
+          logger.warn("Telegram message edit result was uncertain; suppressing fallback", {
+            chatId,
+            messageId: normalizedMessageId,
+            code: getErrorCode(error),
+            error: getErrorText(error),
+          });
+          return true;
         }
         logger.warn("Failed to edit bot message", {
           chatId,

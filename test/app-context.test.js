@@ -33,3 +33,26 @@ test("editMessageText treats missing edit targets as stale without warning", asy
     logger.warn = originalWarn;
   }
 });
+
+test("editMessageText suppresses duplicate fallback when an edit times out", async () => {
+  const originalWarn = logger.warn;
+  const warnings = [];
+  logger.warn = (message, details) => warnings.push({ message, details });
+
+  const ctx = {
+    chat: { id: 123 },
+    telegram: {
+      callApi: () => new Promise(() => {}),
+    },
+  };
+
+  try {
+    const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 10 });
+    const edited = await appCtx.editMessageText(99, "Fresh card");
+
+    assert.equal(edited, true);
+    assert.equal(warnings[0]?.message, "Telegram message edit result was uncertain; suppressing fallback");
+  } finally {
+    logger.warn = originalWarn;
+  }
+});
