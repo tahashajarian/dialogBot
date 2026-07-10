@@ -89,7 +89,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   const actionLabels = {
     done: statusLabels.on,
     undone: statusLabels.off,
-    top10: options.lang === "fa" ? "انتقال به تاپ ۱۰" : "Move to Top 10",
+    top10: options.lang === "fa" ? "افزودن به محبوب‌ها" : "Add to favorites",
     addComment: messages[options.lang]?.aiListActionAddComment || "Add comment",
     updateComment: messages[options.lang]?.aiListActionUpdateComment || "Update comment",
     remove: options.lang === "fa" ? "حذف" : "Remove",
