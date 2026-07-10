@@ -4,9 +4,11 @@ const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionLanguagePickerKeyboard,
   discussionJoinErrorAckKeyboard,
 } = require("../keyboards");
 const { updateProfileField } = require("../services/users");
+const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter } = require("../services/discussion-language");
 const {
   buildDiscussionJoinLockedText,
   decorateDiscussionsForList,
@@ -123,6 +125,8 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data === callBacks.discussionListActive ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListActivePage) ||
+    data.startsWith(callBacks.discussionListLanguageOpen) ||
+    data.startsWith(callBacks.discussionListLanguageSet) ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data === callBacks.discussionCreateStart ||
     isDiscussionCreateFlowCallback(data) ||
@@ -149,6 +153,9 @@ function isDiscussionCreateFlowCallback(data = "") {
     data === callBacks.discussionCreateRuleTaste ||
     data === callBacks.discussionCreateRuleItem ||
     data === callBacks.discussionCreateConfirm ||
+    data === callBacks.discussionCreateToggleLanguage ||
+    data === callBacks.discussionCreateLanguageBack ||
+    data.startsWith(callBacks.discussionCreateSetLanguage) ||
     data === callBacks.discussionCreatePreview ||
     data === callBacks.discussionCreateEditTitle ||
     data === callBacks.discussionCreateEditDescription ||
@@ -204,10 +211,11 @@ async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
   return ctx.reply(text, keyboard);
 }
 
-async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, {
+async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, languageFilter = null, {
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
 } = {}) {
-  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100 });
+  const effectiveLanguage = normalizeDiscussionLanguageFilter(languageFilter) || getEffectiveDiscussionLanguageFilter(ctx.user);
+  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
     await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
@@ -225,6 +233,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
         page: 0,
         totalPages: 1,
         joinableOnly,
+        languageFilter: effectiveLanguage,
       }),
     );
     await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
@@ -241,6 +250,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
       page: paged.page,
       totalPages: paged.totalPages,
       joinableOnly,
+      languageFilter: effectiveLanguage,
     }),
   );
   await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
@@ -286,6 +296,8 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
 function isDiscussionListCallback(data = "") {
   return data === callBacks.discussionListActive ||
     data.startsWith(callBacks.discussionListActivePage) ||
+    data.startsWith(callBacks.discussionListLanguageOpen) ||
+    data.startsWith(callBacks.discussionListLanguageSet) ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data.startsWith(callBacks.discussionJoinErrorAck);
@@ -301,14 +313,38 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListActive) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+    return renderActiveDiscussionList(ctx, lang, 0, false, null, { editCallbackMessageOrReply });
+  }
+
+  if (data.startsWith(callBacks.discussionListLanguageOpen)) {
+    await ctx.answerCb?.();
+    const [joinability = "all", languageRaw = ""] = data.replace(callBacks.discussionListLanguageOpen, "").split(":");
+    const joinableOnly = joinability === "joinable";
+    const languageFilter = normalizeDiscussionLanguageFilter(languageRaw) || getEffectiveDiscussionLanguageFilter(ctx.user);
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionLanguagePickerTitle,
+      discussionLanguagePickerKeyboard(lang, { joinableOnly, languageFilter }),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionListLanguageSet)) {
+    const [joinability = "all", languageRaw = ""] = data.replace(callBacks.discussionListLanguageSet, "").split(":");
+    const languageFilter = normalizeDiscussionLanguageFilter(languageRaw);
+    if (!languageFilter) return renderActiveDiscussionList(ctx, lang, 0, joinability === "joinable", null, { editCallbackMessageOrReply });
+    await updateProfileField(ctx.userId, "discussionLanguageFilter", languageFilter);
+    if (ctx.user) ctx.user.discussionLanguageFilter = languageFilter;
+    return renderActiveDiscussionList(ctx, lang, 0, joinability === "joinable", languageFilter, { editCallbackMessageOrReply });
   }
 
   if (data.startsWith(callBacks.discussionListActivePage)) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     const payload = data.replace(callBacks.discussionListActivePage, "");
-    const [pageRaw = "0", filter = "all"] = payload.split(":");
-    return renderActiveDiscussionList(ctx, lang, Number(pageRaw), filter === "joinable", { editCallbackMessageOrReply });
+    const [pageRaw = "0", filter = "all", languageRaw = ""] = payload.split(":");
+    const safePage = /^\d+$/.test(pageRaw) ? Number(pageRaw) : 0;
+    const joinableOnly = filter === "joinable";
+    const languageFilter = normalizeDiscussionLanguageFilter(languageRaw) || getEffectiveDiscussionLanguageFilter(ctx.user);
+    return renderActiveDiscussionList(ctx, lang, safePage, joinableOnly, languageFilter, { editCallbackMessageOrReply });
   }
 
   if (data === callBacks.discussionListMine) {
@@ -343,7 +379,7 @@ async function handleDiscussionListCallback(ctx, lang, {
     if (destination === "mine") {
       return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
     }
-    return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
+    return renderActiveDiscussionList(ctx, lang, 0, false, null, { editCallbackMessageOrReply });
   }
 
   return false;

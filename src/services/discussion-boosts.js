@@ -13,6 +13,7 @@ const {
 } = require("./people-discovery");
 const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
+const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguage } = require("./discussion-language");
 
 const BOOST_QUOTE_TTL_MS = 10 * 60 * 1000;
 const BOOST_LIST_EXPIRE_SWEEP_MS = 60 * 1000;
@@ -289,6 +290,11 @@ async function selectBoostRecipients(boost, discussion, { now = new Date() } = {
   const skipped = {};
   for (const candidate of candidates) {
     if (recipients.length >= cap) break;
+    const languageFilter = getEffectiveDiscussionLanguageFilter(candidate);
+    if (languageFilter !== "all" && languageFilter !== normalizeDiscussionLanguage(discussion.language)) {
+      incrementSkip(skipped, "language");
+      continue;
+    }
     const shared = indexedSharedByUserId
       ? indexedSharedByUserId.get(Number(candidate.userId)) || []
       : getSharedSections(creatorIndex, buildUserDiscoveryIndex(candidate));

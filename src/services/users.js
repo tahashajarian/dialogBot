@@ -113,6 +113,7 @@ async function resetDiscussionDraft(userId) {
     discussionDraftDescription: "",
     discussionDraftJoinRule: null,
     discussionDraftMaxMembers: 20,
+    discussionDraftLanguage: "",
   });
 }
 

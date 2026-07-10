@@ -35,7 +35,8 @@ function formatDiscussionRoom(messages, lang, discussion) {
     .replace("{title}", getDiscussionDisplayTitle(messages, lang, discussion))
     .replace("{description}", description)
     .replace("{count}", String(count))
-    .replace("{cap}", String(cap));
+    .replace("{cap}", String(cap))
+    + `\n${discussion.language === "en" ? "🇬🇧" : "🇮🇷"} ${discussion.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`;
 }
 
 function formatRecentDiscussionMessages(messages, lang, discussion) {
@@ -58,13 +59,14 @@ function formatRecentDiscussionMessages(messages, lang, discussion) {
 
 function getStarterDiscussionJoinNudge(messages, lang, discussion = {}) {
   if (!discussion.isBotCreated) return "";
-  if (discussion.botSeedKey === "free-discussion") {
+  const seedKey = String(discussion.botSeedKey || "").replace(/:(fa|en)$/, "");
+  if (seedKey === "free-discussion") {
     return messages[lang].discussionStarterJoinNudgeFree;
   }
-  if (discussion.botSeedKey === "whats-up") {
+  if (seedKey === "whats-up") {
     return messages[lang].discussionStarterJoinNudgeGaming;
   }
-  if (discussion.botSeedKey === "lets-talk") {
+  if (seedKey === "lets-talk") {
     return messages[lang].discussionStarterJoinNudgeMovies;
   }
   return "";

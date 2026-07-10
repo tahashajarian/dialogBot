@@ -300,7 +300,8 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
     return rememberDiscussionListMessage(ctx, "mine", sent);
   }
 
-  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100 });
+  const languageFilter = require("../services/discussion-language").getEffectiveDiscussionLanguageFilter(ctx.user);
+  const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter });
   if (!result.discussions.length) {
     const sentEmpty = await ctx.reply(messages[lang].discussionListEmpty);
     return rememberDiscussionListMessage(ctx, "active", sentEmpty);
@@ -317,6 +318,7 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
       page: paged.page,
       totalPages: paged.totalPages,
       joinableOnly: false,
+      languageFilter,
     }),
   );
   return rememberDiscussionListMessage(ctx, "active", sent);

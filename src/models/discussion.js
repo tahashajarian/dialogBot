@@ -36,6 +36,7 @@ const DiscussionSchema = new mongoose.Schema({
   creatorUserId: { type: Number, required: true, index: true },
   isBotCreated: { type: Boolean, default: false, index: true },
   botSeedKey: { type: String, default: "" },
+  language: { type: String, enum: ["fa", "en"], required: true, default: "fa", index: true },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
   memberUserIds: { type: [Number], default: [] },
@@ -51,6 +52,10 @@ const DiscussionSchema = new mongoose.Schema({
 });
 
 DiscussionSchema.index({ status: 1, updatedAt: -1 });
+DiscussionSchema.index(
+  { status: 1, language: 1, lastActivityAt: -1, updatedAt: -1, createdAt: -1 },
+  { name: "open_discussions_language_activity_sort" },
+);
 DiscussionSchema.index(
   { status: 1, lastActivityAt: -1, updatedAt: -1, createdAt: -1 },
   { name: "open_discussions_activity_sort" },

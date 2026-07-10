@@ -2,7 +2,7 @@ const Discussion = require("../models/discussion");
 const { ensurePublicDiscussionCode } = require("./public-codes");
 
 const BOT_STARTER_DISCUSSION_MEMBER_CAP = 20;
-const BOT_STARTER_DISCUSSIONS = [
+const BOT_STARTER_DEFINITIONS = [
   {
     botSeedKey: "free-discussion",
     title: "Free Discussion",
@@ -41,15 +41,20 @@ const BOT_STARTER_DISCUSSIONS = [
     },
   },
 ];
+const BOT_STARTER_INSTANCES = BOT_STARTER_DEFINITIONS.flatMap((starter) => ["fa", "en"].map((language) => ({
+  ...starter,
+  language,
+  botSeedKey: `${starter.botSeedKey}:${language}`,
+})));
 const BOT_STARTER_DISCUSSION_ORDER = new Map(
-  BOT_STARTER_DISCUSSIONS.map((starter, index) => [starter.botSeedKey, index]),
+  BOT_STARTER_DEFINITIONS.map((starter, index) => [starter.botSeedKey, index]),
 );
 
 function getBotStarterDiscussionOrder(discussion = {}) {
-  const seedKey = String(discussion.botSeedKey || "");
+  const seedKey = String(discussion.botSeedKey || "").replace(/:(fa|en)$/, "");
   return BOT_STARTER_DISCUSSION_ORDER.has(seedKey)
     ? BOT_STARTER_DISCUSSION_ORDER.get(seedKey)
-    : BOT_STARTER_DISCUSSIONS.length;
+    : BOT_STARTER_DEFINITIONS.length;
 }
 
 function sortBotStarterDiscussionsFirst(discussions = []) {
@@ -65,7 +70,7 @@ async function seedBotDiscussions(botUserId) {
   }
 
   const discussions = [];
-  for (const starter of BOT_STARTER_DISCUSSIONS) {
+  for (const starter of BOT_STARTER_INSTANCES) {
     const now = new Date();
     const discussion = await Discussion.findOneAndUpdate(
       { botSeedKey: starter.botSeedKey },
@@ -75,6 +80,7 @@ async function seedBotDiscussions(botUserId) {
           description: starter.description,
           creatorUserId,
           isBotCreated: true,
+          language: starter.language,
           joinRule: starter.joinRule || { type: "open" },
           maxMembers: BOT_STARTER_DISCUSSION_MEMBER_CAP,
         },
@@ -101,7 +107,8 @@ async function seedBotDiscussions(botUserId) {
 
 module.exports = {
   BOT_STARTER_DISCUSSION_MEMBER_CAP,
-  BOT_STARTER_DISCUSSIONS,
+  BOT_STARTER_DISCUSSIONS: BOT_STARTER_DEFINITIONS,
+  BOT_STARTER_INSTANCES,
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 };

@@ -114,6 +114,19 @@ test("create discussion persists creator membership and active room", async () =
   assert.deepEqual(user.discussionMembershipIds.map(String), [String(discussion._id)]);
   assert.deepEqual(discussion.memberUserIds, [1]);
   assert.equal(discussion.maxMembers, 5);
+  assert.equal(discussion.language, "fa");
+});
+
+test("discussion creation defaults to the creator interface language", async () => {
+  await createUser(2, { lang: "en" });
+  const result = await createDiscussion({
+    creatorUserId: 2,
+    title: "English room",
+    description: "A room created with the interface default",
+    joinRule: { type: "open" },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.discussion.language, "en");
 });
 
 test("concurrent discussion creation respects active owned limit", async () => {
@@ -479,14 +492,16 @@ test("onboarding starter invitations include only the open free discussion", asy
       title: "Free Discussion",
       publicDiscussionCode: "d_BOTFREE",
       isBotCreated: true,
-      botSeedKey: "free-discussion",
+      botSeedKey: "free-discussion:fa",
+      language: "fa",
       memberUserIds: [],
     }),
     createOpenDiscussion(999, {
       title: "Gaming Hangout",
       publicDiscussionCode: "d_BOTGAME",
       isBotCreated: true,
-      botSeedKey: "whats-up",
+      botSeedKey: "whats-up:fa",
+      language: "fa",
       memberUserIds: [42],
       joinRule: {
         type: "top_ten_item",

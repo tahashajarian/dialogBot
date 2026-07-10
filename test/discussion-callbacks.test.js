@@ -21,6 +21,7 @@ const {
   discussionCreateGuidanceAckKeyboard,
   discussionRoomKeyboard,
   discussionCreateCapacityKeyboard,
+  discussionCreateLanguagePickerKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
@@ -481,6 +482,17 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(isDiscussionCreateCallback(`${callBacks.discussionCreatePaidCapacityConfirm}2:3`), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityCancel), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityAck), true);
+});
+
+test("discussion creation language picker supports set and non-destructive back", () => {
+  const keyboard = discussionCreateLanguagePickerKeyboard("en", "fa").reply_markup.inline_keyboard;
+  assert.equal(keyboard[0][0].text, "✓ 🇮🇷 Persian");
+  assert.equal(keyboard[0][0].callback_data, `${callBacks.discussionCreateSetLanguage}fa`);
+  assert.equal(keyboard[1][0].callback_data, `${callBacks.discussionCreateSetLanguage}en`);
+  assert.equal(keyboard[2][0].callback_data, callBacks.discussionCreateLanguageBack);
+  assert.equal(keyboard.length, 3);
+  assert.equal(isDiscussionCreateFlowCallback(`${callBacks.discussionCreateSetLanguage}en`), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateLanguageBack), true);
 });
 
 test("discussion create guidance uses Got it acknowledgement and deletes on tap", async () => {

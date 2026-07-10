@@ -248,25 +248,25 @@ const BOT_DISCUSSION_MESSAGE_KEYS = {
 
 function getBotDiscussionMessageKey(discussion = {}, field) {
   if (!discussion.isBotCreated) return "";
-  return BOT_DISCUSSION_MESSAGE_KEYS[String(discussion.botSeedKey || "")]?.[field] || "";
+  return BOT_DISCUSSION_MESSAGE_KEYS[String(discussion.botSeedKey || "").replace(/:(fa|en)$/, "")]?.[field] || "";
 }
 
 function getDiscussionDisplayTitle(messages, lang, discussion = {}) {
   const title = String(discussion.title || "").trim() || "-";
   const messageKey = getBotDiscussionMessageKey(discussion, "title");
-  const localizedTitle = messageKey ? messages?.[lang]?.[messageKey] : title;
+  const localizedTitle = messageKey ? messages?.[discussion.language || lang]?.[messageKey] : title;
   return discussion.isBotCreated ? `👩‍🦳 ${localizedTitle || title}` : title;
 }
 
 function getDiscussionDisplayDescription(messages, lang, discussion = {}) {
   const description = String(discussion.description || "").trim();
   const messageKey = getBotDiscussionMessageKey(discussion, "description");
-  return messageKey ? (messages?.[lang]?.[messageKey] || description) : description;
+  return messageKey ? (messages?.[discussion.language || lang]?.[messageKey] || description) : description;
 }
 
 function getStarterDiscussionHint(messages, lang, discussion = {}) {
   if (!discussion.isBotCreated) return "";
-  if (discussion.botSeedKey === "free-discussion") {
+  if (String(discussion.botSeedKey || "").replace(/:(fa|en)$/, "") === "free-discussion") {
     return messages[lang].discussionStarterHintOpen;
   }
   const joinRule = discussion.joinRule || {};
@@ -317,6 +317,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       entry.isBoosted ? lineForLang(lang, messages[lang].discussionBoostedLabel) : "",
       mixedValueLine(lang, "📄", description),
       lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
+      lineForLang(lang, `${entry.language === "en" ? "🇬🇧" : "🇮🇷"} ${entry.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`),
       lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),
       lineForLang(lang, `${isolateText(lang, ruleWithStatus)}`),
       starterHint ? lineForLang(lang, starterHint) : "",
@@ -347,7 +348,8 @@ function getInviteDescriptionBlock(messages, lang, discussion = {}, { compact = 
 
 function getInviteRuleBlock(messages, lang, discussion = {}) {
   const rule = getJoinRulePreviewText(messages, lang, discussion.joinRule || { type: "open" });
-  return `${messages[lang].discussionJoinConditionTitle}\n${rule}\n\n`;
+  const language = discussion.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian;
+  return `${discussion.language === "en" ? "🇬🇧" : "🇮🇷"} ${messages[lang].discussionLanguageFilter}: ${language}\n${messages[lang].discussionJoinConditionTitle}\n${rule}\n\n`;
 }
 
 function buildDiscussionInviteShareText(messages, lang, discussion, code, { deepLink = "" } = {}) {
@@ -432,11 +434,14 @@ function buildDiscussionPreviewText(messages, lang, user) {
   const description = String(user?.discussionDraftDescription || "").trim();
   const joinRule = user?.discussionDraftJoinRule || { type: "open" };
   const capacity = Number(user?.discussionDraftMaxMembers) || DEFAULT_DISCUSSION_CAPACITY;
+  const language = require("./discussion-language").normalizeDiscussionLanguage(user?.discussionDraftLanguage, user?.lang);
   return messages[lang].discussionPreview
     .replace("{title}", title || "-")
     .replace("{description}", description || "-")
     .replace("{rule}", getJoinRulePreviewText(messages, lang, joinRule))
-    .replace("{capacity}", String(capacity));
+    .replace("{capacity}", String(capacity))
+    .replace("{languageFlag}", language === "en" ? "🇬🇧" : "🇮🇷")
+    .replace("{language}", language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian);
 }
 
 module.exports = {

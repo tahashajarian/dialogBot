@@ -1,5 +1,7 @@
 # Discussions
 
+> Implemented discussion-language filtering and migration behavior is specified in [Discussion Language](discussion-language.md). Starter rooms have separate Persian and English instances.
+
 ## Implementation Status
 
 The MVP described here is implemented. The current code supports:
@@ -13,7 +15,7 @@ The MVP described here is implemented. The current code supports:
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - member lists, public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
-- four Muze-created starter rooms, marked only with `👩‍🦳`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
+- Persian and English instances of four Muze-created starter definitions, marked only with `👩‍🦳`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
 - onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
 - private Stars, attributable invitation rewards, owner-only discussion boosts behind rollout switches, and the uncharged Advanced Search preview
 
@@ -39,7 +41,7 @@ Discussions are live rooms with short memory.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
 - There is no seen count in MVP. Sender only gets a delivery confirmation.
 - Four broad starter rooms are created idempotently at startup using the real bot account id returned by `getMe()`.
-- Starter rooms have stable `botSeedKey` values. Their title and description are rendered in each viewer's selected language, while Persian and English users still join the same underlying room.
+- Starter rooms have language-qualified stable `botSeedKey` values. Their title and description are rendered in the room language; Persian and English users join separate underlying rooms.
 - Their English titles are `Free Discussion`, `Gaming Hangout`, `Movie Chat`, and `Metalheads`.
 - `Free Discussion` is open to everyone. `Gaming Hangout` requires the user's `🌿 Interests` TopTen to include Gaming/Game or Persian equivalents such as `گیم`/`بازی`. `Movie Chat` requires the user's `🌿 Interests` TopTen to include Movies/Film or Persian equivalents such as `فیلم`. `Metalheads` requires the user's Music taste label to be `🤘 Metalhead`.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.

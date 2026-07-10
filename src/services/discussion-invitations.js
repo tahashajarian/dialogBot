@@ -278,7 +278,7 @@ async function createOnboardingStarterInvitationsForUser(userId, { now = new Dat
 
   const freeDiscussion = await Discussion.findOne({
     isBotCreated: true,
-    botSeedKey: "free-discussion",
+    botSeedKey: `free-discussion:${require("./discussion-language").getEffectiveDiscussionLanguageFilter(user) === "en" ? "en" : "fa"}`,
     status: "open",
   });
   const starters = [];

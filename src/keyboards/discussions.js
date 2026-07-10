@@ -41,6 +41,7 @@ function discussionListNavigationKeyboard(lang, {
   page = 0,
   totalPages = 1,
   joinableOnly = false,
+  languageFilter = null,
 } = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(page) || 0);
@@ -49,7 +50,7 @@ function discussionListNavigationKeyboard(lang, {
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
-    const nextFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}` : "";
+    const nextFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}${languageFilter ? `:${languageFilter}` : ""}` : "";
     pageRows.push({
       text: `${messages[lang].discussionListMorePage} ➡️`,
       callback_data: `${listPrefix}${normalizedPage + 1}${nextFilter}`,
@@ -57,7 +58,7 @@ function discussionListNavigationKeyboard(lang, {
   }
 
   if (normalizedPage > 0) {
-    const prevFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}` : "";
+    const prevFilter = listType === "active" ? `:${joinableOnly ? "joinable" : "all"}${languageFilter ? `:${languageFilter}` : ""}` : "";
     pageRows.push({
       text: `⬅️ ${messages[lang].discussionListPrevPage}`,
       callback_data: `${listPrefix}${normalizedPage - 1}${prevFilter}`,
@@ -71,11 +72,33 @@ function discussionListNavigationKeyboard(lang, {
   if (listType === "active") {
     rows.push([{
       text: `🔓 ${joinableOnly ? messages[lang].discussionListShowAll : messages[lang].discussionListOnlyJoinable}`,
-      callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}`,
+      callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}${languageFilter ? `:${languageFilter}` : ""}`,
+    }]);
+    if (languageFilter) rows.push([{
+      text: `${languageFilter === "fa" ? "🇮🇷" : languageFilter === "en" ? "🇬🇧" : "🌐"} ${messages[lang].discussionLanguageFilter}: ${languageFilter === "all" ? messages[lang].discussionLanguageBoth : languageFilter === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`,
+      callback_data: `${callBacks.discussionListLanguageOpen}${joinableOnly ? "joinable" : "all"}:${languageFilter}`,
     }]);
   }
 
   rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionLanguagePickerKeyboard(lang, { joinableOnly = false, languageFilter = "fa" } = {}) {
+  const joinability = joinableOnly ? "joinable" : "all";
+  const options = [
+    ["fa", "🇮🇷", messages[lang].discussionLanguagePersian],
+    ["en", "🇬🇧", messages[lang].discussionLanguageEnglish],
+    ["all", "🌐", messages[lang].discussionLanguageBoth],
+  ];
+  const rows = options.map(([value, flag, label]) => [{
+    text: `${value === languageFilter ? "✓ " : ""}${flag} ${label}`,
+    callback_data: `${callBacks.discussionListLanguageSet}${joinability}:${value}`,
+  }]);
+  rows.push([{
+    text: messages[lang].discussionBack,
+    callback_data: `${callBacks.discussionListActivePage}0:${joinability}:${languageFilter}`,
+  }]);
   return inlineKeyboard(rows);
 }
 
@@ -300,11 +323,33 @@ function discussionSectionKeyboard(lang, prefix, {
 function discussionCreateConfirmKeyboard(lang) {
   return inlineKeyboard([
     [{ text: messages[lang].discussionCreateConfirm, callback_data: callBacks.discussionCreateConfirm }],
-    [{ text: messages[lang].discussionEditTitle, callback_data: callBacks.discussionCreateEditTitle }],
-    [{ text: messages[lang].discussionEditDescription, callback_data: callBacks.discussionCreateEditDescription }],
-    [{ text: messages[lang].discussionEditRule, callback_data: callBacks.discussionCreateEditRule }],
-    [{ text: messages[lang].discussionEditCapacity, callback_data: callBacks.discussionCreateEditCapacity }],
-    [{ text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel }],
+    [
+      { text: messages[lang].discussionEditTitle, callback_data: callBacks.discussionCreateEditTitle },
+      { text: messages[lang].discussionEditDescription, callback_data: callBacks.discussionCreateEditDescription },
+    ],
+    [
+      { text: messages[lang].discussionEditRule, callback_data: callBacks.discussionCreateEditRule },
+      { text: messages[lang].discussionEditCapacity, callback_data: callBacks.discussionCreateEditCapacity },
+    ],
+    [
+      { text: messages[lang].discussionChangeLanguage, callback_data: callBacks.discussionCreateToggleLanguage },
+      { text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel },
+    ],
+  ]);
+}
+
+function discussionCreateLanguagePickerKeyboard(lang, currentLanguage = "fa") {
+  const language = currentLanguage === "en" ? "en" : "fa";
+  return inlineKeyboard([
+    [{
+      text: `${language === "fa" ? "✓ " : ""}🇮🇷 ${messages[lang].discussionLanguagePersian}`,
+      callback_data: `${callBacks.discussionCreateSetLanguage}fa`,
+    }],
+    [{
+      text: `${language === "en" ? "✓ " : ""}🇬🇧 ${messages[lang].discussionLanguageEnglish}`,
+      callback_data: `${callBacks.discussionCreateSetLanguage}en`,
+    }],
+    [{ text: messages[lang].discussionBack, callback_data: callBacks.discussionCreateLanguageBack }],
   ]);
 }
 
@@ -405,6 +450,7 @@ function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
 module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteSavedProfilesKeyboard,
@@ -421,6 +467,7 @@ module.exports = {
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
+  discussionCreateLanguagePickerKeyboard,
   discussionCreateCapacityKeyboard,
   discussionPaidCapacityConfirmKeyboard,
   discussionPaidCapacityAckKeyboard,

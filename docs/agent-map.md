@@ -19,6 +19,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 ## Discussion Boundaries
 
 - `docs/discussions.md`: source of truth for discussion behavior.
+- `docs/discussion-language.md`: implemented immutable room language, compact active-list filtering, legacy backfill, and language-specific starter-room contract.
+- `src/services/discussion-language.js`: discussion language/filter normalization, effective defaults, and filter cycling.
 - `src/models/discussion.js`: discussion schema.
 - `src/services/discussions.js`: discussion data rules and database mutations.
   - create/join/leave/close/remove/report

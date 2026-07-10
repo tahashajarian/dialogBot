@@ -9,6 +9,7 @@ const {
   discussionJoinRuleKeyboard,
   discussionSectionKeyboard,
   discussionCreateConfirmKeyboard,
+  discussionCreateLanguagePickerKeyboard,
   discussionCreateCapacityKeyboard,
   discussionPaidCapacityConfirmKeyboard,
   discussionPaidCapacityAckKeyboard,
@@ -23,6 +24,7 @@ const {
   getAiTasteFromUser,
 } = require("../services/users");
 const { toPlainUser } = require("../services/profile");
+const { normalizeDiscussionLanguage } = require("../services/discussion-language");
 const {
   getSectionLabel,
   getTasteLabelEmoji,
@@ -223,6 +225,9 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
   }
 
   await clearDiscussionDraft(ctx.userId);
+  const defaultLanguage = normalizeDiscussionLanguage(ctx.user?.lang, lang);
+  await updateProfileField(ctx.userId, "discussionDraftLanguage", defaultLanguage);
+  if (ctx.user) ctx.user.discussionDraftLanguage = defaultLanguage;
   return sendDiscussionCreateTitlePrompt(ctx, lang, {
     includeTitlePin: true,
     deleteCallbackMessageIfPossible,
@@ -273,6 +278,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     joinRule: ctx.user?.discussionDraftJoinRule || { type: "open" },
     maxMembers: ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers,
     paidCapacityAuthorized,
+    language: ctx.user?.discussionDraftLanguage || ctx.user?.lang,
   });
 
   const showPaidCapacityQuote = async (capacityOption) => editCallbackMessageOrReply(
@@ -310,6 +316,38 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       deleteCallbackMessageIfPossible,
       rememberDiscussionMenuNotice,
     });
+  }
+
+  if (data === callBacks.discussionCreateToggleLanguage) {
+    await ctx.answerCb?.();
+    const current = normalizeDiscussionLanguage(ctx.user?.discussionDraftLanguage, ctx.user?.lang || lang);
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionCreateLanguagePickerTitle,
+      discussionCreateLanguagePickerKeyboard(lang, current),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionCreateSetLanguage)) {
+    await ctx.answerCb?.();
+    const selected = data.replace(callBacks.discussionCreateSetLanguage, "");
+    if (!["fa", "en"].includes(selected)) {
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].discussionCreateLanguagePickerTitle,
+        discussionCreateLanguagePickerKeyboard(lang, ctx.user?.discussionDraftLanguage),
+      );
+    }
+    await updateProfileField(ctx.userId, "discussionDraftLanguage", selected);
+    if (ctx.user) ctx.user.discussionDraftLanguage = selected;
+    await updateUserState(ctx.userId, "discussion_create_preview");
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang));
+  }
+
+  if (data === callBacks.discussionCreateLanguageBack) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "discussion_create_preview");
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang));
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {

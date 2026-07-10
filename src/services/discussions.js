@@ -1,5 +1,6 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
+const { normalizeDiscussionLanguage, normalizeDiscussionLanguageFilter } = require("./discussion-language");
 const { isUserMutedBy } = require("./discussion-invitation-mutes");
 const {
   validateJoinRulePayload,
@@ -194,9 +195,14 @@ async function createDiscussion({
   joinRule,
   maxMembers = operationalLimits.discussionMaxMembers,
   paidCapacityAuthorized = false,
+  language,
 }) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
+  if (language !== undefined && !["fa", "en"].includes(String(language).trim().toLowerCase())) {
+    return { ok: false, reason: "invalid_language" };
+  }
+  const normalizedLanguage = normalizeDiscussionLanguage(language, user.lang);
 
   const normalizedTitle = normalizeTitle(title);
   if (!normalizedTitle) return { ok: false, reason: "invalid_title" };
@@ -225,6 +231,7 @@ async function createDiscussion({
     title: normalizedTitle,
     description: normalizedDescription,
     creatorUserId,
+    language: normalizedLanguage,
     joinRule: parsedRule.joinRule,
     status: "open",
     memberUserIds: [creatorUserId],
@@ -259,6 +266,7 @@ async function createDiscussion({
     metadata: {
       joinRuleType: parsedRule.joinRule.type,
       maxMembers: normalizedMaxMembers,
+      language: normalizedLanguage,
     },
   });
 
@@ -275,8 +283,12 @@ async function createDiscussion({
   };
 }
 
-async function listActiveDiscussions({ userId, limit = 50 } = {}) {
-  let discussions = await Discussion.find({ status: "open" })
+async function listActiveDiscussions({ userId, limit = 50, languageFilter = "all" } = {}) {
+  const normalizedFilter = normalizeDiscussionLanguageFilter(languageFilter) || "all";
+  const query = { status: "open" };
+  query.$nor = [{ isBotCreated: true, botSeedKey: { $in: BOT_STARTER_DISCUSSIONS.map((entry) => entry.botSeedKey) } }];
+  if (normalizedFilter !== "all") query.language = normalizedFilter;
+  let discussions = await Discussion.find(query)
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
   discussions = await decorateActiveBoosts(discussions);
@@ -300,9 +312,10 @@ async function listActiveDiscussions({ userId, limit = 50 } = {}) {
     name: EVENT_NAMES.discussionListOpened,
     userId,
     source: "active",
-    throttleKey: `discussion_list:active:${userId || "anon"}`,
+    throttleKey: `discussion_list:active:${userId || "anon"}:${normalizedFilter}`,
     metadata: {
       resultCount: discussions.length,
+      language: normalizedFilter,
     },
   });
 

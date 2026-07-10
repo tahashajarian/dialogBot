@@ -154,10 +154,10 @@ test("bot starter discussions use the bot id without fake members", async () => 
   try {
     const result = await seedBotDiscussions(9001);
     assert.equal(result.ok, true);
-    assert.equal(calls.length, BOT_STARTER_DISCUSSIONS.length);
+    assert.equal(calls.length, BOT_STARTER_DISCUSSIONS.length * 2);
     assert.deepEqual(
       calls.map((entry) => entry.filter.botSeedKey),
-      BOT_STARTER_DISCUSSIONS.map((entry) => entry.botSeedKey),
+      BOT_STARTER_DISCUSSIONS.flatMap((entry) => [`${entry.botSeedKey}:fa`, `${entry.botSeedKey}:en`]),
     );
     for (const { update } of calls) {
       assert.equal(update.$set.creatorUserId, 9001);
@@ -165,19 +165,19 @@ test("bot starter discussions use the bot id without fake members", async () => 
       assert.deepEqual(update.$setOnInsert.memberUserIds, []);
     }
     assert.deepEqual(calls[0].update.$set.joinRule, { type: "open" });
-    assert.deepEqual(calls[1].update.$set.joinRule, {
+    assert.deepEqual(calls[2].update.$set.joinRule, {
       type: "top_ten_item",
       section: "random",
       itemTitle: "Gaming",
       itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
     });
-    assert.deepEqual(calls[2].update.$set.joinRule, {
+    assert.deepEqual(calls[4].update.$set.joinRule, {
       type: "top_ten_item",
       section: "random",
       itemTitle: "Movies",
       itemAliases: ["Movies", "Movie", "Film", "Films", "فیلم", "فیلم‌ها"],
     });
-    assert.deepEqual(calls[3].update.$set.joinRule, {
+    assert.deepEqual(calls[6].update.$set.joinRule, {
       type: "taste_label",
       section: "music",
       tasteLabelKey: "metalhead",

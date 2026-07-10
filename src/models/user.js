@@ -127,6 +127,8 @@ const UserSchema = new mongoose.Schema({
   discussionDraftDescription: { type: String, default: "" },
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
   discussionDraftMaxMembers: { type: Number, default: 20 },
+  discussionDraftLanguage: { type: String, enum: ["", "fa", "en"], default: "" },
+  discussionLanguageFilter: { type: String, enum: ["", "fa", "en", "all"], default: "" },
   discussionLastRoomHeaderMessageId: { type: Number, default: null },
   discussionLastRoomRecentMessageId: { type: Number, default: null },
   discussionLastListMessageId: { type: Number, default: null },
