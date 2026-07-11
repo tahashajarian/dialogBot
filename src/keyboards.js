@@ -296,12 +296,6 @@ function aiSuggestionLimitKeyboard(lang, section) {
 }
 
 function aiPaidSuggestionConfirmKeyboard(lang, publicCode, cost, section) {
-  const sectionCallbacks = {
-    movies: callBacks.aiSuggestMovies,
-    music: callBacks.aiSuggestMusic,
-    books: callBacks.aiSuggestBooks,
-    random: callBacks.aiSuggestRandom,
-  };
   return inlineKeyboard([
     [{
       text: messages[lang].aiSuggestionPaidConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
@@ -310,10 +304,6 @@ function aiPaidSuggestionConfirmKeyboard(lang, publicCode, cost, section) {
     [{
       text: messages[lang].aiSuggestionPaidCancelButton,
       callback_data: `${callBacks.aiPaidSuggestionCancel}${section}`,
-    }],
-    [{
-      text: messages[lang].aiBack,
-      callback_data: sectionCallbacks[section] || callBacks.aiBack,
     }],
   ]);
 }
@@ -500,7 +490,7 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
 
   rows.push([
     {
-      text: listType === "watchlist" ? messages[lang].aiListBackToTopTen : messages[lang].aiBack,
+      text: listType === "watchlist" ? messages[lang].aiSuggestionGoToFavoritesButton : messages[lang].aiBack,
       callback_data: `${callBacks.aiListManageBack}${section}`,
     },
   ]);

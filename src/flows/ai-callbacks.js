@@ -448,6 +448,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
+    const managerState = `ai_manage_${section}_${toAiManageStateListType(listType)}`;
+    await updateUserState(ctx.userId, managerState);
+    if (ctx.user) ctx.user.state = managerState;
     const sectionLabel = listType === "topTen"
       ? getSectionLabelWithEmoji(messages, lang, section)
       : getSectionLabel(messages, lang, section);
@@ -958,7 +961,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
     const stateListType = String(ctx.user?.state || "").includes("_watchlist") ? "watchlist" : "topTen";
     if (stateListType === "watchlist") {
-      await helpers.deleteCallbackMessageIfPossible?.(ctx);
+      await deleteRememberedAiListMessage(ctx, section, "watchlist");
       return openAiListManager(ctx, lang, section, "topTen");
     }
 

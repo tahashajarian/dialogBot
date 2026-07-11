@@ -10,6 +10,7 @@
 - Media section entry should keep a small persistent section title card, such as `📚 Books`, above the active manager so users can see their path.
 - The TopTen/Favorites manager is the section home. Its actions are progressive: add a favorite, open the concrete save-for-later list, show suggestion only after three favorites, and Back.
 - The list/watchlist manager is secondary storage. Its Back action returns to the section TopTen, not to a separate section home.
+- Opening a For Later manager from a suggestion must enter the watchlist manager state. Its Favorites button retires the current manager card before opening Favorites.
 - Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should describe intent clearly: Movies `Watch later`, Music `Listen later`, and Books `Read later` (with natural Persian equivalents).
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
@@ -276,6 +277,7 @@ Labels should be inferred from both typed items and suggested chips.
 - Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`.
 - Failed/no-response suggestion calls should refund the quota slot.
 - When the free suggestion limit is reached, Muze may offer one extra suggestion for the configured Star cost. This must be explicit: show the free-limit state, wait time, cost, balance, and Confirm/Cancel buttons. Never charge automatically.
+- The paid-suggestion offer should have one combined Cancel-and-return-to-Favorites action, not separate Cancel and Back buttons.
 - Paid extra suggestions do not bypass the requirement for at least 3 TopTen items in that section.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.

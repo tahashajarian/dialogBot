@@ -49,8 +49,9 @@ test("paid suggestion confirm keyboard is explicit and section-scoped", () => {
 
   assert.equal(buttons[0].text, messages.en.aiSuggestionPaidConfirmButton.replace("{cost}", "1"));
   assert.equal(buttons[0].callback_data, `${callBacks.aiPaidSuggestionConfirm}ABC123`);
+  assert.equal(buttons[1].text, messages.en.aiSuggestionPaidCancelButton);
   assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
-  assert.equal(buttons[2].callback_data, callBacks.aiSuggestMusic);
+  assert.equal(buttons.length, 2);
 });
 
 test("suggestion limit offers paid confirmation when Stars spending is enabled", async () => {
@@ -582,7 +583,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
   const replies = [];
 
   const ctx = {
-    callbackData: `${callBacks.aiListManageMenu}movies:watchlist`,
+    callbackData: `${callBacks.aiListManageShow}movies:watchlist`,
     callbackMessageId: 60,
     userId: 82,
     user: {
@@ -626,6 +627,8 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.deepEqual(deletedIds, [60]);
   assert.match(managerReply.text, /Arrival/);
   assert.match(managerReply.text, /\/cm_mv_l_1/);
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.equal(buttons.at(-1).text, messages.en.aiSuggestionGoToFavoritesButton);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
@@ -1142,7 +1145,7 @@ test("AI share return button consumes guidance card before reopening list", asyn
     user: {
       userId: 84,
       lang: "en",
-      state: "ai_manage_movies_watchlist",
+      state: "ai_chat_movies",
       aiLists: {
         movies: {
           topTen: [],
@@ -1806,7 +1809,7 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
       .some((button) => button.text === messages.en.aiListManageAdd),
     false,
   );
-  assert.ok(labels.includes(messages.en.aiListBackToTopTen));
+  assert.ok(labels.includes(messages.en.aiSuggestionGoToFavoritesButton));
   assert.ok(
     aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 })
       .reply_markup.inline_keyboard.flat()
