@@ -85,6 +85,9 @@ this should update not say list or normal list should say watchlist if is movie 
 ✔ make sure users can't send command like messages and not command like name on anythings @done (7/5/2026, 1:44:29 PM)
 
 ✔     aiTasteAskNext_7: "سه جای خالی مونده؛ انتخاب بعدی چیه؟", @done (7/5/2026, 2:25 PM)
-this kind of message should come with bot emoji as well
+✔ this kind of message should come with bot emoji as well @done (7/11/2026, 3:57:08 AM)
 
-seeing people should be imporved, no need to see random people,
+✔ seeing people should be imporved, no need to see random people, @done (7/11/2026, 3:57:02 AM)
+
+
+✔ language of discussions should be set, a persian user shoudn't see english discussions @done (7/11/2026, 3:56:55 AM)
