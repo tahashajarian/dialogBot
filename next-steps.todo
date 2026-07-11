@@ -1,13 +1,9 @@
 # Muze Next Step
 
-☐ Run the manual production smoke test in the real bot chat.
+☐ Start a controlled private beta with 20–50 users.
 
-Use: `docs/production-smoke-test-checklist.md`
-
-Why: all local automated checks are green, but the real chat surface is the only place to catch noisy message order, stale cards, bad invite-link feel, and awkward bilingual copy before deploy.
-
-After it passes:
-- mark this item done
-- deploy/stage with the planned environment and rollout switches
+Watch onboarding completion, Top 10 activity, discussion joins/invites, D1/D7 return,
+errors, bot heartbeat, and Star ledger reconciliation. Keep optional Star spending
+switches conservative and fix observed friction before adding features.
 
 Later product ideas and "do not implement now" notes live in `plan.todo`.

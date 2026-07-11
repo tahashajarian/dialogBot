@@ -74,19 +74,19 @@ Smoke-test checklist:
 
 Use [Production Smoke-Test Checklist](production-smoke-test-checklist.md) for the full repeatable pass. The short launch gate is:
 
-- [ ] `/start`
-- [ ] language selection and onboarding
-- [ ] adding Top 10 items
-- [ ] taste label unlock
-- [ ] AI suggestions
-- [ ] profile display
-- [ ] saved profiles
-- [ ] people discovery and discovery-list/profile Back navigation
-- [ ] creating, joining, leaving, and closing discussions
-- [ ] discussion message relay
-- [ ] discussion invites and deep links
-- [ ] reports and automatic bans
-- [ ] avoid feature expansion in this phase
+- [x] `/start`
+- [x] language selection and onboarding
+- [x] adding Top 10 items
+- [x] taste label unlock
+- [x] AI suggestions
+- [x] profile display
+- [x] saved profiles
+- [x] people discovery and discovery-list/profile Back navigation
+- [x] creating, joining, leaving, and closing discussions
+- [x] discussion message relay
+- [x] discussion invites and deep links
+- [x] reports and automatic bans
+- [x] avoid feature expansion in this phase
 
 ## Phase 2: Analytics
 
@@ -94,7 +94,7 @@ Goal: know whether users actually move through the product.
 
 - [x] Add a simple read-only dashboard over the existing MongoDB product state.
 - [x] Add lightweight product event tracking for the first launch funnel.
-- [ ] Start with a simple Mongo collection. Avoid external analytics until the event
+- [x] Start with a simple Mongo collection. Avoid external analytics until the event
 shape is stable.
 
 Track at least:
@@ -258,8 +258,8 @@ When the Persian product proves retention, add language support intentionally:
 
 Recommended order:
 
-1. [ ] Add analytics/event tracking.
-2. [ ] Add Telegram deployment notes and launch checklist.
+1. [x] Add analytics/event tracking.
+2. [x] Add Telegram deployment notes and launch checklist.
 3. [ ] Add optional city field and city-aware discussion discovery.
 4. [ ] Implement the earn-only Stars foundation and invitation attribution.
 5. [ ] Run private beta, tune rewards, and fix friction.
