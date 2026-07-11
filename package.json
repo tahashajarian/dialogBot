@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --no-deprecation ./src/index.js",
     "dashboard": "node --no-deprecation ./scripts/analytics-dashboard.js",
+    "load:test": "node --no-deprecation ./scripts/load-test.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",
     "lint": "eslint .",
