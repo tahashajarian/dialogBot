@@ -179,7 +179,7 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.equal(rejectedButtons[1].callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
   assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later"), "✅ Saved to 📚 read later.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در 🎬 برای بعد دیدن ذخیره شد و دیده‌شده علامت خورد.");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در لیست 🎬 برای بعد دیدن ذخیره شد. (دیده‌شده)");
 });
 
 test("shareable list return buttons use consistent Back to list wording", () => {
