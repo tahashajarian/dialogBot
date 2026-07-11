@@ -273,7 +273,7 @@ function aiSuggestionNextKeyboard(lang, section) {
     ],
     [
       {
-        text: messages[lang].aiListBackToTopTen,
+        text: messages[lang].aiSuggestionGoToFavoritesButton,
         callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
@@ -378,7 +378,7 @@ function aiSuggestionAddedOptionsKeyboard(lang, section) {
     ],
     [
       {
-        text: messages[lang].aiListBackToTopTen,
+        text: messages[lang].aiSuggestionGoToFavoritesButton,
         callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],

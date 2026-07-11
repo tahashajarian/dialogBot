@@ -281,7 +281,9 @@ Labels should be inferred from both typed items and suggested chips.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button, or Back to return to the section TopTen manager.
+- Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
+- Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.
 
 ## Stars Milestones
 

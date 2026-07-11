@@ -377,13 +377,12 @@ function getWatchStatusCopy(lang, section) {
   };
 }
 
-function getSuggestionDoneCompliment(lang, section) {
-  return getSectionMessage(messages, lang, "aiSuggestionDoneCompliment", section);
-}
-
 function formatSuggestionAddedMessage(lang, section, markDone = false) {
-  const key = markDone ? "aiSuggestionAddedDone" : "aiSuggestionAdded";
-  return messages[lang][key].replace("{listName}", getSectionListLabel(messages, lang, section));
+  if (markDone) {
+    return getSectionMessage(messages, lang, "aiSuggestionAddedDone", section, "aiSuggestionAddedDone")
+      .replace("{listName}", getSectionListLabel(messages, lang, section));
+  }
+  return messages[lang].aiSuggestionAdded.replace("{listName}", getSectionListLabel(messages, lang, section));
 }
 
 function setCtxAiListItems(ctx, section, listType, items = []) {
@@ -1182,16 +1181,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
     const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
     await updateUserState(ctx.userId, `ai_chat_${section}`);
-    if (!markDone) {
-      return ctx.reply(
-        [formatSuggestionAddedMessage(lang, section, markDone), starNotice].filter(Boolean).join("\n\n"),
-        aiSuggestionAddedOptionsKeyboard(lang, section),
-      );
-    }
-
     return ctx.reply(
-      [getSuggestionDoneCompliment(lang, section), starNotice].filter(Boolean).join("\n\n"),
-      aiSuggestionNextKeyboard(lang, section),
+      [formatSuggestionAddedMessage(lang, section, markDone), starNotice].filter(Boolean).join("\n\n"),
+      aiSuggestionAddedOptionsKeyboard(lang, section),
     );
   }
 
