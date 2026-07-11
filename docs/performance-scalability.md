@@ -4,6 +4,10 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 
 ## Low-Risk Changes Made
 
+- Update processing now logs privacy-safe stage timings for appearance refresh, referral lookup, user lookup, and handler work when an update exceeds the slow-update threshold. Error logs include timings completed before failure.
+- Existing bot heartbeats now include event-loop lag and process memory measurements, making host saturation and memory growth distinguishable from network latency.
+- Own-profile navigation uses fewer Telegram API calls: text profile Back navigation edits the card into the main menu, while photo profiles preserve delete-then-send behavior required by Telegram.
+- Opening an own profile with a custom photo sends the photo directly instead of creating and deleting a temporary loading message. This removes two sequential Telegram API calls without changing profile content or controls.
 - People discovery now records privacy-safe analytics for `browse` and `taste` modes with result count and coarse failure reason.
 - AI response cache now records privacy-safe analytics for exact, fuzzy, semantic, disabled, failed-new-call, and new-call outcomes without storing prompt text, item text, or response text.
 - Discussion boost recipient selection now batches mute and delivery-history checks across the candidate set instead of doing per-candidate delivery and mute database calls.
@@ -22,6 +26,8 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 
 ## Remaining Performance Risks
 
+- Telegram API latency depends on the deployment network path. Production testing from an Iran-hosted server using `TELEGRAM_PROXY_URL` showed intermittent per-call latency around 0.8-2.7 seconds, while Mongo user lookup remained around 4-15 ms. Moving to a host with direct Telegram access is expected to provide a larger improvement than further request-path micro-optimizations.
+- Photo-card navigation still requires separate delete and send operations when moving to a text-only destination because Telegram cannot convert a photo message into a text message.
 - Free People browse still scans a bounded public-profile candidate window and ranks in process. This is acceptable for small/private-beta usage, but the result quality and latency depend on scan order once the public user base grows.
 - If `user_taste_indexes` is empty or unavailable, similar-people discovery falls back to the bounded legacy scan. For the launch workflow, new list mutations repopulate the index as users test the bot.
 - Boost recipient selection still validates join rules in process for candidates that survive taste/mute/delivery filters. That is currently safer than duplicating rule logic in Mongo, but it remains CPU-bound for large candidate batches.

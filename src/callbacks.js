@@ -479,7 +479,7 @@ async function handleCallback(ctx) {
     if (shouldClearKeyboard) {
       await removeBottomKeyboard(ctx, messages[lang].profile);
     }
-    return sendOwnProfile(ctx, lang, ctx.user || {}, { loading: true });
+    return sendOwnProfile(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.aiAssistant) {
@@ -869,6 +869,8 @@ async function handleCallback(ctx) {
   if (isProfileSettingsOrEditCallback(data)) {
     return handleProfileSettingsOrEditCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
+      editCallbackMessageOrReply,
+      isProfileCallbackMessage,
       leaveDiscussionAndClearKeyboardForNavigation,
       removeBottomKeyboard,
       renderActiveDiscussionList,

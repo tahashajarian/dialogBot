@@ -9,6 +9,86 @@ const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 
+test("profile Back edits a text profile into the main menu", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const edits = [];
+  const deletedIds = [];
+  const replies = [];
+  User.findOneAndUpdate = async () => ({ userId: 999, state: "idle" });
+
+  const ctx = {
+    callbackData: callBacks.profileBack,
+    callbackMessageId: 123,
+    callbackMessage: { text: "Profile" },
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle" },
+    answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 1 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 123);
+  assert.equal(edits[0].text, messages.en.mainMenu);
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, []);
+});
+
+test("profile Back deletes a photo profile before sending the main menu", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const edits = [];
+  const deletedIds = [];
+  const replies = [];
+  User.findOneAndUpdate = async () => ({ userId: 999, state: "idle" });
+
+  const ctx = {
+    callbackData: callBacks.profileBack,
+    callbackMessageId: 124,
+    callbackMessage: { photo: [{ file_id: "photo" }], caption: "Profile" },
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle" },
+    answerCb: async () => true,
+    editMessageText: async (...args) => {
+      edits.push(args);
+      return true;
+    },
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 1 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(edits, []);
+  assert.deepEqual(deletedIds, [124]);
+  assert.deepEqual(replies, [messages.en.mainMenu]);
+});
+
 test("profile callback deletes current menu message before rendering profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
@@ -52,6 +132,48 @@ test("profile callback deletes current menu message before rendering profile", a
   assert.equal(deletedIds[0], 123);
   assert.ok(replies.length >= 1);
   assert.equal(updates[0].update.profileLastMessageId, 1);
+});
+
+test("opening a custom-photo profile sends the photo without a temporary loading message", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const photos = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+
+  const ctx = {
+    callbackData: callBacks.profile,
+    callbackMessageId: 125,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      firstName: "Ali",
+      profileName: "Ali",
+      photoFileId: "profile-photo",
+      state: "idle",
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 1 };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      photos.push({ photo, extra });
+      return { message_id: 2 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(replies, []);
+  assert.equal(photos.length, 1);
+  assert.equal(photos[0].photo, "profile-photo");
+  assert.match(photos[0].extra.caption, /Your profile:/);
 });
 
 test("help rules callback opens the rules card", async () => {

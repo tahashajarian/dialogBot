@@ -219,6 +219,8 @@ async function handleProfileEditCompletion(ctx, lang, updatedUser) {
 
 async function handleProfileSettingsOrEditCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
+  editCallbackMessageOrReply,
+  isProfileCallbackMessage = () => false,
   leaveDiscussionAndClearKeyboardForNavigation,
   removeBottomKeyboard,
   renderActiveDiscussionList,
@@ -631,6 +633,13 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
     await updateUserState(ctx.userId, "idle");
+    if (!isProfileCallbackMessage(ctx) && editCallbackMessageOrReply) {
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].mainMenu,
+        mainMenuKeyboard(lang),
+      );
+    }
     await deleteCallbackMessageIfPossible?.(ctx);
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }

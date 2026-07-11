@@ -64,6 +64,7 @@ function buildUpdateErrorLogDetails({
   ctx,
   user,
   durationMs,
+  stages,
   error,
 } = {}) {
   const callbackData = (
@@ -78,6 +79,7 @@ function buildUpdateErrorLogDetails({
     updateType: resolveUpdateType(ctx),
     userState: user?.state,
     durationMs,
+    ...(stages && typeof stages === "object" ? { stages } : {}),
     error: serializeUpdateError(error),
   };
 

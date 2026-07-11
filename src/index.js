@@ -17,6 +17,7 @@ const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
 const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
+const { createRuntimeMetricsMonitor, createStageTimings } = require("./services/performance-metrics");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -102,6 +103,7 @@ bot.catch((err) => {
 
 async function processUpdate(ctx) {
   const startedAt = Date.now();
+  const stageTimings = createStageTimings();
   const apiMetrics = {
     count: 0,
     totalMs: 0,
@@ -112,7 +114,7 @@ async function processUpdate(ctx) {
   let user = null;
   try {
     try {
-      await refreshBotAppearance();
+      await stageTimings.measure("appearanceRefreshMs", () => refreshBotAppearance());
     } catch (appearanceError) {
       logger.warn("Failed to refresh bot appearance settings; using cached/default values", appearanceError);
     }
@@ -130,9 +132,9 @@ async function processUpdate(ctx) {
     const rawText = String(ctx.message?.text || "").trim();
     const isReferralStart = /^\/start(?:@\w+)?(?:\s+|[?=])ref_[a-f0-9]{12}$/i.test(rawText);
     const existedBeforeReferralStart = isReferralStart && normalizedSource
-      ? Boolean(await User.exists({ userId: normalizedSource.id }))
+      ? Boolean(await stageTimings.measure("referralLookupMs", () => User.exists({ userId: normalizedSource.id })))
       : true;
-    user = await getOrCreateUser(from);
+    user = await stageTimings.measure("userLookupMs", () => getOrCreateUser(from));
     if (user?.bannedAt) {
       const lang = messages[user.lang] ? user.lang : "fa";
       const text = formatBotText(messages[lang].userBannedAccessDenied);
@@ -163,7 +165,7 @@ async function processUpdate(ctx) {
     }
 
     try {
-      const result = await handleUpdate(appCtx);
+      const result = await stageTimings.measure("handlerMs", () => handleUpdate(appCtx));
       const durationMs = Date.now() - startedAt;
       if (durationMs >= SLOW_UPDATE_MS) {
         logger.warn("Slow update processed", {
@@ -176,6 +178,7 @@ async function processUpdate(ctx) {
           telegramApiTotalMs: apiMetrics.totalMs,
           telegramApiMaxMs: apiMetrics.maxMs,
           telegramApiSlowestMethod: apiMetrics.slowestMethod,
+          stages: stageTimings.snapshot(),
         });
       }
       return result;
@@ -187,6 +190,7 @@ async function processUpdate(ctx) {
       ctx,
       user,
       durationMs: Date.now() - startedAt,
+      stages: stageTimings.snapshot(),
       error,
     }));
     throw error;
@@ -199,6 +203,8 @@ bot.on("callback_query", processUpdate);
 let pollingStarted = false;
 let shuttingDown = false;
 let heartbeatTimer = null;
+const HEARTBEAT_INTERVAL_MS = 60 * 1000;
+const runtimeMetrics = createRuntimeMetricsMonitor({ intervalMs: HEARTBEAT_INTERVAL_MS });
 
 async function shutdown(reason, exitCode = 0) {
   if (shuttingDown) return;
@@ -308,10 +314,11 @@ async function retry(fn, {
 
     const pollingLoop = bot.startPolling();
     pollingStarted = true;
-    void recordBotHeartbeat({ botId: botInfo?.id });
+    void recordBotHeartbeat({ botId: botInfo?.id, ...runtimeMetrics.snapshot() });
     heartbeatTimer = setInterval(() => {
-      void recordBotHeartbeat({ botId: botInfo?.id });
-    }, 60 * 1000);
+      runtimeMetrics.sample(HEARTBEAT_INTERVAL_MS);
+      void recordBotHeartbeat({ botId: botInfo?.id, ...runtimeMetrics.snapshot() });
+    }, HEARTBEAT_INTERVAL_MS);
     heartbeatTimer.unref?.();
     logger.info("Bot started in polling mode");
 
