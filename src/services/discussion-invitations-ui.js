@@ -67,7 +67,7 @@ function buildInvitationJoinRuleText(rule, state = {}) {
 function buildInvitationEntryText(messages, lang, entry, index, { accepted = false } = {}) {
   const { invitation, discussion, inviter, state } = entry;
   const code = commandCode(invitation.publicInvitationCode);
-  const isBotInvite = invitation?.source === "bot_onboarding";
+  const isBotInvite = invitation?.source === "bot_onboarding" && discussion?.isBotCreated;
   const inviterCode = !isBotInvite && inviter?.publicProfileCode ? commandCode(inviter.publicProfileCode, /^u_/i) : "";
   const statusEmoji = accepted ? "✅" : invitation.seenAt ? "📨" : "🆕";
   const title = discussion

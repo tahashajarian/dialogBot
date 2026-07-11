@@ -2,7 +2,7 @@ const {
   ensurePublicDiscussionCodes,
   validateJoinRules,
 } = require("./discussions");
-const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const { getSectionEmoji, getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
@@ -75,8 +75,9 @@ function getJoinRulePreviewText(messages, lang, joinRule = {}) {
     return `${base} - ${badgeEmoji} ${badgeTitle}`;
   }
   if (joinRule.type === "top_ten_item") {
+    const sectionWithEmoji = `${getSectionEmoji(joinRule.section)} ${sectionLabel}`.trim();
     return messages[lang].discussionRuleTextItem
-      .replace("{section}", sectionLabel)
+      .replace("{section}", sectionWithEmoji)
       .replace("{item}", getLocalizedJoinRuleItemTitle(lang, joinRule));
   }
   return messages[lang].discussionRuleTextOpen;
@@ -271,11 +272,9 @@ function getStarterDiscussionHint(messages, lang, discussion = {}) {
   }
   const joinRule = discussion.joinRule || {};
   if (joinRule.type !== "top_ten_item") return "";
+  if (discussion.isJoinable) return "";
   const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
-  const key = discussion.isJoinable
-    ? "discussionStarterHintUnlocked"
-    : "discussionStarterHintLocked";
-  return messages[lang][key].replace("{item}", item);
+  return messages[lang].discussionStarterHintLocked.replace("{item}", item);
 }
 
 function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
@@ -311,15 +310,23 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
         : "";
     const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
     const actionsBlock = actions ? `\n\n${actions}` : "";
+    const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
+    const roomTitle = getDiscussionDisplayTitle(messages, lang, entry);
+    const titleLine = lang === "fa"
+      ? `${roomNumber} 💬 ${isolateText(lang, roomTitle)}`
+      : `${roomNumber} 💬 ${roomTitle}`;
+    const memberCountLine = `👥 ${count}/${entry.maxMembers || 20}`;
+    const joinRuleLine = isolateText(lang, ruleWithStatus);
+    const languageDiffers = entry.language && entry.language !== lang;
     return [
-      lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
-      mixedValueLine(lang, "💬", getDiscussionDisplayTitle(messages, lang, entry)),
+      lineForLang(lang, titleLine),
       entry.isBoosted ? lineForLang(lang, messages[lang].discussionBoostedLabel) : "",
       mixedValueLine(lang, "📄", description),
-      lineForLang(lang, `👥 ${count}/${entry.maxMembers || 20}`),
-      lineForLang(lang, `${entry.language === "en" ? "🇬🇧" : "🇮🇷"} ${entry.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`),
-      lineForLang(lang, `${messages[lang].discussionJoinConditionTitle}`),
-      lineForLang(lang, `${isolateText(lang, ruleWithStatus)}`),
+      lineForLang(lang, memberCountLine),
+      lineForLang(lang, joinRuleLine),
+      languageDiffers
+        ? lineForLang(lang, `${entry.language === "en" ? "🇬🇧" : "🇮🇷"} ${entry.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`)
+        : "",
       starterHint ? lineForLang(lang, starterHint) : "",
     ].filter(Boolean).join("\n") + actionsBlock;
   });

@@ -276,6 +276,18 @@ test("onboarding completion leads with active discussions", () => {
   assert.equal(buttons[1].text, messages.en.onboardingFavoritesButton);
 });
 
+test("onboarding completion shows invitation copy and action only when one exists", () => {
+  const plainText = buildOnboardingCompleteText("en");
+  const invitedText = buildOnboardingCompleteText("en", { hasInvitation: true });
+  const plainButtons = onboardingCompleteKeyboard("en").reply_markup.inline_keyboard.flat();
+  const invitedButtons = onboardingCompleteKeyboard("en", { hasInvitation: true }).reply_markup.inline_keyboard.flat();
+
+  assert.doesNotMatch(plainText, /prepared an invitation/);
+  assert.match(invitedText, /prepared an invitation/);
+  assert.equal(plainButtons.some((button) => button.callback_data === callBacks.discussionInvitations), false);
+  assert.equal(invitedButtons[0].callback_data, callBacks.discussionInvitations);
+});
+
 test("help is available from the main menu and onboarding completion", () => {
   const mainCallbacks = mainMenuKeyboard("fa").reply_markup.inline_keyboard
     .flat()

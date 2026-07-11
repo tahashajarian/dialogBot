@@ -13,9 +13,17 @@ const {
   getStartReferralCode,
   handleUpdate,
   isUnsupportedDiscussionMessage,
+  normalizeIncomingText,
   replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
 } = require("../src/bot");
+
+test("incoming RTL direction marks do not break invitation commands", () => {
+  assert.equal(
+    normalizeIncomingText("\u200F\u2068/accept_inv_DAG6LZC\u2069"),
+    "/accept_inv_DAG6LZC",
+  );
+});
 
 test("start referral parser accepts opaque referral payloads only", () => {
   assert.equal(getStartReferralCode("/start ref_A1B2C3D4E5F6"), "A1B2C3D4E5F6");

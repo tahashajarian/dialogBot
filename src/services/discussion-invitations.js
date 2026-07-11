@@ -224,7 +224,7 @@ async function createDiscussionInvitation({
   return { ok: true, invitation, discussion, invitee };
 }
 
-async function createBotOnboardingInvitation({ user, discussion, now }) {
+async function createOnboardingInvitation({ user, discussion, now }) {
   const inviteeUserId = Number(user?.userId);
   if (!discussion || (discussion.memberUserIds || []).includes(inviteeUserId)) return false;
   if ((discussion.removedUserIds || []).includes(inviteeUserId)) return false;
@@ -234,7 +234,7 @@ async function createBotOnboardingInvitation({ user, discussion, now }) {
     discussionId: discussion._id,
     status: "pending",
   });
-  if (existing) return existing.source === "bot_onboarding";
+  if (existing) return ["bot_onboarding", "onboarding_match"].includes(existing.source);
 
   const discussionCode = await ensurePublicDiscussionCode(discussion);
   if (!discussionCode.ok) return false;
@@ -246,7 +246,7 @@ async function createBotOnboardingInvitation({ user, discussion, now }) {
     inviteeUserId,
     inviteePublicProfileCode: user.publicProfileCode || "",
     status: "pending",
-    source: "bot_onboarding",
+    source: discussion.isBotCreated ? "bot_onboarding" : "onboarding_match",
     createdAt: now,
   });
 
@@ -270,21 +270,33 @@ async function createOnboardingStarterInvitationsForUser(userId, { now = new Dat
   if (user.onboardingStarterInvitationsAt) {
     const existingCount = await DiscussionInvitation.countDocuments({
       inviteeUserId,
-      source: "bot_onboarding",
+      source: { $in: ["bot_onboarding", "onboarding_match"] },
       status: "pending",
     });
     return { ok: true, count: existingCount, skipped: true };
   }
 
-  const freeDiscussion = await Discussion.findOne({
-    isBotCreated: true,
-    botSeedKey: `free-discussion:${require("./discussion-language").getEffectiveDiscussionLanguageFilter(user) === "en" ? "en" : "fa"}`,
+  const language = require("./discussion-language").getEffectiveDiscussionLanguageFilter(user) === "en" ? "en" : "fa";
+  const discussions = await Discussion.find({
+    language,
     status: "open",
-  });
-  const starters = [];
-  if (freeDiscussion) {
-    starters.push(freeDiscussion);
+  }).sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 });
+  const matching = [];
+  let freeDiscussion = null;
+  for (const discussion of discussions) {
+    const members = discussion.memberUserIds || [];
+    const removed = discussion.removedUserIds || [];
+    if (members.includes(inviteeUserId) || removed.includes(inviteeUserId)) continue;
+    if (members.length >= normalizeMaxMembers(discussion.maxMembers)) continue;
+    if (discussion.isBotCreated && String(discussion.botSeedKey || "").startsWith("free-discussion:")) {
+      freeDiscussion = discussion;
+      continue;
+    }
+    if (discussion.joinRule?.type !== "top_ten_item") continue;
+    const joinCheck = await validateJoinRules({ user, joinRule: discussion.joinRule });
+    if (joinCheck.ok) matching.push(discussion);
   }
+  const starters = matching.length ? [matching[0]] : (freeDiscussion ? [freeDiscussion] : []);
 
   let count = 0;
   const seenDiscussionIds = new Set();
@@ -292,7 +304,7 @@ async function createOnboardingStarterInvitationsForUser(userId, { now = new Dat
     const discussionId = String(discussion?._id || "");
     if (!discussionId || seenDiscussionIds.has(discussionId)) continue;
     seenDiscussionIds.add(discussionId);
-    if (await createBotOnboardingInvitation({ user, discussion, now })) count += 1;
+    if (await createOnboardingInvitation({ user, discussion, now })) count += 1;
   }
 
   if (count > 0) {

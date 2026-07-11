@@ -20,7 +20,7 @@ async function awardSavedInvitePair({
   invitationId,
   source,
 } = {}) {
-  if (source === "bot_onboarding") return { ok: false, reason: "excluded_source" };
+  if (["bot_onboarding", "onboarding_match"].includes(source)) return { ok: false, reason: "excluded_source" };
   if (Number(inviterUserId) === Number(inviteeUserId)) return { ok: false, reason: "self_invite" };
   const amount = Number(starEconomy.rewardSavedInvitePair) || 0;
   if (amount <= 0) return { ok: false, reason: "reward_disabled" };

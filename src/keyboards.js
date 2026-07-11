@@ -712,8 +712,12 @@ function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
   return inlineKeyboard(rows);
 }
 
-function onboardingCompleteKeyboard(lang) {
+function onboardingCompleteKeyboard(lang, { hasInvitation = false } = {}) {
   return inlineKeyboard([
+    ...(hasInvitation ? [[{
+      text: messages[lang].onboardingInvitationButton,
+      callback_data: callBacks.discussionInvitations,
+    }]] : []),
     [{
       text: messages[lang].discussionActiveList,
       callback_data: callBacks.discussionListActive,
@@ -1157,6 +1161,7 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
 }
 
 module.exports = {
+  ONBOARDING_CHIPS_PER_PAGE,
   inlineKeyboard,
   mainMenuKeyboard,
   helpKeyboard,

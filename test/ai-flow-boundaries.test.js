@@ -1057,6 +1057,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   const labels = buttons.map((button) => button.text);
 
   assert.match(managerReply.text, /هنوز خالیه/);
+  assert.match(managerReply.text, /بعداً سراغشون بری/);
   assert.match(managerReply.text, /اولین مورد/);
   assert.equal(labels.includes(messages.fa.aiListManageAddLaterMusic), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);

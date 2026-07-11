@@ -76,7 +76,7 @@ test("discussion preview includes selected top ten item", () => {
     discussionDraftMaxMembers: 5,
   };
   const preview = buildDiscussionPreviewText(messages, "en", user);
-  assert.match(preview, /🔑 Books - Dune/);
+  assert.match(preview, /🔑 📚 Books - Dune/);
   assert.match(preview, /Capacity: 5/);
 });
 
@@ -91,10 +91,10 @@ test("discussion list text includes title, description, count, and rule", () => 
     joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" },
   }]);
 
-  assert.match(text, /1\.\n💬 Metal room/);
+  assert.match(text, /1\. 💬 Metal room/);
+  assert.match(text, /👥 2\/20\n🏷 Music - 🤘 Metalhead 🔒/);
   assert.match(text, /📄 Heavy riffs only/);
-  assert.match(text, /👥 2\/20/);
-  assert.match(text, /🔐 Join condition:/);
+  assert.doesNotMatch(text, /🔐 Join condition:/);
   assert.match(text, /🏷 Music -[\s\S]*🔒/);
   assert.match(text, /Join 👈 \/d_AB12/);
 });
@@ -167,6 +167,7 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
     publicDiscussionCode: "d_BOT1",
     isBotCreated: true,
     botSeedKey: "free-discussion",
+    isJoinable: true,
     memberUserIds: [],
     joinRule: { type: "open" },
   };
@@ -176,6 +177,7 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
   const persianPreviewText = buildDiscussionInvitePreviewText(messages, "fa", discussion);
 
   assert.match(listText, /💬 👩‍🦳 Free Discussion/);
+  assert.match(listText, /👥 0\/20\n🌍 Everyone ✅/);
   assert.match(listText, /A simple place to start chatting/);
   assert.match(previewText, /💬 👩‍🦳 Free Discussion/);
   assert.match(persianListText, /💬 .*👩‍🦳 گفتگوی آزاد/);
@@ -252,7 +254,7 @@ test("starter discussion list makes the first social step obvious", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", discussions);
 
   assert.match(text, /✨ Start here: open to everyone\./);
-  assert.match(text, /✨ Unlocked by your Interests: 🎮 Gaming\./);
+  assert.doesNotMatch(text, /Unlocked by your Interests/);
   assert.match(text, /💡 Add 🎬 Movies to your profile interests to unlock this room\./);
 });
 
@@ -319,8 +321,8 @@ test("discussion list text keeps numbering across pages", () => {
     },
   ], { startIndex: 5 });
 
-  assert.match(text, /6\.\n💬 Page two item one/);
-  assert.match(text, /7\.\n💬 Page two item two/);
+  assert.match(text, /6\. 💬 Page two item one/);
+  assert.match(text, /7\. 💬 Page two item two/);
 });
 
 test("discussion list text uses Persian digits for fa numbering", () => {

@@ -254,8 +254,12 @@ async function rememberStartInvite(ctx, inviteCode, now = new Date()) {
   });
 }
 
+function normalizeIncomingText(value = "") {
+  return String(value || "").replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "").trim();
+}
+
 async function handleUpdate(ctx) {
-  const text = (ctx.text || "").trim();
+  const text = normalizeIncomingText(ctx.text);
   const lang = detectLanguage(ctx);
   const userLang = ctx.user?.lang;
   const keyboardLang = userLang || lang;
@@ -718,6 +722,7 @@ module.exports = {
   getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
+  normalizeIncomingText,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   isUnsupportedDiscussionMessage,
