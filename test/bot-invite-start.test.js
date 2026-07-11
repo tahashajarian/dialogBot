@@ -8,6 +8,7 @@ const User = require("../src/models/user");
 const {
   formatDiscussionOutboundMessage,
   getReplyMessageId,
+  getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
   handleUpdate,
@@ -121,6 +122,14 @@ test("repeated same start invite payload still opens invite preview", async () =
   assert.equal(replies.length, 1);
   assert.match(replies.at(-1).text, /Invite preview/);
   assert.match(replies.at(-1).text, /Movie Chat/);
+});
+
+test("navigation command parser accepts advertised commands and bot mentions", () => {
+  for (const command of ["menu", "profile", "lang", "taste", "discussions", "people", "help"]) {
+    assert.equal(getNavigationCommand(`/${command}`), command);
+    assert.equal(getNavigationCommand(`/${command}@MuzeBot`), command);
+  }
+  assert.equal(getNavigationCommand("/unknown"), "");
 });
 
 test("start invite preview offers switch action when active elsewhere", async () => {
@@ -435,11 +444,11 @@ test("unsupported discussion notice falls back when native reply fails", async (
   ]);
 });
 
-test("active discussions reject non-start global slash commands before navigation", async () => {
+test("active discussions reject unknown global slash commands before navigation", async () => {
   const replies = [];
   const ctx = {
-    text: "/lang",
-    message: { message_id: 77, text: "/lang" },
+    text: "/unknown",
+    message: { message_id: 77, text: "/unknown" },
     userId: 1,
     user: {
       userId: 1,
@@ -519,8 +528,8 @@ test("start command still recovers from active discussion state", async () => {
   assert.deepEqual(deletes, []);
 });
 
-test("legacy global commands show main menu outside discussions", async () => {
-  for (const command of ["/lang", "/menu", "/profile", "/resetphoto"]) {
+test("unknown legacy global commands show main menu outside discussions", async () => {
+  for (const command of ["/resetphoto"]) {
     const replies = [];
     const ctx = {
       text: command,

@@ -22,6 +22,14 @@
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
 - Entering a section/list should show the relevant section/list title immediately, not only after returning from submenus.
 
+## Global Command Navigation
+
+- Keep Telegram's native command menu focused on `/start`, `/menu`, `/profile`, `/taste`, `/discussions`, `/people`, and `/help`. `/lang` remains supported as an optional shortcut.
+- Global navigation commands must work from normal menus, temporary input flows, and active discussions, including Telegram's `/command@BotName` form.
+- Before opening the command destination, clear tracked temporary cards, list/profile cards, pending input prompts, and temporary reply keyboards so old controls do not remain actionable.
+- Global navigation currently follows the same product behavior as main-menu navigation: using it while active in a discussion leaves that discussion and clears the room keyboard.
+- Unknown slash commands inside an active discussion must not be delivered as room messages.
+
 ## Input Collection
 
 - When collecting typed input, provide one inline cancel button. Prefer hiding temporary bottom keyboards, but do not leave two visible prompt messages if the platform cannot combine keyboard removal and inline buttons reliably.

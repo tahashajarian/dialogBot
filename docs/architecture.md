@@ -17,6 +17,7 @@
 Keep the router files thin:
 
 - `src/bot.js` dispatches text messages.
+- `src/bot.js` also owns global Telegram command routing and the shared cleanup performed before command navigation.
 - `src/callbacks.js` dispatches callback queries.
 - `src/flows/ai-text.js` owns AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.

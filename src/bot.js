@@ -6,6 +6,8 @@ const {
   onboardingLanguageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
+  helpKeyboard,
+  languageKeyboard,
   profileKeyboard,
   cancelEditKeyboard,
   profileActiveDiscussionHelpKeyboard,
@@ -100,10 +102,12 @@ const {
   clearSavedProfilesListMessage,
   clearSavedProfileSurfaceMessages,
   clearViewedPublicProfileMessage,
+  clearPeopleListMessage,
   renderSavedProfileDiscussions,
   saveProfileCommand,
   sendPublicProfileByCode,
   unsaveProfileCommand,
+  sendPeopleHub,
 } = require("./flows/saved-profiles");
 const {
   handleOnboardingText,
@@ -203,6 +207,30 @@ function shouldRejectDiscussionSlashCommand(ctx, state = "", text = "") {
   );
 }
 
+function getNavigationCommand(text = "") {
+  const match = String(text || "").trim().match(/^\/(menu|profile|lang|taste|discussions|people|help)(?:@\w+)?$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+async function prepareForCommandNavigation(ctx, state) {
+  const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx, state);
+  await clearViewedPublicProfileMessage(ctx);
+  await clearSavedProfilesListMessage(ctx);
+  await clearPeopleListMessage(ctx);
+  await clearOwnProfileMessage(ctx);
+  await clearAiPendingInputPrompt(ctx);
+  await clearRememberedAiListMessage(ctx);
+  await clearAiSectionEntryMessage(ctx);
+  await clearProfileEditPrompt(ctx);
+  await clearDiscussionMembersMessage(ctx);
+  await clearDiscussionListMessage(ctx);
+  await clearDiscussionMenuNotice(ctx);
+  await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+  await updateUserState(ctx.userId, "idle");
+  if (ctx.user) ctx.user.state = "idle";
+  return shouldClearKeyboard;
+}
+
 function addHandledStartInviteCode(user, inviteCode) {
   const existing = Array.isArray(user?.handledStartInviteCodes)
     ? user.handledStartInviteCodes.map((code) => String(code || "")).filter(Boolean)
@@ -260,6 +288,40 @@ async function handleUpdate(ctx) {
     } else if (!referral.ok) {
       await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
     }
+  }
+
+  const navigationCommand = getNavigationCommand(text);
+  if (navigationCommand) {
+    const shouldClearKeyboard = await prepareForCommandNavigation(ctx, state);
+    const replyWithNavigationKeyboard = (messageText, keyboard) => shouldClearKeyboard
+      ? replyWithRemovedKeyboardThenInline(ctx, messageText, keyboard)
+      : ctx.reply(messageText, keyboard);
+
+    if (navigationCommand === "menu") {
+      return replyWithNavigationKeyboard(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
+    }
+    if (navigationCommand === "profile") {
+      if (shouldClearKeyboard) {
+        await removeBottomKeyboard(ctx);
+      }
+      return sendProfile(ctx, toPlainUser(ctx.user), lang, keyboardLang, { loading: true });
+    }
+    if (navigationCommand === "lang") {
+      return replyWithNavigationKeyboard(messages[keyboardLang].chooseLanguage, languageKeyboard());
+    }
+    if (navigationCommand === "taste") {
+      return replyWithNavigationKeyboard(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+    }
+    if (navigationCommand === "discussions") {
+      return replyWithNavigationKeyboard(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+    if (navigationCommand === "people") {
+      if (shouldClearKeyboard) {
+        await removeBottomKeyboard(ctx);
+      }
+      return sendPeopleHub(ctx, lang);
+    }
+    return replyWithNavigationKeyboard(messages[lang].helpText, helpKeyboard(lang));
   }
 
   if (shouldRejectDiscussionSlashCommand(ctx, state, text)) {
@@ -653,6 +715,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
 
 module.exports = {
   handleUpdate,
+  getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
   formatDiscussionOutboundMessage,
