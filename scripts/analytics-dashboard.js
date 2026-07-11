@@ -136,8 +136,8 @@ function sectionKey(title) {
     .replace(/^-+|-+$/g, "");
 }
 
-function collapsibleSection(title, body, { open = false, note = "" } = {}) {
-  return `<details class="section" data-section="${escapeHtml(sectionKey(title))}" ${open ? "open" : ""}>
+function collapsibleSection(title, body, { open = false, note = "", view = "insights" } = {}) {
+  return `<details class="section" data-section="${escapeHtml(sectionKey(title))}" data-view="${escapeHtml(view)}" ${open ? "open" : ""}>
     <summary>
       <span>${escapeHtml(title)}</span>
       ${note ? `<small>${escapeHtml(note)}</small>` : ""}
@@ -154,8 +154,8 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
   }
   return `${saved ? `<div class="notice success">Limits saved. Restart the bot to activate them.</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form">
-    ${Object.entries(groups).map(([group, fields]) => `<fieldset>
-      <legend>${escapeHtml(group)}</legend>
+    ${Object.entries(groups).map(([group, fields], index) => `<details class="setting-group" ${index === 0 ? "open" : ""}>
+      <summary><span>${escapeHtml(group)}</span><small>${formatNumber(fields.length)} settings</small></summary>
       <div class="limit-grid">${fields.map((field) => `<label class="setting-field">
         <span class="setting-label">${escapeHtml(field.label)}</span>
         ${field.description ? `<small>${escapeHtml(field.description)}</small>` : ""}
@@ -163,7 +163,7 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
           min="${field.min}" max="${field.max}" step="1" required />
         <small class="setting-range">Range ${formatNumber(field.min)}-${formatNumber(field.max)}</small>
       </label>`).join("")}</div>
-    </fieldset>`).join("")}
+    </details>`).join("")}
     <div class="form-actions"><button type="submit">Save limits</button><span class="muted">Restart the bot to activate saved changes.</span></div>
     <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
   </form>`;
@@ -181,8 +181,8 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
   }
   return `${saved ? `<div class="notice success">Star economy settings saved.${activationRequiresRestart ? " Restart the bot to activate them." : ""}</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form star-settings-form">
-    ${Object.entries(groups).map(([group, fields]) => `<fieldset>
-      <legend>${escapeHtml(group)}</legend>
+    ${Object.entries(groups).map(([group, fields], index) => `<details class="setting-group" ${index === 0 ? "open" : ""}>
+      <summary><span>${escapeHtml(group)}</span><small>${formatNumber(fields.length)} settings</small></summary>
       <div class="limit-grid">${fields.map((field) => {
     if (field.type === "boolean") {
       return `<label class="setting-field">
@@ -200,7 +200,7 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
       <small class="setting-range">Range ${formatNumber(field.min)}-${formatNumber(field.max)}</small>
     </label>`;
   }).join("")}</div>
-    </fieldset>`).join("")}
+    </details>`).join("")}
     <div class="form-actions"><button type="submit">Save Star settings</button><span class="muted">Restart the bot to activate saved changes.</span></div>
     <div class="muted limit-updated">${updatedAt ? `Last changed ${escapeHtml(new Date(updatedAt).toLocaleString())}` : "Using defaults; no admin changes saved yet."}</div>
   </form>`;
@@ -250,7 +250,8 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       --accent: #16836b;
       --ok: #16836b;
       --bad: #b42318;
-      --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+      --accent-soft: #e8f5f1;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -261,6 +262,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
         --line: #2a3542;
         --soft-line: #222b35;
         --accent: #3fc49f;
+        --accent-soft: #17372f;
         --shadow: none;
       }
     }
@@ -268,23 +270,23 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     body {
       margin: 0;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
+      background: radial-gradient(circle at top left, var(--accent-soft), transparent 34rem), var(--bg);
       color: var(--text);
       line-height: 1.5;
     }
     main {
       width: min(1180px, calc(100vw - 32px));
       margin: 0 auto;
-      padding: 28px 0 48px;
+      padding: 24px 0 48px;
     }
     header {
       display: flex;
       justify-content: space-between;
       gap: 16px;
-      align-items: end;
-      margin-bottom: 24px;
+      align-items: center;
+      margin-bottom: 18px;
     }
-    h1 { margin: 0; font-size: 28px; }
+    h1 { margin: 0; font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.04em; }
     h2 { margin: 28px 0 12px; font-size: 18px; }
     .muted { color: var(--muted); }
     .stack {
@@ -301,7 +303,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     .card {
       background: var(--panel);
       border: 1px solid var(--soft-line);
-      border-radius: 8px;
+      border-radius: 14px;
       padding: 14px 16px;
       box-shadow: var(--shadow);
     }
@@ -315,14 +317,14 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     .panel {
       background: var(--panel);
       border: 1px solid var(--soft-line);
-      border-radius: 8px;
+      border-radius: 14px;
       overflow: hidden;
       box-shadow: var(--shadow);
     }
     details.section {
       background: var(--panel);
       border: 1px solid var(--soft-line);
-      border-radius: 8px;
+      border-radius: 14px;
       overflow: hidden;
       box-shadow: var(--shadow);
     }
@@ -333,7 +335,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 12px 14px;
+      padding: 16px 18px;
       font-weight: 700;
     }
     details.section > summary::-webkit-details-marker { display: none; }
@@ -352,7 +354,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       font-weight: 500;
       margin-left: auto;
     }
-    .section-body { padding: 12px; }
+    .section-body { padding: 16px; }
     .section-body > .panel,
     .section-body > .grid { margin: 0; }
     table { width: 100%; border-collapse: collapse; }
@@ -384,6 +386,43 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     .notice { padding: 10px 12px; margin-bottom: 14px; border-radius: 6px; }
     .notice.success { color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, var(--panel)); }
     .limit-updated { font-size: 12px; }
+    .setting-group { border: 1px solid var(--soft-line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 96%, var(--bg)); overflow: hidden; }
+    .setting-group > summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; font-weight: 700; }
+    .setting-group > summary::-webkit-details-marker { display: none; }
+    .setting-group > summary::before { content: "›"; color: var(--accent); font-size: 21px; transition: transform .15s ease; }
+    .setting-group[open] > summary::before { transform: rotate(90deg); }
+    .setting-group > summary small { margin-left: auto; }
+    .setting-group > .limit-grid { padding: 0 12px 12px; }
+    .manage-guide { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+    .manage-guide-item { padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--soft-line); }
+    .manage-guide-item strong { display: block; margin-bottom: 2px; }
+    .manage-guide-item span { color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+    .button-link { text-decoration: none; border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; background: var(--panel); font-weight: 700; }
+    .view-nav { position: sticky; top: 10px; z-index: 10; display: flex; gap: 6px; padding: 6px; margin-bottom: 18px; width: fit-content; max-width: 100%; overflow-x: auto; border: 1px solid var(--soft-line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
+    .view-button { white-space: nowrap; background: transparent; color: var(--muted); padding: 8px 13px; }
+    .view-button.active { background: var(--accent); color: white; }
+    .overview-grid { margin-bottom: 18px; }
+    .overview-grid .card:first-child { background: var(--accent); color: white; border-color: transparent; }
+    .overview-grid .card:first-child .card-title, .overview-grid .card:first-child .card-note { color: rgba(255,255,255,.75); }
+    .view-heading { margin: 6px 0 2px; }
+    .view-intro { margin: 0 0 14px; }
+    .settings-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .settings-search { max-width: 360px; background: var(--panel); }
+    .section[hidden] { display: none; }
+    .setting-field.search-hidden, .setting-group.search-hidden { display: none; }
+    @media (max-width: 640px) {
+      main { width: min(100% - 20px, 1180px); padding-top: 16px; }
+      header { align-items: flex-start; }
+      header .muted { font-size: 12px; }
+      .card-value { font-size: 25px; }
+      .grid, .compact-grid, .limit-grid { grid-template-columns: 1fr 1fr; }
+      .setting-field { grid-column: 1 / -1; }
+      th, td { padding: 9px; }
+      .panel { overflow-x: auto; }
+      .manage-guide { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) { .grid, .compact-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -393,24 +432,49 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
         <h1>Muze Analytics</h1>
         <div class="muted">Generated ${escapeHtml(new Date(snapshot.generatedAt).toLocaleString())}. Auto-refreshes every 60 seconds while forms are unchanged.</div>
       </div>
-      <a href="/api/snapshot">JSON</a>
+      <div class="top-actions"><a class="button-link" href="/api/snapshot">Export JSON</a></div>
     </header>
+
+    <nav class="view-nav" aria-label="Dashboard views">
+      <button type="button" class="view-button active" data-view-button="overview">Overview</button>
+      <button type="button" class="view-button" data-view-button="manage">Manage</button>
+      <button type="button" class="view-button" data-view-button="insights">Insights</button>
+      <button type="button" class="view-button" data-view-button="system">System</button>
+    </nav>
+
+    <section class="grid overview-grid" data-overview>
+      ${card("Total users", users.total, `+${formatNumber(users.new7d)} this week`)}
+      ${card("Open discussions", discussions.open, `${formatNumber(discussions.active7d)} active this week`)}
+      ${card("AI calls today", aiDay.total || 0, `${percent(aiDay.failureRate)} failure rate`)}
+      ${statusCard("Bot status", Boolean(health?.bot?.recentlySeen), health?.bot?.recentlySeen ? "Heartbeat is current" : "Heartbeat needs attention")}
+    </section>
+
+    <div class="settings-tools" data-settings-tools hidden>
+      <input class="settings-search" type="search" placeholder="Search all settings..." aria-label="Search all settings" />
+      <span class="muted">Open only what you need</span>
+    </div>
+
+    <div class="manage-guide" data-manage-guide hidden>
+      <div class="manage-guide-item"><strong>Appearance</strong><span>Change how bot guidance looks.</span></div>
+      <div class="manage-guide-item"><strong>Bot limits</strong><span>Manage usage caps and room rules.</span></div>
+      <div class="manage-guide-item"><strong>Star economy</strong><span>Control rollout, rewards, and costs.</span></div>
+    </div>
 
     <div class="stack">
       ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, `/limits${actionSuffix}`, {
     updatedAt: snapshot.limitsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "1",
-  }), { open: true, note: "editable product quotas" })}
+  }), { note: "editable product quotas", view: "manage" })}
       ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, `/bot-appearance${actionSuffix}`, {
     updatedAt: snapshot.botAppearanceUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "appearance",
     cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
-  }), { open: true, note: "bot-authored message marker" })}
+  }), { note: "bot-authored message marker", view: "manage" })}
       ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, `/star-settings${actionSuffix}`, {
     updatedAt: snapshot.starSettingsUpdatedAt,
     saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
     activationRequiresRestart: snapshot.starSettingsActivationRequiresRestart,
-  }), { open: false, note: "rewards, costs, safeguards, rollout" })}
+  }), { note: "rewards, costs, safeguards, rollout", view: "manage" })}
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
       ${card("Unique Earners", snapshot.stars?.earners || 0)}
@@ -424,7 +488,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
           ? "Reconciliation unavailable"
           : `${formatNumber(snapshot.stars?.reconciliationMismatches || 0)} mismatches across ${formatNumber(snapshot.stars?.reconciliationChecked || 0)} checked wallets`,
       )}
-    </div><div class="panel">${renderStarTransactionTable(snapshot.stars?.transactions || [])}</div>`, { note: "ledger and effects" })}
+    </div><div class="panel">${renderStarTransactionTable(snapshot.stars?.transactions || [])}</div>`, { note: "ledger and effects", view: "system" })}
       ${collapsibleSection("Health", `<div class="grid compact-grid">
       ${statusCard("Dashboard Server", true, `Up for ${formatNumber(Math.round(process.uptime()))}s`)}
       ${statusCard(
@@ -448,7 +512,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       )}
       ${card("AI Avg Latency 1h", aiHour.avgDurationMs || 0, "Milliseconds")}
       ${card("AI Calls 24h", aiDay.total || 0, `${formatNumber(aiDay.failures || 0)} failed (${percent(aiDay.failureRate)})`)}
-    </div>`, { open: true, note: "server, db, bot, AI" })}
+    </div>`, { open: true, note: "server, db, bot, AI", view: "system" })}
 
       ${collapsibleSection("Recent AI Failures", `<div class="panel">${renderKeyCountTable(
     (health?.aiApi?.recentFailures || []).map((event) => ({
@@ -456,7 +520,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       count: event.durationMs || 0,
     })),
     "No AI failures in the last 24 hours",
-  )}</div>`, { note: "last 24h" })}
+  )}</div>`, { note: "last 24h", view: "system" })}
 
       ${collapsibleSection("Users", `<div class="grid compact-grid">
       ${card("Total Users", users.total)}
@@ -504,7 +568,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     </div>`, { note: "reuse stats" })}
     </div>
 
-    <p class="footer">This dashboard updates every 30 seconds and remembers collapsed sections.</p>
+    <p class="footer">Refreshes every 60 seconds when you have no unsaved changes. Your selected view and open sections are remembered.</p>
   </main>
   <script>
     const sectionStateKey = "muze.dashboard.sections";
@@ -532,6 +596,47 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     let formDirty = false;
     document.querySelectorAll(".limits-form").forEach((form) => {
       form.addEventListener("input", () => { formDirty = true; });
+    });
+    const viewKey = "muze.dashboard.view";
+    const viewButtons = document.querySelectorAll("[data-view-button]");
+    const sections = document.querySelectorAll("details.section");
+    const manageSections = document.querySelectorAll('details.section[data-view="manage"]');
+    const overview = document.querySelector("[data-overview]");
+    const settingsTools = document.querySelector("[data-settings-tools]");
+    const manageGuide = document.querySelector("[data-manage-guide]");
+    const setView = (view) => {
+      localStorage.setItem(viewKey, view);
+      viewButtons.forEach((button) => button.classList.toggle("active", button.dataset.viewButton === view));
+      overview.hidden = view !== "overview";
+      settingsTools.hidden = view !== "manage";
+      manageGuide.hidden = view !== "manage";
+      sections.forEach((section) => {
+        section.hidden = view === "overview" ? !["health", "users", "product-funnel", "discussions"].includes(section.dataset.section) : section.dataset.view !== view;
+      });
+    };
+    viewButtons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewButton)));
+    manageSections.forEach((section) => section.addEventListener("toggle", () => {
+      if (!section.open) return;
+      manageSections.forEach((other) => { if (other !== section) other.open = false; });
+    }));
+    let foundOpenManageSection = false;
+    manageSections.forEach((section) => {
+      if (section.open && !foundOpenManageSection) foundOpenManageSection = true;
+      else if (section.open) section.open = false;
+    });
+    setView(localStorage.getItem(viewKey) || "overview");
+    document.querySelector(".settings-search").addEventListener("input", (event) => {
+      const query = event.target.value.trim().toLowerCase();
+      document.querySelectorAll('[data-view="manage"] .setting-field').forEach((field) => field.classList.toggle("search-hidden", Boolean(query) && !field.textContent.toLowerCase().includes(query)));
+      document.querySelectorAll('[data-view="manage"] .setting-group').forEach((group) => {
+        const hasMatch = Boolean(group.querySelector(".setting-field:not(.search-hidden)"));
+        group.classList.toggle("search-hidden", !hasMatch);
+        if (query && hasMatch) group.open = true;
+      });
+      if (query) {
+        const matchingSection = Array.from(manageSections).find((section) => section.querySelector(".setting-field:not(.search-hidden)"));
+        if (matchingSection) matchingSection.open = true;
+      }
     });
     setTimeout(() => {
       saveSectionState();

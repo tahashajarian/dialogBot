@@ -101,6 +101,18 @@ The dashboard also reports aggregate Star ledger totals, outstanding balances, e
 
 The dashboard page auto-refreshes every 60 seconds so admin-visible metrics stay current while being watched. It skips the automatic reload after a settings form has been edited, so unsaved admin input is not lost.
 
+The interface is split into four focused views:
+
+- **Overview** shows the few numbers and health signals needed for a quick check.
+- **Manage** contains bot limits, appearance, and Star settings. Only one editor
+  opens at a time, larger editors are split into collapsible setting groups, and
+  search opens the relevant group directly.
+- **Insights** contains user, funnel, discussion, list, invitation, and cache analytics.
+- **System** contains service health, AI failures, and Star ledger checks.
+
+The selected view and expanded sections are remembered in the browser. Settings
+stay collapsed until needed to keep routine monitoring uncluttered.
+
 Use [Stars Operations Checklist](stars-operations.md) for the daily Star Economy operating habit. Dashboard metrics are for inspection and alerting; balances remain ledger-backed and should not be overwritten directly.
 
 ## Bot Appearance Administration
