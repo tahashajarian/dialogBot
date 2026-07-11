@@ -683,6 +683,8 @@ When a user with an active discussion sends normal text:
 - Broadcast it to current members except sender.
 - Do not send a per-message delivery confirmation to the sender; it makes the chat noisy.
 
+When a user with an active discussion sends a global navigation command such as `/menu`, `/profile`, `/taste`, `/discussions`, `/people`, `/help`, or `/lang`, leave the discussion before opening the requested surface. Notify the remaining active members through the normal leave notification. Tell the departing user that they left the named discussion, remove the room keyboard, and then show the requested surface. Never store or broadcast the command itself as a discussion message.
+
 If there are no other current members, still store the message silently so it appears in recent messages for future members.
 
 Do not say "seen" or "read" unless the platform later provides reliable read receipts.
