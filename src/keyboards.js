@@ -457,7 +457,7 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
     }
   }
 
-  if (itemCount > 5) {
+  if (listType === "topTen" && itemCount > 5) {
     rows.push([
       {
         text: messages[lang].aiListManageShare,

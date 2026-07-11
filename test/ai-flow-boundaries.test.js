@@ -1802,7 +1802,13 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
   assert.equal(labels.includes(messages.en.aiListManageShare), false);
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
-  assert.ok(shareLabels.includes(messages.en.aiListManageShare));
+  assert.equal(shareLabels.includes(messages.en.aiListManageShare), false);
+  assert.equal(
+    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 6 })
+      .reply_markup.inline_keyboard.flat()
+      .some((button) => button.text === messages.en.aiListManageShare),
+    true,
+  );
   assert.equal(
     aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 10 })
       .reply_markup.inline_keyboard.flat()
