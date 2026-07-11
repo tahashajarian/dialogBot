@@ -668,7 +668,7 @@ module.exports = {
     profileEditName: "✏️ تغییر نام",
     profileEditCity: "🏙 تغییر شهر",
     profileEditAge: "🎂 تغییر سن",
-    profileEditGender: "⚧️ تغییر جنسیت",
+    profileEditGender: "⚧️ ویرایش جنسیت",
     profileEditPetPreference: "🐾 تغییر حیوان خانگی",
     profileEditLocation: "📍 تغییر موقعیت مکانی",
     profileEditBio: "📝 تغییر درباره من",
