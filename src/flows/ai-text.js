@@ -725,6 +725,7 @@ async function handleAiText(ctx, lang, text, state) {
           section,
           item,
           items: result.items,
+          includeNextPrompt: false,
         });
         const saved = await placeholder.finish(
           [
@@ -733,11 +734,12 @@ async function handleAiText(ctx, lang, text, state) {
             listIsFull ? "" : messages[lang].aiListManageAddNextPrompt,
           ].filter(Boolean).join("\n\n"),
           listIsFull
-            ? undefined
+            ? aiListCancelAddKeyboard(lang, section, listType, { backToList: true })
             : getContinuousAddKeyboard(lang, section, listType, result.items),
         );
         if (listIsFull) {
-          return openAiListManager(ctx, lang, section, listType);
+          await rememberAiPendingInputPrompt(ctx, saved);
+          return saved;
         }
         await rememberAiPendingInputPrompt(ctx, saved);
         return saved;

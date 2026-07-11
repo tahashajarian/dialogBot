@@ -353,6 +353,7 @@ async function buildTopTenSavedMessage({
   item,
   items,
   savedMessageKey = "aiTasteItemSaved",
+  includeNextPrompt = true,
 }) {
   const count = items.length;
   const goal = operationalLimits.aiTopTenItems;
@@ -398,7 +399,7 @@ async function buildTopTenSavedMessage({
   }
 
   if (count < goal) {
-    responseParts.push(getTopTenNextPrompt(lang, count));
+    if (includeNextPrompt) responseParts.push(getTopTenNextPrompt(lang, count));
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
@@ -412,11 +413,11 @@ async function buildTopTenSavedMessage({
   const styleHint = getTasteLabelStyleHint(messages, lang, section, resolvedTaste.labelKey);
   const sectionLabel = getSectionLabel(messages, lang, section);
   const unlockedText = (messages[lang].aiTasteLabelUnlockedDetailed || messages[lang].aiTasteLabelUnlocked)
-    .replace("{section}", sectionLabel)
-    .replace("{label}", finalLabel)
-    .replace("{style}", styleHint)
-    .replace("{count}", String(count))
-    .replace("{goal}", String(goal));
+    .replaceAll("{section}", sectionLabel)
+    .replaceAll("{label}", finalLabel)
+    .replaceAll("{style}", styleHint)
+    .replaceAll("{count}", String(count))
+    .replaceAll("{goal}", String(goal));
 
   responseParts.push(unlockedText);
   return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);

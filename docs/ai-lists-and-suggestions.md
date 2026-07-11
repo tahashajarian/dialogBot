@@ -47,6 +47,7 @@
 - Entering a non-empty list manager should show the current items directly in the manager card with command-link item actions; do not include a separate "show all" button.
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
 - If a list has more than five items, also show a "create shareable message" button. When tapped, remove the current manager card, send a separate shareable list message, then send the short intro underneath it with a pointer-up cue and compact return controls. The shareable message should omit the section header and render titles/comments only, without management command links, status toggles, or inline management buttons, so it is clean to forward. If a public bot base link is configured through the invite-link config, append it as a small footer.
+- List-return buttons should consistently say `Back to list` / `برگشت به لیست`, including Favorites, watchlists, suggestions, add flows, and shareable-list guidance. Never expose the internal `Top 10` name.
 - Keep inline buttons for list-level controls only, such as add, filters, back/navigation, and input cancel.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
@@ -65,7 +66,7 @@
 - TopTen list text should include per-item command links for comment and remove actions. Do not add per-item inline rows when the command-link list can handle the action.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
 - TopTen full-limit copy should be context-aware: direct TopTen add flows should say to remove one from this TopTen, while watchlist promotion can tell the user to go to TopTen and remove one.
-- When the 10th TopTen item is saved, exit add mode and return to the TopTen manager. Do not leave an Add button on a full TopTen manager.
+- When the 10th TopTen item is saved, exit add mode and keep the completion message visible with a Back to list button. Open the full TopTen manager only after the user taps that button; do not leave an Add button on a full TopTen manager.
 - List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Telegram provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
 - When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
@@ -79,6 +80,7 @@
 - For recognizable works, feedback should contain one concrete reaction about the creator, form, genre, joke, theme, feeling, or atmosphere. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
 - Reject generic praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
 - When a user enters TopTen in any section, include the current TopTen list directly in the manager card before the section/manage description and inline buttons.
+- Completed TopTen manager cards should include a short command-use tip beneath the taste label so comment and remove actions remain clear.
 - TopTen menus should not include a separate "show all" action.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.
 - TopTen includes a cheap "what does my Top 10 say about me?" insight button.

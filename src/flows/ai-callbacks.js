@@ -121,12 +121,9 @@ function toAiManageStateListType(value) {
 
 function aiListShareReturnKeyboard(lang, section, listType) {
   const listTypeToken = listType === "topTen" ? "top_ten" : "watchlist";
-  const target = listType === "topTen"
-    ? `${getSectionEmoji(section)} ${lang === "fa" ? "تاپ ۱۰" : "Top 10"}`
-    : getSectionListLabel(messages, lang, section);
   return inlineKeyboard([
     [{
-      text: messages[lang].aiListShareBackToList.replace("{target}", target),
+      text: messages[lang].aiListShareBackToList,
       callback_data: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
     }],
   ]);
@@ -760,15 +757,17 @@ async function handleAiCallback(ctx, lang, helpers) {
     const listType = normalizeAiListTypeToken(rawListType);
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
-    const expectedState = `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`;
-    if (ctx.user?.state !== expectedState) {
+    const managerState = `ai_manage_${section}_${toAiManageStateListType(listType)}`;
+    const expectedState = `${managerState}_add_input`;
+    const isCompletedListBack = action === "back" && ctx.user?.state === managerState;
+    if (ctx.user?.state !== expectedState && !isCompletedListBack) {
       await clearAiPendingInputPrompt(ctx);
       return helpers.deleteCallbackMessageIfPossible(ctx);
     }
 
     const promptMessageId = Number(ctx.user?.aiPendingInputMessageId);
     await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
-    await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
+    await updateUserState(ctx.userId, managerState);
     if (promptMessageId !== Number(ctx.callbackMessageId)) {
       await helpers.deleteCallbackMessageIfPossible(ctx);
     }
@@ -1231,6 +1230,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 }
 
 module.exports = {
+  aiListShareReturnKeyboard,
   handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,

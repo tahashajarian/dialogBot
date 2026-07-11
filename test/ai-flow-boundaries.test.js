@@ -120,6 +120,7 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
   assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
 });
 const {
+  aiListShareReturnKeyboard,
   handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,
@@ -178,6 +179,15 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.equal(rejectedButtons[1].callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
   assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later"), "✅ Saved to 📚 read later.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
+});
+
+test("shareable list return buttons use consistent Back to list wording", () => {
+  const faButton = aiListShareReturnKeyboard("fa", "movies", "topTen").reply_markup.inline_keyboard.flat()[0];
+  const enButton = aiListShareReturnKeyboard("en", "books", "topTen").reply_markup.inline_keyboard.flat()[0];
+
+  assert.equal(faButton.text, messages.fa.aiListManageAddBackToList);
+  assert.equal(enButton.text, messages.en.aiListManageAddBackToList);
+  assert.doesNotMatch(`${faButton.text} ${enButton.text}`, /تاپ ۱۰|Top 10/);
 });
 
 test("AI section keyboard prefixes section actions with section emoji", () => {
@@ -412,6 +422,20 @@ test("Top Ten saved message does not repeat saved-only fallback feedback", async
   assert.match(text, /✅ «نتاشایباشسمنیاب» ثبت شد\. \(1\/10\)/);
   assert.match(text, /👩‍🦳 خوبه؛ یکی دیگه هم بفرست/);
   assert.doesNotMatch(text, /ذخیره شد/);
+});
+
+test("Top Ten saved message can omit its progress prompt when add mode supplies guidance", async () => {
+  const text = await buildTopTenSavedMessage({
+    ctx: { userId: 1 },
+    lang: "fa",
+    section: "books",
+    item: "نتاشایباشسمنیاب",
+    items: [{ title: "نتاشایباشسمنیاب" }],
+    includeNextPrompt: false,
+  });
+
+  assert.match(text, /^✅/);
+  assert.doesNotMatch(text, /یکی دیگه هم بفرست/);
 });
 
 test("canceling AI list comment returns to the refreshed list manager", async () => {
@@ -1090,7 +1114,7 @@ test("sharing AI list renders clean titles and comments without management comma
     true,
   );
   assert.equal(
-    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === "🔙 Back to 🎬 watch later"),
+    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === messages.en.aiListManageAddBackToList),
     true,
   );
   assert.equal(introReply.extra.reply_markup.inline_keyboard.flat().length, 1);
@@ -1221,6 +1245,49 @@ test("back to list after adding uses current item count for share button", async
   assert.equal(labels.includes(messages.en.aiListManageShare), true);
 });
 
+test("back to list works from the completion card after the 10th item", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const items = Array.from({ length: 10 }, (_, index) => ({ title: `Movie ${index + 1}` }));
+  const ctx = {
+    callbackData: `${callBacks.aiListManageCancelAdd}movies:top_ten:back`,
+    callbackMessageId: 63,
+    userId: 85,
+    user: {
+      userId: 85,
+      lang: "en",
+      state: "ai_manage_movies_top_ten",
+      aiPendingInputMessageId: 63,
+      aiLists: { movies: { topTen: items } },
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 130 + replies.length };
+    },
+  };
+
+  User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.state, "ai_manage_movies_top_ten");
+  assert.match(replies.at(-1).text, /Movie 10/);
+});
+
 test("Top Ten add flow stays open for the next item", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -1321,7 +1388,7 @@ test("Top Ten duplicate response stays in add mode with bot copy and continuous-
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAdd), false);
 });
 
-test("Top Ten add flow returns to manager when the 10th item completes the list", async () => {
+test("Top Ten add flow shows completion with Back to list when the 10th item completes the list", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
@@ -1370,15 +1437,15 @@ test("Top Ten add flow returns to manager when the 10th item completes the list"
   }
 
   const savedEdit = edits.at(-1);
-  const managerReply = replies.at(-1);
-  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = savedEdit.extra.reply_markup.inline_keyboard.flat();
   const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
-  assert.equal(savedEdit.extra, undefined);
+  assert.match(savedEdit.text, /10\/10/);
+  assert.doesNotMatch(savedEdit.text, /\{goal\}/);
+  assert.equal(replies.length, 1);
+  assert.equal(labels.includes(messages.en.aiListManageAddBackToList), true);
   assert.equal(labels.includes(messages.en.aiListManageAdd), false);
-  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}random:top_ten`), false);
-  assert.equal(labels.includes(messages.en.aiListManageShare), true);
 });
 
 test("Top Ten add limit uses local bot-marked copy inside top-ten section", async () => {
