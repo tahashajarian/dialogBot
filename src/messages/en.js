@@ -648,7 +648,7 @@ module.exports = {
     profileStarsButton: "⭐ Stars",
     profileStarsBack: "🔙 Back to guide",
     starsOverviewText: "⭐ Your Stars\n\nBalance: {balance}\n\n👩‍🦳 Earn Stars by completing meaningful parts of Muze:\n• Add the first {firstTopTenGoal} favorites in each of Movies, Music, and Books: {firstTopTenReward}\n• Complete all {fullTopTenGoal} favorites in each of Movies, Music, and Books: {fullTopTenReward}\n• Complete your profile: {profileReward}\n• Create your first discussion: {firstDiscussionReward}\n• Join your first discussion: {firstDiscussionJoinReward}\n• Each new person who joins through your invite: {inviteReward}\n• Bring a genuinely new user who completes their quick start: {referralReward}\n\nLists for later do not award Stars.\nEach reward is one-time; Muze will not suggest a milestone you already claimed.\n\n✨ Profile emoji: {profileEmojiCost} Stars\n✨ Extra suggestion after the free limit: {paidSuggestionCost} Star\n🚀 Boost one discussion: {boostCost} Stars\n👥 2-person discussion: {paidTwoPersonDiscussionCost} Stars\n👥 {paidLargeDiscussionCapacity}-person discussion: {paidLargeDiscussionCost} Stars\n🎛 Advanced Search is not available yet.\n\n🔐 Your Star balance and history are visible only to you.",
-    starsEarnedNotice: "⭐ You earned {amount} Stars for {reason}.\nBalance: {balance}",
+    starsEarnedNotice: "👩‍🦳⭐ You earned {amount} Stars for {reason}.\nBalance: {balance}",
     starsInvitePairRewardNotice: "👩‍🦳⭐ Someone joined a discussion through your invite; you earned {amount} Stars.\nBalance: {balance}",
     starsNextMilestone: "💡 Add {remaining} more {milestone} and earn {amount} Stars.",
     starsReason_topten_first_milestone: "adding your first favorites",

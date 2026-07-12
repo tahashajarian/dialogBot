@@ -648,7 +648,7 @@ module.exports = {
     profileStarsButton: "⭐ ستاره‌ها",
     profileStarsBack: "🔙 برگشت به راهنما",
     starsOverviewText: "⭐ ستاره‌های شما\n\nستاره‌ها: {balance}\n\n👩‍🦳 با کامل‌کردن بخش‌های واقعی میوز ستاره می‌گیری:\n• ثبت {firstTopTenGoal} محبوب اول در هرکدام از بخش‌های فیلم، موسیقی و کتاب: {firstTopTenReward}\n• کامل‌کردن هر {fullTopTenGoal} محبوب در هرکدام از بخش‌های فیلم، موسیقی و کتاب: {fullTopTenReward}\n• کامل‌کردن پروفایل: {profileReward}\n• ساختن اولین بحث: {firstDiscussionReward}\n• ورود به اولین بحث: {firstDiscussionJoinReward}\n• ورود هر کاربر تازه با دعوت تو: {inviteReward}\n• آوردن یک کاربر جدید و کامل‌شدن شروع اولیه‌اش: {referralReward}\n\nلیست‌های «برای بعد» پاداش ستاره‌ای ندارند.\nهر پاداش فقط یک‌بار داده میشه؛ میوز مرحله‌ای رو که قبلاً گرفتی دوباره پیشنهاد نمی‌ده.\n\n✨ ایموجی پروفایل: {profileEmojiCost} ستاره\n✨ پیشنهاد اضافه بعد از سقف رایگان: {paidSuggestionCost} ستاره\n🚀 ارتقای یک بحث: {boostCost} ستاره\n👥 بحث ۲ نفره: {paidTwoPersonDiscussionCost} ستاره\n👥 بحث {paidLargeDiscussionCapacity} نفره: {paidLargeDiscussionCost} ستاره\n🎛 جست‌وجوی پیشرفته فعلاً آماده نیست.\n\n🔐 ستاره‌ها و سابقه ستاره‌های تو فقط برای خودت قابل دیدنه.",
-    starsEarnedNotice: "⭐ برای {reason}، {amount} ستاره گرفتی.\nستاره‌ها: {balance}",
+    starsEarnedNotice: "👩‍🦳⭐ برای {reason}، {amount} ستاره گرفتی.\nستاره‌ها: {balance}",
     starsInvitePairRewardNotice: "👩‍🦳⭐ یک نفر با دعوت تو وارد بحث شد؛ {amount} ستاره گرفتی.\nستاره‌ها: {balance}",
     starsNextMilestone: "💡 {remaining} مورد دیگه {milestone} و {amount} ستاره می‌گیری.",
     starsReason_topten_first_milestone: "ثبت محبوب‌های اول",
