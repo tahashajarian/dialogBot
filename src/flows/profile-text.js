@@ -19,7 +19,6 @@ const {
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
 const {
-  clearBottomKeyboardQuietly,
 } = require("../services/bot-navigation");
 const { resolveCityByCoordinates } = require("../services/location");
 const {
@@ -107,7 +106,9 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
   const updatedUser = toPlainUser(ctx.user);
   updatedUser.state = "idle";
   if (state === "editing_location") {
-    await clearBottomKeyboardQuietly(ctx);
+    await ctx.reply(messages[lang].navigationFootprintProfile, {
+      reply_markup: { remove_keyboard: true },
+    });
   }
   return sendProfile(ctx, updatedUser, lang, keyboardLang);
 }
@@ -234,7 +235,9 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     if (text === messages[lang].cancelEdit) {
       await updateUserState(ctx.userId, "idle");
       await clearProfileEditPrompt(ctx);
-      await clearBottomKeyboardQuietly(ctx);
+      await ctx.reply(messages[lang].navigationFootprintProfile, {
+        reply_markup: { remove_keyboard: true },
+      });
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
       return sendProfile(ctx, updatedUser, lang, keyboardLang);

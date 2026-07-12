@@ -21,7 +21,6 @@ const {
 const {
   removeBottomKeyboard,
   clearBottomKeyboardQuietly,
-  replyWithRemovedKeyboardThenInline,
   replyWithKeyboardRemovalNoticeThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
@@ -625,8 +624,9 @@ async function handleUpdate(ctx) {
     const shouldClearKeyboard = Boolean(ctx.user?.activeDiscussionId || isAiTextState(state) || state === "editing_location");
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     if (shouldClearKeyboard) {
-      return replyWithRemovedKeyboardThenInline(
+      return replyWithKeyboardRemovalNoticeThenInline(
         ctx,
+        messages[lang].navigationFootprintHelp,
         messages[lang].profileActiveDiscussionHelpText,
         profileActiveDiscussionHelpKeyboard(lang),
       );
