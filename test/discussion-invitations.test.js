@@ -201,7 +201,7 @@ test("received invitations localize bot-created discussion title and description
     state: { state: "joinable" },
   }]);
 
-  assert.match(text, /👩‍🦳 گفتگوی آزاد/);
+  assert.match(text, /👩‍🦳 گفت‌وگوی آزاد/);
   assert.match(text, /یه جای ساده برای شروع گپ با بقیه/);
   assert.doesNotMatch(text, /Free Discussion/);
   assert.doesNotMatch(text, /A simple place to start chatting/);

@@ -56,13 +56,13 @@ Name: Muze
 Username: hey_muze_bot
 
 About (fa):
-میوز؛ برای ساخت لیست، پیشنهادهای شخصی، پیدا کردن آدم‌ها و بحث‌های نزدیک به سلیقه‌ات.
+میوز؛ برای ساخت لیست، پیشنهادهای شخصی، پیدا کردن آدم‌ها و گفت‌وگوهای نزدیک به سلیقه‌ات.
 
 About (en):
 Build taste lists, get suggestions, and find people and discussions around what you like.
 
 Description (fa):
-با میوز برای فیلم، موسیقی و کتاب لیست و تاپ ۱۰ بساز، علاقه‌مندی‌هایت را روی پروفایل ثبت کن، پیشنهاد بگیر، آدم‌هایی با انتخاب‌های مشترک پیدا کن و وارد بحث‌های مرتبط شو.
+با میوز برای فیلم، موسیقی و کتاب لیست و تاپ ۱۰ بساز، علاقه‌مندی‌هایت را روی پروفایل ثبت کن، پیشنهاد بگیر، آدم‌هایی با انتخاب‌های مشترک پیدا کن و وارد گفت‌وگوهای مرتبط شو.
 
 Description (en):
 Build movie, music, and book lists and Top 10s, add interests to your profile, get suggestions, browse people, optionally unlock people with shared choices, and join relevant discussions.

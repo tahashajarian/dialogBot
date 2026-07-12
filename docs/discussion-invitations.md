@@ -181,7 +181,7 @@ For the new feature, tapping `📨 دعوت` from an active discussion should op
 Recommended menu:
 
 ```text
-📨 دعوت به بحث
+📨 دعوت به گفت‌وگو
 
 💬 {discussion title}
 ```
@@ -269,7 +269,7 @@ Persian:
 Actions:
 
 - ساخت پیام قابل اشتراک
-- برگشت به بحث
+- برگشت به گفت‌وگو
 
 ### Invite Target Picker
 
@@ -341,13 +341,13 @@ Actions:
 Persian:
 
 ```text
-🤖 برای دعوت کردن، باید عضو یک بحث باز باشی.
+🤖 برای دعوت کردن، باید عضو یک گفت‌وگوی باز باشی.
 ```
 
 Actions:
 
-- بحث‌های فعال
-- ساخت بحث
+- گفت‌وگوهای فعال
+- ساخت گفت‌وگو
 - برگشت به ذخیره‌شده‌ها
 
 If all discussions are ineligible because the target is already a member or removed, show a specific safe message:
@@ -568,9 +568,9 @@ You can preview this invitation first. If the room has a join condition, I will 
 Persian:
 
 ```text
-🤖 بحث‌ها جایی برای حرف زدن با آدم‌هایی‌ان که علاقه‌های نزدیک به تو دارن.
+🤖 گفت‌وگوها جایی برای حرف زدن با آدم‌هایی‌ان که علاقه‌های نزدیک به تو دارن.
 
-اول می‌تونی این دعوت رو ببینی. اگر بحث شرط ورود داشته باشه، بهت می‌گم برای ورود چی رو کامل کنی.
+اول می‌تونی این دعوت رو ببینی. اگر گفت‌وگو شرط ورود داشته باشه، بهت می‌گم برای ورود چی رو کامل کنی.
 ```
 
 The tip should be shown once around the invitation entry, not repeatedly on every invitations-list open.
@@ -1081,7 +1081,7 @@ Persian:
 ```
 
 ```text
-🤖 برای دعوت کردن، باید عضو یک بحث باز باشی یا یک بحث بسازی.
+🤖 برای دعوت کردن، باید عضو یک گفت‌وگوی باز باشی یا یک گفت‌وگو بسازی.
 ```
 
 ## Testing Checklist

@@ -91,21 +91,21 @@ Active-discussion visibility remains a separate opt-in setting and must not expo
 Entry point from main menu:
 
 ```text
-💬 بحث‌ها
+💬 گفت‌وگوها
 ```
 
 Discussion menu:
 
 ```text
-💬 بحث‌ها
+💬 گفت‌وگوها
 
-🟢 بحث‌های فعال
-➕ ساخت بحث جدید
-🗂 بحث‌های من
+🟢 گفت‌وگوهای فعال
+➕ ساخت گفت‌وگوی جدید
+🗂 گفت‌وگوهای من
 🔙 برگشت
 ```
 
-Show `🚪 خروج از بحث` only inside an active room's bottom controls, not in the general discussions menu.
+Show `🚪 خروج از گفت‌وگو` only inside an active room's bottom controls, not in the general discussions menu.
 
 Inside an active discussion, use bottom buttons for room actions.
 
@@ -114,7 +114,7 @@ Member buttons:
 ```text
 👥 اعضا
 📨 دعوت
-🚪 خروج از بحث
+🚪 خروج از گفت‌وگو
 ```
 
 Owner buttons:
@@ -122,15 +122,15 @@ Owner buttons:
 ```text
 👥 اعضا
 📨 دعوت
-🚪 خروج از بحث
-🔒 بستن بحث
+🚪 خروج از گفت‌وگو
+🔒 بستن گفت‌وگو
 ```
 
 Only the discussion owner can close a discussion. Regular members must not see the close button and cannot close the room through commands/callbacks.
-The owner can leave their own discussion without closing it. The discussion stays open, the owner remains `creatorUserId`, and other members can continue talking. The owner can later find the discussion in `🗂 بحث‌های من`, rejoin it, or close it.
+The owner can leave their own discussion without closing it. The discussion stays open, the owner remains `creatorUserId`, and other members can continue talking. The owner can later find the discussion in `🗂 گفت‌وگوهای من`, rejoin it, or close it.
 All current members can use `📨 دعوت` to open invite options for the active discussion. Members can create a shareable invite message or send a stored invitation to a saved profile. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
 
-There is no separate room-level discussion-menu/back button. `🚪 خروج از بحث` is the explicit way to leave the room; after leaving, the bot removes the room keyboard and shows the discussions menu.
+There is no separate room-level discussion-menu/back button. `🚪 خروج از گفت‌وگو` is the explicit way to leave the room; after leaving, the bot removes the room keyboard and shows the discussions menu.
 
 Important distinction:
 
@@ -165,7 +165,7 @@ Limits:
 Title prompt:
 
 ```text
-👩‍🦳 عنوان بحث رو بنویس.
+👩‍🦳 عنوان گفت‌وگو رو بنویس.
 
 مثلاً:
 بهترین ریف تاریخ؟
@@ -192,7 +192,7 @@ Description validation:
 Join rule prompt:
 
 ```text
-چه کسانی بتونن وارد این بحث بشن؟
+چه کسانی بتونن وارد این گفت‌وگو بشن؟
 ```
 
 Buttons:
@@ -201,13 +201,13 @@ Buttons:
 🌍 آزاد
 🏷 فقط یک برچسب خاص
 📌 فقط یک علاقه/آیتم خاص
-لغو ساخت بحث
+لغو ساخت گفت‌وگو
 ```
 
 Create/edit navigation rules:
 
-- In create mode, title step shows only `لغو ساخت بحث`.
-- In create mode after title, show `لغو ساخت بحث` plus a `🔙 برگشت` button to the previous step where relevant.
+- In create mode, title step shows only `لغو ساخت گفت‌وگو`.
+- In create mode after title, show `لغو ساخت گفت‌وگو` plus a `🔙 برگشت` button to the previous step where relevant.
 - In edit-from-preview mode, cancel actions should use `لغو ویرایش` and return to preview (not cancel the whole draft).
 - If user sends text while on inline-only pickers (for example join-rule picker), show a bot-authored "select an option" message and resend a fresh picker card.
 
@@ -224,13 +224,13 @@ Restricted discussion inline buttons:
 
 ```text
 رد کردن
-لغو ساخت بحث
+لغو ساخت گفت‌وگو
 ```
 
 Open discussion inline buttons:
 
 ```text
-لغو ساخت بحث
+لغو ساخت گفت‌وگو
 ```
 
 The skip button is only valid while creating a restricted discussion. Open discussions must require a description before preview/creation because anyone can join and the room needs clear context.
@@ -238,7 +238,7 @@ The skip button is only valid while creating a restricted discussion. Open discu
 If an open discussion has no description:
 
 ```text
-برای بحث‌های عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
+برای گفت‌وگوهای عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
 ```
 
 For open topics, selecting `🌍 آزاد` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
@@ -256,10 +256,10 @@ Room capacity is editable from the preview step:
 For restricted topics, show a preview before creating:
 
 ```text
-👩‍🦳 این بحث ساخته بشه؟
+👩‍🦳 این گفت‌وگو ساخته بشه؟
 
 💬 بهترین ریف تاریخ؟
-توضیح: بحث درباره ریف‌های ماندگار
+توضیح: گفت‌وگو درباره ریف‌های ماندگار
 
 ورود: فقط 🤘 متال‌هدها
 ظرفیت: ۲۰ نفر
@@ -268,12 +268,12 @@ For restricted topics, show a preview before creating:
 Buttons:
 
 ```text
-✅ ساخت بحث
+✅ ساخت گفت‌وگو
 ✏️ ویرایش عنوان
 📝 ویرایش توضیح
 🔐 ویرایش شرط ورود
 👥 تغییر ظرفیت
-لغو ساخت بحث
+لغو ساخت گفت‌وگو
 ```
 
 Restricted-topic preview is useful because join rules are harder to change mentally after creation.
@@ -299,14 +299,14 @@ This rule is more approachable than labels for many users because it gates by a 
 If creator has no labels:
 
 ```text
-برای ساخت بحث مخصوص یک برچسب، اول باید حداقل یک برچسب سلیقه داشته باشی.
+برای ساخت گفت‌وگوی مخصوص یک برچسب، اول باید حداقل یک برچسب سلیقه داشته باشی.
 تاپ ۱۰ فیلم، موسیقی یا کتاب رو کامل کن، یا چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
 
 If creator has no items for item-restricted rooms:
 
 ```text
-برای ساخت بحث مخصوص یک علاقه، اول چند علاقه‌مندی به پروفایلت اضافه کن.
+برای ساخت گفت‌وگوی مخصوص یک علاقه، اول چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
 
 ### Join Discussion
@@ -335,27 +335,27 @@ When user joins:
 Example:
 
 ```text
-💬 وارد بحث «بهترین ریف تاریخ؟» شدی.
+💬 وارد گفت‌وگو «بهترین ریف تاریخ؟» شدی.
 
 👩‍🦳 آخرین پیام‌ها:
 👤 علی: Master of Puppets هنوز بی‌رقیبه.
 👤 سارا: من Painkiller رو می‌گم.
 
-از الان هر پیامی بفرستی برای اعضای همین بحث ارسال میشه.
+از الان هر پیامی بفرستی برای اعضای همین گفت‌وگو ارسال میشه.
 ```
 
 If there are no messages:
 
 ```text
-هنوز پیامی توی این بحث نیست. شروعش کن 🙂
+هنوز پیامی توی این گفت‌وگو نیست. شروعش کن 🙂
 ```
 
 If discussion is full:
 
 ```text
-👩‍🦳 ظرفیت این بحث تکمیل شده.
+👩‍🦳 ظرفیت این گفت‌وگو تکمیل شده.
 
-💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
+💡 می‌تونی یک گفت‌وگوی دیگه رو انتخاب کنی یا از بخش گفت‌وگوها، گفت‌وگوی خودت رو بسازی.
 ```
 
 Owner rejoin:
@@ -410,29 +410,29 @@ First-time/deep-link handling:
 Example ready-to-share copy:
 
 ```text
-📨 دعوت به بحث
+📨 دعوت به گفت‌وگو
 
 💬 «بهترین ریف تاریخ؟»
 
-📄 بحث درباره ریف‌های ماندگار
+📄 گفت‌وگو درباره ریف‌های ماندگار
 
 🔐 شرط ورود:
 🌍 آزاد
 
-ورود به بحث 👈 https://t.me/BOT_USERNAME?start=join_8K2P
+ورود به گفت‌وگو 👈 https://t.me/BOT_USERNAME?start=join_8K2P
 ```
 
 For locked rooms, include the join condition:
 
 ```text
-📨 دعوت به بحث
+📨 دعوت به گفت‌وگو
 
 💬 «آلبوم‌های متال برای شروع»
 
 🔐 شرط ورود:
 🏷 موسیقی - 🤘 متال‌هد
 
-ورود به بحث 👈 https://t.me/BOT_USERNAME?start=join_9Q4M
+ورود به گفت‌وگو 👈 https://t.me/BOT_USERNAME?start=join_9Q4M
 ```
 
 Rules:
@@ -508,29 +508,29 @@ Invite preview:
 Unavailable invite state:
 
 ```text
-👩‍🦳 این بحث دیگه در دسترس نیست.
+👩‍🦳 این گفت‌وگو دیگه در دسترس نیست.
 ```
 
 Full invite state:
 
 ```text
-👩‍🦳 ظرفیت این بحث تکمیل شده.
+👩‍🦳 ظرفیت این گفت‌وگو تکمیل شده.
 
-💡 می‌تونی یک بحث دیگه رو انتخاب کنی یا از بخش بحث‌ها، گفتگوی خودت رو بسازی.
+💡 می‌تونی یک گفت‌وگوی دیگه رو انتخاب کنی یا از بخش گفت‌وگوها، گفت‌وگوی خودت رو بسازی.
 ```
 
 Already member state:
 
 ```text
-👩‍🦳 تو همین الان عضو این بحثی.
+👩‍🦳 تو همین الان عضو این گفت‌وگویی.
 
-از این به بعد پیام‌هات برای همین بحث ارسال میشه.
+از این به بعد پیام‌هات برای همین گفت‌وگو ارسال میشه.
 ```
 
 Locked invite state:
 
 ```text
-👩‍🦳 برای ورود به این بحث، باید شرط ورودش رو داشته باشی.
+👩‍🦳 برای ورود به این گفت‌وگو، باید شرط ورودش رو داشته باشی.
 ```
 
 Specific locked hints:
@@ -538,12 +538,12 @@ Specific locked hints:
 - Taste-label room: tell the user which section/label is required and guide them to complete that section's Top 10 so the label can be calculated.
 - TopTen-item room: tell the user which section/item is required and guide them to add that item to the relevant Top 10 list.
 - After the hint, show the main menu reply keyboard.
-- Tell the user they can use the same invite link/command again or find the discussion again from `🟢 بحث‌های فعال`.
+- Tell the user they can use the same invite link/command again or find the discussion again from `🟢 گفت‌وگوهای فعال`.
 
 Taste-label example:
 
 ```text
-👩‍🦳 برای ورود به این بحث باید این برچسب رو داشته باشی:
+👩‍🦳 برای ورود به این گفت‌وگو باید این برچسب رو داشته باشی:
 🏷 موسیقی - 🤘 متال‌هد
 
 💡 اول تاپ ۱۰ موسیقی‌ات رو کامل کن تا برچسبت حساب بشه.
@@ -555,7 +555,7 @@ Taste-label example:
 Profile-interest item example:
 
 ```text
-👩‍🦳 برای ورود به این بحث، «شطرنج» باید توی علاقه‌مندی‌های پروفایلت باشه:
+👩‍🦳 برای ورود به این گفت‌وگو، «شطرنج» باید توی علاقه‌مندی‌های پروفایلت باشه:
 🔑 🌿 علاقه‌مندی‌ها - شطرنج
 
 💡 از منوی اصلی برو به 👤 من ← علاقه‌مندی‌ها و «شطرنج» رو اضافه کن.
@@ -565,15 +565,15 @@ Profile-interest item example:
 No active discussion state:
 
 ```text
-👩‍🦳 الان داخل هیچ بحث فعالی نیستی.
+👩‍🦳 الان داخل هیچ گفت‌وگوی فعالی نیستی.
 
-از بخش بحث‌ها وارد یک گفتگو شو، بعد می‌تونی دعوت بسازی.
+از بخش گفت‌وگوها وارد یک گفت‌وگو شو، بعد می‌تونی دعوت بسازی.
 ```
 
 No longer a member state:
 
 ```text
-👩‍🦳 دیگه عضو این بحث نیستی، برای همین نمی‌تونم دعوت بسازم.
+👩‍🦳 دیگه عضو این گفت‌وگو نیستی، برای همین نمی‌تونم دعوت بسازم.
 ```
 
 Invite abuse and rate limits:
@@ -616,7 +616,7 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 
 - Only the discussion creator may buy a boost at launch.
 - Multiple creators may have boosted discussions simultaneously across Muze, but each creator and each discussion may have only one active boost.
-- The room action uses `🚀 Boost discussion` in English and `🚀 ارتقای بحث` in Persian. Owners can start the same flow from `🗂 بحث‌های من` through the listed boost action; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
+- The room action uses `🚀 Boost discussion` in English and `🚀 ارتقای گفت‌وگو` in Persian. Owners can start the same flow from `🗂 گفت‌وگوهای من` through the listed boost action; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
 - Charge and boost creation must be atomic/idempotent, with exactly one automatic refund if activation fails after charge.
 - Boosted rooms are visibly labeled and still pass open status, capacity, join-rule, removal, mute/block, ban, moderation, relevance, freshness, cooldown, and owner-diversity checks.
 - A boost may improve list placement and send a capped Muze-authored recommendation to eligible taste-relevant users.
@@ -628,7 +628,7 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 
 ### My Discussions / Switching
 
-`🗂 بحث‌های من` shows discussions the user owns or has joined.
+`🗂 گفت‌وگوهای من` shows discussions the user owns or has joined.
 Discussion lists should be plain text with bot-command links instead of dense inline button rows.
 Long discussion lists should be paginated, with an inline back button below the text list. Active-discussion lists should also include an inline toggle for showing only discussions the user can currently join.
 For this toggle, keep the icon stable across states and change only the text label.
@@ -637,7 +637,7 @@ If the list is empty, show a short empty-state notice with a useful tip and a si
 Example:
 
 ```text
-🗂 بحث‌های من
+🗂 گفت‌وگوهای من
 
 ✅ بهترین ریف تاریخ؟
 👥 ۳ نفر
@@ -710,7 +710,7 @@ Inside an active discussion, the bottom button `👥 اعضا` shows the current
 Example:
 
 ```text
-👩‍🦳👥 اعضای این بحث
+👩‍🦳👥 اعضای این گفت‌وگو
 
 1. 👤 علی — 🎙️ میزبان
 دیدن پروفایل 👈 /u_8K2P
@@ -760,7 +760,7 @@ The owner can remove members from their own discussion.
 In the owner view of `👥 اعضا`, show owner-only remove links/actions under non-owner members:
 
 ```text
-👩‍🦳👥 اعضای این بحث
+👩‍🦳👥 اعضای این گفت‌وگو
 
 1. 👤 علی — 🎙️ میزبان
 
@@ -788,8 +788,8 @@ Rules:
 - Removed users will not see the discussion in their "My Discussions" list anymore.
 - **Removed users see discussions but can't join**: Discussions where a user has been removed appear in the regular "Active Discussions" list, but are filtered out when "Show only joinable discussions" is enabled.
 - If a removed user somehow attempts to join (e.g., via a saved link or command), they get both:
-  - A toast notification at the top: `میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
-  - A regular message: `👩‍🦳 میزبان بحث قبلاً تو رو از این بحث حذف کرده.`
+  - A toast notification at the top: `میزبان گفت‌وگو قبلاً تو رو از این گفت‌وگو حذف کرده.`
+  - A regular message: `👩‍🦳 میزبان گفت‌وگو قبلاً تو رو از این گفت‌وگو حذف کرده.`
 - If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
 - If the removed member is not currently in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
@@ -797,19 +797,19 @@ Rules:
 Remove confirmation for owner:
 
 ```text
-👩‍🦳 عضو از بحث حذف شد.
+👩‍🦳 عضو از گفت‌وگو حذف شد.
 ```
 
 Removed member notification:
 
 ```text
-👩‍🦳 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
+👩‍🦳 از گفت‌وگو «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
 If a non-owner somehow triggers remove:
 
 ```text
-👩‍🦳 فقط میزبان بحث می‌تونه اعضا رو حذف کنه.
+👩‍🦳 فقط میزبان گفت‌وگو می‌تونه اعضا رو حذف کنه.
 ```
 
 Report confirmation:
@@ -848,7 +848,7 @@ Member leaving:
 Response:
 
 ```text
-👩‍🦳 از بحث «بهترین ریف تاریخ؟» خارج شدی.
+👩‍🦳 از گفت‌وگو «بهترین ریف تاریخ؟» خارج شدی.
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.
@@ -860,7 +860,7 @@ Joining another discussion leaves the old one after the new join succeeds. If th
 ### Close Discussion
 
 Only the owner can close a discussion.
-Close confirmations should remember their origin. Canceling from a room returns to the room, canceling from `🟢 بحث‌های فعال` returns to active discussions, and canceling from `🗂 بحث‌های من` returns to my discussions.
+Close confirmations should remember their origin. Canceling from a room returns to the room, canceling from `🟢 گفت‌وگوهای فعال` returns to active discussions, and canceling from `🗂 گفت‌وگوهای من` returns to my discussions.
 
 Closing behavior:
 
@@ -875,7 +875,7 @@ Closing behavior:
 Owner response:
 
 ```text
-👩‍🦳 بحث «بهترین ریف تاریخ؟» بسته شد.
+👩‍🦳 گفت‌وگو «بهترین ریف تاریخ؟» بسته شد.
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.
@@ -883,14 +883,14 @@ After this response, remove the room bottom keyboard and show the discussions me
 Member notification:
 
 ```text
-👩‍🦳 میزبان بحث، این گفتگو رو بست.
+👩‍🦳 میزبان گفت‌وگو، این گفت‌وگو رو بست.
 
 💬 «بهترین ریف تاریخ؟»
 
-می‌تونی از بخش بحث‌ها وارد گفتگوی دیگه‌ای بشی.
+می‌تونی از بخش گفت‌وگوها وارد گفت‌وگوی دیگه‌ای بشی.
 ```
 
-After close, the room should not appear in `🟢 بحث‌های فعال` or `🗂 بحث‌های من`.
+After close, the room should not appear in `🟢 گفت‌وگوهای فعال` or `🗂 گفت‌وگوهای من`.
 
 ## Notifications
 
@@ -906,31 +906,31 @@ Notifications should be useful but quiet.
 **Join notification:**
 
 ```text
-👩‍🦳 «سارا» وارد بحث شد.
+👩‍🦳 «سارا» وارد گفت‌وگو شد.
 ```
 
 **Leave notification:**
 
 ```text
-👩‍🦳 «سارا» از بحث خارج شد.
+👩‍🦳 «سارا» از گفت‌وگو خارج شد.
 ```
 
 **Remove notification (to removed member):**
 
 ```text
-👩‍🦳 از بحث «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
+👩‍🦳 از گفت‌وگو «بهترین ریف تاریخ؟» توسط میزبان حذف شدی.
 ```
 
 **Remove notification (to other current members):**
 
 ```text
-👩‍🦳 «سارا» از بحث توسط میزبان حذف شد.
+👩‍🦳 «سارا» از گفت‌وگو توسط میزبان حذف شد.
 ```
 
 **Close notification (to current members):**
 
 ```text
-👩‍🦳 بحث توسط میزبان بسته شد.
+👩‍🦳 گفت‌وگو توسط میزبان بسته شد.
 ```
 
 **Format rules:**
@@ -945,10 +945,10 @@ Anti-noise rules:
 - If throttled, the next notification can summarize:
 
 ```text
-👩‍🦳 چند نفر جدید وارد بحثت شدن.
+👩‍🦳 چند نفر جدید وارد گفت‌وگوت شدن.
 
 💬 بهترین ریف تاریخ؟
-👥 الان ۶ نفر داخل بحثن.
+👥 الان ۶ نفر داخل گفت‌وگون.
 ```
 
 Message notifications are not in MVP. They can be added later with careful rules such as mentions, quiet-period summaries, or explicit room subscriptions.
@@ -1009,7 +1009,7 @@ Joinable example:
 
 ```text
 ✅ بهترین ریف تاریخ؟
-👥 ۵ نفر داخل بحث
+👥 ۵ نفر داخل گفت‌وگو
 🔓 ورود آزاده
 ```
 
@@ -1241,7 +1241,7 @@ If already saved:
 If the saved user has at least one visible/open discussion, add the discussion action above remove:
 
 ```text
-💬 دیدن بحث‌ها
+💬 دیدن گفت‌وگوها
 🗑 حذف از ذخیره‌شده‌ها
 🔙 برگشت
 ```
@@ -1255,7 +1255,7 @@ Saved profiles inside the people hub:
 
 1. 👤 علی
 دیدن پروفایل این کاربر 👈 /u_8K2P
-💬 دیدن بحث‌های این کاربر 👈 /ds_8K2P
+💬 دیدن گفت‌وگوهای این کاربر 👈 /ds_8K2P
 حذف از ذخیره‌شده‌ها 👈 /rm_8K2P
 
 2. 👤 سارا
@@ -1272,7 +1272,7 @@ When opening a profile from the saved list, delete the list message when possibl
 Users can view discussions of people in their saved profiles list via `/ds_CODE` command when that command is shown. Manually typed/stale `/ds_CODE` commands may still open the discussions view and show the empty state if no visible discussions remain.
 
 The discussions view shows:
-- Title with user's name: `💬 بحث‌های {name}`
+- Title with user's name: `💬 گفت‌وگوهای {name}`
 - Active discussion (if `showActiveDiscussionOnProfile` is enabled)
 - Created discussions (up to 10, open status only)
 - Empty state with "Got it" button if no discussions
@@ -1281,7 +1281,7 @@ The discussions view shows:
 Empty state example:
 
 ```text
-👩‍🦳 علی هیچ بحثی نداره.
+👩‍🦳 علی هیچ گفت‌وگوی نداره.
 
 [درست] (inline button → returns to saved profiles)
 ```
@@ -1289,15 +1289,15 @@ Empty state example:
 Discussions list example:
 
 ```text
-💬 بحث‌های علی
+💬 گفت‌وگوهای علی
 
-📌 بحث فعال
+📌 گفت‌وگوی فعال
 1. بهترین ریف تاریخ؟
    توضیحات: گیتار رو...
    🌍 آزاد ✅ | 5 نفر
    ورود 👈 /d_XY2Z
 
-📌 بحث‌های ساخته‌شده
+📌 گفت‌وگوهای ساخته‌شده
 1. آلبوم‌های متال برای شروع
    توضیحات: دوست دارم...
    🏷 متال‌هد 🔒 | 3 نفر
@@ -1335,7 +1335,7 @@ Active discussion visibility should be opt-in only.
 Setting:
 
 ```text
-نمایش بحث‌های فعال: روشن/خاموش
+نمایش گفت‌وگوهای فعال: روشن/خاموش
 ```
 
 Rules:
@@ -1353,7 +1353,7 @@ Rules:
 Example:
 
 ```text
-💬 بحث فعلی علی:
+💬 گفت‌وگو فعلی علی:
 بهترین ریف تاریخ؟
 
 🔓 می‌تونی وارد بشی
@@ -1362,7 +1362,7 @@ Example:
 Locked example:
 
 ```text
-💬 بحث فعلی علی:
+💬 گفت‌وگو فعلی علی:
 آلبوم‌های متال برای شروع
 
 🔒 نیازمند: 🤘 متال‌هد

@@ -173,16 +173,16 @@ test("bot-created discussions use localized copy and only a bot emoji marker", (
   };
   const listText = buildDiscussionListText(messages, "en", "Active discussions", [discussion]);
   const previewText = buildDiscussionInvitePreviewText(messages, "en", discussion);
-  const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+  const persianListText = buildDiscussionListText(messages, "fa", "گفت‌وگوهای فعال", [discussion]);
   const persianPreviewText = buildDiscussionInvitePreviewText(messages, "fa", discussion);
 
   assert.match(listText, /💬 👩‍🦳 Free Discussion/);
   assert.match(listText, /👥 0\/20\n🌍 Everyone ✅/);
   assert.match(listText, /A simple place to start chatting/);
   assert.match(previewText, /💬 👩‍🦳 Free Discussion/);
-  assert.match(persianListText, /💬 .*👩‍🦳 گفتگوی آزاد/);
+  assert.match(persianListText, /💬 .*👩‍🦳 گفت‌وگوی آزاد/);
   assert.match(persianListText, /یه جای ساده برای شروع گپ با بقیه/);
-  assert.match(persianPreviewText, /💬 .*👩‍🦳 گفتگوی آزاد/);
+  assert.match(persianPreviewText, /💬 .*👩‍🦳 گفت‌وگوی آزاد/);
   assert.doesNotMatch(listText, /official/i);
 });
 
@@ -198,7 +198,7 @@ test("metalhead starter discussion uses localized copy and metalhead badge rule"
     joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" },
   };
   const listText = buildDiscussionListText(messages, "en", "Active discussions", [discussion]);
-  const persianListText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+  const persianListText = buildDiscussionListText(messages, "fa", "گفت‌وگوهای فعال", [discussion]);
 
   assert.match(listText, /💬 👩‍🦳 Metalheads/);
   assert.match(listText, /Heavy riffs, loud albums, and metal recommendations/);
@@ -274,7 +274,7 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
       itemAliases: ["Gaming", "Games", "Game", "گیم", "بازی"],
     },
   };
-  const listText = buildDiscussionListText(messages, "fa", "بحث‌های فعال", [discussion]);
+  const listText = buildDiscussionListText(messages, "fa", "گفت‌وگوهای فعال", [discussion]);
   const lockedText = buildDiscussionInviteLockedText(
     messages,
     "fa",
@@ -283,7 +283,7 @@ test("starter discussion item rules use Persian aliases in Persian UI", () => {
   );
 
   assert.match(listText, /🔑 .*گیم/);
-  assert.match(listText, /برای باز شدن این بحث، 🎮 گیم/);
+  assert.match(listText, /برای باز شدن این گفت‌وگو، 🎮 گیم/);
   assert.match(lockedText, /«🎮 گیم»/);
   assert.doesNotMatch(lockedText, /Gaming/);
 });
@@ -302,7 +302,7 @@ test("locked discussion list join text explains the exact unlock path", () => {
   assert.match(text, /Metalhead|متال/);
   assert.match(text, /فیلم، موسیقی، کتاب ←/);
   assert.match(text, /۱۰ انتخاب محبوب/);
-  assert.match(text, /لیست بحث‌ها/);
+  assert.match(text, /لیست گفت‌وگوها/);
 });
 
 test("discussion list text keeps numbering across pages", () => {
@@ -326,7 +326,7 @@ test("discussion list text keeps numbering across pages", () => {
 });
 
 test("discussion list text uses Persian digits for fa numbering", () => {
-  const text = buildDiscussionListText(messages, "fa", "بحث‌ها", [
+  const text = buildDiscussionListText(messages, "fa", "گفت‌وگوها", [
     {
       title: "English title",
       description: "English desc",
@@ -945,7 +945,7 @@ test("full discussion guidance keeps the existing acknowledgement recovery", () 
   const keyboard = discussionJoinErrorAckKeyboard("fa", "active");
   const [button] = keyboard.reply_markup.inline_keyboard.flat();
 
-  assert.match(messages.fa.discussionErrFull, /گفتگوی خودت رو بسازی/);
+  assert.match(messages.fa.discussionErrFull, /گفت‌وگوی خودت رو بسازی/);
   assert.match(messages.en.discussionErrFull, /create your own/);
   assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}active`);
 });

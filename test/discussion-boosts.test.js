@@ -71,10 +71,10 @@ test("my discussions list exposes Persian boost action when boosts are available
     boostEnabled: true,
   });
   try {
-    const text = buildDiscussionListText(messages, "fa", "بحث‌های من", [{
+    const text = buildDiscussionListText(messages, "fa", "گفت‌وگوهای من", [{
       _id: "owned",
       title: "شب فیلم",
-      description: "یک بحث",
+      description: "یک گفت‌وگو",
       isJoinable: true,
       listAction: "close",
       publicDiscussionCode: "d_AB12",

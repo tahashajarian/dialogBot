@@ -35,7 +35,7 @@ test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emo
 
   assert.match(text, /💬 👩‍🦳 Movie Chat/);
   assert.match(text, /Chat about movies, scenes, and recent favorites/);
-  assert.match(persianText, /💬 👩‍🦳 گفتگوی فیلم/);
+  assert.match(persianText, /💬 👩‍🦳 گفت‌وگوی فیلم/);
   assert.match(persianText, /برای گپ درباره فیلم‌ها، سکانس‌ها و چیزهایی که دوست داشتید/);
   assert.doesNotMatch(text, /official/i);
 });

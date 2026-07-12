@@ -80,6 +80,6 @@ test("invite Star reward notice uses a natural accepted-invite sentence", () => 
     balance: 4,
   }]);
 
-  assert.equal(fa, "👩‍🦳⭐ یک نفر با دعوت تو وارد بحث شد؛ ۱ ستاره گرفتی.\nستاره‌ها: ۴");
+  assert.equal(fa, "👩‍🦳⭐ یک نفر با دعوت تو وارد گفت‌وگو شد؛ ۱ ستاره گرفتی.\nستاره‌ها: ۴");
   assert.equal(en, "👩‍🦳⭐ Someone joined a discussion through your invite; you earned 1 Stars.\nBalance: 4");
 });

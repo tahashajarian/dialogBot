@@ -103,12 +103,16 @@ function isDiscussionMyListText(text) {
 
 function isDiscussionLeaveText(text) {
   const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionLeave"]) || (plainText.includes("خروج") && plainText.includes("بحث")) || plainText.includes("leave discussion");
+  return matchesMessageText(text, ["discussionLeave"]) ||
+    (plainText.includes("خروج") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
+    plainText.includes("leave discussion");
 }
 
 function isDiscussionCloseText(text) {
   const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionCloseButton"]) || (plainText.includes("بستن") && plainText.includes("بحث")) || plainText.includes("close discussion");
+  return matchesMessageText(text, ["discussionCloseButton"]) ||
+    (plainText.includes("بستن") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
+    plainText.includes("close discussion");
 }
 
 function isDiscussionInviteText(text) {
@@ -128,13 +132,14 @@ function isDiscussionReturnToMenuText(text) {
   const normalizedText = normalizeKeyboardText(text);
   const legacyLabels = [
     "💬 منوی بحث‌ها",
+    "💬 منوی گفت‌وگوها",
     "💬 Discussions menu",
   ].map(normalizeKeyboardText);
   const plainText = getPlainKeyboardText(text);
   return (
     matchesMessageText(text, ["discussionReturnToMenu"]) ||
     legacyLabels.includes(normalizedText) ||
-    (plainText.includes("منوی") && plainText.includes("بحث")) ||
+    (plainText.includes("منوی") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
     (plainText.includes("discussion") && plainText.includes("menu"))
   );
 }

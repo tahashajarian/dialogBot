@@ -24,8 +24,8 @@ function formatOperationalLimitsText(template, overrides = {}) {
       `• Top 10: ${values.topTenLimit} items; section list: ${values.watchlistLimit} items; saved profiles: ${values.savedProfilesLimit}\n• Suggestions: ${values.suggestionLimit} per ${values.suggestionWindowMinutes} minutes in each section\n• Active discussions created: ${values.activeDiscussionsLimit}; ${values.discussionMessageLimit} messages per ${values.discussionMessageWindowMinutes} minutes in discussions\n• In-bot saved-profile invitations: ${values.invitationLimit} per ${values.invitationWindowHours} hours`,
     )
     .replace(
-      /• هر تاپ ۱۰: ۱۰ مورد؛ لیست هر بخش: ۱۰۰ مورد؛ ذخیره‌شده‌ها: ۵۰ پروفایل\n• پیشنهادها: ۱۰ پیشنهاد در ساعت برای هر بخش\n• ساخت بحث فعال: ۳ بحث؛ پیام بحث: ۳۰ پیام در ۱۰ دقیقه\n• دعوت مستقیم: ۳ دعوت در هر ۲۴ ساعت/,
-      `• هر تاپ ۱۰: ${values.topTenLimit} مورد؛ لیست هر بخش: ${values.watchlistLimit} مورد؛ ذخیره‌شده‌ها: ${values.savedProfilesLimit} پروفایل\n• پیشنهادها: ${values.suggestionLimit} پیشنهاد در هر ${values.suggestionWindowMinutes} دقیقه برای هر بخش\n• ساخت بحث فعال: ${values.activeDiscussionsLimit} بحث؛ پیام بحث: ${values.discussionMessageLimit} پیام در ${values.discussionMessageWindowMinutes} دقیقه\n• دعوت داخل بات از ذخیره‌شده‌ها: ${values.invitationLimit} دعوت در هر ${values.invitationWindowHours} ساعت`,
+      /• هر تاپ ۱۰: ۱۰ مورد؛ لیست هر بخش: ۱۰۰ مورد؛ ذخیره‌شده‌ها: ۵۰ پروفایل\n• پیشنهادها: ۱۰ پیشنهاد در ساعت برای هر بخش\n• ساخت گفت‌وگوی فعال: ۳ گفت‌وگو؛ پیام گفت‌وگو: ۳۰ پیام در ۱۰ دقیقه\n• دعوت مستقیم: ۳ دعوت در هر ۲۴ ساعت/,
+      `• هر تاپ ۱۰: ${values.topTenLimit} مورد؛ لیست هر بخش: ${values.watchlistLimit} مورد؛ ذخیره‌شده‌ها: ${values.savedProfilesLimit} پروفایل\n• پیشنهادها: ${values.suggestionLimit} پیشنهاد در هر ${values.suggestionWindowMinutes} دقیقه برای هر بخش\n• ساخت گفت‌وگوی فعال: ${values.activeDiscussionsLimit} گفت‌وگو؛ پیام گفت‌وگو: ${values.discussionMessageLimit} پیام در ${values.discussionMessageWindowMinutes} دقیقه\n• دعوت داخل بات از ذخیره‌شده‌ها: ${values.invitationLimit} دعوت در هر ${values.invitationWindowHours} ساعت`,
     );
 }
 
