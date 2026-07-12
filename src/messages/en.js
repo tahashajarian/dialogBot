@@ -373,7 +373,7 @@ module.exports = {
     aiFavoritesTitleMovies: "❤️ My favorite movies",
     aiFavoritesTitleMusic: "❤️ My favorite songs",
     aiFavoritesTitleBooks: "❤️ My favorite books",
-    aiListSaved: "✅ Saved to {listName}.",
+    aiListSaved: "✅ Saved \"{item}\" to {listName}.",
     aiListRemovedNamed: "✅ Removed \"{item}\".",
     aiListManageInlineEntry: "👩‍🦳 {listName}",
     aiListManageEmptyEntry: "👩‍🦳 Your {listName} is empty.\n\nKeep things here that you want to come back to later.\n\n💡 Add the first item.",

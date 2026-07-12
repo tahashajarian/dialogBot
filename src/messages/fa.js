@@ -373,7 +373,7 @@ module.exports = {
     aiFavoritesTitleMovies: "❤️ فیلم‌های محبوب من",
     aiFavoritesTitleMusic: "❤️ آهنگ‌های محبوب من",
     aiFavoritesTitleBooks: "❤️ کتاب‌های محبوب من",
-    aiListSaved: "✅ به {listName} اضافه شد.",
+    aiListSaved: "✅ «{item}» به {listName} اضافه شد.",
     aiListRemovedNamed: "✅ «{item}» حذف شد.",
     aiListManageInlineEntry: "👩‍🦳 {listName}",
     aiListManageEmptyEntry: "👩‍🦳 {listName} هنوز خالیه.\n\nاینجا چیزهایی رو نگه می‌داری که می‌خوای بعداً سراغشون بری.\n\n💡 اولین مورد رو اضافه کن.",

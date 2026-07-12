@@ -755,7 +755,7 @@ async function handleAiText(ctx, lang, text, state) {
 
       const listLabel = getSectionListLabel(messages, lang, section);
       const saved = await ctx.reply(
-        `${messages[lang].aiListSaved.replace("{listName}", listLabel)}\n${formatAiItemsList(title, result.items, emptyText, {
+        `${messages[lang].aiListSaved.replace("{item}", item).replace("{listName}", listLabel)}\n${formatAiItemsList(title, result.items, emptyText, {
           topTenTitleSet: toTitleSet(topTenItems),
           includeWatched: true,
         })}${starNotice ? `\n\n${starNotice}` : ""}${listIsFull ? "" : `\n\n${messages[lang].aiListManageAddNextPrompt}`}`,

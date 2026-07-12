@@ -1529,7 +1529,7 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Saved to 🎬 watch later/);
+  assert.match(savedReply.text, /Saved "Arrival" to 🎬 watch later/);
   assert.match(savedReply.text, /Send the next title here/);
   assert.doesNotMatch(savedReply.text, /Star|⭐/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
