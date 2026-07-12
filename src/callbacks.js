@@ -342,14 +342,6 @@ async function retireStaleCallbackCardIfNeeded(ctx, data = "") {
   return true;
 }
 
-async function showInlineMenuAfterNavigation(ctx, text, keyboard, { forceClearKeyboard = false } = {}) {
-  if (forceClearKeyboard || hasTemporaryReplyKeyboard(ctx)) {
-    await deleteCallbackMessageIfPossible(ctx);
-    return replyWithRemovedKeyboardThenInline(ctx, text, keyboard);
-  }
-  return editCallbackMessageOrReply(ctx, text, keyboard);
-}
-
 function getActiveRoomCallbackDiscussionId(data = "") {
   if (
     data.startsWith(callBacks.discussionCloseConfirm) ||
@@ -472,9 +464,12 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showInlineMenuAfterNavigation(ctx, formatOperationalLimitsText(messages[lang].helpRulesText), helpRulesKeyboard(lang), {
-      forceClearKeyboard: shouldClearKeyboard,
-    });
+    const rulesText = formatOperationalLimitsText(messages[lang].helpRulesText);
+    const rulesKeyboard = helpRulesKeyboard(lang);
+    if (shouldClearKeyboard) {
+      return showFootprintedInlineDestination(ctx, lang, "help", rulesText, rulesKeyboard, true);
+    }
+    return editCallbackMessageOrReply(ctx, rulesText, rulesKeyboard);
   }
 
   if (data === callBacks.language) {
