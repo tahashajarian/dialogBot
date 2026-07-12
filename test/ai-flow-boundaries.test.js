@@ -632,7 +632,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
-test("entering a media section keeps a small section title above Top Ten", async () => {
+test("entering a media section leaves an untracked permanent footprint above Top Ten", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -686,12 +686,12 @@ test("entering a media section keeps a small section title above Top Ten", async
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [44]);
-  assert.equal(edits[0].messageId, 60);
-  assert.equal(edits[0].text, "📚 Books");
-  assert.match(replies[0].text, /Dune/);
-  assert.equal(ctx.user.aiSectionEntryMessageId, 60);
-  assert.equal(ctx.user.aiLastListMessageId, 101);
+  assert.deepEqual(deletedIds, [44, 60]);
+  assert.deepEqual(edits, []);
+  assert.equal(replies[0].text, "📚 Books");
+  assert.match(replies[1].text, /Dune/);
+  assert.equal(ctx.user.aiSectionEntryMessageId, null);
+  assert.equal(ctx.user.aiLastListMessageId, 102);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten");
 });
 
@@ -946,9 +946,10 @@ test("AI top-ten Back returns to the AI section picker", async () => {
   }
 
   assert.equal(ctx.user.state, "idle");
-  assert.equal(ctx.user.aiSectionEntryMessageId, null);
-  assert.deepEqual(events, ["delete:44", "edit:77"]);
-  assert.equal(replies.at(-1).text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
+  assert.equal(ctx.user.aiSectionEntryMessageId, 120);
+  assert.deepEqual(events, ["delete:44", "delete:77", "reply", "reply"]);
+  assert.equal(replies[0].text, messages.en.navigationFootprintTaste);
+  assert.equal(replies[1].text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
   assert.ok(updates.some((update) => update?.state === "idle"));
 });
 
@@ -1006,7 +1007,7 @@ test("AI top-ten Back deletes the list card before fallback reply when edit fail
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(events, ["delete:44", "edit:77:false", "delete:77", "reply"]);
+  assert.deepEqual(events, ["delete:44", "delete:77", "reply", "reply"]);
   assert.equal(ctx.user.aiLastListMessageId, null);
   assert.equal(ctx.user.aiLastListSection, "");
   assert.equal(ctx.user.aiLastListType, "");

@@ -9,6 +9,7 @@ const {
 } = require("../keyboards");
 const { updateProfileField } = require("../services/users");
 const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter } = require("../services/discussion-language");
+const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const {
   buildDiscussionJoinLockedText,
   decorateDiscussionsForList,
@@ -36,17 +37,29 @@ async function clearRememberedDiscussionRoomCards(ctx, exceptMessageIds = []) {
 
   const ids = [headerId, recentId].filter((id) => Number.isInteger(id) && id > 0 && !keep.has(id));
 
-  if (ctx.deleteMessage) {
-    await Promise.all(ids.map((id) => ctx.deleteMessage(id)));
+  await Promise.all(ids.map(async (id) => {
+    const deleted = ctx.deleteMessage ? await ctx.deleteMessage(id) : false;
+    if (!deleted && ctx.editMessageReplyMarkup) {
+      await ctx.editMessageReplyMarkup(id, { inline_keyboard: [] });
+    }
+  }));
+
+  if (ctx.user) {
+    ctx.user.discussionLastRoomHeaderMessageId = null;
+    ctx.user.discussionLastRoomRecentMessageId = null;
   }
 
-  await updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", null);
-  await updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", null);
+  await Promise.all([
+    updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", null),
+    updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", null),
+  ]);
 }
 
 async function rememberDiscussionRoomCards(ctx, headerMessage, recentMessage) {
-  await updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", getMessageId(headerMessage) || null);
-  await updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", getMessageId(recentMessage) || null);
+  await Promise.all([
+    updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", getMessageId(headerMessage) || null),
+    updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", getMessageId(recentMessage) || null),
+  ]);
 }
 
 async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
@@ -54,8 +67,10 @@ async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return;
   }
-  await updateProfileField(ctx.userId, "discussionLastListMessageId", messageId);
-  await updateProfileField(ctx.userId, "discussionLastListType", listType);
+  await Promise.all([
+    updateProfileField(ctx.userId, "discussionLastListMessageId", messageId),
+    updateProfileField(ctx.userId, "discussionLastListType", listType),
+  ]);
 }
 
 async function rememberDiscussionMembersMessage(ctx, messageOrId) {
@@ -82,19 +97,34 @@ async function clearDiscussionMembersMessage(ctx, exceptMessageIds = []) {
 async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+  if (
+    !Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) ||
+    (!ctx.deleteMessage && !ctx.editMessageReplyMarkup)
+  ) {
     return false;
   }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted === false) {
+  let deleted = false;
+  try {
+    deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
+  } catch {
+    deleted = false;
+  }
+  const retired = deleted || (
+    ctx.editMessageReplyMarkup
+      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
+      : false
+  );
+  if (!retired) {
     return false;
   }
   if (ctx.user) {
     ctx.user.discussionLastListMessageId = null;
     ctx.user.discussionLastListType = "";
   }
-  await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
-  await updateProfileField(ctx.userId, "discussionLastListType", "");
+  await Promise.all([
+    updateProfileField(ctx.userId, "discussionLastListMessageId", null),
+    updateProfileField(ctx.userId, "discussionLastListType", ""),
+  ]);
   return true;
 }
 
@@ -213,7 +243,9 @@ async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
 
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, languageFilter = null, {
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+  freshDestination = false,
 } = {}) {
+  if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "activeDiscussions" });
   const effectiveLanguage = normalizeDiscussionLanguageFilter(languageFilter) || getEffectiveDiscussionLanguageFilter(ctx.user);
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
@@ -236,7 +268,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
         languageFilter: effectiveLanguage,
       }),
     );
-    await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+    await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
     return listMessage;
   }
   const paged = paginateDiscussions(filtered, page);
@@ -253,13 +285,15 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
       languageFilter: effectiveLanguage,
     }),
   );
-  await rememberDiscussionListMessage(ctx, "active", ctx.callbackMessageId || listMessage);
+  await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
   return listMessage;
 }
 
 async function renderMyDiscussionList(ctx, lang, page = 0, {
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+  freshDestination = false,
 } = {}) {
+  if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "myDiscussions" });
   const result = await listMyDiscussions(ctx.userId, { limit: 100 });
   if (!result.ok) {
     await ctx.answerCb?.();
@@ -272,7 +306,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
       messages[lang].discussionListMineEmpty,
       discussionJoinErrorAckKeyboard(lang, "discussions"),
     );
-    await rememberDiscussionMenuNotice(ctx, ctx.callbackMessageId || emptyNotice);
+    await rememberDiscussionMenuNotice(ctx, freshDestination ? emptyNotice : (ctx.callbackMessageId || emptyNotice));
     return emptyNotice;
   }
   await ctx.answerCb?.();
@@ -289,7 +323,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
       totalPages: paged.totalPages,
     }),
   );
-  await rememberDiscussionListMessage(ctx, "mine", ctx.callbackMessageId || listMessage);
+  await rememberDiscussionListMessage(ctx, "mine", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
   return listMessage;
 }
 
@@ -313,7 +347,11 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListActive) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    return renderActiveDiscussionList(ctx, lang, 0, false, null, { editCallbackMessageOrReply });
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return renderActiveDiscussionList(ctx, lang, 0, false, null, {
+      editCallbackMessageOrReply: (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
+      freshDestination: true,
+    });
   }
 
   if (data.startsWith(callBacks.discussionListLanguageOpen)) {
@@ -349,7 +387,11 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListMine) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return renderMyDiscussionList(ctx, lang, 0, {
+      editCallbackMessageOrReply: (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
+      freshDestination: true,
+    });
   }
 
   if (data.startsWith(callBacks.discussionListMinePage)) {
@@ -368,7 +410,8 @@ async function handleDiscussionListCallback(ctx, lang, {
       return renderSavedProfileDiscussions(ctx, lang, destination.replace(/^saved:/, ""));
     }
     if (destination === "main") {
-      return editCallbackMessageOrReply(ctx, messages[lang].mainMenu, mainMenuKeyboard(lang));
+      await sendNavigationFootprint(ctx, { lang, destination: "menu" });
+      return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
     }
     if (destination === "discussions") {
       return editCallbackMessageOrReply(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));

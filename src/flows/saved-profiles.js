@@ -40,6 +40,7 @@ const {
   buildPeopleDiscoveryText,
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
+const { rememberNavigationCard, sendNavigationFootprint } = require("../services/navigation-footprints");
 const {
   decorateDiscussionsForList,
   buildDiscussionListText,
@@ -352,10 +353,12 @@ async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
 }
 
 async function clearSavedProfileSurfaceMessages(ctx, exceptMessageIds = []) {
-  await clearSavedProfilesListMessage(ctx, exceptMessageIds);
-  await clearPeopleListMessage(ctx, exceptMessageIds);
-  await clearViewedPublicProfileMessage(ctx, exceptMessageIds);
-  await clearSavedProfileDiscussionMessage(ctx, exceptMessageIds);
+  await Promise.all([
+    clearSavedProfilesListMessage(ctx, exceptMessageIds),
+    clearPeopleListMessage(ctx, exceptMessageIds),
+    clearViewedPublicProfileMessage(ctx, exceptMessageIds),
+    clearSavedProfileDiscussionMessage(ctx, exceptMessageIds),
+  ]);
 }
 
 async function rememberViewedPublicProfileMessage(ctx, message) {
@@ -369,6 +372,7 @@ async function rememberViewedPublicProfileMessage(ctx, message) {
 
 async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = null } = {}) {
   await forgetPeopleListMessage(ctx);
+  if (page === 0) await sendNavigationFootprint(ctx, { lang, destination: "savedProfiles" });
   const items = await buildSavedProfileListItems({
     codes,
     normalizePublicProfileCode,
@@ -396,12 +400,14 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
   return sent;
 }
 
-async function sendPeopleHub(ctx, lang, { send = null } = {}) {
+async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
+  await sendNavigationFootprint(ctx, { lang, destination: "people", removeKeyboard });
   const sent = send
     ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang))
     : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang));
+  await rememberNavigationCard(ctx, sent);
   return sent;
 }
 
@@ -429,6 +435,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
 async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
+  if (page === 0) await sendNavigationFootprint(ctx, { lang, destination: "peopleDiscovery" });
   const sent = send
     ? await send(discoveryPage.text, discoveryPage.keyboard)
     : await ctx.reply(discoveryPage.text, discoveryPage.keyboard);
@@ -555,6 +562,12 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
       hasDiscussions,
     });
 
+  await sendNavigationFootprint(ctx, {
+    lang,
+    destination: "publicProfile",
+    title: target.profileName || target.firstName || "-",
+  });
+
   const result = await sendProfileMessage({
     ctx,
     user: target,
@@ -565,6 +578,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     isOwnProfile: false,
     footerText: "",
   });
+
 
   await rememberViewedPublicProfileMessage(ctx, result);
   return result;
@@ -659,7 +673,6 @@ async function handleSavedProfilesCallback(ctx, lang, {
   isProfileCallbackMessage,
   hasTemporaryReplyKeyboard = () => false,
   leaveDiscussionAndClearKeyboardForNavigation,
-  replyWithRemovedKeyboardThenInline,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -669,16 +682,8 @@ async function handleSavedProfilesCallback(ctx, lang, {
     await leaveDiscussionAndClearKeyboardForNavigation?.(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage?.(ctx);
     await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
-    if (shouldClearKeyboard) {
-      await deleteCallbackMessageIfPossible?.(ctx);
-    }
-    return sendPeopleHub(ctx, lang, {
-      send: shouldClearKeyboard && replyWithRemovedKeyboardThenInline
-        ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
-        : editCallbackMessageOrReply
-          ? (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard)
-        : null,
-    });
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return sendPeopleHub(ctx, lang, { removeKeyboard: shouldClearKeyboard });
   }
 
   if (data === callBacks.peopleDiscover) {
@@ -798,17 +803,17 @@ async function handleSavedProfilesCallback(ctx, lang, {
         await deleteCallbackMessageIfPossible?.(ctx);
       }
     }
+    if (!isProfileCallbackMessage?.(ctx) && !shouldClearKeyboard) {
+      await deleteCallbackMessageIfPossible?.(ctx);
+    }
     await forgetSavedProfilesList(ctx);
     await forgetPeopleListMessage(ctx);
     const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    if (shouldClearKeyboard) {
+      await sendNavigationFootprint(ctx, { lang, destination: "savedProfiles", removeKeyboard: true });
+    }
     return sendSavedProfilesList(ctx, lang, codes, 0, {
-      send: isProfileCallbackMessage?.(ctx)
-        ? null
-        : shouldClearKeyboard && replyWithRemovedKeyboardThenInline
-          ? (text, keyboard) => replyWithRemovedKeyboardThenInline(ctx, text, keyboard)
-          : editCallbackMessageOrReply
-            ? (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard)
-          : null,
+      send: null,
     });
   }
 

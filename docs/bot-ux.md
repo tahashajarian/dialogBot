@@ -2,6 +2,10 @@
 
 ## Low-Noise Conversation
 
+- Every fresh destination entry retires the previous removable destination card, sends one permanent localized title footprint, then sends and tracks a fresh interactive card below it. If card deletion fails, inline controls must be removed so stale navigation cannot remain actionable.
+- Footprints are plain text historical labels: never track, edit, or delete their message IDs. Revisiting the same destination in a later update creates another footprint. The registry covers main menu, own/public profiles, profile settings, Movies/Music/Books and its media sections, discussions and rooms, active/my discussion lists, People and discovery, saved profiles, language, and help.
+- Pagination, refreshes, mutations, validation/errors, loading states, confirmations, previews, and picker steps do not create footprints. Leaving a discussion keeps the normal leave-history message before the destination footprint.
+
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
 - Bot-authored guidance, empty states, and safe error messages should start with the configured Muze marker emoji so they feel clearly from the bot. The default marker is `👩‍🦳`, and admins can change it from the dashboard. Short success confirmations can keep their action/status emoji.
 - Bot-authored messages sent before normal app-context routing, such as allowlist and banned-user blocks, should still apply the configured Muze marker emoji.

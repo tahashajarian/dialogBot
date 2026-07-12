@@ -41,6 +41,7 @@ const {
   buildStarsOverviewText,
   formatStarNumber,
 } = require("../services/stars-ui");
+const { rememberNavigationCard, sendNavigationFootprint } = require("../services/navigation-footprints");
 const {
   awardProfileCompletionMilestone,
   claimExistingProfileAndListMilestones,
@@ -148,6 +149,7 @@ function parseProfileEmojiState(state = "") {
 }
 
 async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
+  await sendNavigationFootprint(ctx, { lang, destination: "profile" });
   const sentProfile = await sendProfileMessage({
     ctx,
     user,
@@ -170,7 +172,8 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
 }
 
 async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
-  return sendProfileMessage({
+  await sendNavigationFootprint(ctx, { lang, destination: "settings" });
+  const settingsCard = await sendProfileMessage({
     ctx,
     user,
     lang,
@@ -181,6 +184,12 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
     messages,
     isOwnProfile: true,
   });
+  const messageId = Number(settingsCard?.message_id || settingsCard?.messageId);
+  if (Number.isInteger(messageId) && messageId > 0) {
+    await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
+    if (ctx.user) ctx.user.profileLastMessageId = messageId;
+  }
+  return settingsCard;
 }
 
 async function editCallbackMessageToOwnProfileOrSend(ctx, lang, user = ctx.user) {
@@ -633,15 +642,9 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await leaveDiscussionAndClearKeyboardForNavigation?.(ctx);
     await updateUserState(ctx.userId, "idle");
-    if (!isProfileCallbackMessage(ctx) && editCallbackMessageOrReply) {
-      return editCallbackMessageOrReply(
-        ctx,
-        messages[lang].mainMenu,
-        mainMenuKeyboard(lang),
-      );
-    }
     await deleteCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+    await sendNavigationFootprint(ctx, { lang, destination: "menu" });
+    return rememberNavigationCard(ctx, await ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang)));
   }
 
   return false;

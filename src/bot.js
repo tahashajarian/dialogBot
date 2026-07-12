@@ -39,6 +39,7 @@ const {
 const {
   normalizePublicProfileCode,
 } = require("./services/discussions");
+const { getDiscussionDisplayTitle } = require("./services/discussion-ui");
 const {
   isDiscussionBottomControlText,
   handleDiscussionBottomButton,
@@ -86,6 +87,7 @@ const {
 const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
+  rememberAiSectionEntryMessage,
 } = require("./flows/ai-cards");
 const {
   clearProfileEditPrompt,
@@ -123,13 +125,13 @@ const {
   replyToUnsupportedDiscussionMessage,
   sendDiscussionMessageToRecipient,
 } = require("./flows/discussion-messages");
-const { getDiscussionDisplayTitle } = require("./services/discussion-ui");
 const {
   handleProfileCancelText,
   handleProfileText,
 } = require("./flows/profile-text");
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 const { claimReferral } = require("./services/star-referrals");
+const { rememberNavigationCard, sendNavigationFootprint } = require("./services/navigation-footprints");
 
 const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
@@ -216,19 +218,24 @@ function getNavigationCommand(text = "") {
 
 async function prepareForCommandNavigation(ctx, state) {
   const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx, state);
-  await clearViewedPublicProfileMessage(ctx);
-  await clearSavedProfilesListMessage(ctx);
-  await clearPeopleListMessage(ctx);
-  await clearOwnProfileMessage(ctx);
-  await clearAiPendingInputPrompt(ctx);
-  await clearRememberedAiListMessage(ctx);
-  await clearAiSectionEntryMessage(ctx);
-  await clearProfileEditPrompt(ctx);
-  await clearRememberedDiscussionRoomCards(ctx);
-  await clearDiscussionMembersMessage(ctx);
-  await clearDiscussionListMessage(ctx);
-  await clearDiscussionMenuNotice(ctx);
-  const left = await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
+  const cleanup = Promise.all([
+    clearViewedPublicProfileMessage(ctx),
+    clearSavedProfilesListMessage(ctx),
+    clearPeopleListMessage(ctx),
+    clearOwnProfileMessage(ctx),
+    clearAiPendingInputPrompt(ctx),
+    clearRememberedAiListMessage(ctx),
+    clearAiSectionEntryMessage(ctx),
+    clearProfileEditPrompt(ctx),
+    clearRememberedDiscussionRoomCards(ctx),
+    clearDiscussionMembersMessage(ctx),
+    clearDiscussionListMessage(ctx),
+    clearDiscussionMenuNotice(ctx),
+  ]);
+  const [, left] = await Promise.all([
+    cleanup,
+    leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false }),
+  ]);
   await updateUserState(ctx.userId, "idle");
   if (ctx.user) ctx.user.state = "idle";
   return { shouldClearKeyboard, left };
@@ -307,35 +314,34 @@ async function handleUpdate(ctx) {
   if (navigationCommand) {
     const { shouldClearKeyboard, left } = await prepareForCommandNavigation(ctx, state);
     const exitNotice = formatCommandNavigationExit(keyboardLang, left);
-    if (exitNotice) {
-      await removeBottomKeyboard(ctx, exitNotice, { deleteSentMessage: false });
-    }
-    const replyWithNavigationKeyboard = (messageText, keyboard) => shouldClearKeyboard
-      ? (exitNotice ? ctx.reply(messageText, keyboard) : replyWithRemovedKeyboardThenInline(ctx, messageText, keyboard))
-      : ctx.reply(messageText, keyboard);
+    if (exitNotice) await ctx.reply(exitNotice);
+    await sendNavigationFootprint(ctx, {
+      lang: keyboardLang,
+      destination: navigationCommand === "lang" ? "language" : navigationCommand,
+      removeKeyboard: shouldClearKeyboard,
+    });
+    const replyWithNavigationKeyboard = async (messageText, keyboard) => (
+      rememberNavigationCard(ctx, await ctx.reply(messageText, keyboard))
+    );
 
     if (navigationCommand === "menu") {
       return replyWithNavigationKeyboard(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
     }
     if (navigationCommand === "profile") {
-      if (shouldClearKeyboard && !exitNotice) {
-        await removeBottomKeyboard(ctx);
-      }
       return sendProfile(ctx, toPlainUser(ctx.user), lang, keyboardLang, { loading: true });
     }
     if (navigationCommand === "lang") {
       return replyWithNavigationKeyboard(messages[keyboardLang].chooseLanguage, languageKeyboard());
     }
     if (navigationCommand === "taste") {
-      return replyWithNavigationKeyboard(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      const hubCard = await replyWithNavigationKeyboard(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      await rememberAiSectionEntryMessage(ctx, hubCard);
+      return hubCard;
     }
     if (navigationCommand === "discussions") {
       return replyWithNavigationKeyboard(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (navigationCommand === "people") {
-      if (shouldClearKeyboard && !exitNotice) {
-        await removeBottomKeyboard(ctx);
-      }
       return sendPeopleHub(ctx, lang);
     }
     return replyWithNavigationKeyboard(messages[lang].helpText, helpKeyboard(lang));
@@ -443,6 +449,7 @@ async function handleUpdate(ctx) {
     } else {
       await ctx.reply(welcomeMessage);
     }
+    await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "menu" });
     return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
   }
 
@@ -713,6 +720,7 @@ async function clearOwnProfileMessage(ctx) {
 }
 
 async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
+  await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "profile" });
   const sentProfile = await sendProfileMessage({
     ctx,
     user,

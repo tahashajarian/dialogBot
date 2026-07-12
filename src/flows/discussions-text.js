@@ -60,10 +60,12 @@ const {
 const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
 const { sendTasteSetupNudge } = require("./onboarding");
 const {
+  clearRememberedDiscussionRoomCards,
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
 } = require("./discussions-callbacks");
 const { removeBottomKeyboardWithoutWaitingForDelete } = require("../services/bot-navigation");
+const { sendNavigationFootprint } = require("../services/navigation-footprints");
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -170,6 +172,20 @@ async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false
   return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
 }
 
+async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
+  await clearRememberedDiscussionRoomCards(ctx);
+  await clearDiscussionMembersMessage(ctx);
+  if (left?.ok && left.discussion) {
+    await ctx.reply(formatDiscussionLeftMessage(lang, left.discussion));
+  }
+  await sendNavigationFootprint(ctx, {
+    lang,
+    destination: "discussions",
+    removeKeyboard: true,
+  });
+  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+}
+
 function normalizeProfileCodeFromActionCommand(value) {
   const raw = String(value || "").trim().replace(/^\/?(remove|report|save|unsave)_/i, "");
   return normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
@@ -233,6 +249,7 @@ async function sendDiscussionCreatePrompt(ctx, text, keyboard) {
 }
 
 async function sendDiscussionRoomFromText(ctx, lang, discussion) {
+  await sendNavigationFootprint(ctx, { lang, destination: "discussion", discussion });
   await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   return ctx.reply(
     formatDiscussionRoomFollowup(messages, lang, discussion),
@@ -410,11 +427,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     }
 
     const left = await leaveDiscussionAndNotify({ ctx, messages, discussionId: activeDiscussionId });
-    await clearDiscussionMembersMessage(ctx);
-    const textToShow = left.ok
-      ? formatDiscussionLeftMessage(lang, left?.discussion)
-      : messages[lang].discussionReturnedToMenu;
-    return replyWithDiscussionMenu(ctx, lang, textToShow, { removeKeyboard: true });
+    return enterDiscussionsAfterRoomExit(ctx, lang, left);
   }
 
   if (isDiscussionLeaveText(text)) {
@@ -424,13 +437,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     if (!left.ok) {
       return ctx.reply(messages[lang].discussionNotMember);
     }
-    await clearDiscussionMembersMessage(ctx);
-    return replyWithDiscussionMenu(
-      ctx,
-      lang,
-      formatDiscussionLeftMessage(lang, left?.discussion),
-      { removeKeyboard: true },
-    );
+    return enterDiscussionsAfterRoomExit(ctx, lang, left);
   }
 
   if (isDiscussionCloseText(text)) {
@@ -563,7 +570,6 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     return { ok: false, reason: "requires_profile_name" };
   }
 
-  const wasActiveInDiscussion = String(ctx.user?.activeDiscussionId || "") === String(discussion._id);
   const joined = await joinDiscussionAndNotify({
     ctx,
     messages,
@@ -650,12 +656,9 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     Object.assign(ctx.user || {}, clearedShare);
     await updateUserFields(ctx.userId, clearedShare);
   }
-  const statusText = joined.joined
-    ? messages[lang].discussionJoined
-    : (wasActiveInDiscussion ? messages[lang].discussionInviteAlreadyMember : messages[lang].discussionOpened);
   applyStarRewardsToContext(ctx, joined.starRewards);
   const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
-  await ctx.reply([statusText, starNotice].filter(Boolean).join("\n\n"));
+  if (starNotice) await ctx.reply(starNotice);
   const roomMessage = sendRoom
     ? await sendRoom(ctx, lang, joined.discussion)
     : await sendDiscussionRoomFromText(ctx, lang, joined.discussion);

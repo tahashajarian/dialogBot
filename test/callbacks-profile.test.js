@@ -9,7 +9,7 @@ const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 
-test("profile Back edits a text profile into the main menu", async () => {
+test("profile Back leaves a main-menu footprint before a fresh menu card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
   const deletedIds = [];
@@ -43,11 +43,9 @@ test("profile Back edits a text profile into the main menu", async () => {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.equal(edits.length, 1);
-  assert.equal(edits[0].messageId, 123);
-  assert.equal(edits[0].text, messages.en.mainMenu);
-  assert.deepEqual(deletedIds, []);
-  assert.deepEqual(replies, []);
+  assert.equal(edits.length, 0);
+  assert.deepEqual(deletedIds, [123]);
+  assert.deepEqual(replies, [messages.en.navigationFootprintMainMenu, messages.en.mainMenu]);
 });
 
 test("profile Back deletes a photo profile before sending the main menu", async () => {
@@ -86,7 +84,7 @@ test("profile Back deletes a photo profile before sending the main menu", async 
 
   assert.deepEqual(edits, []);
   assert.deepEqual(deletedIds, [124]);
-  assert.deepEqual(replies, [messages.en.mainMenu]);
+  assert.deepEqual(replies, [messages.en.navigationFootprintMainMenu, messages.en.mainMenu]);
 });
 
 test("profile callback deletes current menu message before rendering profile", async () => {
@@ -134,7 +132,7 @@ test("profile callback deletes current menu message before rendering profile", a
   assert.equal(updates[0].update.profileLastMessageId, 1);
 });
 
-test("opening a custom-photo profile sends the photo without a temporary loading message", async () => {
+test("opening a custom-photo profile sends one footprint, then the photo without a loading message", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const photos = [];
@@ -170,7 +168,7 @@ test("opening a custom-photo profile sends the photo without a temporary loading
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(replies, []);
+  assert.deepEqual(replies, ["👤 Profile"]);
   assert.equal(photos.length, 1);
   assert.equal(photos[0].photo, "profile-photo");
   assert.match(photos[0].extra.caption, /Your profile:/);
@@ -204,6 +202,8 @@ test("help rules callback opens the rules card", async () => {
 });
 
 test("profile settings keeps the profile display with settings controls", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  User.findOneAndUpdate = async () => ({});
   const deletedIds = [];
   const replies = [];
 
@@ -234,13 +234,17 @@ test("profile settings keeps the profile display with settings controls", async 
     },
   };
 
-  await handleCallback(ctx);
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 
   assert.equal(deletedIds[0], 321);
-  assert.match(replies[0].text, /profile/i);
-  assert.match(replies[0].text, /Ali/);
+  assert.match(replies.at(-1).text, /profile/i);
+  assert.match(replies.at(-1).text, /Ali/);
   assert.equal(
-    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    replies.at(-1).extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.profileEditBio,
   );
 });
@@ -291,8 +295,8 @@ test("active discussion help Got it hides future profile help link", async () =>
   assert.equal(updates[0].query.userId, 999);
   assert.ok(updates[0].update.activeDiscussionHelpAcknowledgedAt instanceof Date);
   assert.deepEqual(deletedIds, [222]);
-  assert.match(replies[0].text, /Show active discussion/);
-  assert.doesNotMatch(replies[0].text, /\/ad_help/);
+  assert.match(replies.at(-1).text, /Show active discussion/);
+  assert.doesNotMatch(replies.at(-1).text, /\/ad_help/);
 });
 
 test("active discussion help Got it edits stale card when delete fails", async () => {
@@ -483,8 +487,8 @@ test("profile emoji insufficient Got it returns to profile", async () => {
 
   assert.deepEqual(states, ["idle"]);
   assert.deepEqual(deletedIds, [444]);
-  assert.match(replies[0].text, /Ali/);
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.profileEditName);
+  assert.match(replies.at(-1).text, /Ali/);
+  assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.profileEditName);
 });
 
 test("public profile viewing asks for basic profile first", async () => {
@@ -534,13 +538,16 @@ test("public profile viewing asks for basic profile first", async () => {
   );
 });
 
-test("main menu entries open sections without hard delete-first gap", async () => {
+test("main menu entries retire the old card before their permanent footprint", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  User.findOneAndUpdate = async () => ({});
   const scenarios = [
     callBacks.aiAssistant,
     callBacks.discussions,
   ];
 
-  for (const callbackData of scenarios) {
+  try {
+    for (const callbackData of scenarios) {
     const deletedIds = [];
     const ctx = {
       callbackData,
@@ -564,8 +571,11 @@ test("main menu entries open sections without hard delete-first gap", async () =
       replyWithPhoto: async () => ({ message_id: 2 }),
     };
 
-    await handleCallback(ctx);
-    assert.equal(deletedIds.length, 0);
+      await handleCallback(ctx);
+      assert.deepEqual(deletedIds, [456]);
+    }
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 });
 
@@ -603,12 +613,12 @@ test("saved profiles clears bottom keyboard before rendering list when one is ac
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.equal(replies[0].text.length > 0, true);
   assert.notEqual(replies[0].text, ".");
-  assert.equal(deletedIds.includes(1), true);
+  assert.equal(deletedIds.includes(1), false);
   assert.match(replies[1].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
   assert.equal(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
 });
 
-test("saved profiles edits inline menu without dot cleanup", async () => {
+test("saved profiles sends footprint before a fresh list card", async () => {
   const replies = [];
   const edits = [];
   const deletedIds = [];
@@ -642,11 +652,11 @@ test("saved profiles edits inline menu without dot cleanup", async () => {
 
   await handleCallback(ctx);
 
-  assert.deepEqual(replies, []);
-  assert.deepEqual(deletedIds, []);
-  assert.equal(edits[0].messageId, 456);
-  assert.match(edits[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
-  assert.equal(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
+  assert.equal(replies[0].text, "🔖 ذخیره‌شده‌ها");
+  assert.match(replies[1].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.deepEqual(deletedIds, [456]);
+  assert.deepEqual(edits, []);
+  assert.equal(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.people);
 });
 
 test("people hub opens discovery and saved profile choices", async () => {
@@ -681,11 +691,11 @@ test("people hub opens discovery and saved profile choices", async () => {
 
   await handleCallback(ctx);
 
-  assert.deepEqual(replies, []);
-  assert.deepEqual(deletedIds, []);
-  assert.equal(edits[0].messageId, 456);
-  assert.match(edits[0].text, /آدم‌ها/);
-  const buttons = edits[0].extra.reply_markup.inline_keyboard.flat();
+  assert.equal(replies[0].text, "👥 آدم‌ها");
+  assert.match(replies[1].text, /آدم‌ها/);
+  assert.deepEqual(deletedIds, [456]);
+  assert.deepEqual(edits, []);
+  const buttons = replies[1].extra.reply_markup.inline_keyboard.flat();
   assert.equal(buttons[0].callback_data, callBacks.peopleDiscover);
   assert.equal(buttons[1].callback_data, callBacks.savedProfiles);
 });
@@ -776,7 +786,7 @@ test("people profile opened from discovery returns to people discovery", async (
 
   assert.deepEqual(deletedIds, [42]);
   assert.equal(ctx.user.peopleLastListMessageId, null);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
   assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
@@ -825,7 +835,7 @@ test("people profile opened from taste discovery returns to taste people list", 
 
   assert.deepEqual(deletedIds, [42]);
   assert.equal(ctx.user.peopleLastListMode, "");
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
   assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
@@ -868,7 +878,7 @@ test("typed people profile code keeps people actions when only mode context rema
     User.findOne = originalFindOne;
   }
 
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1`));
   assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
 });
@@ -932,10 +942,10 @@ test("saving from people profile refreshes profile with saved actions", async ()
   }
 
   assert.deepEqual(ctx.user.savedProfileCodes, ["u_A1"]);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_A1`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
-  assert.doesNotMatch(replies[0].text, /Profile saved/);
+  assert.doesNotMatch(replies.at(-1).text, /Profile saved/);
   assert.equal(buttons.at(-1).callback_data, callBacks.peopleDiscover);
   assert.ok(updates.some((entry) => entry.update.savedProfileCodes));
 });
@@ -1045,10 +1055,10 @@ test("saved profiles remembers the real list message id when edit returns true",
 
   await handleCallback(ctx);
 
-  assert.equal(ctx.user.savedProfilesLastListMessageId, 456);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, 77);
 });
 
-test("AI inline back edits to main menu without dot cleanup", async () => {
+test("AI inline back leaves a main-menu footprint before a fresh card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -1086,12 +1096,12 @@ test("AI inline back edits to main menu without dot cleanup", async () => {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(replies, []);
-  assert.deepEqual(deletedIds, []);
-  assert.equal(edits[0].messageId, 456);
-  assert.match(edits[0].text, /منوی اصلی/);
+  assert.equal(replies[0].text, messages.fa.navigationFootprintMainMenu);
+  assert.match(replies[1].text, /منوی اصلی/);
+  assert.deepEqual(deletedIds, [456]);
+  assert.deepEqual(edits, []);
   assert.deepEqual(
-    edits[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    replies[1].extra.reply_markup.inline_keyboard[0][0].callback_data,
     callBacks.language,
   );
 });
@@ -1177,7 +1187,7 @@ test("opening saved profile clears old list and previous profile before renderin
   assert.deepEqual(deletedIds, [42, 55]);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
   assert.equal(ctx.user.publicProfileLastMessageId, 100);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
   assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
@@ -1226,7 +1236,7 @@ test("saved profile shows discussions action when user has an open discussion", 
     Discussion.findOne = originalFindOneDiscussion;
   }
 
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_A1`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_A1`));
 });
@@ -1312,5 +1322,5 @@ test("saved profile Back renders fresh list after profile card", async () => {
 
   assert.deepEqual(deletedIds, [101]);
   assert.match(replies.at(-1).text, /haven't saved any profiles yet/);
-  assert.equal(ctx.user.savedProfilesLastListMessageId, 1);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, 2);
 });

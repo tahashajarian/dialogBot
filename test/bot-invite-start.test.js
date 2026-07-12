@@ -531,7 +531,8 @@ test("start command still recovers from active discussion state", async () => {
   assert.equal(ctx.user.activeDiscussionId, null);
   assert.equal(replies[0].text, messages.en.welcomeWithName.replace("{name}", "A"));
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[1].text, messages.en.mainMenu);
+  assert.equal(replies[1].text, messages.en.navigationFootprintMainMenu);
+  assert.equal(replies[2].text, messages.en.mainMenu);
   assert.equal(updates.some((entry) => entry.update?.activeDiscussionId === null), true);
   assert.deepEqual(deletes, []);
 });
@@ -654,7 +655,7 @@ test("saved profile command clears saved list before opening profile", async () 
   }
 
   assert.equal(deleteAttempts.includes(42), true);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_3HNU`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
   assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
@@ -710,8 +711,8 @@ test("discussion profile command does not use saved-profile back button for save
   }
 
   assert.deepEqual(deleteAttempts, [88]);
-  assert.match(replies[0].text, /User profile:/);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.match(replies.at(-1).text, /User profile:/);
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_3HNU`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
   assert.notEqual(buttons.at(-1).callback_data, callBacks.savedProfiles);
