@@ -1187,14 +1187,14 @@ Discovery rules:
 
 Empty-state behavior:
 
-- If the user lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button.
+- If the user lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button. Empty discovery states may mention profile Interests, but should not link directly to their editor until that flow can return to People discovery instead of Profile.
 - If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
 - The old `people:taste` callbacks may route to the free `👀 دیدن آدم‌ها` list so stale inline cards do not break.
 
 Insufficient-list-data state:
 
 ```text
-👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۳ انتخاب به یکی از تاپ ۱۰های فیلم، موسیقی، کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۳ انتخاب به یکی از بخش‌های فیلم، موسیقی، کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
 ```
 
 ### Advanced Search Preview

@@ -175,7 +175,17 @@ test("people discovery UI uses a distinct no-match message", () => {
   });
 
   assert.match(text, /کسی با حداقل ۳ انتخاب مشترک/);
+  assert.match(text, /علاقه‌مندی‌های پروفایلت/);
+  assert.doesNotMatch(text, /هم‌سلیقه|شانس/);
   assert.doesNotMatch(text, /برو به بخش لیست‌ها/);
+});
+
+test("people discovery empty states link to media lists without opening profile Interests", () => {
+  const buttons = peopleDiscoverListKeyboard("fa", { showLists: true })
+    .reply_markup.inline_keyboard.flat();
+
+  assert.ok(!buttons.some((button) => button.callback_data === callBacks.profileEditInterests));
+  assert.ok(buttons.some((button) => button.callback_data === callBacks.aiAssistant));
 });
 
 test("people discovery pagination uses configured page size", () => {

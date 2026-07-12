@@ -776,6 +776,7 @@ test("people discovery insufficient data state links users to lists", async () =
 
   assert.match(replies.at(-1).text, /برای دیدن آدم‌ها/);
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(!buttons.some((button) => button.callback_data === callBacks.profileEditInterests));
   assert.ok(buttons.some((button) => button.callback_data === callBacks.aiAssistant));
   assert.equal(buttons.at(-1).callback_data, callBacks.people);
   assert.equal(ctx.user.peopleLastListMessageId, 77);
