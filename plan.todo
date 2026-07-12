@@ -22,7 +22,7 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ after onboarding and enter from invitation, before enter me to discussion first sent a message wich was empty then removed it and then entered me to the discussion and it's not only after onboarding everytime it try to enter form invitaion there is the empty message which comes and goes @done (7/12/2026, 3:52:47 AM)
 
 
-☐ toast it when users get stars
+✔ toast it when users get stars
 
 ☐ add a delete account feature
 
@@ -67,4 +67,8 @@ is this okay that we only have movies and books or should say and have button to
 👥 ظرفیت ویژه بحث: بحث ۲ نفره یا ظرفیت بزرگ با هزینه تنظیم‌شده مدیر
 🎛 جست‌وجوی پیشرفته فعلاً آماده نیست.
 
-these need to be updated based on new changes
+☐ these need to be updated based on new changes
+
+☐ from star guid if we enter a coomand to navigate the card of stars remain
+☐ guide told me i will get stars by adding 3 favorite item but i didn't get any stars and i have 3 favorite item, i think we need to check this and make sure it's working fine
+
