@@ -205,3 +205,4 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/guide-referrals.js`: focused Guide referral-card construction using startup-loaded Star settings and opaque invite links.
 - `src/services/star-referrals.js`: opaque external links, expiry, atomic first-referrer locking, and qualification.
 - Shared discussion destinations persist on User fields and resume through `src/flows/onboarding.js` into the normal preview. They never create stored invitation rows; directed invitations remain owned by the discussion-invitation modules.
+- `src/services/share-actions.js`: reusable native-share URL and safe Copy/Back keyboard construction. Callers retain ownership of content, destination, and referral attribution.

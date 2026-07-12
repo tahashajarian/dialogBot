@@ -1,4 +1,5 @@
 const messages = require("../messages");
+const { callBacks } = require("../constants");
 const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
@@ -47,6 +48,7 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
+const { buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -286,8 +288,22 @@ async function sendShareableInviteForActiveDiscussion(ctx, lang) {
     });
     if (referral.ok) deepLink = buildBotStartLink(`ref_${referral.link.publicCode}`) || legacyDeepLink;
   }
-  await ctx.reply(messages[lang].discussionInviteReady);
-  return ctx.reply(buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink }));
+  const shareText = buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink });
+  const nativeText = buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, {
+    includeJoin: false,
+  });
+  const copyText = messages[lang].discussionInviteCopyText
+    .replace("{title}", getDiscussionDisplayTitle(messages, lang, invite.discussion))
+    .replace("{link}", deepLink);
+  const keyboard = buildShareActionsKeyboard({
+    shareLabel: messages[lang].discussionInviteShareAction,
+    shareUrl: buildNativeShareUrl({ url: deepLink, text: nativeText }),
+    copyLabel: messages[lang].discussionInviteCopyAction,
+    copyText,
+    backLabel: messages[lang].discussionShareClose,
+    backCallback: `${callBacks.discussionInvitationAck}room`,
+  });
+  return ctx.reply(`${messages[lang].discussionInviteReady}\n\n${shareText}`, keyboard);
 }
 
 async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {

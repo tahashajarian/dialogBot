@@ -157,3 +157,4 @@ Age is optional and not enforced by the profile viewing gate.
 
 - `src/flows/guide-referrals.js` builds the focused Guide referral card from startup-loaded Star settings. `src/services/invite-links.js` builds safe deep links and `src/services/star-referrals.js` owns opaque links, first-referrer claims, qualification, and reward idempotency.
 - Shared-discussion continuation is stored on the User and consumed by the existing onboarding and normal discussion-preview flows. It never enters stored invitation services. Directed-pair rewards accept only stored `saved_profile` invitation sources.
+- `src/services/share-actions.js` owns platform-native share URL construction and safe copy-button limits. Referral, discussion, and Favorites flows provide their own localized content and attribution semantics.

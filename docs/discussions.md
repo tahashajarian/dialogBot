@@ -449,7 +449,7 @@ Rules:
 - Removed users can open the preview but must receive the same removed-user error if they try to join.
 - Closed, missing, or expired discussions should show a clean unavailable state.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
-- Invite generation should be low-noise: send one ready-to-share message, not a chain of explanation messages.
+- Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy discussion link, and Close actions. Copy includes a concise explanation, discussion title, preview expectation, and the attributable shared-discussion link; opening it never creates an invitation-inbox row. Close quietly deletes the temporary share card because the sender is already in the active room.
 
 Ready-to-share message rules:
 

@@ -1065,6 +1065,8 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
 
 test("sharing AI list renders clean titles and comments without management commands", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalDeepLinkBaseUrl = process.env.BOT_DEEP_LINK_BASE_URL;
+  process.env.BOT_DEEP_LINK_BASE_URL = "https://t.me/MuzeTestBot";
   const replies = [];
 
   const ctx = {
@@ -1108,12 +1110,14 @@ test("sharing AI list renders clean titles and comments without management comma
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    if (originalDeepLinkBaseUrl === undefined) delete process.env.BOT_DEEP_LINK_BASE_URL;
+    else process.env.BOT_DEEP_LINK_BASE_URL = originalDeepLinkBaseUrl;
   }
 
   const sharedReply = replies.at(-2);
   const introReply = replies.at(-1);
 
-  assert.equal(introReply.text, messages.en.aiListShareIntro);
+  assert.match(introReply.text, new RegExp(`^${messages.en.aiListShareIntro}`));
   assert.equal(
     introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.callback_data === `${callBacks.aiListShareBack}movies:watchlist`),
     true,
@@ -1122,8 +1126,11 @@ test("sharing AI list renders clean titles and comments without management comma
     introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === messages.en.aiListManageAddBackToList),
     true,
   );
-  assert.equal(introReply.extra.reply_markup.inline_keyboard.flat().length, 1);
-  assert.match(introReply.text, /👆/);
+  assert.equal(
+    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === messages.en.aiListShareAction),
+    true,
+  );
+  assert.match(introReply.text, /👇/);
   assert.equal(ctx.user.aiActionMessageId, 112);
   assert.equal(ctx.user.aiActionContext, "share:movies:watchlist");
   assert.doesNotMatch(sharedReply.text, /📌/);
@@ -1132,7 +1139,7 @@ test("sharing AI list renders clean titles and comments without management comma
   assert.doesNotMatch(sharedReply.text, /\/cm_mv_l_1/);
   assert.doesNotMatch(sharedReply.text, /\/rm_mv_l_1/);
   assert.doesNotMatch(sharedReply.text, /Change to watched/);
-  assert.equal(sharedReply.extra, undefined);
+  assert.doesNotMatch(sharedReply.text, /Long-press/);
 });
 
 test("AI share return button consumes guidance card before reopening list", async () => {
@@ -1756,7 +1763,7 @@ test("AI share list appends configured bot link footer", () => {
 
   assert.match(shareText, /❤️ My favorite songs/);
   assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
-  assert.match(shareText, /Made with: https:\/\/ble\.ir\/@Muze/);
+  assert.match(shareText, /👩‍🦳 Made with Muze\nhttps:\/\/ble\.ir\/@Muze/);
   assert.doesNotMatch(shareText, /📌/);
 });
 

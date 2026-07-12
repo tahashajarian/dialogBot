@@ -108,6 +108,8 @@ const {
   completePaidSuggestion,
   refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
+const { buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
+const { buildBotBaseLink } = require("../services/invite-links");
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -127,6 +129,16 @@ function aiListShareReturnKeyboard(lang, section, listType) {
       callback_data: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
     }],
   ]);
+}
+
+function aiListShareActionsKeyboard(lang, section, listType, nativeText) {
+  const listTypeToken = listType === "topTen" ? "top_ten" : "watchlist";
+  return buildShareActionsKeyboard({
+    shareLabel: messages[lang].aiListShareAction,
+    shareUrl: buildNativeShareUrl({ url: buildBotBaseLink(), text: nativeText }),
+    backLabel: messages[lang].aiListShareBackToList,
+    backCallback: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
+  });
 }
 
 async function retireShareGuidanceMessage(ctx, helpers) {
@@ -503,10 +515,12 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    await ctx.reply(buildShareListMessage({ ctx, lang, section, listType }));
+    const shareText = buildShareListMessage({ ctx, lang, section, listType });
+    const nativeText = `${buildShareListMessage({ ctx, lang, section, listType, botLink: "" })}\n\n${messages[lang].aiListShareMadeWithMuze}`;
+    await ctx.reply(shareText);
     const guidanceMessage = await ctx.reply(
       messages[lang].aiListShareIntro,
-      aiListShareReturnKeyboard(lang, section, listType),
+      aiListShareActionsKeyboard(lang, section, listType, nativeText),
     );
     await rememberAiActionMessage(ctx, `share:${section}:${listType}`, guidanceMessage);
     return guidanceMessage;

@@ -359,9 +359,9 @@ function getInviteRuleBlock(messages, lang, discussion = {}) {
   return `${discussion.language === "en" ? "🇬🇧" : "🇮🇷"} ${messages[lang].discussionLanguageFilter}: ${language}\n${messages[lang].discussionJoinConditionTitle}\n${rule}\n\n`;
 }
 
-function buildDiscussionInviteShareText(messages, lang, discussion, code, { deepLink = "" } = {}) {
+function buildDiscussionInviteShareText(messages, lang, discussion, code, { deepLink = "", includeJoin = true } = {}) {
   const cleanCode = String(code || discussion?.publicDiscussionCode || "").replace(/^d_/i, "");
-  const joinBlock = deepLink
+  const joinBlock = !includeJoin ? "" : deepLink
     ? messages[lang].discussionInviteLinkLine.replace("{link}", deepLink)
     : messages[lang].discussionInviteCommandLine.replace("{code}", cleanCode);
   return fillDiscussionInviteTemplate(messages[lang].discussionInviteShareText, {
