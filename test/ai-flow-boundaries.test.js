@@ -172,13 +172,13 @@ test("suggestion save buttons name the concrete section list", () => {
   const booksAddedButtons = aiSuggestionAddedOptionsKeyboard("fa", "books").reply_markup.inline_keyboard.flat();
   const rejectedButtons = aiSuggestionNextKeyboard("fa", "movies").reply_markup.inline_keyboard.flat();
 
-  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 listen later");
-  assert.equal(booksAddedButtons[1].text, "🗂 رفتن به لیست «📚 برای بعد خواندن»");
+  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 listen later list");
+  assert.equal(booksAddedButtons[1].text, "🗂 رفتن به «📚 لیست برای بعد خواندن»");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(booksAddedButtons[2].callback_data, `${callBacks.aiListManageMenu}books:top_ten`);
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(rejectedButtons[1].callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
-  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later"), "✅ Saved to 📚 read later.");
+  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later list"), "✅ Saved to 📚 read later list.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
   assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در لیست 🎬 برای بعد دیدن ذخیره شد. (دیده‌شده)");
 });

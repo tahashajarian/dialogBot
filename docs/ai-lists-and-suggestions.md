@@ -11,7 +11,7 @@
 - The TopTen/Favorites manager is the section home. Its actions are progressive: add a favorite, open the concrete save-for-later list, show suggestion only after three favorites, and Back.
 - The list/watchlist manager is secondary storage. Its Back action returns to the section TopTen, not to a separate section home.
 - Opening a For Later manager from a suggestion must enter the watchlist manager state. Its Favorites button retires the current manager card before opening Favorites.
-- Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should describe intent clearly: Movies `Watch later`, Music `Listen later`, and Books `Read later` (with natural Persian equivalents).
+- Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch later list`, Music `Listen later list`, and Books `Read later list` (with natural Persian equivalents).
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
 - Media Favorites titles and add buttons should name the item directly: favorite movies, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
