@@ -20,7 +20,6 @@ const {
 } = require("./services/users");
 const {
   removeBottomKeyboard,
-  clearBottomKeyboardQuietly,
   replyWithKeyboardRemovalNoticeThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
@@ -400,7 +399,9 @@ async function handleUpdate(ctx) {
 
   if (/^\/(?:invite|iv)_[a-z0-9]+$/i.test(text)) {
     await clearSavedProfileSurfaceMessages(ctx);
-    await clearBottomKeyboardQuietly(ctx);
+    await ctx.reply(messages[lang].navigationFootprintSavedProfiles, {
+      reply_markup: { remove_keyboard: true },
+    });
     await updateUserState(ctx.userId, "idle");
     return showDiscussionPickerForSavedProfile(ctx, lang, normalizeProfileCodeFromInviteCommand(text));
   }

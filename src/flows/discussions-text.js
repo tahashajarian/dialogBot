@@ -64,7 +64,7 @@ const {
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
 } = require("./discussions-callbacks");
-const { removeBottomKeyboardWithoutWaitingForDelete } = require("../services/bot-navigation");
+const { replyWithKeyboardRemovalNoticeThenInline } = require("../services/bot-navigation");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 
 function normalizeKeyboardText(value) {
@@ -605,8 +605,15 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
       await editMessage(text, keyboardToShow);
     } else {
       const destination = returnToMainMenu ? "main" : "discussions";
-      await removeBottomKeyboardWithoutWaitingForDelete(ctx);
-      await ctx.reply(text, discussionJoinErrorAckKeyboard(lang, destination));
+      const footprint = returnToMainMenu
+        ? messages[lang].navigationFootprintMainMenu
+        : messages[lang].navigationFootprintDiscussions;
+      await replyWithKeyboardRemovalNoticeThenInline(
+        ctx,
+        footprint,
+        text,
+        discussionJoinErrorAckKeyboard(lang, destination),
+      );
     }
     return joined;
   }
@@ -799,8 +806,9 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
         "{title}",
         closed.discussion?.title || "-",
       );
-      await removeBottomKeyboardWithoutWaitingForDelete(ctx);
-      const emptyNotice = await ctx.reply(
+      const emptyNotice = await replyWithKeyboardRemovalNoticeThenInline(
+        ctx,
+        messages[lang].navigationFootprintDiscussions,
         closedEmptyText,
         discussionJoinErrorAckKeyboard(lang, "discussions"),
       );
