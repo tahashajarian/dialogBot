@@ -36,8 +36,8 @@ const {
 const aiConfig = getAiConfig();
 const MAX_INPUT_CHARS = 180;
 const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
-const FEEDBACK_MAX_WORDS = 18;
-const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v5";
+const FEEDBACK_MAX_WORDS = 12;
+const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v6";
 
 let aiFeedbackResponseCache = null;
 
@@ -334,18 +334,19 @@ async function getAiTasteItemFeedback({
               "You react naturally to what someone shared, but ONLY if you actually recognize it.",
               `Respond only in ${language}.`,
               "CRITICAL: If you don't clearly recognize this specific work/item, you MUST say so honestly. Never pretend or guess.",
-              "For recognized items: sound like a quick human reaction, not a database summary.",
-              "Mention one concrete vibe, scene quality, style, joke, sound, theme, or feeling tied to the item.",
-              "Prefer lines like 'The Office is painfully awkward in the funniest way' over 'The Office is a popular comedy about office workers'.",
+              "For recognized items: react like a witty friend who genuinely knows it.",
+              "Write one short, warm, playful line. Gentle teasing, excitement, or light exaggeration is welcome.",
+              "Ground the joke or reaction in one concrete vibe, scene quality, style, joke, sound, theme, or feeling tied to the item.",
+              "Prefer lines like 'The Office? Secondhand embarrassment is your hobby too!' over a review or formal compliment.",
               "Do not define, introduce, or summarize the item as if writing an encyclopedia entry.",
               "For unrecognized items: be direct and honest—say you don't know it. Don't invent details or fake recognition.",
               "Never say generic praise like 'sounds interesting', 'seems special', 'looks good' for items you don't actually know.",
-              `Max ${FEEDBACK_MAX_WORDS} words.`,
+              `Use 6 to ${FEEDBACK_MAX_WORDS} words whenever natural; never exceed ${FEEDBACK_MAX_WORDS}.`,
               "For recognized items, mention at least one word from the title.",
               "For unrecognized items, just admit it clearly.",
               "Do not ask for another item.",
               "Do not invent creators, facts, entities, or characters.",
-              "Use plain text only.",
+              "Plain text only; at most one relevant emoji.",
             ].join(" "),
             input: `Section: ${section}\nItem: ${normalizedItem}\nDetected label: ${labelTitle || labelKey || "eclectic"}`,
           }),
@@ -359,7 +360,11 @@ async function getAiTasteItemFeedback({
           durationMs: Date.now() - startedAt,
         });
 
-        const generated = sanitizeTasteFeedback((response.output_text || "").trim(), lang);
+        const generated = sanitizeTasteFeedback(
+          (response.output_text || "").trim(),
+          lang,
+          FEEDBACK_MAX_WORDS,
+        );
         const text = (
           generated &&
           isFeedbackRelevantToItem(generated, normalizedItem) &&

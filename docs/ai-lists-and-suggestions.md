@@ -77,9 +77,10 @@
 - Entering add mode should send one visible prompt with its inline Cancel button. Do not send a keyboard-removal copy and then a second identical prompt with buttons.
 - Entering add mode should retire the remembered list display, including empty TopTen/List cards, so old list summaries do not remain in chat while the user is adding items.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
-- Typed-item feedback should react to the item itself, not infer the user's personality.
-- For recognizable works, feedback should contain one concrete reaction about the creator, form, genre, joke, theme, feeling, or atmosphere. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
-- Reject generic praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
+- Typed-item feedback should feel like a witty friend reacting, not a review or personality analysis.
+- For recognizable works, use one playful 6–12-word line grounded in a concrete joke, style, theme, feeling, sound, or atmosphere. Gentle teasing, excitement, or light exaggeration is welcome; allow at most one relevant emoji.
+- Keep a meaningful word from the title in generated feedback so recognition remains verifiable. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
+- Reject empty praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
 - When a user enters TopTen in any section, include the current TopTen list directly in the manager card before the section/manage description and inline buttons.
 - Completed TopTen manager cards should include a short command-use tip beneath the taste label so comment and remove actions remain clear.
 - TopTen menus should not include a separate "show all" action.

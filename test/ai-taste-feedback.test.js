@@ -260,6 +260,16 @@ test("accepts concrete work-focused feedback", () => {
   assert.equal(isGenericTasteFeedback(feedback, "fa"), false);
 });
 
+test("accepts short playful feedback grounded in the item", () => {
+  const fa = "آفیس؟ خجالتِ دست‌دوم هم جزو تفریحاتته!";
+  const en = "The Office? Secondhand embarrassment is your hobby too!";
+
+  assert.equal(isFeedbackRelevantToItem(fa, "آفیس"), true);
+  assert.equal(isGenericTasteFeedback(fa, "fa"), false);
+  assert.equal(isFeedbackRelevantToItem(en, "The Office"), true);
+  assert.equal(isGenericTasteFeedback(en, "en"), false);
+});
+
 test("fallback stays neutral instead of guessing or giving empty praise", () => {
   const fa = buildTasteFeedbackFallbackWithItem({
     lang: "fa",
@@ -300,6 +310,15 @@ test("feedback sanitizer allows a useful short sentence", () => {
     feedback,
     "سفر به انتهای شب با تلخی، طنز سیاه و نثر خشنش ضربه می‌زند.",
   );
+});
+
+test("feedback sanitizer limits reactions to twelve words", () => {
+  const feedback = sanitizeTasteFeedback(
+    "The Office turns every painfully awkward silence into another unforgettable and hilarious little disaster.",
+    "en",
+    12,
+  );
+  assert.equal(feedback.split(/\s+/).length, 12);
 });
 
 test("extracts suggestion text from Responses and Chat Completions payloads", () => {
