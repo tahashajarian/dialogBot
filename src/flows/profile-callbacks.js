@@ -444,10 +444,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const claimedRewards = await claimExistingProfileAndListMilestones(ctx.user || {});
     applyStarRewardsToContext(ctx, claimedRewards);
     const rewardNotice = buildStarRewardNotice(messages, lang, claimedRewards);
-    return ctx.reply(
+    return rememberNavigationCard(ctx, await ctx.reply(
       [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n"),
       profileStarsKeyboard(lang),
-    );
+    ));
   }
 
   if (data === callBacks.profileStarsBack) {

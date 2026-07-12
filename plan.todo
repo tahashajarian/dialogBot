@@ -24,9 +24,9 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 
 ✔ toast it when users get stars
 
-☐ add a delete account feature
+✔ add a delete account feature @done (7/12/2026, 8:41:16 AM)
 
-☐ for laters and برای بعد whatever it is as movie or books or music should come with list word to , like whatchlater list or see later list or listen later list and persion too
+✔ for laters and برای بعد whatever it is as movie or books or music should come with list word to , like whatchlater list or see later list or listen later list and persion too @done (7/12/2026, 8:44:48 AM)
 
 ☐ orgonize profile optins too, and make sure the footpring for more setting is correct and try to manage buttons better 
 ☐ 👱‍♀️ زبان با موفقیت به فارسی تغییر کرد. we need to remove word of با موفقیت
@@ -72,3 +72,5 @@ is this okay that we only have movies and books or should say and have button to
 ☐ from star guid if we enter a coomand to navigate the card of stars remain
 ☐ guide told me i will get stars by adding 3 favorite item but i didn't get any stars and i have 3 favorite item, i think we need to check this and make sure it's working fine
 
+☐ put tips like this ‏💡 قدم بعدی: ۳ مورد محبوب به بخش موسیقی اضافه کن. at the bottom of proifle with a bit space above it and ofcuser user itself only can see it
+‏💡 قدم بعدی: ۳ علاقه‌مندی دیگه اضافه کن تا پروفایلت دقیق‌تر بشه. the word of دیگه is extra and irelative here
