@@ -101,7 +101,7 @@ module.exports = {
     discussionsMenu: "💬 گفت‌وگوها\n\n👩‍🦳 یکی از گزینه‌ها رو انتخاب کن:",
     discussionActiveList: "🟢 گفت‌وگوهای فعال",
     discussionCreate: "➕ ساخت گفت‌وگوی جدید",
-    discussionCreateTitlePin: "📌 ساخت گفت‌وگوی جدید",
+    discussionCreateTitlePin: "➕ ساخت گفت‌وگوی جدید",
     discussionMyList: "🗂 گفت‌وگوهای من",
     discussionLeave: "🚪 خروج از گفت‌وگو",
     discussionInvite: "📨 دعوت",

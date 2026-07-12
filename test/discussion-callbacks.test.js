@@ -444,6 +444,34 @@ test("my discussions empty callback uses visible card without toast text", async
   }
 });
 
+test("acknowledging an empty discussion list enters Discussions with a footprint", async () => {
+  const replies = [];
+  const deletedIds = [];
+  const ctx = {
+    callbackData: `${callBacks.discussionJoinErrorAck}discussions`,
+    callbackMessageId: 42,
+    user: { userId: 1 },
+    userId: 1,
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, keyboard) => {
+      replies.push({ text, keyboard });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleDiscussionListCallback(ctx, "en", {
+    deleteCallbackMessageIfPossible: (callbackCtx) => callbackCtx.deleteMessage(callbackCtx.callbackMessageId),
+  });
+
+  assert.deepEqual(deletedIds, [42]);
+  assert.equal(replies[0].text, messages.en.navigationFootprintDiscussions);
+  assert.equal(replies[1].text, messages.en.discussionsMenu);
+});
+
 test("discussion join error acknowledgement can return to saved profile discussions", async () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "saved:u_a1");
   const button = keyboard.reply_markup.inline_keyboard.flat()[0];

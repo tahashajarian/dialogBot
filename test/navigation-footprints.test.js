@@ -43,3 +43,26 @@ test("a footprint can remove the obsolete reply keyboard in the same permanent s
     extra: { reply_markup: { remove_keyboard: true } },
   }]);
 });
+
+test("retiring the old card does not delay sending the next footprint", async () => {
+  let finishDelete;
+  const deletePending = new Promise((resolve) => {
+    finishDelete = resolve;
+  });
+  const replies = [];
+  const ctx = {
+    user: { navigationLastCardMessageId: 41 },
+    deleteMessage: async () => deletePending,
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 42 };
+    },
+  };
+
+  const sending = sendNavigationFootprint(ctx, { lang: "en", destination: "discussions" });
+  await Promise.resolve();
+
+  assert.deepEqual(replies, ["💬 Discussions"]);
+  finishDelete(true);
+  assert.deepEqual(await sending, { message_id: 42 });
+});

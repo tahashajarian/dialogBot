@@ -414,7 +414,8 @@ async function handleDiscussionListCallback(ctx, lang, {
       return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
     }
     if (destination === "discussions") {
-      return editCallbackMessageOrReply(ctx, messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+      await sendNavigationFootprint(ctx, { lang, destination: "discussions" });
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (destination === "invitations" && renderInvitationsList) {
       return renderInvitationsList(ctx, lang, 0, { editCallbackMessageOrReply });

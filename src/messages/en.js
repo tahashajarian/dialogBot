@@ -101,7 +101,7 @@ module.exports = {
     discussionsMenu: "💬 Discussions\n\nChoose an option:",
     discussionActiveList: "🟢 Active discussions",
     discussionCreate: "➕ Create new discussion",
-    discussionCreateTitlePin: "📌 Create new discussion",
+    discussionCreateTitlePin: "➕ Create new discussion",
     discussionMyList: "🗂 My discussions",
     discussionLeave: "🚪 Leave discussion",
     discussionInvite: "📨 Invite",

@@ -40,23 +40,26 @@ async function rememberNavigationCard(ctx, message) {
 async function clearNavigationCard(ctx) {
   const messageId = Number(ctx.user?.navigationLastCardMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0) return false;
-  let deleted = false;
-  try {
-    deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-  } catch {
-    deleted = false;
-  }
-  if (!deleted && ctx.editMessageReplyMarkup) {
+  const retireCard = async () => {
+    let deleted = false;
     try {
-      await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
+      deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
     } catch {
-      // The card may already have been retired by its feature-specific cleanup.
+      deleted = false;
     }
-  }
+    if (!deleted && ctx.editMessageReplyMarkup) {
+      try {
+        await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
+      } catch {
+        // The card may already have been retired by its feature-specific cleanup.
+      }
+    }
+  };
   if (ctx.user) ctx.user.navigationLastCardMessageId = null;
-  if (canPersistNavigationCard(ctx) && ctx.userId !== undefined && ctx.userId !== null) {
-    await updateProfileField(ctx.userId, "navigationLastCardMessageId", null);
-  }
+  const persistClear = canPersistNavigationCard(ctx) && ctx.userId !== undefined && ctx.userId !== null
+    ? updateProfileField(ctx.userId, "navigationLastCardMessageId", null)
+    : Promise.resolve();
+  await Promise.all([retireCard(), persistClear]);
   return true;
 }
 
@@ -84,10 +87,13 @@ async function sendNavigationFootprint(ctx, { lang, destination, discussion, tit
   if (!ctx[SENT_FOOTPRINTS]) ctx[SENT_FOOTPRINTS] = new Set();
   if (ctx[SENT_FOOTPRINTS].has(dedupeKey)) return null;
   ctx[SENT_FOOTPRINTS].add(dedupeKey);
-  await clearNavigationCard(ctx);
   const text = resolveNavigationFootprint(lang, destination, { discussion, title });
   const extra = removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined;
-  return ctx.reply(text, extra);
+  const [, footprint] = await Promise.all([
+    clearNavigationCard(ctx),
+    ctx.reply(text, extra),
+  ]);
+  return footprint;
 }
 
 module.exports = {
