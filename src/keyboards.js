@@ -821,10 +821,29 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
     [
       { text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji },
     ],
+    [{ text: messages[lang].accountDeleteButton, callback_data: callBacks.accountDelete }],
     [
       { text: messages[lang].profileBackToProfile, callback_data: callBacks.profileSettingsBack },
     ],
   ]);
+}
+
+function accountDeleteWarningKeyboard(lang) {
+  return inlineKeyboard([
+    [{ text: messages[lang].accountDeleteContinueButton, callback_data: callBacks.accountDeleteContinue }],
+    [{ text: messages[lang].accountDeleteCancelButton, callback_data: callBacks.accountDeleteCancel }],
+  ]);
+}
+
+function accountDeleteConfirmKeyboard(lang, nonce) {
+  return inlineKeyboard([
+    [{ text: messages[lang].accountDeleteConfirmButton, callback_data: `${callBacks.accountDeleteConfirm}${nonce}` }],
+    [{ text: messages[lang].accountDeleteCancelButton, callback_data: callBacks.accountDeleteCancel }],
+  ]);
+}
+
+function startAgainKeyboard(lang) {
+  return { reply_markup: { keyboard: [[{ text: messages[lang].accountStartAgainButton }]], resize_keyboard: true } };
 }
 
 const PROFILE_EMOJI_PAGE_SIZE = 20;
@@ -1194,6 +1213,9 @@ module.exports = {
   aiListCancelCommentKeyboard,
   profileKeyboard,
   profileSettingsKeyboard,
+  accountDeleteWarningKeyboard,
+  accountDeleteConfirmKeyboard,
+  startAgainKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,

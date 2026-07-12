@@ -274,7 +274,10 @@ function normalizeIncomingText(value = "") {
 }
 
 async function handleUpdate(ctx) {
-  const text = normalizeIncomingText(ctx.text);
+  const incomingText = normalizeIncomingText(ctx.text);
+  const isStartAgain = incomingText === messages.fa.accountStartAgainButton
+    || incomingText === messages.en.accountStartAgainButton;
+  const text = isStartAgain && (ctx.wasUserCreated || ctx.canRestartAfterDeletion) ? "/start" : incomingText;
   const lang = detectLanguage(ctx);
   const userLang = ctx.user?.lang;
   const keyboardLang = userLang || lang;
@@ -440,7 +443,7 @@ async function handleUpdate(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
 
     if (shouldOfferOnboarding(ctx.user)) {
-      return startOnboardingLanguage(ctx, keyboardLang);
+      return startOnboardingLanguage(ctx, keyboardLang, "", { removeReplyKeyboard: isStartAgain });
     }
 
     await updateUserState(ctx.userId, "idle");

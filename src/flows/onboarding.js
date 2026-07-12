@@ -19,6 +19,7 @@ const {
 const { operationalLimits } = require("../services/operational-limits");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const { createOnboardingStarterInvitationsForUser } = require("../services/discussion-invitations");
+const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -196,15 +197,14 @@ async function sendTasteSetupNudge(ctx, lang) {
   );
 }
 
-async function startOnboardingLanguage(ctx, lang, inviteCode = "") {
+async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReplyKeyboard = false } = {}) {
   const state = inviteCode
     ? `onboarding_invite_language:${inviteCode}`
     : "onboarding_language";
   await updateUserState(ctx.userId, state);
-  const prompt = await ctx.reply(
-    messages[lang].chooseLanguage,
-    onboardingLanguageKeyboard(),
-  );
+  const prompt = removeReplyKeyboard
+    ? await replyWithRemovedKeyboardThenInline(ctx, messages[lang].chooseLanguage, onboardingLanguageKeyboard())
+    : await ctx.reply(messages[lang].chooseLanguage, onboardingLanguageKeyboard());
   await rememberOnboardingPrompt(ctx, prompt);
   return prompt;
 }

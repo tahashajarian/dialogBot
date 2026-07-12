@@ -1,5 +1,9 @@
 # Architecture Notes
 
+## Account deletion boundary
+
+`src/flows/profile-callbacks.js` owns the two confirmation cards and nonce validation. It invokes `src/services/account-deletion.js` only after final confirmation. The service coordinates collection cleanup, persists resumable progress in `AccountDeletion`, anonymizes the minimum Star/referral audit facts with a per-user tombstone, and deletes the User document last. `src/index.js` prevents arbitrary updates from recreating missing users and atomically consumes the completed deletion's one-time restart claim before creating a fresh onboarding account. Telegram copy remains in the message catalogs.
+
 ## Project Overview
 
 - This repo contains a Telegram bot using Telegraf.

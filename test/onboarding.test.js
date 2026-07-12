@@ -337,6 +337,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.fa.helpText, /آدم‌هایی با انتخاب‌های مشترک/);
   assert.match(messages.en.helpText, /👥 People/);
   assert.match(messages.en.helpText, /people with shared choices/);
+  assert.match(messages.fa.helpText, /تنظیمات ← حذف حساب/);
+  assert.match(messages.en.helpText, /Settings → Delete account/);
   assert.ok(messages.fa.helpText.length < 900);
   assert.ok(messages.en.helpText.length < 900);
 });

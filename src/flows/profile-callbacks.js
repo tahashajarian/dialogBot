@@ -1,4 +1,5 @@
 const messages = require("../messages");
+const crypto = require("crypto");
 const { callBacks } = require("../constants");
 const {
   profileKeyboard,
@@ -18,7 +19,11 @@ const {
   petPreferenceKeyboard,
   locationKeyboard,
   cancelEditKeyboard,
+  accountDeleteWarningKeyboard,
+  accountDeleteConfirmKeyboard,
+  startAgainKeyboard,
 } = require("../keyboards");
+const { deleteAccount } = require("../services/account-deletion");
 const {
   addAiListItem,
   getAiListItemsFromUser,
@@ -99,7 +104,11 @@ async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0) 
 }
 
 function isProfileSettingsOrEditCallback(data = "") {
-  return data === callBacks.profileEditName ||
+  return data === callBacks.accountDelete ||
+    data === callBacks.accountDeleteContinue ||
+    data === callBacks.accountDeleteCancel ||
+    data.startsWith(callBacks.accountDeleteConfirm) ||
+    data === callBacks.profileEditName ||
     data === callBacks.profileSettings ||
     data === callBacks.profileSettingsBack ||
     data === callBacks.profileEmoji ||
@@ -240,6 +249,61 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   showDiscussionInvitePreviewCommand,
 } = {}) {
   const data = ctx.callbackData || "";
+
+  if (!data.startsWith("account:delete") && String(ctx.user?.state || "").startsWith("account_delete_")) {
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
+  }
+
+  if (data === callBacks.accountDelete) {
+    await ctx.answerCb?.();
+    const warningState = `account_delete_warning:${Date.now()}`;
+    await updateUserState(ctx.userId, warningState);
+    if (ctx.user) ctx.user.state = warningState;
+    const edited = ctx.callbackMessageId && ctx.editMessageText
+      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].accountDeleteWarning, accountDeleteWarningKeyboard(lang)) : false;
+    return edited || ctx.reply(messages[lang].accountDeleteWarning, accountDeleteWarningKeyboard(lang));
+  }
+
+  if (data === callBacks.accountDeleteContinue) {
+    if (!String(ctx.user?.state || "").startsWith("account_delete_warning:")) {
+      await ctx.answerCb?.(messages[lang].accountDeleteExpired);
+      return false;
+    }
+    const nonce = crypto.randomBytes(9).toString("base64url");
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    await updateUserState(ctx.userId, `account_delete_confirm:${nonce}:${expiresAt}`);
+    if (ctx.user) ctx.user.state = `account_delete_confirm:${nonce}:${expiresAt}`;
+    await ctx.answerCb?.();
+    const edited = ctx.callbackMessageId && ctx.editMessageText
+      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].accountDeleteFinalWarning, accountDeleteConfirmKeyboard(lang, nonce)) : false;
+    return edited || ctx.reply(messages[lang].accountDeleteFinalWarning, accountDeleteConfirmKeyboard(lang, nonce));
+  }
+
+  if (data === callBacks.accountDeleteCancel) {
+    await ctx.answerCb?.();
+    const pending = String(ctx.user?.state || "").startsWith("account_delete_");
+    if (pending) await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
+    await retireCallbackMessageIfPossible?.(ctx);
+    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+  }
+
+  if (data.startsWith(callBacks.accountDeleteConfirm)) {
+    const nonce = data.slice(callBacks.accountDeleteConfirm.length);
+    const match = String(ctx.user?.state || "").match(/^account_delete_confirm:([^:]+):(\d+)$/);
+    if (!match || match[1] !== nonce || Number(match[2]) < Date.now()) {
+      await ctx.answerCb?.(messages[lang].accountDeleteExpired);
+      return false;
+    }
+    await updateUserState(ctx.userId, `account_delete_running:${nonce}`);
+    if (ctx.user) ctx.user.state = `account_delete_running:${nonce}`;
+    await ctx.answerCb?.();
+    const result = await deleteAccount({ userId: ctx.userId });
+    if (!result.ok) return ctx.reply(messages[lang].accountDeleteFailed);
+    await retireCallbackMessageIfPossible?.(ctx);
+    return ctx.reply(messages[lang].accountDeleteSuccess, startAgainKeyboard(lang));
+  }
 
   if (data === callBacks.profileEditName) {
     await ctx.answerCb?.();

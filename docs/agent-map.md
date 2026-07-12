@@ -93,6 +93,10 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 ## Profile, People, And Saved Profiles
 
+- `src/services/account-deletion.js`: durable, resumable account cleanup and audit-identity anonymization; contains no Telegram copy.
+- `src/models/account-deletion.js`: deletion progress, unique tombstone identity, and keyed anti-abuse fingerprint.
+- `docs/account-deletion.md`: deletion, retention, retry, and recreation contract.
+
 - `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.

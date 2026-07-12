@@ -83,7 +83,7 @@ module.exports = {
     advancedSearchNotifyButton: "🔔 Let me know when it is ready",
     advancedSearchNotifyAck: "🔔 Saved. I will let you know when it is ready.",
     help: "💡 Muze guide",
-    helpText: "👩‍🦳 About Muze and guide\n\nMuze builds your taste from your own choices, then helps you find more relevant things, people, and conversations.\n\n🎬🎵📚 Movies, Music, Books\n• Favorites: movies, songs, and books you genuinely love, used for taste labels and personal suggestions\n• Save for later: things you want to watch, listen to, or read later\n\n✨ Suggestions\nAdd 3 favorites in a section to get a personal suggestion from Muze.\n\n⭐ Stars\nEarn them from one-time milestones and qualified invites. Only you see your balance; spend Stars on optional tools such as boosts.\n\n👥 People and profiles\nBuild Interests from 👤 Me, see people with shared choices, and privately save interesting people.\n\n💬 Discussions\nBrowse active rooms, meet their join conditions, create invitations, or start your own conversation.\n\n💡 Best place to start: add 3 movies, songs, or books you genuinely love.",
+    helpText: "👩‍🦳 About Muze and guide\n\nMuze learns your taste from your choices and helps you find relevant things, people, and conversations.\n\n🎬🎵📚 Movies, Music, Books\n• Favorites: things you love, used for taste labels and personal suggestions\n• Save for later: things to watch, hear, or read later\n\n✨ Suggestions\nAdd 3 favorites in a section to get a personal suggestion.\n\n⭐ Stars\nEarn Stars from one-time milestones and qualified invites. Only you see your balance; optional tools can spend it.\n\n👥 People and profiles\nBuild Interests from 👤 Me, see people with shared choices, and privately save profiles.\n\n💬 Discussions\nBrowse rooms, meet join conditions, invite others, or start a conversation.\n\n🗑 Account deletion\nPermanently delete your account and personal data from 👤 Me → Settings → Delete account.\n\n💡 Start by adding 3 movies, songs, or books you love.",
     helpRules: "📜 Rules & safety",
     helpRulesText: "👩‍🦳📜 Rules & safety\n\n💡 These rules keep Muze safe, respectful, and trustworthy:\n\n🤝 Conduct\n• Harassment, threats, impersonation, spam, and harmful content are not allowed.\n• Discussions support text and voice only; links are not allowed.\n\n🔐 Privacy\n• Profiles are visible inside Muze's social surfaces.\n• Saved profiles are private and the other person is not notified.\n• Your Star balance is visible only to you.\n• Your active discussion appears on your profile only when you enable that setting.\n• See people uses shared list choices only and does not expose private data.\n\n⭐ Stars & boosts\n• Each one-time milestone pays once; repeating /start or inviting the same person again earns nothing.\n• Outside referrals pay only after a genuinely new user makes meaningful progress.\n• A boost recommends a discussion to relevant users and never bypasses its join condition.\n\n💬 Discussions & reports\n• Each user can be active in only one discussion, and invitations never bypass join conditions.\n• Reports count only from different users; repeated reports do not increase the count.\n• Reaching the report threshold can result in a full Muze ban.\n\n📏 Limits\n• Top 10: 10 items; section list: 100 items; saved profiles: 50\n• Suggestions: 10 per hour in each section\n• Active discussions created: 3; 30 messages per 10 minutes in discussions\n• Direct invitations: 3 per 24 hours\n\n✨ Keep conversations respectful and kind so Muze can grow safer and more useful for everyone.",
     helpBackToGuide: "🔙 Back to guide",
@@ -767,5 +767,16 @@ module.exports = {
     cancelEdit: "✕ Cancel",
     profileUpdated: "👩‍🦳 Profile updated successfully.",
     cancel: "🔙 Back to main menu",
-    cancelMessage: "Operation cancelled."
+    cancelMessage: "Operation cancelled.",
+    accountDeleteButton: "🗑 Delete account",
+    accountDeleteContinueButton: "Continue",
+    accountDeleteCancelButton: "Cancel",
+    accountDeleteConfirmButton: "Yes, permanently delete my account",
+    accountDeleteWarning: "⚠️ Permanently delete your Muze account?\n\nThis removes your profile and public link; lists, interests and taste data; saved profiles; discussion membership and your discussion content; pending invitations and preferences; and unused Stars.\n\nThis cannot be undone. A new account starts fresh and does not restore data or Stars. Messages already delivered through Telegram may remain visible in other chats.",
+    accountDeleteFinalWarning: "⚠️ Final warning\n\nThis permanently deletes your Muze account and personal data. It cannot be undone.",
+    accountDeleteExpired: "👩‍🦳 This deletion confirmation expired or is no longer valid. Nothing was deleted.",
+    accountDeleteFailed: "👩‍🦳 Account deletion could not finish. Your progress is safely resumable. Open Profile → Settings and try Delete account again.",
+    accountDeleteSuccess: "Your Muze account and personal data have been deleted.\n\nMessages already delivered through Telegram may remain visible in other chats.\n\nYou can create a fresh account whenever you want.",
+    accountStartAgainButton: "🌱 Start again",
+    accountNoActiveAccount: "👩‍🦳 No active Muze account exists. Use /start or tap 🌱 Start again."
   };

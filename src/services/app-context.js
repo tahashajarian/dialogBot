@@ -144,6 +144,7 @@ function createAppContext(ctx, user, options = {}) {
     callbackMessage: ctx.callbackQuery?.message,
     callbackMessageId: ctx.callbackQuery?.message?.message_id || ctx.callbackQuery?.message?.messageId,
     wasUserCreated: Boolean(options.wasUserCreated),
+    canRestartAfterDeletion: Boolean(options.canRestartAfterDeletion),
 
     reply: (text, extra = undefined) => withTelegramTiming(
       "sendMessage",
