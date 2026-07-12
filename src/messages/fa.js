@@ -672,7 +672,7 @@ module.exports = {
     starsListName_generic: "این بخش",
     profileInterestsTitle: "🌿 علاقه‌مندی‌ها",
     profileInterestsEmptyHint: "💡 هنوز علاقه‌مندی‌ای ثبت نکردی. از 👤 من ← علاقه‌مندی‌ها، علاقه‌مندی‌هات رو انتخاب کن یا بنویس.",
-    profileGrowthHintInterests: "💡 قدم بعدی: {remaining} علاقه‌مندی دیگه اضافه کن تا پروفایلت دقیق‌تر بشه.",
+    profileGrowthHintInterests: "💡 قدم بعدی: {remaining} علاقه‌مندی اضافه کن تا پروفایلت دقیق‌تر بشه.",
     profileGrowthHintTopTen: "💡 قدم بعدی: {remaining} مورد محبوب به بخش {section} اضافه کن.",
     profileGrowthHintBio: "💡 قدم بعدی: یک درباره من کوتاه اضافه کن.",
     profileGrowthHintProfile: "💡 قدم بعدی: {remaining} بخش دیگر از پروفایلت را کامل کن.",

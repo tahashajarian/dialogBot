@@ -262,6 +262,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const genderIcon = "⚧️";
   const interestsText = buildProfileInterestsText(user, lang, messages, { isOwnProfile });
   const tasteLabelsText = buildTasteLabelsText(user, lang, messages, { isOwnProfile });
+  const growthHint = isOwnProfile ? buildOwnProfileGrowthHint(user, lang, messages) : "";
 
   const lines = [
     lineForLang(lang, `${titleIcon} ${title}`),
@@ -306,13 +307,12 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     lines.push(user?.activeDiscussionHelpAcknowledgedAt
       ? activeDiscussionLine
       : `${activeDiscussionLine} (${messages[lang].profileActiveDiscussionHelpButton} ${ACTIVE_DISCUSSION_HELP_COMMAND})`);
-    const growthHint = buildOwnProfileGrowthHint(user, lang, messages);
-    if (growthHint) lines.push(lineForLang(lang, growthHint));
   }
 
   const baseText = lines.join("\n");
+  const privateGrowthFooter = growthHint ? `\n\n${lineForLang(lang, growthHint)}` : "";
 
-  return `${baseText}${interestsText}${tasteLabelsText}`;
+  return `${baseText}${interestsText}${tasteLabelsText}${privateGrowthFooter}`;
 }
 
 function buildLocationPayload(locationMessage) {

@@ -68,7 +68,23 @@ test("buildProfileText shows one private growth hint only on own profile", () =>
   const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
 
   assert.match(ownText, /Next: add 2 more Interests/);
+  assert.match(ownText, /\n\n💡 Next: add 2 more Interests[^\n]*$/);
   assert.doesNotMatch(publicText, /Next:/);
+});
+
+test("Persian own-profile growth hint is a separated footer without extra wording", () => {
+  const profileUser = {
+    firstName: "علی",
+    profileName: "علی",
+    aiLists: { random: { topTen: [] } },
+  };
+
+  const ownText = buildProfileText(profileUser, "fa", messages, { isOwnProfile: true });
+  const publicText = buildProfileText(profileUser, "fa", messages, { isOwnProfile: false });
+
+  assert.match(ownText, /\n\n‏💡 قدم بعدی: ۳ علاقه‌مندی اضافه کن تا پروفایلت دقیق‌تر بشه\.$/);
+  assert.doesNotMatch(ownText, /دیگه/);
+  assert.doesNotMatch(publicText, /قدم بعدی/);
 });
 
 test("buildProfileText uses public title when viewing someone else", () => {
