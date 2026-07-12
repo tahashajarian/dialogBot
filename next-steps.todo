@@ -8,7 +8,7 @@ switches conservative and fix observed friction before adding features.
 
 Later product ideas and "do not implement now" notes live in `plan.todo`.
 
-## ☐ Invitation UX Separation And Onboarding Continuation
+## ☑ Invitation UX Separation And Onboarding Continuation
 
 Deferred. Keep three invitation types distinct:
 

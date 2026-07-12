@@ -12,6 +12,7 @@ const {
   discussionRemoveMembersKeyboard,
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
+const { buildGuideReferralCard } = require("./flows/guide-referrals");
 const { callBacks } = require("./constants");
 const { formatOperationalLimitsText } = require("./services/operational-limits-ui");
 const {
@@ -36,7 +37,7 @@ const {
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
 const Discussion = require("./models/discussion");
-const { updateUserState } = require("./services/users");
+const { updateUserFields, updateUserState } = require("./services/users");
 const {
   joinOrOpenDiscussion,
   ensurePublicProfileCodes,
@@ -498,6 +499,24 @@ async function handleCallback(ctx) {
       await sendNavigationFootprint(ctx, { lang, destination: "profile" });
     }
     return sendOwnProfile(ctx, lang, ctx.user || {});
+  }
+
+  if (data === callBacks.helpReferral || data === callBacks.helpReferralBack) {
+    if (data === callBacks.helpReferralBack) {
+      await ctx.answerCb?.();
+      return editCallbackMessageOrReply(ctx, messages[lang].helpText, helpKeyboard(lang));
+    }
+    const card = await buildGuideReferralCard(ctx.userId, lang);
+    if (!card.ok) return ctx.answerCb?.(messages[lang].unknownAction, { show_alert: true });
+    await ctx.answerCb?.();
+    return editCallbackMessageOrReply(ctx, card.text, card.keyboard);
+  }
+
+  if (data === callBacks.onboardingDiscussionContinue) {
+    await ctx.answerCb?.();
+    const code = String(ctx.user?.pendingDiscussionShareCode || "");
+    if (!code) return editCallbackMessageOrReply(ctx, messages[lang].discussionInviteUnavailable, helpKeyboard(lang));
+    return showDiscussionInvitePreviewCommand(ctx, lang, code);
   }
 
   const roomCallbackDiscussionId = getActiveRoomCallbackDiscussionId(data);
@@ -964,9 +983,10 @@ async function handleCallback(ctx) {
       const welcomeMessage = userName
         ? messages[newLang].discussionInviteWelcomeWithName.replace("{name}", userName)
         : messages[newLang].discussionInviteWelcome;
-      await updateUserState(ctx.userId, "idle");
-      await editCallbackMessageOrReply(ctx, welcomeMessage);
-      return showDiscussionInvitePreviewCommand(ctx, newLang, inviteCode);
+      if (ctx.user) ctx.user.pendingDiscussionShareCode = inviteCode;
+      await updateUserFields(ctx.userId, { pendingDiscussionShareCode: inviteCode });
+      await updateUserState(ctx.userId, "onboarding_welcome");
+      return editCallbackMessageOrReply(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
     }
 
     await deleteCallbackMessageIfPossible(ctx);

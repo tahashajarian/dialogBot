@@ -80,7 +80,10 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
     await AccountDeletion.updateOne({ _id: operation._id }, { $set: { step: "audit" } });
     await StarTransaction.updateMany({ userId: normalized }, { $set: { userId: tombstone, balanceAfter: null }, $unset: { metadata: 1, constraints: 1, settingsSnapshot: 1, paymentId: 1 } });
     await StarTransaction.updateMany({ relatedUserId: normalized }, { $set: { relatedUserId: tombstone } });
-    await StarReferralLink.updateMany({ inviterUserId: normalized }, { $set: { inviterUserId: tombstone, publicCode: `deleted-${operation._id}` , expiresAt: new Date() } });
+    await StarReferralLink.updateMany(
+      { inviterUserId: normalized },
+      { $set: { inviterUserId: tombstone, expiresAt: new Date() } },
+    );
     await StarReferralClaim.updateMany({ inviterUserId: normalized }, { $set: { inviterUserId: tombstone } });
     await StarReferralClaim.updateMany({ inviteeUserId: normalized }, { $set: { inviteeUserId: tombstone } });
     await DiscussionBoost.updateMany({ creatorUserId: normalized }, { $set: { creatorUserId: tombstone } });

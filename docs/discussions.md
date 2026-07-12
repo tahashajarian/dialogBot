@@ -1394,3 +1394,10 @@ The bot remains centered on:
 - taste-based discussion rooms
 
 Stars remain a private supporting economy. Paid boosts or filters must not turn discussions and People discovery into unrestricted advertising, dating, wealth ranking, or pay-to-bypass social access.
+
+## Shared Links And Direct Invitations
+
+- Public discussion share links are preview destinations, not invitation-inbox items. Existing users see the preview immediately. New users complete the existing onboarding flow first; referral attribution and the public discussion code persist on the User across restarts.
+- Completion offers an explicit bilingual action to view the original preview. Join is never automatic and applies the current open/full, capacity, ban, mute, active-room, profile-name, and taste rules.
+- Only a direct in-bot invitation addressed to a specific existing saved profile creates an inbox row and may earn the directed-pair reward after its first eligible successful acceptance. Shared links can earn only the genuinely-new external-referral reward.
+- If the room becomes unavailable during onboarding, continuation uses the normal unavailable/join error without replacing or duplicating attribution.

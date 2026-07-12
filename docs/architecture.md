@@ -152,3 +152,8 @@ Age is optional and not enforced by the profile viewing gate.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep bot-platform and AI endpoint configuration separate to avoid launch failures.
 - Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.
+
+## Referral And Shared-Link Continuation
+
+- `src/flows/guide-referrals.js` builds the focused Guide referral card from startup-loaded Star settings. `src/services/invite-links.js` builds safe deep links and `src/services/star-referrals.js` owns opaque links, first-referrer claims, qualification, and reward idempotency.
+- Shared-discussion continuation is stored on the User and consumed by the existing onboarding and normal discussion-preview flows. It never enters stored invitation services. Directed-pair rewards accept only stored `saved_profile` invitation sources.

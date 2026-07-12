@@ -47,7 +47,6 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
-const { awardSavedInvitePair } = require("../services/star-invitations");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -627,33 +626,7 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   }
   if (ctx.user) ctx.user.activeDiscussionId = joined.discussion._id;
   const pendingShareCode = String(ctx.user?.pendingDiscussionShareCode || "");
-  const pendingShareInviterUserId = Number(ctx.user?.pendingDiscussionShareInviterUserId);
   const pendingShareMatches = pendingShareCode.toLowerCase() === String(publicCode || "").toLowerCase();
-  if (
-    joined.joined &&
-    pendingShareCode &&
-    pendingShareMatches &&
-    Number.isInteger(pendingShareInviterUserId) &&
-    pendingShareInviterUserId > 0 &&
-    pendingShareInviterUserId !== Number(ctx.userId)
-  ) {
-    const inviterReward = await awardSavedInvitePair({
-      inviterUserId: pendingShareInviterUserId,
-      inviteeUserId: ctx.userId,
-      invitationId: null,
-      source: "discussion_share",
-    });
-    if (inviterReward.ok && inviterReward.applied) {
-      const inviter = await User.findOne({ userId: pendingShareInviterUserId }).select("lang").lean();
-      const inviterLang = messages[inviter?.lang] ? inviter.lang : "fa";
-      const inviterNotice = buildStarRewardNotice(messages, inviterLang, [{
-        milestone: "invite_pair_reward",
-        amount: inviterReward.transaction.amount,
-        balance: inviterReward.balance,
-      }]);
-      if (inviterNotice) await ctx.sendToUser?.(pendingShareInviterUserId, inviterNotice);
-    }
-  }
   if (pendingShareCode && pendingShareMatches) {
     const clearedShare = {
       pendingDiscussionShareInviterUserId: null,

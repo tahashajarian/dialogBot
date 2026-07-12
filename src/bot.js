@@ -307,7 +307,7 @@ async function handleUpdate(ctx) {
     if (referral.link?.discussionPublicCode) {
       startInviteCode = referral.link.discussionPublicCode;
       shareInviterUserId = Number(referral.link.inviterUserId) || null;
-    } else if (!referral.ok) {
+    } else if (!referral.ok && !["existing_user", "already_claimed"].includes(referral.reason)) {
       await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
     }
   }
@@ -425,11 +425,11 @@ async function handleUpdate(ctx) {
     return removeInvitationCommand(ctx, lang, text);
   }
 
-  if (text === "/start") {
+  if (text === "/start" || startReferralCode) {
     void trackEvent({
       name: EVENT_NAMES.userStarted,
       userId: ctx.userId,
-      source: "direct",
+      source: startReferralCode ? "referral" : "direct",
     });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);

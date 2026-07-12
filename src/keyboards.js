@@ -104,6 +104,10 @@ function helpKeyboard(lang) {
       callback_data: callBacks.profileStars,
     }],
     [{
+      text: messages[lang].helpReferralButton,
+      callback_data: callBacks.helpReferral,
+    }],
+    [{
       text: messages[lang].helpRules,
       callback_data: callBacks.helpRules,
     }],
@@ -119,6 +123,14 @@ function helpKeyboard(lang) {
       text: messages[lang].helpBackToMain,
       callback_data: callBacks.menuMain,
     }],
+  ]);
+}
+
+function helpReferralKeyboard(lang, shareUrl = "", copyUrl = "") {
+  return inlineKeyboard([
+    ...(shareUrl ? [[{ text: messages[lang].helpReferralShare, url: shareUrl }]] : []),
+    ...(copyUrl ? [[{ text: messages[lang].helpReferralCopy, copy_text: { text: copyUrl } }]] : []),
+    [{ text: messages[lang].helpBackToGuide, callback_data: callBacks.helpReferralBack }],
   ]);
 }
 
@@ -712,8 +724,12 @@ function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
   return inlineKeyboard(rows);
 }
 
-function onboardingCompleteKeyboard(lang, { hasInvitation = false } = {}) {
+function onboardingCompleteKeyboard(lang, { hasInvitation = false, discussionContinuation = false } = {}) {
   return inlineKeyboard([
+    ...(discussionContinuation ? [[{
+      text: messages[lang].onboardingDiscussionContinueButton,
+      callback_data: callBacks.onboardingDiscussionContinue,
+    }]] : []),
     ...(hasInvitation ? [[{
       text: messages[lang].onboardingInvitationButton,
       callback_data: callBacks.discussionInvitations,
@@ -1185,6 +1201,7 @@ module.exports = {
   mainMenuKeyboard,
   helpKeyboard,
   helpRulesKeyboard,
+  helpReferralKeyboard,
   aiAssistantKeyboard,
   aiChatBackKeyboard,
   aiSectionKeyboard,

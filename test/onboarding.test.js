@@ -302,6 +302,7 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.ok(mainCallbacks.includes(callBacks.help));
   assert.deepEqual(helpCallbacks, [
     callBacks.profileStars,
+    callBacks.helpReferral,
     callBacks.helpRules,
     callBacks.aiAssistant,
     callBacks.discussionListActive,

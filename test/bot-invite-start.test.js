@@ -132,6 +132,12 @@ test("repeated same start invite payload still opens invite preview", async () =
   assert.match(replies.at(-1).text, /Movie Chat/);
 });
 
+test("general referral payload remains a start entry without a discussion code", () => {
+  const text = "/start ref_A1B2C3D4E5F6";
+  assert.equal(Boolean(getStartReferralCode(text)), true);
+  assert.equal(getStartInviteCode(text), "");
+});
+
 test("navigation command parser accepts advertised commands and bot mentions", () => {
   for (const command of ["menu", "profile", "lang", "taste", "discussions", "people", "help"]) {
     assert.equal(getNavigationCommand(`/${command}`), command);

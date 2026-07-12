@@ -163,11 +163,14 @@ function buildOnboardingCompleteText(lang, { hasInvitation = false } = {}) {
 }
 
 async function prepareOnboardingCompletion(ctx, lang) {
-  const invitationResult = await createOnboardingStarterInvitationsForUser(ctx.userId).catch(() => ({ count: 0 }));
+  const discussionContinuation = Boolean(ctx.user?.pendingDiscussionShareCode);
+  const invitationResult = discussionContinuation
+    ? { count: 0 }
+    : await createOnboardingStarterInvitationsForUser(ctx.userId).catch(() => ({ count: 0 }));
   const hasInvitation = Number(invitationResult?.count) > 0;
   return {
     text: buildOnboardingCompleteText(lang, { hasInvitation }),
-    keyboard: onboardingCompleteKeyboard(lang, { hasInvitation }),
+    keyboard: onboardingCompleteKeyboard(lang, { hasInvitation, discussionContinuation }),
   };
 }
 

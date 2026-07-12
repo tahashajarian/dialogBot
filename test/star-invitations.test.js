@@ -21,3 +21,13 @@ test("stored invitation reward ignores self invites", async () => {
   assert.equal(result.ok, false);
   assert.equal(result.reason, "self_invite");
 });
+
+test("shared discussion links cannot award the directed-pair reward", async () => {
+  const result = await awardSavedInvitePair({
+    inviterUserId: 10,
+    inviteeUserId: 20,
+    source: "discussion_share",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "excluded_source");
+});

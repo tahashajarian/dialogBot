@@ -828,3 +828,9 @@ This task is explicitly deferred and must not be bundled into the first Stars re
 - Decide whether boost recommendations launch with boosted list placement or in a later sub-phase; they have separate switches.
 - Complete the age/minor/privacy review before implementing Advanced Search filters or entitlement purchase.
 - Complete payment-provider, legal, refund, accounting, and deterministic bucket-spending review before beginning Task 9.
+
+## Invitation UX Separation
+
+The Guide's bilingual Invite action creates an opaque, expiring general referral with no discussion destination. Its user-facing share copy describes favorites, people with similar tastes, and live discussions; it never exposes the internal `TopTen` name or retired “Top 10” wording. A genuinely new user completes normal onboarding and reaches the main menu. The first valid referrer is locked and is rewarded only when the startup-loaded `firstTopTenMilestoneItems` threshold is reached; amount and lifetime use `rewardExternalReferral` and `externalReferralLinkExpiryDays`.
+
+An attributable shared-discussion link preserves its discussion code through onboarding and restarts, resumes at the original preview, never auto-joins, and creates no invitation-inbox row. It may qualify only for the external new-user reward. Directed-pair rewards are accepted only for successfully joined stored `saved_profile` invitations, so shared links cannot trigger both identities. All awards remain ledger-backed and idempotent.

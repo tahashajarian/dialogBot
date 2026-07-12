@@ -199,3 +199,9 @@ Use this map before changing code. It explains where behavior belongs so future 
 - Translation or `messages[lang].key` changes: `npm.cmd run validate:translations`.
 - Behavior/service/flow changes: `npm.cmd test`.
 - Small docs-only changes: no test required, but mention that tests were not run.
+
+## Referral UX Ownership
+
+- `src/flows/guide-referrals.js`: focused Guide referral-card construction using startup-loaded Star settings and opaque invite links.
+- `src/services/star-referrals.js`: opaque external links, expiry, atomic first-referrer locking, and qualification.
+- Shared discussion destinations persist on User fields and resume through `src/flows/onboarding.js` into the normal preview. They never create stored invitation rows; directed invitations remain owned by the discussion-invitation modules.

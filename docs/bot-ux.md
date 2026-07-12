@@ -152,3 +152,7 @@ Stars UX rules:
 - The profile viewing gate requires only display name; age is optional and not enforced.
 - When a user completes their profile through the gate, redirect them to the intended profile they were trying to view, not their own profile. The intended profile code is stored in `pendingProfileViewCode` and cleared after redirect.
 - A Star balance is visible only on the authenticated user's own profile. Never include it in public profile cards, shareable text, member-list views, saved-profile views, discovery results, or invitation profile views.
+
+## Guide Referral Card
+
+Place `🎁 Invite someone to Muze` / `🎁 دعوت به میوز` in Guide beside Stars and Rules, not in the main menu, Discussions, People, or Saved Profiles. It edits the Guide card into one focused bilingual card containing live startup-loaded reward/qualification values, a native share URL, a copyable opaque-link fallback, and Back to guide. The native share message uses the inviter's current interface language and briefly explains favorites, taste-based people discovery, and live discussions. Do not expose the internal `TopTen` name or the retired “Top 10” product wording in referral copy. Back edits in place; navigating elsewhere retires the stale card through normal navigation-card cleanup. Shared-discussion onboarding ends with an explicit preview action and must never imply an automatic join.
