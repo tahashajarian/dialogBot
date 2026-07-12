@@ -10,6 +10,7 @@ const { confirmBoost, createBoostQuote } = require("../../src/services/discussio
 const { claimExistingProfileAndListMilestones } = require("../../src/services/star-milestones");
 const { starEconomy } = require("../../src/services/star-settings");
 const { createStarsService } = require("../../src/services/stars");
+const { addAiListItem } = require("../../src/services/users");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
@@ -154,4 +155,31 @@ test("opening Stars lazily claims verifiable existing milestones once", async ()
   assert.equal(second.length, 0);
   assert.equal((await User.findOne({ userId: 504 }).lean()).starBalance, 15);
   assert.equal(await StarTransaction.countDocuments({ userId: 504, status: "applied" }), 3);
+});
+
+test("adding the third favorite awards the first Top Ten milestone immediately", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    earningEnabled: true,
+    firstTopTenMilestoneItems: 3,
+    rewardFirstThreePerSection: 3,
+  });
+  await User.create({ userId: 505, firstName: "New Favorite User" });
+
+  const first = await addAiListItem(505, "movies", "topTen", { title: "Arrival" }, 10);
+  const second = await addAiListItem(505, "movies", "topTen", { title: "Moonlight" }, 10);
+  const third = await addAiListItem(505, "movies", "topTen", { title: "Parasite" }, 10);
+
+  assert.deepEqual(first.starRewards, []);
+  assert.deepEqual(second.starRewards, []);
+  assert.equal(third.starRewards.length, 1);
+  assert.equal(third.starRewards[0].milestone, "topten_first_milestone");
+  assert.equal(third.starRewards[0].amount, 3);
+  assert.equal(third.starRewards[0].balance, 3);
+  assert.equal((await User.findOne({ userId: 505 }).lean()).starBalance, 3);
+  assert.equal(await StarTransaction.countDocuments({
+    userId: 505,
+    reason: "topten_first_milestone",
+    status: "applied",
+  }), 1);
 });

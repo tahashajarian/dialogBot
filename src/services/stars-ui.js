@@ -20,6 +20,9 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
     boostCost: formatStarNumber(settings.discussionBoostCost, lang),
     paidSuggestionCost: formatStarNumber(settings.paidSuggestionCost, lang),
     profileEmojiCost: formatStarNumber(settings.profileEmojiCost, lang),
+    paidTwoPersonDiscussionCost: formatStarNumber(settings.paidTwoPersonDiscussionCost, lang),
+    paidLargeDiscussionCapacity: formatStarNumber(settings.paidLargeDiscussionCapacity, lang),
+    paidLargeDiscussionCost: formatStarNumber(settings.paidLargeDiscussionCost, lang),
   };
   return Object.entries(values).reduce(
     (text, [key, value]) => text.replaceAll(`{${key}}`, value),

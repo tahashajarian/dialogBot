@@ -10,6 +10,8 @@ const {
 
 test("Stars overview uses live settings and private balance", () => {
   const text = buildStarsOverviewText(messages, "en", { starBalance: 18 }, {
+    firstTopTenMilestoneItems: 4,
+    topTenCompletionItems: 9,
     rewardFirstThreePerSection: 3,
     rewardFullTopTenPerSection: 7,
     rewardProfileCompletion: 5,
@@ -20,13 +22,22 @@ test("Stars overview uses live settings and private balance", () => {
     discussionBoostCost: 12,
     paidSuggestionCost: 1,
     profileEmojiCost: 3,
+    paidTwoPersonDiscussionCost: 6,
+    paidLargeDiscussionCapacity: 40,
+    paidLargeDiscussionCost: 14,
   });
   assert.match(text, /Balance: 18/);
-  assert.match(text, /Watchlists, playlists, and reading lists are free and do not award Stars/);
+  assert.match(text, /Lists for later do not award Stars/);
+  assert.doesNotMatch(text, /Watchlists|playlists|reading lists are free/);
   assert.doesNotMatch(text, /Build the first/);
   assert.match(text, /Profile emoji: 3 Stars/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
   assert.match(text, /Boost one discussion: 12 Stars/);
+  assert.match(text, /Add the first 4 favorites in each of Movies, Music, and Books: 3/);
+  assert.match(text, /Complete all 9 favorites in each of Movies, Music, and Books: 7/);
+  assert.doesNotMatch(text, /Top 10/);
+  assert.match(text, /2-person discussion: 6 Stars/);
+  assert.match(text, /40-person discussion: 14 Stars/);
   assert.doesNotMatch(text, /Probably similar people/);
   assert.match(text, /Advanced Search is not available yet/);
 });
@@ -51,9 +62,10 @@ test("Star reward notice combines balance and one next milestone", () => {
     reward: 7,
   });
   assert.match(text, /earned 3 Stars/);
-  assert.match(text, /Music Top 10/);
+  assert.match(text, /music favorites/);
+  assert.doesNotMatch(text, /Top 10/);
   assert.match(text, /Balance: 8/);
-  assert.match(text, /Add 7 more to complete your Music Top 10/);
+  assert.match(text, /Add 7 more to complete your music favorites/);
 });
 
 test("invite Star reward notice uses a natural accepted-invite sentence", () => {

@@ -1489,8 +1489,8 @@ test("Top Ten add limit uses local bot-marked copy inside top-ten section", asyn
   const reply = replies.at(-1);
 
   assert.match(reply.text, /^👩‍🦳/);
-  assert.match(reply.text, /همین تاپ ۱۰/);
-  assert.doesNotMatch(reply.text, /به بخش تاپ ۱۰ برو/);
+  assert.match(reply.text, /محبوب‌های این بخش/);
+  assert.doesNotMatch(reply.text, /تاپ ۱۰/);
 });
 
 test("watchlist add flow stays open for the next item", async () => {

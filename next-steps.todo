@@ -7,3 +7,56 @@ errors, bot heartbeat, and Star ledger reconciliation. Keep optional Star spendi
 switches conservative and fix observed friction before adding features.
 
 Later product ideas and "do not implement now" notes live in `plan.todo`.
+
+## ☐ Invitation UX Separation And Onboarding Continuation
+
+Deferred. Keep three invitation types distinct:
+
+| Type | Destination | Invitation box | Reward |
+| --- | --- | --- | --- |
+| General Muze referral | New-user onboarding → main menu | No | External-referral reward after qualification |
+| Shared discussion link | Onboarding if needed → original discussion preview | No | External-referral reward only for a genuinely new qualified user; never the directed-pair reward |
+| Direct in-bot discussion invitation | Invitation box → discussion preview | Yes | Directed-pair reward after the first eligible successful join |
+
+Implementation requirements:
+
+- Add `🎁 Invite someone to Muze` / `🎁 دعوت به میوز` under Guide, beside Stars and Rules—not in the main menu, Discussions, or Saved Profiles.
+- Open one focused referral card with conditional reward copy, the startup-loaded admin reward/qualification values, a native share action or share URL, a safe copyable-link fallback, and `Back to guide`.
+- Create a general opaque referral link with inviter attribution, no raw user ID, and no discussion destination.
+- General referral: genuinely new users complete onboarding then reach the main menu; existing users do not reset onboarding, replace attribution, or award Stars.
+- Shared discussion link: existing users see its preview immediately; genuinely new users complete onboarding first, then see the original preview. Preserve attribution and discussion code through all onboarding states and restarts.
+- Never auto-join. Apply normal join conditions, capacity, ban, mute, and active-room checks at preview/join time.
+- Do not put shared links into the invitation box. Only direct in-bot invitations to a specific existing user belong there.
+- Keep first-referrer locking. Invalid, expired, self, later, or repeated links cannot replace it.
+- Never reward `/start`, link opening, preview rendering, onboarding alone, failed joins, or retries.
+- External referral identity: `referral:new-user-qualified:{inviteeUserId}`. Award only after configured meaningful progress.
+- Directed-pair identity: `invite-pair:first-accepted:{inviterUserId}:{inviteeUserId}`. Award only after the first eligible direct-invitation join.
+- A shared discussion journey must never trigger both reward types.
+- Reuse `src/services/invite-links.js` and `src/services/star-referrals.js`; preserve discussion mutations/effects in their documented service boundaries. Carry the pending destination through the existing onboarding flow rather than creating another onboarding flow.
+- Extract a focused Guide/referral flow helper instead of growing callback dispatchers with a large feature body.
+
+Required tests:
+
+- New/existing user behavior for general referrals and shared discussion links.
+- Discussion code survives language selection, every onboarding step, and restart.
+- Shared link resumes the original preview without an invitation-box row or automatic join.
+- Direct invitation appears in the invitation box and awards its pair reward once.
+- No shared-link pair reward and no double external/pair reward.
+- First-referrer, expiry, invalid, self, repeat, and concurrency idempotency.
+- Closed/full/ineligible discussion after onboarding uses the normal error without losing or duplicating attribution.
+
+Acceptance criteria:
+
+- Each invitation type has one predictable destination, storage rule, and reward rule.
+- New users never bypass onboarding; discussion invitees are never auto-joined.
+- Shared links create no invitation-box clutter and cannot produce both reward types.
+- Rewards remain ledger-backed, idempotent, and based on startup-loaded admin settings.
+- Persian and English copy clearly distinguishes all three invitation types.
+
+Documentation required with implementation:
+
+- Update `docs/stars.md` for final referral and reward behavior.
+- Update `docs/discussions.md` for shared-link versus direct-invitation behavior, invitation-box rules, and post-onboarding continuation.
+- Update `docs/bot-ux.md` for Guide placement, referral-card navigation, stale-card cleanup, and bilingual UX copy.
+- Update `docs/architecture.md` and `docs/agent-map.md` if new flow/service modules or ownership boundaries are introduced.
+- Keep implementation, tests, and every affected document aligned before marking this item complete.
