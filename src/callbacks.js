@@ -969,18 +969,13 @@ async function handleCallback(ctx) {
       return showDiscussionInvitePreviewCommand(ctx, newLang, inviteCode);
     }
 
-    try {
-      // Telegraf editMessageText: (text, extra)
-      return await ctx.editMessage(
-        messages[newLang].languageChanged,
-        mainMenuKeyboard(newLang)
-      );
-    } catch {
-      return await ctx.reply(
-        messages[newLang].languageChanged,
-        mainMenuKeyboard(newLang)
-      );
-    }
+    await deleteCallbackMessageIfPossible(ctx);
+    await ctx.reply(messages[newLang].languageChanged);
+    await sendNavigationFootprint(ctx, { lang: newLang, destination: "menu" });
+    return rememberNavigationCard(
+      ctx,
+      await ctx.reply(messages[newLang].mainMenu, mainMenuKeyboard(newLang)),
+    );
   }
 
   await ctx.answerCb?.();

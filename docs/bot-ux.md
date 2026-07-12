@@ -11,6 +11,7 @@
 - Bot-authored messages sent before normal app-context routing, such as allowlist and banned-user blocks, should still apply the configured Muze marker emoji.
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
+- When a returning user changes the interface language, retire the language picker, send the localized change confirmation as a separate message, then enter a fresh titled main-menu card through the normal main-menu footprint flow.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
 - After a create/edit flow is confirmed or canceled, remove leftover step cards so dead inline actions are not left in chat.
 - If a flow naturally moves from one picker to another, editing the same message in place is preferred.

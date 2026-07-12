@@ -4,10 +4,48 @@ const assert = require("node:assert/strict");
 const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
 const messages = require("../src/messages");
+const { mainMenuKeyboard } = require("../src/keyboards");
 const { saveProfileCommand, sendPublicProfileByCode } = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
+
+test("language change sends confirmation separately before a titled main menu with footprint", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const deletedIds = [];
+  User.findOneAndUpdate = async () => ({ userId: 999, lang: "fa" });
+
+  const ctx = {
+    callbackData: callBacks.langSetFa,
+    callbackMessageId: 123,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle" },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deletedIds, [123]);
+  assert.equal(replies[0].text, "👩‍🦳 زبان به فارسی تغییر کرد.");
+  assert.equal(replies[0].extra, undefined);
+  assert.equal(replies[1].text, messages.fa.navigationFootprintMainMenu);
+  assert.equal(replies[2].text, messages.fa.mainMenu);
+  assert.match(replies[2].text, /^🏠 منوی اصلی/);
+  assert.deepEqual(replies[2].extra, mainMenuKeyboard("fa"));
+});
 
 test("profile Back leaves a main-menu footprint before a fresh menu card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
