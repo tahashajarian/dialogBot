@@ -36,7 +36,10 @@ const {
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
-const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
+const {
+  replyWithKeyboardRemovalNoticeThenInline,
+  replyWithRemovedKeyboardThenInline,
+} = require("../services/bot-navigation");
 const {
   getAiSectionFromState,
   getSectionEmoji,
@@ -585,7 +588,12 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      return replyWithKeyboardRemovalNoticeThenInline(
+        ctx,
+        messages[lang].navigationFootprintTaste,
+        buildAiAssistantMenuMessage(lang),
+        aiAssistantKeyboard(lang),
+      );
     }
 
     const section = manageState.section;
@@ -861,7 +869,12 @@ async function handleAiText(ctx, lang, text, state) {
       await updateUserState(ctx.userId, "idle");
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      return replyWithKeyboardRemovalNoticeThenInline(
+        ctx,
+        messages[lang].navigationFootprintTaste,
+        buildAiAssistantMenuMessage(lang),
+        aiAssistantKeyboard(lang),
+      );
     }
 
     if (isAiSectionListText(text, section)) {

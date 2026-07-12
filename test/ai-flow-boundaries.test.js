@@ -206,7 +206,7 @@ test("AI section keyboard prefixes section actions with section emoji", () => {
   assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
-test("AI bottom Back clears reply controls on the destination menu message", async () => {
+test("AI bottom Back clears reply controls on a stable heading before sending the inline menu", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const edits = [];
@@ -237,13 +237,12 @@ test("AI bottom Back clears reply controls on the destination menu message", asy
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.equal(replies.length, 1);
-  assert.equal(replies[0].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
+  assert.equal(replies.length, 2);
+  assert.equal(replies[0].text, messages.fa.navigationFootprintTaste);
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
-  assert.equal(edits.length, 1);
-  assert.equal(edits[0].messageId, 1);
-  assert.equal(edits[0].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
-  assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.aiBack);
+  assert.equal(replies[1].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
+  assert.deepEqual(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.aiBack);
+  assert.equal(edits.length, 0);
 });
 
 test("music add flow accepts meaningful audio titles and rejects untitled media", () => {

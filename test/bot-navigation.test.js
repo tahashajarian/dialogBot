@@ -5,6 +5,7 @@ const {
   clearBottomKeyboardQuietly,
   removeBottomKeyboard,
   replyWithRemovedKeyboardThenInline,
+  replyWithKeyboardRemovalNoticeThenInline,
 } = require("../src/services/bot-navigation");
 
 test("quiet keyboard removal sends Telegram-valid non-empty text", async () => {
@@ -90,6 +91,25 @@ test("inline navigation clears bottom keyboard on the menu message", async () =>
   assert.equal(edits[0].messageId, 1);
   assert.equal(edits[0].text, "Choose one");
   assert.equal(edits[0].extra.reply_markup.inline_keyboard[0][0].text, "Go");
+});
+
+test("inline navigation can clear the bottom keyboard on a stable notice without duplicating the menu", async () => {
+  const replies = [];
+  const keyboard = { reply_markup: { inline_keyboard: [[{ text: "Go", callback_data: "go" }]] } };
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await replyWithKeyboardRemovalNoticeThenInline(ctx, "Media", "Choose one", keyboard);
+
+  assert.equal(replies.length, 2);
+  assert.equal(replies[0].text, "Media");
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.equal(replies[1].text, "Choose one");
+  assert.equal(replies[1].extra.reply_markup.inline_keyboard[0][0].text, "Go");
 });
 
 test("inline navigation falls back without waiting for cleanup deletion", async () => {

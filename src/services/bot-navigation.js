@@ -64,6 +64,11 @@ async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
   return ctx.reply(text, inlineKeyboard);
 }
 
+async function replyWithKeyboardRemovalNoticeThenInline(ctx, noticeText, text, inlineKeyboard) {
+  await ctx.reply(noticeText, { reply_markup: { remove_keyboard: true } });
+  return ctx.reply(text, inlineKeyboard);
+}
+
 async function clearBottomKeyboardQuietly(ctx) {
   return removeBottomKeyboard(ctx, KEYBOARD_CLEANUP_TEXT);
 }
@@ -92,6 +97,7 @@ module.exports = {
   removeBottomKeyboard,
   removeBottomKeyboardWithoutWaitingForDelete,
   replyWithRemovedKeyboardThenInline,
+  replyWithKeyboardRemovalNoticeThenInline,
   clearBottomKeyboardQuietly,
   leaveActiveDiscussionForNavigation,
   leaveDiscussionAndClearKeyboardForNavigation,

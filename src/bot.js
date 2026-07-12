@@ -22,6 +22,7 @@ const {
   removeBottomKeyboard,
   clearBottomKeyboardQuietly,
   replyWithRemovedKeyboardThenInline,
+  replyWithKeyboardRemovalNoticeThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
 const {
@@ -408,7 +409,6 @@ async function handleUpdate(ctx) {
   if (/^\/accept_inv_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
     await clearDiscussionListMessage(ctx);
-    await clearBottomKeyboardQuietly(ctx);
     await updateUserState(ctx.userId, "idle");
     return acceptInvitationCommand(ctx, lang, text, {
       sendRoom: sendDiscussionRoomFromText,
@@ -569,7 +569,12 @@ async function handleUpdate(ctx) {
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithRemovedKeyboardThenInline(ctx, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      return replyWithKeyboardRemovalNoticeThenInline(
+        ctx,
+        messages[lang].navigationFootprintTaste,
+        buildAiAssistantMenuMessage(lang),
+        aiAssistantKeyboard(lang),
+      );
     }
 
     const handledProfileCancel = await handleProfileCancelText(ctx, lang, state, {
