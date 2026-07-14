@@ -4,7 +4,6 @@ const {
   ONBOARDING_CHIPS_PER_PAGE,
   getOnboardingInterestChipTitle,
   onboardingCompleteKeyboard,
-  onboardingCustomInterestKeyboard,
   onboardingInterestsKeyboard,
   onboardingLanguageKeyboard,
   onboardingTasteSetupNudgeKeyboard,
@@ -69,10 +68,6 @@ function isTasteSetupState(state = "") {
 
 function isInterestPickerState(state = "") {
   return state === ONBOARDING_INTERESTS_STATE || state === TASTE_SETUP_INTERESTS_STATE;
-}
-
-function getCustomInterestPrefixForState(state = "") {
-  return isTasteSetupState(state) ? TASTE_SETUP_CUSTOM_PREFIX : ONBOARDING_CUSTOM_PREFIX;
 }
 
 async function sendFreshOnboardingPrompt(ctx, text, keyboard) {
@@ -310,12 +305,12 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
 
   if (data.startsWith(callBacks.onboardingCustom)) {
     const page = getOnboardingPage(data);
-    await updateUserState(ctx.userId, `${getCustomInterestPrefixForState(state)}${page}`);
-    await setOnboardingPickerMode(ctx, `${getCustomInterestPrefixForState(state)}${page}`, page);
+    const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      messages[lang].onboardingCustomPrompt,
-      onboardingCustomInterestKeyboard(lang, page),
+      buildOnboardingPrompt(lang, items.length),
+      onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
     );
   }
 
@@ -373,16 +368,19 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
 async function handleOnboardingText(ctx, lang) {
   const state = String(ctx.user?.state || "");
   const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+  const pickerState = isInterestPickerState(state);
+  const customState = state.startsWith(ONBOARDING_CUSTOM_PREFIX) || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX);
 
-  if (state.startsWith(ONBOARDING_CUSTOM_PREFIX) || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX)) {
-    const page = getOnboardingPage(state);
+  if (pickerState || customState) {
+    const modePage = String(ctx.user?.navigationMode || "").match(/:(\d+)$/)?.[1];
+    const page = customState ? getOnboardingPage(state) : Number(modePage) || 0;
     const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
     if (!item || Array.from(item).length > operationalLimits.onboardingCustomInterestMaxLength) {
       await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
-        `${messages[lang].onboardingCustomInvalid}\n\n${messages[lang].onboardingCustomPrompt}`,
-        onboardingCustomInterestKeyboard(lang, page),
+        `${messages[lang].onboardingCustomInvalid}\n\n${buildOnboardingPrompt(lang, items.length)}`,
+        onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
       );
     }
     const result = await addAiListItem(
@@ -405,8 +403,8 @@ async function handleOnboardingText(ctx, lang) {
       await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
-        `${errorText}\n\n${messages[lang].onboardingCustomPrompt}`,
-        onboardingCustomInterestKeyboard(lang, page),
+        `${errorText}\n\n${buildOnboardingPrompt(lang, items.length)}`,
+        onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
       );
     }
 
@@ -423,8 +421,9 @@ async function handleOnboardingText(ctx, lang) {
       );
     }
 
-    await updateUserState(ctx.userId, isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE);
-    await setOnboardingPickerMode(ctx, state, page);
+    const nextState = isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE;
+    if (customState) await updateUserState(ctx.userId, nextState);
+    await setOnboardingPickerMode(ctx, nextState, page);
     return sendFreshOnboardingPrompt(
       ctx,
       [buildOnboardingPrompt(lang, result.items.length, item), starNotice]

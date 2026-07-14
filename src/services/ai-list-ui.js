@@ -235,9 +235,15 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
       .replace("{goal}", String(goal));
   }
   if (isMediaSection && count < 3) {
+    const suggestionTargetKey = section === "books"
+      ? "aiSuggestionTargetBooks"
+      : section === "music"
+        ? "aiSuggestionTargetMusic"
+        : "aiSuggestionTargetMovies";
     return messages[lang].aiFavoritesEarlyProgress
       .replace("{count}", String(count))
-      .replace("{remaining}", String(3 - count));
+      .replace("{remaining}", String(3 - count))
+      .replace("{section}", messages[lang][suggestionTargetKey]);
   }
   if (topTenItems.length < operationalLimits.aiTopTenItems) {
     if (topTenItems.length >= 3) {

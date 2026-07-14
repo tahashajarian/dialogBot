@@ -23,7 +23,7 @@ Implemented the evolved development contract after end-to-end manual QA:
 - Stable hubs, profile/settings/edit pickers, media managers and suggestions,
   discussion lists/create steps, People/Saved lists, and exact-source profile returns use
   server-scoped bottom reply keyboards.
-- First-session onboarding, language selection, Interest pages, custom-input cancellation,
+- First-session onboarding, language selection, Interest pages with direct typed items,
   the optional taste nudge, and completion destinations also use server-scoped bottom
   modes without deleting or editing earlier prompts. Inline controls remain only when the payload must stay
   bound to a Telegram message or exact identity/price/nonce, including share/copy URLs,

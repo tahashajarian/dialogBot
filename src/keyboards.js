@@ -604,9 +604,6 @@ function getOnboardingInterestsReplyActions(lang, selectedTitles = [], page = 0)
   rows.push([{
     text: messages[lang].onboardingMoreButton,
     callback_data: `${callBacks.onboardingMore}${(normalizedPage + 1) % totalPages}`,
-  }, {
-    text: messages[lang].onboardingCustomButton,
-    callback_data: `${callBacks.onboardingCustom}${normalizedPage}`,
   }]);
 
   return rows;
@@ -625,15 +622,6 @@ function replyKeyboardFromActions(rows, { oneTime = false } = {}) {
 
 function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
   return replyKeyboardFromActions(getOnboardingInterestsReplyActions(lang, selectedTitles, page));
-}
-
-function onboardingCustomInterestKeyboard(lang, page = 0) {
-  return replyKeyboardFromActions([[
-    {
-      text: messages[lang].onboardingCustomCancelButton,
-      callback_data: `${callBacks.onboardingCustomCancel}${Number(page) || 0}`,
-    },
-  ]]);
 }
 
 function onboardingTasteSetupNudgeKeyboard(lang) {
@@ -1176,7 +1164,6 @@ module.exports = {
   onboardingWelcomeKeyboard,
   onboardingInterestsKeyboard,
   getOnboardingInterestsReplyActions,
-  onboardingCustomInterestKeyboard,
   onboardingTasteSetupNudgeKeyboard,
   onboardingCompleteKeyboard,
   profileInterestsKeyboard,

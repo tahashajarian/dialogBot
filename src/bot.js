@@ -97,6 +97,7 @@ const {
   getProfileNameErrorMessage,
   getDiscussionOpenCodeFromNameState,
   handleDiscussionNameCancel,
+  isDiscussionNameCancelText,
   isDiscussionNameState,
   parseDiscussionNameState,
 } = require("./flows/discussion-name-gate");
@@ -466,7 +467,12 @@ async function handleUpdate(ctx) {
       ctx.callbackData = onboardingAction.callbackData;
       return handleCallback(ctx);
     }
-    if (state.startsWith("onboarding_custom_interest:") || state.startsWith("onboarding_taste_setup_custom_interest:")) {
+    if (
+      state === "onboarding_interests"
+      || state === "onboarding_taste_setup_interests"
+      || state.startsWith("onboarding_custom_interest:")
+      || state.startsWith("onboarding_taste_setup_custom_interest:")
+    ) {
       return handleOnboardingText(ctx, userLang || lang);
     }
     return undefined;
@@ -476,6 +482,16 @@ async function handleUpdate(ctx) {
     ctx.isReplyKeyboardAction = true;
     ctx.callbackData = callBacks.profileInterestsDone;
     return handleCallback(ctx);
+  }
+
+  if (isDiscussionNameState(state) && isDiscussionNameCancelText(text)) {
+    return handleDiscussionNameCancel(ctx, lang, {
+      renderActiveDiscussionList,
+      renderMyDiscussionList,
+      renderSavedProfileDiscussions,
+      renderInvitationsList,
+      showDiscussionInvitePreviewCommand,
+    });
   }
 
   if (matchesMessageText(text, ["cancelEdit"])) {
@@ -545,7 +561,7 @@ async function handleUpdate(ctx) {
 
   if (isDiscussionNameState(state) && text) {
     const pendingEntry = parseDiscussionNameState(state);
-    if (text === "/cancel") {
+    if (isDiscussionNameCancelText(text)) {
       return handleDiscussionNameCancel(ctx, lang, {
         renderActiveDiscussionList,
         renderMyDiscussionList,

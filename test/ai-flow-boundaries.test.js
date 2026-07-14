@@ -1731,8 +1731,15 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.match(empty, /Start with 3 favorites/);
   assert.match(early, /2\/3 favorites/);
   assert.match(early, /Add 1 more/);
+  assert.match(early, /movie suggestions/);
   assert.match(unlocked, /Suggestions unlocked/);
   assert.match(unlocked, /3\/10/);
+
+  const persianBookEarly = await getTopTenManageEntryMessage({
+    userId: 502,
+    user: { aiLists: { books: { topTen: [{ title: "کتاب اول" }] } } },
+  }, "fa", "books");
+  assert.match(persianBookEarly, /بعدش می‌تونی از میوز پیشنهاد کتاب بگیری/);
 
   const emptyButtons = keyboardButtons(aiListManageMenuKeyboard("en", "books", "topTen", { itemCount: 0 }));
   const earlyButtons = keyboardButtons(aiListManageMenuKeyboard("fa", "music", "topTen", { hasItems: true, itemCount: 2 }));

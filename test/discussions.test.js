@@ -25,6 +25,7 @@ const {
   getDiscussionOpenCodeFromNameState,
   handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
+  isDiscussionNameCancelText,
   parseDiscussionNameState,
   requireDiscussionProfileName,
 } = require("../src/flows/discussion-name-gate");
@@ -247,6 +248,14 @@ test("discussion entry requires a valid profile name before joining", async () =
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
+});
+
+test("discussion name gate recognizes localized bottom Cancel labels before name validation", () => {
+  assert.equal(isDiscussionNameCancelText(messages.fa.cancelEdit), true);
+  assert.equal(isDiscussionNameCancelText(messages.en.cancelEdit), true);
+  assert.equal(isDiscussionNameCancelText("\u200f✕ لغو\u200e"), true);
+  assert.equal(isDiscussionNameCancelText("/cancel"), true);
+  assert.equal(isDiscussionNameCancelText("Taha"), false);
 });
 
 test("discussion name cancel returns invite accepts to invitations", async () => {

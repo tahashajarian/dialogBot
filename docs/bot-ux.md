@@ -41,6 +41,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 
 - When collecting typed input, install a temporary mode with a bottom Cancel/Back action unless the prompt carries an identity-bound or transactional inline payload. Do not emit a separate empty cleanup bubble.
 - Cancel/back copy should match the action: "back" should not sound like an operation was canceled unless an input flow was actually canceled.
+- The discussion-entry name gate must consume localized bottom Cancel labels before profile-name validation. Cancel returns to the exact source surface and must never save the label as a name or continue into the room.
 - Text inputs should be length-limited and normalized before saving.
 - Profile name/city are short fields; bio can be longer.
 
@@ -64,7 +65,8 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear bottom "choose interests" action; append the Interest picker after the user taps it.
-- Bind every onboarding bottom label to its exact server-side step, language, and Interest page. The optional taste nudge, custom-input Cancel, and completion destinations use their own modes; stale or manually typed labels are ignored.
+- Bind every onboarding bottom label to its exact server-side step, language, and Interest page. The optional taste nudge and completion destinations use their own modes; stale or manually typed labels are ignored.
+- Like the Profile Interests editor, the onboarding picker accepts a short typed interest directly. Do not show a separate custom-interest button or move the user into another prompt; keep the same page and localize known Interest chips in the current interface language.
 - Normal onboarding navigation must not delete or edit earlier prompts and must not track navigation-card message IDs. This keeps the history understandable and avoids extra Telegram round trips.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
 - Normal onboarding does not prepare an automatic invitation. Its primary action opens the active-discussions list, where the global room can appear alongside other available rooms.

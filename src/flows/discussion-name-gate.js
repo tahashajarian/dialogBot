@@ -61,6 +61,11 @@ function isDiscussionNameState(state = "") {
   return Boolean(parseDiscussionNameState(state));
 }
 
+function isDiscussionNameCancelText(text = "") {
+  const normalized = String(text).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim().replace(/\s+/g, " ");
+  return normalized === "/cancel" || ["fa", "en"].some((lang) => normalized === messages[lang].cancelEdit);
+}
+
 async function requireDiscussionProfileName(ctx, lang, { source, token, beforePrompt } = {}) {
   if (hasValidDiscussionProfileName(ctx.user)) return true;
 
@@ -130,6 +135,7 @@ module.exports = {
   handleDiscussionNameCancel,
   hasValidDiscussionProfileName,
   isDiscussionNameState,
+  isDiscussionNameCancelText,
   parseDiscussionNameState,
   requireDiscussionProfileName,
 };

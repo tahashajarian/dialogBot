@@ -9,7 +9,6 @@ const {
   helpRulesKeyboard,
   mainMenuKeyboard,
   onboardingCompleteKeyboard,
-  onboardingCustomInterestKeyboard,
   onboardingInterestsKeyboard,
   onboardingLanguageKeyboard,
   onboardingWelcomeKeyboard,
@@ -20,6 +19,7 @@ const {
   buildOnboardingPrompt,
   getOnboardingPage,
   handleOnboardingCallback,
+  handleOnboardingText,
   isOnboardingCallback,
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
@@ -172,7 +172,7 @@ test("onboarding keyboard shows selected interests without a separate continue a
   assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.text === messages.en.onboardingMoreButton), true);
-  assert.equal(buttons.some((button) => button.text === messages.en.onboardingCustomButton), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.onboardingCustomButton), false);
 
   const readyKeyboard = onboardingInterestsKeyboard("en", ["Movies", "Books", "Chess"]);
   const readyButtons = readyKeyboard.reply_markup.keyboard.flat();
@@ -226,17 +226,47 @@ test("onboarding rotates through stable interest pages", () => {
   assert.equal(getOnboardingPage(`${callBacks.onboardingMore}2`), 2);
 });
 
-test("custom-interest input has a page-aware return action", () => {
-  const keyboard = onboardingCustomInterestKeyboard("fa", 2);
-  const [button] = keyboard.reply_markup.keyboard.flat();
-
-  assert.equal(button.text, messages.fa.onboardingCustomCancelButton);
-});
-
 test("onboarding completion leads with active discussions", () => {
   const buttons = onboardingCompleteKeyboard("en").reply_markup.keyboard.flat();
   assert.equal(buttons[0].text, messages.en.discussionActiveList);
   assert.equal(buttons[1].text, messages.en.onboardingFavoritesButton);
+});
+
+test("onboarding accepts a typed Persian interest directly from the current picker page", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const user = {
+    userId: 7,
+    lang: "fa",
+    state: "onboarding_interests",
+    navigationMode: "onboarding_interests:0",
+    aiLists: { random: { topTen: [{ title: "Movies", comment: "", watched: false }] } },
+  };
+  User.findOne = async () => user;
+  User.findOneAndUpdate = async () => user;
+
+  try {
+    await handleOnboardingText({
+      userId: 7,
+      user,
+      text: "کتاب",
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: 1 };
+      },
+    }, "fa");
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /2 از 3 انتخاب شده/);
+  const labels = replies[0].extra.reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(labels.some((label) => label.includes("کتاب") && label.includes("✓")));
+  assert.equal(labels.includes(messages.fa.onboardingCustomButton), false);
+  assert.equal(user.navigationMode, "onboarding_interests:0");
 });
 
 test("onboarding completion shows invitation copy and action only when one exists", () => {
