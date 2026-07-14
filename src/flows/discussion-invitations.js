@@ -22,7 +22,7 @@ const {
 const {
   createDiscussionInvitation,
   countAllPendingReceivedInvitations,
-  countPendingReceivedInvitations,
+  countUnseenPendingReceivedInvitations,
   getInvitationDisplayState,
   getInvitationForUser,
   listEligibleDiscussionsForInvite,
@@ -107,7 +107,13 @@ async function notifyInviteeOfInvitation(ctx, invitationResult) {
 }
 
 async function getInvitationCount(userId) {
-  return countPendingReceivedInvitations(userId).catch(() => 0);
+  return countUnseenPendingReceivedInvitations(userId).catch(() => 0);
+}
+
+function buildDiscussionsMenuText(lang, invitationCount = 0, text = messages[lang].discussionsMenu) {
+  const count = Math.max(0, Number(invitationCount) || 0);
+  if (!count || text !== messages[lang].discussionsMenu) return text;
+  return `${text}\n\n${messages[lang].discussionInvitationsWithCount.replace("{count}", String(count))}`;
 }
 
 async function sendDiscussionsMenuWithInvitationCount(ctx, lang, text = messages[lang].discussionsMenu, {
@@ -115,8 +121,9 @@ async function sendDiscussionsMenuWithInvitationCount(ctx, lang, text = messages
 } = {}) {
   const invitationCount = await getInvitationCount(ctx.userId);
   const keyboard = discussionsMenuKeyboard(lang, { invitationCount });
-  if (editCallbackMessageOrReply) return editCallbackMessageOrReply(ctx, text, keyboard);
-  return ctx.reply(text, keyboard);
+  const menuText = buildDiscussionsMenuText(lang, invitationCount, text);
+  if (editCallbackMessageOrReply) return editCallbackMessageOrReply(ctx, menuText, keyboard);
+  return ctx.reply(menuText, keyboard);
 }
 
 async function buildSavedInviteTargets(ctx) {
@@ -252,6 +259,9 @@ async function renderInvitationsList(ctx, lang, page = 0, {
   const totalInvitations = await countAllPendingReceivedInvitations(ctx.userId);
   const totalPages = Math.max(1, Math.ceil(totalInvitations / INVITATIONS_PAGE_SIZE));
   const normalizedPage = Math.min(Math.max(0, Number(page) || 0), totalPages - 1);
+  const navigationMode = `discussion_invitations:${normalizedPage}:${totalPages}`;
+  await updateProfileField(ctx.userId, "navigationMode", navigationMode);
+  if (ctx.user) ctx.user.navigationMode = navigationMode;
   const start = normalizedPage * INVITATIONS_PAGE_SIZE;
   const listed = await listReceivedInvitations(ctx.userId, {
     skip: start,
@@ -370,6 +380,7 @@ function isDiscussionInvitationCallback(data = "") {
     data.startsWith(callBacks.discussionInvitationsPage) ||
     data === callBacks.discussionInviteModeSaved ||
     data === callBacks.discussionInviteModeShare ||
+    data === callBacks.discussionInvitePickerClose ||
     data.startsWith(callBacks.discussionInviteSavedTarget) ||
     data.startsWith(callBacks.discussionInviteDiscussionTarget) ||
     data.startsWith(callBacks.discussionInvitationMute) ||
@@ -400,13 +411,17 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
   if (data === callBacks.discussionInviteModeSaved) {
     await ctx.answerCb?.();
-    return showInviteSavedProfilePicker(ctx, lang, { editCallbackMessageOrReply });
+    return showInviteSavedProfilePicker(ctx, lang);
   }
 
   if (data === callBacks.discussionInviteModeShare) {
     await ctx.answerCb?.();
-    await deleteCallbackMessageIfPossible?.(ctx);
     return sendShareableInviteForActiveDiscussion(ctx, lang);
+  }
+
+  if (data === callBacks.discussionInvitePickerClose) {
+    await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible?.(ctx);
   }
 
   if (data.startsWith(callBacks.discussionInviteSavedTarget)) {
@@ -458,7 +473,11 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     if (destination === "room") {
       const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
       const invite = activeDiscussionId ? await getActiveDiscussionInviteForUser(ctx.userId, activeDiscussionId) : null;
-      if (invite?.ok) return true;
+      if (invite?.ok) {
+        await updateProfileField(ctx.userId, "navigationMode", `discussion_room:${activeDiscussionId}`);
+        if (ctx.user) ctx.user.navigationMode = `discussion_room:${activeDiscussionId}`;
+        return true;
+      }
       return sendDiscussionsMenuWithInvitationCount(ctx, lang);
     }
     if (destination === "saved") {
@@ -476,6 +495,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
 module.exports = {
   acceptInvitationCommand,
+  buildDiscussionsMenuText,
   getInvitationCount,
   handleDiscussionInvitationCallback,
   isDiscussionInvitationCallback,

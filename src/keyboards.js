@@ -32,6 +32,7 @@ const {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
@@ -57,73 +58,28 @@ function inlineKeyboard(rows) {
 }
 
 function mainMenuKeyboard(lang) {
-  return inlineKeyboard([
-    [
-      {
-        text: messages[lang].language,
-        callback_data: callBacks.language,
-      },
-    ],
-    [
-      {
-        text: messages[lang].mainMenuMe,
-        callback_data: callBacks.profile,
-      },
-    ],
-    [
-      {
-        text: messages[lang].aiAssistant,
-        callback_data: callBacks.aiAssistant,
-      },
-    ],
-    [
-      {
-        text: messages[lang].discussions,
-        callback_data: callBacks.discussions,
-      },
-    ],
-    [
-      {
-        text: messages[lang].people,
-        callback_data: callBacks.people,
-      },
-    ],
-    [
-      {
-        text: messages[lang].help,
-        callback_data: callBacks.help,
-      },
-    ],
-  ]);
+  return { reply_markup: { keyboard: [
+    [{ text: messages[lang].aiAssistant }, { text: messages[lang].discussions }],
+    [{ text: messages[lang].people }, { text: messages[lang].mainMenuMe }],
+    [{ text: messages[lang].help }, { text: messages[lang].language }],
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function helpKeyboard(lang) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [{
       text: messages[lang].profileStarsButton,
-      callback_data: callBacks.profileStars,
     }],
     [{
       text: messages[lang].helpReferralButton,
-      callback_data: callBacks.helpReferral,
     }],
     [{
       text: messages[lang].helpRules,
-      callback_data: callBacks.helpRules,
-    }],
-    [{
-      text: messages[lang].helpGoToLists,
-      callback_data: callBacks.aiAssistant,
-    }],
-    [{
-      text: messages[lang].helpBrowseDiscussions,
-      callback_data: callBacks.discussionListActive,
     }],
     [{
       text: messages[lang].helpBackToMain,
-      callback_data: callBacks.menuMain,
     }],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function helpReferralKeyboard(lang, shareUrl = "", copyUrl = "") {
@@ -135,45 +91,39 @@ function helpReferralKeyboard(lang, shareUrl = "", copyUrl = "") {
 }
 
 function helpRulesKeyboard(lang) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [{
       text: messages[lang].helpBackToGuide,
-      callback_data: callBacks.help,
     }],
     [{
       text: messages[lang].helpBackToMain,
-      callback_data: callBacks.menuMain,
     }],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiAssistantKeyboard(lang) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].aiSuggestMovies,
-        callback_data: callBacks.aiSuggestMovies,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestBooks,
-        callback_data: callBacks.aiSuggestBooks,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestMusic,
-        callback_data: callBacks.aiSuggestMusic,
       },
     ],
     [
       {
         text: messages[lang].aiBack,
-        callback_data: callBacks.aiBack,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiChatBackKeyboard(lang) {
@@ -253,43 +203,38 @@ function aiSuggestionAddKeyboard(lang, section) {
         ? messages[lang].aiSuggestionAddDoneButtonRandom
         : messages[lang].aiSuggestionAddDoneButtonMovies;
 
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].aiSuggestionAddToListButton.replace("{listName}", listLabel),
-        callback_data: `${callBacks.aiSectionAddSuggestion}${section}`,
       },
     ],
     [
       {
         text: doneButtonText,
-        callback_data: `${callBacks.aiSectionAddSuggestionDone}${section}`,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestionRejectButton,
-        callback_data: `${callBacks.aiSectionRejectSuggestion}${section}`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiSuggestionNextKeyboard(lang, section) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].aiSuggestionAnotherButton,
-        callback_data: `${callBacks.aiSectionAnotherSuggestion}${section}`,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestionGoToFavoritesButton,
-        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiSuggestionLimitKeyboard(lang, section) {
@@ -321,26 +266,23 @@ function aiPaidSuggestionConfirmKeyboard(lang, publicCode, cost, section) {
 }
 
 function aiSuggestionModeKeyboard(lang, section) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].aiSuggestionFromTopTenButton,
-        callback_data: `${callBacks.aiSectionSuggestFromTopTen}${section}`,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestionWithContextButton,
-        callback_data: `${callBacks.aiSectionSuggestWithContext}${section}`,
       },
     ],
     [
       {
         text: messages[lang].aiBack,
-        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiSuggestionNeedTopTenKeyboard(lang, section) {
@@ -353,38 +295,34 @@ function aiSuggestionNeedTopTenKeyboard(lang, section) {
 }
 
 function aiSuggestionContextCancelKeyboard(lang, section) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].cancelEdit,
-        callback_data: `${callBacks.aiSectionSuggestContextCancel}${section}`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiSuggestionAddedOptionsKeyboard(lang, section) {
   const listLabel = getSectionListLabel(messages, lang, section);
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].aiSuggestionAnotherButton,
-        callback_data: `${callBacks.aiSectionAnotherSuggestion}${section}`,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestionGoToListButton.replace("{listName}", listLabel),
-        callback_data: `${callBacks.aiListManageShow}${section}:watchlist`,
       },
     ],
     [
       {
         text: messages[lang].aiSuggestionGoToFavoritesButton,
-        callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function getSectionStatusLabels(lang, section) {
@@ -415,7 +353,7 @@ function getSectionStatusLabels(lang, section) {
   };
 }
 
-function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0 } = {}) {
+function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0, filter = "all" } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
@@ -442,7 +380,6 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
     rows.push([
       {
         text: getAddButtonText(),
-        callback_data: `${callBacks.aiListManageAdd}${section}:${listTypeToken}`,
       },
     ]);
   }
@@ -456,14 +393,12 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
     rows.push([
       {
         text: listButtonText,
-        callback_data: `${callBacks.aiListManageMenu}${section}:watchlist`,
       },
     ]);
     if (itemCount >= 3) {
       rows.push([
         {
           text: `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`,
-          callback_data: `${callBacks.aiSectionSuggestMenu}${section}`,
         },
       ]);
     }
@@ -473,21 +408,19 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
     rows.push([
       {
         text: messages[lang].aiListManageShare,
-        callback_data: `${callBacks.aiListManageShare}${section}:${listTypeToken}`,
       },
     ]);
   }
 
   if (listType === "watchlist" && hasItems) {
     const statusLabels = getSectionStatusLabels(lang, section);
-    rows.push([
+    if (filter !== "all") rows.push([{ text: messages[lang].aiListManageShowAll }]);
+    else rows.push([
       {
         text: statusLabels.done,
-        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:watched`,
       },
       {
         text: statusLabels.pending,
-        callback_data: `${callBacks.aiListManageShow}${section}:${listTypeToken}:not_watched`,
       },
     ]);
   }
@@ -503,11 +436,10 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
   rows.push([
     {
       text: listType === "watchlist" ? messages[lang].aiSuggestionGoToFavoritesButton : messages[lang].aiBack,
-      callback_data: `${callBacks.aiListManageBack}${section}`,
     },
   ]);
 
-  return inlineKeyboard(rows);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
@@ -531,14 +463,13 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
 
 function aiListCancelAddKeyboard(lang, section, listType, { backToList = false } = {}) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: backToList ? messages[lang].aiListManageAddBackToList : messages[lang].cancelEdit,
-        callback_data: `${callBacks.aiListManageCancelAdd}${section}:${listTypeToken}${backToList ? ":back" : ""}`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 const INTEREST_CHIPS_PER_PAGE = 9;
@@ -657,15 +588,13 @@ function getOnboardingInterestChipTitle(index, lang) {
 }
 
 function onboardingWelcomeKeyboard(lang) {
-  return inlineKeyboard([[
-    {
-      text: messages[lang].onboardingStartButton,
-      callback_data: callBacks.onboardingStart,
-    },
-  ]]);
+  return replyKeyboardFromActions([[{
+    text: messages[lang].onboardingStartButton,
+    callback_data: callBacks.onboardingStart,
+  }]]);
 }
 
-function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
+function getOnboardingInterestsReplyActions(lang, selectedTitles = [], page = 0) {
   const { rows, normalizedPage, totalPages } = buildFixedInterestRows(lang, selectedTitles, page, {
     pageSize: ONBOARDING_CHIPS_PER_PAGE,
     chipCallbackPrefix: callBacks.onboardingInterest,
@@ -680,11 +609,26 @@ function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
     callback_data: `${callBacks.onboardingCustom}${normalizedPage}`,
   }]);
 
-  return inlineKeyboard(rows);
+  return rows;
+}
+
+function replyKeyboardFromActions(rows, { oneTime = false } = {}) {
+  return {
+    reply_markup: {
+      keyboard: rows.map((row) => row.map(({ text }) => ({ text }))),
+      resize_keyboard: true,
+      one_time_keyboard: oneTime,
+      selective: true,
+    },
+  };
+}
+
+function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
+  return replyKeyboardFromActions(getOnboardingInterestsReplyActions(lang, selectedTitles, page));
 }
 
 function onboardingCustomInterestKeyboard(lang, page = 0) {
-  return inlineKeyboard([[
+  return replyKeyboardFromActions([[
     {
       text: messages[lang].onboardingCustomCancelButton,
       callback_data: `${callBacks.onboardingCustomCancel}${Number(page) || 0}`,
@@ -693,7 +637,7 @@ function onboardingCustomInterestKeyboard(lang, page = 0) {
 }
 
 function onboardingTasteSetupNudgeKeyboard(lang) {
-  return inlineKeyboard([
+  return replyKeyboardFromActions([
     [{
       text: messages[lang].onboardingTasteSetupStartButton,
       callback_data: callBacks.onboardingTasteSetupStart,
@@ -706,6 +650,11 @@ function onboardingTasteSetupNudgeKeyboard(lang) {
 }
 
 function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
+  const actions = getProfileInterestsReplyActions(lang, selectedItems, page);
+  return { reply_markup: { keyboard: actions.map((row) => row.map(({ text }) => ({ text }))), resize_keyboard: true, one_time_keyboard: false, selective: true } };
+}
+
+function getProfileInterestsReplyActions(lang, selectedItems = [], page = 0) {
   const { rows, normalizedPage, totalPages } = buildFixedInterestRows(lang, selectedItems, page, {
     chipCallbackPrefix: callBacks.profileInterestChip,
     removeCallbackPrefix: callBacks.profileInterestRemove,
@@ -721,11 +670,11 @@ function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
     callback_data: callBacks.profileInterestsDone,
   }]);
 
-  return inlineKeyboard(rows);
+  return rows;
 }
 
 function onboardingCompleteKeyboard(lang, { hasInvitation = false, discussionContinuation = false } = {}) {
-  return inlineKeyboard([
+  return replyKeyboardFromActions([
     ...(discussionContinuation ? [[{
       text: messages[lang].onboardingDiscussionContinueButton,
       callback_data: callBacks.onboardingDiscussionContinue,
@@ -776,72 +725,69 @@ function aiListActionItemsKeyboard(lang, section, listType, action, items = []) 
 
 function aiListCancelCommentKeyboard(lang, section, listType) {
   const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
       {
         text: messages[lang].cancelEdit,
-        callback_data: `${callBacks.aiListManageCancelComment}${section}:${listTypeToken}`,
       },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function profileKeyboard(lang, hasPhoto = false) {
   const rows = [
     [
-      { text: messages[lang].profileEditName, callback_data: callBacks.profileEditName },
-      { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
+      { text: messages[lang].profileEditName },
+      { text: messages[lang].profileEditAge },
     ],
     hasPhoto
       ? [
-        { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
-        { text: messages[lang].profileResetPhoto, callback_data: callBacks.profileResetPhoto },
+        { text: messages[lang].profileEditPhoto },
+        { text: messages[lang].profileResetPhoto },
       ]
       : [
-        { text: messages[lang].profileEditPhoto, callback_data: callBacks.profileEditPhoto },
+        { text: messages[lang].profileEditPhoto },
       ],
     [
-      { text: messages[lang].profileEditCity, callback_data: callBacks.profileEditCity },
-      { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
+      { text: messages[lang].profileEditCity },
+      { text: messages[lang].profileEditGender },
     ],
     [
-      { text: messages[lang].profileEditInterests, callback_data: callBacks.profileEditInterests },
+      { text: messages[lang].profileEditInterests },
     ],
     [
-      { text: messages[lang].profileMoreSettings, callback_data: callBacks.profileSettings },
+      { text: messages[lang].profileMoreSettings },
+    ],
+    [
+      { text: messages[lang].cancel },
     ],
   ];
 
-  rows.push([
-    { text: messages[lang].cancel, callback_data: callBacks.profileBack },
-  ]);
-
-  return inlineKeyboard(rows);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
-      { text: messages[lang].profileEditBio, callback_data: callBacks.profileEditBio },
-      { text: messages[lang].profileEditPetPreference, callback_data: callBacks.profileEditPetPreference },
+      { text: messages[lang].profileEditBio },
+      { text: messages[lang].profileEditPetPreference },
     ],
     [
-      { text: messages[lang].profileEditLocation, callback_data: callBacks.profileEditLocation },
+      { text: messages[lang].profileEditLocation },
       {
         text: showsActiveDiscussion
           ? messages[lang].profileHideActiveDiscussion
           : messages[lang].profileShowActiveDiscussion,
-        callback_data: callBacks.profileToggleActiveDiscussionVisible,
       },
     ],
     [
-      { text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji },
+      { text: messages[lang].profileEmojiButton },
     ],
-    [{ text: messages[lang].accountDeleteButton, callback_data: callBacks.accountDelete }],
+    [{ text: messages[lang].accountDeleteButton }],
     [
-      { text: messages[lang].profileBackToProfile, callback_data: callBacks.profileSettingsBack },
+      { text: messages[lang].profileBackToProfile },
     ],
-  ]);
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function accountDeleteWarningKeyboard(lang) {
@@ -918,15 +864,11 @@ function profileActiveDiscussionHelpKeyboard(lang) {
 }
 
 function profileStarsKeyboard(lang) {
-  return inlineKeyboard([[
-    { text: messages[lang].profileStarsBack, callback_data: callBacks.profileStarsBack },
-  ]]);
+  return { reply_markup: { keyboard: [[{ text: messages[lang].profileStarsBack }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function cancelEditKeyboard(lang) {
-  return inlineKeyboard([
-    [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
-  ]);
+  return { reply_markup: { keyboard: [[{ text: messages[lang].cancelEdit }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function ltrText(value) {
@@ -936,7 +878,6 @@ function ltrText(value) {
 function ageKeyboard(lang) {
   const ranges = AGE_RANGES.map(([start, end]) => ({
     text: ltrText(`${start}-${end}`),
-    callback_data: `${callBacks.profileAgeRangeSet}${start}`,
   }));
 
   const rows = [];
@@ -944,9 +885,9 @@ function ageKeyboard(lang) {
     rows.push(ranges.slice(index, index + 3));
   }
 
-  rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
+  rows.push([{ text: messages[lang].cancelEdit }]);
 
-  return inlineKeyboard(rows);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function ageRangeKeyboard(lang, startAge) {
@@ -954,7 +895,7 @@ function ageRangeKeyboard(lang, startAge) {
   const ages = [];
 
   for (let age = rangeStart; age <= rangeEnd; age += 1) {
-    ages.push({ text: ltrText(String(age)), callback_data: `${callBacks.profileAgeSet}${age}` });
+    ages.push({ text: ltrText(String(age)) });
   }
 
   const rows = [];
@@ -962,41 +903,41 @@ function ageRangeKeyboard(lang, startAge) {
     rows.push(ages.slice(index, index + 5));
   }
 
-  rows.push([{ text: "🔙", callback_data: callBacks.profileAgeRangeBack }]);
-  rows.push([{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }]);
+  rows.push([{ text: "🔙" }]);
+  rows.push([{ text: messages[lang].cancelEdit }]);
 
-  return inlineKeyboard(rows);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function petPreferenceKeyboard(lang) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
-      { text: messages[lang].petOptionAnyButton, callback_data: `${callBacks.profilePetSet}any` },
-      { text: messages[lang].petOptionNoneButton, callback_data: `${callBacks.profilePetSet}none` },
+      { text: messages[lang].petOptionAnyButton },
+      { text: messages[lang].petOptionNoneButton },
     ],
     [
-      { text: messages[lang].petOptionCatButton, callback_data: `${callBacks.profilePetSet}cat` },
-      { text: messages[lang].petOptionDogButton, callback_data: `${callBacks.profilePetSet}dog` },
+      { text: messages[lang].petOptionCatButton },
+      { text: messages[lang].petOptionDogButton },
     ],
     [
-      { text: messages[lang].petOptionBirdButton, callback_data: `${callBacks.profilePetSet}bird` },
-      { text: messages[lang].petOptionSmallPetsButton, callback_data: `${callBacks.profilePetSet}small_pets` },
+      { text: messages[lang].petOptionBirdButton },
+      { text: messages[lang].petOptionSmallPetsButton },
     ],
-    [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
-  ]);
+    [{ text: messages[lang].cancelEdit }],
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function genderKeyboard(lang) {
-  return inlineKeyboard([
+  return { reply_markup: { keyboard: [
     [
-      { text: messages[lang].genderOptionFemaleButton, callback_data: `${callBacks.profileGenderSet}female` },
-      { text: messages[lang].genderOptionMaleButton, callback_data: `${callBacks.profileGenderSet}male` },
+      { text: messages[lang].genderOptionFemaleButton },
+      { text: messages[lang].genderOptionMaleButton },
     ],
     [
-      { text: messages[lang].genderOptionOtherButton, callback_data: `${callBacks.profileGenderSet}other` },
+      { text: messages[lang].genderOptionOtherButton },
     ],
-    [{ text: messages[lang].cancelEdit, callback_data: callBacks.profileCancelEdit }],
-  ]);
+    [{ text: messages[lang].cancelEdit }],
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function locationKeyboard(lang) {
@@ -1022,18 +963,18 @@ function locationKeyboard(lang) {
   };
 }
 
-function languageKeyboard() {
-  return inlineKeyboard([
+function languageKeyboard(lang = "fa") {
+  return { reply_markup: { keyboard: [
     [
-      { text: "🇮🇷 فارسی", callback_data: callBacks.langSetFa },
-      { text: "🇬🇧 English", callback_data:  callBacks.langSetEn},
+      { text: "🇮🇷 فارسی" },
+      { text: "🇬🇧 English" },
     ],
-    [{ text: "🔙 Back", callback_data: callBacks.menuMain  }],
-  ]);
+    [{ text: messages[lang].aiBack }],
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function onboardingLanguageKeyboard() {
-  return inlineKeyboard([[
+  return replyKeyboardFromActions([[
     { text: "🇮🇷 فارسی", callback_data: callBacks.langSetFa },
     { text: "🇬🇧 English", callback_data: callBacks.langSetEn },
   ]]);
@@ -1059,9 +1000,10 @@ function profilePublicActionsKeyboard(lang, code, {
 } = {}) {
   const normalizedCode = String(code || "");
   const discussionSource = source === "saved" ? "saved" : "browse";
+  const actionSuffix = source === "discussion_members" ? ":members" : "";
   const rows = [];
 
-  if (isSaved && hasDiscussions) {
+  if (source !== "discussion_members" && isSaved && hasDiscussions) {
     rows.push([{
       text: messages[lang].savedProfileDiscussions,
       callback_data: `${callBacks.savedProfilesDiscussions}${discussionSource}:${normalizedCode}`,
@@ -1069,18 +1011,20 @@ function profilePublicActionsKeyboard(lang, code, {
   }
 
   if (isSaved) {
-    rows.push([{
+    if (source !== "discussion_members") rows.push([{
       text: messages[lang].savedProfileRemove,
-      callback_data: `${callBacks.profileUnsaveByCode}${normalizedCode}`,
+      callback_data: `${callBacks.profileUnsaveByCode}${normalizedCode}${actionSuffix}`,
     }]);
   } else {
     rows.push([{
       text: messages[lang].profileSaveButton,
-      callback_data: `${callBacks.profileSaveByCode}${normalizedCode}`,
+      callback_data: `${callBacks.profileSaveByCode}${normalizedCode}${actionSuffix}`,
     }]);
   }
 
-  if (source === "saved") {
+  if (source === "discussion_members") {
+    rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.profileCloseDiscussionMember }]);
+  } else if (source === "saved") {
     rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
   } else {
     rows.push([{
@@ -1089,7 +1033,15 @@ function profilePublicActionsKeyboard(lang, code, {
     }]);
   }
 
-  return inlineKeyboard(rows);
+  if (source === "discussion_members") return inlineKeyboard(rows);
+  return {
+    reply_markup: {
+      keyboard: rows.map((row) => row.map((button) => ({ text: button.text }))),
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
 }
 
 function profileInvitationBackKeyboard(lang, userId = "") {
@@ -1112,37 +1064,31 @@ function savedProfilesListKeyboard(lang, items = []) {
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
-    pageRows.push({
-      text: `${messages[lang].discussionListMorePage} ➡️`,
-      callback_data: `${callBacks.savedProfilesPage}${normalizedPage + 1}`,
-    });
+    pageRows.push({ text: `${messages[lang].discussionListMorePage} ➡️` });
   }
 
   if (normalizedPage > 0) {
-    pageRows.push({
-      text: `🔙 ${messages[lang].discussionListPrevPage}`,
-      callback_data: `${callBacks.savedProfilesPage}${normalizedPage - 1}`,
-    });
+    pageRows.push({ text: `🔙 ${messages[lang].discussionListPrevPage}` });
   }
 
   if (pageRows.length) {
     rows.push(pageRows);
   }
 
-  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.people }]);
-  return inlineKeyboard(rows);
+  rows.push([{ text: messages[lang].aiBack }]);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function peopleHubKeyboard(lang) {
   const rows = [
-    [{ text: messages[lang].peopleDiscover, callback_data: callBacks.peopleDiscover }],
-    [{ text: messages[lang].savedProfiles, callback_data: callBacks.savedProfiles }],
+    [{ text: messages[lang].peopleDiscover }],
+    [{ text: messages[lang].savedProfiles }],
   ];
   if (starEconomy.advancedSearchPreviewEnabled) {
-    rows.push([{ text: messages[lang].advancedSearchButton, callback_data: callBacks.peopleAdvancedSearch }]);
+    rows.push([{ text: messages[lang].advancedSearchButton }]);
   }
-  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.menuMain }]);
-  return inlineKeyboard(rows);
+  rows.push([{ text: messages[lang].aiBack }]);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
 function advancedSearchPreviewKeyboard(lang, { notified = false } = {}) {
@@ -1170,29 +1116,36 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(options.page) || 0);
   const maxPage = Math.max(0, Number(options.totalPages || 1) - 1);
-  const pageCallback = callBacks.peopleDiscoverPage;
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
-    pageRows.push({
-      text: `${messages[lang].discussionListMorePage} ➡️`,
-      callback_data: `${pageCallback}${normalizedPage + 1}`,
-    });
+    pageRows.push({ text: `${messages[lang].discussionListMorePage} ➡️` });
   }
 
   if (normalizedPage > 0) {
-    pageRows.push({
-      text: `🔙 ${messages[lang].discussionListPrevPage}`,
-      callback_data: `${pageCallback}${normalizedPage - 1}`,
-    });
+    pageRows.push({ text: `🔙 ${messages[lang].discussionListPrevPage}` });
   }
 
   if (pageRows.length) rows.push(pageRows);
   if (options.showLists) {
-    rows.push([{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }]);
+    rows.push([{ text: messages[lang].peopleGoToLists }]);
   }
-  rows.push([{ text: messages[lang].aiBack, callback_data: callBacks.people }]);
-  return inlineKeyboard(rows);
+  rows.push([{ text: messages[lang].aiBack }]);
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+}
+
+function peopleDiscoverEmptyKeyboard(lang) {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: messages[lang].peopleGoToLists }],
+        [{ text: messages[lang].aiBack }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      selective: true,
+    },
+  };
 }
 
 module.exports = {
@@ -1222,10 +1175,12 @@ module.exports = {
   getOnboardingInterestChipTitle,
   onboardingWelcomeKeyboard,
   onboardingInterestsKeyboard,
+  getOnboardingInterestsReplyActions,
   onboardingCustomInterestKeyboard,
   onboardingTasteSetupNudgeKeyboard,
   onboardingCompleteKeyboard,
   profileInterestsKeyboard,
+  getProfileInterestsReplyActions,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
@@ -1258,6 +1213,7 @@ module.exports = {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
@@ -1280,4 +1236,5 @@ module.exports = {
   peopleHubKeyboard,
   advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
+  peopleDiscoverEmptyKeyboard,
 };

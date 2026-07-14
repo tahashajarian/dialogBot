@@ -6,7 +6,7 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 
 - Update processing now logs privacy-safe stage timings for appearance refresh, referral lookup, user lookup, and handler work when an update exceeds the slow-update threshold. Error logs include timings completed before failure.
 - Existing bot heartbeats now include event-loop lag and process memory measurements, making host saturation and memory growth distinguishable from network latency.
-- Own-profile navigation uses fewer Telegram API calls: text profile Back navigation edits the card into the main menu, while photo profiles preserve delete-then-send behavior required by Telegram.
+- Own-profile navigation uses one destination send and retains the earlier profile message; text and photo profiles do not perform routine navigation cleanup.
 - Opening an own profile with a custom photo sends the photo directly instead of creating and deleting a temporary loading message. This removes two sequential Telegram API calls without changing profile content or controls.
 - People discovery now records privacy-safe analytics for `browse` and `taste` modes with result count and coarse failure reason.
 - AI response cache now records privacy-safe analytics for exact, fuzzy, semantic, disabled, failed-new-call, and new-call outcomes without storing prompt text, item text, or response text.

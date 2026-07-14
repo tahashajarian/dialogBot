@@ -354,8 +354,8 @@ test("sendProfileMessage keeps loading only for custom profile photos", async ()
 
 test("profileKeyboard puts remove photo beside change photo", () => {
   const keyboard = profileKeyboard("en", true);
-  const rows = keyboard?.reply_markup?.inline_keyboard || [];
-  const photoRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:photo"));
+  const rows = keyboard?.reply_markup?.keyboard || [];
+  const photoRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditPhoto));
 
   assert.ok(photoRow);
   assert.deepEqual(photoRow.map((button) => button.text), [
@@ -366,66 +366,47 @@ test("profileKeyboard puts remove photo beside change photo", () => {
 
 test("profileKeyboard groups frequent profile edits into compact rows", () => {
   const keyboard = profileKeyboard("en", true);
-  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+  const rows = keyboard?.reply_markup?.keyboard || [];
   const buttons = rows.flat();
-  const callbacks = buttons.map((button) => button.callback_data);
-  const nameAgeRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:name"));
-  const cityGenderRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:city"));
+  const labels = buttons.map((button) => button.text);
+  const nameAgeRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditName));
+  const cityGenderRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditCity));
 
-  assert.ok(callbacks.includes("profile:settings"));
-  assert.ok(!callbacks.includes("profile:stars"));
-  assert.ok(!callbacks.includes("profile:active-discussion:help"));
-  assert.ok(!callbacks.includes("profile:toggle:discoverable"));
-  assert.ok(!callbacks.includes("profile:edit:bio"));
-  assert.ok(!callbacks.includes("profile:edit:pet:preference"));
-  assert.ok(!callbacks.includes("profile:edit:location"));
-  assert.ok(!callbacks.includes("profile:toggle:active-discussion-visible"));
-  assert.deepEqual(nameAgeRow.map((button) => button.callback_data), ["profile:edit:name", "profile:edit:age"]);
-  assert.deepEqual(cityGenderRow.map((button) => button.callback_data), ["profile:edit:city", "profile:edit:gender"]);
+  assert.ok(labels.includes(messages.en.profileMoreSettings));
+  assert.ok(!labels.includes(messages.en.profileEditBio));
+  assert.ok(!labels.includes(messages.en.profileEditPetPreference));
+  assert.ok(!labels.includes(messages.en.profileEditLocation));
+  assert.deepEqual(nameAgeRow.map((button) => button.text), [messages.en.profileEditName, messages.en.profileEditAge]);
+  assert.deepEqual(cityGenderRow.map((button) => button.text), [messages.en.profileEditCity, messages.en.profileEditGender]);
 });
 
 test("profile interests keep selected built-in chips in place", () => {
-  const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard;
-  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.inline_keyboard;
+  const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.keyboard;
+  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.keyboard;
   const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
   const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
 
   assert.equal(plainRows[1][0], plainChess);
   assert.equal(selectedRows[1][0], selectedChess);
   assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
-  assert.equal(selectedRows[1][0].callback_data, `${callBacks.profileInterestRemove}0:0`);
-  assert.equal(selectedRows.flat().some((button) => button.callback_data === `${callBacks.profileInterestChip}3:0`), false);
 });
 
 test("age picker buttons are ordered left to right", () => {
-  const rangeRows = ageKeyboard("en")?.reply_markup?.inline_keyboard || [];
+  const visibleText = (button) => button.text.replace(/[\u2066\u2069]/g, "");
+  const rangeRows = ageKeyboard("en")?.reply_markup?.keyboard || [];
   assert.deepEqual(
-    rangeRows[0].map((button) => button.callback_data),
-    [
-      `${callBacks.profileAgeRangeSet}13`,
-      `${callBacks.profileAgeRangeSet}18`,
-      `${callBacks.profileAgeRangeSet}25`,
-    ],
+    rangeRows[0].map(visibleText),
+    ["13-17", "18-24", "25-34"],
   );
   assert.deepEqual(
-    rangeRows[1].map((button) => button.callback_data),
-    [
-      `${callBacks.profileAgeRangeSet}35`,
-      `${callBacks.profileAgeRangeSet}45`,
-      `${callBacks.profileAgeRangeSet}55`,
-    ],
+    rangeRows[1].map(visibleText),
+    ["35-44", "45-54", "55-64"],
   );
 
-  const ageRows = ageRangeKeyboard("en", 13)?.reply_markup?.inline_keyboard || [];
+  const ageRows = ageRangeKeyboard("en", 13)?.reply_markup?.keyboard || [];
   assert.deepEqual(
-    ageRows[0].map((button) => button.callback_data),
-    [
-      `${callBacks.profileAgeSet}13`,
-      `${callBacks.profileAgeSet}14`,
-      `${callBacks.profileAgeSet}15`,
-      `${callBacks.profileAgeSet}16`,
-      `${callBacks.profileAgeSet}17`,
-    ],
+    ageRows[0].map(visibleText),
+    ["13", "14", "15", "16", "17"],
   );
 });
 
@@ -441,26 +422,21 @@ test("profile age validation starts at 13", () => {
 
 test("profileSettingsKeyboard contains detail controls and back to profile", () => {
   const keyboard = profileSettingsKeyboard("en", true);
-  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+  const rows = keyboard?.reply_markup?.keyboard || [];
   const buttons = rows.flat();
-  const callbacks = buttons.map((button) => button.callback_data);
-  const bioPetRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:bio"));
-  const locationVisibilityRow = rows.find((row) => row.some((button) => button.callback_data === "profile:edit:location"));
+  const labels = buttons.map((button) => button.text);
+  const bioPetRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
+  const locationVisibilityRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
 
-  assert.ok(callbacks.includes("profile:edit:bio"));
-  assert.ok(!callbacks.includes("profile:edit:gender"));
-  assert.ok(callbacks.includes("profile:edit:pet:preference"));
-  assert.ok(callbacks.includes("profile:edit:location"));
-  assert.ok(callbacks.includes("profile:toggle:active-discussion-visible"));
-  assert.ok(callbacks.includes("profile:emoji"));
-  assert.ok(!callbacks.includes("profile:active-discussion:help"));
-  assert.ok(callbacks.includes("profile:settings:back"));
-  assert.deepEqual(bioPetRow.map((button) => button.callback_data), ["profile:edit:bio", "profile:edit:pet:preference"]);
-  assert.deepEqual(locationVisibilityRow.map((button) => button.callback_data), ["profile:edit:location", "profile:toggle:active-discussion-visible"]);
-  assert.equal(
-    buttons.find((button) => button.callback_data === "profile:toggle:active-discussion-visible").text,
-    messages.en.profileHideActiveDiscussion,
-  );
+  assert.ok(labels.includes(messages.en.profileEditBio));
+  assert.ok(!labels.includes(messages.en.profileEditGender));
+  assert.ok(labels.includes(messages.en.profileEditPetPreference));
+  assert.ok(labels.includes(messages.en.profileEditLocation));
+  assert.ok(labels.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(labels.includes(messages.en.profileEmojiButton));
+  assert.ok(labels.includes(messages.en.profileBackToProfile));
+  assert.deepEqual(bioPetRow.map((button) => button.text), [messages.en.profileEditBio, messages.en.profileEditPetPreference]);
+  assert.deepEqual(locationVisibilityRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileHideActiveDiscussion]);
 });
 
 test("profile emoji keyboards use curated choices and explicit cost confirmation", () => {

@@ -14,6 +14,7 @@ const {
   createDiscussionInvitation,
   getInvitationDisplayState,
   countPendingReceivedInvitations,
+  countUnseenPendingReceivedInvitations,
   dedupeInvitationsByInviterAndDiscussion,
 } = require("../src/services/discussion-invitations");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
@@ -90,6 +91,29 @@ test("pending invitation count includes seen pending invitations", async () => {
         inviterUserId: "$inviterUserId",
         discussionId: "$discussionId",
       },
+    },
+  });
+});
+
+test("discussion menu invitation badge counts only unseen pending invitations", async () => {
+  const originalAggregate = DiscussionInvitation.aggregate;
+  let pipeline = null;
+  DiscussionInvitation.aggregate = async (nextPipeline) => {
+    pipeline = nextPipeline;
+    return [{ count: 1 }];
+  };
+
+  try {
+    assert.equal(await countUnseenPendingReceivedInvitations(7), 1);
+  } finally {
+    DiscussionInvitation.aggregate = originalAggregate;
+  }
+
+  assert.deepEqual(pipeline[0], {
+    $match: {
+      inviteeUserId: 7,
+      status: "pending",
+      seenAt: null,
     },
   });
 });

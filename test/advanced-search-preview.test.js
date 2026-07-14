@@ -14,8 +14,8 @@ test("People hub exposes an honest Advanced Search preview", () => {
   const original = starEconomy.advancedSearchPreviewEnabled;
   starEconomy.advancedSearchPreviewEnabled = true;
   try {
-    const buttons = peopleHubKeyboard("en").reply_markup.inline_keyboard.flat();
-    const advanced = buttons.find((button) => button.callback_data === callBacks.peopleAdvancedSearch);
+    const buttons = peopleHubKeyboard("en").reply_markup.keyboard.flat();
+    const advanced = buttons.find((button) => button.text === messages.en.advancedSearchButton);
     assert.equal(advanced.text, messages.en.advancedSearchButton);
     assert.equal(isPeopleCallback(callBacks.peopleAdvancedSearch), true);
   } finally {

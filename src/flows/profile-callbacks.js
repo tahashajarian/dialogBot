@@ -24,6 +24,7 @@ const {
   startAgainKeyboard,
 } = require("../keyboards");
 const { deleteAccount } = require("../services/account-deletion");
+const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   addAiListItem,
   getAiListItemsFromUser,
@@ -47,6 +48,7 @@ const {
   formatStarNumber,
 } = require("../services/stars-ui");
 const { rememberNavigationCard, sendNavigationFootprint } = require("../services/navigation-footprints");
+const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-navigation");
 const {
   awardProfileCompletionMilestone,
   claimExistingProfileAndListMilestones,
@@ -64,6 +66,7 @@ const {
   sendPublicProfileByCode,
 } = require("./saved-profiles");
 const { operationalLimits } = require("../services/operational-limits");
+const { localizeInterestChipTitle } = require("../services/interest-chips");
 const {
   getProfileEmojiCost,
   getProfileEmojiOption,
@@ -90,12 +93,25 @@ function parseInterestCallbackPayload(data = "", prefix = "") {
   };
 }
 
-async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0) {
-  const items = getProfileInterestItems(user);
-  const text = messages[lang].profileInterestsEditPrompt
+async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0, { notice = "" } = {}) {
+  let items = getProfileInterestItems(user);
+  const accidental = items.find((entry) => isKnownProfileNavigationLabel(entry?.title));
+  if (accidental?.title) {
+    const cleaned = await removeAiListItem(ctx.userId, "random", "topTen", accidental.title);
+    if (cleaned.ok || Array.isArray(cleaned.items)) {
+      items = cleaned.items || [];
+      if (user?.aiLists?.random) user.aiLists.random.topTen = items;
+    }
+  }
+  const prompt = messages[lang].profileInterestsEditPrompt
     .replace("{count}", String(items.length))
     .replace("{limit}", String(operationalLimits.profileInterestItems));
+  const selected = items.length
+    ? `${messages[lang].profileInterestsSelectedTitle}\n${items.map((entry) => `• ${localizeInterestChipTitle(entry.title, lang)}`).join("\n")}`
+    : "";
+  const text = [messages[lang].profileInterestsTitle, notice, prompt, selected].filter(Boolean).join("\n\n");
   const keyboard = profileInterestsKeyboard(lang, items, page);
+  await setNavigationMode(ctx, `profile_interests:${Number(page) || 0}`);
   if (ctx.callbackMessageId && ctx.editMessageText) {
     const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
     if (edited) return edited;
@@ -172,11 +188,7 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
-  const messageId = Number(sentProfile?.message_id || sentProfile?.messageId);
-  if (Number.isInteger(messageId) && messageId > 0) {
-    await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
-    if (ctx.user) ctx.user.profileLastMessageId = messageId;
-  }
+  await setNavigationMode(ctx, MODES.PROFILE);
   return sentProfile;
 }
 
@@ -193,11 +205,7 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
     messages,
     isOwnProfile: true,
   });
-  const messageId = Number(settingsCard?.message_id || settingsCard?.messageId);
-  if (Number.isInteger(messageId) && messageId > 0) {
-    await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
-    if (ctx.user) ctx.user.profileLastMessageId = messageId;
-  }
+  await setNavigationMode(ctx, MODES.PROFILE_SETTINGS);
   return settingsCard;
 }
 
@@ -240,7 +248,6 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   editCallbackMessageOrReply,
   isProfileCallbackMessage = () => false,
   leaveDiscussionAndClearKeyboardForNavigation,
-  removeBottomKeyboard,
   renderActiveDiscussionList,
   renderMyDiscussionList,
   renderSavedProfileDiscussions,
@@ -444,15 +451,17 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const claimedRewards = await claimExistingProfileAndListMilestones(ctx.user || {});
     applyStarRewardsToContext(ctx, claimedRewards);
     const rewardNotice = buildStarRewardNotice(messages, lang, claimedRewards);
-    return rememberNavigationCard(ctx, await ctx.reply(
+    await setNavigationMode(ctx, "help_stars");
+    return ctx.reply(
       [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n"),
       profileStarsKeyboard(lang),
-    ));
+    );
   }
 
   if (data === callBacks.profileStarsBack) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
+    await setNavigationMode(ctx, MODES.HELP);
     return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
   }
 
@@ -498,16 +507,19 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEditAge) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "profile_age");
     return beginProfileEdit(ctx, "editing_age", messages[lang].profileAskAge, ageKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data === callBacks.profileEditGender) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "profile_gender");
     return beginProfileEdit(ctx, "editing_gender", messages[lang].profileAskGender, genderKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "profile_pet");
     return beginProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
@@ -539,7 +551,9 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (!item) return ctx.reply(messages[lang].unknownAction);
     const result = await removeAiListItem(ctx.userId, "random", "topTen", item);
     if (ctx.user?.aiLists?.random) ctx.user.aiLists.random.topTen = result.items || [];
-    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page);
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page, {
+      notice: messages[lang].profileInterestRemovedNamed.replace("{item}", localizeInterestChipTitle(item, lang)),
+    });
   }
 
   if (data.startsWith(callBacks.profileInterestChip)) {
@@ -548,14 +562,18 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const item = getInterestTopTenChipTitle(chipIndex, lang);
     if (!item) return ctx.reply(messages[lang].unknownAction);
     if (getProfileInterestItems(ctx.user).length >= operationalLimits.profileInterestItems) {
-      return ctx.answerCb?.(formatProfileInterestMessage(lang, "profileInterestsLimitReached"), { show_alert: true });
+      const limitText = formatProfileInterestMessage(lang, "profileInterestsLimitReached");
+      if (!ctx.isReplyKeyboardAction) return ctx.answerCb?.(limitText, { show_alert: true });
+      return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page, { notice: limitText });
     }
     // Stop Telegram's button spinner before the database mutation. The loaded
     // profile check above preserves the normal limit alert without delaying taps.
     await ctx.answerCb?.();
     const result = await addAiListItem(ctx.userId, "random", "topTen", { title: item, comment: "" }, operationalLimits.profileInterestItems);
     if (!result.ok && result.reason === "limit") {
-      return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsLimitReached"));
+      return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page, {
+        notice: formatProfileInterestMessage(lang, "profileInterestsLimitReached"),
+      });
     }
     if (!result.ok && result.reason !== "exists") return ctx.reply(formatProfileInterestMessage(lang, "profileInterestsInvalid"));
     if (ctx.user) {
@@ -563,7 +581,9 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
       ctx.user.aiLists.random.topTen = result.items || getProfileInterestItems(ctx.user);
     }
-    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page);
+    return showProfileInterestsEditor(ctx, lang, ctx.user || {}, page, {
+      notice: messages[lang].profileInterestAddedNamed.replace("{item}", localizeInterestChipTitle(item, lang)),
+    });
   }
 
   if (data === callBacks.profileInterestsDone) {
@@ -629,6 +649,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (!isValidProfileAgeRangeStart(startAge)) {
       return ctx.reply(messages[lang].unknownAction);
     }
+    await setNavigationMode(ctx, `profile_age_range:${startAge}`);
 
     const edited = ctx.callbackMessageId && ctx.editMessageText
       ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge))
@@ -639,6 +660,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileAgeRangeBack) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "profile_age");
     const edited = ctx.callbackMessageId && ctx.editMessageText
       ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageKeyboard(lang))
       : false;
@@ -696,7 +718,6 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateUserState(ctx.userId, "idle");
-    await removeBottomKeyboard?.(ctx, " ");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     return handleProfileEditCompletion(ctx, lang, updatedUser);
@@ -708,7 +729,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await updateUserState(ctx.userId, "idle");
     await deleteCallbackMessageIfPossible?.(ctx);
     await sendNavigationFootprint(ctx, { lang, destination: "menu" });
-    return rememberNavigationCard(ctx, await ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang)));
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   return false;

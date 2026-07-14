@@ -6,7 +6,7 @@ const {
   replaceAiPendingInputPrompt,
 } = require("../src/flows/ai-input-prompts");
 
-test("replacing an AI input prompt retires the previous card before tracking the new one", async () => {
+test("replacing an AI input prompt retains history before tracking the new one", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];
   const events = [];
@@ -32,7 +32,7 @@ test("replacing an AI input prompt retires the previous card before tracking the
     });
 
     assert.deepEqual(prompt, { message_id: 11 });
-    assert.deepEqual(events, ["delete:10", "send"]);
+    assert.deepEqual(events, ["send"]);
     assert.equal(ctx.user.aiPendingInputMessageId, 11);
     assert.deepEqual(updates, [
       { aiPendingInputMessageId: null },
@@ -43,7 +43,7 @@ test("replacing an AI input prompt retires the previous card before tracking the
   }
 });
 
-test("replacing an AI input prompt retries stale-card deletion after sending", async () => {
+test("replacing an AI input prompt never deletes the retained prompt", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});
   const events = [];
@@ -65,7 +65,7 @@ test("replacing an AI input prompt retries stale-card deletion after sending", a
       return { message_id: 11 };
     });
 
-    assert.deepEqual(events, ["delete:10:1", "send", "delete:10:2"]);
+    assert.deepEqual(events, ["send"]);
     assert.equal(ctx.user.aiPendingInputMessageId, 11);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;

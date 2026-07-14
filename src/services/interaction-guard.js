@@ -21,7 +21,10 @@ function buildInteractionKey({ userId, callbackData, text, state }) {
     return "";
   }
 
-  return `${userKey}:msg:${state || "idle"}:${normalizedText}`;
+  // Reply-keyboard taps arrive as ordinary messages. Do not include mutable
+  // flow state in the key: the first tap may transition state before queued
+  // duplicates are processed, which would otherwise let them execute again.
+  return `${userKey}:msg:${normalizedText}`;
 }
 
 function cleanupOldInteractions(now = Date.now()) {
@@ -34,7 +37,7 @@ function cleanupOldInteractions(now = Date.now()) {
 
 function beginInteraction(input, options = {}) {
   const now = Date.now();
-  const cooldownMs = Number(options.cooldownMs) || DEFAULT_COOLDOWN_MS;
+  const cooldownMs = Number(options.cooldownMs) || (input.callbackData ? DEFAULT_COOLDOWN_MS : 450);
   const key = buildInteractionKey(input);
 
   if (!key) {

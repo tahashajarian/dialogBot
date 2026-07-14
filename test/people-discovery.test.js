@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const User = require("../src/models/user");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
-const { peopleHubKeyboard, peopleDiscoverListKeyboard } = require("../src/keyboards");
+const { peopleHubKeyboard, peopleDiscoverListKeyboard, peopleDiscoverEmptyKeyboard } = require("../src/keyboards");
 const {
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
@@ -144,28 +144,26 @@ test("people discovery UI can hide shared sections for legacy plain rendering", 
 });
 
 test("People hub keeps one people discovery entry", () => {
-  const hidden = peopleHubKeyboard("fa").reply_markup.inline_keyboard.flat();
-  const visible = peopleHubKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const hidden = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
+  const visible = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
 
-  assert.ok(!hidden.some((button) => button.callback_data === callBacks.peopleTasteMatches));
-  assert.ok(!visible.some((button) => button.callback_data === callBacks.peopleTasteMatches));
-  assert.equal(visible[0].callback_data, callBacks.peopleDiscover);
+  assert.ok(!hidden.some((button) => button.text === messages.fa.peopleTasteMatches));
+  assert.ok(!visible.some((button) => button.text === messages.fa.peopleTasteMatches));
   assert.equal(visible[0].text, messages.fa.peopleDiscover);
 });
 
 test("people pagination uses canonical discover callbacks", () => {
-  const buttons = peopleDiscoverListKeyboard("en", { mode: "taste", page: 0, totalPages: 2 })
-    .reply_markup.inline_keyboard.flat();
+  const replyMarkup = peopleDiscoverListKeyboard("en", { mode: "taste", page: 0, totalPages: 2 }).reply_markup;
+  const buttons = replyMarkup.keyboard.flat();
 
-  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
-  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.peopleTasteMatchesPage}1`));
+  assert.ok(buttons.some((button) => button.text === `${messages.en.discussionListMorePage} ➡️`));
+  assert.equal(replyMarkup.inline_keyboard, undefined);
 });
 
 test("people discovery Back uses generic label and returns to People hub", () => {
-  const buttons = peopleDiscoverListKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const buttons = peopleDiscoverListKeyboard("fa").reply_markup.keyboard.flat();
   const backButton = buttons.at(-1);
 
-  assert.equal(backButton.callback_data, callBacks.people);
   assert.equal(backButton.text, messages.fa.aiBack);
 });
 
@@ -182,10 +180,18 @@ test("people discovery UI uses a distinct no-match message", () => {
 
 test("people discovery empty states link to media lists without opening profile Interests", () => {
   const buttons = peopleDiscoverListKeyboard("fa", { showLists: true })
-    .reply_markup.inline_keyboard.flat();
+    .reply_markup.keyboard.flat();
 
-  assert.ok(!buttons.some((button) => button.callback_data === callBacks.profileEditInterests));
-  assert.ok(buttons.some((button) => button.callback_data === callBacks.aiAssistant));
+  assert.ok(!buttons.some((button) => button.text === messages.fa.profileEditInterests));
+  assert.ok(buttons.some((button) => button.text === messages.fa.peopleGoToLists));
+});
+
+test("people discovery empty state uses bottom buttons", () => {
+  const keyboard = peopleDiscoverEmptyKeyboard("fa").reply_markup;
+  const buttons = keyboard.keyboard.flat();
+
+  assert.equal(keyboard.inline_keyboard, undefined);
+  assert.deepEqual(buttons.map((button) => button.text), [messages.fa.peopleGoToLists, messages.fa.aiBack]);
 });
 
 test("people discovery pagination uses configured page size", () => {

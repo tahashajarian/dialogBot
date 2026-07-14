@@ -21,6 +21,9 @@ async function clearProfileEditPrompt(ctx, exceptMessageIds = []) {
 async function sendProfileEditPrompt(ctx, text, keyboard) {
   await clearProfileEditPrompt(ctx);
   const sent = await ctx.reply(text, keyboard);
+  // Reply-keyboard prompts are authorized by durable flow state and remain safe
+  // in chat history. Track only inline prompts whose old controls must retire.
+  if (keyboard?.reply_markup?.keyboard) return sent;
   const messageId = getMessageId(sent) || null;
   await updateProfileField(ctx.userId, "profileEditPromptMessageId", messageId);
   if (ctx.user) ctx.user.profileEditPromptMessageId = messageId;

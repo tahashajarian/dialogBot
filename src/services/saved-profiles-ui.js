@@ -143,6 +143,11 @@ function buildProfileSavedFooter(messages, lang, code, isSaved, { hasDiscussions
   return `👩‍🦳 ${action}`;
 }
 
+function buildProfileDiscussionSectionsText(title, sections = []) {
+  const visibleSections = (sections || []).map((section) => String(section || "").trim()).filter(Boolean);
+  return [String(title || "").trim(), visibleSections.join("\n\n━━━━━━━━━━\n\n")].filter(Boolean).join("\n\n");
+}
+
 module.exports = {
   toSavedProfileListItems,
   isCodeSaved,
@@ -150,4 +155,5 @@ module.exports = {
   paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
+  buildProfileDiscussionSectionsText,
 };

@@ -253,7 +253,7 @@ test("start invite preview shows lock reason before switching rooms", async () =
   assert.notEqual(finalReply.extra.reply_markup.remove_keyboard, true);
 });
 
-test("repeated start invite payload clears saved profile list card", async () => {
+test("repeated start invite payload keeps retained saved-profile history", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalFindOneDiscussion = Discussion.findOne;
   const deleteAttempts = [];
@@ -298,8 +298,7 @@ test("repeated start invite payload clears saved profile list card", async () =>
     Discussion.findOne = originalFindOneDiscussion;
   }
 
-  assert.equal(deleteAttempts.includes(42), true);
-  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.equal(deleteAttempts.includes(42), false);
 });
 
 test("discussion reply helper extracts replied message id", () => {
@@ -537,14 +536,13 @@ test("start command still recovers from active discussion state", async () => {
   assert.equal(ctx.user.activeDiscussionId, null);
   assert.equal(replies[0].text, messages.en.welcomeWithName.replace("{name}", "A"));
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[1].text, messages.en.navigationFootprintMainMenu);
-  assert.equal(replies[2].text, messages.en.mainMenu);
+  assert.equal(replies[1].text, messages.en.mainMenu);
   assert.equal(updates.some((entry) => entry.update?.activeDiscussionId === null), true);
   assert.deepEqual(deletes, []);
 });
 
-test("unknown legacy global commands show main menu outside discussions", async () => {
-  for (const command of ["/resetphoto"]) {
+test("unknown idle text and stale bottom labels are ignored without resetting context", async () => {
+  for (const command of ["/resetphoto", messages.en.profileEditName, "nonsense text"]) {
     const replies = [];
     const ctx = {
       text: command,
@@ -554,6 +552,7 @@ test("unknown legacy global commands show main menu outside discussions", async 
         userId: 1,
         lang: "en",
         state: "idle",
+        navigationMode: "people",
       },
       reply: async (text, extra) => {
         replies.push({ text, extra });
@@ -566,9 +565,8 @@ test("unknown legacy global commands show main menu outside discussions", async 
 
     await handleUpdate(ctx);
 
-    assert.equal(replies.length, 1);
-    assert.equal(replies[0].text, messages.en.maintenance);
-    assert.equal(replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data, callBacks.language);
+    assert.equal(replies.length, 0);
+    assert.equal(ctx.user.navigationMode, "people");
   }
 });
 
@@ -615,7 +613,7 @@ test("discussion message sender preserves text parse mode with reply id", async 
   assert.equal(sent.message_id, 99);
 });
 
-test("saved profile command clears saved list before opening profile", async () => {
+test("saved profile command keeps retained list history before opening profile", async () => {
   const originalFindOne = User.findOne;
   const deleteAttempts = [];
   const replies = [];
@@ -635,7 +633,7 @@ test("saved profile command clears saved list before opening profile", async () 
       lang: "en",
       firstName: "Viewer",
       profileName: "Viewer",
-      savedProfileCodes: [],
+      savedProfileCodes: ["u_3HNU"],
       savedProfilesLastListMessageId: 42,
       discussionLastListType: "invitations",
       discussionLastListMessageId: 77,
@@ -660,12 +658,10 @@ test("saved profile command clears saved list before opening profile", async () 
     User.findOne = originalFindOne;
   }
 
-  assert.equal(deleteAttempts.includes(42), true);
-  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
-  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}saved:u_3HNU`));
-  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
-  assert.equal(buttons.at(-1).callback_data, callBacks.savedProfiles);
-  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.equal(deleteAttempts.includes(42), false);
+  const buttons = replies.at(-1).extra.reply_markup.keyboard.flat();
+  assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
+  assert.equal(buttons.at(-1).text, messages.en.profileBackToSaved);
 });
 
 test("discussion profile command does not use saved-profile back button for saved users", async () => {
@@ -716,16 +712,17 @@ test("discussion profile command does not use saved-profile back button for save
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deleteAttempts, [88]);
+  assert.deepEqual(deleteAttempts, []);
   assert.match(replies.at(-1).text, /User profile:/);
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_3HNU`));
-  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
+  assert.ok(buttons.some((button) => button.callback_data === callBacks.profileCloseDiscussionMember));
   assert.notEqual(buttons.at(-1).callback_data, callBacks.savedProfiles);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 
-test("saved profile discussions command clears saved profile list card", async () => {
+test("saved profile discussions command keeps retained saved-profile list", async () => {
   const originalFind = Discussion.find;
   const originalFindOneDiscussion = Discussion.findOne;
   const originalFindOne = User.findOne;
@@ -768,8 +765,7 @@ test("saved profile discussions command clears saved profile list card", async (
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deleteAttempts, [42]);
-  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.deepEqual(deleteAttempts, []);
 });
 
 test("saved profile discussions include visible active discussion without duplicating created room", async () => {
@@ -828,12 +824,12 @@ test("saved profile discussions include visible active discussion without duplic
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.match(replies[0].text, /Active discussion/);
+  assert.match(replies[0].text, /Current active discussion/);
   assert.match(replies[0].text, /Active room/);
   assert.doesNotMatch(replies[0].text, /Created discussions/);
 });
 
-test("saved profile invite command clears saved profile surfaces", async () => {
+test("saved profile invite command leaves retained list surfaces untouched", async () => {
   const originalFindOne = User.findOne;
   const originalFind = Discussion.find;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -879,9 +875,6 @@ test("saved profile invite command clears saved profile surfaces", async () => {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deleteAttempts.slice(0, 3), [42, 43, 44]);
-  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
-  assert.equal(ctx.user.publicProfileLastMessageId, null);
-  assert.equal(ctx.user.discussionLastListMessageId, null);
-  assert.equal(ctx.user.discussionLastListType, "");
+  assert.equal(deleteAttempts.includes(42), false);
+  assert.equal(deleteAttempts.includes(44), false);
 });

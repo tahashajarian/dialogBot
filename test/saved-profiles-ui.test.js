@@ -8,8 +8,19 @@ const {
   paginateSavedProfiles,
   buildSavedProfilesListText,
   buildProfileSavedFooter,
+  buildProfileDiscussionSectionsText,
 } = require("../src/services/saved-profiles-ui");
 const messages = require("../src/messages");
+const {
+  clearPeopleListMessage,
+  clearSavedProfilesListMessage,
+  clearSavedProfileDiscussionMessage,
+  clearViewedPublicProfileMessage,
+  formatSavedProfileRemovedMessage,
+  formatSavedProfileSavedMessage,
+  handleSavedProfilesCallback,
+} = require("../src/flows/saved-profiles");
+const { callBacks } = require("../src/constants");
 
 test("toSavedProfileListItems builds stable rows with deduped codes", () => {
   const byCode = new Map([
@@ -89,4 +100,93 @@ test("buildSavedProfilesListText uses Persian digits in fa", () => {
 
   assert.match(text, /۱\./);
   assert.match(text, /۲\./);
+});
+
+test("profile discussion sections clearly separate current and created rooms", () => {
+  const text = buildProfileDiscussionSectionsText(
+    messages.en.savedProfileDiscussionsTitle.replace("{name}", "Ali"),
+    [
+      `${messages.en.savedProfileActiveDiscussionTitle}\n\n1. 💬 Open cafe`,
+      `${messages.en.savedProfileCreatedDiscussionsTitle}\n\n1. 💬 Film club`,
+    ],
+  );
+
+  assert.match(text, /^👩‍🦳💬 Ali's discussions/);
+  assert.match(text, /🟢 Current active discussion/);
+  assert.match(text, /🎙️ Discussions created by this user/);
+  assert.match(text, /Open cafe[\s\S]*━━━━━━━━━━[\s\S]*Film club/);
+  assert.match(messages.en.savedProfileNoDiscussions, /no visible discussions/);
+  assert.match(messages.fa.savedProfileNoDiscussions, /قابل نمایش/);
+});
+
+test("saved-profile removal confirmation includes the profile name", () => {
+  assert.equal(formatSavedProfileRemovedMessage("fa", "نیما"), "👩‍🦳 پروفایل «نیما» از ذخیره‌شده‌ها حذف شد.");
+  assert.equal(formatSavedProfileRemovedMessage("en", "Nima"), "👩‍🦳 “Nima” was removed from saved profiles.");
+  assert.equal(formatSavedProfileRemovedMessage("fa", ""), messages.fa.savedProfileRemovedUnknown);
+});
+
+test("saved-profile confirmation includes the profile name", () => {
+  assert.equal(formatSavedProfileSavedMessage("fa", "نیما"), "👩‍🦳 پروفایل «نیما» ذخیره شد.");
+  assert.equal(formatSavedProfileSavedMessage("en", "Nima"), "👩‍🦳 “Nima” was saved.");
+  assert.equal(formatSavedProfileSavedMessage("en", ""), messages.en.savedProfileSavedUnknown);
+});
+
+test("ordinary People surfaces forget old cards without Telegram delete or edit calls", async () => {
+  const telegramCalls = [];
+  const ctx = {
+    userId: 1,
+    user: {
+      navigationMode: "public_profile:people:u_A1:0:saved:1",
+      peopleLastListMessageId: 10,
+      peopleLastListMode: "browse",
+      savedProfilesLastListMessageId: 11,
+      publicProfileLastMessageId: 12,
+      discussionLastListMessageId: 13,
+      discussionLastListType: "people:browse:u_A1",
+    },
+    deleteMessage: async (...args) => telegramCalls.push(["delete", ...args]),
+    editMessageText: async (...args) => telegramCalls.push(["editText", ...args]),
+    editMessageReplyMarkup: async (...args) => telegramCalls.push(["editMarkup", ...args]),
+  };
+
+  assert.equal(await clearPeopleListMessage(ctx), true);
+  assert.equal(await clearSavedProfilesListMessage(ctx), true);
+  assert.equal(await clearViewedPublicProfileMessage(ctx), true);
+  assert.equal(await clearSavedProfileDiscussionMessage(ctx), true);
+  assert.deepEqual(telegramCalls, []);
+  assert.equal(ctx.user.peopleLastListMessageId, null);
+  assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+  assert.equal(ctx.user.publicProfileLastMessageId, null);
+  assert.equal(ctx.user.discussionLastListMessageId, null);
+});
+
+test("People bottom-button routing never invokes legacy inline deletion", async () => {
+  const User = require("../src/models/user");
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  User.findOneAndUpdate = async () => ({});
+  let deleteCalls = 0;
+  const ctx = {
+    callbackData: callBacks.people,
+    isReplyKeyboardAction: true,
+    userId: 1,
+    user: { userId: 1, navigationMode: "people_discovery_results:0:2" },
+    answerCb: async () => true,
+    reply: async () => ({ message_id: 20 }),
+  };
+
+  try {
+    await handleSavedProfilesCallback(ctx, "en", {
+      clearRememberedAiListMessage: async () => true,
+      deleteCallbackMessageIfPossible: async () => {
+        deleteCalls += 1;
+        return true;
+      },
+      hasTemporaryReplyKeyboard: () => false,
+      leaveDiscussionAndClearKeyboardForNavigation: async () => true,
+    });
+
+    assert.equal(deleteCalls, 0);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });

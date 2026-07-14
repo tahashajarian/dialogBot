@@ -17,8 +17,6 @@ const DESTINATION_KEYS = Object.freeze({
   myDiscussions: "navigationFootprintMyDiscussions",
 });
 
-const SENT_FOOTPRINTS = Symbol("sentNavigationFootprints");
-
 function getMessageId(message) {
   return Number(message?.message_id || message?.messageId) || null;
 }
@@ -63,6 +61,16 @@ async function clearNavigationCard(ctx) {
   return true;
 }
 
+async function forgetNavigationCard(ctx) {
+  const messageId = Number(ctx.user?.navigationLastCardMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0) return false;
+  if (ctx.user) ctx.user.navigationLastCardMessageId = null;
+  if (canPersistNavigationCard(ctx) && ctx.userId !== undefined && ctx.userId !== null) {
+    await updateProfileField(ctx.userId, "navigationLastCardMessageId", null);
+  }
+  return true;
+}
+
 function resolveNavigationFootprint(lang, destination, { discussion, title } = {}) {
   const safeLang = messages[lang] ? lang : "fa";
   if (destination === "discussion") {
@@ -82,22 +90,16 @@ function resolveNavigationFootprint(lang, destination, { discussion, title } = {
 }
 
 async function sendNavigationFootprint(ctx, { lang, destination, discussion, title, removeKeyboard = false }) {
-  if (typeof ctx?.reply !== "function") return null;
-  const dedupeKey = `${destination}:${String(title || discussion?._id || "")}`;
-  if (!ctx[SENT_FOOTPRINTS]) ctx[SENT_FOOTPRINTS] = new Set();
-  if (ctx[SENT_FOOTPRINTS].has(dedupeKey)) return null;
-  ctx[SENT_FOOTPRINTS].add(dedupeKey);
-  const text = resolveNavigationFootprint(lang, destination, { discussion, title });
-  const extra = removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined;
-  const [, footprint] = await Promise.all([
-    clearNavigationCard(ctx),
-    ctx.reply(text, extra),
-  ]);
-  return footprint;
+  // Navigation footprints were retired when stable destinations moved to
+  // server-scoped reply keyboards. Forget cards tracked by older deployments
+  // without a Telegram delete/edit call; server-side modes reject stale text.
+  await forgetNavigationCard(ctx);
+  return null;
 }
 
 module.exports = {
   clearNavigationCard,
+  forgetNavigationCard,
   rememberNavigationCard,
   resolveNavigationFootprint,
   sendNavigationFootprint,

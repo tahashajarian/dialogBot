@@ -8,6 +8,7 @@ const {
   onboardingInterestsKeyboard,
   onboardingLanguageKeyboard,
   onboardingTasteSetupNudgeKeyboard,
+  mainMenuKeyboard,
 } = require("../keyboards");
 const {
   addAiListItem,
@@ -19,7 +20,7 @@ const {
 const { operationalLimits } = require("../services/operational-limits");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const { createOnboardingStarterInvitationsForUser } = require("../services/discussion-invitations");
-const { replyWithRemovedKeyboardThenInline } = require("../services/bot-navigation");
+const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -74,47 +75,14 @@ function getCustomInterestPrefixForState(state = "") {
   return isTasteSetupState(state) ? TASTE_SETUP_CUSTOM_PREFIX : ONBOARDING_CUSTOM_PREFIX;
 }
 
-function getMessageId(messageOrId) {
-  if (Number.isInteger(Number(messageOrId))) return Number(messageOrId);
-  return Number(messageOrId?.message_id || messageOrId?.messageId) || null;
-}
-
-async function rememberOnboardingPrompt(ctx, messageOrId) {
-  const messageId = getMessageId(messageOrId);
-  if (!messageId) return false;
-  await updateProfileField(ctx.userId, "onboardingPromptMessageId", messageId);
-  if (ctx.user) ctx.user.onboardingPromptMessageId = messageId;
-  return true;
-}
-
-async function renderRememberedPrompt(ctx, text, keyboard) {
-  const messageId = Number(ctx.user?.onboardingPromptMessageId);
-  if (messageId && ctx.editMessageText) {
-    const edited = await ctx.editMessageText(messageId, text, keyboard);
-    if (edited) return edited;
-  }
-
-  const sent = await ctx.reply(text, keyboard);
-  await rememberOnboardingPrompt(ctx, sent);
-  return sent;
-}
-
-async function retireOnboardingPrompt(ctx, { persist = true } = {}) {
-  const messageId = Number(ctx.user?.onboardingPromptMessageId);
-  if (Number.isInteger(messageId) && messageId > 0 && ctx.deleteMessage) {
-    await ctx.deleteMessage(messageId);
-  }
-  if (ctx.user) ctx.user.onboardingPromptMessageId = null;
-  if (persist) {
-    await updateProfileField(ctx.userId, "onboardingPromptMessageId", null);
-  }
-}
-
 async function sendFreshOnboardingPrompt(ctx, text, keyboard) {
-  await retireOnboardingPrompt(ctx);
-  const sent = await ctx.reply(text, keyboard);
-  await rememberOnboardingPrompt(ctx, sent);
-  return sent;
+  return ctx.reply(text, keyboard);
+}
+
+async function setOnboardingPickerMode(ctx, state, page = 0) {
+  const taste = isTasteSetupState(state);
+  const custom = state.startsWith(ONBOARDING_CUSTOM_PREFIX) || state.startsWith(TASTE_SETUP_CUSTOM_PREFIX);
+  return setNavigationMode(ctx, `onboarding_${taste ? "taste_" : ""}${custom ? "custom" : "interests"}:${Number(page) || 0}`);
 }
 
 function shouldOfferOnboarding(user, now = new Date()) {
@@ -168,6 +136,7 @@ async function prepareOnboardingCompletion(ctx, lang) {
     ? { count: 0 }
     : await createOnboardingStarterInvitationsForUser(ctx.userId).catch(() => ({ count: 0 }));
   const hasInvitation = Number(invitationResult?.count) > 0;
+  await setNavigationMode(ctx, `onboarding_complete:${hasInvitation ? 1 : 0}:${discussionContinuation ? 1 : 0}`);
   return {
     text: buildOnboardingCompleteText(lang, { hasInvitation }),
     keyboard: onboardingCompleteKeyboard(lang, { hasInvitation, discussionContinuation }),
@@ -194,6 +163,7 @@ async function sendTasteSetupNudge(ctx, lang) {
   const nudgedAt = new Date();
   if (ctx.user) ctx.user.onboardingTasteSetupNudgedAt = nudgedAt;
   await updateProfileField(ctx.userId, "onboardingTasteSetupNudgedAt", nudgedAt);
+  await setNavigationMode(ctx, "onboarding_taste_nudge");
   return ctx.reply(
     messages[lang].onboardingTasteSetupNudge,
     onboardingTasteSetupNudgeKeyboard(lang),
@@ -205,11 +175,8 @@ async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReply
     ? `onboarding_invite_language:${inviteCode}`
     : "onboarding_language";
   await updateUserState(ctx.userId, state);
-  const prompt = removeReplyKeyboard
-    ? await replyWithRemovedKeyboardThenInline(ctx, messages[lang].chooseLanguage, onboardingLanguageKeyboard())
-    : await ctx.reply(messages[lang].chooseLanguage, onboardingLanguageKeyboard());
-  await rememberOnboardingPrompt(ctx, prompt);
-  return prompt;
+  await setNavigationMode(ctx, "onboarding_language");
+  return ctx.reply(messages[lang].chooseLanguage, onboardingLanguageKeyboard());
 }
 
 async function completeOnboarding(ctx, skipped = false) {
@@ -238,7 +205,8 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     if (!ctx.user?.onboardingTasteSetupNudgedAt) {
       await updateProfileField(ctx.userId, "onboardingTasteSetupNudgedAt", new Date());
     }
-    return helpers.deleteCallbackMessageIfPossible?.(ctx);
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
   if (data === callBacks.onboardingTasteSetupStart) {
@@ -247,7 +215,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     }
     const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
     await updateUserState(ctx.userId, TASTE_SETUP_INTERESTS_STATE);
-    await rememberOnboardingPrompt(ctx, ctx.callbackMessageId);
+    await setOnboardingPickerMode(ctx, TASTE_SETUP_INTERESTS_STATE, 0);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, items.length),
@@ -264,6 +232,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
       return helpers.deleteCallbackMessageIfPossible?.(ctx);
     }
     await updateUserState(ctx.userId, "onboarding_interests");
+    await setOnboardingPickerMode(ctx, ONBOARDING_INTERESTS_STATE, 0);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang),
@@ -282,6 +251,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     const page = getOnboardingPage(data);
     const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
     await updateUserState(ctx.userId, isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE);
+    await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, items.length),
@@ -296,6 +266,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   if (data.startsWith(callBacks.onboardingMore)) {
     const page = getOnboardingPage(data);
     const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
+    await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, items.length),
@@ -329,6 +300,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     if (!item) return ctx.reply(messages[lang].unknownAction);
     const result = await removeAiListItem(ctx.userId, "random", "topTen", item);
     if (ctx.user?.aiLists?.random) ctx.user.aiLists.random.topTen = result.items || [];
+    await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
       buildOnboardingPrompt(lang, (result.items || []).length),
@@ -339,7 +311,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   if (data.startsWith(callBacks.onboardingCustom)) {
     const page = getOnboardingPage(data);
     await updateUserState(ctx.userId, `${getCustomInterestPrefixForState(state)}${page}`);
-    await rememberOnboardingPrompt(ctx, ctx.callbackMessageId);
+    await setOnboardingPickerMode(ctx, `${getCustomInterestPrefixForState(state)}${page}`, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
       messages[lang].onboardingCustomPrompt,
@@ -388,6 +360,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   const page = getOnboardingPage(data) || Math.floor(chipIndex / ONBOARDING_CHIPS_PER_PAGE);
+  await setOnboardingPickerMode(ctx, state, page);
   return helpers.editCallbackMessageOrReply(
     ctx,
     [buildOnboardingPrompt(lang, items.length, result.ok ? item : ""), starNotice]
@@ -405,6 +378,7 @@ async function handleOnboardingText(ctx, lang) {
     const page = getOnboardingPage(state);
     const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
     if (!item || Array.from(item).length > operationalLimits.onboardingCustomInterestMaxLength) {
+      await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
         `${messages[lang].onboardingCustomInvalid}\n\n${messages[lang].onboardingCustomPrompt}`,
@@ -428,6 +402,7 @@ async function handleOnboardingText(ctx, lang) {
       const errorText = messages[lang][errorKey]
         .replace("{item}", result.duplicate?.title || item)
         .replace("{limit}", String(getOnboardingInterestLimit()));
+      await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
         `${errorText}\n\n${messages[lang].onboardingCustomPrompt}`,
@@ -440,7 +415,6 @@ async function handleOnboardingText(ctx, lang) {
     const starNotice = buildOnboardingStarNotice(lang, result.starRewards);
 
     if (result.items.length >= getOnboardingInterestGoal()) {
-      await retireOnboardingPrompt(ctx);
       await completeOnboardingForState(ctx, state);
       const completion = await prepareOnboardingCompletion(ctx, lang);
       return ctx.reply(
@@ -450,6 +424,7 @@ async function handleOnboardingText(ctx, lang) {
     }
 
     await updateUserState(ctx.userId, isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE);
+    await setOnboardingPickerMode(ctx, state, page);
     return sendFreshOnboardingPrompt(
       ctx,
       [buildOnboardingPrompt(lang, result.items.length, item), starNotice]
@@ -463,11 +438,7 @@ async function handleOnboardingText(ctx, lang) {
     );
   }
 
-  return renderRememberedPrompt(
-    ctx,
-    buildOnboardingPrompt(lang, items.length),
-    onboardingInterestsKeyboard(lang, items.map((entry) => entry.title)),
-  );
+  return undefined;
 }
 
 module.exports = {
@@ -481,7 +452,6 @@ module.exports = {
   handleOnboardingCallback,
   handleOnboardingText,
   isOnboardingCallback,
-  retireOnboardingPrompt,
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
   sendTasteSetupNudge,

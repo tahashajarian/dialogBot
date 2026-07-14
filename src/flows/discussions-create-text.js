@@ -104,7 +104,7 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
     await updateUserState(ctx.userId, "discussion_create_preview");
     return ctx.reply(
       buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftTitle: normalized }),
-      discussionCreateConfirmKeyboard(lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
     );
   }
 
@@ -156,7 +156,7 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
     await updateUserState(ctx.userId, "discussion_create_preview");
     return ctx.reply(
       buildDiscussionPreviewForCurrentDraft(ctx, lang, ""),
-      discussionCreateConfirmKeyboard(lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
     );
   }
 
@@ -189,7 +189,7 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
   await updateUserState(ctx.userId, "discussion_create_preview");
   return ctx.reply(
     buildDiscussionPreviewForCurrentDraft(ctx, lang, normalized),
-    discussionCreateConfirmKeyboard(lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
   );
 }
 

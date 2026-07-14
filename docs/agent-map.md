@@ -120,7 +120,8 @@ Use this map before changing code. It explains where behavior belongs so future 
   - eligibility for recent, empty accounts
   - rotating stable interest pages, selected-chip `✓` markers, custom typed interests, and validation
   - progress and completion rendering
-  - onboarding chip/remove/more/custom/continue callback handling
+  - server-scoped bottom onboarding language/welcome/chip/remove/more/custom/completion handling
+  - append-only onboarding prompt transitions without Telegram delete/edit cleanup
   - optional post-invite quick taste setup nudge for invite-first users who have not completed onboarding
   - handoff to starter invitations, Lists, discussions, or the main menu
 
@@ -144,6 +145,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/messages.js`: translation/copy keys.
 - `src/keyboards.js`: inline and reply keyboard builders.
+- `src/services/reply-keyboard-navigation.js`: durable reply-keyboard modes, localized label normalization, exact-mode action resolution, and shared mode persistence. Keep label matching out of dispatchers and feature flows.
 - `docs/bot-ux.md`: bot UX rules, stale-card cleanup, low-noise behavior.
 
 ## Stars Economy

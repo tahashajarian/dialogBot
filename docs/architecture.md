@@ -4,6 +4,10 @@
 
 `src/flows/profile-callbacks.js` owns the two confirmation cards and nonce validation. It invokes `src/services/account-deletion.js` only after final confirmation. The service coordinates collection cleanup, persists resumable progress in `AccountDeletion`, anonymizes the minimum Star/referral audit facts with a per-user tombstone, and deletes the User document last. `src/index.js` prevents arbitrary updates from recreating missing users and atomically consumes the completed deletion's one-time restart claim before creating a fresh onboarding account. Telegram copy remains in the message catalogs.
 
+`src/services/reply-keyboard-navigation.js` owns reply-keyboard modes, localized text normalization, and text-to-action resolution. Flow modules set modes through `setNavigationMode`; `src/bot.js` and `src/callbacks.js` only dispatch the resolved action. The mode is persisted for real users because exact pages, filters, source profiles, wizard drafts, and quoted payments must survive restarts and two devices. Synthetic test contexts may keep it locally. Telegram's currently visible keyboard is never authority.
+
+Ordinary navigation is append-only chat history: converted destinations do not send footprint messages, track navigation-card IDs, or delete/edit earlier bot messages. Legacy navigation-card IDs are forgotten without Telegram cleanup. Inline cleanup is reserved for consumed indexed, identity-bound, destructive, or transactional cards whose stale payload could be unsafe.
+
 ## Project Overview
 
 - This repo contains a Telegram bot using Telegraf.
@@ -31,6 +35,7 @@ Keep the router files thin:
 - `src/flows/profile-callbacks.js` owns profile edit/settings callback routing and own-profile callback rendering.
 - `src/flows/saved-profiles.js` owns the people hub, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
+- `src/flows/onboarding.js` owns the append-only first-session flow; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
 - `src/flows/discussion-messages.js` owns active-room text/voice message validation, recent-message append orchestration, delivery, and runtime reply mapping.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
@@ -83,7 +88,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
-Viewed public-profile cards are transient. Store and clear their last bot message id through `src/flows/saved-profiles.js` instead of leaving profile cards behind in chat. Saved-profile list views may offer a back button to the saved list; profiles opened from discussion/member contexts should not add an acknowledgement inline button.
+Public profiles opened from People or Saved Profiles retain chat history and use a source/page/profile-bound bottom mode for Save/Remove, visible discussions, and Back. Discussion-member profiles remain transient identity-bound inline cards with Save/Saved status and Close; they do not inherit People-only actions.
 
 ## Existing Profile Fields
 

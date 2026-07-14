@@ -1,0 +1,464 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const messages = require("../src/messages");
+const { callBacks } = require("../src/constants");
+const { MODES, isKnownProfileNavigationLabel, normalizeReplyButtonText, resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
+
+test("global reply navigation resolves both languages with Telegram direction marks", () => {
+  for (const lang of ["fa", "en"]) {
+    const result = resolveReplyKeyboardAction(`\u200f  ${messages[lang].mainMenuMe}  \u200e`, { mode: MODES.GLOBAL });
+    assert.equal(result.callbackData, callBacks.profile);
+    assert.equal(result.global, true);
+  }
+  assert.equal(normalizeReplyButtonText("  A   B  "), "A B");
+});
+
+test("main menu restores bot-language switching as a global bottom action", () => {
+  const { mainMenuKeyboard } = require("../src/keyboards");
+  const labels = mainMenuKeyboard("fa").reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.fa.language));
+  assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.GLOBAL, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.language);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.DISCUSSIONS, state: "idle", user: { lang: "fa" } }), null);
+});
+
+test("normal and onboarding language selection use independently scoped bottom buttons", () => {
+  const { languageKeyboard, onboardingLanguageKeyboard } = require("../src/keyboards");
+  assert.ok(languageKeyboard("fa").reply_markup.keyboard);
+  assert.equal(languageKeyboard("fa").reply_markup.inline_keyboard, undefined);
+  assert.ok(onboardingLanguageKeyboard().reply_markup.keyboard);
+  const context = { mode: MODES.LANGUAGE, state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", context).callbackData, callBacks.langSetFa);
+  assert.equal(resolveReplyKeyboardAction("🇬🇧 English", context).callbackData, callBacks.langSetEn);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, context).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction("🇬🇧 English", { ...context, mode: MODES.GLOBAL }), null);
+  const onboarding = { mode: "onboarding_language", state: "onboarding_language", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", onboarding).callbackData, callBacks.langSetFa);
+  assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", { ...onboarding, state: "idle" }), null);
+});
+
+test("onboarding buttons resolve only in the exact server-side step and language", () => {
+  const welcome = { mode: "onboarding_welcome", state: "onboarding_welcome", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingStartButton, welcome).callbackData, callBacks.onboardingStart);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingStartButton, welcome), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingStartButton, { ...welcome, mode: "onboarding_interests:0", state: "onboarding_interests" }), null);
+
+  const picker = { mode: "onboarding_interests:0", state: "onboarding_interests", user: { lang: "en", aiLists: { random: { topTen: [] } } } };
+  assert.equal(resolveReplyKeyboardAction("🎬 Movies", picker).callbackData, `${callBacks.onboardingInterest}0:0`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMoreButton, picker).callbackData, `${callBacks.onboardingMore}1`);
+  assert.equal(resolveReplyKeyboardAction("🎬 Movies", { ...picker, mode: "onboarding_interests:1" }), null);
+
+  const selected = { ...picker, user: { lang: "en", aiLists: { random: { topTen: [{ title: "Movies" }] } } } };
+  assert.equal(resolveReplyKeyboardAction("🎬 Movies ✓", selected).callbackData, `${callBacks.onboardingInterestRemove}0:0`);
+  assert.equal(resolveReplyKeyboardAction("🎬 Movies", selected), null);
+
+  const custom = { mode: "onboarding_custom:2", state: "onboarding_custom_interest:2", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingCustomCancelButton, custom).callbackData, `${callBacks.onboardingCustomCancel}2`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingCustomCancelButton, { ...custom, state: "idle" }), null);
+});
+
+test("onboarding completion and taste nudge actions expire outside their server modes", () => {
+  const complete = { mode: "onboarding_complete:1:0", state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingInvitationButton, complete).callbackData, callBacks.discussionInvitations);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, complete).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingDiscussionContinueButton, complete), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingInvitationButton, { ...complete, mode: MODES.GLOBAL }), null);
+
+  const nudge = { mode: "onboarding_taste_nudge", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupStartButton, nudge).callbackData, callBacks.onboardingTasteSetupStart);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupLaterButton, nudge).callbackData, callBacks.onboardingTasteSetupDismiss);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupStartButton, { ...nudge, mode: MODES.GLOBAL }), null);
+});
+
+test("global destination labels do not activate outside the global mode", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.PROFILE, state: "idle", user: { lang: "en" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, { mode: MODES.FAVORITES, state: "idle", user: { lang: "en" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }).callbackData, callBacks.people);
+});
+
+test("old-language labels cannot activate after language changes", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.fa.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }).callbackData, callBacks.people);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditName, { mode: MODES.PROFILE, state: "idle", user: { lang: "fa" } }), null);
+});
+
+test("mode-specific labels do not activate from a stale keyboard", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestBooks, { mode: MODES.PEOPLE }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionMyList, { mode: MODES.FAVORITES }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestBooks, { mode: MODES.FAVORITES }).callbackData, callBacks.aiSuggestBooks);
+});
+
+test("empty People discovery actions work only in the empty-result mode in both languages", () => {
+  for (const lang of ["en", "fa"]) {
+    const empty = { mode: "people_discovery_empty", state: "idle", user: { lang } };
+    assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, empty).callbackData, callBacks.aiAssistant);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].aiBack, empty).callbackData, callBacks.people);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people" }), null);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people_discovery_results:0:2" }), null);
+  }
+});
+
+test("saved-profile pagination and Back are bound to the exact server page", () => {
+  const first = { mode: "saved_profiles:0:3", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.savedProfilesPage}1`);
+  assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.people);
+
+  const middleFa = { mode: "saved_profiles:1:3", state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middleFa).callbackData, `${callBacks.savedProfilesPage}2`);
+  assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.fa.discussionListPrevPage}`, middleFa).callbackData, `${callBacks.savedProfilesPage}0`);
+  assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, middleFa), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...middleFa, mode: "people" }).callbackData, callBacks.menuMain);
+});
+
+test("See People result pagination uses exact-page bottom actions in both languages", () => {
+  const { getPeopleListReturnPage } = require("../src/flows/saved-profiles");
+  const first = { mode: "people_discovery_results:0:3", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.peopleDiscoverPage}1`);
+  assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.people);
+
+  const middle = { mode: "people_discovery_results:1:3", state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middle).callbackData, `${callBacks.peopleDiscoverPage}2`);
+  assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.fa.discussionListPrevPage}`, middle).callbackData, `${callBacks.peopleDiscoverPage}0`);
+  assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, middle), null);
+  assert.equal(getPeopleListReturnPage("people_discovery_results:1:3"), 1);
+  assert.equal(getPeopleListReturnPage("public_profile:people:u_A1:2:unsaved:0"), 2);
+  assert.equal(getPeopleListReturnPage("public_profile:saved:u_A1:2:saved:0"), null);
+  assert.equal(getPeopleListReturnPage("", { peopleLastListMessageId: 44, peopleLastListPage: 2 }), 2);
+  assert.equal(getPeopleListReturnPage("", { peopleLastListMode: "browse", peopleLastListPage: 1 }), 1);
+});
+
+test("temporary states and active rooms suppress hub reply navigation", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "editing_name" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, activeDiscussionId: "room" }), null);
+});
+
+test("feature-switched Advanced Search cannot be activated by stale text", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.advancedSearchButton, { mode: MODES.PEOPLE, advancedSearchEnabled: false }), null);
+});
+
+test("own-profile actions resolve only while the server says profile", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profileEditName, { mode: MODES.GLOBAL }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profileEditName, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditName);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileMoreSettings, { mode: MODES.PROFILE }).callbackData, callBacks.profileSettings);
+});
+
+test("own Profile keeps Back as the final bottom-keyboard row", () => {
+  const { profileKeyboard } = require("../src/keyboards");
+  for (const lang of ["en", "fa"]) {
+    const rows = profileKeyboard(lang, true).reply_markup.keyboard;
+    assert.deepEqual(rows.at(-1).map((button) => button.text), [messages[lang].cancel]);
+    assert.equal(rows.slice(0, -1).flat().some((button) => button.text === messages[lang].cancel), false);
+  }
+});
+
+test("Guide and Profile Settings static actions are mode scoped", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }).callbackData, callBacks.helpRules);
+  assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.PROFILE }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.accountDelete);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE }), null);
+});
+
+test("Favorites list-manager actions retain trusted section and list context", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
+  const another = messages.en.aiFavoritesAddAnotherMovies.replace("{count}", "4").replace("{goal}", "10");
+  assert.equal(resolveReplyKeyboardAction(another, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiFavoritesAddFirstMovies, { mode: "ai_list:books:topTen", state: "ai_manage_books_top_ten" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten_add_input" }), null);
+});
+
+test("Back changes meaning after returning from a media list to Favorites", () => {
+  for (const section of ["movies", "music", "books"]) {
+    const manager = resolveReplyKeyboardAction(messages.en.aiBack, { mode: `ai_list:${section}:topTen`, state: `ai_manage_${section}_top_ten` });
+    assert.equal(manager.callbackData, `${callBacks.aiListManageBack}${section}`);
+  }
+  const favorites = resolveReplyKeyboardAction(messages.en.aiBack, { mode: MODES.FAVORITES, state: "idle" });
+  assert.equal(favorites.callbackData, callBacks.menuMain);
+});
+
+test("age ranges and exact ages resolve only in their matching edit mode", () => {
+  assert.equal(resolveReplyKeyboardAction("\u206613-17\u2069", { mode: "profile_age", state: "editing_age" }).callbackData, `${callBacks.profileAgeRangeSet}13`);
+  assert.equal(resolveReplyKeyboardAction("17", { mode: "profile_age_range:13", state: "editing_age" }).callbackData, `${callBacks.profileAgeSet}17`);
+  assert.equal(resolveReplyKeyboardAction("18", { mode: "profile_age_range:13", state: "editing_age" }), null);
+  assert.equal(resolveReplyKeyboardAction("17", { mode: MODES.PROFILE, state: "idle" }), null);
+  assert.equal(resolveReplyKeyboardAction("🔙", { mode: "profile_age_range:13", state: "editing_age" }).callbackData, callBacks.profileAgeRangeBack);
+});
+
+test("gender and pet choices are scoped to their profile picker states", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.genderOptionFemaleButton, { mode: "profile_gender", state: "editing_gender" }).callbackData, `${callBacks.profileGenderSet}female`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.petOptionCatButton, { mode: "profile_pet", state: "editing_pet_preference" }).callbackData, `${callBacks.profilePetSet}cat`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.genderOptionFemaleButton, { mode: "profile_pet", state: "editing_pet_preference" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.petOptionCatButton, { mode: MODES.PROFILE, state: "idle" }), null);
+});
+
+test("Interests chips resolve add, selected removal, More, and Done from the trusted page", () => {
+  const emptyUser = { lang: "en", aiLists: { random: { topTen: [] } } };
+  const add = resolveReplyKeyboardAction("🎬 Movies", { mode: "profile_interests:0", state: "editing_interests", user: emptyUser });
+  assert.equal(add.callbackData, `${callBacks.profileInterestChip}0:0`);
+  const selectedUser = { lang: "en", aiLists: { random: { topTen: [{ title: "Movies" }] } } };
+  const remove = resolveReplyKeyboardAction("🎬 Movies ✓", { mode: "profile_interests:0", state: "editing_interests", user: selectedUser });
+  assert.equal(remove.callbackData, `${callBacks.profileInterestRemove}0:0`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMoreButton, { mode: "profile_interests:0", state: "editing_interests", user: emptyUser }).callbackData, `${callBacks.profileInterestMore}1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileInterestsDone, { mode: "profile_interests:0", state: "editing_interests", user: emptyUser }).callbackData, callBacks.profileInterestsDone);
+  assert.equal(resolveReplyKeyboardAction("🎬 Movies", { mode: MODES.PROFILE, state: "idle", user: emptyUser }), null);
+});
+
+test("stale Profile keyboard labels cannot become custom Interests", () => {
+  assert.equal(isKnownProfileNavigationLabel(messages.fa.profileEditInterests), true);
+  assert.equal(isKnownProfileNavigationLabel(messages.en.profileMoreSettings), true);
+  assert.equal(isKnownProfileNavigationLabel("Astronomy"), false);
+});
+
+test("Movies add and comment input controls resolve across every recovery state", () => {
+  const mode = "ai_list:movies:topTen";
+  assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_movies_top_ten_add_input" }).callbackData, `${callBacks.aiListManageCancelAdd}movies:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiListManageAddBackToList, { mode, state: "ai_manage_movies_top_ten_add_input" }).callbackData, `${callBacks.aiListManageCancelAdd}movies:top_ten:back`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_movies_top_ten_comment_input" }).callbackData, `${callBacks.aiListManageCancelComment}movies:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_books_top_ten_add_input" }), null);
+});
+
+test("shared-list guidance uses a scoped bottom Back action", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiListShareBackToList, { mode: "ai_share:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListShareBack}movies:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListShareBackToList, { mode: "ai_share:books:topTen", state: "ai_manage_books_top_ten" }).callbackData, `${callBacks.aiListShareBack}books:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListShareBackToList, { mode: "ai_list:books:topTen", state: "ai_manage_books_top_ten" }), null);
+});
+
+test("suggestion source selection uses section-scoped bottom actions", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, { mode: "ai_suggestion_mode:movies", state: "ai_chat_movies" }).callbackData, `${callBacks.aiSectionSuggestFromTopTen}movies`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionWithContextButton, { mode: "ai_suggestion_mode:books", state: "ai_chat_books" }).callbackData, `${callBacks.aiSectionSuggestWithContext}books`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, { mode: "ai_suggestion_mode:music", state: "ai_chat_music" }).callbackData, `${callBacks.aiListManageMenu}music:top_ten`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, { mode: "ai_suggestion_mode:books", state: "ai_chat_movies" }), null);
+});
+
+test("suggestion result Save, Done, and Reject buttons work in every media section", () => {
+  const doneKeys = { movies: "aiSuggestionAddDoneButtonMovies", music: "aiSuggestionAddDoneButtonMusic", books: "aiSuggestionAddDoneButtonBooks" };
+  for (const section of ["movies", "music", "books"]) {
+    const mode = `ai_suggestion_result:${section}`;
+    const state = `ai_chat_${section}`;
+    const listName = require("../src/services/ai-section").getSectionListLabel(messages, "en", section);
+    const addText = messages.en.aiSuggestionAddToListButton.replace("{listName}", listName);
+    assert.equal(resolveReplyKeyboardAction(addText, { mode, state, user: { lang: "en" } }).callbackData, `${callBacks.aiSectionAddSuggestion}${section}`);
+    assert.equal(resolveReplyKeyboardAction(messages.en[doneKeys[section]], { mode, state }).callbackData, `${callBacks.aiSectionAddSuggestionDone}${section}`);
+    assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionRejectButton, { mode, state }).callbackData, `${callBacks.aiSectionRejectSuggestion}${section}`);
+  }
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionRejectButton, { mode: "ai_suggestion_result:books", state: "ai_chat_movies" }), null);
+});
+
+test("post-save and post-reject suggestion actions replace the old result mode", () => {
+  const added = { mode: "ai_suggestion_added:movies", state: "ai_chat_movies", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, added).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);
+  const listText = messages.fa.aiSuggestionGoToListButton.replace("{listName}", require("../src/services/ai-section").getSectionListLabel(messages, "fa", "movies"));
+  assert.equal(resolveReplyKeyboardAction(listText, added).callbackData, `${callBacks.aiListManageShow}movies:watchlist`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionGoToFavoritesButton, added).callbackData, `${callBacks.aiListManageMenu}movies:top_ten`);
+  const rejected = { mode: "ai_suggestion_next:movies", state: "ai_chat_movies", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, rejected).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAddToListButton.replace("{listName}", "x"), rejected), null);
+});
+
+test("suggestion context Cancel works only while that section awaits context", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.fa.cancelEdit, { mode: "ai_suggestion_context:movies", state: "ai_suggest_context_movies", user: { lang: "fa" } }).callbackData, `${callBacks.aiSectionSuggestContextCancel}movies`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode: "ai_suggestion_context:books", state: "ai_suggest_context_books", user: { lang: "en" } }).callbackData, `${callBacks.aiSectionSuggestContextCancel}books`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode: "ai_suggestion_context:books", state: "ai_chat_books", user: { lang: "en" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.cancelEdit, { mode: "ai_suggestion_context:movies", state: "ai_suggest_context_books", user: { lang: "fa" } }), null);
+});
+
+test("filtered For Later rows keep commands bound to original list indexes", () => {
+  const { formatAiItemsList } = require("../src/services/ai-list-ui");
+  const text = formatAiItemsList("Seen", [{ title: "Arrival", watched: true, commandIndex: 3 }], "Empty", {
+    includeWatched: true, includeActions: true, canPromote: true, lang: "en", section: "movies", listType: "watchlist",
+  });
+  assert.match(text, /\/un_mv_l_3/);
+  assert.match(text, /\/tt_mv_l_3/);
+  assert.match(text, /\/cm_mv_l_3/);
+  assert.match(text, /\/rm_mv_l_3/);
+});
+
+test("filtered For Later mode exposes only Show all and restores the full-list action", () => {
+  const { aiListManageMenuKeyboard } = require("../src/keyboards");
+  const filteredButtons = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 3, filter: "watched" }).reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(filteredButtons.includes(messages.en.aiListManageShowAll));
+  assert.ok(!filteredButtons.includes(messages.en.aiListManageShowWatchedMovies));
+  assert.ok(!filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list_filter:movies:watched", state: "ai_manage_movies_watchlist", user: { lang: "en" } }).callbackData, `${callBacks.aiListManageShow}movies:watchlist:all`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
+});
+
+test("Stars guide Back is scoped and Guide omits duplicate destination shortcuts", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: "help_stars", state: "idle", user: { lang: "en" } }).callbackData, callBacks.profileStarsBack);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: MODES.HELP, state: "idle", user: { lang: "en" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpReferralButton, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.helpReferral);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpBrowseDiscussions, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpGoToLists, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
+});
+
+test("discussion list and invitation navigation is bound to its exact server page", () => {
+  const active = { mode: "discussion_list:active:0:2:all:fa", state: "idle", activeDiscussionId: "room", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, active).callbackData, `${callBacks.discussionListActivePage}1:all:fa`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.discussions);
+  assert.equal(resolveReplyKeyboardAction("🌐 تغییر زبان (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
+  assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, { ...active, mode: "discussions" }), null);
+  const invitations = { mode: "discussion_invitations:1:3", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(`⬅️ ${messages.en.discussionListPrevPage}`, invitations).callbackData, `${callBacks.discussionInvitationsPage}0`);
+});
+
+test("discussion hub remains actionable while the user still has an active room", () => {
+  const context = { mode: MODES.DISCUSSIONS, state: "idle", activeDiscussionId: "room-1", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionActiveList, context).callbackData, callBacks.discussionListActive);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionMyList, context).callbackData, callBacks.discussionListMine);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionInvitations, context).callbackData, callBacks.discussionInvitations);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.mainMenuMe, context), null);
+});
+
+test("discussion join-lock acknowledgement is bottom-mode scoped to its exact source", () => {
+  const active = { mode: "discussion_join_error:active", state: "idle", activeDiscussionId: "room-1", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.acknowledgeButton, active).callbackData, `${callBacks.discussionJoinErrorAck}active`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.acknowledgeButton, { ...active, mode: "discussion_list:active:0:1:all:fa" }), null);
+  const saved = { mode: "discussion_join_error:saved:u_A1", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.acknowledgeButton, saved).callbackData, `${callBacks.discussionJoinErrorAck}saved:u_A1`);
+  assert.equal(resolveReplyKeyboardAction("فهمیدم", active), null);
+  assert.equal(resolveReplyKeyboardAction("Got it", saved), null);
+});
+
+test("acknowledgement copy is friendly and consistent in both languages", () => {
+  assert.equal(messages.fa.acknowledgeButton, "👍 متوجه شدم");
+  assert.equal(messages.en.acknowledgeButton, "👍 Got it");
+  assert.equal(messages.fa.profileActiveDiscussionHelpDone, messages.fa.acknowledgeButton);
+  assert.equal(messages.en.profileActiveDiscussionHelpDone, messages.en.acknowledgeButton);
+  assert.match(messages.fa.aiSuggestionRejected, /👍 متوجه شدم/);
+  assert.match(messages.en.aiSuggestionRejected, /👍 Got it/);
+});
+
+test("in-room invitation launcher stays inline with its actions and explicit Close", () => {
+  const { discussionInviteModeKeyboard } = require("../src/keyboards");
+  const rows = discussionInviteModeKeyboard("en").reply_markup.inline_keyboard;
+  assert.deepEqual(rows.flat().map((button) => button.callback_data), [callBacks.discussionInviteModeSaved, callBacks.discussionInviteModeShare, callBacks.discussionInvitePickerClose]);
+});
+
+test("saved-profile invitation picker contains profile targets and explicit Close", () => {
+  const { discussionInviteSavedProfilesKeyboard } = require("../src/keyboards");
+  const rows = discussionInviteSavedProfilesKeyboard("fa", [
+    { name: "Arman", code: "u_SEED001" },
+    { name: "Nika", code: "u_SEED002" },
+  ]).reply_markup.inline_keyboard;
+  assert.deepEqual(rows.flat().map((button) => button.text), ["Arman", "Nika", messages.fa.discussionShareClose]);
+  assert.equal(rows.at(-1)[0].callback_data, callBacks.discussionInvitePickerClose);
+  assert.match(messages.fa.discussionInviteModeText, /^👩‍🦳/);
+  assert.match(messages.fa.discussionInviteChooseSavedProfile, /^👩‍🦳/);
+});
+
+test("discussion-member profiles use Save/Saved status and a source-specific Close", () => {
+  const { profilePublicActionsKeyboard } = require("../src/keyboards");
+  const unsaved = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: false }).reply_markup.inline_keyboard.flat();
+  assert.ok(unsaved.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1:members`));
+  assert.ok(unsaved.some((button) => button.callback_data === callBacks.profileCloseDiscussionMember));
+  const saved = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: true }).reply_markup.inline_keyboard.flat();
+  assert.deepEqual(saved.map((button) => button.callback_data), [callBacks.profileCloseDiscussionMember]);
+  assert.ok(!saved.some((button) => button.callback_data.startsWith(callBacks.profileUnsaveByCode)));
+  const savedWithDiscussion = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: true, hasDiscussions: true }).reply_markup.inline_keyboard.flat();
+  assert.ok(!savedWithDiscussion.some((button) => button.callback_data.startsWith(callBacks.savedProfilesDiscussions)));
+});
+
+test("People and Saved profile previews use source-aware bottom actions", () => {
+  const { profilePublicActionsKeyboard } = require("../src/keyboards");
+  const peopleKeyboard = profilePublicActionsKeyboard("en", "u_A1", { source: "people", isSaved: false }).reply_markup;
+  assert.ok(peopleKeyboard.keyboard);
+  assert.equal(peopleKeyboard.inline_keyboard, undefined);
+  assert.deepEqual(peopleKeyboard.keyboard.flat().map((button) => button.text), [messages.en.profileSaveButton, messages.en.aiBack]);
+
+  const savedKeyboard = profilePublicActionsKeyboard("fa", "u_A1", { source: "saved", isSaved: true, hasDiscussions: true }).reply_markup;
+  assert.ok(savedKeyboard.keyboard);
+  assert.deepEqual(savedKeyboard.keyboard.flat().map((button) => button.text), [messages.fa.savedProfileDiscussions, messages.fa.savedProfileRemove, messages.fa.profileBackToSaved]);
+
+  const peopleMode = { mode: "public_profile:people:u_A1:2:unsaved:0", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, peopleMode).callbackData, `${callBacks.profileSaveByCode}u_A1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, peopleMode).callbackData, `${callBacks.peopleDiscoverPage}2`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemove, peopleMode), null);
+
+  const savedMode = { mode: "public_profile:saved:u_A1:1:saved:1", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileDiscussions, savedMode).callbackData, `${callBacks.savedProfilesDiscussions}saved:u_A1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemove, savedMode).callbackData, `${callBacks.profileUnsaveByCode}u_A1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileBackToSaved, savedMode).callbackData, `${callBacks.savedProfilesPage}1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, savedMode), null);
+});
+
+test("profile discussion view uses a profile-bound bottom Back action", () => {
+  const { profileDiscussionBackKeyboard } = require("../src/flows/saved-profiles");
+  const keyboard = profileDiscussionBackKeyboard("fa", "u_A1").reply_markup;
+  assert.deepEqual(keyboard.keyboard.flat().map((button) => button.text), [messages.fa.aiBack]);
+  assert.equal(keyboard.inline_keyboard, undefined);
+
+  const mode = { mode: "profile_discussions:saved:u_A1:2", state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, mode).callbackData, `${callBacks.profileViewByCode}u_A1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, mode), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...mode, mode: "saved_profiles:2:3" }).callbackData, callBacks.people);
+});
+
+test("saved-profile removal confirmation is exact-profile and source scoped", () => {
+  const { savedProfileRemoveConfirmKeyboard, parseProfileUnsaveConfirmMode, parsePublicProfileNavigationMode } = require("../src/flows/saved-profiles");
+  const keyboard = savedProfileRemoveConfirmKeyboard("fa").reply_markup;
+  assert.deepEqual(keyboard.keyboard.flat().map((button) => button.text), [
+    messages.fa.savedProfileRemoveConfirmButton,
+    messages.fa.savedProfileRemoveCancelButton,
+  ]);
+  assert.equal(keyboard.inline_keyboard, undefined);
+  assert.deepEqual(parseProfileUnsaveConfirmMode("profile_unsave_confirm:people:u_A1:2"), {
+    origin: "people",
+    code: "u_A1",
+    page: 2,
+  });
+  assert.deepEqual(parsePublicProfileNavigationMode("public_profile:people:u_A1:2:saved:1"), {
+    source: "people",
+    code: "u_A1",
+    page: 2,
+    isSaved: true,
+    hasDiscussions: true,
+  });
+
+  const confirmation = { mode: "profile_unsave_confirm:saved:u_A1:1", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemoveConfirmButton, confirmation).callbackData, callBacks.profileUnsaveConfirm);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemoveCancelButton, confirmation).callbackData, callBacks.profileUnsaveCancel);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.savedProfileRemoveConfirmButton, confirmation), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemoveConfirmButton, { ...confirmation, mode: "public_profile:saved:u_A1:1:saved:0" }), null);
+});
+
+test("discussion create and paid-capacity buttons are bound to their exact server modes", () => {
+  const { discussionPaidCapacityConfirmKeyboard, discussionPaidCapacityAckKeyboard } = require("../src/keyboards");
+  const preview = { mode: "discussion_create", state: "discussion_create_preview", user: { lang: "en", discussionDraftLanguage: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionEditTitle, preview).callbackData, callBacks.discussionCreateEditTitle);
+  assert.equal(resolveReplyKeyboardAction("🌐 Change language (Persian)", preview).callbackData, callBacks.discussionCreateToggleLanguage);
+  assert.equal(resolveReplyKeyboardAction("🌐 Change language (English)", preview), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionJoinRuleOpen, preview), null);
+  const rule = { mode: "discussion_create", state: "discussion_create_join_rule", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionJoinRuleOpen, rule).callbackData, callBacks.discussionCreateRuleOpen);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateCancel, rule).callbackData, callBacks.discussionCreateCancel);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCancelEdit, rule), null);
+  const ruleEdit = { mode: "discussion_create", state: "discussion_create_join_rule_edit", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCancelEdit, ruleEdit).callbackData, callBacks.discussionCreateCancelEdit);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateCancel, ruleEdit), null);
+  const capacityEdit = { mode: "discussion_create_capacity", state: "discussion_create_preview", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCancelEdit, capacityEdit).callbackData, callBacks.discussionCreateCancelEdit);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateCancel, capacityEdit), null);
+  const paidQuote = { mode: "discussion_create_paid_capacity:2:3", state: "discussion_create_preview", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction("Confirm creation — 3 Stars", paidQuote).callbackData, `${callBacks.discussionCreatePaidCapacityConfirm}2:3`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionPaidCapacityCancelButton, paidQuote).callbackData, callBacks.discussionCreatePaidCapacityCancel);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateConfirm, paidQuote), null);
+  assert.equal(resolveReplyKeyboardAction("Confirm creation — 2 Stars", paidQuote), null);
+  const paidError = { mode: "discussion_create_paid_capacity_error", state: "discussion_create_preview", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionEditCapacity, paidError).callbackData, callBacks.discussionCreateEditCapacity);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionBack, paidError).callbackData, callBacks.discussionCreatePaidCapacityAck);
+  assert.equal(resolveReplyKeyboardAction("Confirm creation — 3 Stars", paidError), null);
+  assert.ok(discussionPaidCapacityConfirmKeyboard("en", 2, 3).reply_markup.keyboard);
+  assert.equal(discussionPaidCapacityConfirmKeyboard("en", 2, 3).reply_markup.inline_keyboard, undefined);
+  const recoveryLabels = discussionPaidCapacityAckKeyboard("en").reply_markup.keyboard.flat().map((button) => button.text);
+  assert.deepEqual(recoveryLabels, [messages.en.discussionEditCapacity, messages.en.discussionBack]);
+  assert.match(messages.en.discussionPaidCapacityInsufficient, /Edit the capacity or return to the preview/);
+});
+
+test("discussion preview language button names the current draft language", () => {
+  const { discussionCreateConfirmKeyboard } = require("../src/keyboards");
+  const enButtons = discussionCreateConfirmKeyboard("en", "fa").reply_markup.keyboard.flat().map((button) => button.text);
+  const faButtons = discussionCreateConfirmKeyboard("fa", "en").reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(enButtons.includes("🌐 Change language (Persian)"));
+  assert.ok(faButtons.includes("🌐 تغییر زبان (انگلیسی)"));
+});

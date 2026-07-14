@@ -7,6 +7,7 @@ const {
   formatDiscussionRoomFollowup,
   formatRecentDiscussionMessages,
   formatDiscussionMemberLines,
+  buildDiscussionMembersText,
 } = require("../src/services/discussion-room-ui");
 
 test("formatDiscussionRoom renders title, description, and counts", () => {
@@ -134,4 +135,9 @@ test("formatDiscussionMemberLines uses Persian digits in fa", () => {
 
   assert.match(lines[0], /۱\./);
   assert.match(lines[1], /۲\./);
+});
+
+test("discussion member lists are visibly bot-authored", () => {
+  assert.equal(buildDiscussionMembersText(messages, "en", ["1. Member"]), `👩‍🦳 ${messages.en.discussionMembersTitle}\n\n1. Member`);
+  assert.match(buildDiscussionMembersText(messages, "fa", []), /^👩‍🦳/);
 });

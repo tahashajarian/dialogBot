@@ -8,6 +8,7 @@ const {
   discussionRoomKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
 const User = require("../models/user");
 const {
@@ -44,6 +45,7 @@ const {
 const {
   formatDiscussionRoomFollowup,
   formatDiscussionMemberLines,
+  buildDiscussionMembersText,
   formatDiscussionRoom,
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
@@ -175,6 +177,8 @@ function formatDiscussionClosedMessage(lang, discussion = {}) {
 
 async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false } = {}) {
   await ctx.reply(text, removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined);
+  await updateProfileField(ctx.userId, "navigationMode", "discussions");
+  if (ctx.user) ctx.user.navigationMode = "discussions";
   return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
 }
 
@@ -189,6 +193,8 @@ async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
     destination: "discussions",
     removeKeyboard: true,
   });
+  await updateProfileField(ctx.userId, "navigationMode", "discussions");
+  if (ctx.user) ctx.user.navigationMode = "discussions";
   return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
 }
 
@@ -205,21 +211,6 @@ async function rememberDiscussionListMessage(ctx, listType, message) {
 }
 
 async function clearRememberedDiscussionListMessage(ctx) {
-  let messageId = Number(ctx.user?.discussionLastListMessageId);
-  if ((!Number.isInteger(messageId) || messageId <= 0) && ctx.userId) {
-    const freshUser = await User.findOne({ userId: ctx.userId })
-      .select("discussionLastListMessageId discussionLastListType")
-      .lean();
-    messageId = Number(freshUser?.discussionLastListMessageId);
-    if (ctx.user && freshUser?.discussionLastListType) {
-      ctx.user.discussionLastListType = freshUser.discussionLastListType;
-    }
-  }
-  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
-    return false;
-  }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted === false) return false;
   if (ctx.user) {
     ctx.user.discussionLastListMessageId = null;
     ctx.user.discussionLastListType = "";
@@ -227,6 +218,11 @@ async function clearRememberedDiscussionListMessage(ctx) {
   await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
   await updateProfileField(ctx.userId, "discussionLastListType", "");
   return true;
+}
+
+async function forgetRememberedDiscussionListMessage(ctx) {
+  await updateProfileField(ctx.userId, "discussionLastListMessageId", null);
+  if (ctx.user) ctx.user.discussionLastListMessageId = null;
 }
 
 async function rememberDiscussionMenuNotice(ctx, message) {
@@ -237,14 +233,14 @@ async function rememberDiscussionMenuNotice(ctx, message) {
 
 async function clearDiscussionMenuNotice(ctx) {
   const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.deleteMessage) {
+  if (!Number.isInteger(messageId) || messageId <= 0) {
     return false;
   }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
-  }
-  return deleted;
+  // Creation uses mode-scoped reply keyboards. Once the server mode advances,
+  // an old prompt is harmless history and does not need a Telegram delete.
+  if (ctx.user) ctx.user.discussionMenuNoticeMessageId = null;
+  await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+  return true;
 }
 
 async function sendDiscussionCreatePrompt(ctx, text, keyboard) {
@@ -363,10 +359,14 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
 
 async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason, discussion = null) {
   const listType = ctx.user?.discussionLastListType || "active";
-  await clearRememberedDiscussionListMessage(ctx);
+  const destination = normalizeDiscussionJoinErrorDestination(listType);
+  const navigationMode = `discussion_join_error:${destination}`;
+  await updateProfileField(ctx.userId, "navigationMode", navigationMode);
+  if (ctx.user) ctx.user.navigationMode = navigationMode;
+  await forgetRememberedDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(
     buildDiscussionJoinLockedText(messages, lang, reason, discussion),
-    discussionJoinErrorAckKeyboard(lang, listType)
+    discussionJoinErrorAckKeyboard(lang, destination)
   );
   await rememberDiscussionMenuNotice(ctx, errorNotice);
 }
@@ -376,7 +376,6 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
 
   if (isDiscussionMembersText(text)) {
     if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-    await clearDiscussionMembersMessage(ctx);
 
     const opened = await joinOrOpenDiscussion(ctx.userId, activeDiscussionId);
     if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
@@ -385,7 +384,8 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
       .lean();
     const preparedMembers = await ensurePublicProfileCodes(memberUsers);
     const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
-    const sent = await ctx.reply(`${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`);
+    const memberText = buildDiscussionMembersText(messages, lang, rows);
+    const sent = await ctx.reply(memberText);
     await rememberDiscussionMembersMessage(ctx, sent);
     return sent;
   }
@@ -443,6 +443,8 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
         reply_markup: { remove_keyboard: true, selective: false },
       });
       await rememberDiscussionMenuNotice(ctx, notice);
+      await updateProfileField(ctx.userId, "navigationMode", "discussions");
+      if (ctx.user) ctx.user.navigationMode = "discussions";
       return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
 
@@ -489,7 +491,7 @@ async function openDiscussionCommand(ctx, lang, code) {
   if (!await requireDiscussionProfileName(ctx, lang, {
     source: nameGate.source,
     token: nameGate.token,
-    beforePrompt: () => clearRememberedDiscussionListMessage(ctx),
+    beforePrompt: () => forgetRememberedDiscussionListMessage(ctx),
   })) {
     return { ok: false, reason: "requires_profile_name" };
   }
@@ -497,7 +499,7 @@ async function openDiscussionCommand(ctx, lang, code) {
   const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: discussion._id });
   if (!joined.ok) return refreshDiscussionListAfterFailedJoin(ctx, lang, joined.reason, discussion);
 
-  await clearRememberedDiscussionListMessage(ctx);
+  await forgetRememberedDiscussionListMessage(ctx);
   await clearDiscussionMenuNotice(ctx);
   applyStarRewardsToContext(ctx, joined.starRewards);
   const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
@@ -517,6 +519,8 @@ async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
   if (!preview.ok) {
     const unavailableText = messages[lang].discussionInviteUnavailable;
     await ctx.reply(unavailableText, { reply_markup: { remove_keyboard: true } });
+    await updateProfileField(ctx.userId, "navigationMode", "global");
+    if (ctx.user) ctx.user.navigationMode = "global";
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 
@@ -576,6 +580,8 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion || discussion.status !== "open") {
     const text = messages[lang].discussionInviteUnavailable;
+    await updateProfileField(ctx.userId, "navigationMode", "global");
+    if (ctx.user) ctx.user.navigationMode = "global";
     if (editMessage) {
       await editMessage(text, mainMenuKeyboard(lang));
     } else {
@@ -622,6 +628,8 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     }
 
     if (editMessage) {
+      await updateProfileField(ctx.userId, "navigationMode", returnToMainMenu ? "global" : "discussions");
+      if (ctx.user) ctx.user.navigationMode = returnToMainMenu ? "global" : "discussions";
       await editMessage(text, keyboardToShow);
     } else {
       const destination = returnToMainMenu ? "main" : "discussions";

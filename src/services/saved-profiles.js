@@ -5,6 +5,10 @@ const { operationalLimits } = require("./operational-limits");
 
 const SAVED_PROFILE_CAP = 50;
 
+function getSavedProfileCap() {
+  return Math.min(SAVED_PROFILE_CAP, operationalLimits.savedProfiles);
+}
+
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -12,6 +16,7 @@ function escapeRegExp(value) {
 async function addSavedProfileCode(userId, profileCode) {
   const cleanCode = normalizePublicProfileCode(profileCode);
   if (!cleanCode) return { ok: false, reason: "empty_code" };
+  const cap = getSavedProfileCap();
 
   const codePattern = new RegExp(`^${escapeRegExp(cleanCode)}$`, "i");
   const updated = await User.findOneAndUpdate(
@@ -21,7 +26,7 @@ async function addSavedProfileCode(userId, profileCode) {
       $expr: {
         $lt: [
           { $size: { $ifNull: ["$savedProfileCodes", []] } },
-          operationalLimits.savedProfiles,
+          cap,
         ],
       },
     },
@@ -46,7 +51,7 @@ async function addSavedProfileCode(userId, profileCode) {
   if (current.some((entry) => codePattern.test(String(entry)))) {
     return { ok: false, reason: "exists", items: current };
   }
-  return { ok: false, reason: "saved_profiles_limit", cap: operationalLimits.savedProfiles };
+  return { ok: false, reason: "saved_profiles_limit", cap };
 }
 
 async function removeSavedProfileCode(userId, profileCode) {
@@ -70,6 +75,7 @@ async function removeSavedProfileCode(userId, profileCode) {
 
 module.exports = {
   SAVED_PROFILE_CAP,
+  getSavedProfileCap,
   addSavedProfileCode,
   removeSavedProfileCode,
 };

@@ -2,7 +2,7 @@ const messages = require("../messages");
 const { cancelEditKeyboard, discussionsMenuKeyboard } = require("../keyboards");
 const { clearProfileEditPrompt, sendProfileEditPrompt } = require("./profile-edit");
 const { validateProfileName } = require("../services/profile");
-const { updateUserState } = require("../services/users");
+const { updateProfileField, updateUserState } = require("../services/users");
 
 const DISCUSSION_NAME_STATE_PREFIX = "discussion_name_required:";
 const DISCUSSION_PROFILE_NAME_MAX_LENGTH = 30;
@@ -109,6 +109,8 @@ async function handleDiscussionNameCancel(ctx, lang, {
     return showDiscussionInvitePreviewCommand(ctx, lang, pendingEntry.token);
   }
   if (pendingEntry?.source === "create") {
+    await updateProfileField(ctx.userId, "navigationMode", "discussions");
+    if (ctx.user) ctx.user.navigationMode = "discussions";
     return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 

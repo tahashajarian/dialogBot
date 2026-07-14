@@ -102,7 +102,9 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
     const itemLine = `${index + 1}. ${watchedBadge}${entry.title}${topTenBadge}${commentPart}`;
     if (!includeActions || !section) return itemLine;
 
-    const number = index + 1;
+    const number = Number.isInteger(entry?.commandIndex) && entry.commandIndex > 0
+      ? entry.commandIndex
+      : index + 1;
     const actions = [];
     if (listType === "list") {
       actions.push(entry?.watched

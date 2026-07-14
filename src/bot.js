@@ -1,9 +1,9 @@
 const messages = require("./messages");
+const { callBacks } = require("./constants");
 const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
-  onboardingLanguageKeyboard,
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
   helpKeyboard,
@@ -130,7 +130,9 @@ const {
 } = require("./flows/profile-text");
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 const { claimReferral } = require("./services/star-referrals");
-const { rememberNavigationCard, sendNavigationFootprint } = require("./services/navigation-footprints");
+const { sendNavigationFootprint } = require("./services/navigation-footprints");
+const { MODES, resolveReplyKeyboardAction, setNavigationMode } = require("./services/reply-keyboard-navigation");
+const { starEconomy } = require("./services/star-settings");
 
 const START_INVITE_HISTORY_LIMIT = 20;
 function normalizeKeyboardText(value) {
@@ -322,31 +324,30 @@ async function handleUpdate(ctx) {
       destination: navigationCommand === "lang" ? "language" : navigationCommand,
       removeKeyboard: shouldClearKeyboard,
     });
-    const replyWithNavigationKeyboard = async (messageText, keyboard) => (
-      rememberNavigationCard(ctx, await ctx.reply(messageText, keyboard))
-    );
-
     if (navigationCommand === "menu") {
-      return replyWithNavigationKeyboard(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
+      await setNavigationMode(ctx, MODES.GLOBAL);
+      return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
     }
     if (navigationCommand === "profile") {
       return sendProfile(ctx, toPlainUser(ctx.user), lang, keyboardLang, { loading: true });
     }
     if (navigationCommand === "lang") {
-      return replyWithNavigationKeyboard(messages[keyboardLang].chooseLanguage, languageKeyboard());
+      await setNavigationMode(ctx, MODES.LANGUAGE);
+      return ctx.reply(messages[keyboardLang].chooseLanguage, languageKeyboard(keyboardLang));
     }
     if (navigationCommand === "taste") {
-      const hubCard = await replyWithNavigationKeyboard(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
-      await rememberAiSectionEntryMessage(ctx, hubCard);
-      return hubCard;
+      await setNavigationMode(ctx, MODES.FAVORITES);
+      return ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
     }
     if (navigationCommand === "discussions") {
-      return replyWithNavigationKeyboard(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+      await setNavigationMode(ctx, MODES.DISCUSSIONS);
+      return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (navigationCommand === "people") {
       return sendPeopleHub(ctx, lang);
     }
-    return replyWithNavigationKeyboard(messages[lang].helpText, helpKeyboard(lang));
+    await setNavigationMode(ctx, MODES.HELP);
+    return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
   }
 
   if (shouldRejectDiscussionSlashCommand(ctx, state, text)) {
@@ -402,9 +403,7 @@ async function handleUpdate(ctx) {
 
   if (/^\/(?:invite|iv)_[a-z0-9]+$/i.test(text)) {
     await clearSavedProfileSurfaceMessages(ctx);
-    await ctx.reply(messages[lang].navigationFootprintSavedProfiles, {
-      reply_markup: { remove_keyboard: true },
-    });
+    await removeBottomKeyboard(ctx);
     await updateUserState(ctx.userId, "idle");
     return showDiscussionPickerForSavedProfile(ctx, lang, normalizeProfileCodeFromInviteCommand(text));
   }
@@ -457,19 +456,39 @@ async function handleUpdate(ctx) {
   }
 
   if (state.startsWith("onboarding_")) {
-    if (
-      state === "onboarding_language"
-      || state.startsWith("onboarding_invite_language:")
-    ) {
-      return ctx.reply(
-        messages[keyboardLang].chooseLanguage,
-        onboardingLanguageKeyboard(),
-      );
+    const onboardingAction = resolveReplyKeyboardAction(text, {
+      mode: ctx.user?.navigationMode,
+      state,
+      user: ctx.user,
+    });
+    if (onboardingAction) {
+      ctx.isReplyKeyboardAction = true;
+      ctx.callbackData = onboardingAction.callbackData;
+      return handleCallback(ctx);
     }
-    return handleOnboardingText(ctx, userLang || lang);
+    if (state.startsWith("onboarding_custom_interest:") || state.startsWith("onboarding_taste_setup_custom_interest:")) {
+      return handleOnboardingText(ctx, userLang || lang);
+    }
+    return undefined;
   }
 
-  if (!(state && state.startsWith("discussion_close_confirm")) && text && isDiscussionBottomControlText(text)) {
+  if (state === "editing_interests" && matchesMessageText(text, ["profileInterestsDone"])) {
+    ctx.isReplyKeyboardAction = true;
+    ctx.callbackData = callBacks.profileInterestsDone;
+    return handleCallback(ctx);
+  }
+
+  if (matchesMessageText(text, ["cancelEdit"])) {
+    const canceledProfileInput = await handleProfileCancelText(ctx, lang, state, { sendProfile, keyboardLang });
+    if (canceledProfileInput) return canceledProfileInput;
+  }
+
+  if (
+    !(state && state.startsWith("discussion_close_confirm"))
+    && ctx.user?.activeDiscussionId
+    && text
+    && isDiscussionBottomControlText(text)
+  ) {
     return handleDiscussionBottomButton(ctx, lang, text);
   }
 
@@ -482,6 +501,20 @@ async function handleUpdate(ctx) {
 
   if (isUnsupportedDiscussionMessage(ctx, state, text)) {
     return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageOnlyTextOrVoice);
+  }
+
+  // A user can browse discussion lists while still belonging to an active room.
+  // Resolve only the server-authorized browsing keyboard before treating text as a room message.
+  if (/^discussions$|^discussion_(?:list|invitations|language|join_error):/.test(String(ctx.user?.navigationMode || ""))) {
+    const discussionNavigationAction = resolveReplyKeyboardAction(text, {
+      mode: ctx.user.navigationMode, state, activeDiscussionId: ctx.user.activeDiscussionId,
+      advancedSearchEnabled: starEconomy.advancedSearchPreviewEnabled, user: ctx.user,
+    });
+    if (discussionNavigationAction) {
+      ctx.isReplyKeyboardAction = true;
+      ctx.callbackData = discussionNavigationAction.callbackData;
+      return handleCallback(ctx);
+    }
   }
 
   // Handle voice messages in discussions
@@ -498,6 +531,16 @@ async function handleUpdate(ctx) {
     return handleDiscussionMessage(ctx, lang, "text", {
       text,
     });
+  }
+
+  const replyAction = resolveReplyKeyboardAction(text, {
+    mode: ctx.user?.navigationMode, state, activeDiscussionId: ctx.user?.activeDiscussionId,
+    advancedSearchEnabled: starEconomy.advancedSearchPreviewEnabled, user: ctx.user,
+  });
+  if (replyAction) {
+    ctx.isReplyKeyboardAction = true;
+    ctx.callbackData = replyAction.callbackData;
+    return handleCallback(ctx);
   }
 
   if (isDiscussionNameState(state) && text) {
@@ -642,7 +685,8 @@ async function handleUpdate(ctx) {
   }
 
   if (/^\/d_[a-z0-9]+$/i.test(text)) {
-    await clearViewedPublicProfileMessage(ctx);
+    await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
+    if (ctx.user) ctx.user.publicProfileLastMessageId = null;
     return openDiscussionCommand(ctx, lang, text);
   }
 
@@ -692,17 +736,21 @@ async function handleUpdate(ctx) {
       ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
     const fromSavedList = hasSavedProfilesListContext;
     const fromPeopleList = !fromSavedList && hasPeopleListContext;
-    const fromInvitationList = !fromSavedList && !fromPeopleList && ctx.user?.discussionLastListType === "invitations";
+    const fromDiscussionMembers = !fromSavedList && !fromPeopleList && Number(ctx.user?.discussionLastMembersMessageId) > 0;
+    const fromInvitationList = !fromSavedList && !fromPeopleList && !fromDiscussionMembers && ctx.user?.discussionLastListType === "invitations";
     if (fromInvitationList) {
       await clearDiscussionListMessage(ctx);
     }
-    if (!fromSavedList && !fromPeopleList && !fromInvitationList) {
+    if (!fromSavedList && !fromPeopleList && !fromInvitationList && !fromDiscussionMembers) {
       await clearDiscussionMembersMessage(ctx);
     }
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList });
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList, fromDiscussionMembers });
   }
 
-  return ctx.reply(messages[lang].maintenance, mainMenuKeyboard(lang));
+  // A delayed duplicate reply-keyboard tap can arrive after the first tap has
+  // already changed the server-side mode. Otherwise-unrecognized idle text is
+  // a quiet no-op so stale client keyboards cannot reset the user's context.
+  return null;
 }
 
 function getSentMessageId(message) {
@@ -743,7 +791,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
-  await rememberOwnProfileMessage(ctx, sentProfile);
+  await setNavigationMode(ctx, MODES.PROFILE);
   return sentProfile;
 }
 

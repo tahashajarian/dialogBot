@@ -41,6 +41,7 @@ const {
   getAiTasteFromUser,
 } = require("../services/users");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
+const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("../services/ai-placeholder");
 const {
@@ -88,6 +89,7 @@ const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   deleteRememberedAiListMessage,
+  forgetRememberedAiListMessage,
   rememberAiActionMessage,
   rememberAiSectionEntryMessage,
   replaceRememberedAiListMessage,
@@ -108,8 +110,6 @@ const {
   completePaidSuggestion,
   refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
-const { buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
-const { buildBotBaseLink } = require("../services/invite-links");
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -122,27 +122,15 @@ function toAiManageStateListType(value) {
 }
 
 function aiListShareReturnKeyboard(lang, section, listType) {
-  const listTypeToken = listType === "topTen" ? "top_ten" : "watchlist";
-  return inlineKeyboard([
-    [{
-      text: messages[lang].aiListShareBackToList,
-      callback_data: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
-    }],
-  ]);
+  return { reply_markup: { keyboard: [[{ text: messages[lang].aiListShareBackToList }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function aiListShareActionsKeyboard(lang, section, listType, nativeText) {
-  const listTypeToken = listType === "topTen" ? "top_ten" : "watchlist";
-  return buildShareActionsKeyboard({
-    shareLabel: messages[lang].aiListShareAction,
-    shareUrl: buildNativeShareUrl({ url: buildBotBaseLink(), text: nativeText }),
-    backLabel: messages[lang].aiListShareBackToList,
-    backCallback: `${callBacks.aiListShareBack}${section}:${listTypeToken}`,
-  });
+function aiListShareActionsKeyboard(lang, section, listType) {
+  return aiListShareReturnKeyboard(lang, section, listType);
 }
 
 async function retireShareGuidanceMessage(ctx, helpers) {
-  if (ctx.callbackMessageId && ctx.deleteMessage) {
+  if (!ctx.isReplyKeyboardAction && ctx.callbackMessageId && ctx.deleteMessage) {
     try {
       const deleted = await ctx.deleteMessage(ctx.callbackMessageId);
       if (deleted !== false) return true;
@@ -201,23 +189,15 @@ function isAiCallback(data = "") {
 }
 
 async function promptSuggestionMode(ctx, lang, section) {
-  const previousPromptMessageId = Number(ctx.user?.aiPendingInputMessageId);
   await updateUserState(ctx.userId, `ai_chat_${section}`);
   await clearAiActionMessage(ctx);
+  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
   );
   await rememberAiPendingInputPrompt(ctx, prompt);
-  await rememberAiActionMessage(ctx, `suggest_mode:${section}`, prompt);
-  const promptMessageId = Number(prompt?.message_id || prompt?.messageId);
-  if (
-    previousPromptMessageId
-    && previousPromptMessageId !== promptMessageId
-    && ctx.deleteMessage
-  ) {
-    await ctx.deleteMessage(previousPromptMessageId);
-  }
   return prompt;
 }
 
@@ -373,11 +353,12 @@ async function sendFollowupSuggestion({
   }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
+  await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
     formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
     aiSuggestionAddKeyboard(lang, section),
   );
-  await rememberAiActionMessage(ctx, `suggest_result:${section}`, resultMessage);
   return resultMessage;
 }
 
@@ -458,8 +439,12 @@ async function handleAiCallback(ctx, lang, helpers) {
     const emptyText = (listType === "watchlist" ? messages[lang].aiWatchlistEmpty : messages[lang].aiTopTenEmpty)
       .replace("{section}", sectionLabel)
       .replace("{listName}", listLabel);
+    const allWatchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
     const items = listType === "watchlist"
-      ? getWatchlistItemsByStatusFromUser(ctx.user, section, filter)
+      ? getWatchlistItemsByStatusFromUser(ctx.user, section, filter).map((entry) => ({
+        ...entry,
+        commandIndex: allWatchlistItems.findIndex((candidate) => candidate.title === entry.title) + 1,
+      }))
       : getAiListItemsFromUser(ctx.user, section, listType);
     const itemCount = getAiListItemsFromUser(ctx.user, section, listType).length;
     const hasItems = itemCount > 0;
@@ -467,7 +452,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       ? formatAiItemsList(title, items, filter === "all" ? emptyText : messages[lang].aiWatchlistFilterEmpty, {
         includeWatched: true,
         topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
-        includeActions: filter === "all",
+        includeActions: true,
         canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < operationalLimits.aiTopTenItems,
         lang,
         section,
@@ -483,9 +468,13 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     const listMessage = await ctx.reply(
       titledListText,
-      aiListManageMenuKeyboard(lang, section, listType, { hasItems, itemCount }),
+      aiListManageMenuKeyboard(lang, section, listType, { hasItems, itemCount, filter }),
     );
     await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
+    if (listType === "watchlist" && filter !== "all") {
+      await setNavigationMode(ctx, `ai_list_filter:${section}:${filter}`);
+      if (ctx.user) ctx.user.navigationMode = `ai_list_filter:${section}:${filter}`;
+    }
     return listMessage;
   }
 
@@ -516,13 +505,16 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const shareText = buildShareListMessage({ ctx, lang, section, listType });
-    const nativeText = `${buildShareListMessage({ ctx, lang, section, listType, botLink: "" })}\n\n${messages[lang].aiListShareMadeWithMuze}`;
     await ctx.reply(shareText);
+    await setNavigationMode(ctx, `ai_share:${section}:${listType}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_share:${section}:${listType}`;
+    const shareIntroKey = section === "movies" ? "aiListShareIntroMovies"
+      : section === "music" ? "aiListShareIntroMusic"
+        : section === "books" ? "aiListShareIntroBooks" : "aiListShareIntro";
     const guidanceMessage = await ctx.reply(
-      messages[lang].aiListShareIntro,
-      aiListShareActionsKeyboard(lang, section, listType, nativeText),
+      messages[lang][shareIntroKey],
+      aiListShareActionsKeyboard(lang, section, listType),
     );
-    await rememberAiActionMessage(ctx, `share:${section}:${listType}`, guidanceMessage);
     return guidanceMessage;
   }
 
@@ -976,9 +968,9 @@ async function handleAiCallback(ctx, lang, helpers) {
       await helpers.deleteCallbackMessageIfPossible?.(ctx);
     }
     await sendNavigationFootprint(ctx, { lang, destination: "taste", removeKeyboard: shouldClearKeyboard });
-    const hubCard = await ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
-    await rememberAiSectionEntryMessage(ctx, hubCard);
-    return hubCard;
+    await setNavigationMode(ctx, MODES.FAVORITES);
+    if (ctx.user) ctx.user.navigationMode = MODES.FAVORITES;
+    return ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {
@@ -1055,8 +1047,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
     if (topTenItems.length < 3) {
-      const deletedTracked = await deleteRememberedAiListMessage(ctx, section, "topTen");
-      if (!deletedTracked) await helpers.deleteCallbackMessageIfPossible(ctx);
+      await forgetRememberedAiListMessage(ctx);
       const warning = await ctx.reply(getNeedTopTenMessage(lang, section), aiSuggestionNeedTopTenKeyboard(lang, section));
       await rememberAiActionMessage(ctx, `suggest_need_top_ten:${section}`, warning);
       return warning;
@@ -1089,6 +1080,8 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+    await setNavigationMode(ctx, `ai_suggestion_context:${section}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_context:${section}`;
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const prompt = await ctx.reply(
       messages[lang].aiSuggestionContextPrompt,
@@ -1136,8 +1129,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     clearPendingSuggestion(ctx.userId, section);
     await updateUserState(ctx.userId, `ai_chat_${section}`);
     await helpers.deleteCallbackMessageIfPossible(ctx);
+    await setNavigationMode(ctx, `ai_suggestion_next:${section}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_next:${section}`;
     const actionMessage = await ctx.reply(messages[lang].aiSuggestionRejected, aiSuggestionNextKeyboard(lang, section));
-    await rememberAiActionMessage(ctx, `suggest_rejected:${section}`, actionMessage);
     return actionMessage;
   }
 
@@ -1167,6 +1161,8 @@ async function handleAiCallback(ctx, lang, helpers) {
     await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
     const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
     await updateUserState(ctx.userId, `ai_chat_${section}`);
+    await setNavigationMode(ctx, `ai_suggestion_added:${section}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_added:${section}`;
     return ctx.reply(
       [formatSuggestionAddedMessage(lang, section, markDone), starNotice].filter(Boolean).join("\n\n"),
       aiSuggestionAddedOptionsKeyboard(lang, section),
@@ -1197,6 +1193,8 @@ async function handleAiCallback(ctx, lang, helpers) {
     await clearAiPendingInputPrompt(ctx);
     await helpers.deleteCallbackMessageIfPossible?.(ctx);
     await sendNavigationFootprint(ctx, { lang, destination: "menu", removeKeyboard: shouldClearKeyboard });
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    if (ctx.user) ctx.user.navigationMode = MODES.GLOBAL;
     return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
   }
 

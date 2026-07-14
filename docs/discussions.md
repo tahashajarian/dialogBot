@@ -1,5 +1,9 @@
 # Discussions
 
+Discussion hub navigation, received-invitation pagination, Active/My list pagination and filters, and the ordinary create-discussion wizard use persistent bottom reply keyboards. Button text is resolved only against the user's server-side mode, exact page/filter, and durable wizard state; copied stale labels are ignored. A user may browse these lists while remaining in an active room without navigation labels being delivered as room messages.
+
+Identity-bound invitation/join actions, member selection, destructive confirmations, and acknowledgement cards remain inline when their payload or context is safety-sensitive. Paid-capacity confirmation uses a dedicated bottom-keyboard mode whose capacity and quoted cost are stored and revalidated server-side; copied or stale confirmation labels are rejected.
+
 > Implemented discussion-language filtering and migration behavior is specified in [Discussion Language](discussion-language.md). Starter rooms have separate Persian and English instances.
 
 ## Implementation Status
@@ -53,7 +57,7 @@ Discussions are live rooms with short memory.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
-- When a user tries to enter a locked room from a discussion list, delete the previous list card before showing the `Got it`/`فهمیدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
+- When a user tries to enter a locked room from a discussion list, show the `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
 ## Non-Goals For MVP
 
@@ -140,6 +144,10 @@ Important distinction:
 
 ### Create Discussion
 
+Creation prompts that use mode-scoped bottom keyboards remain as harmless chat history when the wizard advances. The bot forgets their tracked message ids instead of deleting them through Telegram; stale bottom-button text is rejected outside the exact current wizard mode. Safety-sensitive mutations, paid confirmation, and indexed picker validation remain server-side and mode scoped.
+
+Leaving a room likewise forgets tracked room headers, recent-message cards, member cards, and menu notices without deleting Telegram messages. Indexed discussion lists may have their inline markup disabled when retired, but ordinary room exit performs no Telegram delete or edit cleanup before showing the Discussions menu.
+
 Flow:
 
 1. Ask for title.
@@ -209,10 +217,10 @@ Create/edit navigation rules:
 - In create mode, title step shows only `لغو ساخت گفت‌وگو`.
 - In create mode after title, show `لغو ساخت گفت‌وگو` plus a `🔙 برگشت` button to the previous step where relevant.
 - In edit-from-preview mode, cancel actions should use `لغو ویرایش` and return to preview (not cancel the whole draft).
-- If user sends text while on inline-only pickers (for example join-rule picker), show a bot-authored "select an option" message and resend a fresh picker card.
+- If a user types arbitrary text during a mode-scoped picker, keep the current mode and show concise guidance; copied labels outside the mode are ignored.
 
 Description is collected after the join rule is selected, so the bot can show the right description controls for open vs restricted discussions.
-Creation prompts use inline controls only. Do not show bottom reply-keyboard buttons while collecting the title or description.
+Creation prompts use durable bottom-keyboard modes for ordinary steps, including title/description cancellation and preview edits. Identity-bound, destructive, and transactional confirmation remains inline only where required.
 
 Description prompt:
 
@@ -249,7 +257,7 @@ Room capacity is editable from the preview step:
 - paid allowed values, when Star spending and the relevant rollout switch are enabled: 2 current members and the configured large capacity, default 50
 - default: 20 current members
 - paid capacity selection shows a `⭐` marker in the capacity picker
-- paid capacity is charged only after the user confirms the paid-capacity card; cancel and insufficient-balance acknowledgements return to the discussion preview
+- paid capacity is charged only after the user confirms the mode-scoped bottom prompt; cancel returns to the preview, while insufficient balance offers Edit capacity and Back to preview
 - creator counts as a member
 - joining another discussion removes the user from the previous discussion
 
@@ -578,7 +586,7 @@ No longer a member state:
 
 Invite abuse and rate limits:
 
-- Stored invitation inbox counts should show all pending invitations, including seen pending and bot starter invitations. Seen invitations stay in the list until the invited user accepts, removes them, or the target discussion becomes unavailable.
+- The Discussions-menu badge counts only unseen pending invitations, including unseen bot starter invitations. Opening the inbox clears the badge, while seen pending invitations stay in the inbox until the invited user accepts or removes them, or the target discussion becomes unavailable.
 - Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
 - Public share-link generation can add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
 - Do not notify the discussion owner when someone generates or uses an invite.
@@ -630,7 +638,7 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 
 `🗂 گفت‌وگوهای من` shows discussions the user owns or has joined.
 Discussion lists should be plain text with bot-command links instead of dense inline button rows.
-Long discussion lists should be paginated, with an inline back button below the text list. Active-discussion lists should also include an inline toggle for showing only discussions the user can currently join.
+Long discussion lists use exact-page bottom pagination and Back. Active-discussion filters are also bound to the current server-side list mode.
 For this toggle, keep the icon stable across states and change only the text label.
 If the list is empty, show a short empty-state notice with a useful tip and a single `Got it` acknowledgment that returns to the discussions menu. If closing a discussion from this list leaves the user with no discussions, show the same style of notice instead of immediately rendering the list again.
 
@@ -743,7 +751,7 @@ Rules:
 - Separate member blocks with a simple line divider when multiple members are shown.
 - Users stay inside the discussion after viewing the member list; no back button is needed on the member list.
 - Keep the member list low-noise: remember the latest member-list bot message and remove it when the user opens the member list again, opens a profile from that list, leaves the discussion, or the discussion closes.
-- Profiles opened from the members list are transient public-profile cards. Do not attach an extra "Got it" inline button to those profile cards; clear the previous viewed profile card when the user navigates onward or opens another profile.
+- Profiles opened from the members list are transient identity-bound cards. Show inline Save only when unsaved, a non-action Saved tag when saved, and Close; omit People-only active-discussion actions.
 
 Private profile response:
 
@@ -1182,11 +1190,12 @@ Discovery rules:
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
 - Do not expose private profile fields or private discussion membership.
 - Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
-- Results are paginated with the same low-noise navigation style as other lists.
+- Results use page-bound bottom-keyboard Next, Previous, and Back actions. Profile entries remain code-based commands, and stale page labels are ignored.
 - Shared lines may show the matching section and count, but never private list metadata beyond the overlap count.
 
 Empty-state behavior:
 
+- Empty discovery results use a persistent bottom keyboard for `🎬🎵📚 Movies, Music, Books` and Back. These labels resolve only while the server-side mode is the empty discovery state; copied labels and keyboards left visible after results appear are ignored.
 - If the user lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer a `🎬🎵📚 Movies, Music, Books` button. Empty discovery states may mention profile Interests, but should not link directly to their editor until that flow can return to People discovery instead of Profile.
 - If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
 - The old `people:taste` callbacks may route to the free `👀 دیدن آدم‌ها` list so stale inline cards do not break.
@@ -1223,8 +1232,9 @@ Recommended behavior:
 Recommended MVP limit:
 
 - max saved profiles per user: 50
+- Saving the 51st profile is rejected atomically across every profile surface. The bot leaves the current UI unchanged and asks the user to remove a saved profile before saving another.
 
-When viewing another user's profile from a discussion, People, or saved profiles, show inline profile-level actions so the user is not left with only a static card:
+When viewing another user's profile from People or Saved Profiles, show source-bound bottom profile actions. Discussion-member profiles keep their smaller identity-bound inline Save/Saved and Close surface:
 
 ```text
 🔖 ذخیره پروفایل
@@ -1263,9 +1273,13 @@ Saved profiles inside the people hub:
 حذف از ذخیره‌شده‌ها 👈 /rm_9Q4M
 ```
 
-Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile inline buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion.
-The saved-profile list can use inline list-navigation controls (pagination + Back) only.
-When opening a profile from the saved list, delete the list message when possible; if the platform does not visually delete it, retire the old list text/buttons before showing the profile. The profile should render remove plus a Back button to render a fresh saved-profile list, and include discussions only when the target has a visible/open discussion.
+Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion. Once a profile is opened from Saved Profiles or See People, its profile-level Save/Remove, visible-discussions, and source Back actions use a bottom keyboard bound server-side to the exact profile code, saved state, source, and source page. Discussion-member profile cards keep their separate inline Save/Close behavior.
+Saved-profile pagination and Back use a bottom keyboard bound to the exact server-side page and page count. Stale page labels are ignored.
+Removing a saved profile—whether started from its `/rm_CODE` list command or its profile preview—requires a bottom-keyboard confirmation bound to the exact profile, source, and source page. Cancel restores that list page or profile without mutation; stale confirmation labels are ignored.
+After Save—whether triggered by `/save_CODE` directly on See People results or from the opened profile—return to the same See People results page instead of rendering the profile. After confirming removal from a viewed profile, return to the same source list page; only Cancel returns to the profile.
+Ordinary People results, Saved Profiles lists, their public-profile previews, and profile-discussion lists are not deleted or edited merely because the user navigates onward. Their tracking state is forgotten locally, and their bottom labels remain harmless because resolution is server-mode scoped. Safety-sensitive invitation and discussion-member inline cards retain explicit cleanup/Close behavior.
+The visible-discussions view opened from a Saved Profiles or See People profile also uses a bottom Back action bound to that exact profile and retains the original source page. Individual discussion actions remain code-based text commands.
+When opening a profile from the saved list, retain the list message. The profile renders Remove plus Back to the exact saved-list page, and includes discussions only when the target has a visible/open discussion. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
 
 ### Viewing Discussions From Saved Profiles
 

@@ -36,6 +36,10 @@ const {
   getInterestTopTenChipTitle,
 } = require("../src/keyboards");
 
+const keyboardButtons = (keyboard) => (
+  keyboard?.reply_markup?.keyboard || keyboard?.reply_markup?.inline_keyboard || []
+).flat();
+
 test("suggestion limit keyboard returns to the current section", () => {
   const keyboard = aiSuggestionLimitKeyboard("en", "music");
   const [button] = keyboard.reply_markup.inline_keyboard.flat();
@@ -168,24 +172,22 @@ test("AI text button predicates accept localized keyboard labels", () => {
 });
 
 test("suggestion save buttons name the concrete section list", () => {
-  const musicAddButtons = aiSuggestionAddKeyboard("en", "music").reply_markup.inline_keyboard.flat();
-  const booksAddedButtons = aiSuggestionAddedOptionsKeyboard("fa", "books").reply_markup.inline_keyboard.flat();
-  const rejectedButtons = aiSuggestionNextKeyboard("fa", "movies").reply_markup.inline_keyboard.flat();
+  const musicAddButtons = keyboardButtons(aiSuggestionAddKeyboard("en", "music"));
+  const booksAddedButtons = keyboardButtons(aiSuggestionAddedOptionsKeyboard("fa", "books"));
+  const rejectedButtons = keyboardButtons(aiSuggestionNextKeyboard("fa", "movies"));
 
   assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 listen later list");
   assert.equal(booksAddedButtons[1].text, "🗂 رفتن به «📚 لیست برای بعد خواندن»");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(booksAddedButtons[2].callback_data, `${callBacks.aiListManageMenu}books:top_ten`);
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(rejectedButtons[1].callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
   assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later list"), "✅ Saved to 📚 read later list.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
   assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در لیست 🎬 برای بعد دیدن ذخیره شد. (دیده‌شده)");
 });
 
 test("shareable list return buttons use consistent Back to list wording", () => {
-  const faButton = aiListShareReturnKeyboard("fa", "movies", "topTen").reply_markup.inline_keyboard.flat()[0];
-  const enButton = aiListShareReturnKeyboard("en", "books", "topTen").reply_markup.inline_keyboard.flat()[0];
+  const faButton = keyboardButtons(aiListShareReturnKeyboard("fa", "movies", "topTen"))[0];
+  const enButton = keyboardButtons(aiListShareReturnKeyboard("en", "books", "topTen"))[0];
 
   assert.equal(faButton.text, messages.fa.aiListManageAddBackToList);
   assert.equal(enButton.text, messages.en.aiListManageAddBackToList);
@@ -206,7 +208,7 @@ test("AI section keyboard prefixes section actions with section emoji", () => {
   assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
-test("AI bottom Back clears reply controls on a stable heading before sending the inline menu", async () => {
+test("AI bottom Back replaces reply controls with the media hub keyboard", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const edits = [];
@@ -238,10 +240,10 @@ test("AI bottom Back clears reply controls on a stable heading before sending th
   }
 
   assert.equal(replies.length, 2);
-  assert.equal(replies[0].text, messages.fa.navigationFootprintTaste);
+  assert.equal(replies[0].text, "⁣");
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
   assert.equal(replies[1].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
-  assert.deepEqual(replies[1].extra.reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.aiBack);
+  assert.equal(keyboardButtons(replies[1].extra).at(-1).text, messages.fa.aiBack);
   assert.equal(edits.length, 0);
 });
 
@@ -314,13 +316,13 @@ test("add prompt starts with Cancel and post-save prompt returns to list", () =>
   const firstInterestPrompt = aiInterestTopTenChipKeyboard("en", [], 0);
   const nextInterestPrompt = aiInterestTopTenChipKeyboard("en", ["Chess"], 0, { backToList: true });
 
-  assert.equal(firstPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
-  assert.equal(nextPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.aiListManageAddBackToList);
-  assert.equal(firstInterestPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
-  assert.equal(nextInterestPrompt.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.aiListManageAddBackToList);
+  assert.equal(keyboardButtons(firstPrompt).at(-1).text, messages.en.cancelEdit);
+  assert.equal(keyboardButtons(nextPrompt).at(-1).text, messages.en.aiListManageAddBackToList);
+  assert.equal(keyboardButtons(firstInterestPrompt).at(-1).text, messages.en.cancelEdit);
+  assert.equal(keyboardButtons(nextInterestPrompt).at(-1).text, messages.en.aiListManageAddBackToList);
 });
 
-test("pressing Add retires the remembered list card", async () => {
+test("pressing Add retains the remembered list card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -331,6 +333,7 @@ test("pressing Add retires the remembered list card", async () => {
   const ctx = {
     callbackData: `${callBacks.aiListManageAdd}movies:top_ten`,
     callbackMessageId: 40,
+    isReplyKeyboardAction: true,
     userId: 79,
     user: {
       userId: 79,
@@ -353,20 +356,22 @@ test("pressing Add retires the remembered list card", async () => {
 
   try {
     await handleAiCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+      deleteCallbackMessageIfPossible: async () => (
+        ctx.isReplyKeyboardAction ? false : ctx.deleteMessage(ctx.callbackMessageId)
+      ),
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.equal(deletedIds.includes(39), true);
-  assert.equal(deletedIds.includes(40), true);
+  assert.equal(deletedIds.includes(39), false);
+  assert.equal(deletedIds.includes(40), false);
   assert.equal(ctx.user.aiLastListMessageId, null);
   assert.equal(replies.filter((reply) => reply.text === messages.en.aiMovieFavoritesAddPrompt).length, 1);
   assert.equal(replies.some((reply) => reply.text === "."), false);
   assert.equal(ctx.user.aiPendingInputMessageId, 81);
   assert.equal(edits.length, 0);
-  assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+  assert.equal(keyboardButtons(replies.at(-1).extra).at(-1).text, messages.en.cancelEdit);
 });
 
 test("pressing Add sends one visible prompt with Cancel when edit is unavailable", async () => {
@@ -398,7 +403,9 @@ test("pressing Add sends one visible prompt with Cancel when edit is unavailable
 
   try {
     await handleAiCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+      deleteCallbackMessageIfPossible: async () => (
+        ctx.isReplyKeyboardAction ? false : ctx.deleteMessage(ctx.callbackMessageId)
+      ),
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -406,7 +413,7 @@ test("pressing Add sends one visible prompt with Cancel when edit is unavailable
 
   assert.equal(replies.filter((reply) => reply.text === messages.en.aiListManageAddPrompt).length, 1);
   assert.equal(deletedIds.includes(91), false);
-  assert.equal(replies.at(-1).extra.reply_markup.inline_keyboard.flat().at(-1).text, messages.en.cancelEdit);
+  assert.equal(keyboardButtons(replies.at(-1).extra).at(-1).text, messages.en.cancelEdit);
   assert.equal(ctx.user.aiPendingInputMessageId, 91);
 });
 
@@ -487,10 +494,10 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   }
 
   const finalReply = replies.at(-1);
-  const buttons = finalReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(finalReply.extra);
   const labels = buttons.map((button) => button.text);
 
-  assert.deepEqual(deletedIds, [55]);
+  assert.deepEqual(deletedIds, []);
   assert.equal(ctx.user.aiSectionPendingCommentItem, null);
   assert.equal(ctx.user.aiSectionPendingCommentListType, null);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
@@ -621,7 +628,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
   }
 
   const managerReply = replies.at(-1);
-  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(managerReply.extra);
 
   assert.deepEqual(deletedIds, [60]);
   assert.match(managerReply.text, /Arrival/);
@@ -685,12 +692,12 @@ test("entering a media section leaves an untracked permanent footprint above Top
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [44, 60]);
+  assert.deepEqual(deletedIds, [60]);
   assert.deepEqual(edits, []);
-  assert.equal(replies[0].text, "📚 Books");
-  assert.match(replies[1].text, /Dune/);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Dune/);
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
-  assert.equal(ctx.user.aiLastListMessageId, 102);
+  assert.equal(ctx.user.aiLastListMessageId, 101);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten");
 });
 
@@ -745,7 +752,7 @@ test("section suggestion need-state consumes Top Ten card and shows Got it ackno
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [77]);
+  assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 1);
   assert.match(replies[0].text, /add at least 3 things/);
   assert.deepEqual(
@@ -801,13 +808,15 @@ test("suggestion need-state Got it returns to the section Top Ten", async () => 
 
   try {
     await handleAiCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+      deleteCallbackMessageIfPossible: async () => (
+        ctx.isReplyKeyboardAction ? false : ctx.deleteMessage(ctx.callbackMessageId)
+      ),
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [101]);
+  assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 1);
   assert.match(replies[0].text, /Music favorites/);
   assert.equal(ctx.user.aiActionMessageId, null);
@@ -817,10 +826,9 @@ test("suggestion need-state Got it returns to the section Top Ten", async () => 
 
 test("suggestion mode prompt can return to the section Top Ten", async () => {
   const keyboard = aiSuggestionModeKeyboard("en", "movies");
-  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(keyboard);
 
   assert.equal(buttons.at(-1).text, messages.en.aiBack);
-  assert.equal(buttons.at(-1).callback_data, `${callBacks.aiListManageMenu}movies:top_ten`);
 });
 
 test("suggestion vibe prompt is sent once with cancel controls", async () => {
@@ -877,7 +885,7 @@ test("suggestion vibe prompt is sent once with cancel controls", async () => {
   assert.equal(replies.length, 1);
   assert.equal(edits.length, 0);
   assert.equal(replies[0].text, messages.fa.aiSuggestionContextPrompt);
-  assert.equal(replies[0].extra.reply_markup.inline_keyboard.flat()[0].callback_data, `${callBacks.aiSectionSuggestContextCancel}movies`);
+  assert.equal(keyboardButtons(replies[0].extra)[0].text, messages.fa.cancelEdit);
   assert.equal(ctx.user.state, "ai_suggest_context_movies");
   assert.equal(ctx.user.aiPendingInputMessageId, 211);
 });
@@ -945,14 +953,13 @@ test("AI top-ten Back returns to the AI section picker", async () => {
   }
 
   assert.equal(ctx.user.state, "idle");
-  assert.equal(ctx.user.aiSectionEntryMessageId, 120);
-  assert.deepEqual(events, ["delete:44", "delete:77", "reply", "reply"]);
-  assert.equal(replies[0].text, messages.en.navigationFootprintTaste);
-  assert.equal(replies[1].text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
+  assert.equal(ctx.user.aiSectionEntryMessageId, null);
+  assert.deepEqual(events, ["reply"]);
+  assert.equal(replies[0].text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
   assert.ok(updates.some((update) => update?.state === "idle"));
 });
 
-test("AI top-ten Back deletes the list card before fallback reply when edit fails", async () => {
+test("AI top-ten Back retains prior cards before fallback reply", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const events = [];
 
@@ -999,14 +1006,14 @@ test("AI top-ten Back deletes the list card before fallback reply when edit fail
   try {
     await handleAiCallback(ctx, "en", {
       deleteCallbackMessageIfPossible: async () => {
-        throw new Error("Back should delete the tracked list card directly");
+        throw new Error("Back should retain the tracked list card");
       },
     });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(events, ["delete:44", "delete:77", "reply", "reply"]);
+  assert.deepEqual(events, ["reply"]);
   assert.equal(ctx.user.aiLastListMessageId, null);
   assert.equal(ctx.user.aiLastListSection, "");
   assert.equal(ctx.user.aiLastListType, "");
@@ -1053,7 +1060,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   }
 
   const managerReply = replies.at(-1);
-  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(managerReply.extra);
   const labels = buttons.map((button) => button.text);
 
   assert.match(managerReply.text, /هنوز خالیه/);
@@ -1117,22 +1124,14 @@ test("sharing AI list renders clean titles and comments without management comma
   const sharedReply = replies.at(-2);
   const introReply = replies.at(-1);
 
-  assert.match(introReply.text, new RegExp(`^${messages.en.aiListShareIntro}`));
+  assert.match(introReply.text, new RegExp(`^${messages.en.aiListShareIntroMovies}`));
   assert.equal(
-    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.callback_data === `${callBacks.aiListShareBack}movies:watchlist`),
+    introReply.extra.reply_markup.keyboard.flat().some((button) => button.text === messages.en.aiListShareBackToList),
     true,
   );
-  assert.equal(
-    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === messages.en.aiListManageAddBackToList),
-    true,
-  );
-  assert.equal(
-    introReply.extra.reply_markup.inline_keyboard.flat().some((button) => button.text === messages.en.aiListShareAction),
-    true,
-  );
-  assert.match(introReply.text, /👇/);
-  assert.equal(ctx.user.aiActionMessageId, 112);
-  assert.equal(ctx.user.aiActionContext, "share:movies:watchlist");
+  assert.doesNotMatch(introReply.text, /👇|button below/i);
+  assert.equal(ctx.user.aiActionMessageId, undefined);
+  assert.equal(ctx.user.aiActionContext, undefined);
   assert.doesNotMatch(sharedReply.text, /📌/);
   assert.match(sharedReply.text, /Arrival — quiet sci-fi/);
   assert.match(sharedReply.text, /Jaws — classic/);
@@ -1198,7 +1197,7 @@ test("AI share return button consumes guidance card before reopening list", asyn
   assert.equal(ctx.user.aiActionMessageId, null);
   assert.equal(ctx.user.aiActionContext, "");
   assert.match(replies.at(-1).text, /🎬 watch later/);
-  assert.ok(replies.at(-1).extra?.reply_markup?.inline_keyboard);
+  assert.ok(replies.at(-1).extra?.reply_markup?.keyboard);
 });
 
 test("back to list after adding uses current item count for share button", async () => {
@@ -1248,7 +1247,7 @@ test("back to list after adding uses current item count for share button", async
   }
 
   const managerReply = replies.at(-1);
-  const buttons = managerReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(managerReply.extra);
   const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
@@ -1348,7 +1347,7 @@ test("Top Ten add flow stays open for the next item", async () => {
   const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
-  assert.equal(replies.some((reply) => reply.text === "deleted:38"), true);
+  assert.equal(replies.some((reply) => reply.text === "deleted:38"), false);
   assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
   assert.match(finalEdit.text, /Send the next title here/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
@@ -1391,7 +1390,7 @@ test("Top Ten duplicate response stays in add mode with bot copy and continuous-
   }
 
   const reply = replies.at(-1);
-  const buttons = reply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(reply.extra);
 
   assert.match(reply.text, /^👩‍🦳/);
   assert.match(reply.text, /2\/10/);
@@ -1449,7 +1448,7 @@ test("Top Ten add flow shows completion with Back to list when the 10th item com
   }
 
   const savedEdit = edits.at(-1);
-  const buttons = savedEdit.extra.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(savedEdit.extra);
   const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
@@ -1533,11 +1532,12 @@ test("watchlist add flow stays open for the next item", async () => {
   }
 
   const savedReply = replies.at(-1);
-  const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
+  const buttons = savedReply.extra.reply_markup.keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
   assert.match(savedReply.text, /Saved "Arrival" to 🎬 watch later/);
   assert.match(savedReply.text, /Send the next title here/);
+  assert.doesNotMatch(savedReply.text, /1\. Arrival/);
   assert.doesNotMatch(savedReply.text, /Star|⭐/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
@@ -1734,10 +1734,8 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.match(unlocked, /Suggestions unlocked/);
   assert.match(unlocked, /3\/10/);
 
-  const emptyButtons = aiListManageMenuKeyboard("en", "books", "topTen", { itemCount: 0 })
-    .reply_markup.inline_keyboard.flat();
-  const earlyButtons = aiListManageMenuKeyboard("fa", "music", "topTen", { hasItems: true, itemCount: 2 })
-    .reply_markup.inline_keyboard.flat();
+  const emptyButtons = keyboardButtons(aiListManageMenuKeyboard("en", "books", "topTen", { itemCount: 0 }));
+  const earlyButtons = keyboardButtons(aiListManageMenuKeyboard("fa", "music", "topTen", { hasItems: true, itemCount: 2 }));
   assert.equal(emptyButtons[0].text, messages.en.aiFavoritesAddFirstBooks);
   assert.equal(earlyButtons[0].text, messages.fa.aiFavoritesAddAnotherMusic.replace("{count}", "2").replace("{goal}", "10"));
 });
@@ -1794,13 +1792,13 @@ test("watchlist action labels use section-specific status wording", () => {
 
 test("AI list manager keyboard shows list/filter/share controls only when eligible", () => {
   const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
-  const emptyButtons = emptyKeyboard.reply_markup.inline_keyboard.flat();
+  const emptyButtons = keyboardButtons(emptyKeyboard);
   const emptyLabels = emptyButtons.map((button) => button.text);
   const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true });
-  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+  const buttons = keyboardButtons(keyboard);
   const labels = buttons.map((button) => button.text);
   const shareKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 6 });
-  const shareLabels = shareKeyboard.reply_markup.inline_keyboard.flat().map((button) => button.text);
+  const shareLabels = keyboardButtons(shareKeyboard).map((button) => button.text);
 
   assert.equal(emptyButtons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShare), false);
@@ -1812,33 +1810,28 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
   assert.equal(shareLabels.includes(messages.en.aiListManageShare), false);
   assert.equal(
-    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 6 })
-      .reply_markup.inline_keyboard.flat()
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 6 }))
       .some((button) => button.text === messages.en.aiListManageShare),
     true,
   );
   assert.equal(
-    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 10 })
-      .reply_markup.inline_keyboard.flat()
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 10 }))
       .some((button) => button.text === messages.en.aiListManageAdd),
     false,
   );
   assert.ok(labels.includes(messages.en.aiSuggestionGoToFavoritesButton));
   assert.ok(
-    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 })
-      .reply_markup.inline_keyboard.flat()
-      .some((button) => button.callback_data === `${callBacks.aiListManageMenu}movies:watchlist`),
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 }))
+      .some((button) => button.text === messages.en.aiSectionListButtonMovies),
   );
   assert.equal(
-    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 })
-      .reply_markup.inline_keyboard.flat()
-      .some((button) => button.callback_data === `${callBacks.aiSectionSuggestMenu}movies`),
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 }))
+      .some((button) => button.text === `🎬 ${messages.en.aiSectionSuggestButton}`),
     false,
   );
   assert.ok(
-    aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 3 })
-      .reply_markup.inline_keyboard.flat()
-      .some((button) => button.callback_data === `${callBacks.aiSectionSuggestMenu}movies`),
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 3 }))
+      .some((button) => button.text === `🎬 ${messages.en.aiSectionSuggestButton}`),
   );
   assert.equal(labels.includes(messages.en.aiListManageRemove), false);
   assert.equal(labels.includes(messages.en.aiListManageComment), false);

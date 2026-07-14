@@ -419,6 +419,24 @@ test("saved profile mutations preserve concurrent updates", async () => {
   assert.deepEqual(updatedUser.savedProfileCodes, ["u_CCC3"]);
 });
 
+test("saved profiles stop atomically at the 50-profile product cap", async () => {
+  const existingCodes = Array.from({ length: 49 }, (_, index) => `u_CAP${String(index).padStart(2, "0")}`);
+  await createUser(1, { savedProfileCodes: existingCodes });
+
+  const results = await Promise.all([
+    addSavedProfileCode(1, "u_CAP49"),
+    addSavedProfileCode(1, "u_CAP50"),
+  ]);
+
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  const rejected = results.find((result) => !result.ok);
+  assert.equal(rejected.reason, "saved_profiles_limit");
+  assert.equal(rejected.cap, 50);
+
+  const savedUser = await User.findOne({ userId: 1 }).lean();
+  assert.equal(savedUser.savedProfileCodes.length, 50);
+});
+
 test("discussion invitations create, count, dedupe, and accept cleanly", async () => {
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_INVITE",

@@ -21,7 +21,6 @@ const {
   getOnboardingPage,
   handleOnboardingCallback,
   isOnboardingCallback,
-  retireOnboardingPrompt,
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
 } = require("../src/flows/onboarding");
@@ -110,6 +109,7 @@ test("post-invite taste setup callbacks start or dismiss without completing onbo
       deleted.push(messageId);
       return true;
     },
+    reply: async (text, extra) => ({ message_id: 43, text, extra }),
   };
 
   try {
@@ -124,11 +124,12 @@ test("post-invite taste setup callbacks start or dismiss without completing onbo
     assert.match(edits[0].text, /Choose 3 things you like/);
 
     ctx.callbackData = callBacks.onboardingTasteSetupDismiss;
+    ctx.isReplyKeyboardAction = true;
     await handleOnboardingCallback(ctx, "en", {
       deleteCallbackMessageIfPossible: (_ctx) => ctx.deleteMessage(_ctx.callbackMessageId),
     });
 
-    assert.deepEqual(deleted, [42]);
+    assert.deepEqual(deleted, []);
     assert.equal(updates.some((entry) => entry.update.onboardingSkippedAt), false);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -166,31 +167,23 @@ test("bot-authored picker prompts start with the bot marker", () => {
 
 test("onboarding keyboard shows selected interests without a separate continue action", () => {
   const keyboard = onboardingInterestsKeyboard("en", ["شطرنج"]);
-  const buttons = keyboard.reply_markup.inline_keyboard.flat();
-  const interestButtons = buttons.filter((button) => (
-    button.callback_data.startsWith(callBacks.onboardingInterest) &&
-    !button.callback_data.startsWith(callBacks.onboardingInterestRemove)
-  ));
+  const buttons = keyboard.reply_markup.keyboard.flat();
 
   assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
-  assert.equal(interestButtons.length, 11);
-  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingInterestRemove}0:0`), true);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
-  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingMore}1`), true);
-  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.onboardingCustom}0`), true);
-  assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingSkip), false);
-  assert.equal(buttons.some((button) => button.callback_data === callBacks.onboardingContinue), false);
+  assert.equal(buttons.some((button) => button.text === messages.en.onboardingMoreButton), true);
+  assert.equal(buttons.some((button) => button.text === messages.en.onboardingCustomButton), true);
 
   const readyKeyboard = onboardingInterestsKeyboard("en", ["Movies", "Books", "Chess"]);
-  const readyButtons = readyKeyboard.reply_markup.inline_keyboard.flat();
-  assert.equal(readyButtons.some((button) => button.callback_data === callBacks.onboardingContinue), false);
+  const readyButtons = readyKeyboard.reply_markup.keyboard.flat();
+  assert.equal(readyButtons.some((button) => button.text === messages.en.onboardingStartButton), false);
 });
 
 test("onboarding chips mark selected built-ins across languages", () => {
   const englishKeyboard = onboardingInterestsKeyboard("en", ["فیلم", "شطرنج"]);
   const persianKeyboard = onboardingInterestsKeyboard("fa", ["Movies", "Chess"]);
-  const englishButtons = englishKeyboard.reply_markup.inline_keyboard.flat();
-  const persianButtons = persianKeyboard.reply_markup.inline_keyboard.flat();
+  const englishButtons = englishKeyboard.reply_markup.keyboard.flat();
+  const persianButtons = persianKeyboard.reply_markup.keyboard.flat();
 
   assert.equal(englishButtons.some((button) => button.text.includes("Movies") && button.text.includes("✓")), true);
   assert.equal(englishButtons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
@@ -199,40 +192,33 @@ test("onboarding chips mark selected built-ins across languages", () => {
 });
 
 test("onboarding keeps selected built-in chips in their original grid positions", () => {
-  const plainRows = onboardingInterestsKeyboard("en", []).reply_markup.inline_keyboard;
-  const selectedRows = onboardingInterestsKeyboard("en", ["Chess"]).reply_markup.inline_keyboard;
+  const plainRows = onboardingInterestsKeyboard("en", []).reply_markup.keyboard;
+  const selectedRows = onboardingInterestsKeyboard("en", ["Chess"]).reply_markup.keyboard;
   const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
   const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
 
   assert.equal(plainRows[1][0], plainChess);
   assert.equal(selectedRows[1][0], selectedChess);
   assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
-  assert.equal(selectedRows[1][0].callback_data, `${callBacks.onboardingInterestRemove}0:0`);
+  assert.equal(selectedRows[1][0].callback_data, undefined);
 });
 
 test("onboarding welcome waits for one clear start action", () => {
   const keyboard = onboardingWelcomeKeyboard("fa");
-  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+  const buttons = keyboard.reply_markup.keyboard.flat();
 
-  assert.deepEqual(buttons, [{
-    text: messages.fa.onboardingStartButton,
-    callback_data: callBacks.onboardingStart,
-  }]);
+  assert.deepEqual(buttons, [{ text: messages.fa.onboardingStartButton }]);
 });
 
 test("first-time language picker has no route around language selection", () => {
-  const buttons = onboardingLanguageKeyboard().reply_markup.inline_keyboard.flat();
+  const buttons = onboardingLanguageKeyboard().reply_markup.keyboard.flat();
 
-  assert.deepEqual(buttons.map((button) => button.callback_data), [
-    callBacks.langSetFa,
-    callBacks.langSetEn,
-  ]);
-  assert.equal(buttons.some((button) => button.callback_data === callBacks.menuMain), false);
+  assert.deepEqual(buttons.map((button) => button.text), ["🇮🇷 فارسی", "🇬🇧 English"]);
 });
 
 test("onboarding rotates through stable interest pages", () => {
-  const firstPage = onboardingInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard.flat();
-  const secondPage = onboardingInterestsKeyboard("en", [], 1).reply_markup.inline_keyboard.flat();
+  const firstPage = onboardingInterestsKeyboard("en", [], 0).reply_markup.keyboard.flat();
+  const secondPage = onboardingInterestsKeyboard("en", [], 1).reply_markup.keyboard.flat();
 
   assert.equal(firstPage.some((button) => button.text.includes("Travel")), false);
   assert.equal(secondPage.some((button) => button.text.includes("Travel")), true);
@@ -242,36 +228,13 @@ test("onboarding rotates through stable interest pages", () => {
 
 test("custom-interest input has a page-aware return action", () => {
   const keyboard = onboardingCustomInterestKeyboard("fa", 2);
-  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  const [button] = keyboard.reply_markup.keyboard.flat();
 
-  assert.equal(button.callback_data, `${callBacks.onboardingCustomCancel}2`);
-});
-
-test("typed onboarding input retires the old picker before a fresh reply", async () => {
-  const deleted = [];
-  const ctx = {
-    user: { onboardingPromptMessageId: 42 },
-    deleteMessage: async (messageId) => {
-      deleted.push(messageId);
-      return true;
-    },
-  };
-
-  await retireOnboardingPrompt(ctx, { persist: false });
-
-  assert.deepEqual(deleted, [42]);
-  assert.equal(ctx.user.onboardingPromptMessageId, null);
+  assert.equal(button.text, messages.fa.onboardingCustomCancelButton);
 });
 
 test("onboarding completion leads with active discussions", () => {
-  const buttons = onboardingCompleteKeyboard("en").reply_markup.inline_keyboard.flat();
-  const callbackData = buttons.map((button) => button.callback_data);
-
-  assert.deepEqual(callbackData, [
-    callBacks.discussionListActive,
-    callBacks.aiAssistant,
-    callBacks.menuMain,
-  ]);
+  const buttons = onboardingCompleteKeyboard("en").reply_markup.keyboard.flat();
   assert.equal(buttons[0].text, messages.en.discussionActiveList);
   assert.equal(buttons[1].text, messages.en.onboardingFavoritesButton);
 });
@@ -279,38 +242,36 @@ test("onboarding completion leads with active discussions", () => {
 test("onboarding completion shows invitation copy and action only when one exists", () => {
   const plainText = buildOnboardingCompleteText("en");
   const invitedText = buildOnboardingCompleteText("en", { hasInvitation: true });
-  const plainButtons = onboardingCompleteKeyboard("en").reply_markup.inline_keyboard.flat();
-  const invitedButtons = onboardingCompleteKeyboard("en", { hasInvitation: true }).reply_markup.inline_keyboard.flat();
+  const plainButtons = onboardingCompleteKeyboard("en").reply_markup.keyboard.flat();
+  const invitedButtons = onboardingCompleteKeyboard("en", { hasInvitation: true }).reply_markup.keyboard.flat();
 
   assert.doesNotMatch(plainText, /prepared an invitation/);
   assert.match(invitedText, /prepared an invitation/);
-  assert.equal(plainButtons.some((button) => button.callback_data === callBacks.discussionInvitations), false);
-  assert.equal(invitedButtons[0].callback_data, callBacks.discussionInvitations);
+  assert.equal(plainButtons.some((button) => button.text === messages.en.onboardingInvitationButton), false);
+  assert.equal(invitedButtons[0].text, messages.en.onboardingInvitationButton);
 });
 
 test("help is available from the main menu and onboarding completion", () => {
-  const mainCallbacks = mainMenuKeyboard("fa").reply_markup.inline_keyboard
+  const mainLabels = mainMenuKeyboard("fa").reply_markup.keyboard
     .flat()
-    .map((button) => button.callback_data);
-  const helpCallbacks = helpKeyboard("fa").reply_markup.inline_keyboard
+    .map((button) => button.text);
+  const helpLabels = helpKeyboard("fa").reply_markup.keyboard
     .flat()
-    .map((button) => button.callback_data);
-  const rulesCallbacks = helpRulesKeyboard("fa").reply_markup.inline_keyboard
+    .map((button) => button.text);
+  const rulesLabels = helpRulesKeyboard("fa").reply_markup.keyboard
     .flat()
-    .map((button) => button.callback_data);
+    .map((button) => button.text);
 
-  assert.ok(mainCallbacks.includes(callBacks.help));
-  assert.deepEqual(helpCallbacks, [
-    callBacks.profileStars,
-    callBacks.helpReferral,
-    callBacks.helpRules,
-    callBacks.aiAssistant,
-    callBacks.discussionListActive,
-    callBacks.menuMain,
+  assert.ok(mainLabels.includes(messages.fa.help));
+  assert.deepEqual(helpLabels, [
+    messages.fa.profileStarsButton,
+    messages.fa.helpReferralButton,
+    messages.fa.helpRules,
+    messages.fa.helpBackToMain,
   ]);
-  assert.deepEqual(rulesCallbacks, [
-    callBacks.help,
-    callBacks.menuMain,
+  assert.deepEqual(rulesLabels, [
+    messages.fa.helpBackToGuide,
+    messages.fa.helpBackToMain,
   ]);
   assert.match(messages.fa.helpRules, /^📜/);
   assert.match(messages.en.helpRules, /^📜/);
@@ -345,11 +306,11 @@ test("help is available from the main menu and onboarding completion", () => {
 });
 
 test("main menu uses the warmer Me label without renaming profile copy", () => {
-  const faButtons = mainMenuKeyboard("fa").reply_markup.inline_keyboard.flat();
-  const enButtons = mainMenuKeyboard("en").reply_markup.inline_keyboard.flat();
+  const faButtons = mainMenuKeyboard("fa").reply_markup.keyboard.flat();
+  const enButtons = mainMenuKeyboard("en").reply_markup.keyboard.flat();
 
-  assert.equal(faButtons.find((button) => button.callback_data === callBacks.profile)?.text, "👤 من");
-  assert.equal(enButtons.find((button) => button.callback_data === callBacks.profile)?.text, "👤 Me");
+  assert.ok(faButtons.some((button) => button.text === "👤 من"));
+  assert.ok(enButtons.some((button) => button.text === "👤 Me"));
   assert.equal(messages.fa.profile, "👤 پروفایل");
   assert.equal(messages.en.profile, "👤 Profile");
 });

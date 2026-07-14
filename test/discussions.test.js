@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const messages = require("../src/messages");
 
 const {
   normalizePublicProfileCode,
@@ -235,16 +236,14 @@ test("discussion entry requires a valid profile name before joining", async () =
     assert.deepEqual(events, ["cleanup", "prompt"]);
     assert.match(replies[0].text, /Before creating or entering a discussion/);
     assert.equal(
-      replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
-      "profile:cancel:edit",
+      replies[0].keyboard.reply_markup.keyboard[0][0].text,
+      messages.en.cancelEdit,
     );
     const stateUpdate = updates.find((entry) => entry.update.state);
-    const promptUpdate = updates.find((entry) => entry.update.profileEditPromptMessageId === 77);
     assert.deepEqual(parseDiscussionNameState(stateUpdate.update.state), {
       source: "join",
       token: "d_ROOM1",
     });
-    assert.ok(promptUpdate);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

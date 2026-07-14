@@ -25,7 +25,8 @@ const {
   replyWithRemovedKeyboardThenInline,
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
-const { rememberNavigationCard, sendNavigationFootprint } = require("./services/navigation-footprints");
+const { sendNavigationFootprint } = require("./services/navigation-footprints");
+const { MODES, setNavigationMode } = require("./services/reply-keyboard-navigation");
 const {
   getDiscussionErrorMessage,
   getDiscussionDisplayTitle,
@@ -34,10 +35,11 @@ const {
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
   formatDiscussionMemberLines,
+  buildDiscussionMembersText,
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
 const Discussion = require("./models/discussion");
-const { updateUserFields, updateUserState } = require("./services/users");
+const { updateProfileField, updateUserFields, updateUserState } = require("./services/users");
 const {
   joinOrOpenDiscussion,
   ensurePublicProfileCodes,
@@ -78,6 +80,7 @@ const {
   sendShareableInviteForActiveDiscussion,
 } = require("./flows/discussions-text");
 const {
+  buildDiscussionsMenuText,
   handleDiscussionInvitationCallback,
   getInvitationCount,
   isDiscussionInvitationCallback,
@@ -122,10 +125,10 @@ const {
   handleSavedProfilesCallback,
   isSavedProfilesCallback,
   renderSavedProfileDiscussions,
+  requestUnsaveProfileConfirmation,
   saveProfileByCode,
   sendPublicProfileByCode,
   sendSavedProfilesList,
-  unsaveProfileByCode,
 } = require("./flows/saved-profiles");
 const {
   handleOnboardingCallback,
@@ -189,7 +192,8 @@ async function clearDiscussionCardsAfterVisibleReply(ctx, exceptMessageIds = [])
 }
 
 async function deleteCallbackMessageIfPossible(ctx) {
-  if (!ctx.callbackMessageId) {
+  // Reply-keyboard actions are user messages, never disposable bot callback cards.
+  if (ctx.isReplyKeyboardAction || !ctx.callbackMessageId) {
     return false;
   }
 
@@ -317,6 +321,7 @@ function getStaleCallbackFields(data = "") {
     data === callBacks.profile ||
     isProfileSettingsOrEditCallback(data) ||
     data.startsWith(callBacks.profileViewByCode)
+    || data === callBacks.profileCloseDiscussionMember
   ) {
     return ["publicProfileLastMessageId"];
   }
@@ -361,10 +366,10 @@ function getActiveRoomCallbackDiscussionId(data = "") {
   return "";
 }
 
-async function showFootprintedInlineDestination(ctx, lang, destination, text, keyboard, shouldClearKeyboard) {
-  await deleteCallbackMessageIfPossible(ctx);
+async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shouldClearKeyboard) {
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
-  return rememberNavigationCard(ctx, await ctx.reply(text, keyboard));
+  await setNavigationMode(ctx, mode);
+  return ctx.reply(text, keyboard);
 }
 
 async function sendDiscussionRoom(ctx, lang, discussion) {
@@ -407,7 +412,7 @@ async function handleCallback(ctx) {
     return ctx.reply(messages[lang].unknownAction);
   }
 
-  if (await retireStaleCallbackCardIfNeeded(ctx, data)) {
+  if (!ctx.isReplyKeyboardAction && await retireStaleCallbackCardIfNeeded(ctx, data)) {
     return null;
   }
 
@@ -443,7 +448,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showFootprintedInlineDestination(ctx, lang, "menu", messages[lang].mainMenu, mainMenuKeyboard(lang), shouldClearKeyboard);
+    return showBottomHub(ctx, lang, "menu", MODES.GLOBAL, messages[lang].mainMenu, mainMenuKeyboard(lang), shouldClearKeyboard);
   }
 
   if (data === callBacks.help) {
@@ -454,7 +459,7 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showFootprintedInlineDestination(ctx, lang, "help", messages[lang].helpText, helpKeyboard(lang), shouldClearKeyboard);
+    return showBottomHub(ctx, lang, "help", MODES.HELP, messages[lang].helpText, helpKeyboard(lang), shouldClearKeyboard);
   }
 
   if (data === callBacks.helpRules) {
@@ -467,10 +472,7 @@ async function handleCallback(ctx) {
     await forgetPeopleListMessage(ctx);
     const rulesText = formatOperationalLimitsText(messages[lang].helpRulesText);
     const rulesKeyboard = helpRulesKeyboard(lang);
-    if (shouldClearKeyboard) {
-      return showFootprintedInlineDestination(ctx, lang, "help", rulesText, rulesKeyboard, true);
-    }
-    return editCallbackMessageOrReply(ctx, rulesText, rulesKeyboard);
+    return showBottomHub(ctx, lang, "help", MODES.HELP_RULES, rulesText, rulesKeyboard, shouldClearKeyboard);
   }
 
   if (data === callBacks.language) {
@@ -481,7 +483,7 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showFootprintedInlineDestination(ctx, lang, "language", messages[lang].chooseLanguage, languageKeyboard(), shouldClearKeyboard);
+    return showBottomHub(ctx, lang, "language", MODES.LANGUAGE, messages[lang].chooseLanguage, languageKeyboard(lang), shouldClearKeyboard);
   }
 
   if (data === callBacks.profile) {
@@ -536,11 +538,7 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    const hubCard = await showFootprintedInlineDestination(
-      ctx, lang, "taste", buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang), shouldClearKeyboard,
-    );
-    await rememberAiSectionEntryMessage(ctx, hubCard);
-    return hubCard;
+    return showBottomHub(ctx, lang, "taste", MODES.FAVORITES, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang), shouldClearKeyboard);
   }
 
   if (data === callBacks.discussions) {
@@ -552,10 +550,9 @@ async function handleCallback(ctx) {
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
     const invitationCount = await getInvitationCount(ctx.userId);
-    return showFootprintedInlineDestination(
-      ctx, lang, "discussions", messages[lang].discussionsMenu,
-      discussionsMenuKeyboard(lang, { invitationCount: Number(invitationCount) || 0 }), shouldClearKeyboard,
-    );
+    const hubText = buildDiscussionsMenuText(lang, invitationCount);
+    return showBottomHub(ctx, lang, "discussions", MODES.DISCUSSIONS, hubText,
+      discussionsMenuKeyboard(lang), shouldClearKeyboard);
   }
 
   if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
@@ -605,7 +602,6 @@ async function handleCallback(ctx) {
   if (isDiscussionCreateCallback(data)) {
     return handleDiscussionCreateCallback(ctx, lang, {
       editCallbackMessageOrReply,
-      deleteCallbackMessageIfPossible,
       clearDiscussionMenuNotice,
       rememberDiscussionMenuNotice,
       sendDiscussionRoom,
@@ -810,7 +806,7 @@ async function handleCallback(ctx) {
     const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     const membersMessage = await editCallbackMessageOrReply(
       ctx,
-      `${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`,
+      buildDiscussionMembersText(messages, lang, rows),
       { reply_markup: { inline_keyboard: [] } },
     );
     await rememberDiscussionMembersMessage(ctx, ctx.callbackMessageId || membersMessage);
@@ -887,17 +883,28 @@ async function handleCallback(ctx) {
   }
 
   if (data.startsWith(callBacks.profileSaveByCode)) {
-    const code = data.replace(callBacks.profileSaveByCode, "");
-    await deleteCallbackMessageIfPossible(ctx);
-    await ctx.answerCb?.(messages[lang].savedProfileSaved);
-    return saveProfileByCode(ctx, lang, code);
+    const raw = data.replace(callBacks.profileSaveByCode, "");
+    const fromDiscussionMembers = raw.endsWith(":members");
+    const code = raw.replace(/:members$/, "");
+    if (!fromDiscussionMembers && !ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
+    await ctx.answerCb?.();
+    const fromPeopleList = String(ctx.user?.navigationMode || "").startsWith("public_profile:people:");
+    return saveProfileByCode(ctx, lang, code, { fromDiscussionMembers, fromPeopleList });
   }
 
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.profileUnsaveByCode, "");
     await deleteCallbackMessageIfPossible(ctx);
-    return unsaveProfileByCode(ctx, lang, code, { refreshProfile: true });
+    return requestUnsaveProfileConfirmation(ctx, lang, code);
+  }
+
+  if (data === callBacks.profileCloseDiscussionMember) {
+    await ctx.answerCb?.();
+    if (!ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
+    await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
+    if (ctx.user) ctx.user.publicProfileLastMessageId = null;
+    return true;
   }
 
   if (isAiCallback(data)) {
@@ -960,6 +967,7 @@ async function handleCallback(ctx) {
     }
 
     const newLang = selected;
+    if (ctx.user) ctx.user.lang = newLang;
     const onboardingState = String(ctx.user?.state || "");
 
     if (onboardingState === "onboarding_language") {
@@ -969,6 +977,7 @@ async function handleCallback(ctx) {
         ? messages[newLang].onboardingWelcomeWithName.replace("{name}", userName)
         : messages[newLang].onboardingWelcome;
       await updateUserState(ctx.userId, "onboarding_welcome");
+      await setNavigationMode(ctx, "onboarding_welcome");
       return editCallbackMessageOrReply(
         ctx,
         welcomeMessage,
@@ -986,16 +995,18 @@ async function handleCallback(ctx) {
       if (ctx.user) ctx.user.pendingDiscussionShareCode = inviteCode;
       await updateUserFields(ctx.userId, { pendingDiscussionShareCode: inviteCode });
       await updateUserState(ctx.userId, "onboarding_welcome");
+      await setNavigationMode(ctx, "onboarding_welcome");
       return editCallbackMessageOrReply(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
     }
 
     await deleteCallbackMessageIfPossible(ctx);
     await ctx.reply(messages[newLang].languageChanged);
     await sendNavigationFootprint(ctx, { lang: newLang, destination: "menu" });
-    return rememberNavigationCard(
-      ctx,
-      await ctx.reply(messages[newLang].mainMenu, mainMenuKeyboard(newLang)),
-    );
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    if (ctx.user) {
+      ctx.user.lang = newLang;
+    }
+    return ctx.reply(messages[newLang].mainMenu, mainMenuKeyboard(newLang));
   }
 
   await ctx.answerCb?.();

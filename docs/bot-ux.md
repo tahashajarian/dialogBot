@@ -1,24 +1,26 @@
 # Bot UX Rules
 
+Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegram client state. Discussion and People list buttons are bound to the exact list type and page; create-wizard, paid-capacity, profile-action, and saved-profile removal buttons are bound to their durable server-side context. Stale or manually typed labels do not activate outside that mode. Identity-bound invitation/join actions and other payload-sensitive cards remain inline where documented.
+
 ## Low-Noise Conversation
 
-- Every fresh destination entry retires the previous removable destination card, sends one permanent localized title footprint, then sends and tracks a fresh interactive card below it. If card deletion fails, inline controls must be removed so stale navigation cannot remain actionable.
-- Footprints are plain text historical labels: never track, edit, or delete their message IDs. Revisiting the same destination in a later update creates another footprint. The registry covers main menu, own/public profiles, profile settings, Movies/Music/Books and its media sections, discussions and rooms, active/my discussion lists, People and discovery, saved profiles, language, and help.
-- Pagination, refreshes, mutations, validation/errors, loading states, confirmations, previews, and picker steps do not create footprints. Leaving a discussion keeps the normal leave-history message before the destination footprint.
+- Stable destinations and converted contextual flows use persistent bottom keyboards and do not create navigation footprints. Ordinary navigation retains earlier messages and makes no Telegram delete/edit cleanup call. Legacy navigation-card IDs are forgotten without touching Telegram.
+- Inline cleanup is flow-specific and limited to cards whose payload can become unsafe or incorrect: indexed mutations, identity-bound actions, destructive confirmation, payment/nonce confirmation, and temporary share/member cards with explicit Close.
 
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
+- Ignore otherwise-unrecognized idle text without sending an error or resetting navigation. This includes a delayed duplicate bottom-button label that became stale after the first tap changed the server-side mode. Temporary input flows and active discussion messages keep their own validation/delivery behavior.
 - Bot-authored guidance, empty states, and safe error messages should start with the configured Muze marker emoji so they feel clearly from the bot. The default marker is `👩‍🦳`, and admins can change it from the dashboard. Short success confirmations can keep their action/status emoji.
 - Bot-authored messages sent before normal app-context routing, such as allowlist and banned-user blocks, should still apply the configured Muze marker emoji.
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
-- When a returning user changes the interface language, retire the language picker, send the localized change confirmation as a separate message, then enter a fresh titled main-menu card through the normal main-menu footprint flow.
+- When a returning user changes the interface language, retire the language picker, send the localized change confirmation, then enter the localized main-menu bottom mode. Old-language labels no longer resolve.
 - When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
 - After a create/edit flow is confirmed or canceled, remove leftover step cards so dead inline actions are not left in chat.
 - If a flow naturally moves from one picker to another, editing the same message in place is preferred.
 - Do not delete user messages.
 - Only delete bot messages that are temporary, stale, or invalid after the next action.
 - If an inline message contains item indexes, remove or edit it after a mutating action so old buttons cannot act on shifted indexes.
-- When deleting list items, delete the previous bot-sent list display if it is tracked, then confirm the removed item by name before showing the manage buttons again.
+- When deleting list items, confirm the removed item by name and render the current manager controls. Retained older command lists are harmless because indexed commands are validated against current state.
 - Pressing "back" in non-cancel flows should not send cancel copy (for example "operation canceled").
 - Back button labels should use `🔙` as the visible back emoji.
 - Numeric inline button rows should be ordered so the visible numbers start from the left in both Persian and English clients.
@@ -31,13 +33,13 @@
 
 - Keep Telegram's native command menu focused on `/start`, `/menu`, `/profile`, `/taste`, `/discussions`, `/people`, and `/help`. `/lang` remains supported as an optional shortcut.
 - Global navigation commands must work from normal menus, temporary input flows, and active discussions, including Telegram's `/command@BotName` form.
-- Before opening the command destination, clear tracked temporary cards, list/profile cards, pending input prompts, and temporary reply keyboards so old controls do not remain actionable.
+- Commands and deep links override stale visible keyboards and install their destination mode. Old bottom labels are harmless because resolution uses the new server-side mode; only unsafe inline cards receive explicit cleanup.
 - Global navigation currently follows the same product behavior as main-menu navigation: using it while active in a discussion leaves that discussion and clears the room keyboard.
 - Unknown slash commands inside an active discussion must not be delivered as room messages.
 
 ## Input Collection
 
-- When collecting typed input, provide one inline cancel button. Prefer hiding temporary bottom keyboards, but do not leave two visible prompt messages if the platform cannot combine keyboard removal and inline buttons reliably.
+- When collecting typed input, install a temporary mode with a bottom Cancel/Back action unless the prompt carries an identity-bound or transactional inline payload. Do not emit a separate empty cleanup bubble.
 - Cancel/back copy should match the action: "back" should not sound like an operation was canceled unless an input flow was actually canceled.
 - Text inputs should be length-limited and normalized before saving.
 - Profile name/city are short fields; bio can be longer.
@@ -45,7 +47,7 @@
 ## First-Session Onboarding
 
 - Ask fresh users to choose Persian or English before showing the product overview.
-- After language selection, replace the language card with the localized welcome card and onboarding start action.
+- First-session language selection and the localized welcome/start step use bottom reply keyboards. Append the next onboarding message instead of editing or deleting the previous prompt.
 - The welcome message should state the product promise: build taste, get personal suggestions, and find related discussions.
 - Offer recent, empty accounts a quick start that asks for three broad interests by default.
 - Show a small rotating set of interests instead of one oversized picker; let users request more options.
@@ -61,7 +63,9 @@
 - The About/guide should summarize Movies/Music/Books Top 10s and lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, `🎬🎵📚 Movies, Music, Books`, and active discussions.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
-- Show the product overview first with one clear "choose interests" inline action; replace that card with the interest picker after the user taps it.
+- Show the product overview first with one clear bottom "choose interests" action; append the Interest picker after the user taps it.
+- Bind every onboarding bottom label to its exact server-side step, language, and Interest page. The optional taste nudge, custom-input Cancel, and completion destinations use their own modes; stale or manually typed labels are ignored.
+- Normal onboarding navigation must not delete or edit earlier prompts and must not track navigation-card message IDs. This keeps the history understandable and avoids extra Telegram round trips.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
 - Normal onboarding does not prepare an automatic invitation. Its primary action opens the active-discussions list, where the global room can appear alongside other available rooms.
 - Onboarding must not interrupt discussion invite entry. A fresh invite recipient may choose language first, but the pending invite must be preserved and continue directly to the localized invite preview without showing the interests onboarding action.
@@ -119,12 +123,12 @@ Stars UX rules:
 - Discussion message replies should use platform-native replies when the runtime delivery map can resolve the target message. Do not add visible "replying to..." text, persist reply metadata, or create thread cards/extra acknowledgements for simple replies.
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Active-discussion visibility status rows are self-only. Other users viewing a profile should not see that setting.
-- Profile edit prompt cards, including Cancel buttons and validation retry prompts, should be deleted or have buttons removed after the edit is saved or canceled.
+- Profile edit prompts use temporary bottom modes. After save or cancel, switch modes and leave the prompt as harmless history; do not delete it.
 - Profile display names must be emoji-free. Profile emoji is a separate paid cosmetic chosen from a paged curated picker, appears after the display name, and users may also type exactly one allowed emoji. Reserved system emojis, including the current bot marker, are not available there. Users should get a clear retry prompt if they submit emoji in their typed name.
-- People and saved-profile lists use text command links for item actions. Do not show inline view/remove buttons per row; keep inline controls limited to list navigation (pagination + Back) and profile-return navigation. Show saved-profile `/ds_CODE` discussion links only when the saved user has at least one visible/open discussion. Their list Back buttons should use the generic Back label and return to the `👥 People` hub.
-- Opening a public profile from People or saved profiles should clear the old list card when possible, then show inline profile-level actions: save when unsaved, remove when saved, discussions only when the saved user has at least one visible/open discussion, and Back to the exact source list. The Back button must not depend on whether deleting the old list card succeeded.
+- People and saved-profile lists use text command links for item actions plus page-bound bottom pagination and Back. Show saved-profile `/ds_CODE` links only when the user has a visible/open discussion.
+- Public profiles from People or Saved Profiles retain the source list and use profile-bound bottom actions: Save when unsaved, Remove when saved, discussions when visible, and Back to the exact source/page. Discussion-member profiles use their separate inline Save/Saved and Close contract.
 - If saved-profile and invitation return state both appear possible, the currently visible saved-profile list takes priority. Do not show invitation-only controls, such as invite mute, when the profile was opened from saved profiles.
-- Profile discussion views should behave as their own return destination. Their Back button returns to the public profile card first, preserving whether the user came from saved profiles or People discovery. If a join from that view fails, the "Got it" acknowledgment should return to the same user's discussions.
+- Profile discussion views should behave as their own return destination. Their Back button returns to the public profile card first, preserving whether the user came from saved profiles or People discovery. If a join from that view fails, the `👍 Got it` / `👍 متوجه شدم` acknowledgment should return to the same user's discussions.
 - Profiles opened from People should return to `👀 دیدن آدم‌ها`, not the saved-profile list. Legacy `people:taste` return state may be accepted but should resolve back to the free People list.
 - People discovery distinguishes insufficient list data from no current matches; only insufficient data asks the user to add their first 3 items in one section.
 - Shareable discussion invites should be one ready-to-share bot message/card. Stored saved-profile invitations should stay in the invitation inbox, show unseen state through the count/marker, and use Back-only navigation from the list/profile views. Both invite types must open a preview/join step and must not auto-join recipients or bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
@@ -139,7 +143,7 @@ Stars UX rules:
 
 - Profile actions should always fail safely and fall back to text if photo rendering fails.
 - When a user has no profile photo, show the local default avatar from `assets/default_profile.png`.
-- Age selection should use a two-step flow: age ranges first, then exact ages inside the chosen range. Start at 13, use compact buckets such as `13-17`, `18-24`, then decade-like adult ranges, and keep numeric inline rows ordered left to right in both languages.
+- Age selection uses a two-step bottom mode: ranges first, then exact ages. Start at 13, keep compact buckets and preserve left-to-right numeric display in both languages.
 - Keep high-frequency profile edits on the main profile card: name, age, photo, city, and gender. Put longer/lower-frequency details/settings such as bio, pet preference, location, and active-discussion visibility behind the profile settings card.
 - Keep shared profile rendering/location helpers in `src/services/profile.js` and reuse them from `src/bot.js` and `src/callbacks.js`.
 - Profile should show existing section taste labels under a separate label heading, with spacing from the rest of the profile.

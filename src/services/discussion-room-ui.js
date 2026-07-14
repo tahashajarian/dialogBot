@@ -111,10 +111,15 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
   });
 }
 
+function buildDiscussionMembersText(messages, lang, rows = []) {
+  return `👩‍🦳 ${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`;
+}
+
 module.exports = {
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
   formatRecentDiscussionMessages,
   getStarterDiscussionJoinNudge,
   formatDiscussionMemberLines,
+  buildDiscussionMembersText,
 };

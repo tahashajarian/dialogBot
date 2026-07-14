@@ -6,10 +6,12 @@ const {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionJoinErrorAckKeyboard,
+  normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
 const { updateProfileField } = require("../services/users");
 const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter } = require("../services/discussion-language");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
+const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   buildDiscussionJoinLockedText,
   decorateDiscussionsForList,
@@ -36,13 +38,7 @@ async function clearRememberedDiscussionRoomCards(ctx, exceptMessageIds = []) {
   }
 
   const ids = [headerId, recentId].filter((id) => Number.isInteger(id) && id > 0 && !keep.has(id));
-
-  await Promise.all(ids.map(async (id) => {
-    const deleted = ctx.deleteMessage ? await ctx.deleteMessage(id) : false;
-    if (!deleted && ctx.editMessageReplyMarkup) {
-      await ctx.editMessageReplyMarkup(id, { inline_keyboard: [] });
-    }
-  }));
+  if (!ids.length) return;
 
   if (ctx.user) {
     ctx.user.discussionLastRoomHeaderMessageId = null;
@@ -84,14 +80,12 @@ async function rememberDiscussionMembersMessage(ctx, messageOrId) {
 async function clearDiscussionMembersMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionLastMembersMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) {
     return false;
   }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionLastMembersMessageId", null);
-  }
-  return deleted;
+  if (ctx.user) ctx.user.discussionLastMembersMessageId = null;
+  await updateProfileField(ctx.userId, "discussionLastMembersMessageId", null);
+  return true;
 }
 
 async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
@@ -99,21 +93,11 @@ async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
   const messageId = Number(ctx.user?.discussionLastListMessageId);
   if (
     !Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) ||
-    (!ctx.deleteMessage && !ctx.editMessageReplyMarkup)
+    !ctx.editMessageReplyMarkup
   ) {
     return false;
   }
-  let deleted = false;
-  try {
-    deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-  } catch {
-    deleted = false;
-  }
-  const retired = deleted || (
-    ctx.editMessageReplyMarkup
-      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
-      : false
-  );
+  const retired = await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
   if (!retired) {
     return false;
   }
@@ -131,14 +115,12 @@ async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
 async function clearDiscussionMenuNotice(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionMenuNoticeMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) {
     return false;
   }
-  const deleted = await ctx.deleteMessage(messageId);
-  if (deleted) {
-    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
-  }
-  return deleted;
+  if (ctx.user) ctx.user.discussionMenuNoticeMessageId = null;
+  await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+  return true;
 }
 
 async function rememberDiscussionMenuNotice(ctx, message) {
@@ -223,9 +205,12 @@ async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active"
   retireCallbackMessageIfPossible,
 } = {}) {
   const errorText = buildDiscussionJoinLockedText(messages, lang, reason, discussion);
+  const destination = normalizeDiscussionJoinErrorDestination(listType);
+  const navigationMode = `discussion_join_error:${destination}`;
+  await setNavigationMode(ctx, navigationMode);
   await retireCallbackMessageIfPossible?.(ctx);
   await clearDiscussionListMessage(ctx);
-  const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, listType));
+  const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, destination));
   await rememberDiscussionMenuNotice(ctx, errorNotice);
   return errorNotice;
 }
@@ -250,6 +235,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
     await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
+    await setNavigationMode(ctx, "discussions");
     return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
   }
   await ctx.answerCb?.();
@@ -257,6 +243,8 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   const ranked = await rankDiscussionsForDiscovery(ctx.user, decorated);
   const filtered = joinableOnly ? ranked.filter((entry) => entry.isJoinable) : ranked;
   if (!filtered.length) {
+    const navigationMode = `discussion_list:active:0:1:${joinableOnly ? "joinable" : "all"}:${effectiveLanguage}`;
+    await setNavigationMode(ctx, navigationMode);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionListJoinableEmpty,
@@ -272,6 +260,8 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     return listMessage;
   }
   const paged = paginateDiscussions(filtered, page);
+  const navigationMode = `discussion_list:active:${paged.page}:${paged.totalPages}:${joinableOnly ? "joinable" : "all"}:${effectiveLanguage}`;
+  await setNavigationMode(ctx, navigationMode);
   const listMessage = await editCallbackMessageOrReply(
     ctx,
     buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
@@ -301,10 +291,11 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
   }
   if (!result.discussions.length) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "discussions");
     const emptyNotice = await editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionListMineEmpty,
-      discussionJoinErrorAckKeyboard(lang, "discussions"),
+      discussionsMenuKeyboard(lang),
     );
     await rememberDiscussionMenuNotice(ctx, freshDestination ? emptyNotice : (ctx.callbackMessageId || emptyNotice));
     return emptyNotice;
@@ -312,6 +303,8 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
   await ctx.answerCb?.();
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
   const paged = paginateDiscussions(decorated, page);
+  const navigationMode = `discussion_list:mine:${paged.page}:${paged.totalPages}:all:all`;
+  await setNavigationMode(ctx, navigationMode);
   const listMessage = await editCallbackMessageOrReply(
     ctx,
     buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
@@ -359,6 +352,8 @@ async function handleDiscussionListCallback(ctx, lang, {
     const [joinability = "all", languageRaw = ""] = data.replace(callBacks.discussionListLanguageOpen, "").split(":");
     const joinableOnly = joinability === "joinable";
     const languageFilter = normalizeDiscussionLanguageFilter(languageRaw) || getEffectiveDiscussionLanguageFilter(ctx.user);
+    const navigationMode = `discussion_language:${joinableOnly ? "joinable" : "all"}:${languageFilter}`;
+    await setNavigationMode(ctx, navigationMode);
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionLanguagePickerTitle,
@@ -403,18 +398,25 @@ async function handleDiscussionListCallback(ctx, lang, {
   if (data.startsWith(callBacks.discussionJoinErrorAck)) {
     await ctx.answerCb?.();
     const destination = data.replace(callBacks.discussionJoinErrorAck, "");
-    await deleteCallbackMessageIfPossible?.(ctx);
-    await clearDiscussionMenuNotice(ctx);
+    if (ctx.isReplyKeyboardAction) {
+      await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+      if (ctx.user) ctx.user.discussionMenuNoticeMessageId = null;
+    } else {
+      await deleteCallbackMessageIfPossible?.(ctx);
+      await clearDiscussionMenuNotice(ctx);
+    }
 
     if (destination.startsWith("saved:u_") && renderSavedProfileDiscussions) {
       return renderSavedProfileDiscussions(ctx, lang, destination.replace(/^saved:/, ""));
     }
     if (destination === "main") {
       await sendNavigationFootprint(ctx, { lang, destination: "menu" });
+      await setNavigationMode(ctx, "global");
       return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
     }
     if (destination === "discussions") {
       await sendNavigationFootprint(ctx, { lang, destination: "discussions" });
+      await setNavigationMode(ctx, "discussions");
       return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
     }
     if (destination === "invitations" && renderInvitationsList) {

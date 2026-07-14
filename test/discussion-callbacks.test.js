@@ -25,6 +25,9 @@ const {
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
+  clearDiscussionMembersMessage,
+  clearDiscussionMenuNotice,
+  clearRememberedDiscussionRoomCards,
   handleDiscussionListCallback,
   renderMyDiscussionList,
   shouldKeepDiscussionRoomCardsForCallback,
@@ -40,6 +43,42 @@ const {
 const { handleCallback } = require("../src/callbacks");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
+
+test("ordinary discussion cleanup forgets tracked cards without Telegram operations", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  User.findOneAndUpdate = async (_query, update) => {
+    updates.push(update);
+    return {};
+  };
+  const telegramOperations = [];
+  const ctx = {
+    userId: 7,
+    user: {
+      discussionLastRoomHeaderMessageId: 10,
+      discussionLastRoomRecentMessageId: 11,
+      discussionLastMembersMessageId: 12,
+      discussionMenuNoticeMessageId: 13,
+    },
+    deleteMessage: async (id) => telegramOperations.push(["delete", id]),
+    editMessageReplyMarkup: async (id) => telegramOperations.push(["edit", id]),
+  };
+
+  try {
+    await clearRememberedDiscussionRoomCards(ctx);
+    await clearDiscussionMembersMessage(ctx);
+    await clearDiscussionMenuNotice(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(telegramOperations, []);
+  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, null);
+  assert.equal(ctx.user.discussionLastRoomRecentMessageId, null);
+  assert.equal(ctx.user.discussionLastMembersMessageId, null);
+  assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
+  assert.equal(updates.length, 4);
+});
 
 test("discussion callback error mapping returns specific copy", () => {
   assert.equal(
@@ -346,9 +385,9 @@ test("discussion navigation keyboard uses next page index and updated labels", (
     joinableOnly: false,
   });
 
-  const rows = keyboard?.reply_markup?.inline_keyboard || [];
+  const rows = keyboard?.reply_markup?.keyboard || [];
   const flatButtons = rows.flat();
-  const moreButton = flatButtons.find((btn) => btn.callback_data === "discussion:list:active:page:1:all");
+  const moreButton = flatButtons.find((btn) => btn.text === `${messages.fa.discussionListMorePage} ➡️`);
 
   assert.ok(moreButton);
   assert.equal(moreButton.text, `${messages.fa.discussionListMorePage} ➡️`);
@@ -370,28 +409,27 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
     joinableOnly: true,
   });
 
-  const allButtons = (allState?.reply_markup?.inline_keyboard || []).flat();
-  const joinableButtons = (joinableState?.reply_markup?.inline_keyboard || []).flat();
-  const allToggle = allButtons.find((btn) => btn.callback_data === "discussion:list:active:page:0:joinable");
-  const joinableToggle = joinableButtons.find((btn) => btn.callback_data === "discussion:list:active:page:0:all");
+  const allButtons = (allState?.reply_markup?.keyboard || []).flat();
+  const joinableButtons = (joinableState?.reply_markup?.keyboard || []).flat();
+  const allToggle = allButtons.find((btn) => btn.text.includes(messages.fa.discussionListOnlyJoinable));
+  const joinableToggle = joinableButtons.find((btn) => btn.text.includes(messages.fa.discussionListShowAll));
 
   assert.equal(allToggle?.text, "🔓 فقط قابل ورودها");
   assert.equal(joinableToggle?.text, "🔓 نمایش همه");
 });
 
-test("my discussions empty state uses a tip and Got it acknowledgement", () => {
+test("join-error acknowledgement copy remains available for discussion recovery", () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "discussions");
-  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  const [button] = keyboard.reply_markup.keyboard.flat();
 
   assert.match(messages.en.discussionListMineEmpty, /Active discussions/);
   assert.match(messages.en.discussionListMineEmpty, /create a new discussion/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
   assert.equal(button.text, messages.en.acknowledgeButton);
-  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}discussions`);
 });
 
-test("my discussions empty callback uses visible card without toast text", async () => {
+test("my discussions empty callback offers normal discussion navigation without toast text", async () => {
   const originalUserFindOne = User.findOne;
   const originalDiscussionFind = Discussion.find;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -434,8 +472,8 @@ test("my discussions empty callback uses visible card without toast text", async
     assert.deepEqual(answerTexts, [undefined]);
     assert.equal(rendered[0].text, messages.en.discussionListMineEmpty);
     assert.equal(
-      rendered[0].keyboard.reply_markup.inline_keyboard.flat()[0].callback_data,
-      `${callBacks.discussionJoinErrorAck}discussions`,
+      rendered[0].keyboard.reply_markup.keyboard.flat()[0].text,
+      messages.en.discussionActiveList,
     );
   } finally {
     User.findOne = originalUserFindOne;
@@ -468,14 +506,14 @@ test("acknowledging an empty discussion list enters Discussions with a footprint
   });
 
   assert.deepEqual(deletedIds, [42]);
-  assert.equal(replies[0].text, messages.en.navigationFootprintDiscussions);
-  assert.equal(replies[1].text, messages.en.discussionsMenu);
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.discussionsMenu);
 });
 
 test("discussion join error acknowledgement can return to saved profile discussions", async () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "saved:u_a1");
-  const button = keyboard.reply_markup.inline_keyboard.flat()[0];
-  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}saved:u_A1`);
+  const button = keyboard.reply_markup.keyboard.flat()[0];
+  assert.equal(button.text, messages.en.acknowledgeButton);
 
   const deletedIds = [];
   let renderedCode = "";
@@ -515,17 +553,16 @@ test("discussion create TopTen callback is routed and treated as create flow", (
 });
 
 test("discussion creation language picker supports set and non-destructive back", () => {
-  const keyboard = discussionCreateLanguagePickerKeyboard("en", "fa").reply_markup.inline_keyboard;
+  const keyboard = discussionCreateLanguagePickerKeyboard("en", "fa").reply_markup.keyboard;
   assert.equal(keyboard[0][0].text, "✓ 🇮🇷 Persian");
-  assert.equal(keyboard[0][0].callback_data, `${callBacks.discussionCreateSetLanguage}fa`);
-  assert.equal(keyboard[1][0].callback_data, `${callBacks.discussionCreateSetLanguage}en`);
-  assert.equal(keyboard[2][0].callback_data, callBacks.discussionCreateLanguageBack);
+  assert.equal(keyboard[1][0].text, "🇬🇧 English");
+  assert.equal(keyboard[2][0].text, messages.en.discussionBack);
   assert.equal(keyboard.length, 3);
   assert.equal(isDiscussionCreateFlowCallback(`${callBacks.discussionCreateSetLanguage}en`), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateLanguageBack), true);
 });
 
-test("discussion create guidance uses Got it acknowledgement and deletes on tap", async () => {
+test("discussion create guidance uses acknowledgement and edits in place without deleting", async () => {
   const guidanceKeyboard = discussionCreateGuidanceAckKeyboard("en");
   assert.equal(
     guidanceKeyboard.reply_markup.inline_keyboard[0][0].text,
@@ -556,7 +593,7 @@ test("discussion create guidance uses Got it acknowledgement and deletes on tap"
     },
   });
 
-  assert.deepEqual(deletedIds, [88]);
+  assert.deepEqual(deletedIds, []);
   assert.deepEqual(renderedPrompts.map((entry) => entry.text), [messages.en.discussionJoinRulePrompt]);
 });
 
@@ -593,10 +630,9 @@ test("discussion create start asks for profile name before title prompt", async 
       },
     });
 
-    assert.deepEqual(deletedIds, [91]);
+    assert.deepEqual(deletedIds, []);
     assert.match(replies[0].text, /Before creating or entering a discussion/);
     assert.ok(updates.some((entry) => entry.update.state === "discussion_name_required:create:start"));
-    assert.ok(updates.some((entry) => entry.update.profileEditPromptMessageId === 92));
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
@@ -664,34 +700,62 @@ test("discussion capacity picker marks paid capacities only when spending is ava
     paidLargeDiscussionCapacity: 50,
   });
   try {
-    const keyboard = discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || [];
+    const keyboard = discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.keyboard || [];
     const labels = keyboard.flat().map((button) => button.text);
     assert.ok(labels.includes("\u200e2 ⭐"));
     assert.ok(labels.includes("\u200e50 ⭐"));
-    assert.deepEqual(
-      keyboard.slice(0, 2).map((row) => row.map((button) => button.callback_data)),
-      [
-        [
-          `${callBacks.discussionCreateSetCapacity}2`,
-          `${callBacks.discussionCreateSetCapacity}3`,
-          `${callBacks.discussionCreateSetCapacity}4`,
-          `${callBacks.discussionCreateSetCapacity}5`,
-        ],
-        [
-          `${callBacks.discussionCreateSetCapacity}10`,
-          `${callBacks.discussionCreateSetCapacity}15`,
-          `${callBacks.discussionCreateSetCapacity}20`,
-          `${callBacks.discussionCreateSetCapacity}50`,
-        ],
-      ],
-    );
+    assert.equal(keyboard.slice(0, 2).flat().length, 8);
 
     starEconomy.spendingEnabled = false;
-    const disabledLabels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.inline_keyboard || []).flat().map((button) => button.text);
+    const disabledLabels = (discussionCreateCapacityKeyboard("en", 20)?.reply_markup?.keyboard || []).flat().map((button) => button.text);
     assert.equal(disabledLabels.includes("\u200e2 ⭐"), false);
     assert.equal(disabledLabels.includes("\u200e50 ⭐"), false);
   } finally {
     Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("canceling a discussion draft edit quietly restores preview", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const rendered = [];
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      callbackData: callBacks.discussionCreateCancelEdit,
+      userId: 42,
+      user: {
+        userId: 42,
+        lang: "en",
+        state: "discussion_create_title_edit",
+        discussionDraftTitle: "Open cafe",
+        discussionDraftDescription: "A room",
+        discussionDraftJoinRule: { type: "open" },
+      },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await handleDiscussionCreateCallback(ctx, "en", {
+      editCallbackMessageOrReply: async (_callbackCtx, text, keyboard) => {
+        rendered.push({ text, keyboard });
+        return true;
+      },
+      deleteCallbackMessageIfPossible: async () => true,
+      clearDiscussionMenuNotice: async () => true,
+      rememberDiscussionMenuNotice: async () => true,
+      sendDiscussionRoom: async () => true,
+    });
+
+    assert.equal(replies.length, 0);
+    assert.equal(rendered.length, 1);
+    assert.match(rendered[0].text, /Open cafe/);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 });
 
@@ -726,8 +790,8 @@ test("paid capacity create confirm opens payment confirmation and cancel returns
     });
     assert.match(renders[0].text, /costs 3 Stars/);
     assert.equal(
-      renders[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
-      `${callBacks.discussionCreatePaidCapacityConfirm}2:3`,
+      renders[0].keyboard.reply_markup.keyboard[0][0].text,
+      messages.en.discussionPaidCapacityConfirmButton.replace("{cost}", "3"),
     );
 
     ctx.callbackData = callBacks.discussionCreatePaidCapacityCancel;
@@ -738,7 +802,7 @@ test("paid capacity create confirm opens payment confirmation and cancel returns
       },
     });
     assert.match(renders[1].text, /Tiny room/);
-    assert.equal(renders[1].keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionCreateConfirm);
+    assert.equal(renders[1].keyboard.reply_markup.keyboard[0][0].text, messages.en.discussionCreateConfirm);
   } finally {
     Object.assign(starEconomy, originalSettings);
   }
@@ -929,8 +993,8 @@ test("dismissing invite preview can offer optional taste setup when no room is a
   assert.deepEqual(deleted, [44]);
   assert.equal(replies.length, 1);
   assert.match(replies[0].text, /Want closer discussion matches/);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
-  assert.ok(buttons.find((button) => button.callback_data === callBacks.onboardingTasteSetupStart));
+  const buttons = replies[0].extra.reply_markup.keyboard.flat();
+  assert.ok(buttons.find((button) => button.text === messages.en.onboardingTasteSetupStartButton));
   assert.ok(updates.some((entry) => entry.update.onboardingTasteSetupNudgedAt instanceof Date));
 });
 
@@ -971,9 +1035,9 @@ test("discussion invite locked hint names required update path", () => {
 
 test("full discussion guidance keeps the existing acknowledgement recovery", () => {
   const keyboard = discussionJoinErrorAckKeyboard("fa", "active");
-  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  const [button] = keyboard.reply_markup.keyboard.flat();
 
   assert.match(messages.fa.discussionErrFull, /گفت‌وگوی خودت رو بسازی/);
   assert.match(messages.en.discussionErrFull, /create your own/);
-  assert.equal(button.callback_data, `${callBacks.discussionJoinErrorAck}active`);
+  assert.equal(button.text, messages.fa.acknowledgeButton);
 });

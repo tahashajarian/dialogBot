@@ -18,8 +18,7 @@ const {
   updateUserState,
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
-const {
-} = require("../services/bot-navigation");
+const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-navigation");
 const { resolveCityByCoordinates } = require("../services/location");
 const {
   isValidTextInput,
@@ -103,13 +102,9 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
   if (!isProfileTextState(state)) return false;
 
   await updateUserState(ctx.userId, "idle");
+  await clearProfileEditPrompt(ctx);
   const updatedUser = toPlainUser(ctx.user);
   updatedUser.state = "idle";
-  if (state === "editing_location") {
-    await ctx.reply(messages[lang].navigationFootprintProfile, {
-      reply_markup: { remove_keyboard: true },
-    });
-  }
   return sendProfile(ctx, updatedUser, lang, keyboardLang);
 }
 
@@ -235,9 +230,6 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     if (text === messages[lang].cancelEdit) {
       await updateUserState(ctx.userId, "idle");
       await clearProfileEditPrompt(ctx);
-      await ctx.reply(messages[lang].navigationFootprintProfile, {
-        reply_markup: { remove_keyboard: true },
-      });
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
       return sendProfile(ctx, updatedUser, lang, keyboardLang);
@@ -279,7 +271,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     }
 
     const item = String(text || "").trim().replace(/\s+/g, " ");
-    if (!item || Array.from(item).length > operationalLimits.profileInterestCustomMaxLength) {
+    if (!item || isKnownProfileNavigationLabel(item) || Array.from(item).length > operationalLimits.profileInterestCustomMaxLength) {
       return sendProfileEditPrompt(
         ctx,
         `${formatProfileInterestMessage(lang, "profileInterestTooLong")}\n${formatProfileInterestMessage(lang, "profileEditHintInterests")}`,

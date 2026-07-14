@@ -106,7 +106,7 @@ test("inline navigation can clear the bottom keyboard on a stable notice without
   await replyWithKeyboardRemovalNoticeThenInline(ctx, "Media", "Choose one", keyboard);
 
   assert.equal(replies.length, 2);
-  assert.equal(replies[0].text, "Media");
+  assert.equal(replies[0].text, "⁣");
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.equal(replies[1].text, "Choose one");
   assert.equal(replies[1].extra.reply_markup.inline_keyboard[0][0].text, "Go");

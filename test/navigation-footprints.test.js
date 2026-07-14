@@ -22,7 +22,7 @@ test("discussion footprints use the established safe display title", () => {
   );
 });
 
-test("a footprint can remove the obsolete reply keyboard in the same permanent send", async () => {
+test("navigation cleanup retires legacy cards without sending footprint messages", async () => {
   const replies = [];
   const ctx = {
     reply: async (text, extra) => {
@@ -37,14 +37,11 @@ test("a footprint can remove the obsolete reply keyboard in the same permanent s
     removeKeyboard: true,
   });
 
-  assert.deepEqual(sent, { message_id: 42 });
-  assert.deepEqual(replies, [{
-    text: "👤 Profile",
-    extra: { reply_markup: { remove_keyboard: true } },
-  }]);
+  assert.equal(sent, null);
+  assert.deepEqual(replies, []);
 });
 
-test("retiring the old card does not delay sending the next footprint", async () => {
+test("retiring an old card creates no replacement footprint", async () => {
   let finishDelete;
   const deletePending = new Promise((resolve) => {
     finishDelete = resolve;
@@ -62,7 +59,7 @@ test("retiring the old card does not delay sending the next footprint", async ()
   const sending = sendNavigationFootprint(ctx, { lang: "en", destination: "discussions" });
   await Promise.resolve();
 
-  assert.deepEqual(replies, ["💬 Discussions"]);
+  assert.deepEqual(replies, []);
   finishDelete(true);
-  assert.deepEqual(await sending, { message_id: 42 });
+  assert.equal(await sending, null);
 });

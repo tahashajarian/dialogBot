@@ -338,7 +338,7 @@ Normal discussion capacities remain free. Special capacities are optional Star s
 - 2-person focused room, default 3 Stars
 - large room, default 50 members for 10 Stars
 
-The capacity picker labels paid capacities with `⭐` only when Star spending and that paid-capacity switch are enabled. Selecting a paid capacity does not charge immediately. The final create action opens a paid-capacity confirmation showing the current cost and balance; cancel, stale settings, and insufficient-balance acknowledgements return to the draft preview. On confirmation, Muze revalidates the current cost and capacity, spends Stars, creates the room, and refunds automatically if room creation fails after charging.
+The capacity picker labels paid capacities with `⭐` only when Star spending and that paid-capacity switch are enabled. Selecting a paid capacity does not charge immediately. The final create action opens a dedicated bottom-keyboard confirmation mode showing the current cost and balance. Its visible label is never trusted: the server-side mode binds the exact quoted capacity and cost, and stale or manually copied labels outside that mode are rejected. Cancel returns to the draft preview; insufficient balance offers Edit capacity and Back to preview. On confirmation, Muze revalidates the current cost and capacity, spends Stars idempotently, creates the room, and refunds automatically if room creation fails after charging.
 
 Paid capacity never bypasses discussion join rules, active-room limits, owner-created room caps, report/removal rules, or moderation.
 

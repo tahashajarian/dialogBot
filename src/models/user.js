@@ -122,6 +122,7 @@ const UserSchema = new mongoose.Schema({
   publicProfileLastMessageId: { type: Number, default: null },
   profileLastMessageId: { type: Number, default: null },
   navigationLastCardMessageId: { type: Number, default: null },
+  navigationMode: { type: String, default: "" },
   profileEditPromptMessageId: { type: Number, default: null },
   pendingProfileViewCode: { type: String, default: "" },
   discussionDraftTitle: { type: String, default: "" },

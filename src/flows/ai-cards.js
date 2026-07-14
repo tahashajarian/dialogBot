@@ -20,29 +20,17 @@ async function rememberAiListMessage(ctx, section, listType, message) {
     aiLastListMessageId: messageId,
     aiLastListSection: section,
     aiLastListType: listType,
+    navigationMode: `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`,
   });
   if (ctx.user) {
     ctx.user.aiLastListMessageId = messageId;
     ctx.user.aiLastListSection = section;
     ctx.user.aiLastListType = listType;
+    ctx.user.navigationMode = `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`;
   }
 }
 
 async function replaceRememberedAiListMessage(ctx, section, listType, message) {
-  const currentMessageId = ctx.user?.aiLastListMessageId;
-  const currentSection = ctx.user?.aiLastListSection;
-  const currentListType = ctx.user?.aiLastListType;
-  const nextMessageId = getMessageId(message);
-
-  if (
-    currentMessageId &&
-    ctx.deleteMessage &&
-    (currentSection !== section || currentListType !== listType) &&
-    Number(currentMessageId) !== Number(nextMessageId)
-  ) {
-    await ctx.deleteMessage(currentMessageId);
-  }
-
   await rememberAiListMessage(ctx, section, listType, message);
 }
 
@@ -51,60 +39,39 @@ async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDe
   if (
     !messageId ||
     ctx.user?.aiLastListSection !== section ||
-    ctx.user?.aiLastListType !== listType ||
-    !ctx.deleteMessage
+    ctx.user?.aiLastListType !== listType
   ) {
     return false;
   }
-
-  let deleted = false;
-  if (waitForDelete) {
-    deleted = await ctx.deleteMessage(messageId);
-  } else {
-    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
-    deleted = true;
+  await updateUserFields(ctx.userId, {
+    aiLastListMessageId: null,
+    aiLastListSection: "",
+    aiLastListType: "",
+  });
+  if (ctx.user) {
+    ctx.user.aiLastListMessageId = null;
+    ctx.user.aiLastListSection = "";
+    ctx.user.aiLastListType = "";
   }
-  if (deleted) {
-    await updateUserFields(ctx.userId, {
-      aiLastListMessageId: null,
-      aiLastListSection: "",
-      aiLastListType: "",
-    });
-    if (ctx.user) {
-      ctx.user.aiLastListMessageId = null;
-      ctx.user.aiLastListSection = "";
-      ctx.user.aiLastListType = "";
-    }
-  }
-  return deleted;
+  return true;
 }
 
 async function clearRememberedAiListMessage(ctx, { waitForDelete = true } = {}) {
   const messageId = ctx.user?.aiLastListMessageId;
-  if (!messageId || !ctx.deleteMessage) {
+  if (!messageId) {
     return false;
   }
-
-  let deleted = false;
-  if (waitForDelete) {
-    deleted = await ctx.deleteMessage(messageId);
-  } else {
-    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
-    deleted = true;
+  await updateUserFields(ctx.userId, {
+    aiLastListMessageId: null,
+    aiLastListSection: "",
+    aiLastListType: "",
+  });
+  if (ctx.user) {
+    ctx.user.aiLastListMessageId = null;
+    ctx.user.aiLastListSection = "";
+    ctx.user.aiLastListType = "";
   }
-  if (deleted) {
-    await updateUserFields(ctx.userId, {
-      aiLastListMessageId: null,
-      aiLastListSection: "",
-      aiLastListType: "",
-    });
-    if (ctx.user) {
-      ctx.user.aiLastListMessageId = null;
-      ctx.user.aiLastListSection = "";
-      ctx.user.aiLastListType = "";
-    }
-  }
-  return deleted;
+  return true;
 }
 
 async function forgetRememberedAiListMessage(ctx) {
@@ -129,23 +96,14 @@ async function rememberAiSectionEntryMessage(ctx, message) {
 async function clearAiSectionEntryMessage(ctx, exceptMessageIds = [], { waitForDelete = true } = {}) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.aiSectionEntryMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) || !ctx.deleteMessage) {
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) {
     return false;
   }
-  let deleted = false;
-  if (waitForDelete) {
-    deleted = await ctx.deleteMessage(messageId);
-  } else {
-    Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
-    deleted = true;
+  if (ctx.user) {
+    ctx.user.aiSectionEntryMessageId = null;
   }
-  if (deleted) {
-    if (ctx.user) {
-      ctx.user.aiSectionEntryMessageId = null;
-    }
-    await updateAiCardField(ctx, "aiSectionEntryMessageId", null);
-  }
-  return deleted;
+  await updateAiCardField(ctx, "aiSectionEntryMessageId", null);
+  return true;
 }
 
 async function rememberAiActionMessage(ctx, context, message) {
@@ -165,25 +123,6 @@ async function clearAiActionMessage(ctx, { waitForDelete = true, fallbackToEdit 
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return true;
   }
-  let deleted = false;
-  if (ctx.deleteMessage) {
-    try {
-      if (waitForDelete) {
-        deleted = await ctx.deleteMessage(messageId);
-      } else {
-        Promise.resolve(ctx.deleteMessage(messageId)).catch(() => {});
-        deleted = true;
-      }
-    } catch {
-      deleted = false;
-    }
-  }
-  const retiredInline = deleted ? false : (
-    fallbackToEdit && ctx.editMessageReplyMarkup
-      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
-      : false
-  );
-  const retired = retiredInline || deleted;
   await updateUserFields(ctx.userId, {
     aiActionMessageId: null,
     aiActionContext: "",
@@ -192,7 +131,7 @@ async function clearAiActionMessage(ctx, { waitForDelete = true, fallbackToEdit 
     ctx.user.aiActionMessageId = null;
     ctx.user.aiActionContext = "";
   }
-  return retired;
+  return true;
 }
 
 function shouldKeepAiListTitleForCallback(data = "", isAiCallback = () => false) {

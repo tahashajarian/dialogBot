@@ -19,10 +19,12 @@
 - Persian suggestion actions must make the direction explicit with wording such as `از میوز پیشنهاد بگیر`; avoid a standalone `پیشنهاد` button that could be mistaken for submitting a recommendation to someone else.
 - Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
-- In list, Top 10, or suggestion inline-action states, stray text should retire the current inline card and send one fresh guidance card with the same relevant options.
+- In list, Top 10, or suggestion bottom modes, stray text does not activate an action or reset navigation. Keep the current mode and use concise guidance only when needed.
+- Suggestion source, context, result, save/reject/next, and Back transitions retain prior messages. Clearing tracked suggestion/input/action IDs is database-only and must not call Telegram delete or markup-edit APIs. The callback dispatcher must never treat a reply-keyboard user message as a disposable bot callback card.
+- Top 10 and For Later navigation follows the same retained-history rule. Opening add/comment modes, changing filters, returning to a list or section, and switching between the two lists only forget tracked display IDs; it does not delete or edit earlier Telegram messages. Old indexed commands are revalidated against the current list and mode before mutation.
 - Replacement list-management cards should preserve their useful description. In Top 10, keep current taste-label/progress context and append only a short button-use tip.
 - Media sections stay in the active list-management state; Back from the TopTen returns to the AI assistant menu.
-- The inline AI assistant back button returns to the main menu.
+- The AI assistant Back bottom button returns according to its current server-side mode.
 
 ## AI Lists
 
@@ -49,7 +51,7 @@
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
 - For Later lists do not show a "create shareable message" button. Favorites may show it when they have more than five items. When tapped, remove the current manager card, send the clean formatted Favorites as one standalone plain-text message, then send a separate compact guidance card with native Share and Back to list. There is no copy button because full Favorites content can exceed the platform `copy_text` limit; guidance tells users to long-press the clean list message above. The shared content should omit management command links, status toggles, and inline management controls. If a public bot base link is configured, append only the localized `Made with Muze` / `ساخته‌شده با میوز` marker and link as a small footer. Favorites shares are not referral-attributed.
 - List-return buttons should consistently say `Back to list` / `برگشت به لیست`, including Favorites, watchlists, suggestions, add flows, and shareable-list guidance. Never expose the internal `Top 10` name.
-- Keep inline buttons for list-level controls only, such as add, filters, back/navigation, and input cancel.
+- List-level add, filters, status views, navigation, input cancel, and suggestion actions use bottom buttons bound to the exact section/list/filter mode. Inline remains for native share/copy and transactional confirmations.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
 - Canceling comment input should quietly retire the input prompt and return to the refreshed list manager, without sending a separate "comment canceled" card.
@@ -74,14 +76,14 @@
 - After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. The first untouched add prompt should show Cancel; post-save prompts should show Back to list and explicitly say the user can send the next title in chat.
 - Post-save TopTen continuation prompts are bot-authored guidance and should carry the configured Muze marker. The success line itself may keep the short success emoji.
 - List save confirmations should name both the saved item and the active user-facing list. Suggestion save confirmations should use the active user-facing list name where possible: Movies watchlist, Music playlist, or Books reading list. Avoid generic/internal wording such as "regular list" in user-facing progress copy.
-- Entering add mode should send one visible prompt with its inline Cancel button. Do not send a keyboard-removal copy and then a second identical prompt with buttons.
+- Entering add mode sends one visible prompt with a bottom Cancel/Back action. Do not send a keyboard-removal copy or duplicate prompt.
 - Entering add mode should retire the remembered list display, including empty TopTen/List cards, so old list summaries do not remain in chat while the user is adding items.
 - If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
 - Typed-item feedback should feel like a witty friend reacting, not a review or personality analysis.
 - For recognizable works, use one playful 6–12-word line grounded in a concrete joke, style, theme, feeling, sound, or atmosphere. Gentle teasing, excitement, or light exaggeration is welcome; allow at most one relevant emoji.
 - Keep a meaningful word from the title in generated feedback so recognition remains verifiable. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
 - Reject empty praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
-- When a user enters TopTen in any section, include the current TopTen list directly in the manager card before the section/manage description and inline buttons.
+- When a user enters TopTen in any section, include the current list directly in the manager message before its bottom manager controls.
 - Completed TopTen manager cards should include a short command-use tip beneath the taste label so comment and remove actions remain clear.
 - TopTen menus should not include a separate "show all" action.
 - TopTen collector flow still supports `+`/`-` text actions when users choose to curate TopTen directly.
@@ -140,7 +142,7 @@ Elden Ring
 
 ### Suggested Interest Chips
 
-When the user is filling the Interests TopTen, the bot can show common interest suggestions as inline buttons/chips.
+When the user is filling Interests, common suggestions are page-bound bottom chips; selected chips stay in place with a check mark.
 
 Purpose:
 
@@ -243,7 +245,7 @@ Labels should be inferred from both typed items and suggested chips.
 
 - AI list duplicate detection should run across all sections and list types, not just music.
 - Duplicate detection should return match data for better duplicate messages.
-- Duplicate responses are bot-authored messages and keep the same continuous-add inline controls as a successful non-final add.
+- Duplicate responses are bot-authored messages and keep the same continuous-add bottom controls as a successful non-final add.
 - After a mutation, do not build follow-up copy from stale `ctx.user` when the service already returned updated items.
 - Use the updated result to avoid incorrect full/progress messages.
 - Track the last bot-sent AI list message (`aiLastListMessageId`, section, type) so stale list displays can be deleted after mutating actions.
@@ -260,13 +262,13 @@ Labels should be inferred from both typed items and suggested chips.
 - OpenAI-compatible providers may use either Chat Completions or Responses payloads; suggestion handling should accept both response shapes and show a visible fallback instead of failing silently.
 - Animated AI placeholders must serialize edits so a late loading step cannot overwrite the final result. Suggestion placeholders must also end in a visible retry state after a bounded timeout.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
-- If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `Got it` acknowledgement card that returns to the section TopTen manager.
+- If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `👍 Got it` / `👍 متوجه شدم` acknowledgement card that returns to the section TopTen manager.
 - Pressing the section suggestion button should first show a choice prompt:
   - suggest from TopTen
   - or collect one short mood/genre note
 - The suggestion choice prompt must include a Back action that returns to the section TopTen manager.
 - Do not call AI until the user chooses.
-- The mood/genre suggestion input state should provide an inline cancel button.
+- The mood/genre suggestion input state provides a section-scoped bottom Cancel button.
 - Cancel returns to the section TopTen manager.
 - Suggestions should avoid duplicates from:
   - user's TopTen
@@ -283,7 +285,7 @@ Labels should be inferred from both typed items and suggested chips.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
-- Suggestions should not auto-send the next item after a status action; users should explicitly press the inline "another suggestion" button, or Back to return to the section TopTen manager.
+- Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
 - Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.

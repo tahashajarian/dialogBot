@@ -65,7 +65,7 @@ async function replyWithRemovedKeyboardThenInline(ctx, text, inlineKeyboard) {
 }
 
 async function replyWithKeyboardRemovalNoticeThenInline(ctx, noticeText, text, inlineKeyboard) {
-  await ctx.reply(noticeText, { reply_markup: { remove_keyboard: true } });
+  await removeBottomKeyboard(ctx);
   return ctx.reply(text, inlineKeyboard);
 }
 

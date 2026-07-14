@@ -10,7 +10,7 @@ const {
   rememberAiActionMessage,
 } = require("../src/flows/ai-cards");
 
-test("AI action cards remember context and retire the tracked inline card", async () => {
+test("AI action cards forget retained history without Telegram deletion", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});
   const deleted = [];
@@ -30,7 +30,7 @@ test("AI action cards remember context and retire the tracked inline card", asyn
 
     const cleared = await clearAiActionMessage(ctx);
     assert.equal(cleared, true);
-    assert.deepEqual(deleted, [55]);
+    assert.deepEqual(deleted, []);
     assert.equal(ctx.user.aiActionMessageId, null);
     assert.equal(ctx.user.aiActionContext, "");
   } finally {
