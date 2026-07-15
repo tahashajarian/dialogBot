@@ -39,7 +39,6 @@ const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
 const {
   replyWithKeyboardRemovalNoticeThenInline,
-  replyWithRemovedKeyboardThenInline,
 } = require("../services/bot-navigation");
 const {
   getAiSectionFromState,
@@ -655,9 +654,6 @@ async function handleAiText(ctx, lang, text, state) {
         );
       }
 
-      await deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: false });
-      await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
-
       const result = await addAiListItem(
         ctx.userId,
         section,
@@ -716,11 +712,6 @@ async function handleAiText(ctx, lang, text, state) {
       if (ctx.user) ctx.user.state = nextState;
 
       if (!isWatchlist) {
-        const placeholder = await startAiPlaceholder(ctx, [
-          messages[lang].aiThinking,
-          messages[lang].aiThinkingStill,
-          messages[lang].aiThinkingAlmost,
-        ]);
         const savedMessage = await buildTopTenSavedMessage({
           ctx,
           lang,
@@ -729,7 +720,7 @@ async function handleAiText(ctx, lang, text, state) {
           items: result.items,
           includeNextPrompt: false,
         });
-        const saved = await placeholder.finish(
+        const saved = await ctx.reply(
           [
             savedMessage,
             starNotice,

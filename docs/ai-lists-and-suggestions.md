@@ -77,12 +77,8 @@
 - Post-save TopTen continuation prompts are bot-authored guidance and should carry the configured Muze marker. The success line itself may keep the short success emoji.
 - List save confirmations should name both the saved item and the active user-facing list. Suggestion save confirmations should use the active user-facing list name where possible: Movies watchlist, Music playlist, or Books reading list. Avoid generic/internal wording such as "regular list" in user-facing progress copy.
 - Entering add mode sends one visible prompt with a bottom Cancel/Back action. Do not send a keyboard-removal copy or duplicate prompt.
-- Entering add mode should retire the remembered list display, including empty TopTen/List cards, so old list summaries do not remain in chat while the user is adding items.
-- If a suspicious item ever reaches taste feedback, use neutral "I do not recognize this" copy instead of complimenting it.
-- Typed-item feedback should feel like a witty friend reacting, not a review or personality analysis.
-- For recognizable works, use one playful 6–12-word line grounded in a concrete joke, style, theme, feeling, sound, or atmosphere. Gentle teasing, excitement, or light exaggeration is welcome; allow at most one relevant emoji.
-- Keep a meaningful word from the title in generated feedback so recognition remains verifiable. Avoid encyclopedia-style summaries such as "X is a popular comedy about...".
-- Reject empty praise such as "great choice", "cool pick", or "this says you...". If no grounded reaction is available, omit the reaction and show the normal saved/progress message instead of implying the valid item is suspicious, repeating the save confirmation, or inventing facts.
+- Entering add mode and saving items retain earlier list and prompt messages; item entry must not delete Telegram messages.
+- Saving a typed favorite or interest replies directly with the normal saved/progress message; it must not show an AI placeholder or generate item feedback.
 - When a user enters TopTen in any section, include the current list directly in the manager message before its bottom manager controls.
 - Completed TopTen manager cards should include a short command-use tip beneath the taste label so comment and remove actions remain clear.
 - TopTen menus should not include a separate "show all" action.
@@ -203,9 +199,7 @@ Implementation notes:
 - Profile/onboarding Interest pickers should keep selected built-in chips in their original grid position with a `✓` marker; tapping a selected chip removes it. Custom typed interests can appear as removable selected chips above the built-in grid. Do not render partial one- or two-chip item rows.
 - Show a rotating page of Interest chips with a More Options action instead of displaying the full catalog at once.
 - Profile and onboarding Interest limits and typed-interest character limits are admin-managed operational limits.
-- Known chips should have predefined meaningful feedback, so common choices such as `کدنویسی`, `گیم`, `شطرنج`, and `Coffee` do not need a first-time AI call.
-- Every built-in Interests chip should have predefined feedback, so choosing one never calls AI or shows unknown-item copy.
-- If a user types the same known chip text manually, the predefined feedback should still apply.
+- Built-in Interests chips and typed interests use the same normal saved/progress response and never call AI for item feedback.
 - Built-in chip selections should be stored canonically and displayed in the current UI language; custom typed interests should keep the user's original text.
 
 ### Interests Labels

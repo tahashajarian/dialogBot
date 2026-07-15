@@ -12,7 +12,6 @@ const EVENT_NAMES = Object.freeze({
   suggestionRequested: "suggestion_requested",
   suggestionSaved: "suggestion_saved",
   peopleDiscoveryQueried: "people_discovery_queried",
-  aiCacheLookup: "ai_cache_lookup",
   discussionListOpened: "discussion_list_opened",
   discussionJoined: "discussion_joined",
   discussionCreated: "discussion_created",

@@ -229,7 +229,7 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
 }
 
 function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
-  const { users, discussions, aiCache, health } = snapshot;
+  const { users, discussions, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
   return `<!doctype html>
@@ -560,13 +560,6 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     </div>`, { open: true, note: "rooms and activity" })}
 
       ${collapsibleSection("Invitations", `<div class="panel">${renderKeyCountTable(snapshot.invitations)}</div>`, { note: "by status" })}
-
-      ${collapsibleSection("AI Cache", `<div class="grid compact-grid">
-      ${card("Cached Responses", aiCache.total)}
-      ${card("Used Entries", aiCache.usedEntries)}
-      ${card("Cache Hits", aiCache.totalHits)}
-    </div>`, { note: "reuse stats" })}
-    </div>
 
     <p class="footer">Refreshes every 60 seconds when you have no unsaved changes. Your selected view and open sections are remembered.</p>
   </main>

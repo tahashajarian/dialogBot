@@ -1,66 +1,29 @@
-const {
-  createAiResponseCache,
-  getAiResponseCacheStats,
-  normalizeCategory,
-} = require("./ai-response-cache");
 const { getAiConfig } = require("../config");
-const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { logger } = require("./logger");
-const { recordAiApiEvent } = require("./operational-health");
 const {
   DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
   extractAiResponseText,
   getClient,
-  getEmbedding,
   requestSuggestionText,
-  withAiTimeout,
 } = require("./ai-client");
 const {
   DEFAULT_INTEREST_SUGGESTION_FALLBACK,
   INTEREST_SUGGESTION_FALLBACKS,
-  PREDEFINED_TASTE_FEEDBACK,
-} = require("./ai-feedback-data");
+} = require("./ai-suggestion-data");
 const {
   createSuggestionHelpers,
   getSingleSuggestionDetailInstruction,
 } = require("./ai-suggestion-quality");
 const {
-  buildTasteFeedbackFallbackWithItem,
-  buildUnknownItemFeedback,
-  createFeedbackQualityHelpers,
   limitWords,
-  normalizeCacheItem,
-  sanitizeTasteFeedback,
-} = require("./ai-feedback-quality");
+  normalizeSuggestionText,
+  tokenizeSuggestionSignals,
+} = require("./ai-suggestion-utils");
 
 const aiConfig = getAiConfig();
 const MAX_INPUT_CHARS = 180;
-const FEEDBACK_MAX_OUTPUT_TOKENS = 48;
-const FEEDBACK_MAX_WORDS = 12;
-const FEEDBACK_CACHE_PURPOSE = "taste_item_feedback_v6";
-
-let aiFeedbackResponseCache = null;
-
 function normalizeInput(text) {
   return String(text || "").trim().replace(/\s+/g, " ").slice(0, MAX_INPUT_CHARS);
-}
-
-function getAiFeedbackResponseCache() {
-  if (!aiFeedbackResponseCache) {
-    aiFeedbackResponseCache = createAiResponseCache();
-  }
-  return aiFeedbackResponseCache;
-}
-
-function getPredefinedTasteFeedback({ section, item, lang }) {
-  const sectionFeedback = PREDEFINED_TASTE_FEEDBACK[section];
-  if (!sectionFeedback) return "";
-
-  const normalizedItem = normalizeCacheItem(item);
-  const response = sectionFeedback[normalizedItem];
-  if (!response) return "";
-
-  return response[lang] || response.fa || response.en || "";
 }
 
 function getModeInstruction(mode, lang) {
@@ -82,23 +45,15 @@ function getModeInstruction(mode, lang) {
 }
 
 const {
-  isEncyclopedicTasteFeedback,
-  isFeedbackRelevantToItem,
-  isGenericTasteFeedback,
-  tokenizeSignalWords,
-} = createFeedbackQualityHelpers({
-  maxWords: FEEDBACK_MAX_WORDS,
-});
-const {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getSuggestionRealityIssue,
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = createSuggestionHelpers({
-  limitWords: (text, maxWords) => limitWords(text, maxWords || FEEDBACK_MAX_WORDS),
-  normalizeCacheItem,
-  tokenizeSignalWords,
+  limitWords: (text, maxWords) => limitWords(text, maxWords || 12),
+  normalizeCacheItem: normalizeSuggestionText,
+  tokenizeSignalWords: tokenizeSuggestionSignals,
 });
 
 function buildUserContext({
@@ -142,9 +97,9 @@ function buildTasteStyleInstruction(tasteStyleHint, lang) {
 }
 
 function buildInterestSuggestionFallback({ lang, topTenItems = [] }) {
-  const normalized = topTenItems.map((item) => normalizeCacheItem(item));
+  const normalized = topTenItems.map((item) => normalizeSuggestionText(item));
   const matched = INTEREST_SUGGESTION_FALLBACKS.find((entry) => (
-    entry.keywords.some((keyword) => normalized.some((item) => item.includes(normalizeCacheItem(keyword))))
+    entry.keywords.some((keyword) => normalized.some((item) => item.includes(normalizeSuggestionText(keyword))))
   ));
   const fallback = matched || DEFAULT_INTEREST_SUGGESTION_FALLBACK;
   const [title, reason] = lang === "fa" ? fallback.fa : fallback.en;
@@ -258,154 +213,8 @@ async function getAiSingleSuggestion({
   }
 }
 
-async function getAiTasteItemFeedback({
-  mode,
-  lang,
-  item,
-  labelKey = "",
-  labelTitle = "",
-}) {
-  const section = String(mode || "").trim();
-  const normalizedItem = normalizeInput(item);
-  if (!section || !normalizedItem) {
-    return { ok: false, reason: "empty_input" };
-  }
-
-  if (isLowQualityAiListItem(normalizedItem)) {
-    return {
-      ok: true,
-      text: buildUnknownItemFeedback({ lang, item: normalizedItem }),
-      cached: true,
-      matchType: "unknown_input",
-      normalizedInput: normalizeCacheItem(normalizedItem),
-    };
-  }
-
-  const predefinedFeedback = getPredefinedTasteFeedback({
-    section,
-    item: normalizedItem,
-    lang,
-  });
-  if (predefinedFeedback) {
-    return {
-      ok: true,
-      text: predefinedFeedback,
-      cached: true,
-      matchType: "predefined",
-      normalizedInput: normalizeCacheItem(normalizedItem),
-    };
-  }
-
-  const openai = getClient(aiConfig);
-  const language = lang === "fa" ? "Persian" : "English";
-  const category = normalizeCategory(section);
-
-  return getAiFeedbackResponseCache().getOrCreate({
-    originalInput: normalizedItem,
-    category,
-    purpose: FEEDBACK_CACHE_PURPOSE,
-    lang,
-    metadata: {
-      section,
-      labelKey,
-      labelTitle,
-      model: aiConfig.model,
-      embeddingModel: aiConfig.embeddingModel,
-    },
-    generateEmbedding: openai
-      ? (input) => getEmbedding(openai, input, { config: aiConfig, log: logger })
-      : null,
-    generateResponse: async () => {
-      if (!openai) {
-        return {
-          ok: true,
-          text: buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem }),
-          fallback: true,
-        };
-      }
-
-      try {
-        const startedAt = Date.now();
-        const response = await withAiTimeout(
-          openai.responses.create({
-            model: aiConfig.model,
-            max_output_tokens: FEEDBACK_MAX_OUTPUT_TOKENS,
-            instructions: [
-              "You react naturally to what someone shared, but ONLY if you actually recognize it.",
-              `Respond only in ${language}.`,
-              "CRITICAL: If you don't clearly recognize this specific work/item, you MUST say so honestly. Never pretend or guess.",
-              "For recognized items: react like a witty friend who genuinely knows it.",
-              "Write one short, warm, playful line. Gentle teasing, excitement, or light exaggeration is welcome.",
-              "Ground the joke or reaction in one concrete vibe, scene quality, style, joke, sound, theme, or feeling tied to the item.",
-              "Prefer lines like 'The Office? Secondhand embarrassment is your hobby too!' over a review or formal compliment.",
-              "Do not define, introduce, or summarize the item as if writing an encyclopedia entry.",
-              "For unrecognized items: be direct and honest—say you don't know it. Don't invent details or fake recognition.",
-              "Never say generic praise like 'sounds interesting', 'seems special', 'looks good' for items you don't actually know.",
-              `Use 6 to ${FEEDBACK_MAX_WORDS} words whenever natural; never exceed ${FEEDBACK_MAX_WORDS}.`,
-              "For recognized items, mention at least one word from the title.",
-              "For unrecognized items, just admit it clearly.",
-              "Do not ask for another item.",
-              "Do not invent creators, facts, entities, or characters.",
-              "Plain text only; at most one relevant emoji.",
-            ].join(" "),
-            input: `Section: ${section}\nItem: ${normalizedItem}\nDetected label: ${labelTitle || labelKey || "eclectic"}`,
-          }),
-          "ai_feedback_timeout",
-          aiConfig.timeoutMs,
-        );
-        void recordAiApiEvent({
-          ok: true,
-          operation: "taste_feedback",
-          provider: "responses",
-          durationMs: Date.now() - startedAt,
-        });
-
-        const generated = sanitizeTasteFeedback(
-          (response.output_text || "").trim(),
-          lang,
-          FEEDBACK_MAX_WORDS,
-        );
-        const text = (
-          generated &&
-          isFeedbackRelevantToItem(generated, normalizedItem) &&
-          !isGenericTasteFeedback(generated, lang) &&
-          !isEncyclopedicTasteFeedback(generated, lang)
-        )
-          ? generated
-          : buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem });
-
-        return { ok: true, text };
-      } catch (error) {
-        const message = error?.message || String(error);
-        void recordAiApiEvent({
-          ok: false,
-          operation: "taste_feedback",
-          provider: "responses",
-          reason: message,
-        });
-        if (message === "ai_feedback_timeout") {
-          logger.info("AI taste feedback fallback", { reason: message });
-        } else {
-          logger.warn("AI taste feedback failed", { error: message });
-        }
-        return {
-          ok: true,
-          text: buildTasteFeedbackFallbackWithItem({ lang, labelTitle, item: normalizedItem }),
-          fallback: true,
-        };
-      }
-    },
-  });
-}
-
 module.exports = {
   getAiSingleSuggestion,
-  getAiTasteItemFeedback,
-  getAiFeedbackCacheStats: getAiResponseCacheStats,
-  isEncyclopedicTasteFeedback,
-  isFeedbackRelevantToItem,
-  isGenericTasteFeedback,
-  buildTasteFeedbackFallbackWithItem,
   buildInterestSuggestionFallback,
   extractAiResponseText,
   parseSingleSuggestionResponse,
@@ -413,5 +222,4 @@ module.exports = {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getSuggestionRealityIssue,
-  sanitizeTasteFeedback,
 };

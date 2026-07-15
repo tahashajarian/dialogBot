@@ -1,7 +1,6 @@
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const DiscussionInvitation = require("../models/discussion-invitation");
-const AiResponseCache = require("../models/ai-response-cache");
 const StarTransaction = require("../models/star-transaction");
 const DiscussionBoost = require("../models/discussion-boost");
 const StarReferralClaim = require("../models/star-referral-claim");
@@ -127,7 +126,6 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     discussionsCreated7d,
     activeDiscussions7d,
     invitationStatusCounts,
-    cacheTotals,
     health,
     events24h,
     events7d,
@@ -162,16 +160,6 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     Discussion.countDocuments({ createdAt: { $gte: since7d } }),
     Discussion.countDocuments({ lastActivityAt: { $gte: since7d } }),
     countByField(DiscussionInvitation, "status"),
-    AiResponseCache.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          totalHits: { $sum: "$hitCount" },
-          usedEntries: { $sum: { $cond: [{ $gt: ["$hitCount", 0] }, 1, 0] } },
-        },
-      },
-    ]),
     getOperationalHealthSnapshot({ now }),
     countEventsByName({ since: since24h }),
     countEventsByName({ since: since7d }),
@@ -223,7 +211,6 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     },
   ]);
 
-  const cache = cacheTotals[0] || { total: 0, totalHits: 0, usedEntries: 0 };
   const discussionTotals = discussionAgg[0] || { totalMembers: 0, totalMessages: 0, totalReports: 0 };
 
   return {
@@ -274,11 +261,6 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
         count: row.transactions,
         amount: row.amount,
       })),
-    },
-    aiCache: {
-      total: cache.total || 0,
-      usedEntries: cache.usedEntries || 0,
-      totalHits: cache.totalHits || 0,
     },
     health,
     events: {

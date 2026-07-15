@@ -417,7 +417,7 @@ test("pressing Add sends one visible prompt with Cancel when edit is unavailable
   assert.equal(ctx.user.aiPendingInputMessageId, 91);
 });
 
-test("Top Ten saved message does not repeat saved-only fallback feedback", async () => {
+test("Top Ten saved message contains only confirmation and progress guidance", async () => {
   const text = await buildTopTenSavedMessage({
     ctx: { userId: 1 },
     lang: "fa",
@@ -1343,13 +1343,13 @@ test("Top Ten add flow stays open for the next item", async () => {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  const finalEdit = edits.at(-1);
-  const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
+  const savedReply = replies.at(-1);
+  const buttons = savedReply.extra.reply_markup.inline_keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten_add_input");
   assert.equal(replies.some((reply) => reply.text === "deleted:38"), false);
-  assert.match(finalEdit.text, /Added "Chess"|Saved "Chess"|Chess/);
-  assert.match(finalEdit.text, /Send the next title here/);
+  assert.match(savedReply.text, /Added "Chess"|Saved "Chess"|Chess/);
+  assert.match(savedReply.text, /Send the next title here/);
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.equal(buttons.some((button) => button.text.includes("Chess")), false);
@@ -1447,13 +1447,13 @@ test("Top Ten add flow shows completion with Back to list when the 10th item com
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  const savedEdit = edits.at(-1);
-  const buttons = keyboardButtons(savedEdit.extra);
+  const savedReply = replies.at(-1);
+  const buttons = keyboardButtons(savedReply.extra);
   const labels = buttons.map((button) => button.text);
 
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
-  assert.match(savedEdit.text, /10\/10/);
-  assert.doesNotMatch(savedEdit.text, /\{goal\}/);
+  assert.match(savedReply.text, /10\/10/);
+  assert.doesNotMatch(savedReply.text, /\{goal\}/);
   assert.equal(replies.length, 1);
   assert.equal(labels.includes(messages.en.aiListManageAddBackToList), true);
   assert.equal(labels.includes(messages.en.aiListManageAdd), false);

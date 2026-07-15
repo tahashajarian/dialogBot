@@ -2,7 +2,6 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
-const AiResponseCache = require("../src/models/ai-response-cache");
 const AnalyticsEvent = require("../src/models/analytics-event");
 const AppSetting = require("../src/models/app-setting");
 const AppSettingAudit = require("../src/models/app-setting-audit");
@@ -21,7 +20,6 @@ const UserTasteIndex = require("../src/models/user-taste-index");
 
 const MODELS = [
   ["AiPaidSuggestion", AiPaidSuggestion],
-  ["AiResponseCache", AiResponseCache],
   ["AnalyticsEvent", AnalyticsEvent],
   ["AppSetting", AppSetting],
   ["AppSettingAudit", AppSettingAudit],

@@ -17,8 +17,6 @@ function localizeAiListItemsForDisplay(items, section, lang) {
   if (section !== "random") return items;
   return items.map((entry) => localizeInterestChipItem(entry, lang));
 }
-const { getAiTasteItemFeedback } = require("./ai");
-const { isSavedOnlyTasteFeedback } = require("./ai-feedback-quality");
 const { buildBotBaseLink } = require("./invite-links");
 const {
   getSectionEmoji,
@@ -350,10 +348,6 @@ function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
   return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
 }
 
-function formatAiComplimentFeedback(feedback) {
-  return `👩‍🦳 ${feedback}`;
-}
-
 async function buildTopTenSavedMessage({
   ctx,
   lang,
@@ -369,31 +363,12 @@ async function buildTopTenSavedMessage({
   const inferredTaste = inferTasteLabel(section, itemTitles);
   const rawLabelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
   const labelTitle = formatTasteLabelWithEmoji(section, inferredTaste.labelKey, rawLabelTitle);
-  const feedbackResult = await getAiTasteItemFeedback({
-    mode: section,
-    lang,
-    item,
-    labelKey: inferredTaste.labelKey,
-    labelTitle: rawLabelTitle,
-  });
-  const feedback = feedbackResult.ok
-    && feedbackResult.text
-    && !feedbackResult.fallback
-    && feedbackResult.matchType !== "unknown_input"
-    && !isSavedOnlyTasteFeedback(feedbackResult.text, lang)
-    ? feedbackResult.text
-    : "";
-
   const savedText = messages[lang][savedMessageKey]
     .replace("{item}", item)
     .replace("{count}", String(count))
     .replace("{goal}", String(goal));
 
   const responseParts = [savedText];
-
-  if (feedback) {
-    responseParts.push(formatAiComplimentFeedback(feedback));
-  }
 
   if (count >= 3 && count < goal) {
     const preliminaryText = isWeakTasteLabel(section, inferredTaste)
@@ -411,8 +386,8 @@ async function buildTopTenSavedMessage({
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
-  const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-  const resolvedTaste = syncedTaste.ok ? syncedTaste.taste : inferredTaste;
+  void syncAiTasteForSection(ctx.userId, section).catch(() => null);
+  const resolvedTaste = inferredTaste;
   const finalLabel = formatTasteWithStoredEmoji(
     section,
     resolvedTaste,

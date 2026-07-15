@@ -596,7 +596,7 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const updated = [...current, { title, comment, watched }];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
-  await syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
+  void syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = await awardListMilestones({
     userId,
     section,
