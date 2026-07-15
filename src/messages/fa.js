@@ -721,6 +721,7 @@ module.exports = {
     profileBackToProfile: "🔙 برگشت به پروفایل",
     profileBackToSettings: "🔙 برگشت",
     profileEmojiButton: "✨ ایموجی پروفایل",
+    profileEmojiCloseButton: "✖️ بستن",
     profileEmojiPickerText: "✨ ایموجی پروفایل\n\nیک ایموجی برای بعد از نامت انتخاب کن، یا دقیقاً یک ایموجی مجاز بفرست.\n\nستاره موردنیاز: {cost}\nستاره‌ها: {balance}",
     profileEmojiMoreButton: "گزینه‌های بیشتر 🔄",
     profileEmojiInvalid: "👩‍🦳 فقط یک ایموجی مجاز بفرست یا از گزینه‌ها انتخاب کن.",

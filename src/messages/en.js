@@ -721,6 +721,7 @@ module.exports = {
     profileBackToProfile: "🔙 Back to profile",
     profileBackToSettings: "🔙 Back",
     profileEmojiButton: "✨ Profile emoji",
+    profileEmojiCloseButton: "✖️ Close",
     profileEmojiPickerText: "✨ Profile emoji\n\nChoose an emoji to show after your name, or send exactly one allowed emoji.\n\nChange cost: {cost} Stars\nBalance: {balance}",
     profileEmojiMoreButton: "More options 🔄",
     profileEmojiInvalid: "👩‍🦳 Send exactly one allowed emoji, or choose from the buttons.",

@@ -812,7 +812,7 @@ function profileEmojiKeyboard(lang, currentEmoji = "", page = 0) {
       callback_data: `${callBacks.profileEmojiPage}${(normalizedPage + 1) % pageCount}`,
     }]);
   }
-  rows.push([{ text: messages[lang].profileBackToSettings, callback_data: callBacks.profileSettings }]);
+  rows.push([{ text: messages[lang].profileEmojiCloseButton, callback_data: callBacks.profileSettings }]);
   return inlineKeyboard(rows);
 }
 

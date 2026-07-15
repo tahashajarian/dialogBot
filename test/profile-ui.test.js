@@ -458,6 +458,10 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
     assert.equal(buttons.some((button) => button.text === `${selectedEmoji} ✓`), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:choose:0"), true);
     assert.equal(buttons.some((button) => button.callback_data === "profile:settings"), true);
+    assert.deepEqual(picker.at(-1), [{
+      text: messages.en.profileEmojiCloseButton,
+      callback_data: callBacks.profileSettings,
+    }]);
     assert.equal(buttons.filter((button) => button.callback_data?.startsWith("profile:emoji:choose:")).length, 20);
     assert.equal(buttons.some((button) => button.callback_data === "profile:emoji:page:1"), true);
     assert.equal(buttons.some((button) => button.text === "🔥"), false);
