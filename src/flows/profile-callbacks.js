@@ -258,6 +258,18 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 } = {}) {
   const data = ctx.callbackData || "";
 
+  const isProfileEmojiFlowCallback = data === callBacks.profileEmoji ||
+    data.startsWith(callBacks.profileEmojiPage) ||
+    data.startsWith(callBacks.profileEmojiChoose) ||
+    data.startsWith(callBacks.profileEmojiConfirm) ||
+    data === callBacks.profileEmojiCancel ||
+    data === callBacks.profileEmojiClose ||
+    data === callBacks.profileEmojiInsufficientDone;
+  if (ctx.user?.state === "editing_profile_emoji" && !isProfileEmojiFlowCallback) {
+    await updateUserState(ctx.userId, "idle");
+    ctx.user.state = "idle";
+  }
+
   if (!data.startsWith("account:delete") && String(ctx.user?.state || "").startsWith("account_delete_")) {
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";

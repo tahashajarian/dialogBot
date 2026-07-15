@@ -161,6 +161,24 @@ test("Guide and Profile Settings static actions are mode scoped", () => {
   assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE }), null);
 });
 
+test("Profile Settings buttons remain routed while the emoji picker is open", () => {
+  const context = { mode: MODES.PROFILE_SETTINGS, state: "editing_profile_emoji", user: { lang: "en" } };
+  const expected = new Map([
+    [messages.en.profileEditBio, callBacks.profileEditBio],
+    [messages.en.profileEditPetPreference, callBacks.profileEditPetPreference],
+    [messages.en.profileEditLocation, callBacks.profileEditLocation],
+    [messages.en.profileShowActiveDiscussion, callBacks.profileToggleActiveDiscussionVisible],
+    [messages.en.profileHideActiveDiscussion, callBacks.profileToggleActiveDiscussionVisible],
+    [messages.en.profileEmojiButton, callBacks.profileEmoji],
+    [messages.en.accountDeleteButton, callBacks.accountDelete],
+    [messages.en.profileBackToProfile, callBacks.profileSettingsBack],
+  ]);
+
+  for (const [label, callbackData] of expected) {
+    assert.equal(resolveReplyKeyboardAction(label, context)?.callbackData, callbackData);
+  }
+});
+
 test("Favorites list-manager actions retain trusted section and list context", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
   const another = messages.en.aiFavoritesAddAnotherMovies.replace("{count}", "4").replace("{goal}", "10");

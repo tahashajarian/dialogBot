@@ -122,6 +122,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const validAiListFilterState = aiListFilterMatch && state === `ai_manage_${aiListFilterMatch[1]}_watchlist`;
   const ageMode = mode === "profile_age" || /^profile_age_range:\d+$/.test(String(mode));
   const profilePickerState = (mode === "profile_gender" && state === "editing_gender") || (mode === "profile_pet" && state === "editing_pet_preference");
+  const profileEmojiSettingsState = mode === MODES.PROFILE_SETTINGS && state === "editing_profile_emoji";
   const interestMode = String(mode).match(/^profile_interests:(\d+)$/);
   const validAiShareState = aiShareMatch && state === `ai_manage_${aiShareMatch[1]}_${aiShareMatch[2] === "topTen" ? "top_ten" : "watchlist"}`;
   const validSuggestionModeState = suggestionModeMatch && [
@@ -143,7 +144,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || profileUnsaveConfirmMatch
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
-  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
+  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiSettingsState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
   const entries = [...(mode === MODES.GLOBAL ? GLOBAL : []), ...(BY_MODE[mode] || [])];
   if (discussionListMatch && state === "idle") {
     const [, type, pageRaw, pagesRaw, filter, language] = discussionListMatch;
