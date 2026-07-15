@@ -522,7 +522,7 @@ test("profile emoji Close only removes the picker", async () => {
   assert.deepEqual(replies, []);
 });
 
-test("profile settings reply buttons do not retire unrelated remembered cards", async () => {
+test("profile reply buttons do not retire unrelated remembered cards", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];
   const deletedIds = [];
@@ -545,7 +545,8 @@ test("profile settings reply buttons do not retire unrelated remembered cards", 
       aiLastListMessageId: 111,
       aiLastListSection: "movie",
       aiLastListType: "topTen",
-      discussionRoomMessageId: 222,
+      discussionLastRoomHeaderMessageId: 222,
+      discussionLastRoomRecentMessageId: 223,
     },
     answerCb: async () => true,
     deleteMessage: async (messageId) => {
@@ -566,10 +567,49 @@ test("profile settings reply buttons do not retire unrelated remembered cards", 
 
   assert.deepEqual(deletedIds, []);
   assert.equal(ctx.user.aiLastListMessageId, 111);
-  assert.equal(ctx.user.discussionRoomMessageId, 222);
+  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, 222);
+  assert.equal(ctx.user.discussionLastRoomRecentMessageId, 223);
   assert.equal(ctx.user.state, "idle");
   assert.ok(updates.some((update) => update.state === "editing_bio"));
   assert.equal(replies.at(-1).text, messages.en.profileAskBio);
+});
+
+test("main Profile reply buttons also preserve remembered cards", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+
+  const ctx = {
+    callbackData: callBacks.profileEditName,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "idle",
+      navigationMode: "profile",
+      discussionLastRoomHeaderMessageId: 301,
+      discussionLastRoomRecentMessageId: 302,
+      discussionMenuNoticeMessageId: 303,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async () => ({ message_id: 1 }),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deletedIds, []);
+  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, 301);
+  assert.equal(ctx.user.discussionLastRoomRecentMessageId, 302);
+  assert.equal(ctx.user.discussionMenuNoticeMessageId, 303);
 });
 
 test("saving a More Settings choice stays in More Settings", async () => {

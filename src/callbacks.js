@@ -406,9 +406,8 @@ function formatDiscussionClosedMessage(lang, discussion = {}) {
 async function handleCallback(ctx) {
   const data = ctx.callbackData || "";
   const lang = detectLanguage(ctx);
-  const isProfileSettingsReplyAction = Boolean(
+  const isProfileReplyAction = Boolean(
     ctx.isReplyKeyboardAction &&
-    ctx.user?.navigationMode === MODES.PROFILE_SETTINGS &&
     isProfileSettingsOrEditCallback(data),
   );
 
@@ -428,20 +427,20 @@ async function handleCallback(ctx) {
     });
   }
 
-  if (!isProfileSettingsReplyAction && !isAiCallback(data)) {
+  if (!isProfileReplyAction && !isAiCallback(data)) {
     await clearAiPendingInputPrompt(ctx);
   }
 
-  if (!isProfileSettingsReplyAction && !shouldKeepAiListTitleForCallback(data, isAiCallback)) {
+  if (!isProfileReplyAction && !shouldKeepAiListTitleForCallback(data, isAiCallback)) {
     await clearRememberedAiListMessage(ctx);
   }
-  if (!isProfileSettingsReplyAction && !shouldKeepAiListTitleForCallback(data, isAiCallback)) {
+  if (!isProfileReplyAction && !shouldKeepAiListTitleForCallback(data, isAiCallback)) {
     await clearAiSectionEntryMessage(ctx, [ctx.callbackMessageId]);
   }
-  if (!isProfileSettingsReplyAction && !shouldKeepDiscussionRoomCardsForCallback(data)) {
+  if (!isProfileReplyAction && !shouldKeepDiscussionRoomCardsForCallback(data)) {
     await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
   }
-  if (!isProfileSettingsReplyAction && !shouldKeepDiscussionRoomCardsForCallback(data)) {
+  if (!isProfileReplyAction && !shouldKeepDiscussionRoomCardsForCallback(data)) {
     await clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]);
   }
 
