@@ -130,7 +130,7 @@ function withAiSectionTitle(lang, section, body) {
 }
 
 function buildAiAssistantMenuMessage(lang) {
-  return `${messages[lang].aiAssistant}\n\n${messages[lang].aiAssistantMenu}`;
+  return `${messages[lang].aiAssistantTitle}\n\n${messages[lang].aiAssistantMenu}`;
 }
 
 function buildTopTenListMessage({ ctx, lang, section }) {

@@ -28,6 +28,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - When clearing a temporary reply keyboard before an inline menu, prefer sending the destination menu text with `remove_keyboard`, then editing that same message to attach inline buttons. Avoid separate invisible/empty cleanup bubbles and avoid sending the same visible menu text twice.
 - Context titles/cards should exist only while their section is active; remove tracked title cards when user leaves that section.
 - Entering a section/list should show the relevant section/list title immediately, not only after returning from submenus.
+- If a user types while viewing an AI list outside an input step, keep the list unchanged and explain that they should tap Add before sending the item.
 
 ## Global Command Navigation
 
@@ -50,6 +51,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Ask fresh users to choose Persian or English before showing the product overview.
 - First-session language selection and the localized welcome/start step use bottom reply keyboards. Append the next onboarding message instead of editing or deleting the previous prompt.
 - The welcome message should state the product promise: build taste, get personal suggestions, and find related discussions.
+- The welcome message should briefly teach that bottom buttons control navigation and users should send text only when Muze explicitly asks for typed input.
 - Offer recent, empty accounts a quick start that asks for three broad interests by default.
 - Show a small rotating set of interests instead of one oversized picker; let users request more options.
 - Let users type a custom interest through a dedicated input state with admin-managed length validation and a clear return action.
@@ -59,9 +61,9 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Auto-complete onboarding immediately when the admin-configured minimum is reached; it defaults to three. Do not require a separate Continue action after the final choice.
 - Keep Interest chip rows to three item buttons per row; onboarding should show four stable chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
 - Completion should confirm the number of saved interests without repeating the full selection list or inferring a taste label from only three broad choices. Briefly explain that media favorites improve personal suggestions and help users find relevant discussions.
-- End with active discussions as the primary action so users can choose a room themselves. Offer `🎬🎵📚 Movies, Music, Books` and the main menu as secondary actions.
+- End with active discussions as the primary action so users can choose a room themselves. Offer `My favorites 🎬🎵📚` and the main menu as secondary actions.
 - Keep a reusable Muze guide in the main menu; onboarding completion can reach it through the main menu.
-- The About/guide should summarize Movies/Music/Books Top 10s and lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, `🎬🎵📚 Movies, Music, Books`, and active discussions.
+- The About/guide should summarize Movies/Music/Books favorites and lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, `My favorites 🎬🎵📚`, and active discussions. The internal hub title remains the descriptive `🎬🎵📚 Movies, Music & Books`.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
 - Show the product overview first with one clear bottom "choose interests" action; append the Interest picker after the user taps it.

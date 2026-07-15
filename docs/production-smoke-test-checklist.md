@@ -29,9 +29,9 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Lists And Suggestions
 
-- Add one item to Movies watchlist; confirmation uses watchlist wording.
-- Add one item to Music playlist; confirmation uses playlist/listened wording.
-- Add one item to Books reading list; confirmation uses reading/read wording.
+- Add one item to the Movies Watch Later list; confirmation uses Watch Later/watched wording.
+- Add one item to the Music Listen Later list; confirmation uses Listen Later/listened wording.
+- Add one item to the Books Read Later list; confirmation uses Read Later/read wording.
 - Add one profile Interest; confirmation uses interests wording and the flow remains under Profile, not the Lists hub.
 - Add Top 10 items in each section and confirm post-save continuation prompts carry the Muze marker.
 - Star progress hints use section-aware names and never say "regular list" or "normal list".

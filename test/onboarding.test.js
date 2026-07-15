@@ -74,8 +74,10 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
     assert.match(messages[lang].onboardingWelcome, /^👩‍🦳/);
     assert.match(messages[lang].onboardingWelcome, /shared interests|هم‌سلیقه/);
+    assert.match(messages[lang].onboardingWelcome, /buttons below|دکمه‌های پایین/);
     assert.match(messages[lang].onboardingWelcomeWithName, /^👩‍🦳/);
     assert.match(messages[lang].onboardingWelcomeWithName, /shared interests|هم‌سلیقه/);
+    assert.match(messages[lang].onboardingWelcomeWithName, /buttons below|دکمه‌های پایین/);
   }
 });
 
@@ -315,14 +317,14 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpRulesText, /Reports count only from different users/);
   assert.match(messages.fa.helpRulesText, /۳ دعوت در هر ۲۴ ساعت/);
   assert.match(messages.en.helpRulesText, /3 per 24 hours/);
-  assert.match(messages.fa.helpGoToLists, /^🎬🎵📚/);
-  assert.match(messages.en.helpGoToLists, /^🎬🎵📚/);
+  assert.match(messages.fa.helpGoToLists, /^محبوب‌های من/);
+  assert.match(messages.en.helpGoToLists, /^My favorites/);
   assert.match(messages.fa.helpText, /^👩‍🦳/);
   assert.match(messages.en.helpText, /^👩‍🦳/);
-  assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی، کتاب/);
-  assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music, Books/);
-  assert.match(messages.fa.helpText, /برای بعد/);
-  assert.match(messages.en.helpText, /Save for later/);
+  assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی و کتاب/);
+  assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music & Books/);
+  assert.match(messages.fa.helpText, /بعداً می‌بینم/);
+  assert.match(messages.en.helpText, /Watch Later/);
   assert.match(messages.fa.helpText, /۳ انتخاب/);
   assert.match(messages.en.helpText, /3 favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);

@@ -11,7 +11,7 @@
 - The TopTen/Favorites manager is the section home. Its actions are progressive: add a favorite, open the concrete save-for-later list, show suggestion only after three favorites, and Back.
 - The list/watchlist manager is secondary storage. Its Back action returns to the section TopTen, not to a separate section home.
 - Opening a For Later manager from a suggestion must enter the watchlist manager state. Its Favorites button retires the current manager card before opening Favorites.
-- Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch later list`, Music `Listen later list`, and Books `Read later list` (with natural Persian equivalents).
+- Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch Later list`, Music `Listen Later list`, and Books `Read Later list`. Persian uses the natural first-person names `لیست «بعداً می‌بینم»`, `لیست «بعداً گوش می‌دم»`, and `لیست «بعداً می‌خونم»`.
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
 - Media Favorites titles and add buttons should name the item directly: favorite movies, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
@@ -76,7 +76,7 @@
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
 - After a successful List or TopTen add, keep the user in add mode so they can send the next item immediately. The first untouched add prompt should show Cancel; post-save prompts should show Back to list and explicitly say the user can send the next title in chat.
 - Post-save TopTen continuation prompts are bot-authored guidance and should carry the configured Muze marker. The success line itself may keep the short success emoji.
-- List save confirmations should name both the saved item and the active user-facing list. Suggestion save confirmations should use the active user-facing list name where possible: Movies watchlist, Music playlist, or Books reading list. Avoid generic/internal wording such as "regular list" in user-facing progress copy.
+- List save confirmations should name both the saved item and the active user-facing list. Suggestion save confirmations should use Watch Later, Listen Later, or Read Later and their documented Persian names. Avoid generic/internal wording such as "regular list" or legacy watchlist/playlist wording in user-facing progress copy.
 - Entering add mode sends one visible prompt with a bottom Cancel/Back action. Do not send a keyboard-removal copy or duplicate prompt.
 - Entering add mode and saving items retain earlier list and prompt messages; item entry must not delete Telegram messages.
 - Saving a typed favorite or interest replies directly with the normal saved/progress message; it must not show an AI placeholder or generate item feedback.
@@ -281,6 +281,7 @@ Labels should be inferred from both typed items and suggested chips.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
+- For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✅` / `⏳` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
 - Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.
 
@@ -290,7 +291,7 @@ The Stars economy rewards list completion without charging for normal list use. 
 
 - Each section may award once when its TopTen reaches the configured first milestone, recommended as 3 distinct valid items.
 - Each section may award once again when its TopTen reaches the configured completion size.
-- Watchlists, playlists, and reading lists do not award Stars.
+- Watch Later, Listen Later, and Read Later lists do not award Stars.
 - Interests chosen during onboarding are ordinary Interests TopTen items and use the same milestone records; onboarding must not double-award them.
 - Removing and re-adding items never awards a milestone twice.
 - List mutation helpers remain centralized in `src/services/users.js`. Star qualification happens only after a successful mutation and uses an idempotent ledger key.

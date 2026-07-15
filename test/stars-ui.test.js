@@ -27,7 +27,7 @@ test("Stars overview uses live settings and private balance", () => {
     paidLargeDiscussionCost: 14,
   });
   assert.match(text, /Balance: 18/);
-  assert.match(text, /Lists for later do not award Stars/);
+  assert.match(text, /Watch Later, Listen Later, and Read Later lists do not award Stars/);
   assert.doesNotMatch(text, /Watchlists|playlists|reading lists are free/);
   assert.doesNotMatch(text, /Build the first/);
   assert.match(text, /Profile emoji: 3 Stars/);

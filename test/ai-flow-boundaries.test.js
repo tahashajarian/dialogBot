@@ -176,13 +176,13 @@ test("suggestion save buttons name the concrete section list", () => {
   const booksAddedButtons = keyboardButtons(aiSuggestionAddedOptionsKeyboard("fa", "books"));
   const rejectedButtons = keyboardButtons(aiSuggestionNextKeyboard("fa", "movies"));
 
-  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵 listen later list");
-  assert.equal(booksAddedButtons[1].text, "🗂 رفتن به «📚 لیست برای بعد خواندن»");
+  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵📋 listen later list");
+  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعداً می‌خونم»");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚 read later list"), "✅ Saved to 📚 read later list.");
-  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵 پلی‌لیست"), "✅ در 🎵 پلی‌لیست ذخیره شد.");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در لیست 🎬 برای بعد دیدن ذخیره شد. (دیده‌شده)");
+  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "✅ Saved to 📚📋 read later list.");
+  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعداً گوش می‌دم»"), "✅ در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد.");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در 🎬📋 لیست «بعداً می‌بینم» ذخیره شد. (دیده‌شده)");
 });
 
 test("shareable list return buttons use consistent Back to list wording", () => {
@@ -242,7 +242,7 @@ test("AI bottom Back replaces reply controls with the media hub keyboard", async
   assert.equal(replies.length, 2);
   assert.equal(replies[0].text, "⁣");
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
-  assert.equal(replies[1].text, `${messages.fa.aiAssistant}\n\n${messages.fa.aiAssistantMenu}`);
+  assert.equal(replies[1].text, `${messages.fa.aiAssistantTitle}\n\n${messages.fa.aiAssistantMenu}`);
   assert.equal(keyboardButtons(replies[1].extra).at(-1).text, messages.fa.aiBack);
   assert.equal(edits.length, 0);
 });
@@ -818,7 +818,7 @@ test("suggestion need-state Got it returns to the section Top Ten", async () => 
 
   assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 1);
-  assert.match(replies[0].text, /Music favorites/);
+  assert.match(replies[0].text, /Your favorites list is still empty/);
   assert.equal(ctx.user.aiActionMessageId, null);
   assert.equal(ctx.user.aiActionContext, "");
   assert.equal(ctx.user.state, "ai_manage_music_top_ten");
@@ -896,7 +896,7 @@ test("AI top-ten Back returns to the AI section picker", async () => {
   assert.equal(ctx.user.state, "idle");
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
   assert.deepEqual(events, ["reply"]);
-  assert.equal(replies[0].text, `${messages.en.aiAssistant}\n\n${messages.en.aiAssistantMenu}`);
+  assert.equal(replies[0].text, `${messages.en.aiAssistantTitle}\n\n${messages.en.aiAssistantMenu}`);
   assert.ok(updates.some((update) => update?.state === "idle"));
 });
 
@@ -1137,7 +1137,7 @@ test("AI share return button consumes guidance card before reopening list", asyn
   assert.deepEqual(deleted, [77]);
   assert.equal(ctx.user.aiActionMessageId, null);
   assert.equal(ctx.user.aiActionContext, "");
-  assert.match(replies.at(-1).text, /🎬 watch later/);
+  assert.match(replies.at(-1).text, /🎬📋 watch later/);
   assert.ok(replies.at(-1).extra?.reply_markup?.keyboard);
 });
 
@@ -1476,7 +1476,7 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Saved "Arrival" to 🎬 watch later/);
+  assert.match(savedReply.text, /Saved "Arrival" to 🎬📋 watch later/);
   assert.match(savedReply.text, /Send the next title here/);
   assert.doesNotMatch(savedReply.text, /1\. Arrival/);
   assert.doesNotMatch(savedReply.text, /Star|⭐/);
