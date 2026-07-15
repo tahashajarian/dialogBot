@@ -522,6 +522,56 @@ test("profile emoji Close only removes the picker", async () => {
   assert.deepEqual(replies, []);
 });
 
+test("profile settings reply buttons do not retire unrelated remembered cards", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const deletedIds = [];
+  const replies = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    updates.push(update);
+    return { userId: query.userId };
+  };
+
+  const ctx = {
+    callbackData: callBacks.profileEditBio,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "idle",
+      navigationMode: "profile_settings",
+      aiLastListMessageId: 111,
+      aiLastListSection: "movie",
+      aiLastListType: "topTen",
+      discussionRoomMessageId: 222,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deletedIds, []);
+  assert.equal(ctx.user.aiLastListMessageId, 111);
+  assert.equal(ctx.user.discussionRoomMessageId, 222);
+  assert.equal(ctx.user.state, "idle");
+  assert.ok(updates.some((update) => update.state === "editing_bio"));
+  assert.equal(replies.at(-1).text, messages.en.profileAskBio);
+});
+
 test("profile emoji insufficient Got it only removes the warning", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
