@@ -129,7 +129,10 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     `ai_chat_${suggestionModeMatch[1]}`,
     `ai_suggest_context_${suggestionModeMatch[1]}`,
   ].includes(state);
-  const validSuggestionResultState = suggestionResultMatch && state === `ai_chat_${suggestionResultMatch[1]}`;
+  const validSuggestionResultState = suggestionResultMatch && [
+    `ai_chat_${suggestionResultMatch[1]}`,
+    `ai_suggest_context_${suggestionResultMatch[1]}`,
+  ].includes(state);
   const validSuggestionNextState = suggestionNextMatch && state === `ai_chat_${suggestionNextMatch[1]}`;
   const validSuggestionAddedState = suggestionAddedMatch && state === `ai_chat_${suggestionAddedMatch[1]}`;
   const validSuggestionContextState = suggestionContextMatch && state === `ai_suggest_context_${suggestionContextMatch[1]}`;

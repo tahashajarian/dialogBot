@@ -2,6 +2,7 @@ const messages = require("../messages");
 const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionCopyKeyboard,
   aiSuggestionNextKeyboard,
   aiSuggestionLimitKeyboard,
   aiPaidSuggestionConfirmKeyboard,
@@ -53,6 +54,7 @@ const {
   setPendingSuggestion,
   getPendingSuggestion,
   clearPendingSuggestion,
+  clearSuggestionMood,
   getSuggestionMood,
 } = require("../services/ai-suggestion-cache");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
@@ -187,10 +189,14 @@ function isAiCallback(data = "") {
 }
 
 async function promptSuggestionMode(ctx, lang, section) {
-  await updateUserState(ctx.userId, `ai_chat_${section}`);
+  clearSuggestionMood(ctx.userId, section);
+  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
   await clearAiActionMessage(ctx);
   await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  if (ctx.user) {
+    ctx.user.state = `ai_suggest_context_${section}`;
+    ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  }
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
@@ -209,6 +215,13 @@ function getSuggestionCallbackSection(data = "") {
   ];
   const prefix = prefixes.find((entry) => data.startsWith(entry));
   return prefix ? data.slice(prefix.length).trim() : "";
+}
+
+function recoverExpiredSuggestion(ctx, lang, section) {
+  clearPendingSuggestion(ctx.userId, section);
+  return openAiListManager(ctx, lang, section, "topTen", {
+    prefix: messages[lang].aiSuggestionExpired || messages[lang].unknownAction,
+  });
 }
 
 function getSuggestionResetMinutes(resetAt) {
@@ -351,12 +364,17 @@ async function sendFollowupSuggestion({
   }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
+  await updateUserState(ctx.userId, `ai_chat_${section}`);
+  if (ctx.user) ctx.user.state = `ai_chat_${section}`;
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
     formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
-    aiSuggestionAddKeyboard(lang, section),
+    aiSuggestionCopyKeyboard(lang, suggestionResult.title),
   );
+  if (resultMessage) {
+    await ctx.reply(messages[lang].aiSuggestionChooseAction, aiSuggestionAddKeyboard(lang, section));
+  }
   return resultMessage;
 }
 
@@ -1106,7 +1124,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     const pending = getPendingSuggestion(ctx.userId, section);
     const title = String(pending?.title || "").trim();
-    if (!title) return ctx.reply(messages[lang].aiSuggestionExpired || messages[lang].unknownAction);
+    if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
     const rejected = await addAiRejectedSuggestion(ctx.userId, section, title, AI_RECENT_SUGGESTIONS_LIMIT);
     if (ctx.user && rejected.ok) {
@@ -1132,7 +1150,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     const pending = getPendingSuggestion(ctx.userId, section);
     const title = String(pending?.title || "").trim();
     const comment = String(pending?.comment || "").trim();
-    if (!title) return ctx.reply(messages[lang].aiSuggestionExpired || messages[lang].unknownAction);
+    if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
     const result = await addAiListItem(ctx.userId, section, "watchlist", { title, comment, watched: markDone }, operationalLimits.aiWatchlistItems);

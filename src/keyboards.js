@@ -222,6 +222,15 @@ function aiSuggestionAddKeyboard(lang, section) {
   ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
+function aiSuggestionCopyKeyboard(lang, title) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].aiSuggestionCopyNameButton,
+      copy_text: { text: String(title || "").slice(0, 80) },
+    },
+  ]]);
+}
+
 function aiSuggestionNextKeyboard(lang, _section) {
   return { reply_markup: { keyboard: [
     [
@@ -1140,6 +1149,7 @@ module.exports = {
   aiSectionKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionCopyKeyboard,
   aiSuggestionNextKeyboard,
   aiSuggestionLimitKeyboard,
   aiPaidSuggestionConfirmKeyboard,

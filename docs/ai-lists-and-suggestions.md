@@ -279,6 +279,8 @@ Labels should be inferred from both typed items and suggested chips.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
+- Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.
+- Suggestion results include a native inline `Copy name` action for the exact suggested title. Save, completed, and reject remain in the scoped bottom action prompt sent immediately after the result.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✅` / `⏳` only for item status.

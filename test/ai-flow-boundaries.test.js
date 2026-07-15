@@ -131,6 +131,10 @@ const {
   isSuggestionCallbackValidForState,
 } = require("../src/flows/ai-callbacks");
 const {
+  getSuggestionMood,
+  setSuggestionMood,
+} = require("../src/services/ai-suggestion-cache");
+const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
   shouldKeepAiListTitleForCallback,
@@ -829,6 +833,41 @@ test("suggestion mode prompt can return to the section Top Ten", async () => {
   const buttons = keyboardButtons(keyboard);
 
   assert.equal(buttons.at(-1).text, messages.en.aiBack);
+});
+
+test("starting a fresh suggestion session clears the previous mood", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const ctx = {
+    callbackData: `${callBacks.aiSectionSuggestMenu}books`,
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "en",
+      state: "ai_manage_books_top_ten",
+      aiLists: {
+        books: {
+          topTen: [{ title: "A" }, { title: "B" }, { title: "C" }],
+          watchlist: [],
+        },
+      },
+    },
+    answerCb: async () => true,
+    reply: async (text, extra) => ({ message_id: 201, text, extra }),
+  };
+  User.findOneAndUpdate = async () => ctx.user;
+  setSuggestionMood(ctx.userId, "books", "dark and strange");
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => true,
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(getSuggestionMood(ctx.userId, "books"), "");
+  assert.equal(ctx.user.state, "ai_suggest_context_books");
+  assert.equal(ctx.user.navigationMode, "ai_suggestion_mode:books");
 });
 
 test("AI top-ten Back returns to the AI section picker", async () => {

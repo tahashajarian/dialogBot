@@ -508,9 +508,11 @@ test("start command still recovers from active discussion state", async () => {
     message: { message_id: 77, text: "/start" },
     userId: 1,
     user: {
+      _id: "user-document-id",
       userId: 1,
       lang: "en",
       state: "idle",
+      navigationMode: "ai_suggestion_result:books",
       firstName: "A",
       activeDiscussionId: "discussion-id",
     },
@@ -534,10 +536,12 @@ test("start command still recovers from active discussion state", async () => {
   }
 
   assert.equal(ctx.user.activeDiscussionId, null);
+  assert.equal(ctx.user.navigationMode, "global");
   assert.equal(replies[0].text, messages.en.welcomeWithName.replace("{name}", "A"));
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
   assert.equal(replies[1].text, messages.en.mainMenu);
   assert.equal(updates.some((entry) => entry.update?.activeDiscussionId === null), true);
+  assert.equal(updates.some((entry) => entry.update?.navigationMode === "global"), true);
   assert.deepEqual(deletes, []);
 });
 

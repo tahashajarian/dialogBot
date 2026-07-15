@@ -3,6 +3,7 @@ const {
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionCopyKeyboard,
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
@@ -453,23 +454,28 @@ async function sendSingleSectionSuggestion({
   }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
   setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
+  await updateUserState(ctx.userId, `ai_chat_${section}`);
+  if (ctx.user) ctx.user.state = `ai_chat_${section}`;
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
     formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
-    aiSuggestionAddKeyboard(lang, section),
+    aiSuggestionCopyKeyboard(lang, suggestionResult.title),
   );
+  if (resultMessage) {
+    await ctx.reply(messages[lang].aiSuggestionChooseAction, aiSuggestionAddKeyboard(lang, section));
+  }
   return resultMessage;
 }
 
-async function openAiListManager(ctx, lang, section, listType) {
+async function openAiListManager(ctx, lang, section, listType, { prefix = "" } = {}) {
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
   await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
   await updateUserState(ctx.userId, nextState);
   const items = getAiListItemsFromUser(ctx.user, section, listType);
   const listMessage = await ctx.reply(
-    await buildAiListManagerMessage({ ctx, lang, section, listType }),
+    await buildAiListManagerMessage({ ctx, lang, section, listType, prefix }),
     aiListManageMenuKeyboard(lang, section, listType, {
       hasItems: items.length > 0,
       itemCount: items.length,

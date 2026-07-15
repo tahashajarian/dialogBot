@@ -509,6 +509,8 @@ module.exports = {
     aiSuggestionAddDoneButtonBooks: "✅ I read this",
     aiSuggestionAddDoneButtonRandom: "✅ I did this",
     aiSuggestionRejectButton: "👎 No",
+    aiSuggestionCopyNameButton: "📋 Copy name",
+    aiSuggestionChooseAction: "Choose what to do with this suggestion:",
     aiSuggestionAdded: "✅ Saved to {listName}.",
     aiSuggestionAddedDone: "✅ Saved to {listName} as done.",
     aiSuggestionAddedDoneMovies: "✅ Saved to the 🎬📋 watch later list. (Watched)",

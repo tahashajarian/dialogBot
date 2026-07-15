@@ -265,6 +265,29 @@ test("suggestion result Save, Done, and Reject buttons work in every media secti
   assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionRejectButton, { mode: "ai_suggestion_result:books", state: "ai_chat_movies" }), null);
 });
 
+test("suggestion result buttons win over a stale mood-entry state", () => {
+  const mode = "ai_suggestion_result:books";
+  const state = "ai_suggest_context_books";
+  const user = { lang: "fa" };
+  const saveText = messages.fa.aiSuggestionAddToListButton.replace(
+    "{listName}",
+    messages.fa.aiSectionListLabelBooks,
+  );
+
+  assert.equal(
+    resolveReplyKeyboardAction(saveText, { mode, state, user }).callbackData,
+    `${callBacks.aiSectionAddSuggestion}books`,
+  );
+  assert.equal(
+    resolveReplyKeyboardAction(messages.fa.aiSuggestionAddDoneButtonBooks, { mode, state, user }).callbackData,
+    `${callBacks.aiSectionAddSuggestionDone}books`,
+  );
+  assert.equal(
+    resolveReplyKeyboardAction(messages.fa.aiSuggestionRejectButton, { mode, state, user }).callbackData,
+    `${callBacks.aiSectionRejectSuggestion}books`,
+  );
+});
+
 test("post-save and post-reject suggestion actions replace the old result mode", () => {
   const added = { mode: "ai_suggestion_added:movies", state: "ai_chat_movies", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, added).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);

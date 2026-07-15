@@ -446,6 +446,7 @@ async function handleUpdate(ctx) {
     }
 
     await updateUserState(ctx.userId, "idle");
+    await setNavigationMode(ctx, MODES.GLOBAL);
     if (shouldClearKeyboard) {
       await removeBottomKeyboard(ctx, welcomeMessage, { deleteSentMessage: false });
     } else {
