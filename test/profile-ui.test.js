@@ -364,6 +364,15 @@ test("profileKeyboard puts remove photo beside change photo", () => {
   ]);
 });
 
+test("profileKeyboard offers Add photo before a profile photo exists", () => {
+  const rows = profileKeyboard("en", false)?.reply_markup?.keyboard || [];
+  const labels = rows.flat().map((button) => button.text);
+
+  assert.ok(labels.includes(messages.en.profileAddPhoto));
+  assert.ok(!labels.includes(messages.en.profileEditPhoto));
+  assert.ok(!labels.includes(messages.en.profileResetPhoto));
+});
+
 test("profileKeyboard groups frequent profile edits into compact rows", () => {
   const keyboard = profileKeyboard("en", true);
   const rows = keyboard?.reply_markup?.keyboard || [];

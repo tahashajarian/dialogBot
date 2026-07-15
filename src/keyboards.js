@@ -729,7 +729,7 @@ function profileKeyboard(lang, hasPhoto = false) {
         { text: messages[lang].profileResetPhoto },
       ]
       : [
-        { text: messages[lang].profileEditPhoto },
+        { text: messages[lang].profileAddPhoto },
       ],
     [
       { text: messages[lang].profileEditCity },

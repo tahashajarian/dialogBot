@@ -714,6 +714,7 @@ module.exports = {
     profileEditLocation: "📍 تغییر موقعیت مکانی",
     profileEditBio: "📝 تغییر درباره من",
     profileEditInterests: "🌿 علاقه‌مندی‌ها",
+    profileAddPhoto: "🖼 افزودن عکس",
     profileEditPhoto: "🖼 تغییر عکس",
     profileMoreSettings: "⚙️ تنظیمات بیشتر",
     profileSettingsTitle: "⚙️ تنظیمات پروفایل",

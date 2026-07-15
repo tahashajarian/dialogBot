@@ -25,7 +25,7 @@ function normalizeReplyButtonText(value) {
 
 function isKnownProfileNavigationLabel(value) {
   const normalized = normalizeReplyButtonText(value);
-  const keys = ["profileEditName", "profileEditAge", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
+  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
   return keys.some((key) => labels(key).includes(normalized));
 }
 
@@ -43,7 +43,7 @@ const BY_MODE = {
   [MODES.FAVORITES]: [["aiSuggestMovies", callBacks.aiSuggestMovies], ["aiSuggestMusic", callBacks.aiSuggestMusic], ["aiSuggestBooks", callBacks.aiSuggestBooks], ["aiBack", callBacks.menuMain]],
   [MODES.DISCUSSIONS]: [["discussionActiveList", callBacks.discussionListActive], ["discussionInvitations", callBacks.discussionInvitations], ["discussionCreate", callBacks.discussionCreateStart], ["discussionMyList", callBacks.discussionListMine], ["aiBack", callBacks.menuMain]],
   [MODES.PEOPLE]: [["peopleDiscover", callBacks.peopleDiscover], ["savedProfiles", callBacks.savedProfiles], ["advancedSearchButton", callBacks.peopleAdvancedSearch], ["aiBack", callBacks.menuMain]],
-  [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["cancel", callBacks.profileBack]],
+  [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileAddPhoto", callBacks.profileEditPhoto], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["cancel", callBacks.profileBack]],
   [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileEmojiButton", callBacks.profileEmoji], ["accountDeleteButton", callBacks.accountDelete], ["profileBackToProfile", callBacks.profileSettingsBack]],
   [MODES.HELP]: [["profileStarsButton", callBacks.profileStars], ["helpReferralButton", callBacks.helpReferral], ["helpRules", callBacks.helpRules], ["helpBackToMain", callBacks.menuMain]],
   [MODES.HELP_RULES]: [["helpBackToGuide", callBacks.help], ["helpBackToMain", callBacks.menuMain]],

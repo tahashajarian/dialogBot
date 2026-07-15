@@ -140,6 +140,8 @@ test("feature-switched Advanced Search cannot be activated by stale text", () =>
 test("own-profile actions resolve only while the server says profile", () => {
   assert.equal(resolveReplyKeyboardAction(messages.fa.profileEditName, { mode: MODES.GLOBAL }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.profileEditName, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditName);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileAddPhoto, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditPhoto);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileAddPhoto, { mode: MODES.GLOBAL }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileMoreSettings, { mode: MODES.PROFILE }).callbackData, callBacks.profileSettings);
 });
 
