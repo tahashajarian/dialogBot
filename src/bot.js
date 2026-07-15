@@ -86,7 +86,6 @@ const {
 const {
   clearAiSectionEntryMessage,
   clearRememberedAiListMessage,
-  rememberAiSectionEntryMessage,
 } = require("./flows/ai-cards");
 const {
   clearProfileEditPrompt,
@@ -767,18 +766,6 @@ async function handleUpdate(ctx) {
   // already changed the server-side mode. Otherwise-unrecognized idle text is
   // a quiet no-op so stale client keyboards cannot reset the user's context.
   return null;
-}
-
-function getSentMessageId(message) {
-  const messageId = Number(message?.message_id || message?.messageId);
-  return Number.isInteger(messageId) && messageId > 0 ? messageId : null;
-}
-
-async function rememberOwnProfileMessage(ctx, message) {
-  const messageId = getSentMessageId(message);
-  if (!messageId) return;
-  await updateProfileField(ctx.userId, "profileLastMessageId", messageId);
-  if (ctx.user) ctx.user.profileLastMessageId = messageId;
 }
 
 async function clearOwnProfileMessage(ctx) {

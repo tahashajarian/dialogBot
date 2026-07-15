@@ -24,7 +24,10 @@ async function rememberAiPendingInputPrompt(ctx, messageOrId) {
   }
 }
 
-async function clearAiPendingInputPrompt(ctx, { waitForDelete = true, fallbackToEdit = true } = {}) {
+async function clearAiPendingInputPrompt(ctx, {
+  waitForDelete: _waitForDelete = true,
+  fallbackToEdit: _fallbackToEdit = true,
+} = {}) {
   if (!ctx?.userId) {
     return true;
   }

@@ -32,7 +32,7 @@ function ltrText(value) {
   return `\u200e${value}`;
 }
 
-function discussionsMenuKeyboard(lang, { invitationCount = 0 } = {}) {
+function discussionsMenuKeyboard(lang, { invitationCount: _invitationCount = 0 } = {}) {
   const rows = [
     [{ text: messages[lang].discussionActiveList }],
     [{ text: messages[lang].discussionInvitations }],

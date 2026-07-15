@@ -222,7 +222,7 @@ function aiSuggestionAddKeyboard(lang, section) {
   ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function aiSuggestionNextKeyboard(lang, section) {
+function aiSuggestionNextKeyboard(lang, _section) {
   return { reply_markup: { keyboard: [
     [
       {
@@ -265,7 +265,7 @@ function aiPaidSuggestionConfirmKeyboard(lang, publicCode, cost, section) {
   ]);
 }
 
-function aiSuggestionModeKeyboard(lang, section) {
+function aiSuggestionModeKeyboard(lang, _section) {
   return { reply_markup: { keyboard: [
     [
       {
@@ -289,7 +289,7 @@ function aiSuggestionNeedTopTenKeyboard(lang, section) {
   ]]);
 }
 
-function aiSuggestionContextCancelKeyboard(lang, section) {
+function aiSuggestionContextCancelKeyboard(lang, _section) {
   return { reply_markup: { keyboard: [
     [
       {
@@ -349,7 +349,6 @@ function getSectionStatusLabels(lang, section) {
 }
 
 function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0, filter = "all" } = {}) {
-  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
   const isMediaSection = ["movies", "music", "books"].includes(section);
@@ -456,8 +455,7 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
   return inlineKeyboard(rows);
 }
 
-function aiListCancelAddKeyboard(lang, section, listType, { backToList = false } = {}) {
-  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+function aiListCancelAddKeyboard(lang, _section, _listType, { backToList = false } = {}) {
   return { reply_markup: { keyboard: [
     [
       {
@@ -706,8 +704,7 @@ function aiListActionItemsKeyboard(lang, section, listType, action, items = []) 
   return inlineKeyboard(rows);
 }
 
-function aiListCancelCommentKeyboard(lang, section, listType) {
-  const listTypeToken = listType === "watchlist" ? "watchlist" : "top_ten";
+function aiListCancelCommentKeyboard(lang, _section, _listType) {
   return { reply_markup: { keyboard: [
     [
       {

@@ -34,7 +34,7 @@ async function replaceRememberedAiListMessage(ctx, section, listType, message) {
   await rememberAiListMessage(ctx, section, listType, message);
 }
 
-async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete = true } = {}) {
+async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: _waitForDelete = true } = {}) {
   const messageId = ctx.user?.aiLastListMessageId;
   if (
     !messageId ||
@@ -56,7 +56,7 @@ async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDe
   return true;
 }
 
-async function clearRememberedAiListMessage(ctx, { waitForDelete = true } = {}) {
+async function clearRememberedAiListMessage(ctx, { waitForDelete: _waitForDelete = true } = {}) {
   const messageId = ctx.user?.aiLastListMessageId;
   if (!messageId) {
     return false;
@@ -93,7 +93,7 @@ async function rememberAiSectionEntryMessage(ctx, message) {
   if (ctx.user) ctx.user.aiSectionEntryMessageId = messageId || null;
 }
 
-async function clearAiSectionEntryMessage(ctx, exceptMessageIds = [], { waitForDelete = true } = {}) {
+async function clearAiSectionEntryMessage(ctx, exceptMessageIds = [], { waitForDelete: _waitForDelete = true } = {}) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.aiSectionEntryMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) {
@@ -118,7 +118,10 @@ async function rememberAiActionMessage(ctx, context, message) {
   }
 }
 
-async function clearAiActionMessage(ctx, { waitForDelete = true, fallbackToEdit = true } = {}) {
+async function clearAiActionMessage(ctx, {
+  waitForDelete: _waitForDelete = true,
+  fallbackToEdit: _fallbackToEdit = true,
+} = {}) {
   const messageId = Number(ctx.user?.aiActionMessageId);
   if (!Number.isInteger(messageId) || messageId <= 0) {
     return true;

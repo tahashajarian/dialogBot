@@ -7,6 +7,22 @@ const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const AI_TASTE_INDEX_SECTIONS = ["movies", "music", "books", "random"];
 const AI_TASTE_INDEX_LIST_TYPES = ["topTen", "watchlist"];
 const AI_TASTE_INDEX_MIN_SHARED_ITEMS = 3;
+const TASTE_INDEX_READINESS_CACHE_TTL_MS = 60 * 1000;
+let tasteIndexReadiness = null;
+let tasteIndexReadinessExpiresAt = 0;
+let tasteIndexReadinessPromise = null;
+
+function cacheTasteIndexReadiness(value, now = Date.now()) {
+  tasteIndexReadiness = Boolean(value);
+  tasteIndexReadinessExpiresAt = now + TASTE_INDEX_READINESS_CACHE_TTL_MS;
+  return tasteIndexReadiness;
+}
+
+function invalidateTasteIndexReadinessCache() {
+  tasteIndexReadiness = null;
+  tasteIndexReadinessExpiresAt = 0;
+  tasteIndexReadinessPromise = null;
+}
 const LEGACY_FIELDS = {
   movies: { watchlist: "aiWatchlistMovies", topTen: "aiTopTenMovies" },
   music: { watchlist: "aiWatchlistMusic", topTen: "aiTopTenMusic" },
@@ -88,6 +104,10 @@ async function syncUserTasteIndex(userOrId, { sections = AI_TASTE_INDEX_SECTIONS
     );
   }));
 
+  if (Object.values(index).some((items) => items.length)) {
+    cacheTasteIndexReadiness(true);
+  }
+
   return { ok: true, sections: [...sectionSet] };
 }
 
@@ -118,7 +138,17 @@ async function rebuildAllUserTasteIndexes({ batchSize = 200, now = new Date() } 
 
 async function hasTasteIndexData() {
   if (mongoose.connection.readyState !== 1) return false;
-  return Boolean(await UserTasteIndex.exists({}));
+  if (tasteIndexReadiness !== null && Date.now() < tasteIndexReadinessExpiresAt) {
+    return tasteIndexReadiness;
+  }
+  if (tasteIndexReadinessPromise) return tasteIndexReadinessPromise;
+
+  tasteIndexReadinessPromise = UserTasteIndex.exists({})
+    .then((result) => cacheTasteIndexReadiness(Boolean(result)))
+    .finally(() => {
+      tasteIndexReadinessPromise = null;
+    });
+  return tasteIndexReadinessPromise;
 }
 
 async function findIndexedSharedTasteCandidates(viewer, {
@@ -174,6 +204,8 @@ module.exports = {
   AI_TASTE_INDEX_MIN_SHARED_ITEMS,
   buildUserTasteIndexSections,
   findIndexedSharedTasteCandidates,
+  hasTasteIndexData,
+  invalidateTasteIndexReadinessCache,
   rebuildAllUserTasteIndexes,
   syncUserTasteIndex,
 };

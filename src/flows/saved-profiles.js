@@ -42,7 +42,7 @@ const {
   buildPeopleDiscoveryText,
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
-const { rememberNavigationCard, sendNavigationFootprint } = require("../services/navigation-footprints");
+const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   decorateDiscussionsForList,
@@ -293,7 +293,7 @@ function isProfileDiscussionListType(value = "") {
   return type.startsWith("saved:") || type.startsWith("people:");
 }
 
-function profileDiscussionBackKeyboard(lang, profileCode) {
+function profileDiscussionBackKeyboard(lang, _profileCode) {
   return {
     reply_markup: {
       keyboard: [[{ text: messages[lang].aiBack }]],

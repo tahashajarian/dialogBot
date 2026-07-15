@@ -78,7 +78,7 @@ async function consumeDiscussionMessageQuota(userId) {
       },
     ],
     { returnDocument: "after", updatePipeline: true },
-  );
+  ).select("discussionMessageUsage");
 
   if (!updated) {
     const user = await User.findOne({ userId }).select("discussionMessageUsage").lean();
@@ -104,7 +104,9 @@ async function consumeDiscussionMessageQuota(userId) {
 }
 
 async function addRecentMessage({ discussionId, senderUserId, senderDisplayName, text, voiceFileId, voiceDuration }) {
-  const discussion = await Discussion.findById(discussionId);
+  const discussion = await Discussion.findById(discussionId)
+    .select("status memberUserIds creatorUserId")
+    .lean();
   if (!discussion) return { ok: false, reason: "missing_discussion" };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed" };
   if (!discussion.memberUserIds.includes(senderUserId)) return { ok: false, reason: "not_member" };
@@ -162,9 +164,7 @@ async function addRecentMessage({ discussionId, senderUserId, senderDisplayName,
     ok: true,
     discussion: updatedDiscussion,
     recentMessages: updatedDiscussion.recentMessages || [],
-    recipients: (await User.find({
-      userId: { $in: updatedDiscussion.memberUserIds.filter((id) => id !== senderUserId) },
-    }).select("userId").lean()).map((entry) => entry.userId),
+    recipients: updatedDiscussion.memberUserIds.filter((id) => id !== senderUserId),
   };
 }
 

@@ -165,7 +165,7 @@ async function sendTasteSetupNudge(ctx, lang) {
   );
 }
 
-async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReplyKeyboard = false } = {}) {
+async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReplyKeyboard: _removeReplyKeyboard = false } = {}) {
   const state = inviteCode
     ? `onboarding_invite_language:${inviteCode}`
     : "onboarding_language";

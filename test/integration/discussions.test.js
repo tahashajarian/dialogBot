@@ -725,12 +725,19 @@ test("accepted discussion messages retain only the latest ten", async () => {
   }));
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_MSGCAP",
+    memberUserIds: [1, 2],
     recentMessages: oldMessages,
   });
-  await createUser(1, {
-    activeDiscussionId: discussion._id,
-    discussionMembershipIds: [discussion._id],
-  });
+  await Promise.all([
+    createUser(1, {
+      activeDiscussionId: discussion._id,
+      discussionMembershipIds: [discussion._id],
+    }),
+    createUser(2, {
+      activeDiscussionId: discussion._id,
+      discussionMembershipIds: [discussion._id],
+    }),
+  ]);
 
   const result = await addRecentMessage({
     discussionId: discussion._id,
@@ -741,6 +748,7 @@ test("accepted discussion messages retain only the latest ten", async () => {
   const persisted = await Discussion.findById(discussion._id).lean();
 
   assert.equal(result.ok, true);
+  assert.deepEqual(result.recipients, [2]);
   assert.equal(persisted.recentMessages.length, 10);
   assert.equal(persisted.recentMessages[0].text, "old-message-2");
   assert.equal(persisted.recentMessages[9].text, "newest-message");

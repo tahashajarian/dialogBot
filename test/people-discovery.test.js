@@ -3,7 +3,6 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const messages = require("../src/messages");
-const { callBacks } = require("../src/constants");
 const { peopleHubKeyboard, peopleDiscoverListKeyboard, peopleDiscoverEmptyKeyboard } = require("../src/keyboards");
 const {
   ensurePeopleDiscoveryCodes,

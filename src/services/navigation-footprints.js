@@ -89,7 +89,13 @@ function resolveNavigationFootprint(lang, destination, { discussion, title } = {
   return messages[safeLang][key];
 }
 
-async function sendNavigationFootprint(ctx, { lang, destination, discussion, title, removeKeyboard = false }) {
+async function sendNavigationFootprint(ctx, {
+  lang: _lang,
+  destination: _destination,
+  discussion: _discussion,
+  title: _title,
+  removeKeyboard: _removeKeyboard = false,
+}) {
   // Navigation footprints were retired when stable destinations moved to
   // server-scoped reply keyboards. Forget cards tracked by older deployments
   // without a Telegram delete/edit call; server-side modes reject stale text.

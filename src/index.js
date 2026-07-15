@@ -156,10 +156,6 @@ async function processUpdate(ctx) {
       });
       return;
     }
-    const isReferralStart = /^\/start(?:@\w+)?(?:\s+|[?=])ref_[a-f0-9]{12}$/i.test(rawText);
-    const existedBeforeReferralStart = isReferralStart && normalizedSource
-      ? Boolean(await stageTimings.measure("referralLookupMs", () => User.exists({ userId: normalizedSource.id })))
-      : true;
     user = existingUser || await stageTimings.measure("userLookupMs", () => getOrCreateUser(from));
     if (user?.bannedAt) {
       const lang = messages[user.lang] ? user.lang : "fa";
@@ -172,7 +168,7 @@ async function processUpdate(ctx) {
     }
 
     const appCtx = createAppContext(ctx, user, {
-      wasUserCreated: !existingUser || (isReferralStart && !existedBeforeReferralStart),
+      wasUserCreated: !existingUser,
       canRestartAfterDeletion: Boolean(restartClaim),
       apiMetrics,
     });

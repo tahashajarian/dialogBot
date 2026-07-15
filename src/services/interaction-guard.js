@@ -6,7 +6,7 @@ function normalizeInteractionText(value) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
 }
 
-function buildInteractionKey({ userId, callbackData, text, state }) {
+function buildInteractionKey({ userId, callbackData, text, state: _state }) {
   const userKey = String(userId || "");
   if (!userKey) {
     return "";

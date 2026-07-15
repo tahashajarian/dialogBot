@@ -47,7 +47,7 @@ const {
   buildStarsOverviewText,
   formatStarNumber,
 } = require("../services/stars-ui");
-const { rememberNavigationCard, sendNavigationFootprint } = require("../services/navigation-footprints");
+const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-navigation");
 const {
   awardProfileCompletionMilestone,
@@ -250,8 +250,6 @@ async function handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSet
 
 async function handleProfileSettingsOrEditCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
-  editCallbackMessageOrReply,
-  isProfileCallbackMessage = () => false,
   leaveDiscussionAndClearKeyboardForNavigation,
   renderActiveDiscussionList,
   renderMyDiscussionList,
