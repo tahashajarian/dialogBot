@@ -7,7 +7,6 @@ const {
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionNeedTopTenKeyboard,
-  aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
@@ -16,7 +15,6 @@ const {
   getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
-  inlineKeyboard,
   aiAssistantKeyboard,
   mainMenuKeyboard,
 } = require("../keyboards");
@@ -55,6 +53,7 @@ const {
   setPendingSuggestion,
   getPendingSuggestion,
   clearPendingSuggestion,
+  getSuggestionMood,
 } = require("../services/ai-suggestion-cache");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
@@ -121,7 +120,7 @@ function toAiManageStateListType(value) {
   return value === "topTen" ? "top_ten" : "watchlist";
 }
 
-function aiListShareReturnKeyboard(lang, section, listType) {
+function aiListShareReturnKeyboard(lang) {
   return { reply_markup: { keyboard: [[{ text: messages[lang].aiListShareBackToList }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
@@ -178,7 +177,6 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiSectionSuggestMenu) ||
     data.startsWith(callBacks.aiSectionSuggestNeedTopTenAck) ||
     data.startsWith(callBacks.aiSectionSuggestFromTopTen) ||
-    data.startsWith(callBacks.aiSectionSuggestWithContext) ||
     data.startsWith(callBacks.aiSectionSuggestContextCancel) ||
     data.startsWith(callBacks.aiPaidSuggestionConfirm) ||
     data.startsWith(callBacks.aiPaidSuggestionCancel) ||
@@ -207,7 +205,6 @@ function getSuggestionCallbackSection(data = "") {
     callBacks.aiSectionSuggestMenu,
     callBacks.aiSectionSuggestFromTopTen,
     callBacks.aiSectionSuggestContextCancel,
-    callBacks.aiSectionSuggestWithContext,
     callBacks.aiPaidSuggestionCancel,
   ];
   const prefix = prefixes.find((entry) => data.startsWith(entry));
@@ -234,6 +231,7 @@ function isSuggestionCallbackValidForState(data = "", state = "") {
     return state === `ai_suggest_context_${section}`;
   }
   return state === `ai_chat_${section}`
+    || state === `ai_suggest_context_${section}`
     || state.startsWith(`ai_manage_${section}_`);
 }
 
@@ -356,7 +354,7 @@ async function sendFollowupSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
-    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
+    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
     aiSuggestionAddKeyboard(lang, section),
   );
   return resultMessage;
@@ -936,7 +934,10 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     return ctx.reply(
       await buildAiListManagerMessage({ ctx, lang, section, listType, prefix: removedText }),
-      aiListManageMenuKeyboard(lang, section, listType),
+      aiListManageMenuKeyboard(lang, section, listType, {
+        hasItems: removeResult.items.length > 0,
+        itemCount: removeResult.items.length,
+      }),
     );
   }
 
@@ -982,7 +983,14 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (topTenItems.length < 3) return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    return promptSuggestionMode(ctx, lang, section);
+    return sendFollowupSuggestion({
+      ctx,
+      lang,
+      section,
+      watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
+      userText: getSuggestionMood(ctx.userId, section),
+      placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
+    });
   }
 
   if (data.startsWith(callBacks.aiPaidSuggestionCancel)) {
@@ -1068,27 +1076,6 @@ async function handleAiCallback(ctx, lang, helpers) {
       await helpers.deleteCallbackMessageIfPossible(ctx);
     }
     return openAiListManager(ctx, lang, section, "topTen");
-  }
-
-  if (data.startsWith(callBacks.aiSectionSuggestWithContext)) {
-    await ctx.answerCb?.();
-    const section = data.replace(callBacks.aiSectionSuggestWithContext, "").trim();
-    if (!section) return ctx.reply(messages[lang].unknownAction);
-
-    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
-    if (topTenItems.length < 3) return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
-
-    await clearAiPendingInputPrompt(ctx);
-    await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
-    await setNavigationMode(ctx, `ai_suggestion_context:${section}`);
-    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_context:${section}`;
-    await helpers.deleteCallbackMessageIfPossible(ctx);
-    const prompt = await ctx.reply(
-      messages[lang].aiSuggestionContextPrompt,
-      aiSuggestionContextCancelKeyboard(lang, section),
-    );
-    await rememberAiPendingInputPrompt(ctx, prompt);
-    return prompt;
   }
 
   if (data.startsWith(callBacks.aiSectionSuggestFromTopTen)) {

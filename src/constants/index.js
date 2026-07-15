@@ -39,7 +39,6 @@ module.exports = {
     aiSectionSuggestMenu: "ai:section:suggest:menu:",
     aiSectionSuggestNeedTopTenAck: "ai:section:suggest:need-top-ten:ack:",
     aiSectionSuggestFromTopTen: "ai:section:suggest:top-ten:",
-    aiSectionSuggestWithContext: "ai:section:suggest:context:",
     aiSectionSuggestContextCancel: "ai:section:suggest:context:cancel:",
     aiPaidSuggestionConfirm: "ai:suggest:paid:confirm:",
     aiPaidSuggestionCancel: "ai:suggest:paid:cancel:",

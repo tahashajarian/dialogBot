@@ -10,6 +10,28 @@ const {
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = require("../src/services/ai");
+const { formatSuggestionResultMessage } = require("../src/services/ai-list-ui");
+const {
+  clearSuggestionMood,
+  getSuggestionMood,
+  setSuggestionMood,
+} = require("../src/services/ai-suggestion-cache");
+
+test("suggestion mood persists for a session and can be reset", () => {
+  clearSuggestionMood(42, "movies");
+  assert.equal(setSuggestionMood(42, "movies", "  dark comedy  "), "dark comedy");
+  assert.equal(getSuggestionMood(42, "movies"), "dark comedy");
+  assert.equal(getSuggestionMood(42, "books"), "");
+  clearSuggestionMood(42, "movies");
+  assert.equal(getSuggestionMood(42, "movies"), "");
+});
+
+test("suggestion results show active mood only when provided", () => {
+  const withMood = formatSuggestionResultMessage("en", "In Bruges", "Dark and dry humor.", "dark comedy");
+  const withoutMood = formatSuggestionResultMessage("en", "Arrival", "Thoughtful science fiction.");
+  assert.match(withMood, /Mood\/genre: dark comedy/);
+  assert.doesNotMatch(withoutMood, /Mood\/genre/);
+});
 
 test("extracts suggestion text from Responses and Chat Completions payloads", () => {
   assert.equal(extractAiResponseText({ output_text: "Lichess puzzles\nRelated to chess." }), "Lichess puzzles\nRelated to chess.");

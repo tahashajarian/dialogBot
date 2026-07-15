@@ -36,7 +36,11 @@ const {
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
-const { setPendingSuggestion } = require("../services/ai-suggestion-cache");
+const {
+  clearSuggestionMood,
+  setPendingSuggestion,
+  setSuggestionMood,
+} = require("../services/ai-suggestion-cache");
 const {
   replyWithKeyboardRemovalNoticeThenInline,
 } = require("../services/bot-navigation");
@@ -180,10 +184,14 @@ function parseAiSuggestContextState(state) {
 }
 
 async function promptSuggestionMode(ctx, lang, section) {
-  await updateUserState(ctx.userId, `ai_chat_${section}`);
+  clearSuggestionMood(ctx.userId, section);
+  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
   await clearAiActionMessage(ctx);
   await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  if (ctx.user) {
+    ctx.user.state = `ai_suggest_context_${section}`;
+    ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  }
   const prompt = await ctx.reply(
     messages[lang].aiSuggestionModePrompt,
     aiSuggestionModeKeyboard(lang, section),
@@ -448,7 +456,7 @@ async function sendSingleSectionSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
-    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason),
+    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
     aiSuggestionAddKeyboard(lang, section),
   );
   return resultMessage;
@@ -710,6 +718,9 @@ async function handleAiText(ctx, lang, text, state) {
         : getAiManageState(section, listType, "add_input");
       await updateUserState(ctx.userId, nextState);
       if (ctx.user) ctx.user.state = nextState;
+      if (listIsFull && !isWatchlist && ["movies", "music", "books"].includes(section)) {
+        await setNavigationMode(ctx, `ai_list_completion:${section}:topTen`);
+      }
 
       if (!isWatchlist) {
         const savedMessage = await buildTopTenSavedMessage({
@@ -745,7 +756,10 @@ async function handleAiText(ctx, lang, text, state) {
       const saved = await ctx.reply(
         [savedText, listIsFull ? "" : messages[lang].aiListManageAddNextPrompt].filter(Boolean).join("\n\n"),
         listIsFull
-          ? aiListManageMenuKeyboard(lang, section, listType)
+          ? aiListManageMenuKeyboard(lang, section, listType, {
+            hasItems: result.items.length > 0,
+            itemCount: result.items.length,
+          })
           : getContinuousAddKeyboard(lang, section, listType, result.items),
       );
       if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
@@ -798,7 +812,10 @@ async function handleAiText(ctx, lang, text, state) {
     await clearAiActionMessage(ctx);
     const actionMessage = await ctx.reply(
       `${await buildAiListManagerMessage({ ctx, lang, section, listType })}\n\n${messages[lang].aiListManageUseButtonsTip}`,
-      aiListManageMenuKeyboard(lang, section, listType),
+      aiListManageMenuKeyboard(lang, section, listType, {
+        hasItems: currentItems.length > 0,
+        itemCount: currentItems.length,
+      }),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
     return actionMessage;
@@ -837,6 +854,7 @@ async function handleAiText(ctx, lang, text, state) {
     });
     await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
     await clearAiPendingInputPrompt(ctx);
+    setSuggestionMood(ctx.userId, suggestContextSection, userText);
     return sendSingleSectionSuggestion({
       ctx,
       lang,

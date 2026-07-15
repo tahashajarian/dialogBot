@@ -290,12 +290,13 @@ function formatAiLimitMessage(lang, key) {
   return formatOperationalLimitsText(messages[lang][key]);
 }
 
-function formatSuggestionResultMessage(lang, title, reason) {
+function formatSuggestionResultMessage(lang, title, reason, mood = "") {
   const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
   return [
     messages[lang].aiSuggestionResultTitle.replace("{item}", title),
+    mood ? messages[lang].aiSuggestionResultMood.replace("{mood}", mood) : "",
     messages[lang].aiSuggestionResultReason.replace("{reason}", cleanReason),
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 function getNeedTopTenMessage(lang, section) {

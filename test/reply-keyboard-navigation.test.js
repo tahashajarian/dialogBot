@@ -214,6 +214,7 @@ test("Movies add and comment input controls resolve across every recovery state"
   const mode = "ai_list:movies:topTen";
   assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_movies_top_ten_add_input" }).callbackData, `${callBacks.aiListManageCancelAdd}movies:top_ten`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiListManageAddBackToList, { mode, state: "ai_manage_movies_top_ten_add_input" }).callbackData, `${callBacks.aiListManageCancelAdd}movies:top_ten:back`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiListManageAddBackToList, { mode: "ai_list_completion:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageCancelAdd}movies:top_ten:back`);
   assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_movies_top_ten_comment_input" }).callbackData, `${callBacks.aiListManageCancelComment}movies:top_ten`);
   assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_books_top_ten_add_input" }), null);
 });
@@ -226,7 +227,6 @@ test("shared-list guidance uses a scoped bottom Back action", () => {
 
 test("suggestion source selection uses section-scoped bottom actions", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, { mode: "ai_suggestion_mode:movies", state: "ai_chat_movies" }).callbackData, `${callBacks.aiSectionSuggestFromTopTen}movies`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionWithContextButton, { mode: "ai_suggestion_mode:books", state: "ai_chat_books" }).callbackData, `${callBacks.aiSectionSuggestWithContext}books`);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, { mode: "ai_suggestion_mode:music", state: "ai_chat_music" }).callbackData, `${callBacks.aiListManageMenu}music:top_ten`);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, { mode: "ai_suggestion_mode:books", state: "ai_chat_movies" }), null);
 });

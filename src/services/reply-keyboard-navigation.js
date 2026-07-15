@@ -95,6 +95,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     return null;
   }
   const aiListMatch = String(mode).match(/^ai_list:(movies|music|books|random):(topTen|watchlist)$/);
+  const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|music|books):topTen$/);
   const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/);
   const aiShareMatch = String(mode).match(/^ai_share:(movies|music|books|random):(topTen|watchlist)$/);
   const suggestionModeMatch = String(mode).match(/^ai_suggestion_mode:(movies|music|books|random)$/);
@@ -117,12 +118,16 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     ? `ai_manage_${aiListMatch[1]}_${aiListMatch[2] === "topTen" ? "top_ten" : "watchlist"}`
     : "";
   const validAiListState = expectedAiState && [expectedAiState, `${expectedAiState}_add_input`, `${expectedAiState}_comment_input`].includes(state);
+  const validAiListCompletionState = aiListCompletionMatch && state === `ai_manage_${aiListCompletionMatch[1]}_top_ten`;
   const validAiListFilterState = aiListFilterMatch && state === `ai_manage_${aiListFilterMatch[1]}_watchlist`;
   const ageMode = mode === "profile_age" || /^profile_age_range:\d+$/.test(String(mode));
   const profilePickerState = (mode === "profile_gender" && state === "editing_gender") || (mode === "profile_pet" && state === "editing_pet_preference");
   const interestMode = String(mode).match(/^profile_interests:(\d+)$/);
   const validAiShareState = aiShareMatch && state === `ai_manage_${aiShareMatch[1]}_${aiShareMatch[2] === "topTen" ? "top_ten" : "watchlist"}`;
-  const validSuggestionModeState = suggestionModeMatch && state === `ai_chat_${suggestionModeMatch[1]}`;
+  const validSuggestionModeState = suggestionModeMatch && [
+    `ai_chat_${suggestionModeMatch[1]}`,
+    `ai_suggest_context_${suggestionModeMatch[1]}`,
+  ].includes(state);
   const validSuggestionResultState = suggestionResultMatch && state === `ai_chat_${suggestionResultMatch[1]}`;
   const validSuggestionNextState = suggestionNextMatch && state === `ai_chat_${suggestionNextMatch[1]}`;
   const validSuggestionAddedState = suggestionAddedMatch && state === `ai_chat_${suggestionAddedMatch[1]}`;
@@ -138,7 +143,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || profileUnsaveConfirmMatch
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
-  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
+  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
   const entries = [...(mode === MODES.GLOBAL ? GLOBAL : []), ...(BY_MODE[mode] || [])];
   if (discussionListMatch && state === "idle") {
     const [, type, pageRaw, pagesRaw, filter, language] = discussionListMatch;
@@ -259,7 +264,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   }
   if (suggestionModeMatch) {
     const section = suggestionModeMatch[1];
-    entries.push(["aiSuggestionFromTopTenButton", `${callBacks.aiSectionSuggestFromTopTen}${section}`], ["aiSuggestionWithContextButton", `${callBacks.aiSectionSuggestWithContext}${section}`], ["aiBack", `${callBacks.aiListManageMenu}${section}:top_ten`]);
+    entries.push(["aiSuggestionFromTopTenButton", `${callBacks.aiSectionSuggestFromTopTen}${section}`], ["aiBack", `${callBacks.aiListManageMenu}${section}:top_ten`]);
   }
   if (suggestionResultMatch) {
     const section = suggestionResultMatch[1];
@@ -326,6 +331,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       const status = section === "music" ? ["aiListManageShowWatchedMusic", "aiListManageShowNotWatchedMusic"] : section === "books" ? ["aiListManageShowWatchedBooks", "aiListManageShowNotWatchedBooks"] : ["aiListManageShowWatchedMovies", "aiListManageShowNotWatchedMovies"];
       entries.push([status[0], `${callBacks.aiListManageShow}${section}:${token}:watched`], [status[1], `${callBacks.aiListManageShow}${section}:${token}:not_watched`], ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`]);
     } else if (state === expectedAiState) entries.push(["aiBack", `${callBacks.aiListManageBack}${section}`]);
+  }
+  if (validAiListCompletionState) {
+    entries.push(["aiListManageAddBackToList", `${callBacks.aiListManageCancelAdd}${aiListCompletionMatch[1]}:top_ten:back`]);
   }
   for (const [key, callbackData] of entries) {
     if (key === "advancedSearchButton" && !advancedSearchEnabled) continue;

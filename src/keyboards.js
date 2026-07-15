@@ -274,11 +274,6 @@ function aiSuggestionModeKeyboard(lang, section) {
     ],
     [
       {
-        text: messages[lang].aiSuggestionWithContextButton,
-      },
-    ],
-    [
-      {
         text: messages[lang].aiBack,
       },
     ],

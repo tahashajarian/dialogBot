@@ -70,6 +70,7 @@
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
 - TopTen full-limit copy should be context-aware: direct TopTen add flows should say to remove one from this TopTen, while watchlist promotion can tell the user to go to TopTen and remove one.
 - When the 10th TopTen item is saved, exit add mode and keep the completion message visible with a Back to list button. Open the full TopTen manager only after the user taps that button; do not leave an Add button on a full TopTen manager.
+- The 10th-item Back to list reply action remains valid after add mode transitions to the completed manager state. Any manager re-render must pass the current item count to its keyboard so a full list can never display empty-list actions.
 - List/TopTen add states accept text only, except Music may also accept an audio track or recognized audio document when Telegram provides a meaningful track title or filename. Do not guess from voice notes, unrelated documents, or generic/untitled media; ask the user to type the exact title instead.
 - When typed list input is rejected, retire the previous bot input prompt and its Cancel button before sending and tracking the fresh retry prompt below the user's message.
 - When an input prompt is edited in place, keep tracking its original message id if the platform's successful edit response does not include one.
@@ -257,13 +258,12 @@ Labels should be inferred from both typed items and suggested chips.
 - Animated AI placeholders must serialize edits so a late loading step cannot overwrite the final result. Suggestion placeholders must also end in a visible retry state after a bounded timeout.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
 - If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `👍 Got it` / `👍 متوجه شدم` acknowledgement card that returns to the section TopTen manager.
-- Pressing the section suggestion button should first show a choice prompt:
-  - suggest from TopTen
-  - or collect one short mood/genre note
-- The suggestion choice prompt must include a Back action that returns to the section TopTen manager.
-- Do not call AI until the user chooses.
-- The mood/genre suggestion input state provides a section-scoped bottom Cancel button.
+- Pressing the section suggestion button explains that Favorites are always the suggestion base. In that prompt, users either type one optional short mood/genre directly or tap Suggest; there is no separate add-mood step.
+- The suggestion prompt must include Suggest and Back actions; Back returns to the section TopTen manager.
+- Do not call AI until the user taps Suggest or sends a mood/genre.
+- If a typed mood/genre is invalid, the retry prompt provides a section-scoped bottom Cancel button.
 - Cancel returns to the section TopTen manager.
+- A mood/genre is temporary session context. Suggestion results display it, and Another suggestion reuses it after saves or rejections without asking again. Returning to Favorites and starting Suggestion again begins a fresh session with no mood.
 - Suggestions should avoid duplicates from:
   - user's TopTen
   - user's watchlist

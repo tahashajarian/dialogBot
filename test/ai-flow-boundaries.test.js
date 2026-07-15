@@ -831,65 +831,6 @@ test("suggestion mode prompt can return to the section Top Ten", async () => {
   assert.equal(buttons.at(-1).text, messages.en.aiBack);
 });
 
-test("suggestion vibe prompt is sent once with cancel controls", async () => {
-  const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const deletedIds = [];
-  const replies = [];
-  const edits = [];
-
-  const ctx = {
-    callbackData: `${callBacks.aiSectionSuggestWithContext}movies`,
-    callbackMessageId: 66,
-    userId: 83,
-    user: {
-      userId: 83,
-      lang: "fa",
-      state: "ai_manage_movies_top_ten",
-      aiLists: {
-        movies: {
-          topTen: [{ title: "Heat" }, { title: "Arrival" }, { title: "Dune" }],
-          watchlist: [],
-        },
-      },
-    },
-    answerCb: async () => true,
-    deleteMessage: async (messageId) => {
-      deletedIds.push(messageId);
-      return true;
-    },
-    reply: async (text, extra) => {
-      replies.push({ text, extra });
-      return { message_id: 210 + replies.length, text, extra };
-    },
-    editMessageText: async (messageId, text, extra) => {
-      edits.push({ messageId, text, extra });
-      return { message_id: messageId, text, extra };
-    },
-  };
-
-  User.findOneAndUpdate = async (query, update) => {
-    if (update?.$set) Object.assign(ctx.user, update.$set);
-    Object.assign(ctx.user, update);
-    return ctx.user;
-  };
-
-  try {
-    await handleAiCallback(ctx, "fa", {
-      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
-    });
-  } finally {
-    User.findOneAndUpdate = originalFindOneAndUpdate;
-  }
-
-  assert.deepEqual(deletedIds, [66]);
-  assert.equal(replies.length, 1);
-  assert.equal(edits.length, 0);
-  assert.equal(replies[0].text, messages.fa.aiSuggestionContextPrompt);
-  assert.equal(keyboardButtons(replies[0].extra)[0].text, messages.fa.cancelEdit);
-  assert.equal(ctx.user.state, "ai_suggest_context_movies");
-  assert.equal(ctx.user.aiPendingInputMessageId, 211);
-});
-
 test("AI top-ten Back returns to the AI section picker", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const events = [];
@@ -1565,7 +1506,6 @@ test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.aiListManageMenu), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShow}movies:watchlist`), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShare}movies:watchlist`), true);
-  assert.equal(isAiCallback(`${callBacks.aiSectionSuggestWithContext}books`), true);
   assert.equal(isAiCallback(callBacks.aiBack), true);
 
   assert.equal(isAiCallback(callBacks.profile), false);
@@ -1576,14 +1516,11 @@ test("AI callback predicate keeps AI cards only for AI callbacks", () => {
 
 test("suggestion callbacks are valid only inside their matching AI state", () => {
   const fromTopTen = `${callBacks.aiSectionSuggestFromTopTen}movies`;
-  const withContext = `${callBacks.aiSectionSuggestWithContext}books`;
   const cancelContext = `${callBacks.aiSectionSuggestContextCancel}books`;
 
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "ai_chat_movies"), true);
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "ai_manage_movies_top_ten"), true);
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "idle"), false);
-  assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_books"), true);
-  assert.equal(isSuggestionCallbackValidForState(withContext, "ai_chat_movies"), false);
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "ai_suggest_context_books"), true);
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
 });
