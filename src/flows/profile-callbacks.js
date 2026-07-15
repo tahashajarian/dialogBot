@@ -132,6 +132,7 @@ function isProfileSettingsOrEditCallback(data = "") {
     data.startsWith(callBacks.profileEmojiChoose) ||
     data.startsWith(callBacks.profileEmojiConfirm) ||
     data === callBacks.profileEmojiCancel ||
+    data === callBacks.profileEmojiClose ||
     data === callBacks.profileEmojiInsufficientDone ||
     data === callBacks.profileStars ||
     data === callBacks.profileStarsBack ||
@@ -341,6 +342,13 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       }),
       profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
     );
+  }
+
+  if (data === callBacks.profileEmojiClose) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
+    return deleteCallbackMessageIfPossible?.(ctx);
   }
 
   if (data.startsWith(callBacks.profileEmojiPage)) {

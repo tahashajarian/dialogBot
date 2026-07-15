@@ -484,6 +484,44 @@ test("profile emoji confirm Back returns to emoji picker", async () => {
   assert.ok(callbacks.includes("profile:emoji:choose:0"));
 });
 
+test("profile emoji Close only removes the picker", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  const states = [];
+
+  User.findOneAndUpdate = async (query, update) => {
+    if (Object.hasOwn(update || {}, "state")) states.push(update.state);
+    return { userId: query.userId };
+  };
+
+  const ctx = {
+    callbackData: callBacks.profileEmojiClose,
+    callbackMessageId: 334,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "editing_profile_emoji" },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(states, ["idle"]);
+  assert.deepEqual(deletedIds, [334]);
+  assert.deepEqual(replies, []);
+});
+
 test("profile emoji insufficient Got it returns to profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];

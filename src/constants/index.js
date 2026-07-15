@@ -96,6 +96,7 @@ module.exports = {
     profileEmojiChoose: "profile:emoji:choose:",
     profileEmojiConfirm: "profile:emoji:confirm:",
     profileEmojiCancel: "profile:emoji:cancel",
+    profileEmojiClose: "profile:emoji:close",
     profileEmojiInsufficientDone: "profile:emoji:insufficient:done",
     profileStars: "profile:stars",
     profileStarsBack: "profile:stars:back",
