@@ -572,6 +572,46 @@ test("profile settings reply buttons do not retire unrelated remembered cards", 
   assert.equal(replies.at(-1).text, messages.en.profileAskBio);
 });
 
+test("saving a More Settings choice stays in More Settings", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+
+  const ctx = {
+    callbackData: `${callBacks.profilePetSet}cat`,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "editing_pet_preference",
+      navigationMode: "profile_pet",
+      firstName: "Ali",
+      profileName: "Ali",
+      petPreference: "any",
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.navigationMode, "profile_settings");
+  assert.match(replies.at(-1).text, /cat/i);
+  assert.equal(keyboardButtons(replies.at(-1).extra)[0].text, messages.en.profileEditBio);
+});
+
 test("profile emoji insufficient Got it only removes the warning", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];

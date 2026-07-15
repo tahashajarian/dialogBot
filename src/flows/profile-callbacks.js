@@ -228,7 +228,7 @@ async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMe
   });
 }
 
-async function handleProfileEditCompletion(ctx, lang, updatedUser) {
+async function handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSettings = false } = {}) {
   const milestone = await awardProfileCompletionMilestone(ctx.userId, updatedUser);
   applyStarRewardsToContext(ctx, milestone.rewards);
   if (ctx.user) updatedUser.starBalance = ctx.user.starBalance;
@@ -241,6 +241,10 @@ async function handleProfileEditCompletion(ctx, lang, updatedUser) {
     return sendPublicProfileByCode(ctx, lang, pendingCode);
   }
   // Otherwise show their own profile
+  if (returnToSettings) {
+    if (starNotice) await ctx.reply(starNotice);
+    return sendOwnProfileSettings(ctx, lang, updatedUser);
+  }
   return sendOwnProfile(ctx, lang, updatedUser, { footerText: starNotice });
 }
 
@@ -438,9 +442,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       ctx.user.state = "idle";
     }
     await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfile(ctx, lang, ctx.user || {}, {
-      footerText: formatProfileEmojiText(lang, "profileEmojiSaved", result),
-    });
+    await ctx.reply(formatProfileEmojiText(lang, "profileEmojiSaved", result));
+    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileEmojiCancel) {
@@ -657,7 +660,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.petPreference = petPreference;
     updatedUser.state = "idle";
-    return handleProfileEditCompletion(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSettings: true });
   }
 
   if (data.startsWith(callBacks.profileAgeRangeSet)) {

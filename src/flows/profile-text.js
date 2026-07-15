@@ -8,6 +8,7 @@ const {
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
   profileInterestsKeyboard,
+  profileSettingsKeyboard,
 } = require("../keyboards");
 const {
   addAiListItem,
@@ -18,11 +19,12 @@ const {
   updateUserState,
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
-const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-navigation");
+const { isKnownProfileNavigationLabel, MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { resolveCityByCoordinates } = require("../services/location");
 const {
   isValidTextInput,
   saveLocationProfile,
+  sendProfileMessage,
   toPlainUser,
   validateProfileName,
 } = require("../services/profile");
@@ -51,6 +53,21 @@ async function buildProfileMilestoneNotice(ctx, updatedUser, lang) {
 async function sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile) {
   const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
   return sendProfile(ctx, updatedUser, lang, keyboardLang, { footerText });
+}
+
+async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
+  const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
+  const sent = await sendProfileMessage({
+    ctx,
+    user: updatedUser,
+    lang,
+    keyboard: profileSettingsKeyboard(lang, Boolean(updatedUser?.showActiveDiscussionOnProfile)),
+    messages,
+    isOwnProfile: true,
+    footerText,
+  });
+  await setNavigationMode(ctx, MODES.PROFILE_SETTINGS);
+  return sent;
 }
 const {
   getProfileNameErrorMessage,
@@ -207,7 +224,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.location = location;
     updatedUser.state = "idle";
-    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
+    return sendProfileSettingsAfterMilestone(ctx, updatedUser, lang);
   }
 
   if (state === "editing_photo") {
@@ -257,7 +274,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.bio = text;
     updatedUser.state = "idle";
-    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
+    return sendProfileSettingsAfterMilestone(ctx, updatedUser, lang);
   }
 
   if (state === "editing_interests" && text) {
