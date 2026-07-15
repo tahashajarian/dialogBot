@@ -16,6 +16,18 @@ function createStageTimings(now = Date.now) {
   };
 }
 
+function estimateDocumentBytes(document) {
+  if (!document) return 0;
+  try {
+    const value = typeof document.toObject === "function"
+      ? document.toObject({ depopulate: true, virtuals: false })
+      : document;
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch {
+    return 0;
+  }
+}
+
 function createRuntimeMetricsMonitor({
   now = Date.now,
   memoryUsage = process.memoryUsage,
@@ -46,4 +58,5 @@ function createRuntimeMetricsMonitor({
 module.exports = {
   createRuntimeMetricsMonitor,
   createStageTimings,
+  estimateDocumentBytes,
 };

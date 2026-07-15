@@ -19,7 +19,11 @@ const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
 const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
-const { createRuntimeMetricsMonitor, createStageTimings } = require("./services/performance-metrics");
+const {
+  createRuntimeMetricsMonitor,
+  createStageTimings,
+  estimateDocumentBytes,
+} = require("./services/performance-metrics");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -201,6 +205,7 @@ async function processUpdate(ctx) {
           telegramApiTotalMs: apiMetrics.totalMs,
           telegramApiMaxMs: apiMetrics.maxMs,
           telegramApiSlowestMethod: apiMetrics.slowestMethod,
+          userDocumentBytes: estimateDocumentBytes(user),
           stages: stageTimings.snapshot(),
         });
       }

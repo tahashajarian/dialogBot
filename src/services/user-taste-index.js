@@ -3,11 +3,13 @@ const UserTasteIndex = require("../models/user-taste-index");
 const User = require("../models/user");
 const { normalizeAiInput } = require("./input-normalization");
 const { canonicalizeInterestChipTitle } = require("./interest-chips");
+const { mapWithConcurrency } = require("./bounded-concurrency");
 
 const AI_TASTE_INDEX_SECTIONS = ["movies", "music", "books", "random"];
 const AI_TASTE_INDEX_LIST_TYPES = ["topTen", "watchlist"];
 const AI_TASTE_INDEX_MIN_SHARED_ITEMS = 3;
 const TASTE_INDEX_READINESS_CACHE_TTL_MS = 60 * 1000;
+const TASTE_INDEX_REBUILD_CONCURRENCY = 5;
 let tasteIndexReadiness = null;
 let tasteIndexReadinessExpiresAt = 0;
 let tasteIndexReadinessPromise = null;
@@ -111,7 +113,11 @@ async function syncUserTasteIndex(userOrId, { sections = AI_TASTE_INDEX_SECTIONS
   return { ok: true, sections: [...sectionSet] };
 }
 
-async function rebuildAllUserTasteIndexes({ batchSize = 200, now = new Date() } = {}) {
+async function rebuildAllUserTasteIndexes({
+  batchSize = 200,
+  concurrency = TASTE_INDEX_REBUILD_CONCURRENCY,
+  now = new Date(),
+} = {}) {
   let lastId = 0;
   let users = 0;
   let sections = 0;
@@ -123,13 +129,15 @@ async function rebuildAllUserTasteIndexes({ batchSize = 200, now = new Date() } 
       .lean();
     if (!batch.length) break;
 
-    for (const user of batch) {
-      lastId = Number(user.userId);
+    lastId = Number(batch.at(-1).userId);
+    const results = await mapWithConcurrency(batch, concurrency, async (user) => {
       const result = await syncUserTasteIndex(user, { now });
-      if (result.ok) {
-        users += 1;
-        sections += result.sections.length;
-      }
+      return result;
+    });
+    for (const result of results) {
+      if (!result.ok) continue;
+      users += 1;
+      sections += result.sections.length;
     }
   }
 
@@ -202,6 +210,7 @@ async function findIndexedSharedTasteCandidates(viewer, {
 
 module.exports = {
   AI_TASTE_INDEX_MIN_SHARED_ITEMS,
+  TASTE_INDEX_REBUILD_CONCURRENCY,
   buildUserTasteIndexSections,
   findIndexedSharedTasteCandidates,
   hasTasteIndexData,

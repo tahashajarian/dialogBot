@@ -3,11 +3,14 @@ const { discussionRoomKeyboard } = require("../keyboards");
 const { getMessageId } = require("../services/bot-navigation");
 const { addRecentMessage } = require("../services/discussion-messages");
 const { formatUserDisplayName } = require("../services/profile");
+const { mapWithConcurrency } = require("../services/bounded-concurrency");
 const {
   findDiscussionDelivery,
   getReplyMessageIdForRecipient,
   rememberDiscussionDelivery,
 } = require("../services/discussion-delivery-memory");
+
+const DISCUSSION_DELIVERY_CONCURRENCY = 8;
 
 function getReplyMessageId(message = {}) {
   const reply = message.reply_to_message || message.replyToMessage || {};
@@ -115,7 +118,7 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
     [ctx.userId]: getMessageId(ctx.message),
   };
 
-  await Promise.all((added.recipients || []).map(async (recipientUserId) => {
+  await mapWithConcurrency(added.recipients || [], DISCUSSION_DELIVERY_CONCURRENCY, async (recipientUserId) => {
     const sent = await sendDiscussionMessageToRecipient(
       ctx,
       recipientUserId,
@@ -135,7 +138,7 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
     if (sentMessageId) {
       deliveriesByUserId[recipientUserId] = sentMessageId;
     }
-  }));
+  });
 
   rememberDiscussionDelivery({
     discussionId: ctx.user.activeDiscussionId,
@@ -146,6 +149,7 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
 }
 
 module.exports = {
+  DISCUSSION_DELIVERY_CONCURRENCY,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
   handleDiscussionMessage,

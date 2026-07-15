@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   createRuntimeMetricsMonitor,
   createStageTimings,
+  estimateDocumentBytes,
 } = require("../src/services/performance-metrics");
 
 test("stage timings accumulate durations without changing operation results", async () => {
@@ -16,6 +17,15 @@ test("stage timings accumulate durations without changing operation results", as
   }), /failed/);
 
   assert.deepEqual(timings.snapshot(), { database: 22 });
+});
+
+test("document size measurement supports plain objects and Mongoose-like documents", () => {
+  const plain = { name: "Muze", interests: ["music", "books"] };
+  const expected = Buffer.byteLength(JSON.stringify(plain), "utf8");
+
+  assert.equal(estimateDocumentBytes(plain), expected);
+  assert.equal(estimateDocumentBytes({ toObject: () => plain }), expected);
+  assert.equal(estimateDocumentBytes(null), 0);
 });
 
 test("runtime monitor reports event-loop lag and memory in megabytes", () => {
