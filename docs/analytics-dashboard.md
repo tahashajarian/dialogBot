@@ -49,6 +49,8 @@ http://127.0.0.1:8787/?token=your_token
 - bot heartbeat freshness, when the bot process is running
 - AI API calls, failures, failure rate, average latency, and recent failure
   reasons
+- slow bot updates by route with p50/p95 latency, Telegram API time, and loaded
+  user-document size for the last 24 hours
 - total, new, onboarded, named, active, saved-profile, and banned users
 - Top 10 and watchlist activity per section
 - users with 3+ items, full Top 10s, and unlocked taste labels
@@ -131,6 +133,8 @@ Operational health data is intentionally lightweight:
 - discussion-list open events are throttled per user/source
 - health events expire automatically after seven days
 - failures in health logging do not block bot behavior
+- only updates taking at least 1.5 seconds create performance events; they contain
+  route and numeric timing/size metadata, never message text or user/profile content
 
 Product analytics events are also fire-and-forget. They should never block the
 bot response path, and metadata is restricted to small safe fields such as

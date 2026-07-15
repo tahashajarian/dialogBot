@@ -129,6 +129,21 @@ function renderEventTable(rows = [], emptyText = "No events yet") {
   </table>`;
 }
 
+function renderPerformanceTable(rows = []) {
+  if (!rows.length) return `<p class="muted">No slow updates recorded in the last 24 hours</p>`;
+  return `<table>
+    <thead><tr><th>Route</th><th>Samples</th><th>p50</th><th>p95</th><th>Telegram p95</th><th>User document p95</th></tr></thead>
+    <tbody>${rows.map((row) => `<tr>
+      <td>${escapeHtml(row.route)}</td>
+      <td>${formatNumber(row.count)}</td>
+      <td>${formatNumber(row.p50DurationMs)} ms</td>
+      <td>${formatNumber(row.p95DurationMs)} ms</td>
+      <td>${formatNumber(row.p95TelegramMs)} ms</td>
+      <td>${formatNumber(row.p95UserDocumentBytes)} bytes</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
 function sectionKey(title) {
   return String(title || "")
     .toLowerCase()
@@ -521,6 +536,11 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     })),
     "No AI failures in the last 24 hours",
   )}</div>`, { note: "last 24h", view: "system" })}
+
+      ${collapsibleSection("Slow Update Performance", `<div class="grid compact-grid">
+      ${card("Slow samples", health?.performance?.sampledEvents || 0, `Updates at or above ${formatNumber(health?.performance?.slowThresholdMs || 1500)} ms`)}
+      ${statusCard("Sample completeness", !health?.performance?.truncated, health?.performance?.truncated ? "Latest 5,000 samples shown" : "All retained 24h samples included")}
+    </div><div class="panel">${renderPerformanceTable(health?.performance?.routes || [])}</div>`, { note: "p50/p95 by route, last 24h", view: "system" })}
 
       ${collapsibleSection("Users", `<div class="grid compact-grid">
       ${card("Total Users", users.total)}

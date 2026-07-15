@@ -14,7 +14,7 @@ const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussion-starters");
 const { logger } = require("./services/logger");
-const { recordBotHeartbeat } = require("./services/operational-health");
+const { recordBotHeartbeat, recordUpdatePerformanceEvent } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
 const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
@@ -195,6 +195,13 @@ async function processUpdate(ctx) {
       const result = await stageTimings.measure("handlerMs", () => handleUpdate(appCtx));
       const durationMs = Date.now() - startedAt;
       if (durationMs >= SLOW_UPDATE_MS) {
+        const performanceMetadata = {
+          telegramApiCalls: apiMetrics.count,
+          telegramApiTotalMs: apiMetrics.totalMs,
+          telegramApiMaxMs: apiMetrics.maxMs,
+          userDocumentBytes: estimateDocumentBytes(user),
+          stages: stageTimings.snapshot(),
+        };
         logger.warn("Slow update processed", {
           durationMs,
           hasCallback: Boolean(ctx.callbackQuery),
@@ -205,8 +212,13 @@ async function processUpdate(ctx) {
           telegramApiTotalMs: apiMetrics.totalMs,
           telegramApiMaxMs: apiMetrics.maxMs,
           telegramApiSlowestMethod: apiMetrics.slowestMethod,
-          userDocumentBytes: estimateDocumentBytes(user),
-          stages: stageTimings.snapshot(),
+          userDocumentBytes: performanceMetadata.userDocumentBytes,
+          stages: performanceMetadata.stages,
+        });
+        void recordUpdatePerformanceEvent({
+          route: updateRoute,
+          durationMs,
+          metadata: performanceMetadata,
         });
       }
       return result;
