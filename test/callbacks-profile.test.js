@@ -522,7 +522,7 @@ test("profile emoji Close only removes the picker", async () => {
   assert.deepEqual(replies, []);
 });
 
-test("profile emoji insufficient Got it returns to profile", async () => {
+test("profile emoji insufficient Got it only removes the warning", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -570,8 +570,7 @@ test("profile emoji insufficient Got it returns to profile", async () => {
 
   assert.deepEqual(states, ["idle"]);
   assert.deepEqual(deletedIds, [444]);
-  assert.match(replies.at(-1).text, /Ali/);
-  assert.equal(keyboardButtons(replies.at(-1).extra)[0].text, messages.en.profileEditName);
+  assert.deepEqual(replies, []);
 });
 
 test("public profile viewing asks for basic profile first", async () => {

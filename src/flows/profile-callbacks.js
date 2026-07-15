@@ -449,8 +449,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
-    await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfile(ctx, lang, ctx.user || {});
+    return deleteCallbackMessageIfPossible?.(ctx);
   }
 
   if (data === callBacks.profileStars) {
