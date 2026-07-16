@@ -108,7 +108,7 @@ Public profiles opened from People or Saved Profiles retain chat history and use
 - transient discussion member-list card id (`discussionLastMembersMessageId`)
 - pending profile view code (`pendingProfileViewCode`)
 
-Profiles are public inside bot social surfaces for now. Active-discussion visibility controls whether the user's current active discussion may be shown on that profile and should default to off unless explicitly enabled.
+Profiles are public inside bot social surfaces for now. Discussion visibility controls whether the user's current and created open discussions may be shown on that profile. It defaults to on for new accounts; existing saved choices remain unchanged.
 Profile display should stay compact: omit unset optional fields instead of showing placeholder or missing-value rows. Profiles without a real uploaded photo should render as text instead of uploading a default placeholder image.
 
 Star balance is a self-only profile field. Render it only through an explicit authenticated own-profile context; never include it in public, saved-profile, invitation, discovery, member-list, or shareable profile rendering.

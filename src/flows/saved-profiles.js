@@ -124,12 +124,13 @@ async function runLeanQuery(query, select = "") {
 
 async function hasVisibleProfileDiscussions(target) {
   if (!target || !target.userId) return false;
+  if (!target.showActiveDiscussionOnProfile) return false;
   const discussionQueryAvailable = Discussion.db?.readyState === 1 ||
     Discussion.find !== defaultDiscussionFind ||
     Discussion.findOne !== defaultDiscussionFindOne;
   if (!discussionQueryAvailable) return false;
 
-  if (target.activeDiscussionId && target.showActiveDiscussionOnProfile) {
+  if (target.activeDiscussionId) {
     const activeQuery = Discussion.findOne({
       _id: target.activeDiscussionId,
       status: "open",
@@ -255,7 +256,10 @@ async function findVisibleProfileDiscussionUserIds(users = []) {
     }
   }
 
-  const userIds = normalizedUsers.map((user) => Number(user.userId));
+  const userIds = normalizedUsers
+    .filter((user) => user.showActiveDiscussionOnProfile)
+    .map((user) => Number(user.userId));
+  if (!userIds.length) return result;
   const createdQuery = Discussion.find({
     creatorUserId: { $in: userIds },
     status: "open",
@@ -758,7 +762,7 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
   const discussionSections = [];
   let hasAny = false;
 
-  if (target.activeDiscussionId && target.showActiveDiscussionOnProfile) {
+  if (target.showActiveDiscussionOnProfile && target.activeDiscussionId) {
     const activeDiscussion = await Discussion.findOne({
       _id: target.activeDiscussionId,
       status: "open",
@@ -770,11 +774,13 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
     }
   }
 
-  const createdDiscussions = await Discussion.find({
-    creatorUserId: target.userId,
-    status: "open",
-    ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
-  }).limit(10).lean();
+  const createdDiscussions = target.showActiveDiscussionOnProfile
+    ? await Discussion.find({
+      creatorUserId: target.userId,
+      status: "open",
+      ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
+    }).limit(10).lean()
+    : [];
 
   if (createdDiscussions.length > 0) {
     hasAny = true;

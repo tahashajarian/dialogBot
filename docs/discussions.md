@@ -86,7 +86,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 - Before creating or entering any discussion, users must explicitly set a Muze profile name with 3 to 30 characters and no emoji. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
-Active-discussion visibility remains a separate opt-in setting and must not expose a user's current active discussion unless enabled.
+Profile discussion visibility is a separate setting that controls both the user's current discussion and open discussions they created. It defaults to on for new accounts, can be turned off from Profile Settings, and must always respect the user's saved choice.
 
 ## Core User Flows
 

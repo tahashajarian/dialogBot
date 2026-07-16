@@ -321,7 +321,7 @@ test("profile settings keeps the profile display with settings controls", async 
   );
 });
 
-test("active discussion help Got it hides future profile help link", async () => {
+test("discussion help Got it records acknowledgement and only removes the help card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];
   const deletedIds = [];
@@ -367,11 +367,10 @@ test("active discussion help Got it hides future profile help link", async () =>
   assert.equal(updates[0].query.userId, 999);
   assert.ok(updates[0].update.activeDiscussionHelpAcknowledgedAt instanceof Date);
   assert.deepEqual(deletedIds, [222]);
-  assert.match(replies.at(-1).text, /Show active discussion/);
-  assert.doesNotMatch(replies.at(-1).text, /\/ad_help/);
+  assert.equal(replies.length, 0);
 });
 
-test("active discussion help Got it edits stale card when delete fails", async () => {
+test("discussion help Got it does not navigate when card deletion fails", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
   const replies = [];
@@ -409,10 +408,7 @@ test("active discussion help Got it edits stale card when delete fails", async (
   }
 
   assert.equal(replies.length, 0);
-  assert.equal(edits[0].messageId, 333);
-  assert.match(edits[0].text, /Ali/);
-  assert.doesNotMatch(edits[0].text, /\/ad_help/);
-  assert.equal(keyboardButtons(edits[0].extra)[0].text, messages.en.profileEditName);
+  assert.equal(edits.length, 0);
 });
 
 test("profile emoji insufficient Stars retires confirm card and shows acknowledgement", async () => {
@@ -1391,6 +1387,7 @@ test("opening saved profile clears old list and previous profile before renderin
     publicProfileCode: "u_A1",
     firstName: "Saved User",
     profileName: "Saved User",
+    showActiveDiscussionOnProfile: true,
   });
 
   const ctx = {
@@ -1442,6 +1439,7 @@ test("saved profile shows discussions action when user has an open discussion", 
     publicProfileCode: "u_A1",
     firstName: "Saved User",
     profileName: "Saved User",
+    showActiveDiscussionOnProfile: true,
   });
   Discussion.findOne = (query) => ({
     select: () => ({

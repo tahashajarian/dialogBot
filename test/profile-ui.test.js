@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { setImmediate } = require("node:timers");
 
 const messages = require("../src/messages");
+const User = require("../src/models/user");
 const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-appearance");
 const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/services/profile-emoji");
 const {
@@ -37,7 +38,11 @@ const user = {
   showActiveDiscussionOnProfile: true,
 };
 
-test("buildProfileText shows active discussion visibility only for own profile", () => {
+test("new users show profile discussions by default", () => {
+  assert.equal(new User({ userId: 123 }).showActiveDiscussionOnProfile, true);
+});
+
+test("buildProfileText shows discussion visibility only for own profile", () => {
   const ownText = buildProfileText({ ...user, starBalance: 18 }, "en", messages, { isOwnProfile: true });
   const acknowledgedText = buildProfileText({
     ...user,
@@ -47,11 +52,11 @@ test("buildProfileText shows active discussion visibility only for own profile",
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
   assert.match(ownText, /⭐ Stars: 18/);
-  assert.match(ownText, /Show active discussion/);
+  assert.match(ownText, /Show discussions/);
   assert.match(ownText, /What is this\? \/ad_help/);
-  assert.match(acknowledgedText, /Show active discussion/);
+  assert.match(acknowledgedText, /Show discussions/);
   assert.doesNotMatch(acknowledgedText, /\/ad_help/);
-  assert.doesNotMatch(publicText, /Show active discussion/);
+  assert.doesNotMatch(publicText, /Show discussions/);
   assert.doesNotMatch(publicText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Stars:/);
 });

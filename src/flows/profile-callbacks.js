@@ -210,18 +210,6 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
   return settingsCard;
 }
 
-async function editCallbackMessageToOwnProfileOrSend(ctx, lang, user = ctx.user) {
-  if (ctx.callbackMessageId && ctx.editMessageText) {
-    const edited = await ctx.editMessageText(
-      ctx.callbackMessageId,
-      buildProfileText(user || {}, lang, messages, { isOwnProfile: true }),
-      profileKeyboard(lang, Boolean(user?.photoFileId)),
-    );
-    if (edited) return edited;
-  }
-  return sendOwnProfile(ctx, lang, user || {});
-}
-
 async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMessageIfPossible } = {}) {
   return startProfileEdit(ctx, state, prompt, keyboard, {
     deleteCurrentMessage: () => retireCallbackMessageIfPossible?.(ctx),
@@ -499,11 +487,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const acknowledgedAt = new Date();
     await updateProfileField(ctx.userId, "activeDiscussionHelpAcknowledgedAt", acknowledgedAt);
     if (ctx.user) ctx.user.activeDiscussionHelpAcknowledgedAt = acknowledgedAt;
-    const deleted = await deleteCallbackMessageIfPossible?.(ctx);
-    if (!deleted) {
-      return editCallbackMessageToOwnProfileOrSend(ctx, lang, ctx.user || {});
-    }
-    return sendOwnProfile(ctx, lang, ctx.user || {});
+    return deleteCallbackMessageIfPossible?.(ctx);
   }
 
   if (data === callBacks.profileToggleActiveDiscussionVisible) {

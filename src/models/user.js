@@ -75,7 +75,7 @@ const UserSchema = new mongoose.Schema({
     sharedAt: Date,
   },
   photoFileId: String,
-  showActiveDiscussionOnProfile: { type: Boolean, default: false },
+  showActiveDiscussionOnProfile: { type: Boolean, default: true },
   activeDiscussionHelpAcknowledgedAt: { type: Date, default: null },
   starBalance: { type: Number, default: 0, min: 0 },
   starPendingTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
