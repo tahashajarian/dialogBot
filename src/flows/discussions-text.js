@@ -50,7 +50,7 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
-const { buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
+const { COPY_TEXT_LIMIT, buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -259,6 +259,29 @@ async function sendDiscussionRoomFromText(ctx, lang, discussion) {
   );
 }
 
+function buildDiscussionInviteSharePayload(lang, discussion, code, deepLink) {
+  const shareText = buildDiscussionInviteShareText(messages, lang, discussion, code, { deepLink });
+  let nativeText = buildDiscussionInviteShareText(messages, lang, discussion, code, { includeJoin: false }).trim();
+  if (Array.from(`${nativeText}\n\n${deepLink}`).length > COPY_TEXT_LIMIT) {
+    nativeText = buildDiscussionInviteShareText(
+      messages,
+      lang,
+      { ...discussion, description: "" },
+      code,
+      { includeJoin: false },
+    ).trim();
+  }
+  const availableTextLength = Math.max(1, COPY_TEXT_LIMIT - Array.from(`\n\n${deepLink}`).length);
+  if (Array.from(nativeText).length > availableTextLength) {
+    nativeText = `${Array.from(nativeText).slice(0, Math.max(1, availableTextLength - 1)).join("")}…`;
+  }
+  return {
+    shareText,
+    copyText: `${nativeText}\n\n${deepLink}`,
+    shareUrl: buildNativeShareUrl({ url: deepLink, text: nativeText }),
+  };
+}
+
 async function sendShareableInviteForActiveDiscussion(ctx, lang) {
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
   if (!activeDiscussionId) {
@@ -289,16 +312,15 @@ async function sendShareableInviteForActiveDiscussion(ctx, lang) {
     });
     if (referral.ok) deepLink = buildBotStartLink(`ref_${referral.link.publicCode}`) || legacyDeepLink;
   }
-  const shareText = buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, { deepLink });
-  const nativeText = buildDiscussionInviteShareText(messages, lang, invite.discussion, invite.code, {
-    includeJoin: false,
-  });
-  const copyText = messages[lang].discussionInviteCopyText
-    .replace("{title}", getDiscussionDisplayTitle(messages, lang, invite.discussion))
-    .replace("{link}", deepLink);
+  const { shareText, shareUrl, copyText } = buildDiscussionInviteSharePayload(
+    lang,
+    invite.discussion,
+    invite.code,
+    deepLink,
+  );
   const keyboard = buildShareActionsKeyboard({
     shareLabel: messages[lang].discussionInviteShareAction,
-    shareUrl: buildNativeShareUrl({ url: deepLink, text: nativeText }),
+    shareUrl,
     copyLabel: messages[lang].discussionInviteCopyAction,
     copyText,
     backLabel: messages[lang].discussionShareClose,
@@ -416,7 +438,9 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
         "{title}",
         getDiscussionDisplayTitle(messages, lang, invite.discussion),
       ),
-      discussionInviteModeKeyboard(lang),
+      discussionInviteModeKeyboard(lang, {
+        hasSavedProfiles: (ctx.user?.savedProfileCodes || []).length > 0,
+      }),
     );
   }
 
@@ -827,6 +851,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
 }
 
 module.exports = {
+  buildDiscussionInviteSharePayload,
   matchesMessageText,
   isDiscussionBottomControlText,
   handleDiscussionBottomButton,

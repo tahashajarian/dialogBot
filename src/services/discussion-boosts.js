@@ -41,6 +41,10 @@ async function getBoostEligibility(userId, discussionId, { now = new Date() } = 
   if (Number(discussion.creatorUserId) !== Number(userId)) {
     return { ok: false, reason: "not_owner", discussion };
   }
+  const capacity = Number(discussion.maxMembers) || 20;
+  if ((discussion.memberUserIds || []).length >= capacity) {
+    return { ok: false, reason: "discussion_full", discussion, cap: capacity };
+  }
   const active = await DiscussionBoost.findOne({
     status: "active",
     $or: [{ discussionId: discussion._id }, { creatorUserId: Number(userId) }],

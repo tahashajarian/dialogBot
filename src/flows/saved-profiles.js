@@ -906,9 +906,7 @@ async function handleSavedProfilesCallback(ctx, lang, {
     });
     return ctx.reply(
       messages[lang].advancedSearchPreviewText,
-      advancedSearchPreviewKeyboard(lang, {
-        notified: Boolean(ctx.user?.advancedSearchNotifyRequestedAt),
-      }),
+      advancedSearchPreviewKeyboard(lang),
     );
   }
 
@@ -936,8 +934,7 @@ async function handleSavedProfilesCallback(ctx, lang, {
 
   if (data === callBacks.peopleAdvancedSearchBack) {
     await ctx.answerCb?.();
-    await deleteInlineCallbackMessage();
-    return sendPeopleHub(ctx, lang);
+    return deleteInlineCallbackMessage();
   }
 
   if (data.startsWith(callBacks.peopleDiscoverPage)) {

@@ -199,7 +199,7 @@ Goal: prove that a private participation economy improves the existing product b
 Goal: test optional uses while core Muze stays complete and free.
 
 - [x] Add owner-only discussion boosts with clear labels, one active boost per creator/discussion, limited relevant slots, cooldowns, notification caps, opt-out, idempotent charging, and refunds.
-- [x] Add an honest `Advanced Search` coming-soon preview with `Let me know`; show no price and charge no Stars.
+- [x] Add an honest `Advanced Search` coming-soon preview with a close-only card; show no price and charge no Stars.
 - [x] Track Advanced Search interest while keeping its city/age/gender filters unimplemented.
 - [x] Keep prices out of primary navigation and show current cost/scope at confirmation.
 - [x] Track earning-to-spending conversion, boost relevance, recommendation opt-outs, refunds, and Advanced Search preview interest.

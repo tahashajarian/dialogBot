@@ -82,7 +82,7 @@ function discussionListNavigationKeyboard(lang, {
       callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}${languageFilter ? `:${languageFilter}` : ""}`,
     }]);
     if (languageFilter) rows.push([{
-      text: messages[lang].discussionChangeLanguage.replace(
+      text: messages[lang].discussionListLanguageFilterButton.replace(
         "{language}",
         languageFilter === "all" ? messages[lang].discussionLanguageBoth : languageFilter === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian,
       ),
@@ -202,9 +202,9 @@ function discussionCreateGuidanceAckKeyboard(lang) {
   ]]);
 }
 
-function discussionInviteModeKeyboard(lang) {
+function discussionInviteModeKeyboard(lang, { hasSavedProfiles = true } = {}) {
   return inlineKeyboard([
-    [{ text: messages[lang].discussionInviteSavedProfile, callback_data: callBacks.discussionInviteModeSaved }],
+    ...(hasSavedProfiles ? [[{ text: messages[lang].discussionInviteSavedProfile, callback_data: callBacks.discussionInviteModeSaved }]] : []),
     [{ text: messages[lang].discussionInviteShareable, callback_data: callBacks.discussionInviteModeShare }],
     [{ text: messages[lang].discussionShareClose, callback_data: callBacks.discussionInvitePickerClose }],
   ]);

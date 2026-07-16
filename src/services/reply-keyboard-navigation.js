@@ -160,7 +160,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       entries.push([`🔓 ${filter === "joinable" ? messages[user?.lang || "fa"].discussionListShowAll : messages[user?.lang || "fa"].discussionListOnlyJoinable}`, `${callBacks.discussionListActivePage}0:${filter === "joinable" ? "all" : "joinable"}:${language}`]);
       const lang = user?.lang || "fa";
       const languageLabel = language === "all" ? messages[lang].discussionLanguageBoth : language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian;
-      entries.push([messages[lang].discussionChangeLanguage.replace("{language}", languageLabel), `${callBacks.discussionListLanguageOpen}${filter}:${language}`]);
+      entries.push([messages[lang].discussionListLanguageFilterButton.replace("{language}", languageLabel), `${callBacks.discussionListLanguageOpen}${filter}:${language}`]);
     }
     entries.push(["discussionBack", callBacks.discussions]);
   }

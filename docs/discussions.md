@@ -56,7 +56,7 @@ Discussions are live rooms with short memory.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
-- **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle, but order rooms with useful lightweight signals instead of only activity. Strong signals include matching a required TopTen item, matching a taste label, discussions created by saved profiles, fresh discussions created in the last 24 hours, starter rooms for newer users, recent activity, and available capacity. This helps relevant and new rooms surface without adding another discovery mode.
+- **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list, show the `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
 ## Non-Goals For MVP
@@ -390,7 +390,7 @@ Entry point:
 Invite flow:
 
 1. Member taps `📨 دعوت` inside their active discussion.
-2. Bot asks whether to invite a saved profile or create a shareable invite.
+2. Bot offers a saved-profile invitation only when the member has at least one saved profile, and always offers a shareable invite.
 3. If the member chooses shareable invite, bot sends a ready-to-share message/card for that discussion.
 4. User shares or forwards the invite outside the bot.
 5. Recipient opens the bot through the invite/deep link or sends the invite command.
@@ -457,7 +457,7 @@ Rules:
 - Removed users can open the preview but must receive the same removed-user error if they try to join.
 - Closed, missing, or expired discussions should show a clean unavailable state.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
-- Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy discussion link, and Close actions. Copy includes a concise explanation, discussion title, preview expectation, and the attributable shared-discussion link; opening it never creates an invitation-inbox row. Close quietly deletes the temporary share card because the sender is already in the active room.
+- Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it never creates an invitation-inbox row. Close quietly deletes the temporary share card because the sender is already in the active room.
 
 Ready-to-share message rules:
 
@@ -1211,7 +1211,7 @@ Insufficient-list-data state:
 V1 may show `🎛 Advanced Search` as a locked/unavailable entry. The filters and Star purchase are not implemented. [Stars Economy](stars.md) is the source of truth.
 
 - It must clearly say only that the feature is unavailable, show no price, charge no Stars, and return no pretend results.
-- Actions are `Let me know` and Back. Notification preference is recorded once.
+- The preview has only an inline Close action. Closing removes the card without sending another People message; the persistent People keyboard remains available for navigation.
 - Do not promise a launch date.
 - Actual age/gender filtering remains blocked until Muze chooses and documents an adults-only or mixed-age discovery policy.
 - City filtering may later be evaluated separately and may belong in free discovery rather than the paid feature.

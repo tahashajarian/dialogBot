@@ -161,6 +161,15 @@ function getDiscussionDiscoveryScore(user, discussion, { now = new Date(), saved
   return score;
 }
 
+function getDiscussionDiscoveryTier(discussion) {
+  if (!discussion.isJoinable) return 0;
+  const joinRule = discussion.joinRule || { type: "open" };
+  if (joinRule.type === "top_ten_item" && ["movies", "music", "books"].includes(joinRule.section)) return 4;
+  if (joinRule.type === "taste_label") return 3;
+  if (joinRule.type === "top_ten_item" && joinRule.section === "random") return 2;
+  return 1;
+}
+
 async function rankDiscussionsForDiscovery(user, discussions = [], { now = new Date(), savedCreatorUserIds = null } = {}) {
   const savedCreatorIds = savedCreatorUserIds
     ? new Set([...savedCreatorUserIds].map(Number).filter(Boolean))
@@ -169,6 +178,7 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
     .map((discussion, index) => ({
       discussion,
       index,
+      tier: getDiscussionDiscoveryTier(discussion),
       score: getDiscussionDiscoveryScore(user, discussion, { now, savedCreatorUserIds: savedCreatorIds }),
       activity: Math.max(
         getTimeValue(discussion.lastActivityAt),
@@ -177,16 +187,25 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
       ),
     }))
     .sort((left, right) => (
+      (right.tier - left.tier) ||
+      (right.score - left.score) ||
+      (right.activity - left.activity) ||
+      (left.index - right.index)
+    ));
+  const boostedSlots = Math.max(1, Math.min(2, Number(starEconomy.discussionBoostedSlotsPerPage) || 1));
+  const promotedBoostIds = new Set(ranked
+    .filter((entry) => entry.discussion.isBoosted && entry.discussion.isJoinable)
+    .slice(0, boostedSlots)
+    .map((entry) => String(entry.discussion._id)));
+  return ranked
+    .sort((left, right) => (
+      (right.tier - left.tier) ||
+      (Number(promotedBoostIds.has(String(right.discussion._id))) - Number(promotedBoostIds.has(String(left.discussion._id)))) ||
       (right.score - left.score) ||
       (right.activity - left.activity) ||
       (left.index - right.index)
     ))
     .map((entry) => entry.discussion);
-  const boostedSlots = Math.max(1, Math.min(2, Number(starEconomy.discussionBoostedSlotsPerPage) || 1));
-  const boosted = ranked.filter((discussion) => discussion.isBoosted && discussion.isJoinable).slice(0, boostedSlots);
-  if (!boosted.length) return ranked;
-  const pinned = new Set(boosted.map((discussion) => String(discussion._id)));
-  return [...boosted, ...ranked.filter((discussion) => !pinned.has(String(discussion._id)))];
 }
 
 function paginateDiscussions(discussions = [], page = 0) {

@@ -318,7 +318,7 @@ Suggested recommendation framing:
 
 Actions: preview discussion, not interested. Provide a discoverability setting to disable boosted recommendations. The notification must be labeled as a Muze recommendation and not `From: {booster}`.
 
-Boost ordering should combine boost eligibility with organic relevance and freshness. A boost is an amplification signal, not an unconditional global pin. The discussion list must label boosted items and apply owner diversity so one buyer cannot dominate the page.
+Boost ordering should combine boost eligibility with organic relevance and freshness. A boost is an amplification signal inside the room's viewer-relevance tier, not an unconditional global pin, and cannot move a generic room above a direct item, taste-label, or Interest match. The discussion list must label boosted items and apply owner diversity so one buyer cannot dominate the page. Full rooms are ineligible before quoting and are rechecked before charging.
 
 Many creators may have an active boost at the same time across Muze. For each viewer, show only join-eligible, taste-relevant boosts and reserve no more than the configured one or two boosted positions per result page. Rank or rotate competing boosts by relevance and freshness; do not show every active boost to every viewer.
 
@@ -758,8 +758,8 @@ Status: implemented as an uncharged preview only.
 
 - Add the People-hub `Advanced Search` entry behind its own feature switch.
 - Render minimal unavailable copy without showing a price or describing planned filters.
-- Add idempotent `Let me know` preference and acknowledgement.
-- Track preview taps and notification requests without collecting sensitive filter selections.
+- Keep the unavailable preview close-only and rely on the persistent People keyboard for navigation.
+- Track preview taps without collecting sensitive filter selections.
 - Keep actual filters, entitlement purchase, and Star charging unimplemented.
 
 Acceptance criteria:

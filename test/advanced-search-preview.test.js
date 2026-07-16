@@ -28,10 +28,10 @@ test("Advanced Search preview stays minimal while unavailable", () => {
   assert.equal(messages.en.advancedSearchPreviewText, "👩‍🦳 Advanced Search is not available yet.");
 });
 
-test("Advanced Search notification request disappears after signup", () => {
-  const before = advancedSearchPreviewKeyboard("en").reply_markup.inline_keyboard.flat();
-  const after = advancedSearchPreviewKeyboard("en", { notified: true }).reply_markup.inline_keyboard.flat();
-  assert.ok(before.some((button) => button.callback_data === callBacks.peopleAdvancedSearchNotify));
-  assert.ok(!after.some((button) => button.callback_data === callBacks.peopleAdvancedSearchNotify));
-  assert.ok(after.some((button) => button.callback_data === callBacks.peopleAdvancedSearchBack));
+test("Advanced Search preview has only a close action", () => {
+  const buttons = advancedSearchPreviewKeyboard("en").reply_markup.inline_keyboard.flat();
+  assert.deepEqual(buttons, [{
+    text: messages.en.discussionShareClose,
+    callback_data: callBacks.peopleAdvancedSearchBack,
+  }]);
 });

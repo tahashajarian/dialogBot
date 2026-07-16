@@ -359,7 +359,7 @@ test("discussion list and invitation navigation is bound to its exact server pag
   const active = { mode: "discussion_list:active:0:2:all:fa", state: "idle", activeDiscussionId: "room", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, active).callbackData, `${callBacks.discussionListActivePage}1:all:fa`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.discussions);
-  assert.equal(resolveReplyKeyboardAction("🌐 تغییر زبان (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
+  assert.equal(resolveReplyKeyboardAction("🌐 زبان گفت‌وگوها (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, { ...active, mode: "discussions" }), null);
   const invitations = { mode: "discussion_invitations:1:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`⬅️ ${messages.en.discussionListPrevPage}`, invitations).callbackData, `${callBacks.discussionInvitationsPage}0`);
@@ -396,6 +396,13 @@ test("in-room invitation launcher stays inline with its actions and explicit Clo
   const { discussionInviteModeKeyboard } = require("../src/keyboards");
   const rows = discussionInviteModeKeyboard("en").reply_markup.inline_keyboard;
   assert.deepEqual(rows.flat().map((button) => button.callback_data), [callBacks.discussionInviteModeSaved, callBacks.discussionInviteModeShare, callBacks.discussionInvitePickerClose]);
+
+  const withoutSavedProfiles = discussionInviteModeKeyboard("en", { hasSavedProfiles: false })
+    .reply_markup.inline_keyboard.flat();
+  assert.deepEqual(withoutSavedProfiles.map((button) => button.callback_data), [
+    callBacks.discussionInviteModeShare,
+    callBacks.discussionInvitePickerClose,
+  ]);
 });
 
 test("saved-profile invitation picker contains profile targets and explicit Close", () => {

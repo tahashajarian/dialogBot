@@ -7,7 +7,8 @@ const DiscussionBoostDelivery = require("../src/models/discussion-boost-delivery
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const User = require("../src/models/user");
 const { starEconomy } = require("../src/services/star-settings");
-const { generateBoostCode, selectBoostRecipients } = require("../src/services/discussion-boosts");
+const Discussion = require("../src/models/discussion");
+const { generateBoostCode, getBoostEligibility, selectBoostRecipients } = require("../src/services/discussion-boosts");
 const { callBacks } = require("../src/constants");
 const {
   buildDiscussionListText,
@@ -26,22 +27,51 @@ test("discussion boost codes and schema are stable", () => {
   assert.equal(boost.validateSync(), undefined);
 });
 
-test("relevant active boosts receive only the configured reserved positions", async () => {
+test("boosts receive reserved positions only within their relevance tier", async () => {
   const originalSlots = starEconomy.discussionBoostedSlotsPerPage;
   starEconomy.discussionBoostedSlotsPerPage = 1;
   try {
     const discussions = [
-      { _id: "organic", title: "Organic", isJoinable: true, joinRule: { type: "top_ten_item" }, memberUserIds: [], createdAt: new Date() },
+      { _id: "organic", title: "Organic", isJoinable: true, joinRule: { type: "top_ten_item", section: "movies", itemTitle: "Arrival" }, memberUserIds: [], createdAt: new Date() },
       { _id: "boosted", title: "Boosted", isBoosted: true, isJoinable: true, joinRule: { type: "open" }, memberUserIds: [], createdAt: new Date(0) },
       { _id: "locked", title: "Locked Boost", isBoosted: true, isJoinable: false, joinRule: { type: "open" }, memberUserIds: [], createdAt: new Date() },
     ];
     const ranked = await rankDiscussionsForDiscovery({ discussionMembershipIds: [] }, discussions, {
       savedCreatorUserIds: new Set(),
     });
-    assert.equal(ranked[0]._id, "boosted");
+    assert.equal(ranked[0]._id, "organic");
+    assert.equal(ranked[1]._id, "boosted");
     assert.notEqual(ranked[0]._id, "locked");
   } finally {
     starEconomy.discussionBoostedSlotsPerPage = originalSlots;
+  }
+});
+
+test("full discussions cannot be quoted or charged for a boost", async () => {
+  const originalFindById = Discussion.findById;
+  const originalUpdateMany = DiscussionBoost.updateMany;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, { economyEnabled: true, spendingEnabled: true, boostEnabled: true });
+  Discussion.findById = async () => ({
+    _id: "full-room",
+    status: "open",
+    creatorUserId: 10,
+    memberUserIds: [10, 11],
+    maxMembers: 2,
+  });
+  DiscussionBoost.updateMany = async () => ({ modifiedCount: 0 });
+  try {
+    const result = await getBoostEligibility(10, "full-room");
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "discussion_full");
+  } finally {
+    Discussion.findById = originalFindById;
+    DiscussionBoost.updateMany = originalUpdateMany;
+    Object.assign(starEconomy, originalSettings);
   }
 });
 

@@ -1080,19 +1080,11 @@ function peopleHubKeyboard(lang) {
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function advancedSearchPreviewKeyboard(lang, { notified = false } = {}) {
-  const rows = [];
-  if (!notified && starEconomy.advancedSearchNotifyEnabled) {
-    rows.push([{
-      text: messages[lang].advancedSearchNotifyButton,
-      callback_data: callBacks.peopleAdvancedSearchNotify,
-    }]);
-  }
-  rows.push([{
-    text: messages[lang].peopleBackToHub,
+function advancedSearchPreviewKeyboard(lang) {
+  return inlineKeyboard([[{
+    text: messages[lang].discussionShareClose,
     callback_data: callBacks.peopleAdvancedSearchBack,
-  }]);
-  return inlineKeyboard(rows);
+  }]]);
 }
 
 function formatKeyboardNumber(lang, value) {

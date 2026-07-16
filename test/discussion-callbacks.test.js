@@ -24,6 +24,7 @@ const {
   discussionCreateLanguagePickerKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
+const { COPY_TEXT_LIMIT } = require("../src/services/share-actions");
 const {
   clearDiscussionMembersMessage,
   clearDiscussionMenuNotice,
@@ -33,6 +34,7 @@ const {
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
 } = require("../src/flows/discussions-callbacks");
+const { buildDiscussionInviteSharePayload } = require("../src/flows/discussions-text");
 const {
   handleDiscussionCreateCallback,
   isDiscussionCreateCallback,
@@ -179,6 +181,7 @@ test("discussion discovery ranking favors relevant and fresh joinable rooms", as
     { ...base, title: "Fresh open", creatorUserId: 5, joinRule: { type: "open" }, createdAt: now, lastActivityAt: now },
     { ...base, title: "Taste room", creatorUserId: 6, joinRule: { type: "taste_label", section: "music", tasteLabelKey: "metalhead" } },
     { ...base, title: "Item room", creatorUserId: 7, joinRule: { type: "top_ten_item", section: "random", itemTitle: "Chess" } },
+    { ...base, title: "Media item room", creatorUserId: 8, joinRule: { type: "top_ten_item", section: "movies", itemTitle: "Arrival" } },
   ];
 
   const ranked = await rankDiscussionsForDiscovery(user, discussions, {
@@ -187,8 +190,9 @@ test("discussion discovery ranking favors relevant and fresh joinable rooms", as
   });
 
   assert.deepEqual(ranked.map((entry) => entry.title), [
-    "Item room",
+    "Media item room",
     "Taste room",
+    "Item room",
     "Fresh open",
     "Saved creator",
     "Generic old",
@@ -1020,6 +1024,31 @@ test("discussion invite share and preview text stay privacy-safe", () => {
   assert.doesNotMatch(shareText, /recent/i);
   assert.match(previewText, /Invite preview/);
   assert.match(previewText, /👥 2\/5/);
+});
+
+test("discussion invite Forward and Copy carry the same complete invitation", () => {
+  const discussion = {
+    title: "Movie night",
+    description: "Pick a favorite scene",
+    language: "en",
+    joinRule: { type: "open" },
+  };
+  const link = "https://t.me/MuzeBot?start=ref_ABC123";
+  const payload = buildDiscussionInviteSharePayload("en", discussion, "d_AB12", link);
+  const forward = new URL(payload.shareUrl);
+
+  assert.equal(forward.searchParams.get("url"), link);
+  assert.equal(payload.copyText, `${forward.searchParams.get("text")}\n\n${link}`);
+  assert.match(payload.copyText, /Movie night/);
+  assert.match(payload.copyText, /Join condition:/);
+
+  const longPayload = buildDiscussionInviteSharePayload("en", {
+    ...discussion,
+    title: "A".repeat(80),
+    description: "B".repeat(300),
+  }, "d_AB12", link);
+  assert.ok(Array.from(longPayload.copyText).length <= COPY_TEXT_LIMIT);
+  assert.equal(new URL(longPayload.shareUrl).searchParams.get("text"), longPayload.copyText.split(`\n\n${link}`)[0]);
 });
 
 test("discussion invite locked hint names required update path", () => {

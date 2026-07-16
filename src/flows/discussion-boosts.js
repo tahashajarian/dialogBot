@@ -67,6 +67,7 @@ function getBoostErrorText(lang, result = {}) {
     quote_expired: "discussionBoostQuoteExpired",
     missing_quote: "discussionBoostQuoteExpired",
     stale_price: "discussionBoostStalePrice",
+    discussion_full: "discussionErrFull",
   };
   if (result.reason === "insufficient_balance") {
     return fillBoostText(messages[lang].discussionBoostInsufficient, lang, {
