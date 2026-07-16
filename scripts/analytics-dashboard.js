@@ -525,13 +525,20 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
         (aiHour.failureRate || 0) < 0.25,
         `${formatNumber(aiHour.total)} calls, ${formatNumber(aiHour.failures)} failed (${percent(aiHour.failureRate)})`,
       )}
+      ${statusCard(
+        "AI Billing / Access",
+        !health?.aiApi?.billingOrAccessAlert,
+        health?.aiApi?.billingOrAccessAlert
+          ? "Provider reported a possible exhausted balance, payment, API-key, or access problem"
+          : "No provider-reported billing or access error in recent failures",
+      )}
       ${card("AI Avg Latency 1h", aiHour.avgDurationMs || 0, "Milliseconds")}
       ${card("AI Calls 24h", aiDay.total || 0, `${formatNumber(aiDay.failures || 0)} failed (${percent(aiDay.failureRate)})`)}
     </div>`, { open: true, note: "server, db, bot, AI", view: "system" })}
 
       ${collapsibleSection("Recent AI Failures", `<div class="panel">${renderKeyCountTable(
     (health?.aiApi?.recentFailures || []).map((event) => ({
-      key: `${event.operation || "ai"} / ${event.provider || "provider"}: ${event.reason || "failed"}`,
+      key: `${event.operation || "ai"} / ${event.provider || "provider"}: ${event.reason || "failed"}${event.status ? ` (HTTP ${event.status})` : ""}`,
       count: event.durationMs || 0,
     })),
     "No AI failures in the last 24 hours",

@@ -3,6 +3,12 @@ const assert = require("node:assert/strict");
 
 const { editPlaceholder, startAiPlaceholder } = require("../src/services/ai-placeholder");
 
+test("long-running suggestion copy includes a genuine still-thinking step", () => {
+  const messages = require("../src/messages");
+  assert.equal(messages.fa.aiThinkingLonger, "👩‍🦳 هنوز دارم فکر می‌کنم...");
+  assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Still thinking...");
+});
+
 test("editPlaceholder preserves original message when edit returns true", async () => {
   const placeholder = { message_id: 42 };
   const editedCalls = [];
@@ -80,4 +86,48 @@ test("final AI result is queued after an in-flight loading edit", async () => {
   await finished;
 
   assert.deepEqual(edits, ["Still thinking", "Final suggestion"]);
+});
+
+test("retained AI placeholders hide the keyboard and keep each step", async () => {
+  const replies = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Still thinking"], {
+    retainSteps: true,
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+    stepDelays: [5],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  await placeholder.finish("Final result", { reply_markup: { keyboard: [[{ text: "Save" }]] } });
+
+  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking", "Still thinking", "Final result"]);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.equal(replies[2].extra.reply_markup.keyboard[0][0].text, "Save");
+});
+
+test("AI placeholder runs refund work before showing a paid timeout", async () => {
+  const events = [];
+  const ctx = {
+    reply: async (text) => {
+      events.push(`reply:${text}`);
+      return { message_id: events.length };
+    },
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking"], {
+    retainSteps: true,
+    fallbackText: "Refunded",
+    timeoutMs: 10,
+    onFallback: async () => events.push("refund"),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.deepEqual(events, ["reply:Thinking", "refund", "reply:Refunded"]);
+  assert.equal(placeholder.isSettled(), true);
+  assert.equal(await placeholder.finish("Late success"), null);
 });

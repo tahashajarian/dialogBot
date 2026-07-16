@@ -63,7 +63,7 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalCreate = AiPaidSuggestion.create;
   const originalSettings = { ...starEconomy };
-  const edits = [];
+  const replies = [];
   const now = new Date();
 
   Object.assign(starEconomy, {
@@ -101,10 +101,9 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
         music: Array.from({ length: 10 }, () => now),
       },
     },
-    reply: async (text, extra) => ({ message_id: 1, text, extra }),
-    editMessageText: async (messageId, text, extra) => {
-      edits.push({ messageId, text, extra });
-      return { message_id: messageId, text, extra };
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length, text, extra };
     },
   };
 
@@ -117,10 +116,10 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
     Object.assign(starEconomy, originalSettings);
   }
 
-  const finalEdit = edits.at(-1);
-  const buttons = finalEdit.extra.reply_markup.inline_keyboard.flat();
-  assert.match(finalEdit.text, /free suggestions/);
-  assert.match(finalEdit.text, /1 Star/);
+  const finalReply = replies.at(-1);
+  const buttons = finalReply.extra.reply_markup.inline_keyboard.flat();
+  assert.match(finalReply.text, /free suggestions/);
+  assert.match(finalReply.text, /1 Star/);
   assert.equal(buttons[0].callback_data, `${callBacks.aiPaidSuggestionConfirm}PAID91`);
   assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
 });
@@ -150,6 +149,7 @@ const {
   getTopTenManageEntryMessage,
   toTitleSet,
 } = require("../src/services/ai-list-ui");
+const { resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
 
 test("AI text state predicate recognizes only AI-owned text states", () => {
   assert.equal(isAiTextState("ai_chat_movies"), true);
@@ -184,9 +184,16 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعداً می‌خونم»");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "✅ Saved to 📚📋 read later list.");
-  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعداً گوش می‌دم»"), "✅ در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد.");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "✅ در 🎬📋 لیست «بعداً می‌بینم» ذخیره شد. (دیده‌شده)");
+  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "👩‍🦳 Saved to 📚📋 read later list.");
+  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعداً گوش می‌دم»"), "👩‍🦳 در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد.");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعداً می‌بینم» ذخیره شد. (دیده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعداً می‌خونم» ذخیره شد. (خوانده‌شده)");
+});
+
+test("AI-authored list promotion confirmation uses the Muze emoji", () => {
+  assert.equal(messages.fa.aiWatchlistPromotedToTopTen, "👩‍🦳 به محبوب‌هات اضافه شد.");
+  assert.equal(messages.en.aiWatchlistPromotedToTopTen, "👩‍🦳 Added to your favorites.");
 });
 
 test("shareable list return buttons use consistent Back to list wording", () => {
@@ -520,7 +527,7 @@ test("AI comment copy names the item instead of the list type", () => {
   );
   assert.equal(
     formatAiCommentSaved("fa", "topTen", "Dune"),
-    "✅ کامنت برای «Dune» ذخیره شد.",
+    "👩‍🦳 کامنت برای «Dune» ذخیره شد.",
   );
   assert.equal(
     formatAiCommentPrompt("en", "watchlist", "Arrival"),
@@ -600,6 +607,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
       userId: 82,
       lang: "en",
       state: "ai_manage_movies_watchlist",
+      navigationMode: "ai_suggestion_added:movies",
       aiLists: {
         movies: {
           topTen: [],
@@ -638,7 +646,24 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.match(managerReply.text, /Arrival/);
   assert.match(managerReply.text, /\/cm_mv_l_1/);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.equal(ctx.user.navigationMode, "ai_list:movies:watchlist");
   assert.equal(buttons.at(-1).text, messages.en.aiSuggestionGoToFavoritesButton);
+  assert.equal(
+    resolveReplyKeyboardAction(messages.en.aiListManageAddLaterMovies, {
+      mode: ctx.user.navigationMode,
+      state: ctx.user.state,
+      user: ctx.user,
+    }).callbackData,
+    `${callBacks.aiListManageAdd}movies:watchlist`,
+  );
+  assert.equal(
+    resolveReplyKeyboardAction(messages.en.aiSuggestionGoToFavoritesButton, {
+      mode: ctx.user.navigationMode,
+      state: ctx.user.state,
+      user: ctx.user,
+    }).callbackData,
+    `${callBacks.aiListManageBack}movies`,
+  );
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
@@ -833,6 +858,32 @@ test("suggestion mode prompt can return to the section Top Ten", async () => {
   const buttons = keyboardButtons(keyboard);
 
   assert.equal(buttons.at(-1).text, messages.en.aiBack);
+});
+
+test("suggestion mood prompt states and enforces the 80-character limit", async () => {
+  const replies = [];
+  const ctx = {
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "fa",
+      state: "ai_suggest_context_books",
+      aiLists: { books: { topTen: [{ title: "A" }, { title: "B" }, { title: "C" }], watchlist: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length, text, extra };
+    },
+  };
+
+  await handleAiText(ctx, "fa", "غمگین ".repeat(20), ctx.user.state);
+
+  assert.match(messages.fa.aiSuggestionModePrompt, /یک جمله/);
+  assert.doesNotMatch(messages.fa.aiSuggestionModePrompt, /نویسه|کاراکتر/);
+  assert.match(messages.fa.aiSuggestionContextTooLong, /۸۰ کاراکتر/);
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.aiSuggestionContextTooLong);
+  assert.equal(ctx.user.state, "ai_suggest_context_books");
 });
 
 test("starting a fresh suggestion session clears the previous mood", async () => {
@@ -1564,8 +1615,9 @@ test("suggestion callbacks are valid only inside their matching AI state", () =>
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
 });
 
-test("suggestion callback reuses the tapped card as the waiting/result card", async () => {
+test("suggestion callback retires the tapped card and retains the waiting message", async () => {
   const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
   const replies = [];
   const deletedIds = [];
@@ -1577,6 +1629,7 @@ test("suggestion callback reuses the tapped card as the waiting/result card", as
       music: Array.from({ length: 10 }, () => now),
     },
   });
+  User.findOneAndUpdate = async () => ({});
 
   const ctx = {
     callbackData: `${callBacks.aiSectionSuggestFromTopTen}music`,
@@ -1614,14 +1667,14 @@ test("suggestion callback reuses the tapped card as the waiting/result card", as
     });
   } finally {
     User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, []);
-  assert.deepEqual(replies, []);
-  assert.equal(edits[0].messageId, 55);
-  assert.equal(edits[0].text, messages.en.aiThinking);
-  assert.equal(edits.at(-1).messageId, 55);
-  assert.match(edits.at(-1).text, /free suggestions/);
+  assert.deepEqual(deletedIds, [55]);
+  assert.equal(edits.length, 0);
+  assert.equal(replies[0].text, messages.en.aiThinking);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.match(replies.at(-1).text, /free suggestions/);
 });
 
 test("AI remembered-card cleanup leaves kept or missing cards alone", async () => {

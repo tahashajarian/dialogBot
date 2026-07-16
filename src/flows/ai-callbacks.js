@@ -1,4 +1,8 @@
 const messages = require("../messages");
+const { getAiConfig } = require("../config");
+const { logger } = require("../services/logger");
+
+const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
 const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
@@ -60,6 +64,7 @@ const {
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
+  AI_SUGGESTION_MAX_ATTEMPTS,
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
@@ -275,14 +280,30 @@ async function sendFollowupSuggestion({
     ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
     : "";
 
+  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+  if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
+  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+
   const placeholder = await startAiPlaceholder(ctx, [
     messages[lang].aiThinking,
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
+    messages[lang].aiThinkingLonger,
   ], {
     placeholder: placeholderMessage,
-    fallbackText: messages[lang].aiTemporaryUnavailable,
-    fallbackExtra: aiSuggestionNextKeyboard(lang, section),
+    retainSteps: true,
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+    fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
+    fallbackExtra: aiSuggestionModeKeyboard(lang, section),
+    timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
+    onFallback: paidSuggestion
+      ? () => refundPaidSuggestion(
+        paidSuggestion.quote._id,
+        paidSuggestion.spend?.transaction?._id,
+        { reason: "ai_paid_suggestion_timeout" },
+      )
+      : undefined,
   });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
@@ -298,18 +319,16 @@ async function sendFollowupSuggestion({
     return placeholder.finish(
       quota.reason === "limit"
         ? formatSuggestionLimitMessage(lang, quota.resetAt)
-        : messages[lang].aiTemporaryUnavailable,
+        : messages[lang].aiNoResponse,
       quota.reason === "limit"
         ? aiSuggestionLimitKeyboard(lang, section)
-        : aiSuggestionNextKeyboard(lang, section),
+        : aiSuggestionModeKeyboard(lang, section),
     );
   }
 
   let suggestionResult = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const retryInstruction = suggestionResult?.reason === "low_quality_interest"
-      ? `The previous result was rejected (${suggestionResult.qualityIssue}). Give a specific, different recommendation with a concrete connection to the saved interests.`
-      : "Suggest a different item. The previous one was already known.";
+  for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
+    const retryInstruction = "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
       mode: section,
       lang,
@@ -324,14 +343,6 @@ async function sendFollowupSuggestion({
       tasteStyleHint,
     });
 
-    if (
-      (!suggestionResult.ok || !suggestionResult.title)
-      && suggestionResult?.reason === "low_quality_interest"
-      && attempt < 2
-    ) {
-      continue;
-    }
-
     if (!suggestionResult.ok || !suggestionResult.title) {
       break;
     }
@@ -344,6 +355,11 @@ async function sendFollowupSuggestion({
     suggestionResult = { ok: false, reason: "duplicate_suggestion" };
   }
 
+  if (placeholder.isSettled()) {
+    if (!paidSuggestion) await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
+    return null;
+  }
+
   if (!suggestionResult.ok || !suggestionResult.title) {
     if (paidSuggestion) {
       await refundPaidSuggestion(
@@ -352,11 +368,19 @@ async function sendFollowupSuggestion({
       );
       return placeholder.finish(
         messages[lang].aiSuggestionPaidRefunded,
-        aiSuggestionNextKeyboard(lang, section),
+        aiSuggestionModeKeyboard(lang, section),
       );
     }
-    await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
-    return placeholder.finish(messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable);
+    const fallbackMessage = await placeholder.finish(
+      messages[lang].aiNoResponse,
+      aiSuggestionModeKeyboard(lang, section),
+    );
+    try {
+      await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
+    } catch (error) {
+      logger.warn("Failed to refund free AI suggestion quota after fallback", error);
+    }
+    return fallbackMessage;
   }
 
   if (paidSuggestion) {
@@ -445,6 +469,8 @@ async function handleAiCallback(ctx, lang, helpers) {
     const managerState = `ai_manage_${section}_${toAiManageStateListType(listType)}`;
     await updateUserState(ctx.userId, managerState);
     if (ctx.user) ctx.user.state = managerState;
+    await setNavigationMode(ctx, `ai_list:${section}:${listType}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_list:${section}:${listType}`;
     const sectionLabel = listType === "topTen"
       ? getSectionLabelWithEmoji(messages, lang, section)
       : getSectionLabel(messages, lang, section);
@@ -794,7 +820,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     const listType = normalizeAiListTypeToken(rawListType);
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
-    await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`);
+    const addInputState = `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`;
+    await updateUserState(ctx.userId, addInputState);
+    if (ctx.user) ctx.user.state = addInputState;
     const isInterestTopTen = section === "random" && listType === "topTen";
     const currentItems = isInterestTopTen
       ? getAiListItemsFromUser(ctx.user, "random", "topTen")

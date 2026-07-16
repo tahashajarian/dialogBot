@@ -49,7 +49,7 @@ function recordBotHeartbeat(metadata) {
   });
 }
 
-function recordAiApiEvent({ ok, operation, provider, reason, durationMs }) {
+function recordAiApiEvent({ ok, operation, provider, reason, durationMs, metadata }) {
   return recordOperationalEvent({
     kind: AI_API_KIND,
     ok,
@@ -57,6 +57,7 @@ function recordAiApiEvent({ ok, operation, provider, reason, durationMs }) {
     provider,
     reason,
     durationMs,
+    metadata,
   });
 }
 
@@ -145,7 +146,7 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
     OperationalEvent.find({ kind: AI_API_KIND, ok: false, createdAt: { $gte: since24h } })
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("operation provider reason durationMs createdAt")
+      .select("operation provider reason durationMs metadata createdAt")
       .lean(),
     OperationalEvent.find({ kind: UPDATE_PERFORMANCE_KIND, createdAt: { $gte: since24h } })
       .sort({ createdAt: -1 })
@@ -172,11 +173,19 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
     aiApi: {
       lastHour: aiLastHour,
       last24h: aiLast24h,
+      billingOrAccessAlert: recentFailures.some((event) => [
+        "quota_exhausted",
+        "payment_required",
+        "authentication_failed",
+        "access_forbidden",
+      ].includes(event.reason)),
       recentFailures: recentFailures.map((event) => ({
         operation: event.operation || "",
         provider: event.provider || "",
         reason: event.reason || "",
         durationMs: event.durationMs || 0,
+        status: event.metadata?.status || null,
+        code: event.metadata?.code || "",
         createdAt: event.createdAt.toISOString(),
       })),
     },

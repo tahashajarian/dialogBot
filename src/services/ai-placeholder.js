@@ -20,9 +20,23 @@ async function editPlaceholder(ctx, placeholder, text, extra) {
 
 async function startAiPlaceholder(ctx, steps, options = {}) {
   const initialPlaceholder = options.placeholder || null;
-  const placeholder = initialPlaceholder
-    ? await editPlaceholder(ctx, initialPlaceholder, steps[0])
-    : await ctx.reply(steps[0]);
+  const retainSteps = Boolean(options.retainSteps);
+  let placeholder;
+  if (retainSteps && initialPlaceholder) {
+    const initialMessageId = getMessageId(initialPlaceholder);
+    if (initialMessageId && ctx.deleteMessage) {
+      try {
+        await ctx.deleteMessage(initialMessageId);
+      } catch (_) {
+        // The caller may already have retired the action card.
+      }
+    }
+    placeholder = await ctx.reply(steps[0], options.initialExtra);
+  } else if (initialPlaceholder) {
+    placeholder = await editPlaceholder(ctx, initialPlaceholder, steps[0], options.initialExtra);
+  } else {
+    placeholder = await ctx.reply(steps[0], options.initialExtra);
+  }
   const timers = [];
   let settled = false;
   let editQueue = Promise.resolve(placeholder);
@@ -30,6 +44,7 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
   const queueEdit = (text, extra, { terminal = false } = {}) => {
     editQueue = editQueue.then(() => {
       if (settled && !terminal) return placeholder;
+      if (retainSteps) return ctx.reply(text, extra);
       return editPlaceholder(ctx, placeholder, text, extra);
     });
     return editQueue;
@@ -37,7 +52,7 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
 
   for (let index = 1; index < steps.length; index += 1) {
     const configuredDelay = Array.isArray(options.stepDelays) ? Number(options.stepDelays[index - 1]) : NaN;
-    const delayMs = Number.isFinite(configuredDelay) ? Math.max(0, configuredDelay) : (index === 1 ? 2500 : 5500);
+    const delayMs = Number.isFinite(configuredDelay) ? Math.max(0, configuredDelay) : 2500 + ((index - 1) * 3000);
     const timer = setTimeout(() => {
       if (settled) return;
       queueEdit(steps[index]).catch(() => {});
@@ -50,7 +65,10 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
       if (settled) return;
       settled = true;
       timers.forEach(clearTimeout);
-      queueEdit(options.fallbackText, options.fallbackExtra, { terminal: true }).catch(() => {});
+      Promise.resolve(options.onFallback?.())
+        .catch(() => {})
+        .then(() => queueEdit(options.fallbackText, options.fallbackExtra, { terminal: true }))
+        .catch(() => {});
     }, Math.max(10, Number(options.timeoutMs) || 20000));
     fallbackTimer.unref?.();
     timers.push(fallbackTimer);
@@ -64,6 +82,7 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
       timers.forEach(clearTimeout);
       return queueEdit(text, extra, { terminal: true });
     },
+    isSettled: () => settled,
   };
 }
 

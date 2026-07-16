@@ -256,9 +256,12 @@ Labels should be inferred from both typed items and suggested chips.
 - Do not include type labels such as `(activity)` / `(فعالیت)` in saved suggestion titles.
 - OpenAI-compatible providers may use either Chat Completions or Responses payloads; suggestion handling should accept both response shapes and show a visible fallback instead of failing silently.
 - Animated AI placeholders must serialize edits so a late loading step cannot overwrite the final result. Suggestion placeholders must also end in a visible retry state after a bounded timeout.
+- Suggestion requests use a 20-second provider timeout by default; the retained thinking sequence continues during slower calls, and timeout failures immediately restore Suggest/Back controls. The visible placeholder watchdog stays three seconds beyond the provider timeout to avoid racing a valid response or its refund path.
+- While generating a suggestion, remove the bottom reply keyboard and retain each short thinking message in chat. On success, show the normal result actions. On failure, use one shared failure message and restore Suggest/Back controls in a valid suggestion mode.
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
 - If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `👍 Got it` / `👍 متوجه شدم` acknowledgement card that returns to the section TopTen manager.
 - Pressing the section suggestion button explains that Favorites are always the suggestion base. In that prompt, users either type one optional short mood/genre directly or tap Suggest; there is no separate add-mood step.
+- Optional mood/genre input is limited to 80 normalized characters. Ask for one short sentence in the normal prompt; mention the exact 80-character limit only when asking the user to shorten oversized input instead of silently truncating it.
 - The suggestion prompt must include Suggest and Back actions; Back returns to the section TopTen manager.
 - Do not call AI until the user taps Suggest or sends a mood/genre.
 - If a typed mood/genre is invalid, the retry prompt provides a section-scoped bottom Cancel button.
@@ -273,10 +276,12 @@ Labels should be inferred from both typed items and suggested chips.
 - Local duplicate checks must still use the full watchlist.
 - Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`.
 - Failed/no-response suggestion calls should refund the quota slot.
+- On free-suggestion failure, restore the visible retry/back UI before quota cleanup so a slow refund cannot trap the user without controls. Refund errors should be logged without removing the restored UI.
 - When the free suggestion limit is reached, Muze may offer one extra suggestion for the configured Star cost. This must be explicit: show the free-limit state, wait time, cost, balance, and Confirm/Cancel buttons. Never charge automatically.
 - The paid-suggestion offer should have one combined Cancel-and-return-to-Favorites action, not separate Cancel and Back buttons.
 - Paid extra suggestions do not bypass the requirement for at least 3 TopTen items in that section.
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
+- A paid suggestion that reaches the visible timeout must refund before showing the retry state; a late API result must never complete that timed-out purchase.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.
@@ -323,3 +328,6 @@ The Stars economy rewards list completion without charging for normal list use. 
   - last-used time
 - Log cache match type: `exact`, `fuzzy`, `semantic`, `new_api_call`.
 - For recommendation prompts, send only the context the model needs.
+- Keep exclusion context compact. Use at most two generation attempts, and retry only when local duplicate detection rejects an otherwise valid result.
+- Cap suggestion output at 60 tokens for the required two-line response.
+- Record provider-reported input, output, and total token usage with AI operational events when available.

@@ -188,6 +188,22 @@ test("Favorites list-manager actions retain trusted section and list context", (
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten_add_input" }), null);
 });
 
+test("For Later Add works after entering from a saved suggestion", () => {
+  for (const [lang, section, key] of [
+    ["en", "movies", "aiListManageAddLaterMovies"],
+    ["fa", "music", "aiListManageAddLaterMusic"],
+    ["fa", "books", "aiListManageAddLaterBooks"],
+  ]) {
+    const user = { lang };
+    const result = resolveReplyKeyboardAction(messages[lang][key], {
+      mode: `ai_list:${section}:watchlist`,
+      state: `ai_manage_${section}_watchlist`,
+      user,
+    });
+    assert.equal(result.callbackData, `${callBacks.aiListManageAdd}${section}:watchlist`);
+  }
+});
+
 test("Back changes meaning after returning from a media list to Favorites", () => {
   for (const section of ["movies", "music", "books"]) {
     const manager = resolveReplyKeyboardAction(messages.en.aiBack, { mode: `ai_list:${section}:topTen`, state: `ai_manage_${section}_top_ten` });
@@ -289,11 +305,15 @@ test("suggestion result buttons win over a stale mood-entry state", () => {
 });
 
 test("post-save and post-reject suggestion actions replace the old result mode", () => {
-  const added = { mode: "ai_suggestion_added:movies", state: "ai_chat_movies", user: { lang: "fa" } };
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, added).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);
-  const listText = messages.fa.aiSuggestionGoToListButton.replace("{listName}", require("../src/services/ai-section").getSectionListLabel(messages, "fa", "movies"));
-  assert.equal(resolveReplyKeyboardAction(listText, added).callbackData, `${callBacks.aiListManageShow}movies:watchlist`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionGoToFavoritesButton, added).callbackData, `${callBacks.aiListManageMenu}movies:top_ten`);
+  for (const section of ["movies", "music", "books"]) {
+    // Save for later and already watched/listened/read intentionally enter this same mode.
+    const added = { mode: `ai_suggestion_added:${section}`, state: `ai_chat_${section}`, user: { lang: "fa" } };
+    assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, added).callbackData, `${callBacks.aiSectionAnotherSuggestion}${section}`);
+    const listText = messages.fa.aiSuggestionGoToListButton.replace("{listName}", require("../src/services/ai-section").getSectionListLabel(messages, "fa", section));
+    assert.equal(resolveReplyKeyboardAction(listText, added).callbackData, `${callBacks.aiListManageShow}${section}:watchlist`);
+    assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionGoToFavoritesButton, added).callbackData, `${callBacks.aiListManageMenu}${section}:top_ten`);
+  }
+
   const rejected = { mode: "ai_suggestion_next:movies", state: "ai_chat_movies", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, rejected).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAddToListButton.replace("{listName}", "x"), rejected), null);

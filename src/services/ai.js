@@ -13,6 +13,7 @@ const {
 const {
   createSuggestionHelpers,
   getSingleSuggestionDetailInstruction,
+  isSuggestionUncertainResponse,
 } = require("./ai-suggestion-quality");
 const {
   limitWords,
@@ -67,20 +68,13 @@ function buildUserContext({
     return "";
   }
 
-  const topTen = topTenItems.length
-    ? topTenItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
-    : "None";
-  const watchlist = watchlistItems.length
-    ? watchlistItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
-    : "None";
-  const recentSuggestions = recentSuggestionItems.length
-    ? recentSuggestionItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
-    : "None";
-  const rejectedSuggestions = rejectedSuggestionItems.length
-    ? rejectedSuggestionItems.map((item, index) => `${index + 1}. ${item}`).join("\n")
-    : "None";
-
-  return `\nUser top 10:\n${topTen}\n\nUser watchlist:\n${watchlist}\n\nRecently suggested:\n${recentSuggestions}\n\nUser rejected / not-for-me suggestions:\n${rejectedSuggestions}`;
+  const compactList = (items) => items.length ? items.join(" | ") : "None";
+  return [
+    `Favorites: ${compactList(topTenItems)}`,
+    `Saved for later: ${compactList(watchlistItems)}`,
+    `Recent suggestions: ${compactList(recentSuggestionItems)}`,
+    `Rejected suggestions: ${compactList(rejectedSuggestionItems)}`,
+  ].join("\n");
 }
 
 function buildTasteStyleInstruction(tasteStyleHint, lang) {
@@ -129,14 +123,12 @@ async function getAiSingleSuggestion({
 
   try {
     const instructions = [
-      "You are a Bale chat assistant.",
-      "Recommend exactly one item only.",
-      "Reply in exactly 2 short lines in plain text.",
-      "Line 1: item name (include metadata in name as requested).",
-      "Line 2: very short why only (max 12 words).",
-      "Recommend only real, existing works/resources. If unsure, choose a widely known real item instead.",
-      "Never invent titles, artists, authors, directors, years, tools, channels, or resources.",
-      "Do not use placeholder metadata like unknown artist, unknown author, or fictional title.",
+      "Recommend exactly one real, established, widely known item.",
+      "Use exactly 2 short plain-text lines: requested item name and metadata; then a reason of at most 12 words.",
+      "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
+      "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
+      "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned.",
+      "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
       personalized
@@ -149,7 +141,7 @@ async function getAiSingleSuggestion({
       config: aiConfig,
       maxOutputTokens: DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
       instructions,
-      input: `Subject: ${mode}\nUser message: ${input}${buildUserContext({
+      input: `Request: ${input}\n${buildUserContext({
         personalized,
         topTenItems,
         watchlistItems,
@@ -169,6 +161,10 @@ async function getAiSingleSuggestion({
         timeoutMs: aiConfig.timeoutMs,
       });
       return { ok: false, reason: "empty_output" };
+    }
+
+    if (isSuggestionUncertainResponse(rawText)) {
+      return { ok: false, reason: "uncertain_suggestion" };
     }
 
     const parsed = parseSingleSuggestionResponse(rawText, lang);
@@ -222,4 +218,5 @@ module.exports = {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getSuggestionRealityIssue,
+  isSuggestionUncertainResponse,
 };

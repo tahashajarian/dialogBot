@@ -2,9 +2,36 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
+  classifyAiProviderError,
   extractAiResponseText,
+  extractAiTokenUsage,
   requestSuggestionText,
 } = require("../src/services/ai-client");
+
+test("AI provider errors distinguish billing, auth, rate limits, and timeouts", () => {
+  assert.equal(classifyAiProviderError({ status: 402 }).category, "payment_required");
+  assert.equal(classifyAiProviderError({ status: 429, code: "insufficient_quota" }).category, "quota_exhausted");
+  assert.equal(classifyAiProviderError({ status: 429 }).category, "rate_limited");
+  assert.equal(classifyAiProviderError({ status: 401 }).category, "authentication_failed");
+  assert.equal(classifyAiProviderError(new Error("ai_chat_completion_timeout")).category, "timeout");
+});
+
+test("suggestion output stays within the compact two-line budget", () => {
+  assert.equal(DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS, 60);
+});
+
+test("extractAiTokenUsage supports both provider usage shapes", () => {
+  assert.deepEqual(
+    extractAiTokenUsage({ usage: { prompt_tokens: 20, completion_tokens: 8, total_tokens: 28 } }),
+    { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+  );
+  assert.deepEqual(
+    extractAiTokenUsage({ usage: { input_tokens: 18, output_tokens: 7, total_tokens: 25 } }),
+    { inputTokens: 18, outputTokens: 7, totalTokens: 25 },
+  );
+  assert.equal(extractAiTokenUsage({}), undefined);
+});
 
 test("extractAiResponseText supports responses and chat completion shapes", () => {
   assert.equal(extractAiResponseText({ output_text: " direct " }), "direct");
@@ -61,7 +88,10 @@ test("requestSuggestionText records provider health without changing result", as
       },
     },
     responses: {
-      create: async () => ({ output_text: "Useful suggestion" }),
+      create: async () => ({
+        output_text: "Useful suggestion",
+        usage: { input_tokens: 12, output_tokens: 4, total_tokens: 16 },
+      }),
     },
   };
 
@@ -79,6 +109,7 @@ test("requestSuggestionText records provider health without changing result", as
   assert.equal(events[0].reason, "empty_output");
   assert.equal(events[1].ok, true);
   assert.equal(events[1].provider, "responses");
+  assert.deepEqual(events[1].metadata, { inputTokens: 12, outputTokens: 4, totalTokens: 16 });
 });
 
 test("requestSuggestionText can use only chat completions", async () => {

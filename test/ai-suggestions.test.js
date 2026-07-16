@@ -7,6 +7,7 @@ const {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getSuggestionRealityIssue,
+  isSuggestionUncertainResponse,
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = require("../src/services/ai");
@@ -26,11 +27,24 @@ test("suggestion mood persists for a session and can be reset", () => {
   assert.equal(getSuggestionMood(42, "movies"), "");
 });
 
+test("uncertain suggestion sentinel accepts only the standalone fallback", () => {
+  assert.equal(isSuggestionUncertainResponse("UNSURE"), true);
+  assert.equal(isSuggestionUncertainResponse(" unsure. "), true);
+  assert.equal(isSuggestionUncertainResponse("UNSURE\nPossible title"), false);
+  assert.equal(isSuggestionUncertainResponse("The Unsure Album (Artist)"), false);
+});
+
 test("suggestion results show active mood only when provided", () => {
   const withMood = formatSuggestionResultMessage("en", "In Bruges", "Dark and dry humor.", "dark comedy");
   const withoutMood = formatSuggestionResultMessage("en", "Arrival", "Thoughtful science fiction.");
   assert.match(withMood, /Mood\/genre: dark comedy/);
   assert.doesNotMatch(withoutMood, /Mood\/genre/);
+  assert.match(withMood, /✨ Dark and dry humor\./);
+  assert.doesNotMatch(withMood, /Why\?/);
+  assert.doesNotMatch(
+    formatSuggestionResultMessage("fa", "زیر آتشفشان", "روایتی تلخ و تب‌آلود."),
+    /چرا؟/,
+  );
 });
 
 test("extracts suggestion text from Responses and Chat Completions payloads", () => {
@@ -42,6 +56,17 @@ test("parses providers that compress suggestion and reason into one line", () =>
   const parsed = parseSingleSuggestionResponse("(tool) Coffee roasting starter kit. It builds directly on your coffee interest.", "en");
   assert.equal(parsed.title, "Coffee roasting starter kit.");
   assert.equal(parsed.reason, "It builds directly on your coffee interest.");
+});
+
+test("removes Why labels supplied by the model from suggestion reasons", () => {
+  assert.equal(
+    parseSingleSuggestionResponse("Under the Volcano (Malcolm Lowry, 1947)\nچرا؟ روایتی تلخ و تب‌آلود.", "fa").reason,
+    "روایتی تلخ و تب‌آلود.",
+  );
+  assert.equal(
+    parseSingleSuggestionResponse("Under the Volcano (Malcolm Lowry, 1947)\nWhy? Feverish and tragic.", "en").reason,
+    "Feverish and tragic.",
+  );
 });
 
 test("does not split movie metadata at director abbreviation", () => {

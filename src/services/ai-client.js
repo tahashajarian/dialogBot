@@ -3,9 +3,31 @@ const { getAiConfig } = require("../config");
 const { logger } = require("./logger");
 const { recordAiApiEvent } = require("./operational-health");
 
-const DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS = 90;
+const DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS = 60;
 
 let client = null;
+
+function classifyAiProviderError(error) {
+  const status = Number(error?.status || error?.response?.status) || 0;
+  const code = String(error?.code || error?.error?.code || error?.type || "").toLowerCase();
+  const message = String(error?.message || "").toLowerCase();
+  const signal = `${code} ${message}`;
+  let category = "provider_error";
+  if (signal.includes("timeout")) category = "timeout";
+  else if (status === 401 || signal.includes("invalid_api_key") || signal.includes("authentication")) category = "authentication_failed";
+  else if (status === 402) category = "payment_required";
+  else if (/insufficient[_ -]?quota|credit|balance|billing|hard[_ -]?limit/.test(signal)) category = "quota_exhausted";
+  else if (status === 429) category = "rate_limited";
+  else if (status === 403) category = "access_forbidden";
+  else if (status >= 500) category = "provider_unavailable";
+  return {
+    category,
+    metadata: {
+      ...(status ? { status } : {}),
+      ...(code ? { code: code.slice(0, 80) } : {}),
+    },
+  };
+}
 
 function getClient(config = getAiConfig()) {
   if (client) return client;
@@ -22,12 +44,17 @@ function getClient(config = getAiConfig()) {
 }
 
 async function withAiTimeout(promise, timeoutLabel, timeoutMs) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs);
-    }),
-  ]);
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function extractAiResponseText(response) {
@@ -53,6 +80,18 @@ function extractAiResponseText(response) {
     .filter(Boolean)
     .join("\n")
     .trim();
+}
+
+function extractAiTokenUsage(response) {
+  const usage = response?.usage || {};
+  const inputTokens = Number(usage.input_tokens ?? usage.prompt_tokens);
+  const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens);
+  const totalTokens = Number(usage.total_tokens);
+  const metadata = {};
+  if (Number.isFinite(inputTokens)) metadata.inputTokens = Math.max(0, inputTokens);
+  if (Number.isFinite(outputTokens)) metadata.outputTokens = Math.max(0, outputTokens);
+  if (Number.isFinite(totalTokens)) metadata.totalTokens = Math.max(0, totalTokens);
+  return Object.keys(metadata).length ? metadata : undefined;
 }
 
 async function getEmbedding(openai, input, {
@@ -128,6 +167,7 @@ async function requestSuggestionText(openai, {
           operation: "suggestion",
           provider: "chat_completions",
           durationMs: Date.now() - startedAt,
+          metadata: extractAiTokenUsage(response),
         });
         return { text, api: "chat_completions" };
       }
@@ -140,14 +180,16 @@ async function requestSuggestionText(openai, {
       });
       errors.push("chat_completions_empty");
     } catch (error) {
+      const classified = classifyAiProviderError(error);
       void recordEvent({
         ok: false,
         operation: "suggestion",
         provider: "chat_completions",
-        reason: error?.message || "chat_completions_error",
+        reason: classified.category,
         durationMs: Date.now() - startedAt,
+        metadata: classified.metadata,
       });
-      errors.push(error?.message || "chat_completions_error");
+      errors.push(classified.category);
     }
   }
 
@@ -171,6 +213,7 @@ async function requestSuggestionText(openai, {
           operation: "suggestion",
           provider: "responses",
           durationMs: Date.now() - startedAt,
+          metadata: extractAiTokenUsage(response),
         });
         return { text, api: "responses" };
       }
@@ -183,14 +226,16 @@ async function requestSuggestionText(openai, {
       });
       errors.push("responses_empty");
     } catch (error) {
+      const classified = classifyAiProviderError(error);
       void recordEvent({
         ok: false,
         operation: "suggestion",
         provider: "responses",
-        reason: error?.message || "responses_error",
+        reason: classified.category,
         durationMs: Date.now() - startedAt,
+        metadata: classified.metadata,
       });
-      errors.push(error?.message || "responses_error");
+      errors.push(classified.category);
     }
   }
 
@@ -199,7 +244,9 @@ async function requestSuggestionText(openai, {
 
 module.exports = {
   DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
+  classifyAiProviderError,
   extractAiResponseText,
+  extractAiTokenUsage,
   getClient,
   getEmbedding,
   requestSuggestionText,

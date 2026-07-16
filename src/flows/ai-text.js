@@ -1,4 +1,8 @@
 const messages = require("../messages");
+const { getAiConfig } = require("../config");
+const { logger } = require("../services/logger");
+
+const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
 const {
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
@@ -75,6 +79,8 @@ const {
 } = require("./ai-cards");
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
+  AI_SUGGESTION_CONTEXT_MAX_CHARS,
+  AI_SUGGESTION_MAX_ATTEMPTS,
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
@@ -365,13 +371,28 @@ async function sendSingleSectionSuggestion({
     ...recentSuggestionItems,
     ...rejectedSuggestionItems,
   ].map((title) => ({ title }));
+  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+  if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
+  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
   const placeholder = await startAiPlaceholder(ctx, [
     messages[lang].aiThinking,
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
+    messages[lang].aiThinkingLonger,
   ], {
-    fallbackText: messages[lang].aiTemporaryUnavailable,
-    fallbackExtra: aiSectionKeyboardForSection(lang, section),
+    retainSteps: true,
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+    fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
+    fallbackExtra: aiSuggestionModeKeyboard(lang, section),
+    timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
+    onFallback: paidSuggestion
+      ? () => refundPaidSuggestion(
+        paidSuggestion.quote._id,
+        paidSuggestion.spend?.transaction?._id,
+        { reason: "ai_paid_suggestion_timeout" },
+      )
+      : undefined,
   });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
@@ -387,16 +408,16 @@ async function sendSingleSectionSuggestion({
     return placeholder.finish(
       quota.reason === "limit"
         ? formatSuggestionLimitMessage(lang, quota.resetAt)
-        : messages[lang].aiTemporaryUnavailable,
-      aiSectionKeyboardForSection(lang, section),
+        : messages[lang].aiNoResponse,
+      quota.reason === "limit"
+        ? aiSectionKeyboardForSection(lang, section)
+        : aiSuggestionModeKeyboard(lang, section),
     );
   }
 
   let suggestionResult = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const retryInstruction = suggestionResult?.reason === "low_quality_interest"
-      ? `The previous result was rejected (${suggestionResult.qualityIssue}). Give a specific, different recommendation with a concrete connection to the saved interests.`
-      : "Suggest a different item. The previous one was already known.";
+  for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
+    const retryInstruction = "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
       mode: section,
       lang,
@@ -411,14 +432,6 @@ async function sendSingleSectionSuggestion({
       tasteStyleHint,
     });
 
-    if (
-      (!suggestionResult.ok || !suggestionResult.title)
-      && suggestionResult?.reason === "low_quality_interest"
-      && attempt < 2
-    ) {
-      continue;
-    }
-
     if (!suggestionResult.ok || !suggestionResult.title) {
       break;
     }
@@ -431,6 +444,11 @@ async function sendSingleSectionSuggestion({
     suggestionResult = { ok: false, reason: "duplicate_suggestion" };
   }
 
+  if (placeholder.isSettled()) {
+    if (!paidSuggestion) await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
+    return null;
+  }
+
   if (!suggestionResult.ok || !suggestionResult.title) {
     if (paidSuggestion) {
       await refundPaidSuggestion(
@@ -439,14 +457,19 @@ async function sendSingleSectionSuggestion({
       );
       return placeholder.finish(
         messages[lang].aiSuggestionPaidRefunded,
-        aiSectionKeyboardForSection(lang, section),
+        aiSuggestionModeKeyboard(lang, section),
       );
     }
-    await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
-    return placeholder.finish(
-      messages[lang].aiNoResponse || messages[lang].aiTemporaryUnavailable,
-      aiSectionKeyboardForSection(lang, section),
+    const fallbackMessage = await placeholder.finish(
+      messages[lang].aiNoResponse,
+      aiSuggestionModeKeyboard(lang, section),
     );
+    try {
+      await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
+    } catch (error) {
+      logger.warn("Failed to refund free AI suggestion quota after fallback", error);
+    }
+    return fallbackMessage;
   }
 
   if (paidSuggestion) {
@@ -470,9 +493,13 @@ async function sendSingleSectionSuggestion({
 
 async function openAiListManager(ctx, lang, section, listType, { prefix = "" } = {}) {
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
+  const nextMode = `ai_list:${section}:${listType}`;
   await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
   await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
   await updateUserState(ctx.userId, nextState);
+  if (ctx.user) ctx.user.state = nextState;
+  await setNavigationMode(ctx, nextMode);
+  if (ctx.user) ctx.user.navigationMode = nextMode;
   const items = getAiListItemsFromUser(ctx.user, section, listType);
   const listMessage = await ctx.reply(
     await buildAiListManagerMessage({ ctx, lang, section, listType, prefix }),
@@ -835,7 +862,13 @@ async function handleAiText(ctx, lang, text, state) {
       return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, suggestContextSection));
     }
 
-    const userText = String(text || "").trim().replace(/\s+/g, " ").slice(0, 80);
+    const userText = String(text || "").trim().replace(/\s+/g, " ");
+    if (userText.length > AI_SUGGESTION_CONTEXT_MAX_CHARS) {
+      return ctx.reply(
+        messages[lang].aiSuggestionContextTooLong,
+        aiSuggestionModeKeyboard(lang, suggestContextSection),
+      );
+    }
     if (!userText || text.startsWith("/")) {
       await clearAiPendingInputPrompt(ctx);
       await setNavigationMode(ctx, `ai_suggestion_context:${suggestContextSection}`);

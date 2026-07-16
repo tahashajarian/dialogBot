@@ -47,8 +47,9 @@ http://127.0.0.1:8787/?token=your_token
 - dashboard server uptime
 - MongoDB connection state
 - bot heartbeat freshness, when the bot process is running
-- AI API calls, failures, failure rate, average latency, and recent failure
-  reasons
+- AI API calls, failures, failure rate, average latency, recent failure reasons,
+  and a billing/access alert when the provider explicitly reports exhausted quota,
+  payment, authentication, or access errors
 - slow bot updates by route with p50/p95 latency, Telegram API time, and loaded
   user-document size for the last 24 hours
 - total, new, onboarded, named, active, saved-profile, and banned users

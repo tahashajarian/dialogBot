@@ -12,13 +12,17 @@ function normalizeSuggestionTitle(text) {
 
 function normalizeSuggestionReason(text, lang, { limitWords }) {
   const cleaned = String(text || "")
-    .replace(/^(reason|why|comment|دلیل|توضیح)\s*[:：-]\s*/i, "")
+    .replace(/^(?:(?:reason|comment|دلیل|توضیح)\s*[:：-]|why\s*[?؟:：-]|چرا\s*[؟?:：-])\s*/i, "")
     .trim()
     .replace(/\s+/g, " ");
   if (!cleaned) {
     return lang === "fa" ? "برای سلیقه‌ات گزینه خوبیه." : "Good match for your taste.";
   }
   return limitWords(cleaned, 14);
+}
+
+function isSuggestionUncertainResponse(text) {
+  return /^UNSURE[.!]?$/i.test(String(text || "").trim());
 }
 
 function getSuggestionRealityIssue({ mode, title, reason }) {
@@ -219,5 +223,6 @@ module.exports = {
   getInterestSuggestionFamily,
   getSingleSuggestionDetailInstruction,
   getSuggestionRealityIssue,
+  isSuggestionUncertainResponse,
   splitSuggestionSentence,
 };
