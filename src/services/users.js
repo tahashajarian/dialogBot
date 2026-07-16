@@ -193,6 +193,38 @@ const TASTE_LABELS_BY_SECTION = {
     social: ["party", "friends", "community", "event", "festival", "concert", "meetup", "دوستان", "اجتماعی", "رویداد", "کنسرت"],
   },
 };
+const LOCALIZED_TASTE_LABELS_BY_SECTION = {
+  music: {
+    metalhead: ["متالیکا", "مگادث", "اسلیر", "آیرون میدن", "بلک سبث", "پنترا", "اسلیپ نات", "سیستم آو ا داون", "اپث", "گوجیرا"],
+    rocker: ["کویین", "پینک فلوید", "نیروانا", "ریدیوهید", "لد زپلین", "گانز ان روزز", "بیتلز", "ای سی دی سی", "آرکتیک مانکیز"],
+    pop_lover: ["تیلور سویفت", "دوا لیپا", "اد شیرن", "جاستین بیبر", "آریانا گرانده", "د ویکند", "ریانا", "بیلی آیلیش"],
+    hiphop_head: ["امینم", "توپاک", "کندریک لامار", "دریک", "کانیه وست", "اسنوپ داگ", "هیچکس", "یاس", "بهرام"],
+    electronic_fan: ["دفت پانک", "آویچی", "تیستو", "کلوین هریس", "اسکریلکس", "مارتین گریکس"],
+    classical_soul: ["موتسارت", "بتهوون", "باخ", "ویوالدی", "شوپن", "چایکوفسکی", "دبوسی", "برامس"],
+    jazz_vibe: ["مایلز دیویس", "جان کولترین", "الا فیتزجرالد", "لویی آرمسترانگ", "بیل اوانز", "دیو بروبک"],
+    indie_spirit: ["تیم ایمپالا", "استروکز", "فیبی بریجرز", "بن ایور", "مک دمارکو", "محسن نامجو"],
+  },
+  movies: {
+    sci_fi_explorer: ["میان ستاره ای", "تلقین", "بلید رانر", "ورود", "ماتریکس", "تل ماسه", "اکس ماکینا", "جنگ ستارگان", "بیگانه"],
+    action_junkie: ["جان ویک", "مکس دیوانه", "ماموریت غیرممکن", "جان سخت", "شوالیه تاریکی", "گلادیاتور", "تاپ گان", "ترمیناتور"],
+    drama_seeker: ["پدرخوانده", "رستگاری در شاوشنک", "انگل", "فارست گامپ", "ذهن زیبا", "ویپلش", "پیانیست", "فهرست شیندلر", "جدایی نادر از سیمین", "درباره الی"],
+    comedy_chaser: ["خماری", "دختران بدجنس", "روز گراندهاگ", "ددپول", "بورات"],
+    horror_hunter: ["احضار", "موروثی", "جن گیر", "درخشش", "میدسامر", "یک مکان ساکت", "جیغ"],
+    animation_lover: ["شهر اشباح", "کوکو", "درون و بیرون", "داستان اسباب بازی", "زوتوپیا", "در جستجوی نمو", "راتاتویی", "شرک"],
+    arthouse_curious: ["آملی", "در حال و هوای عشق", "پرسونا", "هشت و نیم", "داستان توکیو", "استاکر", "جاده مالهالند", "طعم گیلاس", "کلوزآپ"],
+    documentary_mind: ["سیاره زمین", "فری سولو", "معضل اجتماعی", "بلک فیش", "ایکاروس", "داخل کار"],
+  },
+  books: {
+    fantasy_dreamer: ["هری پاتر", "ارباب حلقه ها", "هابیت", "چرخ زمان", "مه زاد", "بازی تاج و تخت", "نام باد", "نارنیا"],
+    sci_fi_reader: ["تل ماسه", "بنیاد", "نورومنسر", "بازی اندر", "مریخی", "مسئله سه جسم", "راهنمای مسافران مجانی کهکشان", "فارنهایت ۴۵۱"],
+    thriller_detective: ["دختر گمشده", "دختری با خالکوبی اژدها", "رمز داوینچی", "شرلوک هولمز", "بیمار خاموش", "آگاتا کریستی", "قتل در قطار سریع السیر شرق"],
+    classic_reader: ["غرور و تعصب", "کشتن مرغ مقلد", "جنایت و مکافات", "جنایات و مکافات", "موبی دیک", "گتسبی بزرگ", "آنا کارنینا", "جنگ و صلح", "ناطور دشت", "گور به گور", "فاکنر", "سفر به انتهای شب", "مرگ قسطی", "سلین", "سمفونی مردگان", "سال بلوا", "عباس معروفی", "جان فانته", "بوکوفسکی"],
+    self_growth: ["عادت های اتمی", "کار عمیق", "قدرت عادت", "تفکر سریع و کند", "هنر ظریف بی خیالی", "هفت عادت", "انسان در جستجوی معنا", "پدر پولدار پدر بی پول"],
+    romance_reader: ["من پیش از تو", "دفترچه خاطرات", "آدم های معمولی", "ما تمامش می کنیم", "فرضیه عشق"],
+    history_buff: ["انسان خردمند", "اسلحه میکروب و فولاد", "راه های ابریشم", "تاریخ مردم آمریکا", "چرنوبیل"],
+    non_fiction_curious: ["شدن", "خون بد", "استثنایی ها", "واقعیت", "سکوت", "اقتصاد ناهنجاری های پنهان اجتماعی", "وقتی نفس هوا می شود"],
+  },
+};
 const DEFAULT_TASTE_LABEL_BY_SECTION = {
   movies: "eclectic_watcher",
   music: "eclectic_listener",
@@ -405,11 +437,29 @@ function getAiTasteFromUser(user, section) {
 }
 
 function getAiTasteKeywordsForSection(section) {
-  return TASTE_LABELS_BY_SECTION[section] || {};
+  const base = TASTE_LABELS_BY_SECTION[section] || {};
+  const localized = LOCALIZED_TASTE_LABELS_BY_SECTION[section] || {};
+  return Object.fromEntries([...new Set([...Object.keys(base), ...Object.keys(localized)])]
+    .map((labelKey) => [labelKey, [...(base[labelKey] || []), ...(localized[labelKey] || [])]]));
+}
+
+function normalizeTasteMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[أإٱ]/g, "ا")
+    .replace(/ؤ/g, "و")
+    .replace(/ۀ/g, "ه")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/[\u200C\u200D]/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function matchesTasteKeyword(item, keyword) {
-  const normalizedKeyword = String(keyword || "").toLowerCase().trim();
+  const normalizedKeyword = normalizeTasteMatchText(keyword);
   if (!normalizedKeyword) return false;
 
   if (normalizedKeyword.length <= 2) {
@@ -421,7 +471,7 @@ function matchesTasteKeyword(item, keyword) {
 
 function inferTasteLabel(section, items = []) {
   const normalizedItems = items
-    .map((item) => normalizeTasteItem(item).toLowerCase())
+    .map((item) => normalizeTasteMatchText(normalizeTasteItem(item)))
     .filter(Boolean);
   const labels = getAiTasteKeywordsForSection(section);
   const scores = {};

@@ -65,6 +65,18 @@
 
 ## TopTen
 
+Taste-label inference remains deterministic and adds no extra user step. It matches multilingual title and creator aliases after normalizing Persian/Arabic letter variants, punctuation, spacing, and zero-width joiners. The winning label is based on the strongest pattern among recognized favorites; unrelated or unknown favorites do not need to match it. When nothing is recognized, keep the existing section fallback label. Opening a completed Favorites manager compares its stored result with current inference and persists only a changed result, allowing classifier improvements to refresh existing users without a migration or repeated write.
+
+The stable internal keys keep these approved user-facing titles:
+
+| Section | Persian | English |
+| --- | --- | --- |
+| Music | `🤘 متال‌هد`, `🎸 راکر`, `🎤 پاپ‌استن`, `🎧 هیپ‌هاپ‌هد`, `🎛️ ریور`, `🎼 روح کلاسیک`, `🎷 جزکت`, `🌙 ایندی‌کید`, `🎵 کنجکاو` | `Metalhead`, `Rocker`, `Pop Stan`, `Hip-Hop Head`, `Raver`, `Classical Soul`, `Jazz Cat`, `Indie Kid`, `Curious Listener` |
+| Movies | `🚀 سای‌فای‌گیک`, `💥 اکشن‌فریک`, `🎭 درام‌باز`, `😄 کمدی‌نرد`, `🕯️ هارر هد`, `✨ انیمیشن‌گیک`, `🎞️ آرت‌هاوسر`, `🧠 مستندبین`, `🎬 فیلم‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Drama Buff`, `Comedy Nerd`, `Horror Head`, `Animation Geek`, `Arthouse Aficionado`, `Documentary Buff`, `Movie Buff` |
+| Books | `🐉 فانتزی‌خوان`, `🪐 علمی‌تخیلی‌خوان`, `🔎 جنایی‌خوان`, `📜 کلاسیک‌خوان`, `🌱 توسعه‌فردی`, `💌 عاشقانه‌خوان`, `🏛️ تاریخ‌خوان`, `💡 غیرداستان‌خوان`, `📚 کتاب‌باز` | `Fantasy Reader`, `Sci-Fi Reader`, `Crime Reader`, `Classics Reader`, `Personal Growth`, `Romance Reader`, `History Reader`, `Nonfiction Reader`, `Book Lover` |
+
+Changing display titles must not rename internal label keys because stored profiles and discussion join rules depend on those keys.
+
 - TopTen items support add comment / update comment actions.
 - TopTen list text should include per-item command links for comment and remove actions. Do not add per-item inline rows when the command-link list can handle the action.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.

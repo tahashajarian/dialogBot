@@ -257,7 +257,14 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   }
 
   let taste = getAiTasteFromUser(ctx.user, section);
-  if (!taste.labelKey) {
+  const inferredTaste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
+  const storedTasteIsStale = (
+    taste.labelKey !== inferredTaste.labelKey ||
+    taste.emoji !== inferredTaste.emoji ||
+    taste.sampleCount !== inferredTaste.sampleCount ||
+    taste.confidence !== inferredTaste.confidence
+  );
+  if (storedTasteIsStale) {
     const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
     if (syncedTaste.ok) {
       taste = syncedTaste.taste;
