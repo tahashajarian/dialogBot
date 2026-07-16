@@ -8,6 +8,7 @@ const UserTasteIndexSchema = new mongoose.Schema({
     required: true,
   },
   items: { type: [String], default: [] },
+  matchKeys: { type: [String], default: [] },
   itemCount: { type: Number, default: 0 },
   updatedAt: { type: Date, default: Date.now },
 }, { versionKey: false });
@@ -19,6 +20,10 @@ UserTasteIndexSchema.index(
 UserTasteIndexSchema.index(
   { section: 1, items: 1, itemCount: 1, userId: 1 },
   { name: "taste_index_section_item_lookup" },
+);
+UserTasteIndexSchema.index(
+  { section: 1, matchKeys: 1, itemCount: 1, userId: 1 },
+  { name: "taste_index_section_fuzzy_lookup" },
 );
 UserTasteIndexSchema.index({ updatedAt: 1 });
 

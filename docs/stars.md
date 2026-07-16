@@ -210,7 +210,7 @@ Contextual next-step examples:
 - List reward and progress wording should use the user-facing list name for Top 10 milestones and must not imply that adding to a watchlist, playlist, or reading list awards Stars.
 - On an incomplete own profile: show the smallest privacy-safe set of choices that can complete the profile reward.
 - After the first discussion reward: explain boosting only as an optional use, not as the required next action.
-- After sending a stored invitation: say Stars are awarded only if this is the first rewarded pair and the invitee successfully joins; do not claim the reward at send time.
+- After sending a stored invitation, show only the bot-authored sent confirmation without a Star explanation or acknowledgement button. If the invitee joins and the directed-pair reward is actually awarded, show the existing reward notice then.
 - After a non-rewarding repeat invitation is accepted: do not mention Stars.
 
 ## Own Profile And Privacy

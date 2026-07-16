@@ -10,6 +10,7 @@ const {
 } = require("./users");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
+const { countSharedTasteItems } = require("./taste-item-matching");
 
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 3;
@@ -50,12 +51,11 @@ function getSharedSections(viewerIndex = {}, candidateIndex = {}) {
     const candidateItems = candidateIndex[section] || [];
     if (viewerItems.length < PEOPLE_DISCOVERY_MIN_SHARED_ITEMS || candidateItems.length < PEOPLE_DISCOVERY_MIN_SHARED_ITEMS) continue;
 
-    const candidateSet = new Set(candidateItems);
-    const sharedItems = viewerItems.filter((item) => candidateSet.has(item));
-    if (sharedItems.length >= PEOPLE_DISCOVERY_MIN_SHARED_ITEMS) {
+    const sharedCount = countSharedTasteItems(viewerItems, candidateItems);
+    if (sharedCount >= PEOPLE_DISCOVERY_MIN_SHARED_ITEMS) {
       sharedSections.push({
         section,
-        count: sharedItems.length,
+        count: sharedCount,
       });
     }
   }

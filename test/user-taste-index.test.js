@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   buildUserTasteIndexSections,
 } = require("../src/services/user-taste-index");
+const { buildTasteMatchKeys } = require("../src/services/taste-item-matching");
 
 test("taste index combines TopTen and watchlist items by section", () => {
   const index = buildUserTasteIndexSections({
@@ -43,4 +44,11 @@ test("taste index canonicalizes built-in Interests chips", () => {
   });
 
   assert.deepEqual(index.random, ["برنامه نویسی", "کافه گردی"]);
+});
+
+test("taste match keys give nearby long-title typos a shared lookup key", () => {
+  const expectedKeys = new Set(buildTasteMatchKeys("interstellar"));
+  const typoKeys = buildTasteMatchKeys("intersteler");
+
+  assert.ok(typoKeys.some((key) => expectedKeys.has(key)));
 });

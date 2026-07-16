@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { URL } = require("node:url");
 
 const messages = require("../src/messages");
 const { starEconomy } = require("../src/services/star-settings");
@@ -431,6 +432,19 @@ test("join-error acknowledgement copy remains available for discussion recovery"
   assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
   assert.equal(button.text, messages.en.acknowledgeButton);
+});
+
+test("discussion list title shows the full filtered count", () => {
+  const text = buildDiscussionListText(messages, "en", "Active discussions", [{
+    title: "One room",
+    description: "Test",
+    memberUserIds: [1],
+    maxMembers: 20,
+    joinRule: { type: "open" },
+    isJoinable: true,
+  }], { totalCount: 8 });
+
+  assert.match(text, /^Active discussions \(8\)/);
 });
 
 test("my discussions empty callback offers normal discussion navigation without toast text", async () => {

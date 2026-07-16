@@ -237,7 +237,7 @@ Scenario: user is currently inside a discussion and wants to invite someone they
    - Create shareable invite
    - Back to room
 6. User taps `Invite saved profile`.
-7. Bot shows the user's saved profiles as selectable invite targets.
+7. Bot excludes saved profiles who are already current members, then shows the remaining eligible profiles as selectable invite targets, five per page, with Previous/Next navigation and Close. If all saved profiles are already members, show that specific empty state with only Close. Page and target callbacks are bound to the original active room; after leaving or switching rooms, stale buttons retire without creating an invitation or querying an invalid discussion id.
 8. User selects a saved profile.
 9. Bot creates or reuses a pending invitation.
 10. If a new invitation was created, bot sends the invitee a short notification pointing to `Discussions → Invitations`.

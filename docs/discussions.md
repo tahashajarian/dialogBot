@@ -381,7 +381,7 @@ Entry point:
 
 - Inside an active discussion, the bottom button `📨 دعوت` opens invite options.
 - Any current member can create a shareable invite message for the active discussion.
-- Any current member can also send a stored invitation to one of their saved profiles, subject to stored-invitation rules in [Discussion Invitations](discussion-invitations.md).
+- Any current member can also send a stored invitation to one of their saved profiles, subject to stored-invitation rules in [Discussion Invitations](discussion-invitations.md). The picker shows five eligible profiles per page and keeps Close available on every page.
 - The user must still be a member at the moment they tap `📨 دعوت`; stale bottom keyboards must fail safely.
 - The invite points to a discussion preview, not directly into the room.
 - The invited user must still tap join and pass the normal join checks.
@@ -1232,7 +1232,7 @@ Recommended behavior:
 Recommended MVP limit:
 
 - max saved profiles per user: 50
-- Saving the 51st profile is rejected atomically across every profile surface. The bot leaves the current UI unchanged and asks the user to remove a saved profile before saving another.
+- Saving the 51st profile is rejected atomically across every profile surface. The bot leaves the current UI unchanged and explains that the user can remove someone from Saved Profiles to make room for a new profile. Show this as a temporary inline notice with one `Got it` action that only deletes the notice.
 
 When viewing another user's profile from People or Saved Profiles, show source-bound bottom profile actions. Discussion-member profiles keep their smaller identity-bound inline Save/Saved and Close surface:
 

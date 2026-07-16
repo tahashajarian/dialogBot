@@ -132,6 +132,9 @@ async function createDiscussionInvitation({
 }) {
   const normalizedProfileCode = normalizePublicProfileCode(inviteePublicProfileCode);
   if (!normalizedProfileCode) return { ok: false, reason: "missing_invitee" };
+  if (!Discussion.db.base.isValidObjectId(discussionId)) {
+    return { ok: false, reason: "missing_discussion" };
+  }
 
   const [inviter, invitee, discussion] = await Promise.all([
     User.findOne({ userId: Number(inviterUserId) }),

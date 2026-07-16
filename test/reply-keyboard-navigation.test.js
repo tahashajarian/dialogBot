@@ -417,6 +417,37 @@ test("saved-profile invitation picker contains profile targets and explicit Clos
   assert.match(messages.fa.discussionInviteChooseSavedProfile, /^👩‍🦳/);
 });
 
+test("saved-profile invitation picker paginates with room-bound callbacks", () => {
+  const { discussionInviteSavedProfilesKeyboard } = require("../src/keyboards");
+  const discussionId = "507f1f77bcf86cd799439011";
+  const firstPage = discussionInviteSavedProfilesKeyboard("en", [
+    { name: "One", code: "u_1" },
+    { name: "Two", code: "u_2" },
+    { name: "Three", code: "u_3" },
+    { name: "Four", code: "u_4" },
+    { name: "Five", code: "u_5" },
+  ], { page: 0, totalPages: 2, discussionId, discussionCode: "d_ROOM1" }).reply_markup.inline_keyboard;
+
+  assert.equal(firstPage.filter((row) => row[0].callback_data.startsWith(callBacks.discussionInviteSavedTarget)).length, 5);
+  assert.equal(
+    firstPage[0][0].callback_data,
+    `${callBacks.discussionInviteSavedTarget}u_1:d_ROOM1`,
+  );
+  assert.equal(
+    firstPage.at(-2)[0].callback_data,
+    `${callBacks.discussionInviteSavedPage}1:${discussionId}`,
+  );
+  assert.equal(firstPage.at(-1)[0].callback_data, callBacks.discussionInvitePickerClose);
+
+  const secondPage = discussionInviteSavedProfilesKeyboard("en", [
+    { name: "Six", code: "u_6" },
+  ], { page: 1, totalPages: 2, discussionId, discussionCode: "d_ROOM1" }).reply_markup.inline_keyboard;
+  assert.equal(
+    secondPage.at(-2)[0].callback_data,
+    `${callBacks.discussionInviteSavedPage}0:${discussionId}`,
+  );
+});
+
 test("discussion-member profiles use Save/Saved status and a source-specific Close", () => {
   const { profilePublicActionsKeyboard } = require("../src/keyboards");
   const unsaved = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: false }).reply_markup.inline_keyboard.flat();

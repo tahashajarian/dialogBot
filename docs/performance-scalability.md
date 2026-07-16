@@ -21,7 +21,7 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 - `npm run create:indexes` creates declared Mongoose indexes during deployment without dropping existing indexes.
 - AI suggestion routing can be pinned with `AI_SUGGESTION_PROVIDER=chat` or `responses` to avoid sequential provider timeouts when one API shape is unsupported or too slow.
 - AI cache reads use lean/projection reads and share candidate loading between fuzzy and semantic matching.
-- A denormalized `user_taste_indexes` collection now stores normalized list tokens per user/section. Successful list add/remove/promote mutations refresh the affected section.
+- A denormalized `user_taste_indexes` collection now stores normalized list titles and compact typo-match keys per user/section. Successful list add/remove/promote mutations refresh the affected section. People discovery retrieves exact or nearby-title candidates through those keys, then verifies matches conservatively in process; short titles remain strict and one candidate item cannot be counted twice.
 - Similar-people discovery and boost recipient selection prefer the taste index when it is populated, then hydrate only candidate user profiles and run the existing safety filters.
 
 ## Remaining Performance Risks
@@ -59,7 +59,7 @@ Highest-risk query/work areas:
 Expected index coverage to verify before high-scale rollout:
 
 - `users`: public-profile discovery filters, banned-state filters, profile-name presence, active-room/boost-recipient fields, and cached `starBalance` lookup by `userId`.
-- `user_taste_indexes`: unique `{ userId, section }`, overlap lookup `{ section, items, itemCount, userId }`, and stale-row inspection by `updatedAt`.
+- `user_taste_indexes`: unique `{ userId, section }`, exact overlap lookup `{ section, items, itemCount, userId }`, fuzzy candidate lookup `{ section, matchKeys, itemCount, userId }`, and stale-row inspection by `updatedAt`.
 - `startransactions`: unique idempotency key, per-user transaction history, pending status recovery, and reconciliation scans.
 - `starreferrallinks` / `starreferralclaims`: public code lookup, invitee uniqueness, pending claim lookup, and qualification status.
 - `discussionboosts` / `discussionboostdeliveries`: active boost lookup, owner/discussion active uniqueness, recipient delivery dedupe, and stale reserved delivery cleanup.
@@ -79,10 +79,11 @@ Implemented shape:
 
 - Collection: `user_taste_indexes`.
 - One row per `{ userId, section }`.
-- Fields: normalized `items`, `itemCount`, and `updatedAt`.
+- Fields: normalized `items`, derived `matchKeys`, `itemCount`, and `updatedAt`.
 - Indexes:
   - unique `{ userId, section }`
   - `{ section, items, itemCount, userId }` for overlap candidate lookup
+  - `{ section, matchKeys, itemCount, userId }` for nearby-title candidate lookup
   - `{ updatedAt }` for operational inspection/rebuild work
 Future refinements become useful when metrics show one of these thresholds:
 

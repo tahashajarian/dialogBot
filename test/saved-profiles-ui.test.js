@@ -76,10 +76,14 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
     name: `User ${index + 1}`,
   }));
   const paged = paginateSavedProfiles(items, 1);
-  const text = buildSavedProfilesListText(messages, "en", paged.items, { startIndex: paged.startIndex });
+  const text = buildSavedProfilesListText(messages, "en", paged.items, {
+    startIndex: paged.startIndex,
+    totalCount: items.length,
+  });
 
   assert.equal(paged.page, 1);
   assert.equal(paged.totalPages, 2);
+  assert.match(text, /Saved people \(6\)/);
   assert.match(text, /6\.\n👤 User 6/);
 });
 

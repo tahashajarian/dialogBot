@@ -69,6 +69,12 @@ function profileViewGateKeyboard(lang, missingFields = []) {
   return inlineKeyboard(buttons.map((button) => [button]));
 }
 
+function savedProfilesLimitKeyboard(lang) {
+  return inlineKeyboard([[
+    { text: messages[lang].acknowledgeButton, callback_data: callBacks.savedProfilesLimitClose },
+  ]]);
+}
+
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
@@ -460,7 +466,10 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
     findDiscussionUserIds: findVisibleProfileDiscussionUserIds,
   });
   const paged = paginateSavedProfiles(items, page);
-  const text = buildSavedProfilesListText(messages, lang, paged.items, { startIndex: paged.startIndex });
+  const text = buildSavedProfilesListText(messages, lang, paged.items, {
+    startIndex: paged.startIndex,
+    totalCount: items.length,
+  });
   const keyboard = savedProfilesListKeyboard(lang, {
     page: paged.page,
     totalPages: paged.totalPages,
@@ -503,6 +512,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
     text: result.ok
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
+        totalCount: result.items.length,
         emptyText: messages[lang].peopleDiscoverNoMatches,
         showSharedSections: true,
       })
@@ -572,7 +582,7 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
     if (saved.reason === "saved_profiles_limit") {
       return ctx.reply(formatOperationalLimitsText(messages[lang].savedProfilesLimit, {
         savedProfilesLimit: saved.cap,
-      }));
+      }), savedProfilesLimitKeyboard(lang));
     }
     return ctx.reply(messages[lang].unknownAction);
   }
@@ -809,6 +819,7 @@ function isSavedProfilesCallback(data = "") {
     data === callBacks.savedProfiles ||
     data === callBacks.profileUnsaveConfirm ||
     data === callBacks.profileUnsaveCancel ||
+    data === callBacks.savedProfilesLimitClose ||
     data === "saved:back" ||
     data.startsWith(callBacks.savedProfilesPage) ||
     data.startsWith(callBacks.savedProfilesOpen) ||
@@ -831,6 +842,12 @@ async function handleSavedProfilesCallback(ctx, lang, {
   const deleteInlineCallbackMessage = () => ctx.isReplyKeyboardAction
     ? false
     : deleteCallbackMessageIfPossible?.(ctx);
+
+  if (data === callBacks.savedProfilesLimitClose) {
+    await ctx.answerCb?.();
+    await deleteInlineCallbackMessage();
+    return true;
+  }
 
   if (data === callBacks.profileUnsaveConfirm || data === callBacks.profileUnsaveCancel) {
     await ctx.answerCb?.();
@@ -1079,6 +1096,7 @@ module.exports = {
   renderSavedProfileDiscussions,
   saveProfileByCode,
   saveProfileCommand,
+  savedProfilesLimitKeyboard,
   sendPublicProfileByCode,
   sendPeopleDiscoveryList,
   sendPeopleHub,

@@ -14,6 +14,7 @@ const {
 } = require("../keyboards");
 const {
   buildInvitationSentText,
+  filterSavedInviteTargets,
   buildInviteSavedProfilesText,
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,
@@ -51,14 +52,13 @@ const { updateProfileField } = require("../services/users");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
-  formatStarNumber,
 } = require("../services/stars-ui");
-const { starEconomy } = require("../services/star-settings");
 const {
   awardSavedInvitePair,
-  isSavedInvitePairRewardClaimed,
 } = require("../services/star-invitations");
 const { requireDiscussionProfileName } = require("./discussion-name-gate");
+const { PAGINATION } = require("../constants/pagination");
+const { paginateItems } = require("../services/pagination");
 
 const INVITATIONS_PAGE_SIZE = 5;
 const ACCEPTED_INVITATIONS_LIMIT = 5;
@@ -132,7 +132,7 @@ async function buildSavedInviteTargets(ctx) {
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("publicProfileCode profileName firstName")
+      .select("userId publicProfileCode profileName firstName")
       .lean(),
   });
 }
@@ -157,8 +157,13 @@ function getInviteCreationFailureText(lang, reason, details = {}) {
 
 async function showInviteSavedProfilePicker(ctx, lang, {
   editCallbackMessageOrReply,
+  page = 0,
+  expectedDiscussionId = "",
 } = {}) {
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+  if (expectedDiscussionId && expectedDiscussionId !== activeDiscussionId) {
+    return ctx.reply(messages[lang].discussionInviteUnavailable);
+  }
   const invite = await getActiveDiscussionInviteForUser(ctx.userId, activeDiscussionId);
   if (!invite.ok) {
     const text = invite.reason === "not_member"
@@ -176,10 +181,26 @@ async function showInviteSavedProfilePicker(ctx, lang, {
     );
   }
 
+  const eligibleTargets = filterSavedInviteTargets(targets, invite.discussion?.memberUserIds);
+  if (!eligibleTargets.length) {
+    return (editCallbackMessageOrReply || ((roomCtx, text, keyboard) => roomCtx.reply(text, keyboard)))(
+      ctx,
+      messages[lang].discussionInvitationAllSavedAlreadyMembers,
+      discussionInviteSavedProfilesKeyboard(lang),
+    );
+  }
+
+  const paginated = paginateItems(eligibleTargets, page, PAGINATION.savedProfilesPageSize);
+
   return (editCallbackMessageOrReply || ((roomCtx, text, keyboard) => roomCtx.reply(text, keyboard)))(
     ctx,
     buildInviteSavedProfilesText(messages, lang, invite.discussion),
-    discussionInviteSavedProfilesKeyboard(lang, targets),
+    discussionInviteSavedProfilesKeyboard(lang, paginated.items, {
+      page: paginated.page,
+      totalPages: paginated.totalPages,
+      discussionId: activeDiscussionId,
+      discussionCode: invite.code,
+    }),
   );
 }
 
@@ -204,17 +225,11 @@ async function createInvitationAndAck(ctx, lang, {
   }
 
   await notifyInviteeOfInvitation(ctx, created);
-  const pairClaimed = await isSavedInvitePairRewardClaimed(ctx.userId, created.invitee.userId);
-  const eligibilityText = !pairClaimed && Number(starEconomy.rewardSavedInvitePair) > 0
-    ? messages[lang].discussionInvitationStarEligible.replace(
-      "{amount}",
-      formatStarNumber(starEconomy.rewardSavedInvitePair, lang),
-    )
-    : "";
-  return send(ctx, [
+  return send(
+    ctx,
     buildInvitationSentText(messages, lang, created.invitee),
-    eligibilityText,
-  ].filter(Boolean).join("\n\n"), keyboard);
+    { reply_markup: { inline_keyboard: [] } },
+  );
 }
 
 async function showDiscussionPickerForSavedProfile(ctx, lang, profileCode, {
@@ -381,6 +396,7 @@ function isDiscussionInvitationCallback(data = "") {
     data === callBacks.discussionInviteModeSaved ||
     data === callBacks.discussionInviteModeShare ||
     data === callBacks.discussionInvitePickerClose ||
+    data.startsWith(callBacks.discussionInviteSavedPage) ||
     data.startsWith(callBacks.discussionInviteSavedTarget) ||
     data.startsWith(callBacks.discussionInviteDiscussionTarget) ||
     data.startsWith(callBacks.discussionInvitationMute) ||
@@ -414,6 +430,19 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     return showInviteSavedProfilePicker(ctx, lang);
   }
 
+  if (data.startsWith(callBacks.discussionInviteSavedPage)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.discussionInviteSavedPage, "");
+    const separatorIndex = payload.indexOf(":");
+    const page = separatorIndex >= 0 ? Number(payload.slice(0, separatorIndex)) : 0;
+    const expectedDiscussionId = separatorIndex >= 0 ? payload.slice(separatorIndex + 1) : "";
+    return showInviteSavedProfilePicker(ctx, lang, {
+      editCallbackMessageOrReply,
+      page,
+      expectedDiscussionId,
+    });
+  }
+
   if (data === callBacks.discussionInviteModeShare) {
     await ctx.answerCb?.();
     return sendShareableInviteForActiveDiscussion(ctx, lang);
@@ -426,11 +455,19 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
   if (data.startsWith(callBacks.discussionInviteSavedTarget)) {
     await ctx.answerCb?.();
-    const profileCode = normalizePublicProfileCode(data.replace(callBacks.discussionInviteSavedTarget, ""));
+    const payload = data.replace(callBacks.discussionInviteSavedTarget, "");
+    const [profileCodeRaw = "", discussionCodeRaw = ""] = payload.split(":");
+    const profileCode = normalizePublicProfileCode(profileCodeRaw);
+    const discussionCode = normalizePublicDiscussionCode(discussionCodeRaw);
+    const boundDiscussion = discussionCode ? await findDiscussionByPublicCode(discussionCode) : null;
     const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+    if (!boundDiscussion || String(boundDiscussion._id) !== activeDiscussionId) {
+      await deleteCallbackMessageIfPossible?.(ctx);
+      return true;
+    }
     return createInvitationAndAck(ctx, lang, {
       profileCode,
-      discussionId: activeDiscussionId,
+      discussionId: boundDiscussion._id,
       source: "room",
       destination: "room",
       editCallbackMessageOrReply,
@@ -495,6 +532,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
 module.exports = {
   acceptInvitationCommand,
+  buildSavedInviteTargets,
   buildDiscussionsMenuText,
   getInvitationCount,
   handleDiscussionInvitationCallback,

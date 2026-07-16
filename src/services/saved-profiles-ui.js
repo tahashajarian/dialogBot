@@ -82,7 +82,7 @@ function paginateSavedProfiles(items = [], page = 0) {
   return paginateItems(items, page, SAVED_PROFILES_PAGE_SIZE);
 }
 
-function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0 } = {}) {
+function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0, totalCount = items.length } = {}) {
   if (!items.length) return messages[lang].savedProfilesEmpty;
 
   const viewLabel = messages[lang].savedProfileOpen;
@@ -116,7 +116,8 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
     return isLast ? `${item}\n\n${SAVED_PROFILES_DIVIDER}` : item;
   });
 
-  return `${messages[lang].savedProfilesTitle}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
+  const title = `${messages[lang].savedProfilesTitle} (${formatListIndex(lang, totalCount)})`;
+  return `${title}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
 }
 
 function buildProfileSavedFooter(messages, lang, code, isSaved, { hasDiscussions = false } = {}) {

@@ -210,11 +210,32 @@ function discussionInviteModeKeyboard(lang, { hasSavedProfiles = true } = {}) {
   ]);
 }
 
-function discussionInviteSavedProfilesKeyboard(lang, items = []) {
+function discussionInviteSavedProfilesKeyboard(lang, items = [], {
+  page = 0,
+  totalPages = 1,
+  discussionId = "",
+  discussionCode = "",
+} = {}) {
   const rows = items.map((entry) => ([{
     text: entry.name,
-    callback_data: `${callBacks.discussionInviteSavedTarget}${entry.code}`,
+    callback_data: `${callBacks.discussionInviteSavedTarget}${entry.code}:${discussionCode}`,
   }]));
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  const normalizedTotalPages = Math.max(1, Number(totalPages) || 1);
+  const pageButtons = [];
+  if (normalizedPage > 0) {
+    pageButtons.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.discussionInviteSavedPage}${normalizedPage - 1}:${discussionId}`,
+    });
+  }
+  if (normalizedPage < normalizedTotalPages - 1) {
+    pageButtons.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.discussionInviteSavedPage}${normalizedPage + 1}:${discussionId}`,
+    });
+  }
+  if (pageButtons.length) rows.push(pageButtons);
   rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.discussionInvitePickerClose }]);
   return inlineKeyboard(rows);
 }

@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { URL } = require("node:url");
 
 const messages = require("../src/messages");
 const { buildGuideReferralSharePayload } = require("../src/flows/guide-referrals");

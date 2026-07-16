@@ -29,6 +29,7 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
   intro = messages[lang].peopleDiscoverIntro,
   emptyText = messages[lang].peopleDiscoverNoProfiles,
   showSharedSections = false,
+  totalCount = items.length,
 } = {}) {
   if (!items.length) return emptyText;
 
@@ -62,7 +63,8 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
     ].filter(Boolean).join("\n");
   });
 
-  return `${title}\n\n${intro}\n\n${rows.join(`\n\n${PEOPLE_DIVIDER}\n\n`)}`;
+  const countedTitle = `${title} (${formatListIndex(lang, totalCount)})`;
+  return `${countedTitle}\n\n${intro}\n\n${rows.join(`\n\n${PEOPLE_DIVIDER}\n\n`)}`;
 }
 
 function isPeopleCallback(data = "") {

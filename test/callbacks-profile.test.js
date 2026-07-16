@@ -5,7 +5,12 @@ const { handleCallback } = require("../src/callbacks");
 const { callBacks } = require("../src/constants");
 const messages = require("../src/messages");
 const { mainMenuKeyboard } = require("../src/keyboards");
-const { saveProfileCommand, sendPublicProfileByCode } = require("../src/flows/saved-profiles");
+const {
+  handleSavedProfilesCallback,
+  saveProfileCommand,
+  savedProfilesLimitKeyboard,
+  sendPublicProfileByCode,
+} = require("../src/flows/saved-profiles");
 const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
@@ -14,6 +19,28 @@ const { formatOperationalLimitsText } = require("../src/services/operational-lim
 const keyboardButtons = (extra) => (
   extra?.reply_markup?.keyboard || extra?.reply_markup?.inline_keyboard || []
 ).flat();
+
+test("saved-profile limit notice has a dismiss-only Got it action", async () => {
+  const keyboard = savedProfilesLimitKeyboard("en");
+  const button = keyboard.reply_markup.inline_keyboard[0][0];
+  assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(button.callback_data, callBacks.savedProfilesLimitClose);
+
+  const deleted = [];
+  const handled = await handleSavedProfilesCallback({
+    callbackData: callBacks.savedProfilesLimitClose,
+    callbackMessageId: 44,
+    answerCb: async () => true,
+  }, "en", {
+    deleteCallbackMessageIfPossible: async (ctx) => {
+      deleted.push(ctx.callbackMessageId);
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.deepEqual(deleted, [44]);
+});
 
 test("language change sends confirmation before the localized main menu", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;

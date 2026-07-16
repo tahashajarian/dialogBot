@@ -4,6 +4,7 @@ const User = require("../models/user");
 const { normalizeAiInput } = require("./input-normalization");
 const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const { mapWithConcurrency } = require("./bounded-concurrency");
+const { buildTasteMatchKeys, countSharedTasteItems } = require("./taste-item-matching");
 
 const AI_TASTE_INDEX_SECTIONS = ["movies", "music", "books", "random"];
 const AI_TASTE_INDEX_LIST_TYPES = ["topTen", "watchlist"];
@@ -98,6 +99,7 @@ async function syncUserTasteIndex(userOrId, { sections = AI_TASTE_INDEX_SECTIONS
           userId,
           section,
           items,
+          matchKeys: [...new Set(items.flatMap((item) => buildTasteMatchKeys(item)))],
           itemCount: items.length,
           updatedAt: now,
         },
@@ -173,11 +175,18 @@ async function findIndexedSharedTasteCandidates(viewer, {
     Number(viewer?.userId),
     ...(excludeUserIds || []).map((id) => Number(id)),
   ].filter((id) => Number.isInteger(id)))];
+  const viewerMatchKeys = Object.fromEntries(eligibleSections.map(([section, items]) => [
+    section,
+    [...new Set(items.flatMap((item) => buildTasteMatchKeys(item)))],
+  ]));
 
   const reduced = await UserTasteIndex.find({
     userId: { $nin: excluded },
     itemCount: { $gte: AI_TASTE_INDEX_MIN_SHARED_ITEMS },
-    $or: eligibleSections.map(([section, items]) => ({ section, items: { $in: items } })),
+    $or: eligibleSections.flatMap(([section, items]) => [
+      { section, items: { $in: items } },
+      { section, matchKeys: { $in: viewerMatchKeys[section] } },
+    ]),
   })
     .select("userId section items")
     .limit(Math.max(1, Number(limit) || 200) * 4)
@@ -188,8 +197,7 @@ async function findIndexedSharedTasteCandidates(viewer, {
   const byUser = new Map();
   for (const entry of reduced || []) {
     const viewerItems = viewerIndex[entry.section] || [];
-    const candidateSet = new Set(entry.items || []);
-    const count = viewerItems.filter((item) => candidateSet.has(item)).length;
+    const count = countSharedTasteItems(viewerItems, entry.items || []);
     if (count < AI_TASTE_INDEX_MIN_SHARED_ITEMS) continue;
     const current = byUser.get(Number(entry.userId)) || [];
     current.push({ section: entry.section, count });

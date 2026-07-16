@@ -142,6 +142,16 @@ test("people discovery UI can hide shared sections for legacy plain rendering", 
   assert.match(text, /\/u_AB12/);
 });
 
+test("people discovery title shows the full result count", () => {
+  const text = buildPeopleDiscoveryText(messages, "en", [{
+    code: "u_AB12",
+    name: "Taha",
+    isSaved: false,
+  }], { totalCount: 7 });
+
+  assert.match(text, /See people \(7\)/);
+});
+
 test("People hub keeps one people discovery entry", () => {
   const hidden = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
   const visible = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
@@ -209,4 +219,22 @@ test("shared sections require 3 overlaps in the same section", () => {
   );
 
   assert.deepEqual(shared, [{ section: "music", count: 3 }]);
+});
+
+test("shared sections tolerate conservative typos in long titles", () => {
+  const shared = getSharedSections(
+    { movies: ["interstellar", "the godfather", "spirited away"] },
+    { movies: ["intersteler", "the godfathar", "spirited awya"] },
+  );
+
+  assert.deepEqual(shared, [{ section: "movies", count: 3 }]);
+});
+
+test("shared sections keep short titles strict", () => {
+  const shared = getSharedSections(
+    { movies: ["her", "up", "it"] },
+    { movies: ["here", "us", "its"] },
+  );
+
+  assert.deepEqual(shared, []);
 });

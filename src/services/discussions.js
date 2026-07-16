@@ -471,6 +471,9 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
 }
 
 async function getActiveDiscussionInviteForUser(userId, discussionId) {
+  if (!Discussion.db.base.isValidObjectId(discussionId)) {
+    return { ok: false, reason: "missing_discussion" };
+  }
   const [user, discussion] = await Promise.all([
     User.findOne({ userId }),
     Discussion.findById(discussionId),

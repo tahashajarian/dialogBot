@@ -26,6 +26,11 @@ function buildInvitationSentText(messages, lang, invitee = {}) {
   );
 }
 
+function filterSavedInviteTargets(items = [], memberUserIds = []) {
+  const members = new Set((memberUserIds || []).map((userId) => Number(userId)));
+  return (items || []).filter((item) => !members.has(Number(item?.userId)));
+}
+
 function buildInviteSavedProfilesText(messages, lang, discussion) {
   const title = getDiscussionDisplayTitle(messages, lang, discussion);
   return messages[lang].discussionInviteChooseSavedProfile.replace("{title}", title);
@@ -164,6 +169,7 @@ async function buildReceivedInvitationsText(messages, lang, user, entries = [], 
 
 module.exports = {
   buildInvitationSentText,
+  filterSavedInviteTargets,
   buildInviteSavedProfilesText,
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,

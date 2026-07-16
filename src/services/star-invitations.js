@@ -1,17 +1,9 @@
-const { earnStars, hasStarTransaction } = require("./stars");
+const { earnStars } = require("./stars");
 const { starEconomy } = require("./star-settings");
 const { logger } = require("./logger");
 
 function savedInvitePairKey(inviterUserId, inviteeUserId) {
   return `invite-pair:first-accepted:${Number(inviterUserId)}:${Number(inviteeUserId)}`;
-}
-
-async function isSavedInvitePairRewardClaimed(inviterUserId, inviteeUserId) {
-  try {
-    return await hasStarTransaction(savedInvitePairKey(inviterUserId, inviteeUserId));
-  } catch {
-    return false;
-  }
 }
 
 async function awardSavedInvitePair({
@@ -50,6 +42,5 @@ async function awardSavedInvitePair({
 
 module.exports = {
   awardSavedInvitePair,
-  isSavedInvitePairRewardClaimed,
   savedInvitePairKey,
 };

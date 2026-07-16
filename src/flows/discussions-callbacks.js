@@ -266,6 +266,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     ctx,
     buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
       startIndex: paged.startIndex,
+      totalCount: filtered.length,
     }),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
@@ -309,6 +310,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     ctx,
     buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
       startIndex: paged.startIndex,
+      totalCount: decorated.length,
     }),
     discussionListNavigationKeyboard(lang, {
       listType: "mine",

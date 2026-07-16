@@ -296,7 +296,10 @@ function getStarterDiscussionHint(messages, lang, discussion = {}) {
   return messages[lang].discussionStarterHintLocked.replace("{item}", item);
 }
 
-function buildDiscussionListText(messages, lang, title, discussions = [], { startIndex = 0 } = {}) {
+function buildDiscussionListText(messages, lang, title, discussions = [], {
+  startIndex = 0,
+  totalCount = discussions.length,
+} = {}) {
   if (!discussions.length) {
     return title;
   }
@@ -349,7 +352,8 @@ function buildDiscussionListText(messages, lang, title, discussions = [], { star
       starterHint ? lineForLang(lang, starterHint) : "",
     ].filter(Boolean).join("\n") + actionsBlock;
   });
-  return `${title}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
+  const countedTitle = `${title} (${formatListIndex(lang, totalCount)})`;
+  return `${countedTitle}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
 
 function fillDiscussionInviteTemplate(template, values = {}) {

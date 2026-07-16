@@ -4,8 +4,13 @@ const assert = require("node:assert/strict");
 const { USER_LIMITS, getUserLimits } = require("../src/constants/limits");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
-const { buildReceivedInvitationsText } = require("../src/services/discussion-invitations-ui");
 const {
+  buildInvitationSentText,
+  buildReceivedInvitationsText,
+  filterSavedInviteTargets,
+} = require("../src/services/discussion-invitations-ui");
+const {
+  buildSavedInviteTargets,
   handleDiscussionInvitationCallback,
   notifyInviteeOfInvitation,
 } = require("../src/flows/discussion-invitations");
@@ -46,6 +51,52 @@ test("discussion invitation schema accepts pending invitation", () => {
   assert.equal(invitation.validateSync(), undefined);
   assert.equal(invitation.status, "pending");
   assert.equal(invitation.source, "room");
+});
+
+test("sent invitation confirmation is bot-authored without speculative Star copy", () => {
+  const fa = buildInvitationSentText(messages, "fa", { profileName: "Lina" });
+  const en = buildInvitationSentText(messages, "en", { profileName: "Lina" });
+
+  assert.equal(fa, "👩‍🦳 دعوت برای Lina ارسال شد.");
+  assert.equal(en, "👩‍🦳 Invitation sent to Lina.");
+  assert.doesNotMatch(fa, /⭐|متوجه شدم/);
+  assert.doesNotMatch(en, /⭐|Got it/);
+});
+
+test("saved-profile invite targets exclude current discussion members", () => {
+  const targets = [
+    { userId: 2, name: "Already here" },
+    { userId: 3, name: "Can invite" },
+    { userId: 4, name: "Also here" },
+  ];
+
+  assert.deepEqual(
+    filterSavedInviteTargets(targets, [2, 4]),
+    [{ userId: 3, name: "Can invite" }],
+  );
+});
+
+test("saved-profile invite picker query includes user ids for membership filtering", async () => {
+  const originalFind = User.find;
+  let selectedFields = "";
+  User.find = () => ({
+    select(fields) {
+      selectedFields = fields;
+      return { lean: async () => [] };
+    },
+  });
+
+  try {
+    await buildSavedInviteTargets({
+      user: {
+        savedProfileCodes: ["u_TEST"],
+      },
+    });
+  } finally {
+    User.find = originalFind;
+  }
+
+  assert.match(selectedFields, /\buserId\b/);
 });
 
 test("discussion invitation schema indexes inbox and rate-limit queries", () => {
@@ -257,6 +308,47 @@ test("bot onboarding invitations do not show an inviter profile link", async () 
   assert.match(text, /Join 👉 \/accept_inv_BOT123/);
   assert.doesNotMatch(text, /Inviter profile/);
   assert.doesNotMatch(text, /\/u_/);
+});
+
+test("createDiscussionInvitation rejects an empty discussion id before database lookup", async () => {
+  const originalFindById = Discussion.findById;
+  let queried = false;
+  Discussion.findById = () => {
+    queried = true;
+    throw new Error("should not query");
+  };
+
+  try {
+    const result = await createDiscussionInvitation({
+      inviterUserId: 1,
+      inviteePublicProfileCode: "u_TEST",
+      discussionId: "",
+    });
+
+    assert.deepEqual(result, { ok: false, reason: "missing_discussion" });
+    assert.equal(queried, false);
+  } finally {
+    Discussion.findById = originalFindById;
+  }
+});
+
+test("stale saved-profile target retires after leaving without sending an invite", async () => {
+  const deleted = [];
+  const handled = await handleDiscussionInvitationCallback({
+    callbackData: `${callBacks.discussionInviteSavedTarget}u_TEST`,
+    callbackMessageId: 91,
+    userId: 1,
+    user: { userId: 1, activeDiscussionId: null },
+    answerCb: async () => true,
+  }, "en", {
+    deleteCallbackMessageIfPossible: async (ctx) => {
+      deleted.push(ctx.callbackMessageId);
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.deepEqual(deleted, [91]);
 });
 
 test("locked invitations keep explicit locked state", async () => {

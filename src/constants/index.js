@@ -119,6 +119,7 @@ module.exports = {
     discussionInvitationsPage: "discussion:invitations:page:",
     discussionInviteModeSaved: "discussion:invite:mode:saved",
     discussionInviteModeShare: "discussion:invite:mode:share",
+    discussionInviteSavedPage: "discussion:invite:saved-page:",
     discussionInviteSavedTarget: "discussion:invite:saved-target:",
     discussionInvitePickerClose: "discussion:invite:picker:close",
     profileCloseDiscussionMember: "profile:discussion-member:close",
@@ -180,5 +181,6 @@ module.exports = {
     savedProfilesOpen: "saved:open:",
     savedProfilesRemove: "saved:remove:",
     savedProfilesDiscussions: "saved:discussions:",
+    savedProfilesLimitClose: "saved:limit:close",
   },
 };

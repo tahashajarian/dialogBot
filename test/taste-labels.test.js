@@ -14,7 +14,7 @@ test("taste label titles use the approved Persian and English catalog", () => {
     },
     movies: {
       sci_fi_explorer: ["سای‌فای‌گیک", "Sci-Fi Geek"], action_junkie: ["اکشن‌فریک", "Action Junkie"], drama_seeker: ["درام‌باز", "Drama Buff"],
-      comedy_chaser: ["کمدی‌نرد", "Comedy Nerd"], horror_hunter: ["هارر هد", "Horror Head"], animation_lover: ["انیمیشن‌گیک", "Animation Geek"],
+      comedy_chaser: ["کمدی‌نرد", "Comedy Nerd"], horror_hunter: ["هارر‌فریک", "Horror Head"], animation_lover: ["انیمیشن‌گیک", "Animation Geek"],
       arthouse_curious: ["آرت‌هاوسر", "Arthouse Aficionado"], documentary_mind: ["مستندبین", "Documentary Buff"], eclectic_watcher: ["فیلم‌باز", "Movie Buff"],
     },
     books: {

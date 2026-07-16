@@ -72,7 +72,7 @@ The stable internal keys keep these approved user-facing titles:
 | Section | Persian | English |
 | --- | --- | --- |
 | Music | `🤘 متال‌هد`, `🎸 راکر`, `🎤 پاپ‌استن`, `🎧 هیپ‌هاپ‌هد`, `🎛️ ریور`, `🎼 روح کلاسیک`, `🎷 جزکت`, `🌙 ایندی‌کید`, `🎵 کنجکاو` | `Metalhead`, `Rocker`, `Pop Stan`, `Hip-Hop Head`, `Raver`, `Classical Soul`, `Jazz Cat`, `Indie Kid`, `Curious Listener` |
-| Movies | `🚀 سای‌فای‌گیک`, `💥 اکشن‌فریک`, `🎭 درام‌باز`, `😄 کمدی‌نرد`, `🕯️ هارر هد`, `✨ انیمیشن‌گیک`, `🎞️ آرت‌هاوسر`, `🧠 مستندبین`, `🎬 فیلم‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Drama Buff`, `Comedy Nerd`, `Horror Head`, `Animation Geek`, `Arthouse Aficionado`, `Documentary Buff`, `Movie Buff` |
+| Movies | `🚀 سای‌فای‌گیک`, `💥 اکشن‌فریک`, `🎭 درام‌باز`, `😄 کمدی‌نرد`, `🕯️ هارر‌فریک`, `✨ انیمیشن‌گیک`, `🎞️ آرت‌هاوسر`, `🧠 مستندبین`, `🎬 فیلم‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Drama Buff`, `Comedy Nerd`, `Horror Head`, `Animation Geek`, `Arthouse Aficionado`, `Documentary Buff`, `Movie Buff` |
 | Books | `🐉 فانتزی‌خوان`, `🪐 علمی‌تخیلی‌خوان`, `🔎 جنایی‌خوان`, `📜 کلاسیک‌خوان`, `🌱 توسعه‌فردی`, `💌 عاشقانه‌خوان`, `🏛️ تاریخ‌خوان`, `💡 غیرداستان‌خوان`, `📚 کتاب‌باز` | `Fantasy Reader`, `Sci-Fi Reader`, `Crime Reader`, `Classics Reader`, `Personal Growth`, `Romance Reader`, `History Reader`, `Nonfiction Reader`, `Book Lover` |
 
 Changing display titles must not rename internal label keys because stored profiles and discussion join rules depend on those keys.
