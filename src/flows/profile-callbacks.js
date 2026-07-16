@@ -33,7 +33,6 @@ const {
   updateUserState,
 } = require("../services/users");
 const {
-  buildProfileText,
   sendProfileMessage,
   toPlainUser,
 } = require("../services/profile");
