@@ -61,13 +61,15 @@ async function leaveDiscussionAndNotify({ ctx, messages, discussionId }) {
   if (!left.ok) return left;
 
   if (left.leaverName && left.discussionId) {
-    await notifyActiveMembersInDiscussion(
+    // Leaving should not wait on recipient lookups or Telegram delivery.
+    // The membership mutation above is authoritative; this notice is best effort.
+    void notifyActiveMembersInDiscussion(
       ctx,
       messages,
       left.discussionId,
       [ctx.userId],
       (msgs, lang) => msgs[lang].discussionLeftNotice.replace("{name}", left.leaverName),
-    );
+    ).catch(() => {});
   }
 
   return left;

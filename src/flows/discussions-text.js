@@ -183,19 +183,21 @@ async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false
 }
 
 async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
-  await clearRememberedDiscussionRoomCards(ctx);
-  await clearDiscussionMembersMessage(ctx);
-  if (left?.ok && left.discussion) {
-    await ctx.reply(formatDiscussionLeftMessage(lang, left.discussion));
-  }
-  await sendNavigationFootprint(ctx, {
-    lang,
-    destination: "discussions",
-    removeKeyboard: true,
-  });
-  await updateProfileField(ctx.userId, "navigationMode", "discussions");
+  await Promise.all([
+    clearRememberedDiscussionRoomCards(ctx),
+    clearDiscussionMembersMessage(ctx),
+    sendNavigationFootprint(ctx, {
+      lang,
+      destination: "discussions",
+      removeKeyboard: true,
+    }),
+    updateProfileField(ctx.userId, "navigationMode", "discussions"),
+  ]);
   if (ctx.user) ctx.user.navigationMode = "discussions";
-  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  const text = left?.ok && left.discussion
+    ? `${formatDiscussionLeftMessage(lang, left.discussion)}\n\n${messages[lang].discussionsMenu}`
+    : messages[lang].discussionsMenu;
+  return ctx.reply(text, discussionsMenuKeyboard(lang));
 }
 
 function normalizeProfileCodeFromActionCommand(value) {

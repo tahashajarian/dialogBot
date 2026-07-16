@@ -1,6 +1,7 @@
 const axios = require("axios");
+const { logger } = require("./logger");
 
-const GEOCODE_TIMEOUT_MS = 1200;
+const GEOCODE_TIMEOUT_MS = 8000;
 const CITY_ADDRESS_FIELDS = [
   "city",
   "town",
@@ -40,8 +41,16 @@ async function resolveCityByCoordinates(latitude, longitude) {
       },
     });
 
-    return extractCityFromReverseGeocode(response?.data);
-  } catch {
+    const city = extractCityFromReverseGeocode(response?.data);
+    if (!city) {
+      logger.warn("Reverse geocoding returned no city");
+    }
+    return city;
+  } catch (error) {
+    logger.warn("Reverse geocoding failed", {
+      code: error?.code || "",
+      status: error?.response?.status || null,
+    });
     return null;
   }
 }
