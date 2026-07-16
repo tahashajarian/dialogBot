@@ -35,6 +35,7 @@ function formatListIndex(lang, value) {
 
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
+const { getProfileGenderEmoji } = require("./profile");
 const SAVED_PROFILES_PAGE_SIZE = PAGINATION.savedProfilesPageSize;
 const SAVED_PROFILES_DIVIDER = PAGINATION.listDivider;
 
@@ -46,6 +47,8 @@ function toSavedProfileListItems(codes = [], usersByCode = new Map()) {
     return {
       code,
       name: [name, user?.profileEmoji].filter(Boolean).join(" "),
+      genderEmoji: getProfileGenderEmoji(user?.gender),
+      age: user?.age,
       userId: user?.userId,
       hasDiscussions: Boolean(user?.hasDiscussions),
     };
@@ -108,7 +111,11 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
     const isLast = index === arr.length - 1;
     const item = [
       lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
-      mixedValueLine(lang, "👤", entry.name),
+      mixedValueLine(
+        lang,
+        entry.genderEmoji || "👤",
+        `${entry.name}${Number.isInteger(Number(entry.age)) && Number(entry.age) > 0 ? ` — 🎂 ${formatListIndex(lang, entry.age)}` : ""}`,
+      ),
       lineForLang(lang, viewAction),
       discussionsAction ? lineForLang(lang, discussionsAction) : "",
       lineForLang(lang, removeAction),

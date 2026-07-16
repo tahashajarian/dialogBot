@@ -461,7 +461,7 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
     codes,
     normalizePublicProfileCode,
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-      .select("userId publicProfileCode profileName firstName profileEmoji activeDiscussionId showActiveDiscussionOnProfile")
+      .select("userId publicProfileCode profileName firstName profileEmoji gender age activeDiscussionId showActiveDiscussionOnProfile")
       .lean(),
     findDiscussionUserIds: findVisibleProfileDiscussionUserIds,
   });

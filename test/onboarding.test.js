@@ -328,13 +328,15 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.fa.helpText, /۳ انتخاب/);
   assert.match(messages.en.helpText, /3 favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
-  assert.match(messages.fa.helpText, /آدم‌هایی با انتخاب‌های مشترک/);
+  assert.match(messages.fa.helpText, /محبوب‌های مشترک/);
+  assert.match(messages.fa.helpText, /به گفت‌وگوهات دعوتشون کن/);
   assert.match(messages.en.helpText, /👥 People/);
-  assert.match(messages.en.helpText, /people with shared choices/);
+  assert.match(messages.en.helpText, /people with shared favorites/);
+  assert.match(messages.en.helpText, /invite them later/i);
   assert.match(messages.fa.helpText, /تنظیمات ← حذف حساب/);
   assert.match(messages.en.helpText, /Settings → Delete account/);
-  assert.ok(messages.fa.helpText.length < 900);
-  assert.ok(messages.en.helpText.length < 900);
+  assert.ok(messages.fa.helpText.length < 950);
+  assert.ok(messages.en.helpText.length < 950);
 });
 
 test("main menu uses the warmer Me label without renaming profile copy", () => {

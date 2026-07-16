@@ -29,9 +29,20 @@ test("toSavedProfileListItems builds stable rows with deduped codes", () => {
   ]);
   const rows = toSavedProfileListItems(["u_A1", "u_B2", "u_A1", ""], byCode);
   assert.deepEqual(rows, [
-    { code: "u_A1", name: "Ali", userId: undefined, hasDiscussions: false },
-    { code: "u_B2", name: "Sara", userId: undefined, hasDiscussions: false },
+    { code: "u_A1", name: "Ali", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
+    { code: "u_B2", name: "Sara", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
   ]);
+});
+
+test("saved profiles use gender emoji and localized optional age", () => {
+  const items = toSavedProfileListItems(["u_A1", "u_B2"], new Map([
+    ["u_A1", { profileName: "لاله", gender: "female", age: 28 }],
+    ["u_B2", { profileName: "سام" }],
+  ]));
+  const text = buildSavedProfilesListText(messages, "fa", items);
+
+  assert.match(text, /👩[^\n]*لاله[^\n]*🎂 ۲۸/);
+  assert.match(text, /👤[^\n]*سام/);
 });
 
 test("isCodeSaved checks case-insensitive membership", () => {
@@ -52,8 +63,8 @@ test("buildSavedProfileListItems normalizes and hydrates user labels", async () 
     ]),
   });
   assert.deepEqual(rows, [
-    { code: "u_A1", name: "Ali", userId: undefined, hasDiscussions: false },
-    { code: "u_B2", name: "Sara", userId: undefined, hasDiscussions: false },
+    { code: "u_A1", name: "Ali", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
+    { code: "u_B2", name: "Sara", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
   ]);
 });
 

@@ -142,6 +142,44 @@ test("people discovery UI can hide shared sections for legacy plain rendering", 
   assert.match(text, /\/u_AB12/);
 });
 
+test("people discovery uses gender emoji with a neutral fallback", () => {
+  const gendered = buildPeopleDiscoveryText(messages, "en", [{
+    code: "u_A1",
+    name: "Sara",
+    genderEmoji: "👩",
+  }]);
+  const neutral = buildPeopleDiscoveryText(messages, "en", [{
+    code: "u_A2",
+    name: "Sam",
+  }]);
+
+  assert.match(gendered, /👩 Sara/);
+  assert.doesNotMatch(gendered, /👤 Sara/);
+  assert.match(neutral, /👤 Sam/);
+});
+
+test("people discovery shows localized age only when set", () => {
+  const withAge = buildPeopleDiscoveryText(messages, "fa", [{
+    code: "u_A1",
+    name: "لاله",
+    age: 28,
+  }]);
+  const withoutAge = buildPeopleDiscoveryText(messages, "en", [{
+    code: "u_A2",
+    name: "Sam",
+  }]);
+
+  assert.match(withAge, /🎂 ۲۸/);
+  assert.doesNotMatch(withoutAge, /🎂/);
+});
+
+test("people discovery intro invites viewing and saving without privacy wording", () => {
+  assert.match(messages.fa.peopleDiscoverIntro, /پروفایلشون رو ببینی/);
+  assert.match(messages.en.peopleDiscoverIntro, /view their profile/);
+  assert.doesNotMatch(messages.fa.peopleDiscoverIntro, /خصوصی/);
+  assert.doesNotMatch(messages.en.peopleDiscoverIntro, /private/);
+});
+
 test("people discovery title shows the full result count", () => {
   const text = buildPeopleDiscoveryText(messages, "en", [{
     code: "u_AB12",

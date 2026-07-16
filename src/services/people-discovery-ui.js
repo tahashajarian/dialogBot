@@ -50,9 +50,14 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
       .slice(0, 2)
       .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`)
       .join("\n") : "";
+    const personEmoji = entry.genderEmoji || "👤";
+    const age = Number(entry.age);
+    const ageSuffix = Number.isInteger(age) && age > 0
+      ? ` — 🎂 ${formatListIndex(lang, age)}`
+      : "";
     const nameLine = lang === "fa"
-      ? `${RTL_MARK}👤 ${FSI}${entry.name}${PDI}`
-      : `👤 ${entry.name}`;
+      ? `${RTL_MARK}${personEmoji} ${FSI}${entry.name}${PDI}${ageSuffix}`
+      : `${personEmoji} ${entry.name}${ageSuffix}`;
 
     return [
       `${formatListIndex(lang, baseIndex + index + 1)}.`,

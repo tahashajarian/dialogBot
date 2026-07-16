@@ -11,6 +11,7 @@ const {
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { countSharedTasteItems } = require("./taste-item-matching");
+const { getProfileGenderEmoji } = require("./profile");
 
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 3;
@@ -102,7 +103,7 @@ async function findPeopleBySharedTaste(viewer, {
         userId: { $in: candidateIds },
         bannedAt: null,
       })
-        .select("userId publicProfileCode firstName profileName profileEmoji")
+        .select("userId publicProfileCode firstName profileName profileEmoji gender age")
         .lean()
       : [];
     const byUserId = new Map((hydrated || []).map((candidate) => [Number(candidate.userId), candidate]));
@@ -118,6 +119,8 @@ async function findPeopleBySharedTaste(viewer, {
         userId: candidate.userId,
         code,
         name,
+        genderEmoji: getProfileGenderEmoji(candidate.gender),
+        age: candidate.age,
         sharedSections: sharedByUserId.get(userId) || [],
         isSaved: savedCodes.has(String(code || "").toLowerCase()),
         hasProfileName: Boolean(candidate.profileName),
@@ -134,7 +137,7 @@ async function findPeopleBySharedTaste(viewer, {
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
   })
-    .select("userId publicProfileCode firstName profileName profileEmoji aiLists aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+    .select("userId publicProfileCode firstName profileName profileEmoji gender age aiLists aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
     .lean();
 
@@ -153,6 +156,8 @@ async function findPeopleBySharedTaste(viewer, {
       userId: candidate.userId,
       code,
       name,
+      genderEmoji: getProfileGenderEmoji(candidate.gender),
+      age: candidate.age,
       sharedSections,
       isSaved: savedCodes.has(String(code || "").toLowerCase()),
       hasProfileName: Boolean(candidate.profileName),

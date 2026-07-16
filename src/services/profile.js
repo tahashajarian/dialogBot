@@ -145,6 +145,14 @@ function hasProfileDisplayName(user) {
   return Boolean(String(user?.profileName || user?.firstName || "").trim());
 }
 
+function getProfileGenderEmoji(gender) {
+  return {
+    female: "👩",
+    male: "👨",
+    other: "🧬",
+  }[String(gender || "").trim().toLowerCase()] || "";
+}
+
 function getBasicProfileMissingFields(user) {
   const missing = [];
   if (!hasProfileDisplayName(user)) missing.push("name");
@@ -409,6 +417,7 @@ module.exports = {
   buildOwnProfileGrowthHint,
   buildTasteLabelsText,
   getBasicProfileMissingFields,
+  getProfileGenderEmoji,
   getProfileInterestTitles,
   buildLocationPayload,
   formatUserDisplayName,
