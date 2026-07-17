@@ -6,12 +6,14 @@ const { callBacks } = require("../src/constants");
 const {
   getOnboardingInterestChipTitle,
   helpKeyboard,
+  helpReferralKeyboard,
   helpRulesKeyboard,
   mainMenuKeyboard,
   onboardingCompleteKeyboard,
   onboardingInterestsKeyboard,
   onboardingLanguageKeyboard,
   onboardingWelcomeKeyboard,
+  profileStarsKeyboard,
 } = require("../src/keyboards");
 const {
   NEW_USER_WINDOW_MS,
@@ -351,7 +353,9 @@ test("help is available from the main menu and onboarding completion", () => {
   const helpLabels = helpKeyboard("fa").reply_markup.keyboard
     .flat()
     .map((button) => button.text);
-  const rulesLabels = helpRulesKeyboard("fa").reply_markup.keyboard
+  const helpRows = helpKeyboard("fa").reply_markup.keyboard
+    .map((row) => row.map((button) => button.text));
+  const rulesLabels = helpRulesKeyboard("fa").reply_markup.inline_keyboard
     .flat()
     .map((button) => button.text);
 
@@ -362,10 +366,17 @@ test("help is available from the main menu and onboarding completion", () => {
     messages.fa.helpRules,
     messages.fa.helpBackToMain,
   ]);
-  assert.deepEqual(rulesLabels, [
-    messages.fa.helpBackToGuide,
-    messages.fa.helpBackToMain,
+  assert.deepEqual(helpRows, [
+    [messages.fa.profileStarsButton, messages.fa.helpReferralButton],
+    [messages.fa.helpRules],
+    [messages.fa.helpBackToMain],
   ]);
+  assert.deepEqual(rulesLabels, [
+    messages.fa.discussionShareClose,
+  ]);
+  assert.equal(helpRulesKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpCardClose);
+  assert.equal(profileStarsKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpCardClose);
+  assert.equal(helpReferralKeyboard("fa", "https://example.com", "copy").reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.helpCardClose);
   assert.match(messages.fa.helpRules, /^📜/);
   assert.match(messages.en.helpRules, /^📜/);
   assert.match(messages.fa.helpRulesText, /💡/);

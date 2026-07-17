@@ -70,12 +70,14 @@ function mainMenuKeyboard(lang) {
 
 function helpKeyboard(lang) {
   return { reply_markup: { keyboard: [
-    [{
-      text: messages[lang].profileStarsButton,
-    }],
-    [{
-      text: messages[lang].helpReferralButton,
-    }],
+    [
+      {
+        text: messages[lang].profileStarsButton,
+      },
+      {
+        text: messages[lang].helpReferralButton,
+      },
+    ],
     [{
       text: messages[lang].helpRules,
     }],
@@ -89,19 +91,14 @@ function helpReferralKeyboard(lang, shareUrl = "", copyUrl = "") {
   return inlineKeyboard([
     ...(shareUrl ? [[{ text: messages[lang].helpReferralShare, url: shareUrl }]] : []),
     ...(copyUrl ? [[{ text: messages[lang].helpReferralCopy, copy_text: { text: copyUrl } }]] : []),
-    [{ text: messages[lang].helpBackToGuide, callback_data: callBacks.helpReferralBack }],
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose }],
   ]);
 }
 
 function helpRulesKeyboard(lang) {
-  return { reply_markup: { keyboard: [
-    [{
-      text: messages[lang].helpBackToGuide,
-    }],
-    [{
-      text: messages[lang].helpBackToMain,
-    }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return inlineKeyboard([[
+    { text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose },
+  ]]);
 }
 
 function aiAssistantKeyboard(lang) {
@@ -644,7 +641,11 @@ function onboardingTasteSetupNudgeKeyboard(lang) {
 
 function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
   const actions = getProfileInterestsReplyActions(lang, selectedItems, page);
-  return { reply_markup: { keyboard: actions.map((row) => row.map(({ text }) => ({ text }))), resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  actions[actions.length - 1] = [{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.profilePickerClose,
+  }];
+  return inlineKeyboard(actions);
 }
 
 function getProfileInterestsReplyActions(lang, selectedItems = [], page = 0) {
@@ -732,6 +733,10 @@ function profileKeyboard(lang, hasPhoto = false) {
       { text: messages[lang].profileEditName },
       { text: messages[lang].profileEditAge },
     ],
+    [
+      { text: messages[lang].profileEditCity },
+      { text: messages[lang].profileEditGender },
+    ],
     hasPhoto
       ? [
         { text: messages[lang].profileEditPhoto },
@@ -741,13 +746,7 @@ function profileKeyboard(lang, hasPhoto = false) {
         { text: messages[lang].profileAddPhoto },
       ],
     [
-      { text: messages[lang].profileEditCity },
-      { text: messages[lang].profileEditGender },
-    ],
-    [
       { text: messages[lang].profileEditInterests },
-    ],
-    [
       { text: messages[lang].profileMoreSettings },
     ],
     [
@@ -856,7 +855,9 @@ function profileActiveDiscussionHelpKeyboard(lang) {
 }
 
 function profileStarsKeyboard(lang) {
-  return { reply_markup: { keyboard: [[{ text: messages[lang].profileStarsBack }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return inlineKeyboard([[
+    { text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose },
+  ]]);
 }
 
 function cancelEditKeyboard(lang) {
@@ -870,6 +871,7 @@ function ltrText(value) {
 function ageKeyboard(lang) {
   const ranges = AGE_RANGES.map(([start, end]) => ({
     text: ltrText(`${start}-${end}`),
+    callback_data: `${callBacks.profileAgeRangeSet}${start}`,
   }));
 
   const rows = [];
@@ -877,9 +879,8 @@ function ageKeyboard(lang) {
     rows.push(ranges.slice(index, index + 3));
   }
 
-  rows.push([{ text: messages[lang].cancelEdit }]);
-
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.profilePickerClose }]);
+  return inlineKeyboard(rows);
 }
 
 function ageRangeKeyboard(lang, startAge) {
@@ -887,7 +888,7 @@ function ageRangeKeyboard(lang, startAge) {
   const ages = [];
 
   for (let age = rangeStart; age <= rangeEnd; age += 1) {
-    ages.push({ text: ltrText(String(age)) });
+    ages.push({ text: ltrText(String(age)), callback_data: `${callBacks.profileAgeSet}${age}` });
   }
 
   const rows = [];
@@ -895,41 +896,40 @@ function ageRangeKeyboard(lang, startAge) {
     rows.push(ages.slice(index, index + 5));
   }
 
-  rows.push([{ text: "🔙" }]);
-  rows.push([{ text: messages[lang].cancelEdit }]);
-
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.profileAgeRangeBack }]);
+  rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.profilePickerClose }]);
+  return inlineKeyboard(rows);
 }
 
 function petPreferenceKeyboard(lang) {
-  return { reply_markup: { keyboard: [
+  return inlineKeyboard([
     [
-      { text: messages[lang].petOptionAnyButton },
-      { text: messages[lang].petOptionNoneButton },
+      { text: messages[lang].petOptionAnyButton, callback_data: `${callBacks.profilePetSet}any` },
+      { text: messages[lang].petOptionNoneButton, callback_data: `${callBacks.profilePetSet}none` },
     ],
     [
-      { text: messages[lang].petOptionCatButton },
-      { text: messages[lang].petOptionDogButton },
+      { text: messages[lang].petOptionCatButton, callback_data: `${callBacks.profilePetSet}cat` },
+      { text: messages[lang].petOptionDogButton, callback_data: `${callBacks.profilePetSet}dog` },
     ],
     [
-      { text: messages[lang].petOptionBirdButton },
-      { text: messages[lang].petOptionSmallPetsButton },
+      { text: messages[lang].petOptionBirdButton, callback_data: `${callBacks.profilePetSet}bird` },
+      { text: messages[lang].petOptionSmallPetsButton, callback_data: `${callBacks.profilePetSet}small_pets` },
     ],
-    [{ text: messages[lang].cancelEdit }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.profilePickerClose }],
+  ]);
 }
 
 function genderKeyboard(lang) {
-  return { reply_markup: { keyboard: [
+  return inlineKeyboard([
     [
-      { text: messages[lang].genderOptionFemaleButton },
-      { text: messages[lang].genderOptionMaleButton },
+      { text: messages[lang].genderOptionFemaleButton, callback_data: `${callBacks.profileGenderSet}female` },
+      { text: messages[lang].genderOptionMaleButton, callback_data: `${callBacks.profileGenderSet}male` },
     ],
     [
-      { text: messages[lang].genderOptionOtherButton },
+      { text: messages[lang].genderOptionOtherButton, callback_data: `${callBacks.profileGenderSet}other` },
     ],
-    [{ text: messages[lang].cancelEdit }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.profilePickerClose }],
+  ]);
 }
 
 function locationKeyboard(lang) {

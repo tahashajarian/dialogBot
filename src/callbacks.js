@@ -470,15 +470,15 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.helpRules) {
     await ctx.answerCb?.();
-    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
-    await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
-    await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
-    await clearRememberedAiListMessage(ctx);
-    await forgetSavedProfilesListMessage(ctx);
-    await forgetPeopleListMessage(ctx);
     const rulesText = formatOperationalLimitsText(messages[lang].helpRulesText);
     const rulesKeyboard = helpRulesKeyboard(lang);
-    return showBottomHub(ctx, lang, "help", MODES.HELP_RULES, rulesText, rulesKeyboard, shouldClearKeyboard);
+    await setNavigationMode(ctx, MODES.HELP);
+    return editCallbackMessageOrReply(ctx, rulesText, rulesKeyboard);
+  }
+
+  if (data === callBacks.helpCardClose) {
+    await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible(ctx);
   }
 
   if (data === callBacks.language) {
@@ -512,11 +512,14 @@ async function handleCallback(ctx) {
   if (data === callBacks.helpReferral || data === callBacks.helpReferralBack) {
     if (data === callBacks.helpReferralBack) {
       await ctx.answerCb?.();
-      return editCallbackMessageOrReply(ctx, messages[lang].helpText, helpKeyboard(lang));
+      await retireCallbackMessageIfPossible(ctx);
+      await setNavigationMode(ctx, MODES.HELP);
+      return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
     }
     const card = await buildGuideReferralCard(ctx.userId, lang);
     if (!card.ok) return ctx.answerCb?.(messages[lang].unknownAction, { show_alert: true });
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, MODES.HELP);
     return editCallbackMessageOrReply(ctx, card.text, card.keyboard);
   }
 

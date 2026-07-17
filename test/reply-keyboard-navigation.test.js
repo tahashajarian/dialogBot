@@ -154,7 +154,7 @@ test("own Profile keeps Back as the final bottom-keyboard row", () => {
   }
 });
 
-test("Guide and Profile Settings static actions are mode scoped", () => {
+test("legacy Guide and Profile Settings reply actions remain mode scoped", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }).callbackData, callBacks.helpRules);
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.PROFILE }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.accountDelete);
@@ -347,12 +347,22 @@ test("filtered For Later mode exposes only Show all and restores the full-list a
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
 });
 
-test("Stars guide Back is scoped and Guide omits duplicate destination shortcuts", () => {
+test("legacy Guide reply keyboards remain usable only in their existing modes", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: "help_stars", state: "idle", user: { lang: "en" } }).callbackData, callBacks.profileStarsBack);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: MODES.HELP, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.helpReferralButton, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.helpReferral);
   assert.equal(resolveReplyKeyboardAction(messages.fa.helpBrowseDiscussions, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.helpGoToLists, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
+});
+
+test("Guide reply buttons recover from the inline experiment's persisted global mode", () => {
+  const context = { mode: MODES.GLOBAL, state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profileStarsButton, context).callbackData, callBacks.profileStars);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpReferralButton, context).callbackData, callBacks.helpReferral);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpRules, context).callbackData, callBacks.helpRules);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpBackToGuide, context).callbackData, callBacks.help);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profileStarsBack, context).callbackData, callBacks.help);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpBackToMain, context).callbackData, callBacks.menuMain);
 });
 
 test("discussion list and invitation navigation is bound to its exact server page", () => {

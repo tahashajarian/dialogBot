@@ -63,6 +63,9 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Completion should confirm the number of saved interests without repeating the full selection list or inferring a taste label from only three broad choices. Briefly explain that media favorites improve personal suggestions and help users find relevant discussions.
 - End with active discussions as the primary action so users can choose a room themselves. Offer `My favorites 🎬🎵📚` and the main menu as secondary actions.
 - Keep a reusable Muze guide in the main menu; onboarding completion can reach it through the main menu.
+- Keep the Guide reply keyboard compact: place Stars and Invite together, with Rules and Back each on a clear separate row.
+- Stars, Rules, and Invite open separate inline cards while the Guide reply keyboard stays visible and active. Stars and Rules contain only Close; Invite contains Share, Copy when available, and Close. Close deletes only the selected card and does not navigate or replace the reply keyboard.
+- Accept Guide reply buttons once from the global mode as recovery for keyboards left visible by the temporary inline Guide experiment; each destination immediately restores its normal scoped mode.
 - The About/guide should summarize Movies/Music/Books favorites and lists, suggestions, Stars, discussions, profiles, people discovery, and private saved profiles, with direct actions to the Stars overview, `My favorites 🎬🎵📚`, and active discussions. The internal hub title remains the descriptive `🎬🎵📚 Movies, Music & Books`.
 - Rules should reflect enforced privacy and product limits; do not describe planned moderation or discovery behavior as if it already exists.
 - If onboarding offers a direct active-discussions action, it should open the active discussion list directly, not the intermediate discussions menu.
@@ -137,6 +140,8 @@ Stars UX rules:
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Discussion-visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompts use temporary bottom modes. After save or cancel, switch modes and leave the prompt as harmless history; do not delete it.
+- Selection-only Profile editors—age, gender, pet preference, and Interests—use temporary inline picker cards ending in a delete-only Close. Typed/media inputs remain bottom/text flows; location remains a reply keyboard because Telegram requires it for location requests.
+- Keep the main Profile reply keyboard compact and grouped: name/age, city/gender, photo controls, Interests/More Settings, then Back. Keep destructive account deletion isolated inside More Settings rather than pairing it with a normal action.
 - Canceling the location-sharing prompt returns to Profile Settings, where the action started, rather than the main Profile menu.
 - Profile display names must be emoji-free. Profile emoji is a separate paid cosmetic chosen from a paged curated picker, appears after the display name, and users may also type exactly one allowed emoji. Reserved system emojis, including the current bot marker, are not available there. Users should get a clear retry prompt if they submit emoji in their typed name.
 - People and saved-profile lists use text command links for item actions plus page-bound inline pagination and a delete-only Close action. Their People-hub bottom keyboard remains visible and actionable. Show saved-profile `/ds_CODE` links only when the user has a visible/open discussion.

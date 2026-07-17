@@ -323,10 +323,31 @@ test("help rules callback opens the rules card", async () => {
 
   await handleCallback(ctx);
 
-  assert.equal(edits.length, 0);
-  assert.equal(replies[0].text, formatOperationalLimitsText(messages.en.helpRulesText));
-  const labels = keyboardButtons(replies[0].extra).map((button) => button.text);
-  assert.deepEqual(labels, [messages.en.helpBackToGuide, messages.en.helpBackToMain]);
+  assert.equal(replies.length, 0);
+  assert.equal(edits[0].text, formatOperationalLimitsText(messages.en.helpRulesText));
+  const buttons = keyboardButtons(edits[0].extra);
+  assert.deepEqual(buttons.map((button) => button.text), [messages.en.discussionShareClose]);
+  assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.helpCardClose]);
+});
+
+test("Guide card Close deletes only the selected inline card", async () => {
+  const deleted = [];
+  const ctx = {
+    callbackData: callBacks.helpCardClose,
+    callbackMessageId: 321,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle", navigationMode: "help" },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.deepEqual(deleted, [321]);
+  assert.equal(ctx.user.navigationMode, "help");
 });
 
 test("profile settings keeps the profile display with settings controls", async () => {
@@ -599,6 +620,45 @@ test("profile emoji Close only removes the picker", async () => {
   assert.deepEqual(states, ["idle"]);
   assert.deepEqual(deletedIds, [334]);
   assert.deepEqual(replies, []);
+});
+
+test("selection-only profile picker Close removes only the picker", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deletedIds = [];
+  const replies = [];
+  User.findOneAndUpdate = async () => ({ userId: 999 });
+  const ctx = {
+    callbackData: callBacks.profilePickerClose,
+    callbackMessageId: 456,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "editing_gender",
+      profileEditPromptMessageId: 456,
+      publicProfileLastMessageId: 456,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deletedIds.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deletedIds, [456]);
+  assert.deepEqual(replies, []);
+  assert.equal(ctx.user.state, "idle");
+  assert.equal(ctx.user.profileEditPromptMessageId, null);
 });
 
 test("profile reply buttons do not retire unrelated remembered cards", async () => {

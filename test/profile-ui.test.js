@@ -387,6 +387,7 @@ test("profileKeyboard groups frequent profile edits into compact rows", () => {
   const labels = buttons.map((button) => button.text);
   const nameAgeRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditName));
   const cityGenderRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditCity));
+  const interestsSettingsRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditInterests));
 
   assert.ok(labels.includes(messages.en.profileMoreSettings));
   assert.ok(!labels.includes(messages.en.profileEditBio));
@@ -394,22 +395,25 @@ test("profileKeyboard groups frequent profile edits into compact rows", () => {
   assert.ok(!labels.includes(messages.en.profileEditLocation));
   assert.deepEqual(nameAgeRow.map((button) => button.text), [messages.en.profileEditName, messages.en.profileEditAge]);
   assert.deepEqual(cityGenderRow.map((button) => button.text), [messages.en.profileEditCity, messages.en.profileEditGender]);
+  assert.deepEqual(interestsSettingsRow.map((button) => button.text), [messages.en.profileEditInterests, messages.en.profileMoreSettings]);
+  assert.ok(rows.indexOf(cityGenderRow) < rows.findIndex((row) => row.some((button) => [messages.en.profileAddPhoto, messages.en.profileEditPhoto].includes(button.text))));
 });
 
 test("profile interests keep selected built-in chips in place", () => {
-  const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.keyboard;
-  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.keyboard;
+  const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard;
+  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.inline_keyboard;
   const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
   const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
 
   assert.equal(plainRows[1][0], plainChess);
   assert.equal(selectedRows[1][0], selectedChess);
   assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
+  assert.equal(selectedRows.at(-1)[0].callback_data, callBacks.profilePickerClose);
 });
 
 test("age picker buttons are ordered left to right", () => {
   const visibleText = (button) => button.text.replace(/[\u2066\u2069]/g, "");
-  const rangeRows = ageKeyboard("en")?.reply_markup?.keyboard || [];
+  const rangeRows = ageKeyboard("en")?.reply_markup?.inline_keyboard || [];
   assert.deepEqual(
     rangeRows[0].map(visibleText),
     ["13-17", "18-24", "25-34"],
@@ -419,11 +423,13 @@ test("age picker buttons are ordered left to right", () => {
     ["35-44", "45-54", "55-64"],
   );
 
-  const ageRows = ageRangeKeyboard("en", 13)?.reply_markup?.keyboard || [];
+  const ageRows = ageRangeKeyboard("en", 13)?.reply_markup?.inline_keyboard || [];
   assert.deepEqual(
     ageRows[0].map(visibleText),
     ["13", "14", "15", "16", "17"],
   );
+  assert.equal(rangeRows.at(-1)[0].callback_data, callBacks.profilePickerClose);
+  assert.equal(ageRows.at(-1)[0].callback_data, callBacks.profilePickerClose);
 });
 
 test("profile age validation starts at 13", () => {

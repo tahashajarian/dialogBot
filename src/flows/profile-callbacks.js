@@ -148,6 +148,7 @@ function isProfileSettingsOrEditCallback(data = "") {
     data.startsWith(callBacks.profileInterestRemove) ||
     data.startsWith(callBacks.profileInterestMore) ||
     data === callBacks.profileInterestsDone ||
+    data === callBacks.profilePickerClose ||
     data === callBacks.profileEditLocation ||
     data.startsWith(callBacks.profileGenderSet) ||
     data.startsWith(callBacks.profilePetSet) ||
@@ -454,15 +455,12 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileStars) {
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
     const claimedRewards = await claimExistingProfileAndListMilestones(ctx.user || {});
     applyStarRewardsToContext(ctx, claimedRewards);
     const rewardNotice = buildStarRewardNotice(messages, lang, claimedRewards);
-    await setNavigationMode(ctx, "help_stars");
-    return ctx.reply(
-      [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n"),
-      profileStarsKeyboard(lang),
-    );
+    const text = [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n");
+    await setNavigationMode(ctx, MODES.HELP);
+    return ctx.reply(text, profileStarsKeyboard(lang));
   }
 
   if (data === callBacks.profileStarsBack) {
@@ -597,6 +595,17 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
     return handleProfileEditCompletion(ctx, lang, updatedUser);
+  }
+
+  if (data === callBacks.profilePickerClose) {
+    await ctx.answerCb?.();
+    const returnToSettings = ctx.user?.state === "editing_pet_preference";
+    await retireCallbackMessageIfPossible?.(ctx);
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
+    await updateUserState(ctx.userId, "idle");
+    if (ctx.user) ctx.user.state = "idle";
+    await setNavigationMode(ctx, returnToSettings ? MODES.PROFILE_SETTINGS : MODES.PROFILE);
+    return true;
   }
 
   if (data === callBacks.profileEditLocation) {

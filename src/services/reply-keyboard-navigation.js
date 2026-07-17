@@ -38,6 +38,14 @@ const GLOBAL = [
   ["aiAssistant", callBacks.aiAssistant], ["discussions", callBacks.discussions],
   ["people", callBacks.people], ["mainMenuMe", callBacks.profile], ["help", callBacks.help], ["language", callBacks.language],
 ];
+const GUIDE_GLOBAL_RECOVERY = [
+  ["profileStarsButton", callBacks.profileStars],
+  ["helpReferralButton", callBacks.helpReferral],
+  ["helpRules", callBacks.helpRules],
+  ["helpBackToGuide", callBacks.help],
+  ["profileStarsBack", callBacks.profileStarsBack],
+  ["helpBackToMain", callBacks.menuMain],
+];
 const BY_MODE = {
   [MODES.LANGUAGE]: [["🇮🇷 فارسی", callBacks.langSetFa], ["🇬🇧 English", callBacks.langSetEn], ["aiBack", callBacks.menuMain]],
   [MODES.FAVORITES]: [["aiSuggestMovies", callBacks.aiSuggestMovies], ["aiSuggestMusic", callBacks.aiSuggestMusic], ["aiSuggestBooks", callBacks.aiSuggestBooks], ["aiBack", callBacks.menuMain]],
@@ -156,6 +164,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   );
   const entries = [
     ...(mode === MODES.GLOBAL ? GLOBAL : []),
+    ...(mode === MODES.GLOBAL ? GUIDE_GLOBAL_RECOVERY : []),
     ...((keepsPeopleHubKeyboard && mode === "people_discovery_empty") ? [] : (BY_MODE[mode] || [])),
     ...(keepsDiscussionHubKeyboard ? BY_MODE[MODES.DISCUSSIONS] : []),
     ...(keepsPeopleHubKeyboard ? BY_MODE[MODES.PEOPLE] : []),
