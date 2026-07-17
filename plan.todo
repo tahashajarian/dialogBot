@@ -19,6 +19,8 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ☐ later: add another label if all items in a Top 10 relate to one person, band, or creator and call it "X fan"
     Not for launch. Define exact criteria first, avoid false claims, and keep it fun rather than ranking/status.
 
+☐ later: find a way to send message to users that are not active for a while and encourage them to come back
+    Not for launch. Decide frequency, content, and reward first.
 ✔ after onboarding and enter from invitation, before enter me to discussion first sent a message wich was empty then removed it and then entered me to the discussion and it's not only after onboarding everytime it try to enter form invitaion there is the empty message which comes and goes @done (7/12/2026, 3:52:47 AM)
 
 
@@ -76,3 +78,13 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ check the sort of active discussion, first tase label in each field then one item for movie or book or music then interest then what is free to join ofcure i'm not sure, let's talk about it @done (7/16/2026, 4:50:02 AM)
 
 ✔ test invitaion button copy @done (7/16/2026, 4:50:01 AM)
+
+✔ think more about onboarding to be more meaningful that what it is right now @done (7/17/2026, 8:44:53 AM)
+✔ think about location @done (7/16/2026, 5:00:11 PM)
+
+✔ if user reached to max discusion createing, we could ask star for create more discusison, at the start of it we check then ask if they agree to pay star, and then confirm if they have or not enough, continue if paid, other wise jsut show the button you don't have enough star, with go it inline message, the bottom button are discusion menu then, @done (7/17/2026, 6:46:43 AM)
+✔ make delte accont and emjoi, one line i think not sure need to cinsider at least @done (7/17/2026, 8:44:49 AM)
+✔ before enter discusion they accept this as my name منشتسیبمنتشکمیبتشکسیبتشمکسیبت @done (7/17/2026, 7:04:55 AM)
+✔ discussoin need to combie with inline and bottom button the list of discusion could be with inline butotn and the buttons only update the message of lists and even lang under it just open a card and after select will be removed, so list can work like theis and butotn on bottom can do the navigation stuff,  let think about it @done (7/17/2026, 8:37:31 AM)
+✔ also for invitaion too, could be seperate message with an inline butotn for close and nothing extar do, and bottom button remains i think and even my discusoin if it's full or empty could be a seperate card with its inline button, by this cahgen we are making it faster i think @done (7/17/2026, 8:37:38 AM)
+✔ also in profile for sending location return back main menu of profile is wrong cancel, think make it to inline btton with no navigation @done (7/17/2026, 7:13:17 AM)

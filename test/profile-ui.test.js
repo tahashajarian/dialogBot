@@ -113,10 +113,16 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(validateProfileName("Ali 😀", 30).reason, "emoji");
   assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
   assert.equal(validateProfileName("/start", 30).reason, "command_like");
+  assert.equal(validateProfileName("منشتسیبمنتشکمیبتشکسیبتشمکسیبت", 30).reason, "low_quality");
+  assert.deepEqual(
+    validateProfileName("محمدرضاپورابراهیمی", 30),
+    { ok: true, value: "محمدرضاپورابراهیمی" },
+  );
   assert.equal(isValidTextInput("/start", 120), false);
   assert.equal(sanitizeProfileNameCandidate("Ali 😀", 30), "Ali");
   assert.equal(sanitizeProfileNameCandidate("/start", 30), "");
   assert.equal(sanitizeProfileNameCandidate("😀", 30), "");
+  assert.equal(sanitizeProfileNameCandidate("منشتسیبمنتشکمیبتشکسیبتشمکسیبت", 30), "");
 });
 
 test("buildProfileText hides empty badge section", () => {

@@ -4,6 +4,7 @@ const { operationalLimits } = require("./operational-limits");
 const { isCommandLikeText } = require("./command-like-text");
 const { getProfileStarCompletionStatus } = require("./star-milestones");
 const { starEconomy } = require("./star-settings");
+const { isLowQualityProfileName } = require("./ai-input-quality");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -56,6 +57,7 @@ function normalizeProfileName(name) {
 function sanitizeProfileNameCandidate(name, maxLength) {
   const sanitized = normalizeProfileName(String(name || "").replace(/\p{Extended_Pictographic}/gu, ""));
   if (!isValidTextInput(sanitized, maxLength)) return "";
+  if (isLowQualityProfileName(sanitized)) return "";
   return sanitized;
 }
 
@@ -72,6 +74,9 @@ function validateProfileName(name, maxLength) {
   }
   if (normalized.length < 3) {
     return { ok: false, reason: "too_short" };
+  }
+  if (isLowQualityProfileName(normalized)) {
+    return { ok: false, reason: "low_quality" };
   }
   return { ok: true, value: normalized };
 }

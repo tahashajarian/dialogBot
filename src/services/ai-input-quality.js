@@ -117,6 +117,13 @@ function hasSuspiciousRtlToken(value) {
   return getRtlLetterTokens(value).some((token) => token.length >= 12);
 }
 
+function hasSuspiciousRepeatedRtlToken(value) {
+  return getRtlLetterTokens(value).some((token) => {
+    if (token.length < 12) return false;
+    return new Set(token).size / token.length < 0.4;
+  });
+}
+
 function hasMixedScriptPlaceholder(value) {
   const normalized = normalizeQualityInput(value);
   const tokens = normalized.split(" ").filter(Boolean);
@@ -138,6 +145,23 @@ function isLowQualityAiListItem(value) {
   if (hasPersianKeyboardSequence(normalized)) return true;
   if (hasSuspiciousAsciiToken(normalized)) return true;
   if (hasSuspiciousRtlToken(normalized)) return true;
+  if (hasMixedScriptPlaceholder(normalized)) return true;
+
+  return false;
+}
+
+function isLowQualityProfileName(value) {
+  const normalized = normalizeQualityInput(value);
+  if (!normalized) return true;
+  if (PLACEHOLDER_INPUTS.has(normalized)) return true;
+
+  const asciiLetters = getAsciiLetters(normalized);
+  if (asciiLetters.length >= 4 && hasLongRepeatedRun(asciiLetters)) return true;
+  if (asciiLetters.length >= 5 && hasKeyboardSequence(asciiLetters)) return true;
+  if (asciiLetters.length >= 8 && hasLongConsonantRun(asciiLetters)) return true;
+  if (hasPersianKeyboardSequence(normalized)) return true;
+  if (hasSuspiciousAsciiToken(normalized)) return true;
+  if (hasSuspiciousRepeatedRtlToken(normalized)) return true;
   if (hasMixedScriptPlaceholder(normalized)) return true;
 
   return false;
@@ -165,5 +189,6 @@ function validateMinimumLength(value) {
 module.exports = {
   normalizeQualityInput,
   isLowQualityAiListItem,
+  isLowQualityProfileName,
   validateMinimumLength,
 };
