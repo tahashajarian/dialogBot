@@ -86,15 +86,15 @@ Deployment to a new server is also approval-gated. Follow `docs/fresh-server-dep
 
 ## 1. Starter-room capacity and invitation selection
 
-☐ Change `BOT_STARTER_DISCUSSION_MEMBER_CAP` from 20 to 100.
+☑ Change `BOT_STARTER_DISCUSSION_MEMBER_CAP` from 20 to 100. Confirmed on the live bot on 2026-07-17: starter capacity 100 worked and user-created discussion capacity behavior remained unchanged.
 
-☐ Confirm startup seeding updates all eight language-specific Muze starter rooms to 100 without changing membership, messages, status, public codes, or user-created rooms.
+☑ Confirm startup seeding updates all eight language-specific Muze starter rooms to 100 without changing membership, messages, status, public codes, or user-created rooms. Confirmed on the live bot on 2026-07-17: four Persian and four English starter instances existed at capacity 100, remained accessible after restart, and legacy language data was backfilled without creating or duplicating rooms.
 
-☐ Keep invitation selection atomic and safe under concurrent onboarding completions. Revalidate that the chosen room is open, joinable, and below capacity when the invitation is created or accepted.
+☑ Keep invitation selection atomic and safe under concurrent onboarding completions. Revalidate that the chosen room is open, joinable, and below capacity when the invitation is created or accepted. Confirmed on the live bot on 2026-07-17: simultaneous completion produced one starter invitation, acceptance joined once, and no automated invitation-pair Stars reward was created.
 
-☐ Keep the current no-room fallback: onboarding completes with Active Discussions, My favorites, and Main menu; no invitation button or invitation-ready copy is shown.
+☑ Keep the current no-room fallback: onboarding completes with Active Discussions, My favorites, and Main menu; no invitation button or invitation-ready copy is shown. Confirmed in the consolidated live smoke test on 2026-07-17.
 
-☐ Add/adjust tests for:
+☑ Add/adjust tests for: Confirmed on the live bot on 2026-07-17: Interest matching, language isolation, Free Discussion fallback, full-room/no-room behavior, repeat protection, and automated Stars exclusion worked as expected.
 - matching Interest room preferred over Free Discussion;
 - full matching room falls back to Free Discussion;
 - full Free Discussion creates no invitation;
@@ -105,48 +105,48 @@ Deployment to a new server is also approval-gated. Follow `docs/fresh-server-dep
 
 ## 2. Clear onboarding completion message
 
-☐ When a starter invitation exists, explain briefly:
+☑ When a starter invitation exists, explain briefly: Confirmed in Persian and English during the consolidated live smoke test on 2026-07-17.
 - Muze prepared one discussion to help the user start;
 - it was selected from their Interests when a matching room was available, otherwise it is the general Free Discussion;
 - opening the invitation is only a preview and does not join automatically;
 - rooms may have a join condition, and Muze will explain exactly how to satisfy it.
 
-☐ Prefer returning invitation metadata from the invitation service (match/free and room identity) instead of inferring it in the UI.
+☑ Prefer returning invitation metadata from the invitation service (match/free and room identity) instead of inferring it in the UI. Confirmed through isolated-database coverage and the consolidated live smoke test on 2026-07-17.
 
-☐ Keep the completion message compact and bilingual. Do not list every feature or repeat all selected Interests.
+☑ Keep the completion message compact and bilingual. Do not list every feature or repeat all selected Interests. Confirmed on 2026-07-17: the picker shows current selections as plain hyphen rows directly above the count, while the final Persian and English completion message stays compact without repeating the full list.
 
-☐ When no invitation exists, use the existing neutral completion copy and do not mention capacity or an internal failure.
+☑ When no invitation exists, use the existing neutral completion copy and do not mention capacity or an internal failure. Confirmed in the consolidated live smoke test on 2026-07-17.
 
-☐ Preserve shared-discussion-link behavior: keep the shared code through onboarding, do not create a second starter invitation, and show the shared-discussion continuation on completion.
+☑ Preserve shared-discussion-link behavior: keep the shared code through onboarding, do not create a second starter invitation, and show the shared-discussion continuation on completion. Confirmed on the live bot on 2026-07-17: the original shared discussion remained available through onboarding/restart, appeared as the first continuation action, opened as a preview without auto-joining, and no extra starter invitation was shown.
 
 ## 3. One-time section guidance
 
-☐ Add one durable user field for section-tip timestamps/flags, managed through `src/models/user.js` and `src/services/users.js`. Use stable keys such as `discussions`, `favorites`, and `people`.
+☑ Add one durable user field for section-tip timestamps/flags, managed through `src/models/user.js` and `src/services/users.js`. Use stable keys such as `discussions`, `favorites`, and `people`. Approved on 2026-07-17 from unit and isolated-database verification: stable keys persist independently, survive reloads, reject unknown keys, and preserve the first timestamp without requiring a legacy-user migration.
 
-☐ Discussions first visit:
+☑ Discussions first visit: Confirmed in the consolidated live smoke test on 2026-07-17; the tip appeared on the first meaningful visit without repeating through normal navigation.
 - explain that rooms are live conversations around interests and favorites;
 - say the preview shows the join condition;
 - say that if entry is locked, Muze explains what to add or complete;
 - lead directly into Active Discussions, not another tutorial screen;
 - do not duplicate the existing first-invitation tip in the same visit.
 
-☐ Favorites first visit:
+☑ Favorites first visit: Confirmed in the consolidated live smoke test on 2026-07-17; guidance and existing manager controls worked together without repetition.
 - explain Favorites versus Watch/Listen/Read Later lists;
 - explain that 3 Favorites unlock suggestions and 10 can produce a taste label;
 - mention that favorites improve People and discussion relevance;
 - keep existing manager controls immediately available.
 
-☐ People first visit:
-- explain that discovery uses shared saved choices and is not private chat or a compatibility score;
+☑ People first visit: Confirmed in the consolidated live smoke test on 2026-07-17 after replacing the internal-sounding disclaimer with natural bilingual copy.
+- explain discovery naturally through shared saved choices;
 - explain that saving a profile is private and enables finding/inviting that person later;
 - if the user lacks enough data, keep the existing direct action to My favorites;
 - do not repeat the tip on Saved Profiles or every People result page.
 
-☐ Mark a tip shown only after its destination message is successfully sent. Fail open: a database failure must not block the section.
+☑ Mark a tip shown only after its destination message is successfully sent. Fail open: a database failure must not block the section. Confirmed by delivery-failure tests, persistence tests, and the consolidated live smoke test on 2026-07-17.
 
-☐ Avoid extra bubbles where possible. Include the tip in the section's existing first response, separated by one blank line.
+☑ Avoid extra bubbles where possible. Include the tip in the section's existing first response, separated by one blank line. Confirmed in the consolidated live smoke test on 2026-07-17.
 
-☐ Add tests proving each tip:
+☑ Add tests proving each tip: Unit and isolated-database coverage passed on 2026-07-17, followed by the consolidated bilingual live smoke test.
 - appears once for a new user;
 - does not appear on later visits;
 - survives restart/device changes through persisted state;
@@ -156,11 +156,11 @@ Deployment to a new server is also approval-gated. Follow `docs/fresh-server-dep
 
 ## 4. Analytics
 
-☐ Add privacy-light events for `onboarding_started`, onboarding completion destination chosen, and first section-tip exposure.
+☑ Add privacy-light events for `onboarding_started`, onboarding completion destination chosen, and first section-tip exposure. Implemented and validated on 2026-07-17.
 
-☐ Record only safe metadata such as destination/source/tip key. Never store Interest text, room messages, or profile content in analytics.
+☑ Record only safe metadata such as destination/source/tip key. Never store Interest text, room messages, or profile content in analytics. Safe-field filtering tests passed on 2026-07-17.
 
-☐ Add the new funnel steps to the analytics dashboard so the private beta can answer:
+☑ Add the new funnel steps to the analytics dashboard so the private beta can answer: Implemented on 2026-07-17 while preserving all existing funnel rows.
 - how many users start and complete onboarding;
 - how many receive/open a starter invitation;
 - how many open Active Discussions and successfully join;
@@ -168,23 +168,23 @@ Deployment to a new server is also approval-gated. Follow `docs/fresh-server-dep
 
 ## 5. Documentation alignment
 
-☐ Update `docs/bot-ux.md`, `docs/discussions.md`, `docs/architecture.md`, and `docs/agent-map.md` after implementation.
+☑ Update `docs/bot-ux.md`, `docs/discussions.md`, `docs/architecture.md`, and `docs/agent-map.md` after implementation. Completed on 2026-07-17.
 
-☐ Document capacity 100 as the current starter-room limit and keep overflow rooms explicitly deferred.
+☑ Document capacity 100 as the current starter-room limit and keep overflow rooms explicitly deferred. Completed on 2026-07-17.
 
-☐ Keep the production smoke-test checklist aligned with the one-time-tip and starter-invitation journey.
+☑ Keep the production smoke-test checklist aligned with the one-time-tip and starter-invitation journey. Completed on 2026-07-17.
 
 ## 6. Validation and rollout
 
-☐ Run `npm.cmd run validate:translations`.
+☑ Run `npm.cmd run validate:translations`. Passed for 820 English/Persian keys on 2026-07-17.
 
-☐ Run `npm.cmd test`.
+☑ Run `npm.cmd test`. Passed 524 unit tests on 2026-07-17.
 
-☐ Run `npm.cmd run test:integration` because starter-room seeding and invitation database behavior change.
+☑ Run `npm.cmd run test:integration` because starter-room seeding and invitation database behavior change. Passed 35 integration tests on 2026-07-17.
 
-☐ Run `git diff --check`.
+☑ Run `git diff --check`. Passed on 2026-07-17.
 
-☐ Manually smoke-test in both Persian and English:
+☑ Manually smoke-test in both Persian and English: User confirmed the consolidated live-bot checklist passed on 2026-07-17.
 - direct new user;
 - matching Interest invitation;
 - Free Discussion fallback;

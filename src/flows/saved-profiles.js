@@ -13,7 +13,12 @@ const {
   savedProfilesListKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
-const { updateProfileField, updateUserFields } = require("../services/users");
+const {
+  hasSectionTipBeenShown,
+  markSectionTipShownForContext,
+  updateProfileField,
+  updateUserFields,
+} = require("../services/users");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const {
   getBasicProfileMissingFields,
@@ -39,6 +44,7 @@ const {
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
 const {
+  buildPeopleHubText,
   buildPeopleDiscoveryText,
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
@@ -497,9 +503,14 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
   await sendNavigationFootprint(ctx, { lang, destination: "people", removeKeyboard });
+  const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "people");
+  const text = buildPeopleHubText(messages, lang, { showFirstVisitTip });
   const sent = send
-    ? await send(messages[lang].peopleMenu, peopleHubKeyboard(lang))
-    : await ctx.reply(messages[lang].peopleMenu, peopleHubKeyboard(lang));
+    ? await send(text, peopleHubKeyboard(lang))
+    : await ctx.reply(text, peopleHubKeyboard(lang));
+  if (showFirstVisitTip) {
+    await markSectionTipShownForContext(ctx, "people", new Date()).catch(() => null);
+  }
   await setNavigationMode(ctx, "people");
   return sent;
 }

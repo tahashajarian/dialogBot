@@ -8,7 +8,11 @@ const {
   discussionJoinErrorAckKeyboard,
   normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
-const { updateProfileField } = require("../services/users");
+const {
+  hasSectionTipBeenShown,
+  markSectionTipShownForContext,
+  updateProfileField,
+} = require("../services/users");
 const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter } = require("../services/discussion-language");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -226,17 +230,32 @@ async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
   return ctx.reply(text, keyboard);
 }
 
+function addDiscussionFirstVisitTip(lang, text, showTip) {
+  return showTip ? `${messages[lang].discussionFirstVisitTip}\n\n${text}` : text;
+}
+
+async function markDiscussionFirstVisitTip(ctx, shownAt = new Date()) {
+  return markSectionTipShownForContext(ctx, "discussions", shownAt).catch(() => null);
+}
+
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, languageFilter = null, {
   editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
   freshDestination = false,
 } = {}) {
   if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "activeDiscussions" });
+  const showFirstVisitTip = freshDestination && !hasSectionTipBeenShown(ctx.user, "discussions");
   const effectiveLanguage = normalizeDiscussionLanguageFilter(languageFilter) || getEffectiveDiscussionLanguageFilter(ctx.user);
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
     await ctx.answerCb?.(messages[lang].discussionListEmpty.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     await setNavigationMode(ctx, "discussions");
-    return editCallbackMessageOrReply(ctx, messages[lang].discussionListEmpty, discussionsMenuKeyboard(lang));
+    const emptyMessage = await editCallbackMessageOrReply(
+      ctx,
+      addDiscussionFirstVisitTip(lang, messages[lang].discussionListEmpty, showFirstVisitTip),
+      discussionsMenuKeyboard(lang),
+    );
+    if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
+    return emptyMessage;
   }
   await ctx.answerCb?.();
   const decorated = await decorateDiscussionsForList(ctx.user, result.discussions);
@@ -247,7 +266,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     await setNavigationMode(ctx, navigationMode);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
-      messages[lang].discussionListJoinableEmpty,
+      addDiscussionFirstVisitTip(lang, messages[lang].discussionListJoinableEmpty, showFirstVisitTip),
       discussionListNavigationKeyboard(lang, {
         listType: "active",
         page: 0,
@@ -256,6 +275,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
         languageFilter: effectiveLanguage,
       }),
     );
+    if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
     await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
     return listMessage;
   }
@@ -264,10 +284,14 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   await setNavigationMode(ctx, navigationMode);
   const listMessage = await editCallbackMessageOrReply(
     ctx,
-    buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
-      startIndex: paged.startIndex,
-      totalCount: filtered.length,
-    }),
+    addDiscussionFirstVisitTip(
+      lang,
+      buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
+        startIndex: paged.startIndex,
+        totalCount: filtered.length,
+      }),
+      showFirstVisitTip,
+    ),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
       page: paged.page,
@@ -276,6 +300,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
       languageFilter: effectiveLanguage,
     }),
   );
+  if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
   await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
   return listMessage;
 }
@@ -435,6 +460,7 @@ async function handleDiscussionListCallback(ctx, lang, {
 
 module.exports = {
   clearRememberedDiscussionRoomCards,
+  addDiscussionFirstVisitTip,
   rememberDiscussionRoomCards,
   rememberDiscussionListMessage,
   rememberDiscussionMembersMessage,

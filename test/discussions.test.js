@@ -12,6 +12,7 @@ const {
   validateDiscussionDescription,
   validateDiscussionTitle,
   normalizeMaxMembers,
+  resolveDiscussionMaxMembers,
   DISCUSSION_MEMBER_CAP,
   DISCUSSION_ALLOWED_MEMBER_CAPS,
   DISCUSSION_RECENT_MESSAGES_CAP,
@@ -50,7 +51,36 @@ test("normalizes discussion capacity to allowed values", () => {
   assert.equal(normalizeMaxMembers(2), 2);
   assert.equal(normalizeMaxMembers(50), 50);
   assert.equal(normalizeMaxMembers(7), 20);
+  assert.equal(normalizeMaxMembers(100), 20);
   assert.equal(normalizeMaxMembers("nope"), 20);
+});
+
+test("resolves capacity 100 only for persisted language-specific bot starter rooms", () => {
+  assert.equal(resolveDiscussionMaxMembers({
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    maxMembers: 100,
+  }), 100);
+  assert.equal(resolveDiscussionMaxMembers({
+    isBotCreated: true,
+    botSeedKey: "free-discussion:fa",
+    maxMembers: 20,
+  }), 20);
+  assert.equal(resolveDiscussionMaxMembers({
+    isBotCreated: false,
+    botSeedKey: "free-discussion:en",
+    maxMembers: 100,
+  }), 20);
+  assert.equal(resolveDiscussionMaxMembers({
+    isBotCreated: true,
+    botSeedKey: "free-discussion",
+    maxMembers: 100,
+  }), 20);
+  assert.equal(resolveDiscussionMaxMembers({
+    isBotCreated: true,
+    botSeedKey: "custom-bot-room:en",
+    maxMembers: 100,
+  }), 20);
 });
 
 test("paid discussion capacities depend on Star spending availability", () => {
@@ -164,6 +194,7 @@ test("bot starter discussions use the bot id without fake members", async () => 
     for (const { update } of calls) {
       assert.equal(update.$set.creatorUserId, 9001);
       assert.equal(update.$set.isBotCreated, true);
+      assert.equal(update.$set.maxMembers, 100);
       assert.deepEqual(update.$setOnInsert.memberUserIds, []);
     }
     assert.deepEqual(calls[0].update.$set.joinRule, { type: "open" });

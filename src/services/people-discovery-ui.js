@@ -1,6 +1,13 @@
 const { PAGINATION } = require("../constants/pagination");
 const { callBacks } = require("../constants");
 
+function buildPeopleHubText(messages, lang, { showFirstVisitTip = false } = {}) {
+  return [
+    messages[lang].peopleMenu,
+    showFirstVisitTip ? messages[lang].peopleFirstVisitTip : "",
+  ].filter(Boolean).join("\n\n");
+}
+
 const PEOPLE_DIVIDER = PAGINATION.listDivider;
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
@@ -87,6 +94,7 @@ function isPeopleCallback(data = "") {
 }
 
 module.exports = {
+  buildPeopleHubText,
   buildPeopleDiscoveryText,
   isPeopleCallback,
 };

@@ -19,8 +19,8 @@ const {
   joinOrOpenDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
-  normalizeMaxMembers,
   normalizePublicProfileCode,
+  resolveDiscussionMaxMembers,
   validateJoinRules,
 } = require("../services/discussions");
 const {
@@ -570,7 +570,7 @@ async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
       preview.discussion.removedUserIds.includes(Number(ctx.userId))
     ) {
       blockedReason = "removed_by_owner";
-    } else if (!isOwner && (preview.discussion.memberUserIds || []).length >= normalizeMaxMembers(preview.discussion.maxMembers)) {
+    } else if (!isOwner && (preview.discussion.memberUserIds || []).length >= resolveDiscussionMaxMembers(preview.discussion)) {
       blockedReason = "discussion_full";
     } else if (!isOwner) {
       const eligibility = await validateJoinRules({ user: ctx.user, joinRule: preview.discussion.joinRule });

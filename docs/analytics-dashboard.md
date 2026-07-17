@@ -61,6 +61,7 @@ http://127.0.0.1:8787/?token=your_token
 - AI response cache size and hit counts
 - product events for the last 24 hours and seven days
 - simple seven-day funnel with unique users
+- guided seven-day journey rows for onboarding start/completion, starter-invitation preparation/opening, onboarding destination choices, discussion-list opening/joining, and first Favorites/People guidance exposure
 - Top 10 adds and suggestion requests by section
 
 ## Bot Limits
@@ -139,4 +140,6 @@ Operational health data is intentionally lightweight:
 
 Product analytics events are also fire-and-forget. They should never block the
 bot response path, and metadata is restricted to small safe fields such as
-section, count, source, and join-rule type.
+section, count, source, join-rule type, onboarding destination, and section-tip
+key. Interest text, list items, titles, message text, and other user-authored
+content are not stored in these events.

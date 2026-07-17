@@ -8,6 +8,7 @@ const {
   buildInvitationSentText,
   buildReceivedInvitationsText,
   filterSavedInviteTargets,
+  shouldShowDiscussionInvitationFirstTimeTip,
 } = require("../src/services/discussion-invitations-ui");
 const {
   buildSavedInviteTargets,
@@ -254,6 +255,29 @@ test("getInvitationDisplayState treats muted creator rooms as unavailable throug
   assert.equal(state.state, "unavailable");
 });
 
+test("starter invitation state uses capacity 100 without relaxing user-created rooms", async () => {
+  const starter = {
+    status: "open",
+    creatorUserId: 1,
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    maxMembers: 100,
+    memberUserIds: Array.from({ length: 99 }, (_, index) => index + 10),
+    removedUserIds: [],
+    joinRule: { type: "open" },
+  };
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, starter)).state, "joinable");
+  starter.memberUserIds.push(999);
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, starter)).state, "full");
+
+  const userCreated = {
+    ...starter,
+    isBotCreated: false,
+    memberUserIds: Array.from({ length: 20 }, (_, index) => index + 10),
+  };
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, userCreated)).state, "full");
+});
+
 test("received invitations localize bot-created discussion title and description", async () => {
   const text = await buildReceivedInvitationsText(messages, "fa", { userId: 2, discussionMembershipIds: [1] }, [{
     invitation: {
@@ -308,6 +332,16 @@ test("bot onboarding invitations do not show an inviter profile link", async () 
   assert.match(text, /Join 👉 \/accept_inv_BOT123/);
   assert.doesNotMatch(text, /Inviter profile/);
   assert.doesNotMatch(text, /\/u_/);
+});
+
+test("invitation guidance shares the durable Discussions tip state", () => {
+  const entry = { invitation: { publicInvitationCode: "i_TIP123" } };
+  assert.equal(shouldShowDiscussionInvitationFirstTimeTip({ discussionMembershipIds: [] }, [entry]), true);
+  assert.equal(shouldShowDiscussionInvitationFirstTimeTip({
+    discussionMembershipIds: [],
+    sectionTipsShownAt: { discussions: new Date() },
+  }, [entry]), false);
+  assert.equal(shouldShowDiscussionInvitationFirstTimeTip({ discussionMembershipIds: [1] }, [entry]), false);
 });
 
 test("createDiscussionInvitation rejects an empty discussion id before database lookup", async () => {

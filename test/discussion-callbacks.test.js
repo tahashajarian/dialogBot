@@ -27,10 +27,12 @@ const {
 const { callBacks } = require("../src/constants");
 const { COPY_TEXT_LIMIT } = require("../src/services/share-actions");
 const {
+  addDiscussionFirstVisitTip,
   clearDiscussionMembersMessage,
   clearDiscussionMenuNotice,
   clearRememberedDiscussionRoomCards,
   handleDiscussionListCallback,
+  renderActiveDiscussionList,
   renderMyDiscussionList,
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
@@ -445,6 +447,58 @@ test("discussion list title shows the full filtered count", () => {
   }], { totalCount: 8 });
 
   assert.match(text, /^Active discussions \(8\)/);
+});
+
+test("discussion first-visit guidance is compact, bilingual, and part of the list response", () => {
+  for (const lang of ["fa", "en"]) {
+    const list = buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, [{
+      title: "Room",
+      description: "Test",
+      memberUserIds: [],
+      maxMembers: 20,
+      joinRule: { type: "open" },
+      isJoinable: true,
+    }]);
+    const tipped = addDiscussionFirstVisitTip(lang, list, true);
+
+    assert.equal(tipped, `${messages[lang].discussionFirstVisitTip}\n\n${list}`);
+    assert.equal(addDiscussionFirstVisitTip(lang, list, false), list);
+    assert.match(messages[lang].discussionFirstVisitTip, /^💡/);
+  }
+});
+
+test("failed Active Discussions delivery does not mark its first-visit tip", async () => {
+  const originalUserFindOne = User.findOne;
+  const originalDiscussionFind = Discussion.find;
+  User.findOne = () => ({
+    select: () => ({ lean: async () => ({ discussionMembershipIds: [] }) }),
+  });
+  Discussion.find = () => ({
+    sort: () => ({ limit: async () => [] }),
+  });
+  const ctx = {
+    userId: 1,
+    user: { userId: 1 },
+    answerCb: async () => true,
+    reply: async () => ({ message_id: 1 }),
+  };
+
+  try {
+    await assert.rejects(
+      renderActiveDiscussionList(ctx, "en", 0, false, "en", {
+        freshDestination: true,
+        editCallbackMessageOrReply: async () => {
+          throw new Error("delivery failed");
+        },
+      }),
+      /delivery failed/,
+    );
+  } finally {
+    User.findOne = originalUserFindOne;
+    Discussion.find = originalDiscussionFind;
+  }
+
+  assert.equal(ctx.user.sectionTipsShownAt, undefined);
 });
 
 test("my discussions empty callback offers normal discussion navigation without toast text", async () => {

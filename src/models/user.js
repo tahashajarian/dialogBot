@@ -54,6 +54,12 @@ const AiSuggestionUsageSchema = new mongoose.Schema({
   random: { type: [Date], default: [] },
 }, { _id: false });
 
+const SectionTipsShownAtSchema = new mongoose.Schema({
+  discussions: { type: Date, default: null },
+  favorites: { type: Date, default: null },
+  people: { type: Date, default: null },
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   userId: { type: Number, required: true, unique: true },
   username: String,
@@ -170,6 +176,7 @@ const UserSchema = new mongoose.Schema({
   onboardingPromptMessageId: { type: Number, default: null },
   onboardingStarterInvitationsAt: { type: Date, default: null },
   onboardingTasteSetupNudgedAt: { type: Date, default: null },
+  sectionTipsShownAt: { type: SectionTipsShownAtSchema, default: () => ({}) },
   lastStartInviteCode: { type: String, default: "" },
   lastStartInviteAt: { type: Date, default: null },
   handledStartInviteCodes: { type: [String], default: [] },

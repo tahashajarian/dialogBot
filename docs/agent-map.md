@@ -51,7 +51,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - last-10 recent-message retention
 - `src/services/discussion-starters.js`: bot-created starter rooms.
   - stable starter room definitions and seed order
-  - idempotent startup seeding
+  - idempotent startup seeding and fixed 100-member capacity for recognized language-specific seeds
   - smart-pinning sort helper for starter rooms
 - `src/services/discussion-text.js`: shared discussion text helpers.
   - normalize discussion text fields
@@ -85,9 +85,11 @@ Use this map before changing code. It explains where behavior belongs so future 
   - remembered room/list/menu cards
   - stale discussion card cleanup predicates
   - create-flow state predicates
+  - first successful Active Discussions guidance delivery
 - `src/flows/discussion-invitations.js`: stored invitation commands/callbacks and source-specific return handling.
   - `/iv_CODE`, `/accept_inv_CODE`, `/remove_inv_CODE`
   - invitation inbox, invite saved profile, invite from saved profile, mute inviter
+  - first inbox explanation shares the durable Discussions guidance state with Active Discussions
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.
 
@@ -97,11 +99,12 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/models/account-deletion.js`: deletion progress, unique tombstone identity, and keyed anti-abuse fingerprint.
 - `docs/account-deletion.md`: deletion, retention, retry, and recreation contract.
 
-- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields.
+- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps.
+- `src/services/users.js`: whitelisted, atomic section-tip first-write helpers and centralized AI-list access/mutations.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
-- `src/flows/saved-profiles.js`: people hub callbacks, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
+- `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
@@ -124,6 +127,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - append-only onboarding prompt transitions without Telegram delete/edit cleanup
   - optional post-invite quick taste setup nudge for invite-first users who have not completed onboarding
   - handoff to starter invitations, Lists, discussions, or the main menu
+  - completion destination analytics without Interest text or other user content
 
 ## AI Lists And Suggestions
 

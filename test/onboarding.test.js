@@ -18,6 +18,7 @@ const {
   buildOnboardingCompleteText,
   buildOnboardingPrompt,
   getOnboardingPage,
+  getOnboardingCompletionDestination,
   handleOnboardingCallback,
   handleOnboardingText,
   isOnboardingCallback,
@@ -264,6 +265,7 @@ test("onboarding accepts a typed Persian interest directly from the current pick
   }
 
   assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /- فیلم\n- کتاب\n2 از 3 انتخاب شده/);
   assert.match(replies[0].text, /2 از 3 انتخاب شده/);
   const labels = replies[0].extra.reply_markup.keyboard.flat().map((button) => button.text);
   assert.ok(labels.some((label) => label.includes("کتاب") && label.includes("✓")));
@@ -271,16 +273,75 @@ test("onboarding accepts a typed Persian interest directly from the current pick
   assert.equal(user.navigationMode, "onboarding_interests:0");
 });
 
-test("onboarding completion shows invitation copy and action only when one exists", () => {
-  const plainText = buildOnboardingCompleteText("en");
-  const invitedText = buildOnboardingCompleteText("en", { hasInvitation: true });
-  const plainButtons = onboardingCompleteKeyboard("en").reply_markup.keyboard.flat();
-  const invitedButtons = onboardingCompleteKeyboard("en", { hasInvitation: true }).reply_markup.keyboard.flat();
+test("onboarding completion stays compact after the final typed Interest", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const user = {
+    userId: 8,
+    lang: "en",
+    state: "onboarding_interests",
+    navigationMode: "onboarding_interests:0",
+    pendingDiscussionShareCode: "d_SHARED",
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "Movies", comment: "", watched: false },
+          { title: "Gaming", comment: "", watched: false },
+        ],
+      },
+    },
+  };
+  User.findOne = async () => user;
+  User.findOneAndUpdate = async () => user;
 
-  assert.doesNotMatch(plainText, /prepared an invitation/);
-  assert.match(invitedText, /prepared an invitation/);
-  assert.equal(plainButtons.some((button) => button.text === messages.en.onboardingInvitationButton), false);
-  assert.equal(invitedButtons[0].text, messages.en.onboardingInvitationButton);
+  try {
+    await handleOnboardingText({
+      userId: 8,
+      user,
+      text: "Coffee",
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: 1 };
+      },
+    }, "en");
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /^👩‍🦳 Great/);
+  assert.doesNotMatch(replies[0].text, /Selected: Movies, Gaming, Coffee/);
+  assert.match(replies[0].text, /your 3 interests are saved/i);
+  assert.equal(replies[0].extra.reply_markup.keyboard.flat()[0].text, messages.en.onboardingDiscussionContinueButton);
+});
+
+test("onboarding completion shows invitation copy and action only when one exists", () => {
+  for (const lang of ["fa", "en"]) {
+    const plainText = buildOnboardingCompleteText(lang);
+    const matchText = buildOnboardingCompleteText(lang, { invitationKind: "match" });
+    const freeText = buildOnboardingCompleteText(lang, { invitationKind: "free" });
+    const plainButtons = onboardingCompleteKeyboard(lang).reply_markup.keyboard.flat();
+    const invitedButtons = onboardingCompleteKeyboard(lang, { hasInvitation: true }).reply_markup.keyboard.flat();
+    const sharedButtons = onboardingCompleteKeyboard(lang, { discussionContinuation: true }).reply_markup.keyboard.flat();
+
+    assert.equal(plainText.includes(messages[lang].onboardingInvitationReadyMatch), false);
+    assert.equal(plainText.includes(messages[lang].onboardingInvitationReadyFree), false);
+    assert.equal(matchText.includes(messages[lang].onboardingInvitationReadyMatch), true);
+    assert.equal(matchText.includes(messages[lang].onboardingInvitationReadyFree), false);
+    assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyFree), true);
+    assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyMatch), false);
+    assert.deepEqual(plainButtons.map((button) => button.text), [
+      messages[lang].discussionActiveList,
+      messages[lang].onboardingFavoritesButton,
+      messages[lang].onboardingMainMenuButton,
+    ]);
+    assert.equal(plainButtons.some((button) => button.text === messages[lang].onboardingInvitationButton), false);
+    assert.equal(invitedButtons[0].text, messages[lang].onboardingInvitationButton);
+    assert.equal(sharedButtons[0].text, messages[lang].onboardingDiscussionContinueButton);
+    assert.equal(sharedButtons.some((button) => button.text === messages[lang].onboardingInvitationButton), false);
+  }
 });
 
 test("help is available from the main menu and onboarding completion", () => {
@@ -350,12 +411,13 @@ test("main menu uses the warmer Me label without renaming profile copy", () => {
 });
 
 test("onboarding copy reports compact progress without inferring a vibe", () => {
-  const progress = buildOnboardingPrompt("en", 2, "Coffee");
+  const progress = buildOnboardingPrompt("en", [{ title: "Movies" }, { title: "Coffee" }]);
   const initial = buildOnboardingPrompt("en");
+  assert.match(progress, /- Movies\n- Coffee\n2 of 3 selected/);
   assert.match(progress, /2 of 3 selected/);
   assert.match(progress, /^👩‍🦳/);
   assert.doesNotMatch(progress, /first taste profile/);
-  assert.ok(progress.length <= initial.length * 1.1);
+  assert.ok(progress.length <= initial.length + 30);
   assert.doesNotMatch(progress, /learn.*about you/i);
 
   const complete = buildOnboardingCompleteText("fa", [
@@ -387,4 +449,20 @@ test("onboarding callback predicate owns only onboarding actions", () => {
   assert.equal(isOnboardingCallback(callBacks.onboardingTasteSetupDismiss), true);
   assert.equal(isOnboardingCallback(callBacks.onboardingSkip), false);
   assert.equal(isOnboardingCallback(callBacks.discussions), false);
+});
+
+test("onboarding completion destinations are tracked only from the exact reply-keyboard mode", () => {
+  const ctx = {
+    isReplyKeyboardAction: true,
+    user: { navigationMode: "onboarding_complete:1:0" },
+  };
+  assert.equal(getOnboardingCompletionDestination(ctx, callBacks.discussionInvitations), "starter_invitation");
+  assert.equal(getOnboardingCompletionDestination(ctx, callBacks.discussionListActive), "active_discussions");
+  assert.equal(getOnboardingCompletionDestination(ctx, callBacks.aiAssistant), "favorites");
+  assert.equal(getOnboardingCompletionDestination(ctx, callBacks.menuMain), "main_menu");
+  assert.equal(getOnboardingCompletionDestination({ ...ctx, isReplyKeyboardAction: false }, callBacks.aiAssistant), "");
+  assert.equal(getOnboardingCompletionDestination({
+    ...ctx,
+    user: { navigationMode: "favorites" },
+  }, callBacks.aiAssistant), "");
 });

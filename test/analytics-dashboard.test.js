@@ -1,7 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildUserListMetrics } = require("../src/services/analytics-dashboard");
+const {
+  buildGuidedJourneyFunnel,
+  buildUserListMetrics,
+} = require("../src/services/analytics-dashboard");
+const { EVENT_NAMES } = require("../src/services/analytics-events");
 
 function section(rows, name) {
   return rows.find((row) => row.section === name);
@@ -63,4 +67,33 @@ test("analytics list metrics count structured and legacy AI lists", () => {
   });
 
   assert.equal(section(rows, "random").usersWithTasteLabel, 0);
+});
+
+test("guided journey funnel combines event, destination, and first-tip counts", () => {
+  const funnel = buildGuidedJourneyFunnel({
+    [EVENT_NAMES.userStarted]: { count: 13, users: 11 },
+    [EVENT_NAMES.onboardingStarted]: { count: 12, users: 10 },
+    [EVENT_NAMES.onboardingCompleted]: { count: 9, users: 9 },
+    [EVENT_NAMES.starterInvitationPrepared]: { count: 7, users: 7 },
+    [EVENT_NAMES.starterInvitationOpened]: { count: 5, users: 5 },
+    [EVENT_NAMES.discussionListOpened]: { count: 8, users: 6 },
+    [EVENT_NAMES.discussionJoined]: { count: 4, users: 4 },
+    [EVENT_NAMES.profileSaved]: { count: 2, users: 2 },
+  }, [
+    { key: "active_discussions", count: 3, users: 3 },
+    { key: "favorites", count: 2, users: 2 },
+  ], [
+    { key: "favorites", count: 6, users: 6 },
+    { key: "people", count: 4, users: 4 },
+  ]);
+
+  const byKey = Object.fromEntries(funnel.map((row) => [row.key, row]));
+  assert.equal(byKey.Started.users, 11);
+  assert.equal(byKey["Onboarding started"].users, 10);
+  assert.equal(byKey["Starter invitation opened"].users, 5);
+  assert.equal(byKey["Chose Active Discussions"].users, 3);
+  assert.equal(byKey["First Favorites visit"].users, 6);
+  assert.equal(byKey["First People visit"].users, 4);
+  assert.equal(byKey["Saved profile"].count, 2);
+  assert.ok(byKey["Added Top 10 item"]);
 });

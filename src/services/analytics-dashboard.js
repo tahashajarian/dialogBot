@@ -55,6 +55,34 @@ function countAiItems(user, section, listType) {
   return structured || countLegacyItems(user, section, listType);
 }
 
+function metricsByKey(rows = []) {
+  return Object.fromEntries(rows.map((row) => [row.key, row]));
+}
+
+function buildGuidedJourneyFunnel(eventMetrics = {}, destinationRows = [], tipRows = []) {
+  const destinations = metricsByKey(destinationRows);
+  const tips = metricsByKey(tipRows);
+  const metric = (collection, key) => collection[key] || { count: 0, users: 0 };
+  return [
+    { key: "Started", event: EVENT_NAMES.userStarted, ...metric(eventMetrics, EVENT_NAMES.userStarted) },
+    { key: "Onboarding started", event: EVENT_NAMES.onboardingStarted, ...metric(eventMetrics, EVENT_NAMES.onboardingStarted) },
+    { key: "Onboarding completed", event: EVENT_NAMES.onboardingCompleted, ...metric(eventMetrics, EVENT_NAMES.onboardingCompleted) },
+    { key: "Starter invitation prepared", event: EVENT_NAMES.starterInvitationPrepared, ...metric(eventMetrics, EVENT_NAMES.starterInvitationPrepared) },
+    { key: "Starter invitation opened", event: EVENT_NAMES.starterInvitationOpened, ...metric(eventMetrics, EVENT_NAMES.starterInvitationOpened) },
+    { ...metric(destinations, "active_discussions"), key: "Chose Active Discussions", event: EVENT_NAMES.onboardingDestinationChosen },
+    { key: "Opened discussion list", event: EVENT_NAMES.discussionListOpened, ...metric(eventMetrics, EVENT_NAMES.discussionListOpened) },
+    { key: "Joined discussion", event: EVENT_NAMES.discussionJoined, ...metric(eventMetrics, EVENT_NAMES.discussionJoined) },
+    { ...metric(destinations, "favorites"), key: "Chose Favorites", event: EVENT_NAMES.onboardingDestinationChosen },
+    { ...metric(tips, "favorites"), key: "First Favorites visit", event: EVENT_NAMES.sectionTipExposed },
+    { ...metric(tips, "people"), key: "First People visit", event: EVENT_NAMES.sectionTipExposed },
+    { key: "Added Top 10 item", event: EVENT_NAMES.topTenItemAdded, ...metric(eventMetrics, EVENT_NAMES.topTenItemAdded) },
+    { key: "Unlocked taste label", event: EVENT_NAMES.tasteLabelUnlocked, ...metric(eventMetrics, EVENT_NAMES.tasteLabelUnlocked) },
+    { key: "Created discussion", event: EVENT_NAMES.discussionCreated, ...metric(eventMetrics, EVENT_NAMES.discussionCreated) },
+    { key: "Sent invite", event: EVENT_NAMES.inviteSent, ...metric(eventMetrics, EVENT_NAMES.inviteSent) },
+    { key: "Saved profile", event: EVENT_NAMES.profileSaved, ...metric(eventMetrics, EVENT_NAMES.profileSaved) },
+  ];
+}
+
 function buildUserListMetrics(users = []) {
   const perSection = Object.fromEntries(SECTIONS.map((section) => [section, {
     section,
@@ -132,6 +160,8 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     topTenBySection7d,
     suggestionsBySection7d,
     funnel7d,
+    onboardingDestinations7d,
+    sectionTips7d,
     starTransactionTotals,
     starEarners,
     starSpenders,
@@ -169,7 +199,10 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       since: since7d,
       names: [
         EVENT_NAMES.userStarted,
+        EVENT_NAMES.onboardingStarted,
         EVENT_NAMES.onboardingCompleted,
+        EVENT_NAMES.starterInvitationPrepared,
+        EVENT_NAMES.starterInvitationOpened,
         EVENT_NAMES.topTenItemAdded,
         EVENT_NAMES.tasteLabelUnlocked,
         EVENT_NAMES.discussionListOpened,
@@ -179,6 +212,8 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
         EVENT_NAMES.profileSaved,
       ],
     }),
+    countEventsBySection({ name: EVENT_NAMES.onboardingDestinationChosen, since: since7d }),
+    countEventsBySection({ name: EVENT_NAMES.sectionTipExposed, since: since7d }),
     StarTransaction.aggregate([
       { $match: { status: "applied" } },
       {
@@ -268,17 +303,9 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       last7d: events7d,
       topTenBySection7d,
       suggestionsBySection7d,
-      funnel7d: [
-        { key: "Started", event: EVENT_NAMES.userStarted, ...(funnel7d[EVENT_NAMES.userStarted] || { count: 0, users: 0 }) },
-        { key: "Onboarding completed", event: EVENT_NAMES.onboardingCompleted, ...(funnel7d[EVENT_NAMES.onboardingCompleted] || { count: 0, users: 0 }) },
-        { key: "Added Top 10 item", event: EVENT_NAMES.topTenItemAdded, ...(funnel7d[EVENT_NAMES.topTenItemAdded] || { count: 0, users: 0 }) },
-        { key: "Unlocked taste label", event: EVENT_NAMES.tasteLabelUnlocked, ...(funnel7d[EVENT_NAMES.tasteLabelUnlocked] || { count: 0, users: 0 }) },
-        { key: "Opened discussion list", event: EVENT_NAMES.discussionListOpened, ...(funnel7d[EVENT_NAMES.discussionListOpened] || { count: 0, users: 0 }) },
-        { key: "Joined discussion", event: EVENT_NAMES.discussionJoined, ...(funnel7d[EVENT_NAMES.discussionJoined] || { count: 0, users: 0 }) },
-        { key: "Created discussion", event: EVENT_NAMES.discussionCreated, ...(funnel7d[EVENT_NAMES.discussionCreated] || { count: 0, users: 0 }) },
-        { key: "Sent invite", event: EVENT_NAMES.inviteSent, ...(funnel7d[EVENT_NAMES.inviteSent] || { count: 0, users: 0 }) },
-        { key: "Saved profile", event: EVENT_NAMES.profileSaved, ...(funnel7d[EVENT_NAMES.profileSaved] || { count: 0, users: 0 }) },
-      ],
+      onboardingDestinations7d,
+      sectionTips7d,
+      funnel7d: buildGuidedJourneyFunnel(funnel7d, onboardingDestinations7d, sectionTips7d),
     },
   };
 }
@@ -286,4 +313,5 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
 module.exports = {
   getAnalyticsSnapshot,
   buildUserListMetrics,
+  buildGuidedJourneyFunnel,
 };

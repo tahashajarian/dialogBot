@@ -6,6 +6,9 @@ const {
   addAiListItem,
   getAiListItemsFromUser,
   getOrCreateUser,
+  hasSectionTipBeenShown,
+  markSectionTipShown,
+  markSectionTipShownForContext,
   normalizePlatformUserSource,
 } = require("../src/services/users");
 const { awardListMilestones } = require("../src/services/star-milestones");
@@ -53,6 +56,74 @@ test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
     getAiListItemsFromUser(user, "random", "topTen").map((entry) => entry.title),
     ["Movies", "Languages", "Custom typed thing"],
   );
+});
+
+test("section-tip state defaults independently and rejects unknown keys", async () => {
+  const user = new User({ userId: 321 });
+  assert.deepEqual(user.sectionTipsShownAt.toObject(), {
+    discussions: null,
+    favorites: null,
+    people: null,
+  });
+  assert.equal(hasSectionTipBeenShown(user, "discussions"), false);
+  user.sectionTipsShownAt.discussions = new Date("2026-07-17T10:00:00.000Z");
+  assert.equal(hasSectionTipBeenShown(user, "discussions"), true);
+  assert.equal(hasSectionTipBeenShown(user, "favorites"), false);
+  assert.equal(hasSectionTipBeenShown(user, "unknown"), false);
+
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let called = false;
+  User.findOneAndUpdate = async () => {
+    called = true;
+    return null;
+  };
+  try {
+    assert.equal(await markSectionTipShown(321, "unknown"), null);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+  assert.equal(called, false);
+});
+
+test("markSectionTipShown atomically sets only a missing stable tip key", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const shownAt = new Date("2026-07-17T11:00:00.000Z");
+  let call = null;
+  User.findOneAndUpdate = async (filter, update, options) => {
+    call = { filter, update, options };
+    return { userId: filter.userId, sectionTipsShownAt: { people: shownAt } };
+  };
+
+  try {
+    await markSectionTipShown(654, "people", shownAt);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(call, {
+    filter: { userId: 654, "sectionTipsShownAt.people": null },
+    update: { $set: { "sectionTipsShownAt.people": shownAt } },
+    options: { returnDocument: "after" },
+  });
+});
+
+test("section-tip context helper keeps synthetic contexts local", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const ctx = { userId: 777, user: { userId: 777 } };
+  let called = false;
+  User.findOneAndUpdate = async () => {
+    called = true;
+    return null;
+  };
+
+  try {
+    await markSectionTipShownForContext(ctx, "favorites", new Date("2026-07-17T14:00:00.000Z"));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(called, false);
+  assert.equal(ctx.user.sectionTipsShownAt.favorites.toISOString(), "2026-07-17T14:00:00.000Z");
 });
 
 test("addAiListItem rejects command-like titles before persistence", async () => {

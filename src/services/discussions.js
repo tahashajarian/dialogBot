@@ -34,7 +34,9 @@ const {
   removeSavedProfileCode,
 } = require("./saved-profiles");
 const {
+  BOT_STARTER_DISCUSSION_MEMBER_CAP,
   BOT_STARTER_DISCUSSIONS,
+  isBotStarterDiscussion,
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 } = require("./discussion-starters");
@@ -79,6 +81,16 @@ function normalizeMaxMembers(value) {
     ...getConfiguredDiscussionCapacities().filter((entry) => entry <= maximum || entry > 20),
   ]);
   return allowed.has(capacity) ? capacity : maximum;
+}
+
+function resolveDiscussionMaxMembers(discussion = {}) {
+  if (
+    isBotStarterDiscussion(discussion) &&
+    Number(discussion.maxMembers) === BOT_STARTER_DISCUSSION_MEMBER_CAP
+  ) {
+    return BOT_STARTER_DISCUSSION_MEMBER_CAP;
+  }
+  return normalizeMaxMembers(discussion.maxMembers);
 }
 
 const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-quality");
@@ -388,7 +400,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
         return { ok: false, reason: "removed_by_owner" };
       }
 
-      const maxMembers = normalizeMaxMembers(discussion.maxMembers);
+      const maxMembers = resolveDiscussionMaxMembers(discussion);
       if (discussion.memberUserIds.length >= maxMembers) {
         return { ok: false, reason: "discussion_full", cap: maxMembers };
       }
@@ -397,7 +409,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
       if (!eligibility.ok) return eligibility;
     }
 
-    const maxMembers = normalizeMaxMembers(discussion.maxMembers);
+    const maxMembers = resolveDiscussionMaxMembers(discussion);
     const joinedDiscussion = await Discussion.findOneAndUpdate(
       {
         _id: discussion._id,
@@ -770,6 +782,7 @@ module.exports = {
   normalizeTitle,
   normalizeDescription,
   normalizeMaxMembers,
+  resolveDiscussionMaxMembers,
   normalizePublicProfileCode,
   normalizePublicDiscussionCode,
   hasLink,

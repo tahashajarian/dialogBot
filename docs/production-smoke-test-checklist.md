@@ -14,8 +14,12 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 - Fresh user opens `/start`, chooses Persian, sees the localized welcome card, and can start quick interests.
 - Fresh user opens `/start`, chooses English, sees the localized welcome card, and can start quick interests.
 - User selects Interest chips, selected built-in chips stay in place with `✓` markers, and Continue appears only after the configured minimum.
+- After each selection, current Interests appear as plain `- item` lines immediately before the progress count.
 - User types one custom Interest; the old picker is consumed and the fresh progress/result appears below the user's text.
 - Completing onboarding stores choices in Interests Top 10 and does not create duplicate rewards on repeated callbacks.
+- A matching Interest room is preferred for the one prepared invitation; otherwise the correct-language Free Discussion is used. Completion copy distinguishes these cases, says opening is only a preview, and never auto-joins.
+- If both candidates are full or unavailable, completion stays neutral and shows no invitation-ready claim or button.
+- Restarting before opening the prepared invitation preserves exactly one invitation and the same destination.
 - Repeated `/start` sends a returning user with meaningful activity to the main menu.
 
 ## Invite-First Onboarding
@@ -48,10 +52,14 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 - Saved profiles behave as private bookmarks: save/remove does not notify the saved user.
 - Saved-profile list/profile Back navigation returns to the saved-profile list.
 - People browse profile Back navigation returns to the same People mode.
+- The first People hub visit naturally explains discovery through shared choices and private bookmarks; it must not sound like an internal product disclaimer. The second visit, result pages, Saved Profiles, Back navigation, restart, and another device do not repeat it.
 - Public profile cards offer useful save/remove actions, show discussions only when the viewed user has visible/open discussions, and do not leave the user stuck after saving or opening discussions.
 
 ## Discussions
 
+- All eight language-specific Muze starter rooms have capacity 100 after restart; user-created capacity defaults and choices remain unchanged.
+- The first Active Discussions visit includes compact live-room/join-condition guidance and the second visit, filters, pagination, Back, restart, and another device do not repeat it.
+- If the Invitations explanation is seen first, Active Discussions does not repeat the equivalent first-time guidance.
 - Create a basic discussion and verify first-create reward appears once.
 - Join a discussion and verify first-join reward appears once.
 - Leave, rejoin, close, and remove member basics work without stale inline cards.
@@ -62,12 +70,18 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Invitations And Referrals
 
+- The prepared onboarding invitation appears in the normal inbox, opens a preview without joining, and explains a missing join requirement when applicable.
 - Stored saved-profile invitation can be sent and accepted.
 - First directed invite pair rewards only once.
 - Repeated stored invitations between the same pair do not mention or award Stars again.
 - Public discussion share links work for existing users.
 - Attributable outside referral links preserve first valid referrer for genuinely new users.
 - Self-referrals and existing-user starts do not qualify.
+
+## Favorites First Visit
+
+- The first My favorites hub response distinguishes Favorites from Watch/Listen/Read Later, retains the three-item suggestion and ten-item taste-label guidance, and mentions People/discussion relevance.
+- The second visit, internal Back navigation, restart, and another device do not repeat the first-visit tip; normal manager controls remain immediately usable.
 
 ## Stars Spending Switches
 

@@ -17,6 +17,7 @@ const {
   updateUserState,
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
+const { localizeInterestChipTitle } = require("../services/interest-chips");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const { createOnboardingStarterInvitationsForUser } = require("../services/discussion-invitations");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -107,21 +108,33 @@ function shouldOfferTasteSetupNudge(user) {
   return getAiListItemsFromUser(user, "random", "topTen").length < getOnboardingInterestGoal();
 }
 
-function buildOnboardingPrompt(lang, count = 0, item = "") {
-  const key = item ? "onboardingInterestAdded" : "onboardingInterestsPrompt";
-  return messages[lang][key]
-    .replace("{item}", item)
-    .replace("{count}", String(count))
+function buildOnboardingPrompt(lang, items = []) {
+  const selectedItems = Array.isArray(items) ? items : [];
+  const selected = selectedItems.length
+    ? messages[lang].onboardingInterestsSelected.replace(
+      "{items}",
+      selectedItems
+        .map((entry) => localizeInterestChipTitle(entry?.title || entry, lang))
+        .map((title) => `- ${title}`)
+        .join("\n"),
+    )
+    : "";
+  return messages[lang].onboardingInterestsPrompt
+    .replace("{selected}", selected)
+    .replace("{count}", String(selectedItems.length))
     .replaceAll("{goal}", String(getOnboardingInterestGoal()))
     .replace("{limit}", String(getOnboardingInterestLimit()));
 }
 
-function buildOnboardingCompleteText(lang, { hasInvitation = false } = {}) {
+function buildOnboardingCompleteText(lang, { invitationKind = "" } = {}) {
   const base = messages[lang].onboardingComplete
     .replace("{goal}", String(getOnboardingInterestGoal()));
-  if (!hasInvitation) return base;
+  if (invitationKind !== "match" && invitationKind !== "free") return base;
   const paragraphs = base.split("\n\n");
-  paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, messages[lang].onboardingInvitationReady);
+  const invitationKey = invitationKind === "free"
+    ? "onboardingInvitationReadyFree"
+    : "onboardingInvitationReadyMatch";
+  paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, messages[lang][invitationKey]);
   return paragraphs.join("\n\n");
 }
 
@@ -130,10 +143,12 @@ async function prepareOnboardingCompletion(ctx, lang) {
   const invitationResult = discussionContinuation
     ? { count: 0 }
     : await createOnboardingStarterInvitationsForUser(ctx.userId).catch(() => ({ count: 0 }));
-  const hasInvitation = Number(invitationResult?.count) > 0;
+  const invitationKind = invitationResult?.invitation?.kind;
+  const hasInvitation = Number(invitationResult?.count) > 0
+    && (invitationKind === "match" || invitationKind === "free");
   await setNavigationMode(ctx, `onboarding_complete:${hasInvitation ? 1 : 0}:${discussionContinuation ? 1 : 0}`);
   return {
-    text: buildOnboardingCompleteText(lang, { hasInvitation }),
+    text: buildOnboardingCompleteText(lang, { invitationKind: hasInvitation ? invitationKind : "" }),
     keyboard: onboardingCompleteKeyboard(lang, { hasInvitation, discussionContinuation }),
   };
 }
@@ -171,7 +186,39 @@ async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReply
     : "onboarding_language";
   await updateUserState(ctx.userId, state);
   await setNavigationMode(ctx, "onboarding_language");
+  void trackEvent({
+    name: EVENT_NAMES.onboardingStarted,
+    userId: ctx.userId,
+    source: inviteCode ? "shared_discussion" : "direct",
+  });
   return ctx.reply(messages[lang].chooseLanguage, onboardingLanguageKeyboard());
+}
+
+const ONBOARDING_DESTINATIONS = Object.freeze({
+  [callBacks.discussionListActive]: "active_discussions",
+  [callBacks.discussionInvitations]: "starter_invitation",
+  [callBacks.aiAssistant]: "favorites",
+  [callBacks.menuMain]: "main_menu",
+  [callBacks.onboardingDiscussionContinue]: "shared_discussion",
+});
+
+function getOnboardingCompletionDestination(ctx, data) {
+  if (!ctx?.isReplyKeyboardAction) return "";
+  if (!String(ctx.user?.navigationMode || "").startsWith("onboarding_complete:")) return "";
+  return ONBOARDING_DESTINATIONS[data] || "";
+}
+
+function trackOnboardingCompletionDestination(ctx, data) {
+  const destination = getOnboardingCompletionDestination(ctx, data);
+  if (!destination) return "";
+  void trackEvent({
+    name: EVENT_NAMES.onboardingDestinationChosen,
+    userId: ctx.userId,
+    source: "onboarding_complete",
+    section: destination,
+    metadata: { destination },
+  });
+  return destination;
 }
 
 async function completeOnboarding(ctx, skipped = false) {
@@ -213,7 +260,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     await setOnboardingPickerMode(ctx, TASTE_SETUP_INTERESTS_STATE, 0);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingPrompt(lang, items.length),
+      buildOnboardingPrompt(lang, items),
       onboardingInterestsKeyboard(lang, items.map((entry) => entry.title)),
     );
   }
@@ -249,7 +296,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingPrompt(lang, items.length),
+      buildOnboardingPrompt(lang, items),
       onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
     );
   }
@@ -264,7 +311,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingPrompt(lang, items.length),
+      buildOnboardingPrompt(lang, items),
       onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
     );
   }
@@ -298,7 +345,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingPrompt(lang, (result.items || []).length),
+      buildOnboardingPrompt(lang, result.items || []),
       onboardingInterestsKeyboard(lang, (result.items || []).map((entry) => entry.title), page),
     );
   }
@@ -309,7 +356,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     await setOnboardingPickerMode(ctx, state, page);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      buildOnboardingPrompt(lang, items.length),
+      buildOnboardingPrompt(lang, items),
       onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
     );
   }
@@ -358,7 +405,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   await setOnboardingPickerMode(ctx, state, page);
   return helpers.editCallbackMessageOrReply(
     ctx,
-    [buildOnboardingPrompt(lang, items.length, result.ok ? item : ""), starNotice]
+    [buildOnboardingPrompt(lang, items), starNotice]
       .filter(Boolean)
       .join("\n\n"),
     onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
@@ -379,7 +426,7 @@ async function handleOnboardingText(ctx, lang) {
       await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
-        `${messages[lang].onboardingCustomInvalid}\n\n${buildOnboardingPrompt(lang, items.length)}`,
+        `${messages[lang].onboardingCustomInvalid}\n\n${buildOnboardingPrompt(lang, items)}`,
         onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
       );
     }
@@ -403,7 +450,7 @@ async function handleOnboardingText(ctx, lang) {
       await setOnboardingPickerMode(ctx, state, page);
       return sendFreshOnboardingPrompt(
         ctx,
-        `${errorText}\n\n${buildOnboardingPrompt(lang, items.length)}`,
+        `${errorText}\n\n${buildOnboardingPrompt(lang, items)}`,
         onboardingInterestsKeyboard(lang, items.map((entry) => entry.title), page),
       );
     }
@@ -426,7 +473,7 @@ async function handleOnboardingText(ctx, lang) {
     await setOnboardingPickerMode(ctx, nextState, page);
     return sendFreshOnboardingPrompt(
       ctx,
-      [buildOnboardingPrompt(lang, result.items.length, item), starNotice]
+      [buildOnboardingPrompt(lang, result.items), starNotice]
         .filter(Boolean)
         .join("\n\n"),
       onboardingInterestsKeyboard(
@@ -447,6 +494,7 @@ module.exports = {
   buildOnboardingPrompt,
   getOnboardingInterestGoal,
   getOnboardingInterestLimit,
+  getOnboardingCompletionDestination,
   getOnboardingPage,
   handleOnboardingCallback,
   handleOnboardingText,
@@ -455,4 +503,5 @@ module.exports = {
   shouldOfferTasteSetupNudge,
   sendTasteSetupNudge,
   startOnboardingLanguage,
+  trackOnboardingCompletionDestination,
 };

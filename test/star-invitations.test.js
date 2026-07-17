@@ -31,3 +31,16 @@ test("shared discussion links cannot award the directed-pair reward", async () =
   assert.equal(result.ok, false);
   assert.equal(result.reason, "excluded_source");
 });
+
+test("automated onboarding invitations cannot award the directed-pair reward", async () => {
+  for (const source of ["bot_onboarding", "onboarding_match"]) {
+    const result = await awardSavedInvitePair({
+      inviterUserId: 10,
+      inviteeUserId: 20,
+      invitationId: `invitation-${source}`,
+      source,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "excluded_source");
+  }
+});

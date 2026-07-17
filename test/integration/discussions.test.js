@@ -35,6 +35,16 @@ const {
 const {
   reportDiscussionMemberAndNotify,
 } = require("../../src/services/discussion-actions");
+const {
+  BOT_STARTER_INSTANCES,
+  seedBotDiscussions,
+} = require("../../src/services/discussion-starters");
+const { handleOnboardingText } = require("../../src/flows/onboarding");
+const { renderActiveDiscussionList } = require("../../src/flows/discussions-callbacks");
+const {
+  hasSectionTipBeenShown,
+  markSectionTipShown,
+} = require("../../src/services/users");
 const messages = require("../../src/messages");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
@@ -215,6 +225,120 @@ test("concurrent joins never exceed discussion capacity", async () => {
   assert.equal(rejected.length, 3);
   assert.ok(rejected.every((result) => result.reason === "discussion_full"));
   assert.equal(persisted.memberUserIds.length, 2);
+});
+
+test("a language-specific bot starter accepts members beyond 20 and preserves capacity 100", async () => {
+  const memberUserIds = Array.from({ length: 20 }, (_, index) => index + 1);
+  const discussion = await createOpenDiscussion(999, {
+    publicDiscussionCode: "d_START100",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds,
+    maxMembers: 100,
+  });
+  await createUser(1000, { lang: "en" });
+
+  const result = await joinOrOpenDiscussion(1000, discussion._id);
+  const persisted = await Discussion.findById(discussion._id).lean();
+
+  assert.equal(result.ok, true);
+  assert.equal(result.joined, true);
+  assert.equal(persisted.memberUserIds.length, 21);
+  assert.equal(persisted.maxMembers, 100);
+});
+
+test("startup reseeding updates all eight starter capacities without destructive changes", async () => {
+  const createdAt = new Date("2025-01-02T03:04:05.000Z");
+  const protectedState = new Map();
+
+  for (const [index, starter] of BOT_STARTER_INSTANCES.entries()) {
+    const discussion = await Discussion.create({
+      title: `Legacy starter ${index}`,
+      description: `Legacy description ${index}`,
+      publicDiscussionCode: `d_KEEP${index}`,
+      creatorUserId: 7000,
+      isBotCreated: true,
+      botSeedKey: starter.botSeedKey,
+      language: starter.language,
+      status: index === 0 ? "closed" : "open",
+      joinRule: { type: "open" },
+      memberUserIds: [100 + index],
+      removedUserIds: [200 + index],
+      maxMembers: 20,
+      recentMessages: [{
+        senderUserId: 100 + index,
+        senderDisplayName: `Member ${index}`,
+        text: `Existing message ${index}`,
+        sentAt: createdAt,
+      }],
+      reports: [{
+        reporterUserId: 300 + index,
+        targetUserId: 400 + index,
+        status: "open",
+        createdAt,
+      }],
+      replyCount: index + 1,
+      lastActivityAt: createdAt,
+      createdAt,
+      closedAt: index === 0 ? createdAt : null,
+    });
+    protectedState.set(starter.botSeedKey, JSON.parse(JSON.stringify({
+      publicDiscussionCode: discussion.publicDiscussionCode,
+      status: discussion.status,
+      memberUserIds: discussion.memberUserIds,
+      removedUserIds: discussion.removedUserIds,
+      recentMessages: discussion.recentMessages,
+      reports: discussion.reports,
+      replyCount: discussion.replyCount,
+      lastActivityAt: discussion.lastActivityAt,
+      createdAt: discussion.createdAt,
+      closedAt: discussion.closedAt,
+    })));
+  }
+
+  const userCreated = await createOpenDiscussion(8000, {
+    publicDiscussionCode: "d_USERKEEP",
+    title: "User room must remain unchanged",
+    memberUserIds: [8000, 8001],
+    maxMembers: 15,
+    recentMessages: [{
+      senderUserId: 8000,
+      senderDisplayName: "User 8000",
+      text: "User room message",
+      sentAt: createdAt,
+    }],
+  });
+  const userCreatedBefore = JSON.parse(JSON.stringify(userCreated.toObject()));
+
+  const result = await seedBotDiscussions(9001);
+  assert.equal(result.ok, true);
+  assert.equal(result.discussions.length, 8);
+
+  const reseeded = await Discussion.find({
+    botSeedKey: { $in: BOT_STARTER_INSTANCES.map((starter) => starter.botSeedKey) },
+  }).lean();
+  assert.equal(reseeded.length, 8);
+  for (const discussion of reseeded) {
+    assert.equal(discussion.maxMembers, 100);
+    assert.equal(discussion.creatorUserId, 9001);
+    assert.equal(discussion.isBotCreated, true);
+    assert.deepEqual(JSON.parse(JSON.stringify({
+      publicDiscussionCode: discussion.publicDiscussionCode,
+      status: discussion.status,
+      memberUserIds: discussion.memberUserIds,
+      removedUserIds: discussion.removedUserIds,
+      recentMessages: discussion.recentMessages,
+      reports: discussion.reports,
+      replyCount: discussion.replyCount,
+      lastActivityAt: discussion.lastActivityAt,
+      createdAt: discussion.createdAt,
+      closedAt: discussion.closedAt,
+    })), protectedState.get(discussion.botSeedKey));
+  }
+
+  const userCreatedAfter = await Discussion.findById(userCreated._id).lean();
+  assert.deepEqual(JSON.parse(JSON.stringify(userCreatedAfter)), userCreatedBefore);
 });
 
 test("owner removal and closing clear persisted user membership", async () => {
@@ -437,6 +561,61 @@ test("saved profiles stop atomically at the 50-profile product cap", async () =>
   assert.equal(savedUser.savedProfileCodes.length, 50);
 });
 
+test("section-tip timestamps persist independently and only accept the first mark", async () => {
+  await createUser(490);
+  const discussionsAt = new Date("2026-07-17T12:00:00.000Z");
+  const laterAt = new Date("2026-07-17T13:00:00.000Z");
+
+  const first = await markSectionTipShown(490, "discussions", discussionsAt);
+  const repeated = await markSectionTipShown(490, "discussions", laterAt);
+  const persisted = await User.findOne({ userId: 490 }).lean();
+
+  assert.ok(first);
+  assert.equal(repeated, null);
+  assert.equal(persisted.sectionTipsShownAt.discussions.toISOString(), discussionsAt.toISOString());
+  assert.equal(persisted.sectionTipsShownAt.favorites, null);
+  assert.equal(persisted.sectionTipsShownAt.people, null);
+  assert.equal(hasSectionTipBeenShown(persisted, "discussions"), true);
+  assert.equal(hasSectionTipBeenShown(persisted, "favorites"), false);
+});
+
+test("Active Discussions includes its first tip once and persists it after delivery", async () => {
+  const user = await createUser(491, { lang: "en", discussionLanguageFilter: "en" });
+  await createOpenDiscussion(492, {
+    title: "A live room",
+    language: "en",
+    memberUserIds: [492],
+  });
+  const rendered = [];
+  const ctx = {
+    userId: 491,
+    user,
+    answerCb: async () => true,
+    reply: async () => ({ message_id: 1 }),
+  };
+  const render = async (_ctx, text, keyboard) => {
+    rendered.push({ text, keyboard });
+    return { message_id: rendered.length + 1 };
+  };
+
+  await renderActiveDiscussionList(ctx, "en", 0, false, "en", {
+    editCallbackMessageOrReply: render,
+    freshDestination: true,
+  });
+  const persisted = await User.findOne({ userId: 491 });
+  const secondCtx = { ...ctx, user: persisted };
+  await renderActiveDiscussionList(secondCtx, "en", 0, false, "en", {
+    editCallbackMessageOrReply: render,
+    freshDestination: true,
+  });
+
+  assert.match(rendered[0].text, new RegExp(`^${messages.en.discussionFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.doesNotMatch(rendered[1].text, /Rooms are live conversations/);
+  assert.ok(persisted.sectionTipsShownAt.discussions instanceof Date);
+  assert.equal(persisted.sectionTipsShownAt.favorites, null);
+  assert.equal(persisted.sectionTipsShownAt.people, null);
+});
+
 test("discussion invitations create, count, dedupe, and accept cleanly", async () => {
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_INVITE",
@@ -533,6 +712,8 @@ test("onboarding starter invitations include only the open free discussion", asy
   const created = await createOnboardingStarterInvitationsForUser(500);
   assert.equal(created.ok, true);
   assert.equal(created.count, 1);
+  assert.equal(created.invitation.kind, "free");
+  assert.equal(created.invitation.discussionPublicCode, "d_BOTFREE");
 
   const invitations = await DiscussionInvitation.find({ inviteeUserId: 500, source: "bot_onboarding" }).lean();
   assert.equal(invitations.length, 1);
@@ -541,10 +722,263 @@ test("onboarding starter invitations include only the open free discussion", asy
   const repeated = await createOnboardingStarterInvitationsForUser(500);
   assert.equal(repeated.ok, true);
   assert.equal(repeated.skipped, true);
+  assert.equal(repeated.invitation.kind, "free");
+  assert.equal(repeated.invitation.discussionPublicCode, "d_BOTFREE");
   assert.equal(await DiscussionInvitation.countDocuments({ inviteeUserId: 500, source: "bot_onboarding" }), 1);
 
   const user = await User.findOne({ userId: 500 }).lean();
   assert.ok(user.onboardingStarterInvitationsAt instanceof Date);
+});
+
+test("onboarding with no available room creates no invitation or durable claim", async () => {
+  await createUser(505, { lang: "fa" });
+
+  const result = await createOnboardingStarterInvitationsForUser(505);
+  const invitations = await DiscussionInvitation.find({ inviteeUserId: 505 }).lean();
+  const user = await User.findOne({ userId: 505 }).lean();
+
+  assert.deepEqual(result, { ok: true, count: 0 });
+  assert.deepEqual(invitations, []);
+  assert.equal(user.onboardingStarterInvitationsAt, null);
+});
+
+test("shared-discussion onboarding preserves its code and skips a starter invitation", async () => {
+  const user = await createUser(506, {
+    lang: "en",
+    state: "onboarding_interests",
+    navigationMode: "onboarding_interests:0",
+    pendingDiscussionShareCode: "d_SHARED506",
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "Movies" },
+          { title: "Gaming" },
+        ],
+      },
+    },
+  });
+  await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_FREE506",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds: [],
+    maxMembers: 100,
+  });
+  const replies = [];
+
+  await handleOnboardingText({
+    userId: 506,
+    user,
+    text: "Coffee",
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  }, "en");
+
+  const persisted = await User.findOne({ userId: 506 }).lean();
+  const invitations = await DiscussionInvitation.find({ inviteeUserId: 506 }).lean();
+  const buttons = replies[0].extra.reply_markup.keyboard.flat();
+
+  assert.equal(replies.length, 1);
+  assert.equal(persisted.pendingDiscussionShareCode, "d_SHARED506");
+  assert.equal(persisted.onboardingVersion, 1);
+  assert.equal(persisted.state, "idle");
+  assert.equal(persisted.navigationMode, "onboarding_complete:0:1");
+  assert.deepEqual(invitations, []);
+  assert.equal(buttons[0].text, messages.en.onboardingDiscussionContinueButton);
+  assert.equal(buttons.some((button) => button.text === messages.en.onboardingInvitationButton), false);
+});
+
+test("onboarding prefers a matching Interest room over Free Discussion", async () => {
+  await createUser(530, {
+    lang: "en",
+    aiLists: { random: { topTen: [{ title: "Gaming" }] } },
+  });
+  await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_FREE530",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds: [],
+    maxMembers: 100,
+  });
+  await createOpenDiscussion(700, {
+    title: "Gaming room",
+    publicDiscussionCode: "d_MATCH530",
+    language: "en",
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "Games"],
+    },
+  });
+
+  const result = await createOnboardingStarterInvitationsForUser(530);
+  const invitation = await DiscussionInvitation.findOne({ inviteeUserId: 530 }).lean();
+
+  assert.equal(result.count, 1);
+  assert.equal(result.invitation.kind, "match");
+  assert.equal(result.invitation.discussionPublicCode, "d_MATCH530");
+  assert.equal(invitation.discussionPublicCode, "d_MATCH530");
+  assert.equal(invitation.source, "onboarding_match");
+});
+
+test("a full matching Interest room falls back to Free Discussion", async () => {
+  await createUser(540, {
+    lang: "en",
+    aiLists: { random: { topTen: [{ title: "Gaming" }] } },
+  });
+  await createOpenDiscussion(700, {
+    title: "Full Gaming room",
+    publicDiscussionCode: "d_FULL540",
+    language: "en",
+    memberUserIds: [700, 701, 702],
+    maxMembers: 3,
+    joinRule: {
+      type: "top_ten_item",
+      section: "random",
+      itemTitle: "Gaming",
+      itemAliases: ["Gaming", "Games"],
+    },
+  });
+  await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_FREE540",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds: [],
+    maxMembers: 100,
+  });
+
+  const result = await createOnboardingStarterInvitationsForUser(540);
+  const invitation = await DiscussionInvitation.findOne({ inviteeUserId: 540 }).lean();
+
+  assert.equal(result.count, 1);
+  assert.equal(result.invitation.kind, "free");
+  assert.equal(result.invitation.discussionPublicCode, "d_FREE540");
+  assert.equal(invitation.discussionPublicCode, "d_FREE540");
+  assert.equal(invitation.source, "bot_onboarding");
+});
+
+test("a full Free Discussion creates no onboarding invitation", async () => {
+  await createUser(550, { lang: "fa" });
+  await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_FULL550",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:fa",
+    language: "fa",
+    memberUserIds: Array.from({ length: 100 }, (_, index) => index + 1),
+    maxMembers: 100,
+  });
+
+  const result = await createOnboardingStarterInvitationsForUser(550);
+  const invitations = await DiscussionInvitation.find({ inviteeUserId: 550 }).lean();
+  const user = await User.findOne({ userId: 550 }).lean();
+
+  assert.deepEqual(result, { ok: true, count: 0 });
+  assert.deepEqual(invitations, []);
+  assert.equal(user.onboardingStarterInvitationsAt, null);
+});
+
+test("onboarding starter invitations stay isolated to the user's language", async () => {
+  await Promise.all([
+    createUser(560, { lang: "fa" }),
+    createUser(561, { lang: "en" }),
+    createOpenDiscussion(998, {
+      title: "Free Discussion",
+      publicDiscussionCode: "d_FREE560FA",
+      isBotCreated: true,
+      botSeedKey: "free-discussion:fa",
+      language: "fa",
+      memberUserIds: [],
+      maxMembers: 100,
+    }),
+    createOpenDiscussion(999, {
+      title: "Free Discussion",
+      publicDiscussionCode: "d_FREE561EN",
+      isBotCreated: true,
+      botSeedKey: "free-discussion:en",
+      language: "en",
+      memberUserIds: [],
+      maxMembers: 100,
+    }),
+  ]);
+
+  const [faResult, enResult] = await Promise.all([
+    createOnboardingStarterInvitationsForUser(560),
+    createOnboardingStarterInvitationsForUser(561),
+  ]);
+  const invitations = await DiscussionInvitation.find({
+    inviteeUserId: { $in: [560, 561] },
+  }).lean();
+  const byInvitee = new Map(invitations.map((invitation) => [invitation.inviteeUserId, invitation]));
+
+  assert.equal(faResult.count, 1);
+  assert.equal(enResult.count, 1);
+  assert.equal(byInvitee.get(560).discussionPublicCode, "d_FREE560FA");
+  assert.equal(byInvitee.get(561).discussionPublicCode, "d_FREE561EN");
+});
+
+test("concurrent onboarding completions create at most one starter invitation", async () => {
+  await createUser(510, { lang: "en" });
+  await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_BOTCONC",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds: [],
+    maxMembers: 100,
+  });
+
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => createOnboardingStarterInvitationsForUser(510)),
+  );
+  const invitations = await DiscussionInvitation.find({
+    inviteeUserId: 510,
+    source: { $in: ["bot_onboarding", "onboarding_match"] },
+    status: "pending",
+  }).lean();
+  const user = await User.findOne({ userId: 510 }).lean();
+
+  assert.equal(results.every((result) => result.ok), true);
+  assert.equal(results.some((result) => result.count === 1), true);
+  assert.equal(invitations.length, 1);
+  assert.equal(invitations[0].discussionPublicCode, "d_BOTCONC");
+  assert.ok(user.onboardingStarterInvitationsAt instanceof Date);
+});
+
+test("starter invitation acceptance revalidates capacity after creation", async () => {
+  await createUser(520, { lang: "en" });
+  const discussion = await createOpenDiscussion(999, {
+    title: "Free Discussion",
+    publicDiscussionCode: "d_BOTFILL",
+    isBotCreated: true,
+    botSeedKey: "free-discussion:en",
+    language: "en",
+    memberUserIds: Array.from({ length: 99 }, (_, index) => index + 1),
+    maxMembers: 100,
+  });
+  const created = await createOnboardingStarterInvitationsForUser(520);
+  assert.equal(created.count, 1);
+
+  await Discussion.updateOne(
+    { _id: discussion._id },
+    { $push: { memberUserIds: 1000 } },
+  );
+  const joined = await joinOrOpenDiscussion(520, discussion._id);
+  const invitation = await DiscussionInvitation.findOne({ inviteeUserId: 520 }).lean();
+
+  assert.equal(joined.ok, false);
+  assert.equal(joined.reason, "discussion_full");
+  assert.equal(invitation.status, "pending");
 });
 
 test("muting an inviter hides pending invites and blocks future invites", async () => {

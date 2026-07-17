@@ -11,8 +11,10 @@ const {
   paginatePeopleDiscovery,
 } = require("../src/services/people-discovery");
 const {
+  buildPeopleHubText,
   buildPeopleDiscoveryText,
 } = require("../src/services/people-discovery-ui");
+const { sendPeopleHub } = require("../src/flows/saved-profiles");
 
 function userWithMusic(userId, items, extra = {}) {
   return {
@@ -197,6 +199,35 @@ test("People hub keeps one people discovery entry", () => {
   assert.ok(!hidden.some((button) => button.text === messages.fa.peopleTasteMatches));
   assert.ok(!visible.some((button) => button.text === messages.fa.peopleTasteMatches));
   assert.equal(visible[0].text, messages.fa.peopleDiscover);
+});
+
+test("People first-visit guidance stays inside the bilingual hub only when requested", () => {
+  for (const lang of ["fa", "en"]) {
+    assert.equal(buildPeopleHubText(messages, lang), messages[lang].peopleMenu);
+    assert.equal(
+      buildPeopleHubText(messages, lang, { showFirstVisitTip: true }),
+      `${messages[lang].peopleMenu}\n\n${messages[lang].peopleFirstVisitTip}`,
+    );
+    assert.match(messages[lang].peopleFirstVisitTip, /^💡/);
+  }
+});
+
+test("failed People hub delivery does not mark its first-visit tip", async () => {
+  const ctx = {
+    userId: 5,
+    user: { userId: 5 },
+    reply: async () => ({ message_id: 1 }),
+  };
+
+  await assert.rejects(
+    sendPeopleHub(ctx, "en", {
+      send: async () => {
+        throw new Error("delivery failed");
+      },
+    }),
+    /delivery failed/,
+  );
+  assert.equal(ctx.user.sectionTipsShownAt, undefined);
 });
 
 test("people pagination uses canonical discover callbacks", () => {

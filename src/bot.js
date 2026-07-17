@@ -14,6 +14,8 @@ const {
 } = require("./keyboards");
 const {
   updateProfileField,
+  hasSectionTipBeenShown,
+  markSectionTipShownForContext,
   resetDiscussionDraft,
   updateUserFields,
   updateUserState,
@@ -337,7 +339,15 @@ async function handleUpdate(ctx) {
     }
     if (navigationCommand === "taste") {
       await setNavigationMode(ctx, MODES.FAVORITES);
-      return ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+      const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
+      const sent = await ctx.reply(
+        buildAiAssistantMenuMessage(lang, { showFirstVisitTip }),
+        aiAssistantKeyboard(lang),
+      );
+      if (showFirstVisitTip) {
+        await markSectionTipShownForContext(ctx, "favorites", new Date()).catch(() => null);
+      }
+      return sent;
     }
     if (navigationCommand === "discussions") {
       await setNavigationMode(ctx, MODES.DISCUSSIONS);

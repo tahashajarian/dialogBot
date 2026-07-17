@@ -3,7 +3,7 @@ const {
   getDiscussionDisplayDescription,
   getJoinRulePreviewText,
 } = require("./discussion-ui");
-const { normalizeMaxMembers } = require("./discussions");
+const { resolveDiscussionMaxMembers } = require("./discussions");
 
 const DIVIDER = "-----";
 
@@ -81,7 +81,7 @@ function buildInvitationEntryText(messages, lang, entry, index, { accepted = fal
   const inviterName = isBotInvite
     ? messages[lang].discussionInvitationBotInviter
     : displayName(inviter, lang === "fa" ? "کاربر" : "User");
-  const maxMembers = discussion ? normalizeMaxMembers(discussion.maxMembers) : 0;
+  const maxMembers = discussion ? resolveDiscussionMaxMembers(discussion) : 0;
   const memberCount = discussion?.memberUserIds?.length || 0;
   const rule = discussion ? getJoinRulePreviewText(messages, lang, discussion.joinRule) : "";
   const lines = [
@@ -111,6 +111,13 @@ function buildInvitationEntryText(messages, lang, entry, index, { accepted = fal
   return lines.join("\n");
 }
 
+function shouldShowDiscussionInvitationFirstTimeTip(user, entries = []) {
+  const membershipCount = Array.isArray(user?.discussionMembershipIds) ? user.discussionMembershipIds.length : 0;
+  return membershipCount === 0
+    && entries.length > 0
+    && !user?.sectionTipsShownAt?.discussions;
+}
+
 async function buildReceivedInvitationsText(messages, lang, user, entries = [], acceptedEntries = []) {
   const hasPending = entries.length > 0;
   const hasAccepted = acceptedEntries.length > 0;
@@ -124,8 +131,7 @@ async function buildReceivedInvitationsText(messages, lang, user, entries = [], 
     return parts.join("\n");
   }
 
-  const membershipCount = Array.isArray(user?.discussionMembershipIds) ? user.discussionMembershipIds.length : 0;
-  if (membershipCount === 0 && hasPending) {
+  if (shouldShowDiscussionInvitationFirstTimeTip(user, entries)) {
     parts.push(messages[lang].discussionInvitationFirstTimeTip);
     parts.push("");
   }
@@ -174,4 +180,5 @@ module.exports = {
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,
   buildReceivedInvitationsText,
+  shouldShowDiscussionInvitationFirstTimeTip,
 };

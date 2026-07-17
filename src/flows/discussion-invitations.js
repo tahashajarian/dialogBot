@@ -19,6 +19,7 @@ const {
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,
   buildReceivedInvitationsText,
+  shouldShowDiscussionInvitationFirstTimeTip,
 } = require("../services/discussion-invitations-ui");
 const {
   createDiscussionInvitation,
@@ -34,6 +35,7 @@ const {
   expireInvitation,
 } = require("../services/discussion-invitations");
 const { muteInviterForUser } = require("../services/discussion-invitation-mutes");
+const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const {
   ensurePublicDiscussionCode,
   findDiscussionByPublicCode,
@@ -48,7 +50,7 @@ const {
   buildDiscussionInviteLockedText,
 } = require("../services/discussion-ui");
 const { joinDiscussionAndNotify } = require("../services/discussion-actions");
-const { updateProfileField } = require("../services/users");
+const { markSectionTipShownForContext, updateProfileField } = require("../services/users");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -305,6 +307,11 @@ async function renderInvitationsList(ctx, lang, page = 0, {
     });
   }
   const text = await buildReceivedInvitationsText(messages, lang, ctx.user, entries, acceptedEntries);
+  const showsFirstDiscussionTip = shouldShowDiscussionInvitationFirstTimeTip(ctx.user, entries);
+  const unopenedStarter = entries.find((entry) => (
+    ["bot_onboarding", "onboarding_match"].includes(entry.invitation?.source)
+    && !entry.invitation?.seenAt
+  ));
   const keyboard = discussionInvitationsBackKeyboard(lang, {
     page: normalizedPage,
     totalPages,
@@ -312,6 +319,22 @@ async function renderInvitationsList(ctx, lang, page = 0, {
   const sent = editCallbackMessageOrReply
     ? await editCallbackMessageOrReply(ctx, text, keyboard)
     : await ctx.reply(text, keyboard);
+  if (showsFirstDiscussionTip) {
+    await markSectionTipShownForContext(ctx, "discussions", new Date()).catch(() => null);
+  }
+  if (unopenedStarter) {
+    const discussion = unopenedStarter.discussion;
+    const matchType = discussion?.isBotCreated
+      && String(discussion?.botSeedKey || "").replace(/:(fa|en)$/, "") === "free-discussion"
+      ? "free"
+      : "match";
+    void trackEvent({
+      name: EVENT_NAMES.starterInvitationOpened,
+      userId: ctx.userId,
+      source: "onboarding",
+      metadata: { matchType },
+    });
+  }
   await updateProfileField(ctx.userId, "discussionLastListMessageId", getMessageId(sent) || ctx.callbackMessageId || null);
   await updateProfileField(ctx.userId, "discussionLastListType", "invitations");
   await markInvitationsSeen(entries.map((entry) => entry.invitation?._id));

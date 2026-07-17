@@ -39,7 +39,13 @@ const {
 } = require("./services/discussion-room-ui");
 const User = require("./models/user");
 const Discussion = require("./models/discussion");
-const { updateProfileField, updateUserFields, updateUserState } = require("./services/users");
+const {
+  hasSectionTipBeenShown,
+  markSectionTipShownForContext,
+  updateProfileField,
+  updateUserFields,
+  updateUserState,
+} = require("./services/users");
 const {
   joinOrOpenDiscussion,
   ensurePublicProfileCodes,
@@ -133,6 +139,7 @@ const {
   handleOnboardingCallback,
   isOnboardingCallback,
   sendTasteSetupNudge,
+  trackOnboardingCompletionDestination,
 } = require("./flows/onboarding");
 
 function getDiscussionCloseReturnSource(ctx) {
@@ -430,6 +437,8 @@ async function handleCallback(ctx) {
     await clearAiPendingInputPrompt(ctx);
   }
 
+  trackOnboardingCompletionDestination(ctx, data);
+
   if (!isProfileReplyAction && !shouldKeepAiListTitleForCallback(data, isAiCallback)) {
     await clearRememberedAiListMessage(ctx);
   }
@@ -541,7 +550,20 @@ async function handleCallback(ctx) {
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showBottomHub(ctx, lang, "taste", MODES.FAVORITES, buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang), shouldClearKeyboard);
+    const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
+    const sent = await showBottomHub(
+      ctx,
+      lang,
+      "taste",
+      MODES.FAVORITES,
+      buildAiAssistantMenuMessage(lang, { showFirstVisitTip }),
+      aiAssistantKeyboard(lang),
+      shouldClearKeyboard,
+    );
+    if (showFirstVisitTip) {
+      await markSectionTipShownForContext(ctx, "favorites", new Date()).catch(() => null);
+    }
+    return sent;
   }
 
   if (data === callBacks.discussions) {

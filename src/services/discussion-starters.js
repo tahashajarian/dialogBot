@@ -1,7 +1,7 @@
 const Discussion = require("../models/discussion");
 const { ensurePublicDiscussionCode } = require("./public-codes");
 
-const BOT_STARTER_DISCUSSION_MEMBER_CAP = 20;
+const BOT_STARTER_DISCUSSION_MEMBER_CAP = 100;
 const BOT_STARTER_DEFINITIONS = [
   {
     botSeedKey: "free-discussion",
@@ -46,6 +46,9 @@ const BOT_STARTER_INSTANCES = BOT_STARTER_DEFINITIONS.flatMap((starter) => ["fa"
   language,
   botSeedKey: `${starter.botSeedKey}:${language}`,
 })));
+const BOT_STARTER_INSTANCE_KEYS = new Set(
+  BOT_STARTER_INSTANCES.map((starter) => starter.botSeedKey),
+);
 const BOT_STARTER_DISCUSSION_ORDER = new Map(
   BOT_STARTER_DEFINITIONS.map((starter, index) => [starter.botSeedKey, index]),
 );
@@ -55,6 +58,12 @@ function getBotStarterDiscussionOrder(discussion = {}) {
   return BOT_STARTER_DISCUSSION_ORDER.has(seedKey)
     ? BOT_STARTER_DISCUSSION_ORDER.get(seedKey)
     : BOT_STARTER_DEFINITIONS.length;
+}
+
+function isBotStarterDiscussion(discussion = {}) {
+  return discussion.isBotCreated === true && BOT_STARTER_INSTANCE_KEYS.has(
+    String(discussion.botSeedKey || ""),
+  );
 }
 
 function sortBotStarterDiscussionsFirst(discussions = []) {
@@ -109,6 +118,7 @@ module.exports = {
   BOT_STARTER_DISCUSSION_MEMBER_CAP,
   BOT_STARTER_DISCUSSIONS: BOT_STARTER_DEFINITIONS,
   BOT_STARTER_INSTANCES,
+  isBotStarterDiscussion,
   seedBotDiscussions,
   sortBotStarterDiscussionsFirst,
 };

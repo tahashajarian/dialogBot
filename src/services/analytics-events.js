@@ -4,8 +4,13 @@ const { logger } = require("./logger");
 
 const EVENT_NAMES = Object.freeze({
   userStarted: "user_started",
+  onboardingStarted: "onboarding_started",
   onboardingCompleted: "onboarding_completed",
+  onboardingDestinationChosen: "onboarding_destination_chosen",
   onboardingSkipped: "onboarding_skipped",
+  sectionTipExposed: "section_tip_exposed",
+  starterInvitationPrepared: "starter_invitation_prepared",
+  starterInvitationOpened: "starter_invitation_opened",
   topTenItemAdded: "topten_item_added",
   watchlistItemAdded: "watchlist_item_added",
   tasteLabelUnlocked: "taste_label_unlocked",
@@ -55,6 +60,8 @@ const SAFE_METADATA_KEYS = new Set([
   "candidateCount",
   "selectedCount",
   "skippedReasons",
+  "destination",
+  "tipKey",
 ]);
 const THROTTLE_CACHE_LIMIT = 1000;
 const throttleCache = new Map();

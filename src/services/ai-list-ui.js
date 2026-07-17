@@ -129,8 +129,12 @@ function withAiSectionTitle(lang, section, body) {
   return `${heading}\n\n${body}`;
 }
 
-function buildAiAssistantMenuMessage(lang) {
-  return `${messages[lang].aiAssistantTitle}\n\n${messages[lang].aiAssistantMenu}`;
+function buildAiAssistantMenuMessage(lang, { showFirstVisitTip = false } = {}) {
+  return [
+    messages[lang].aiAssistantTitle,
+    showFirstVisitTip ? messages[lang].favoritesFirstVisitTip : "",
+    messages[lang].aiAssistantMenu,
+  ].filter(Boolean).join("\n\n");
 }
 
 function buildTopTenListMessage({ ctx, lang, section }) {

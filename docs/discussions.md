@@ -51,12 +51,13 @@ Discussions are live rooms with short memory.
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
 - The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the configurable Interest onboarding flow.
 - Normal onboarding completion prepares at most one invitation. Prefer the most recent open, non-full, joinable discussion in the user's interface language whose specific profile-Interest rule matches an onboarding choice; the room may be user-created or Muze-created. Fall back to the matching-language open `Free Discussion` starter room. Persist the invitation before mentioning it or showing the invitation button, never auto-join, never create duplicates on retries, and exclude automated onboarding invitations from invitation-pair Star rewards.
-- Starter-room capacity is currently 20 members per language-specific room. If both a relevant matching room and the matching-language `Free Discussion` room are full or unavailable, onboarding completes without a starter invitation and keeps the normal Active Discussions, My favorites, and Main menu destinations. The current implementation does not automatically increase capacity or create overflow global rooms; either scaling policy requires a separately reviewed product and moderation change.
+- Recognized language-specific Muze starter rooms have a fixed effective capacity of 100 members. User-created room defaults, free capacity choices, and paid-capacity rules are unchanged. If both a relevant matching room and the matching-language `Free Discussion` room are full or unavailable, onboarding completes without a starter invitation and keeps the normal Active Discussions, My favorites, and Main menu destinations. The current implementation does not automatically increase capacity or create overflow global rooms; either scaling policy requires a separately reviewed product and moderation change based on real usage.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms rely on their concise rule/status line, and locked rooms say which Interest TopTen item to add.
 - Discussion list cards stay compact: the numbered title, description, member count, and join rule each have a clear line; repeated field labels are omitted, and language is shown only when it differs from the viewer's interface language.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
-- Muze-created rooms use the same capacity, join, full-room, and acknowledgment behavior as user-created rooms.
+- Muze-created rooms use the same join, full-room, and acknowledgment behavior as user-created rooms, while recognized language-specific starter rooms use the 100-member capacity exception above.
+- The first successful Active Discussions list response may include one compact explanation of live rooms, relevance, and join requirements. If the user saw the first-time Invitations explanation first, that consumes the same durable Discussions guidance state. List filters, pagination, Back actions, room views, and subsequent inbox opens do not repeat it.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list, show the `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
 
@@ -168,7 +169,7 @@ Limits:
 - Description: 300 characters.
 - Description is required for open discussions.
 - Description is optional for restricted discussions.
-- Max current members: editable per discussion. Normal capacities are capped at 20; the admin-controlled large paid capacity can exceed that.
+- Max current members: editable per user-created discussion. Normal capacities are capped at 20; the admin-controlled large paid capacity can exceed that. Recognized language-specific Muze starter rooms use the separate fixed effective capacity of 100.
 - Creator must satisfy restricted join rules they create.
 
 Title prompt:
@@ -743,7 +744,7 @@ Rules:
 - Do not expose raw database ids, Telegram user ids, phone numbers, or location.
 - Use a stable short public profile code such as `publicProfileCode`.
 - Public profile codes reveal the matching profile.
-- The member list can show all members because room capacity is capped at 20.
+- The member list shows all current members. User-created rooms normally cap at 20 unless an enabled paid capacity applies; recognized language-specific Muze starter rooms can contain up to 100.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `🎙️ میزبان`. `⭐` is reserved for the Stars economy.
 - Do not show a separate active/presence marker. If a user is in the member list, they are currently in the discussion.
@@ -1046,7 +1047,7 @@ Locked discussions can motivate users to complete Top 10 and earn labels, but th
 - `requiredTopTenItem`
 - `requiredTopTenItemNormalized`
 - `memberIds`
-- `maxMembers`, allowed values: 1, 2, 3, 4, 5, 10, 15, 20
+- `maxMembers`: user-created values follow the configured free/paid capacity choices; recognized language-specific Muze starter seeds are normalized to 100
 - `recentMessages`
 - `replyCount`
 - `createdAt`

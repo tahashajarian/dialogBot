@@ -33,21 +33,21 @@ Keep the router files thin:
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
 - `src/flows/profile-text.js` owns typed profile edit states, profile edit cancellation, and reset-photo text commands.
 - `src/flows/profile-callbacks.js` owns profile edit/settings callback routing and own-profile callback rendering.
-- `src/flows/saved-profiles.js` owns the people hub, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
+- `src/flows/saved-profiles.js` owns the people hub, its durable first-visit guidance, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
-- `src/flows/onboarding.js` owns the append-only first-session flow; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
+- `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
 - `src/flows/discussion-messages.js` owns active-room text/voice message validation, recent-message append orchestration, delivery, and runtime reply mapping.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
-- `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, and join-error acknowledgements.
-- `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, and invite source return handling.
+- `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, join-error acknowledgements, and first Active Discussions guidance delivery.
+- `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, invite source return handling, and the shared first Discussions-guidance state when Invitations is visited first.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
 - `src/services/discussion-invitations.js` owns stored invitation creation, lookup, lifecycle, daily-limit checks, and received-invite listing.
 - `src/services/discussion-invitation-mutes.js` owns invitation mute pairs and the cross-feature "muted user cannot join muter's created discussions" predicate.
 - `src/services/discussion-join-rules.js` owns discussion join-rule payload validation and user eligibility checks.
 - `src/services/discussion-notifications.js` owns low-level discussion notification payload normalization and best-effort member delivery helpers.
 - `src/services/discussion-messages.js` owns discussion message quota checks and recent-message append rules.
-- `src/services/discussion-starters.js` owns bot-created starter room seed definitions, startup seeding, and starter-room sort order.
+- `src/services/discussion-starters.js` owns bot-created starter room seed definitions, idempotent startup seeding, the fixed 100-member recognized-starter capacity, and starter-room sort order.
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.
 - `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
 - `src/services/public-codes.js` owns public profile/discussion code normalization, generation, and lookup helpers.
@@ -61,6 +61,7 @@ Keep the router files thin:
 ## Data Model Rules
 
 - Update `src/services/users.js` when adding or changing user fields or state helpers.
+- `User.sectionTipsShownAt` stores independent durable timestamps for Discussions, Favorites, and People guidance. `src/services/users.js` owns the whitelisted atomic first-write helpers; flows call the context-aware helper only after their containing Telegram response succeeds.
 - Keep AI list access centralized in `src/services/users.js` helpers:
   - `getAiListItemsFromUser`
   - `addAiListItem`

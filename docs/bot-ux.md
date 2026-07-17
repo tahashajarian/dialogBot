@@ -57,7 +57,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Let users type a custom interest through a dedicated input state with admin-managed length validation and a clear return action.
 - After a user types a custom interest, consume the old picker and send the updated progress or result as a fresh message below the user's text; do not edit a card above the user's message.
 - Save onboarding choices into the existing Interests TopTen; do not create a separate preference store.
-- Show compact progress after each choice without repeating the product explanation. Selected chips should remain in their original grid position with a `✓` marker, and tapping them removes the interest.
+- Show compact progress after each choice without repeating the product explanation. Immediately before the progress count, render each saved choice as its own `- item` line without an extra heading. Selected chips should remain in their original grid position with a `✓` marker, and tapping them removes the interest.
 - Auto-complete onboarding immediately when the admin-configured minimum is reached; it defaults to three. Do not require a separate Continue action after the final choice.
 - Keep Interest chip rows to three item buttons per row; onboarding should show four stable chip rows before the More/Custom controls. Do not render partial one- or two-chip rows.
 - Completion should confirm the number of saved interests without repeating the full selection list or inferring a taste label from only three broad choices. Briefly explain that media favorites improve personal suggestions and help users find relevant discussions.
@@ -72,10 +72,19 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Normal onboarding navigation must not delete or edit earlier prompts and must not track navigation-card message IDs. This keeps the history understandable and avoids extra Telegram round trips.
 - Do not send a new user from onboarding into a generic section hub as the primary continuation.
 - Normal onboarding may prepare at most one stored starter invitation after the Interest goal is completed. Prefer a recent, open, non-full room in the user's effective language whose profile-Interest condition matches one of the user's choices; otherwise use that language's open, non-full `Free Discussion` starter room. Never auto-join the user. Show the invitation action only after the invitation is persisted successfully; Active Discussions and My favorites remain available completion destinations.
+- Completion copy should distinguish an Interest-matched invitation from the open fallback, say that the invitation is a preview rather than an automatic join, and tell the user that Muze will explain any missing join requirement. If no eligible invitation exists, use neutral completion copy and do not imply that a room was prepared.
 - A fresh discussion-link recipient may choose language and complete the normal Interest quick start before opening the shared discussion. Preserve the shared discussion code throughout onboarding, do not create an additional starter invitation for that path, and make the shared-discussion continuation available on the completion screen.
 - After a shared discussion is joined or dismissed through a path that did not complete normal onboarding, Muze may offer the existing one-time optional quick taste setup. Dismissing that nudge must not mark onboarding complete.
 - Some platforms may display only `/start` while still sending an invite payload to the bot. Public discussion invite payloads should always open the invite preview or re-focus the room; Star rewards stay one-time through directed-pair ledger idempotency.
 - Returning users with meaningful list, profile, saved-profile, or discussion activity should go directly to the main menu.
+
+## First-Visit Section Guidance
+
+- Show compact guidance once for each of Active Discussions, My favorites, and People. Put it inside the section's existing first successful response instead of sending an extra message.
+- Active Discussions guidance explains live Interest-related rooms and join requirements. If the Invitations inbox is the user's first discussion surface, its existing explanation counts as the same Discussions guidance and suppresses the later list tip.
+- My favorites guidance distinguishes genuine favorites from Watch/Listen/Read Later and explains that favorites improve suggestions and relevance. Keep the existing three-item suggestion threshold and ten-item taste-label explanation visible in the same hub response.
+- People guidance explains discovery through shared saved choices and says saved profiles are private bookmarks for finding or inviting someone later. Keep internal product-boundary language out of the user-facing tip.
+- Persist independent first-shown timestamps in `sectionTipsShownAt`. Mark a tip only after its containing Telegram response succeeds; failed delivery or failed persistence must not block navigation. Pagination, filters, Back actions, result pages, room views, profiles, and ordinary invitation refreshes must not repeat these tips.
 
 Stars UX rules:
 

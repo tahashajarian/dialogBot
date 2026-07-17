@@ -16,6 +16,8 @@ const {
 const User = require("../src/models/user");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
 const { starEconomy } = require("../src/services/star-settings");
+const { buildAiAssistantMenuMessage } = require("../src/services/ai-list-ui");
+const { handleCallback } = require("../src/callbacks");
 const {
   getAiListAddPrompt,
   getMeaningfulMusicTitle,
@@ -39,6 +41,57 @@ const {
 const keyboardButtons = (keyboard) => (
   keyboard?.reply_markup?.keyboard || keyboard?.reply_markup?.inline_keyboard || []
 ).flat();
+
+test("Favorites first-visit guidance stays inside the existing bilingual hub", () => {
+  for (const lang of ["fa", "en"]) {
+    const normal = buildAiAssistantMenuMessage(lang);
+    const firstVisit = buildAiAssistantMenuMessage(lang, { showFirstVisitTip: true });
+
+    assert.equal(normal.includes(messages[lang].favoritesFirstVisitTip), false);
+    assert.equal(firstVisit, [
+      messages[lang].aiAssistantTitle,
+      messages[lang].favoritesFirstVisitTip,
+      messages[lang].aiAssistantMenu,
+    ].join("\n\n"));
+    assert.match(messages[lang].favoritesFirstVisitTip, /^💡/);
+  }
+});
+
+test("Favorites entry shows its tip once and failed hub delivery does not mark it", async () => {
+  const replies = [];
+  const ctx = {
+    callbackData: callBacks.aiAssistant,
+    callbackMessageId: 12,
+    userId: 12,
+    user: { userId: 12, lang: "en" },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleCallback(ctx);
+  await handleCallback(ctx);
+  const hubs = replies.filter((entry) => entry.text.startsWith(messages.en.aiAssistantTitle));
+  assert.equal(hubs.length, 2);
+  assert.match(hubs[0].text, /Favorites are things you genuinely love/);
+  assert.doesNotMatch(hubs[1].text, /Favorites are things you genuinely love/);
+  assert.ok(ctx.user.sectionTipsShownAt.favorites instanceof Date);
+
+  const failedCtx = {
+    callbackData: callBacks.aiAssistant,
+    callbackMessageId: 13,
+    userId: 13,
+    user: { userId: 13, lang: "en" },
+    answerCb: async () => true,
+    reply: async () => {
+      throw new Error("delivery failed");
+    },
+  };
+  await assert.rejects(handleCallback(failedCtx), /delivery failed/);
+  assert.equal(failedCtx.user.sectionTipsShownAt, undefined);
+});
 
 test("suggestion limit keyboard returns to the current section", () => {
   const keyboard = aiSuggestionLimitKeyboard("en", "music");
