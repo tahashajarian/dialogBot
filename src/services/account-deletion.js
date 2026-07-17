@@ -23,9 +23,12 @@ function identityFingerprint(userId) {
 async function prepareDeletion(userId) {
   const fingerprint = identityFingerprint(userId);
   const existing = await AccountDeletion.findOne({ identityFingerprint: fingerprint });
-  if (existing?.status === "complete" && existing.restartedAt) {
+  const activeUserExists = existing?.status === "complete"
+    ? await User.exists({ userId: Number(userId) })
+    : false;
+  if (existing?.status === "complete" && (existing.restartedAt || activeUserExists)) {
     return AccountDeletion.findOneAndUpdate(
-      { _id: existing._id, status: "complete", restartedAt: { $ne: null } },
+      { _id: existing._id, status: "complete" },
       { $set: { status: "pending", step: "prepared", startedAt: null, completedAt: null, restartedAt: null, lastErrorCode: "" } },
       { returnDocument: "after" },
     );
@@ -38,6 +41,59 @@ async function prepareDeletion(userId) {
     }
   }
   throw new Error("Could not allocate deletion tombstone");
+}
+
+async function claimAccountRestart(userId) {
+  return AccountDeletion.findOneAndUpdate({
+    identityFingerprint: identityFingerprint(userId),
+    status: "complete",
+    restartedAt: null,
+  }, { $set: { restartedAt: new Date() } }, { returnDocument: "after" });
+}
+
+async function anonymizeStarTransactions(userId, tombstoneUserId) {
+  const transactions = await StarTransaction.find({ userId })
+    .select("_id idempotencyKey")
+    .lean();
+  if (!transactions.length) return;
+  await StarTransaction.bulkWrite(transactions.map((transaction) => ({
+    updateOne: {
+      filter: { _id: transaction._id, userId },
+      update: {
+        $set: {
+          userId: tombstoneUserId,
+          balanceAfter: null,
+          // Free the live account's globally unique key while retaining a
+          // unique audit identity for this historical transaction.
+          idempotencyKey: `deleted:${transaction._id}:${transaction.idempotencyKey}`,
+        },
+        $unset: { metadata: 1, constraints: 1, settingsSnapshot: 1, paymentId: 1 },
+      },
+    },
+  })));
+}
+
+async function anonymizeReferralClaimInvitees(userId, tombstoneUserId) {
+  const claims = await StarReferralClaim.find({ inviteeUserId: userId }).select("_id").lean();
+  for (const claim of claims) {
+    let anonymized = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const claimTombstone = attempt === 0
+        ? tombstoneUserId
+        : -crypto.randomInt(1, 2147483647);
+      try {
+        const result = await StarReferralClaim.updateOne(
+          { _id: claim._id, inviteeUserId: userId },
+          { $set: { inviteeUserId: claimTombstone } },
+        );
+        anonymized = Number(result.modifiedCount) > 0 || Number(result.matchedCount) === 0;
+        if (anonymized) break;
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+      }
+    }
+    if (!anonymized) throw Object.assign(new Error("Could not anonymize referral claim"), { code: "claim_tombstone_collision" });
+  }
 }
 
 async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
@@ -78,14 +134,14 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
       AnalyticsEvent.updateMany({ userId: normalized }, { $set: { userId: null }, $unset: { metadata: 1 } }),
     ]);
     await AccountDeletion.updateOne({ _id: operation._id }, { $set: { step: "audit" } });
-    await StarTransaction.updateMany({ userId: normalized }, { $set: { userId: tombstone, balanceAfter: null }, $unset: { metadata: 1, constraints: 1, settingsSnapshot: 1, paymentId: 1 } });
+    await anonymizeStarTransactions(normalized, tombstone);
     await StarTransaction.updateMany({ relatedUserId: normalized }, { $set: { relatedUserId: tombstone } });
     await StarReferralLink.updateMany(
       { inviterUserId: normalized },
       { $set: { inviterUserId: tombstone, expiresAt: new Date() } },
     );
     await StarReferralClaim.updateMany({ inviterUserId: normalized }, { $set: { inviterUserId: tombstone } });
-    await StarReferralClaim.updateMany({ inviteeUserId: normalized }, { $set: { inviteeUserId: tombstone } });
+    await anonymizeReferralClaimInvitees(normalized, tombstone);
     await DiscussionBoost.updateMany({ creatorUserId: normalized }, { $set: { creatorUserId: tombstone } });
     await User.deleteOne({ userId: normalized });
     await AccountDeletion.updateOne({ _id: operation._id }, { $set: { status: "complete", step: "complete", completedAt: new Date() } });
@@ -96,4 +152,11 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
   }
 }
 
-module.exports = { deleteAccount, identityFingerprint, prepareDeletion };
+module.exports = {
+  anonymizeStarTransactions,
+  anonymizeReferralClaimInvitees,
+  claimAccountRestart,
+  deleteAccount,
+  identityFingerprint,
+  prepareDeletion,
+};

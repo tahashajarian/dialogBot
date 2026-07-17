@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const messages = require("../src/messages");
+const { discussionsMenuKeyboard, peopleHubKeyboard } = require("../src/keyboards");
 
 const {
   normalizePublicProfileCode,
@@ -370,6 +371,10 @@ test("discussion name cancel returns invite accepts to invitations", async () =>
         calls.push(["delete", messageId]);
         return true;
       },
+      reply: async (text, keyboard) => {
+        calls.push(["reply", text, keyboard]);
+        return true;
+      },
     };
 
     await handleDiscussionNameCancel(ctx, "en", {
@@ -381,6 +386,7 @@ test("discussion name cancel returns invite accepts to invitations", async () =>
 
     assert.deepEqual(calls, [
       ["delete", 77],
+      ["reply", messages.en.discussionsMenu, discussionsMenuKeyboard("en")],
       ["invitations", "en", 0],
     ]);
     assert.equal(ctx.user.state, "idle");
@@ -408,6 +414,10 @@ test("discussion name cancel returns active list opens to active discussions", a
         calls.push(["delete", messageId]);
         return true;
       },
+      reply: async (text, keyboard) => {
+        calls.push(["reply", text, keyboard]);
+        return true;
+      },
     };
 
     await handleDiscussionNameCancel(ctx, "en", {
@@ -419,6 +429,7 @@ test("discussion name cancel returns active list opens to active discussions", a
 
     assert.deepEqual(calls, [
       ["delete", 88],
+      ["reply", messages.en.discussionsMenu, discussionsMenuKeyboard("en")],
       ["active", "en", 0, false],
     ]);
     assert.equal(ctx.user.state, "idle");
@@ -458,6 +469,10 @@ test("discussion name cancel returns saved-profile discussions to the same profi
         calls.push(["delete", messageId]);
         return true;
       },
+      reply: async (text, keyboard) => {
+        calls.push(["reply", text, keyboard]);
+        return true;
+      },
     };
 
     await handleDiscussionNameCancel(ctx, "en", {
@@ -469,6 +484,7 @@ test("discussion name cancel returns saved-profile discussions to the same profi
 
     assert.deepEqual(calls, [
       ["delete", 99],
+      ["reply", messages.en.people, peopleHubKeyboard("en")],
       ["saved", "en", "u_ALI1"],
     ]);
     assert.equal(ctx.user.state, "idle");
@@ -494,6 +510,10 @@ test("discussion name cancel returns my-discussion opens to my discussions", asy
         calls.push(["delete", messageId]);
         return true;
       },
+      reply: async (text, keyboard) => {
+        calls.push(["reply", text, keyboard]);
+        return true;
+      },
     };
 
     await handleDiscussionNameCancel(ctx, "en", {
@@ -505,6 +525,7 @@ test("discussion name cancel returns my-discussion opens to my discussions", asy
 
     assert.deepEqual(calls, [
       ["delete", 100],
+      ["reply", messages.en.discussionsMenu, discussionsMenuKeyboard("en")],
       ["mine", "en", 0],
     ]);
     assert.equal(ctx.user.state, "idle");

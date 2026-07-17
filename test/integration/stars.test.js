@@ -6,8 +6,21 @@ const User = require("../../src/models/user");
 const Discussion = require("../../src/models/discussion");
 const DiscussionBoost = require("../../src/models/discussion-boost");
 const StarTransaction = require("../../src/models/star-transaction");
+const StarReferralClaim = require("../../src/models/star-referral-claim");
+const AccountDeletion = require("../../src/models/account-deletion");
 const { confirmBoost, createBoostQuote } = require("../../src/services/discussion-boosts");
-const { claimExistingProfileAndListMilestones } = require("../../src/services/star-milestones");
+const {
+  awardListMilestones,
+  awardOnboardingCompletionMilestone,
+  claimExistingProfileAndListMilestones,
+} = require("../../src/services/star-milestones");
+const {
+  anonymizeReferralClaimInvitees,
+  anonymizeStarTransactions,
+  claimAccountRestart,
+  identityFingerprint,
+  prepareDeletion,
+} = require("../../src/services/account-deletion");
 const { starEconomy } = require("../../src/services/star-settings");
 const { createStarsService } = require("../../src/services/stars");
 const { addAiListItem } = require("../../src/services/users");
@@ -18,9 +31,10 @@ const {
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
+process.env.ACCOUNT_DELETION_SECRET ||= "integration-account-deletion-secret";
 test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, { dbName: MONGODB_TEST_DB });
-  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init()]);
+  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init(), StarReferralClaim.init(), AccountDeletion.init()]);
 }, { timeout: 120000 });
 
 test.after(async () => {
@@ -36,6 +50,8 @@ test.beforeEach(async () => {
     Discussion.deleteMany({}),
     DiscussionBoost.deleteMany({}),
     StarTransaction.deleteMany({}),
+    StarReferralClaim.deleteMany({}),
+    AccountDeletion.deleteMany({}),
   ]);
 });
 
@@ -230,4 +246,102 @@ test("adding the third favorite awards the first Top Ten milestone immediately",
     reason: "topten_first_milestone",
     status: "applied",
   }), 1);
+});
+
+test("onboarding awards its configurable reward once without stacking the Interests milestone", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    earningEnabled: true,
+    rewardOnboardingCompletion: 10,
+    rewardFirstThreePerSection: 3,
+  });
+  await User.create({ userId: 507, firstName: "Onboarding User" });
+
+  const first = await awardOnboardingCompletionMilestone(507);
+  const duplicate = await awardOnboardingCompletionMilestone(507);
+  const interests = await awardListMilestones({
+    userId: 507,
+    section: "random",
+    listType: "topTen",
+    count: 3,
+  });
+
+  assert.equal(first[0].milestone, "onboarding_completed");
+  assert.equal(first[0].amount, 10);
+  assert.deepEqual(duplicate, []);
+  assert.deepEqual(interests.rewards, []);
+  assert.equal((await User.findOne({ userId: 507 }).lean()).starBalance, 10);
+});
+
+test("anonymized deleted-account ledger keys do not block rewards on a recreated account", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    earningEnabled: true,
+    rewardOnboardingCompletion: 5,
+  });
+  await User.create({ userId: 508, firstName: "First Account" });
+  await awardOnboardingCompletionMilestone(508);
+
+  await anonymizeStarTransactions(508, -508);
+  await User.deleteOne({ userId: 508 });
+  await User.create({ userId: 508, firstName: "Recreated Account" });
+  const recreatedReward = await awardOnboardingCompletionMilestone(508);
+  const ledger = await StarTransaction.find({}).sort({ createdAt: 1 }).lean();
+
+  assert.equal(recreatedReward[0].amount, 5);
+  assert.equal((await User.findOne({ userId: 508 }).lean()).starBalance, 5);
+  assert.equal(ledger.length, 2);
+  assert.match(ledger[0].idempotencyKey, /^deleted:/);
+  assert.equal(ledger[1].idempotencyKey, "milestone:topten-first:508:random");
+});
+
+test("repeated account deletion gives referral invitees collision-free tombstones", async () => {
+  const referralLinkId = new mongoose.Types.ObjectId();
+  await StarReferralClaim.create({
+    referralLinkId,
+    inviterUserId: 700,
+    inviteeUserId: -509,
+  });
+  await StarReferralClaim.create({
+    referralLinkId: new mongoose.Types.ObjectId(),
+    inviterUserId: 701,
+    inviteeUserId: 509,
+  });
+
+  await anonymizeReferralClaimInvitees(509, -509);
+  const claims = await StarReferralClaim.find({}).sort({ inviterUserId: 1 }).lean();
+
+  assert.equal(claims.some((claim) => claim.inviteeUserId === 509), false);
+  assert.equal(claims.every((claim) => claim.inviteeUserId < 0), true);
+  assert.equal(new Set(claims.map((claim) => claim.inviteeUserId)).size, 2);
+});
+
+test("an active user resets an older completed deletion even when restart was not recorded", async () => {
+  await User.create({ userId: 510, firstName: "Recreated User" });
+  await AccountDeletion.create({
+    identityFingerprint: identityFingerprint(510),
+    tombstoneUserId: -510,
+    status: "complete",
+    step: "complete",
+    completedAt: new Date(),
+  });
+
+  const operation = await prepareDeletion(510);
+
+  assert.equal(operation.status, "pending");
+  assert.equal(operation.step, "prepared");
+});
+
+test("a slash-start recreation can claim the completed deletion lifecycle", async () => {
+  await AccountDeletion.create({
+    identityFingerprint: identityFingerprint(511),
+    tombstoneUserId: -511,
+    status: "complete",
+    step: "complete",
+    completedAt: new Date(),
+  });
+
+  const claim = await claimAccountRestart(511);
+
+  assert.ok(claim.restartedAt instanceof Date);
 });

@@ -64,6 +64,12 @@ function createFakeStore(initialUsers = []) {
     findOne(filter) {
       return query(transactions.find((transaction) => matchesTransaction(transaction, filter)) || null);
     },
+    async updateOne(filter, update) {
+      const transaction = transactions.find((entry) => matchesTransaction(entry, filter));
+      if (!transaction) return { modifiedCount: 0 };
+      Object.assign(transaction, clone(update.$set || {}));
+      return { modifiedCount: 1 };
+    },
     async create(rows) {
       const row = clone(rows[0]);
       if (transactions.some((transaction) => transaction.idempotencyKey === row.idempotencyKey)) {
@@ -177,6 +183,33 @@ test("concurrent duplicate earning applies exactly once", async () => {
   assert.equal([first.applied, second.applied].filter(Boolean).length, 1);
   assert.equal(store.users.get(11).starBalance, 3);
   assert.equal(store.transactions.length, 1);
+});
+
+test("a legacy tombstoned key does not block a recreated account reward", async () => {
+  const store = createFakeStore([{ userId: 19 }]);
+  store.transactions.push({
+    _id: "old-ledger-row",
+    userId: -919,
+    amount: 5,
+    balanceAfter: null,
+    status: "applied",
+    type: "earn",
+    reason: "onboarding_completed",
+    idempotencyKey: "milestone:topten-first:19:random",
+  });
+  const service = createService(store);
+
+  const result = await service.earnStars({
+    userId: 19,
+    amount: 5,
+    reason: "onboarding_completed",
+    idempotencyKey: "milestone:topten-first:19:random",
+  });
+
+  assert.equal(result.applied, true);
+  assert.equal(store.users.get(19).starBalance, 5);
+  assert.match(store.transactions[0].idempotencyKey, /^deleted:old-ledger-row:/);
+  assert.equal(store.transactions[1].idempotencyKey, "milestone:topten-first:19:random");
 });
 
 test("insufficient spending leaves balance and ledger unchanged", async () => {

@@ -20,6 +20,7 @@ const { operationalLimits } = require("../services/operational-limits");
 const { localizeInterestChipTitle } = require("../services/interest-chips");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const { createOnboardingStarterInvitationsForUser } = require("../services/discussion-invitations");
+const { awardOnboardingCompletionMilestone } = require("../services/star-milestones");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   applyStarRewardsToContext,
@@ -173,7 +174,7 @@ function buildOnboardingStarNotice(lang, rewards = []) {
 }
 
 async function completeOnboardingForState(ctx, state, skipped = false) {
-  await completeOnboarding(ctx, skipped);
+  return completeOnboarding(ctx, skipped);
 }
 
 async function sendTasteSetupNudge(ctx, lang) {
@@ -231,6 +232,8 @@ function trackOnboardingCompletionDestination(ctx, data) {
 }
 
 async function completeOnboarding(ctx, skipped = false) {
+  const starRewards = skipped ? [] : await awardOnboardingCompletionMilestone(ctx.userId);
+  applyStarRewardsToContext(ctx, starRewards);
   await updateProfileField(ctx.userId, "onboardingVersion", ONBOARDING_VERSION);
   await updateProfileField(
     ctx.userId,
@@ -245,6 +248,7 @@ async function completeOnboarding(ctx, skipped = false) {
     userId: ctx.userId,
     source: "onboarding",
   });
+  return starRewards;
 }
 
 async function handleOnboardingCallback(ctx, lang, helpers = {}) {
@@ -334,11 +338,11 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
         { show_alert: true },
       );
     }
-    await completeOnboardingForState(ctx, state);
+    const starRewards = await completeOnboardingForState(ctx, state);
     const completion = await prepareOnboardingCompletion(ctx, lang);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      completion.text,
+      [completion.text, buildOnboardingStarNotice(lang, starRewards)].filter(Boolean).join("\n\n"),
       completion.keyboard,
     );
   }
@@ -382,6 +386,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     "topTen",
     { title: item, comment: "" },
     getOnboardingInterestLimit(),
+    { awardStars: false },
   );
   const items = result.ok
     ? result.items
@@ -399,11 +404,11 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (result.ok && items.length >= getOnboardingInterestGoal()) {
-    await completeOnboardingForState(ctx, state);
+    const onboardingRewards = await completeOnboardingForState(ctx, state);
     const completion = await prepareOnboardingCompletion(ctx, lang);
     return helpers.editCallbackMessageOrReply(
       ctx,
-      [completion.text, starNotice]
+      [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice]
         .filter(Boolean)
         .join("\n\n"),
       completion.keyboard,
@@ -445,6 +450,7 @@ async function handleOnboardingText(ctx, lang) {
       "topTen",
       { title: item, comment: "" },
       getOnboardingInterestLimit(),
+      { awardStars: false },
     );
 
     if (!result.ok) {
@@ -469,10 +475,10 @@ async function handleOnboardingText(ctx, lang) {
     const starNotice = buildOnboardingStarNotice(lang, result.starRewards);
 
     if (result.items.length >= getOnboardingInterestGoal()) {
-      await completeOnboardingForState(ctx, state);
+      const onboardingRewards = await completeOnboardingForState(ctx, state);
       const completion = await prepareOnboardingCompletion(ctx, lang);
       return ctx.reply(
-        [completion.text, starNotice].filter(Boolean).join("\n\n"),
+        [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice].filter(Boolean).join("\n\n"),
         completion.keyboard,
       );
     }

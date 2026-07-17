@@ -657,7 +657,7 @@ async function syncAiTasteForSection(userId, section) {
   };
 }
 
-async function addAiListItem(userId, section, listType, item, maxItems) {
+async function addAiListItem(userId, section, listType, item, maxItems, { awardStars = true } = {}) {
   const itemLimit = maxItems ?? (
     listType === "topTen"
       ? operationalLimits.aiTopTenItems
@@ -704,12 +704,14 @@ async function addAiListItem(userId, section, listType, item, maxItems) {
   const updated = [...current, { title, comment, watched }];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
   void syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
-  const starMilestone = await awardListMilestones({
-    userId,
-    section,
-    listType,
-    count: updated.length,
-  });
+  const starMilestone = awardStars
+    ? await awardListMilestones({
+      userId,
+      section,
+      listType,
+      count: updated.length,
+    })
+    : { rewards: [], progress: null };
   const externalReferralReward = (
     section === "random" &&
     listType === "topTen" &&

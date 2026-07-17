@@ -81,6 +81,7 @@ The exact amounts are admin-editable. The values below are recommended launch de
 
 | Milestone | Default | Frequency | Qualification |
 | --- | ---: | --- | --- |
+| Complete onboarding | 5 | Once per account | The configured onboarding interest goal is completed |
 | First 3 TopTen items in a section | 3 | Once per section | Three valid, distinct items exist in that section's Top 10 |
 | Complete a Top 10 section | 7 | Once per section | The section reaches the configured completion size; this is additional to the first-3 reward |
 | Complete profile milestone | 5 | Once per account | Display name and the configured non-sensitive completion rule are satisfied |
@@ -97,7 +98,7 @@ The exact amounts are admin-editable. The values below are recommended launch de
 - The full Top 10 reward is once per section and may be earned after the first-3 reward.
 - Removing items does not revoke an earned milestone and adding them again does not reward it again.
 - Existing users lazily receive currently verifiable list and profile milestones when they open their private Stars overview. This is a bounded scan of four list sections and the profile, protected by the same idempotency keys. Historical discussion participation is not inferred; discussion creation/join rewards begin from live successful actions after rollout.
-- Onboarding writes its three choices into Interests TopTen. Completing those three choices should trigger the normal Interests first-3 milestone; do not stack a second reward merely for the onboarding screen.
+- Onboarding writes its choices into Interests TopTen. Its configurable completion reward replaces the normal Interests first-milestone reward for that account; the two rewards must not stack.
 - The configured Top 10 completion threshold must not exceed the current TopTen item cap. The admin dashboard must validate this relationship.
 
 ### Profile Completion Milestone

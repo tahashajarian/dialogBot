@@ -1,5 +1,11 @@
 const messages = require("../messages");
-const { cancelEditKeyboard, discussionsMenuKeyboard } = require("../keyboards");
+const {
+  cancelEditKeyboard,
+  discussionsMenuKeyboard,
+  mainMenuKeyboard,
+  onboardingCompleteKeyboard,
+  peopleHubKeyboard,
+} = require("../keyboards");
 const { clearProfileEditPrompt, sendProfileEditPrompt } = require("./profile-edit");
 const { validateProfileName } = require("../services/profile");
 const { updateProfileField, updateUserState } = require("../services/users");
@@ -81,6 +87,33 @@ async function requireDiscussionProfileName(ctx, lang, { source, token, beforePr
   return false;
 }
 
+async function restoreDiscussionNameSourceKeyboard(ctx, lang, pendingEntry) {
+  const source = pendingEntry?.source || "";
+  if (["accept", "open", "open_active", "open_mine"].includes(source)) {
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  }
+  if (source === "open_saved") {
+    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang));
+  }
+  if (source !== "join") return null;
+
+  const mode = String(ctx.user?.navigationMode || "");
+  const onboardingMode = mode.match(/^onboarding_complete:(0|1):(0|1)$/);
+  if (onboardingMode) {
+    return ctx.reply(messages[lang].mainMenu, onboardingCompleteKeyboard(lang, {
+      hasInvitation: onboardingMode[1] === "1",
+      discussionContinuation: onboardingMode[2] === "1",
+    }));
+  }
+  if (/^(?:people|saved_profiles|public_profile|profile_discussions)/.test(mode)) {
+    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang));
+  }
+  if (/^discussions?$|^discussion_/.test(mode)) {
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  }
+  return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+}
+
 async function handleDiscussionNameCancel(ctx, lang, {
   renderActiveDiscussionList,
   renderMyDiscussionList,
@@ -92,6 +125,8 @@ async function handleDiscussionNameCancel(ctx, lang, {
   await clearProfileEditPrompt(ctx);
   await updateUserState(ctx.userId, "idle");
   if (ctx.user) ctx.user.state = "idle";
+
+  await restoreDiscussionNameSourceKeyboard(ctx, lang, pendingEntry);
 
   if (pendingEntry?.source === "accept" && renderInvitationsList) {
     return renderInvitationsList(ctx, lang, 0);
@@ -138,4 +173,5 @@ module.exports = {
   isDiscussionNameCancelText,
   parseDiscussionNameState,
   requireDiscussionProfileName,
+  restoreDiscussionNameSourceKeyboard,
 };

@@ -692,6 +692,7 @@ module.exports = {
     starsReason_topten_first_milestone_section: "adding your first choices to your {listName}",
     starsReason_topten_completed: "completing your favorites in a section",
     starsReason_topten_completed_section: "completing your {listName}",
+    starsReason_onboarding_completed: "completing onboarding",
     starsReason_profile_completed: "completing your profile",
     starsReason_first_discussion_created: "creating your first discussion",
     starsReason_first_discussion_joined: "joining your first discussion",

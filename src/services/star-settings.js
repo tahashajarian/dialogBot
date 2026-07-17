@@ -42,6 +42,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   rewardFirstThreePerSection: {
     label: "First TopTen milestone reward", description: "Stars awarded once per section at the first TopTen milestone.", group: "Rewards", type: "number", unit: "Stars", default: 3, min: 0, max: 1000,
   },
+  rewardOnboardingCompletion: {
+    label: "Onboarding completion reward", description: "One-time reward for completing onboarding; replaces the Interests first-milestone reward for that user.", group: "Rewards", type: "number", unit: "Stars", default: 5, min: 0, max: 1000,
+  },
   rewardFullTopTenPerSection: {
     label: "Full TopTen reward", description: "Additional Stars awarded once per completed TopTen section.", group: "Rewards", type: "number", unit: "Stars", default: 7, min: 0, max: 1000,
   },

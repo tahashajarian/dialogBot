@@ -7,8 +7,7 @@ const connectDB = require("./db");
 const { disconnectDB } = require("./db");
 const { handleUpdate } = require("./bot");
 const { getOrCreateUser, normalizePlatformUserSource } = require("./services/users");
-const AccountDeletion = require("./models/account-deletion");
-const { identityFingerprint } = require("./services/account-deletion");
+const { claimAccountRestart } = require("./services/account-deletion");
 const { beginInteraction } = require("./services/interaction-guard");
 const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
@@ -141,18 +140,14 @@ async function processUpdate(ctx) {
       : null;
     const isStartAgain = rawText === messages.fa.accountStartAgainButton
       || rawText === messages.en.accountStartAgainButton;
-    const restartClaim = isStartAgain && normalizedSource
-      ? await AccountDeletion.findOneAndUpdate({
-        identityFingerprint: identityFingerprint(normalizedSource.id),
-        status: "complete",
-        restartedAt: null,
-      }, { $set: { restartedAt: new Date() } }, { returnDocument: "after" })
+    const canCreateAccount = /^\/start(?:@\w+)?(?:$|[\s?=])/i.test(rawText) || isStartAgain;
+    const restartClaim = !existingUser && canCreateAccount && normalizedSource
+      ? await claimAccountRestart(normalizedSource.id)
       : null;
     if (restartClaim) {
       await User.deleteOne({ userId: normalizedSource.id });
       existingUser = null;
     }
-    const canCreateAccount = /^\/start(?:@\w+)?(?:$|[\s?=])/i.test(rawText) || isStartAgain;
     if (!existingUser && !canCreateAccount) {
       const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
       await ctx.reply(messages[lang].accountNoActiveAccount, {

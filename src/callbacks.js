@@ -367,8 +367,9 @@ function getActiveRoomCallbackDiscussionId(data = "") {
 
 async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shouldClearKeyboard) {
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
+  const sent = await ctx.reply(text, keyboard);
   await setNavigationMode(ctx, mode);
-  return ctx.reply(text, keyboard);
+  return sent;
 }
 
 async function sendDiscussionRoom(ctx, lang, discussion) {

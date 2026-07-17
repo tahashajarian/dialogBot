@@ -71,6 +71,16 @@ test("onboarding completion and taste nudge actions expire outside their server 
   assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupStartButton, { ...nudge, mode: MODES.GLOBAL }), null);
 });
 
+test("safe onboarding destinations recover from a stale completion keyboard", () => {
+  for (const lang of ["fa", "en"]) {
+    const idleGlobal = { mode: MODES.GLOBAL, state: "idle", user: { lang } };
+    assert.equal(resolveReplyKeyboardAction(messages[lang].onboardingMainMenuButton, idleGlobal).callbackData, callBacks.menuMain);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].onboardingFavoritesButton, idleGlobal).callbackData, callBacks.aiAssistant);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].discussionActiveList, idleGlobal).callbackData, callBacks.discussionListActive);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].onboardingFavoritesButton, { ...idleGlobal, state: "editing_bio" }), null);
+  }
+});
+
 test("global destination labels do not activate outside the global mode", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.PROFILE, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, { mode: MODES.FAVORITES, state: "idle", user: { lang: "en" } }), null);

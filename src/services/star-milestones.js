@@ -142,6 +142,20 @@ async function awardProfileCompletionMilestone(userId, user) {
   return { rewards: appliedRewards([result]), profileProgress: status };
 }
 
+async function awardOnboardingCompletionMilestone(userId) {
+  const result = await safelyEarn({
+    userId,
+    amount: starEconomy.rewardOnboardingCompletion,
+    reason: "onboarding_completed",
+    // This shared key makes onboarding replace, rather than stack with, the
+    // normal first-three Interests reward.
+    idempotencyKey: `milestone:topten-first:${userId}:random`,
+    settingsSnapshot: snapshotSettings(["rewardOnboardingCompletion"]),
+    metadata: { section: "random", listType: "topTen", milestone: "onboarding_completed" },
+  });
+  return appliedRewards([result]);
+}
+
 async function awardFirstDiscussionCreated(userId, discussionId) {
   const result = await safelyEarn({
     userId,
@@ -187,6 +201,7 @@ module.exports = {
   awardFirstDiscussionCreated,
   awardFirstDiscussionJoined,
   awardListMilestones,
+  awardOnboardingCompletionMilestone,
   awardProfileCompletionMilestone,
   claimExistingProfileAndListMilestones,
   getProfileStarCompletionStatus,

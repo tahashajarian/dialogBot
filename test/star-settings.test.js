@@ -18,6 +18,7 @@ test("Star settings expose safe launch defaults", () => {
   assert.equal(values.paidExtraDiscussionsEnabled, true);
   assert.equal(values.advancedSearchPreviewEnabled, true);
   assert.equal(values.discussionBoostCost, 10);
+  assert.equal(values.rewardOnboardingCompletion, 5);
   assert.equal(values.paidSuggestionCost, 1);
   assert.equal(values.profileEmojiCost, 3);
   assert.equal(values.peopleTasteMatchesCost, 5);

@@ -97,6 +97,15 @@ function createStarsService({
     return TransactionModel.findOne({ $or: clauses });
   }
 
+  async function releaseLegacyDeletedAccountKey(idempotencyKey) {
+    const existing = await TransactionModel.findOne({ idempotencyKey });
+    if (!existing || Number(existing.userId) >= 0) return;
+    await TransactionModel.updateOne(
+      { _id: existing._id, userId: existing.userId, idempotencyKey },
+      { $set: { idempotencyKey: `deleted:${existing._id}:${idempotencyKey}` } },
+    );
+  }
+
   async function supportsTransactions() {
     if (!connection.db?.admin) return true;
     if (!transactionSupportPromise) {
@@ -414,6 +423,10 @@ function createStarsService({
     };
 
     try {
+      // Older account deletions tombstoned the ledger owner but left the
+      // globally unique key behind. Repair those rows lazily so an account
+      // recreated with the same platform ID can earn its milestones again.
+      await releaseLegacyDeletedAccountKey(normalizedIdempotencyKey);
       const result = await (await supportsTransactions()
         ? performTransactionalMutation(options)
         : performStandaloneMutation(options));

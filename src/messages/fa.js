@@ -692,6 +692,7 @@ module.exports = {
     starsReason_topten_first_milestone_section: "ثبت انتخاب‌های اول {listName}",
     starsReason_topten_completed: "کامل‌کردن محبوب‌های یک بخش",
     starsReason_topten_completed_section: "کامل‌کردن {listName}",
+    starsReason_onboarding_completed: "کامل‌کردن شروع اولیه",
     starsReason_profile_completed: "کامل‌کردن پروفایل",
     starsReason_first_discussion_created: "ساختن اولین گفت‌وگو",
     starsReason_first_discussion_joined: "ورود به اولین گفت‌وگو",
