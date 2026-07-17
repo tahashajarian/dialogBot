@@ -1,7 +1,6 @@
 const messages = require("./messages");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const {
-  inlineKeyboard,
   mainMenuKeyboard,
   helpKeyboard,
   helpRulesKeyboard,
