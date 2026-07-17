@@ -1,204 +1,27 @@
-# Muze Next Step: Guided First Journey
+# Muze Next Steps
 
-Goal: give new users a reliable first social destination and explain major sections once, without turning onboarding into a long tutorial.
+Completed implementation plans are removed from this file. Product behavior for Profile privacy, invitation restrictions, invite onboarding, and discussion join failures now lives in `docs/bot-ux.md`, `docs/discussions.md`, and `docs/discussion-invitations.md`.
 
-## Copy-paste prompt for the implementation agent
+## Immediate live verification
 
-```text
-Read `next-step.todo` completely before taking action, along with the repository `AGENTS.md` and every focused document referenced by the first unconfirmed step.
+☐ Test the consolidated change in Persian and English with two normal accounts and one account created from a discussion invite:
+- Profile Settings layout and Location return path;
+- both Privacy & Safety visibility toggles and their compact confirmations;
+- See People opt-out and opt-in;
+- restrict confirmation, pending-invitation removal, restricted join behavior, restriction list count/pagination, View profile, and Allow invitations again;
+- invitation acceptance while already in a room;
+- invitation acceptance when a taste, favorite, or Interest rule is unmet;
+- direct invite preview for an eligible and an ineligible returning user;
+- fresh invite recipient language selection, complete onboarding, final invitation notice, preview, and join;
+- stale cards, repeated taps, and restarts where practical.
 
-Work on only the first unconfirmed checklist step, or the smallest tightly related slice needed to test it safely. Do not continue to later steps in the same turn.
+☐ Deploy only after explicit approval, following `docs/fresh-server-deployment.md` one section at a time. Never run tests, seed scripts, clearing scripts, or load tests against the production database.
 
-Before editing, inspect the current working tree, implementation, schemas, services, flows, keyboards, translations, analytics, documentation, and existing tests related to that slice. Give me a short evidence-based pre-change review explaining:
-- what already exists;
-- the exact confirmed gap;
-- the files likely to change;
-- behavior and user data that must remain unchanged;
-- compatibility, privacy, Stars, invitation, onboarding, and discussion risks;
-- the smallest safe implementation.
+☐ After rollout, monitor privacy-toggle errors, restriction/unrestrict failures, People result and empty-state rates, invitation failures, and join-unavailable rates. Do not bulk rewrite User or invitation-restriction documents.
 
-Do not follow the plan blindly. If the repository already has a better implementation, the plan is outdated, requirements conflict, or the change could affect production data unexpectedly, stop and explain the evidence before editing. Preserve all unrelated and user-authored working-tree changes.
+## Deferred measured starter-topic expansion
 
-After the pre-change review, implement only the agreed small slice using the documented module boundaries. Add regression tests for the new behavior and important existing behavior. Run the checks required by `next-step.todo`, review the complete diff for accidental changes, secrets, debug code, destructive operations, translation drift, and documentation mismatch, then stop.
-
-At handoff, report briefly:
-- what changed;
-- files changed;
-- automated checks and results;
-- anything not verified;
-- a short numbered live-bot test for me in Persian and English where relevant.
-
-Do not mark the step complete and do not begin the next step until I explicitly confirm that I tested it successfully on the real bot. After my confirmation, record the date and what I tested beside that checklist item, then repeat this process for only the next unconfirmed step.
-```
-
-## Required working method: one step at a time
-
-- Before changing any code, inspect the current implementation, related docs, schemas, services, flows, keyboards, translations, analytics, and existing tests. Do not assume a feature is missing or follow this plan blindly if the repository already has a safer or better implementation.
-- For each slice, first write a short evidence-based pre-change note covering: what already exists, the exact gap, files likely affected, behavior that must remain unchanged, data/backward-compatibility risks, and the smallest safe change. If the evidence conflicts with this plan, stop and discuss/update the plan before editing.
-- Check the working tree before editing. Preserve user changes and unrelated work; never overwrite, revert, rename, or delete them as cleanup.
-- Trace the complete affected user journeys in both Persian and English, including direct commands, bottom buttons, callbacks, deep links, stale/rapid taps, restarts, two-device state, active discussions, and error/fallback paths where relevant.
-- Check database consequences before schema, index, capacity, invitation, analytics, or persisted-tip changes. Existing users and rooms must remain valid; do not delete or rewrite user data unless separately and explicitly approved.
-- Prefer the smallest root-cause change inside the documented module boundary. Do not combine unrelated refactors, copy rewrites, or cleanup with the current slice.
-- Implement only one checklist step or one tightly related testable slice at a time.
-- Add or update regression tests before considering the slice ready. Tests must cover the new behavior and the important existing behavior that could be accidentally changed.
-- After each slice, run its automated checks and provide a short manual test script for the real bot.
-- Review the final diff for accidental changes, secrets, debug code, destructive database operations, translation drift, and documentation mismatch before handing it off.
-- Stop after handing off the slice. Do not begin the next slice until the user tests it on the bot and explicitly confirms it.
-- If the user finds a problem, fix and re-test the current slice before moving forward.
-- Keep every slice small enough to review and safely revert without affecting later work.
-- Do not mark a checklist item complete from automated tests alone; mark it complete only after both automated validation and the user's live-bot confirmation.
-- Record the confirmation beside the completed item with the date and a brief note about what was manually tested.
-- Before each new slice, re-read this file and verify that all earlier dependencies are confirmed.
-- When uncertain, stop at the current slice and present the evidence and tradeoff. Do not guess through a change that could affect production data, privacy, Stars, invitations, onboarding, or discussion membership.
-
-Recommended approval sequence:
-
-1. Starter-room capacity 100 and seeding safety.
-2. Invitation selection and full-room fallback behavior.
-3. Onboarding completion/invitation copy.
-4. Discussions first-visit tip.
-5. Favorites first-visit tip.
-6. People first-visit tip.
-7. Analytics and dashboard additions.
-8. Final documentation and full regression smoke test.
-9. Starter-topic or overflow expansion only later, after real usage supports it and the user separately approves it.
-
-Deployment to a new server is also approval-gated. Follow `docs/fresh-server-deployment.md` one section at a time. After each section, stop so the user can verify the server/output before continuing. Never request or paste production secrets into chat, and never run tests, seed scripts, clearing scripts, or load tests against the production MongoDB.
-
-## Product decisions
-
-- Keep onboarding short: language, welcome, and 3 Interests.
-- After onboarding, prepare at most one invitation:
-  1. Prefer the newest open, non-full, joinable room in the user's language whose Interest rule matches one of their choices.
-  2. Otherwise use the open, non-full language-specific Free Discussion.
-  3. If neither exists, finish onboarding normally without claiming that an invitation is ready.
-- Never auto-join a room. The user sees its preview, join condition, and chooses whether to enter.
-- Increase Muze-created starter-room capacity from 20 to 100. Do not change user-created room defaults or paid capacity rules.
-- Do not automatically create overflow global rooms in this change. Review real activity and moderation load before deciding between larger rooms and numbered overflow rooms.
-- Keep the current four starter topics for the first rollout. Treat additional starter topics as a measured follow-up so Muze does not create many empty rooms.
-- Use short `💡` guidance only on the first meaningful visit to Discussions, Favorites, and People.
-- Do not add a first-visit tutorial to Profile, Saved Profiles, Stars, Guide, Settings, or Language:
-  - Profile already shows a private, personalized next-step hint.
-  - Saved Profiles already has an instructional empty state.
-  - Stars and Guide already explain themselves.
-  - Settings and Language do not need discovery education.
-- Persist first-tip state in MongoDB so tips are shown once across restarts and devices. Telegram's visible keyboard or message history is not authority.
-
-## 1. Starter-room capacity and invitation selection
-
-☑ Change `BOT_STARTER_DISCUSSION_MEMBER_CAP` from 20 to 100. Confirmed on the live bot on 2026-07-17: starter capacity 100 worked and user-created discussion capacity behavior remained unchanged.
-
-☑ Confirm startup seeding updates all eight language-specific Muze starter rooms to 100 without changing membership, messages, status, public codes, or user-created rooms. Confirmed on the live bot on 2026-07-17: four Persian and four English starter instances existed at capacity 100, remained accessible after restart, and legacy language data was backfilled without creating or duplicating rooms.
-
-☑ Keep invitation selection atomic and safe under concurrent onboarding completions. Revalidate that the chosen room is open, joinable, and below capacity when the invitation is created or accepted. Confirmed on the live bot on 2026-07-17: simultaneous completion produced one starter invitation, acceptance joined once, and no automated invitation-pair Stars reward was created.
-
-☑ Keep the current no-room fallback: onboarding completes with Active Discussions, My favorites, and Main menu; no invitation button or invitation-ready copy is shown. Confirmed in the consolidated live smoke test on 2026-07-17.
-
-☑ Add/adjust tests for: Confirmed on the live bot on 2026-07-17: Interest matching, language isolation, Free Discussion fallback, full-room/no-room behavior, repeat protection, and automated Stars exclusion worked as expected.
-- matching Interest room preferred over Free Discussion;
-- full matching room falls back to Free Discussion;
-- full Free Discussion creates no invitation;
-- language isolation (`fa` users receive `fa`, `en` users receive `en`);
-- repeated completion creates no duplicate invitation;
-- bot invitation never grants invitation-pair Stars;
-- existing starter rooms are reseeded to capacity 100 without destructive changes.
-
-## 2. Clear onboarding completion message
-
-☑ When a starter invitation exists, explain briefly: Confirmed in Persian and English during the consolidated live smoke test on 2026-07-17.
-- Muze prepared one discussion to help the user start;
-- it was selected from their Interests when a matching room was available, otherwise it is the general Free Discussion;
-- opening the invitation is only a preview and does not join automatically;
-- rooms may have a join condition, and Muze will explain exactly how to satisfy it.
-
-☑ Prefer returning invitation metadata from the invitation service (match/free and room identity) instead of inferring it in the UI. Confirmed through isolated-database coverage and the consolidated live smoke test on 2026-07-17.
-
-☑ Keep the completion message compact and bilingual. Do not list every feature or repeat all selected Interests. Confirmed on 2026-07-17: the picker shows current selections as plain hyphen rows directly above the count, while the final Persian and English completion message stays compact without repeating the full list.
-
-☑ When no invitation exists, use the existing neutral completion copy and do not mention capacity or an internal failure. Confirmed in the consolidated live smoke test on 2026-07-17.
-
-☑ Preserve shared-discussion-link behavior: keep the shared code through onboarding, do not create a second starter invitation, and show the shared-discussion continuation on completion. Confirmed on the live bot on 2026-07-17: the original shared discussion remained available through onboarding/restart, appeared as the first continuation action, opened as a preview without auto-joining, and no extra starter invitation was shown.
-
-## 3. One-time section guidance
-
-☑ Add one durable user field for section-tip timestamps/flags, managed through `src/models/user.js` and `src/services/users.js`. Use stable keys such as `discussions`, `favorites`, and `people`. Approved on 2026-07-17 from unit and isolated-database verification: stable keys persist independently, survive reloads, reject unknown keys, and preserve the first timestamp without requiring a legacy-user migration.
-
-☑ Discussions first visit: Confirmed in the consolidated live smoke test on 2026-07-17; the tip appeared on the first meaningful visit without repeating through normal navigation.
-- explain that rooms are live conversations around interests and favorites;
-- say the preview shows the join condition;
-- say that if entry is locked, Muze explains what to add or complete;
-- lead directly into Active Discussions, not another tutorial screen;
-- do not duplicate the existing first-invitation tip in the same visit.
-
-☑ Favorites first visit: Confirmed in the consolidated live smoke test on 2026-07-17; guidance and existing manager controls worked together without repetition.
-- explain Favorites versus Watch/Listen/Read Later lists;
-- explain that 3 Favorites unlock suggestions and 10 can produce a taste label;
-- mention that favorites improve People and discussion relevance;
-- keep existing manager controls immediately available.
-
-☑ People first visit: Confirmed in the consolidated live smoke test on 2026-07-17 after replacing the internal-sounding disclaimer with natural bilingual copy.
-- explain discovery naturally through shared saved choices;
-- explain that saving a profile is private and enables finding/inviting that person later;
-- if the user lacks enough data, keep the existing direct action to My favorites;
-- do not repeat the tip on Saved Profiles or every People result page.
-
-☑ Mark a tip shown only after its destination message is successfully sent. Fail open: a database failure must not block the section. Confirmed by delivery-failure tests, persistence tests, and the consolidated live smoke test on 2026-07-17.
-
-☑ Avoid extra bubbles where possible. Include the tip in the section's existing first response, separated by one blank line. Confirmed in the consolidated live smoke test on 2026-07-17.
-
-☑ Add tests proving each tip: Unit and isolated-database coverage passed on 2026-07-17, followed by the consolidated bilingual live smoke test.
-- appears once for a new user;
-- does not appear on later visits;
-- survives restart/device changes through persisted state;
-- is independent of the other section tips;
-- works in Persian and English;
-- does not break exact navigation modes, Back behavior, active-room handling, invite entry, or rapid-tap protection.
-
-## 4. Analytics
-
-☑ Add privacy-light events for `onboarding_started`, onboarding completion destination chosen, and first section-tip exposure. Implemented and validated on 2026-07-17.
-
-☑ Record only safe metadata such as destination/source/tip key. Never store Interest text, room messages, or profile content in analytics. Safe-field filtering tests passed on 2026-07-17.
-
-☑ Add the new funnel steps to the analytics dashboard so the private beta can answer: Implemented on 2026-07-17 while preserving all existing funnel rows.
-- how many users start and complete onboarding;
-- how many receive/open a starter invitation;
-- how many open Active Discussions and successfully join;
-- how many continue to Favorites and People.
-
-## 5. Documentation alignment
-
-☑ Update `docs/bot-ux.md`, `docs/discussions.md`, `docs/architecture.md`, and `docs/agent-map.md` after implementation. Completed on 2026-07-17.
-
-☑ Document capacity 100 as the current starter-room limit and keep overflow rooms explicitly deferred. Completed on 2026-07-17.
-
-☑ Keep the production smoke-test checklist aligned with the one-time-tip and starter-invitation journey. Completed on 2026-07-17.
-
-## 6. Validation and rollout
-
-☑ Run `npm.cmd run validate:translations`. Passed for 820 English/Persian keys on 2026-07-17.
-
-☑ Run `npm.cmd test`. Passed 524 unit tests on 2026-07-17.
-
-☑ Run `npm.cmd run test:integration` because starter-room seeding and invitation database behavior change. Passed 35 integration tests on 2026-07-17.
-
-☑ Run `git diff --check`. Passed on 2026-07-17.
-
-☑ Manually smoke-test in both Persian and English: User confirmed the consolidated live-bot checklist passed on 2026-07-17.
-- direct new user;
-- matching Interest invitation;
-- Free Discussion fallback;
-- no available room;
-- shared discussion deep link;
-- first and second visit to Discussions, Favorites, and People;
-- Profile, Saved Profiles, Stars, Guide, and existing join-error guidance;
-- restart/two-device state, rapid taps, and active-room navigation.
-
-☐ Roll out without overflow rooms first. Monitor room occupancy, message rate, reports, join success, onboarding completion, and D1/D7 return before changing the room topology.
-
-## 7. Measured starter-topic expansion
-
-Current starter topics are Free Discussion, Gaming Hangout, Movie Chat, and Metalheads. Each topic has one Persian and one English instance, for eight current starter-room instances across two languages.
+Current starter topics are Free Discussion, Gaming Hangout, Movie Chat, and Metalheads. Each topic has separate Persian and English instances.
 
 ☐ Collect privacy-light aggregate metrics for:
 - onboarding Interest-chip selections by normalized predefined chip key;
@@ -206,49 +29,20 @@ Current starter topics are Free Discussion, Gaming Hangout, Movie Chat, and Meta
 - rooms that repeatedly approach capacity;
 - rooms that remain empty or inactive.
 
-☐ After the first rollout has enough real usage, consider this initial eight-topic catalog:
-- Free Discussion;
-- Movies;
-- Gaming;
-- Music;
-- Books;
-- Technology;
-- Sports;
-- Everyday Life.
-
-If all eight topics are enabled in both Persian and English, there will be 16 starter-room instances—not eight languages.
-
-☐ Add a topic only when onboarding selections and discussion activity show clear demand. Do not enable every candidate automatically.
+☐ After enough real usage, consider topics such as Movies, Gaming, Music, Books, Technology, Sports, and Everyday Life. Add a topic only when onboarding selections and discussion activity show clear demand.
 
 ☐ For each added topic:
-- define a stable seed key and bilingual title/description;
-- use a broad predefined onboarding Interest chip for a simple, understandable join rule;
+- define a stable seed key and bilingual title and description;
+- use a broad predefined onboarding Interest chip for a clear join rule;
 - seed separate Persian and English rooms;
 - preserve idempotent seeding and stable ordering;
-- include the room in matching-invitation tests and discovery ranking tests;
-- verify the rule explains exactly how a locked user can become eligible.
+- add matching-invitation and discovery-ranking tests;
+- verify locked-room guidance explains the exact eligibility path.
 
-☐ Keep one open Free Discussion fallback per language regardless of topic expansion.
+☐ Keep one open Free Discussion fallback per language.
 
-☐ Do not delete inactive rooms or their user data automatically. Hide/close an inactive Muze room only through a separately reviewed migration that accounts for current members and notifications.
+☐ Do not delete inactive rooms or user data automatically. Any retirement requires a separately reviewed migration covering current members and notifications.
 
-☐ Add numbered overflow rooms only when a starter topic repeatedly approaches its effective capacity. Route new onboarding invitations to an open, non-full instance in the correct language, preferring a healthy active room without concentrating every user into one room.
+☐ Add numbered overflow rooms only after defining the occupancy threshold, observation window, routing strategy, user-facing titles, discovery deduplication, moderation monitoring, and safe retirement policy.
 
-☐ Before adding overflow logic, define:
-- the occupancy threshold and observation window;
-- whether routing prefers least-full or most-active-with-capacity;
-- how room numbering/titles appear to users;
-- how discovery avoids showing many near-identical rooms;
-- how moderators monitor reports and activity across instances;
-- whether an overflow room may be closed after becoming inactive, without moving users or copying messages automatically.
-
-☐ Validate any topic/overflow expansion with unit tests, discussion integration tests, translation validation, bilingual smoke tests, and updated operational dashboard counts.
-
-## Definition of done
-
-- Every normal onboarding completion either has one valid invitation or makes no invitation promise.
-- Muze starter rooms support 100 members without changing user-created rooms.
-- Discussions, Favorites, and People teach their purpose once and remain low-noise afterward.
-- Existing contextual join errors, profile growth hints, saved-profile empty states, Stars, Guide, invitations, and navigation behavior remain intact.
-- Additional starter topics and overflow instances are introduced only from measured demand, with separate Persian and English rooms and no destructive automatic retirement.
-- Translation, unit, integration, diff, and bilingual manual checks pass.
+☐ Validate topic or overflow expansion with translation validation, unit and integration tests, diff checks, and bilingual live tests.

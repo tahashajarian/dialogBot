@@ -27,6 +27,16 @@ const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
+const {
+  discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
+} = require("../src/keyboards");
+const {
+  listInvitationRestrictions,
+  unmuteInvitationRestrictionById,
+  unmuteInvitationRestrictionByProfileCode,
+  unmuteInviterForUser,
+} = require("../src/services/discussion-invitation-mutes");
 
 test("centralized free-tier invitation limit is 3 per 24h", () => {
   assert.equal(USER_LIMITS.free.discussionInvitationsPer24h, 3);
@@ -52,6 +62,20 @@ test("discussion invitation schema accepts pending invitation", () => {
   assert.equal(invitation.validateSync(), undefined);
   assert.equal(invitation.status, "pending");
   assert.equal(invitation.source, "room");
+});
+
+test("invitation join conflict uses inline Got it without replacing the room keyboard", () => {
+  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa");
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
+  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].text, messages.fa.acknowledgeButton);
+  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionJoinLockedClose);
+});
+
+test("invitation rule failure uses inline Got it without replacing the reply keyboard", () => {
+  const keyboard = discussionJoinLockedKeyboard("fa");
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
+  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].text, messages.fa.acknowledgeButton);
+  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionJoinLockedClose);
 });
 
 test("sent invitation confirmation is bot-authored without speculative Star copy", () => {
@@ -477,19 +501,20 @@ test("new invitation notification fails open", async () => {
   assert.equal(notified, false);
 });
 
-test("mute inviter callback removes profile card before acknowledgement", async () => {
+test("restrict inviter requires confirmation and removes the card only after confirmation", async () => {
+  const originalExists = DiscussionInvitation.exists;
   const originalFindOneAndUpdate = DiscussionInvitationMute.findOneAndUpdate;
   const originalUpdateMany = DiscussionInvitation.updateMany;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
-  DiscussionInvitationMute.findOneAndUpdate = () => ({
-    lean: async () => ({ muterUserId: 2, mutedUserId: 1 }),
-  });
+  DiscussionInvitation.exists = async () => ({ _id: "invite" });
+  DiscussionInvitationMute.findOneAndUpdate = async () => ({ muterUserId: 2, mutedUserId: 1 });
   DiscussionInvitation.updateMany = async () => ({ modifiedCount: 1 });
 
   try {
-    const handled = await handleDiscussionInvitationCallback({
+    const ctx = {
       callbackData: `${callBacks.discussionInvitationMute}1`,
       callbackMessageId: 55,
       userId: 2,
@@ -503,11 +528,27 @@ test("mute inviter callback removes profile card before acknowledgement", async 
         replies.push({ text, keyboard });
         return { message_id: 56 };
       },
-    }, "en", {
+    };
+    const dependencies = {
       deleteCallbackMessageIfPossible: (ctx) => ctx.deleteMessage(ctx.callbackMessageId),
-    });
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        edits.push({ text, keyboard });
+        return true;
+      },
+    };
 
-    assert.ok(handled);
+    const prompted = await handleDiscussionInvitationCallback(ctx, "en", dependencies);
+    assert.ok(prompted);
+    assert.deepEqual(deletedIds, []);
+    assert.equal(edits[0].text, messages.en.discussionInvitationRestrictConfirmText);
+    assert.equal(
+      edits[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
+      `${callBacks.discussionInvitationMuteConfirm}1`,
+    );
+
+    ctx.callbackData = `${callBacks.discussionInvitationMuteConfirm}1`;
+    const confirmed = await handleDiscussionInvitationCallback(ctx, "en", dependencies);
+    assert.ok(confirmed);
     assert.deepEqual(deletedIds, [55]);
     assert.equal(replies[0].text, messages.en.discussionInvitationMuted);
     assert.equal(
@@ -515,7 +556,117 @@ test("mute inviter callback removes profile card before acknowledgement", async 
       `${callBacks.discussionInvitationAck}invitations`,
     );
   } finally {
+    DiscussionInvitation.exists = originalExists;
     DiscussionInvitationMute.findOneAndUpdate = originalFindOneAndUpdate;
     DiscussionInvitation.updateMany = originalUpdateMany;
+  }
+});
+
+test("invitation restrictions hydrate available profiles and keep dangling rows reversible", async () => {
+  const originalMuteFind = DiscussionInvitationMute.find;
+  const originalUserFind = User.find;
+  let muteQuery;
+  let userQuery;
+
+  DiscussionInvitationMute.find = (query) => {
+    muteQuery = query;
+    return {
+      sort: () => ({
+        skip: () => ({
+          limit: () => ({
+            lean: async () => [
+              { mutedUserId: 10, createdAt: new Date("2026-01-02") },
+              { mutedUserId: 11, createdAt: new Date("2026-01-01") },
+            ],
+          }),
+        }),
+      }),
+    };
+  };
+  User.find = (query) => {
+    userQuery = query;
+    return {
+      select: () => ({ lean: async () => [{ userId: 10, profileName: "Available" }] }),
+    };
+  };
+
+  try {
+    const result = await listInvitationRestrictions(2, { limit: 5, skip: 0 });
+    assert.equal(result.ok, true);
+    assert.deepEqual(muteQuery, { muterUserId: 2 });
+    assert.deepEqual(userQuery, { userId: { $in: [10, 11] } });
+    assert.equal(result.restrictions[0].user.profileName, "Available");
+    assert.equal(result.restrictions[1].user, null);
+  } finally {
+    DiscussionInvitationMute.find = originalMuteFind;
+    User.find = originalUserFind;
+  }
+});
+
+test("allow invitations again deletes only the exact directional restriction", async () => {
+  const originalDeleteOne = DiscussionInvitationMute.deleteOne;
+  let query;
+  DiscussionInvitationMute.deleteOne = async (value) => {
+    query = value;
+    return { deletedCount: 1 };
+  };
+
+  try {
+    const result = await unmuteInviterForUser({ muterUserId: 2, mutedUserId: 1 });
+    assert.deepEqual(query, { muterUserId: 2, mutedUserId: 1 });
+    assert.deepEqual(result, { ok: true, removed: true });
+  } finally {
+    DiscussionInvitationMute.deleteOne = originalDeleteOne;
+  }
+});
+
+test("command-style allow action binds the restriction id to the current user", async () => {
+  const originalDeleteOne = DiscussionInvitationMute.deleteOne;
+  let query;
+  DiscussionInvitationMute.deleteOne = async (value) => {
+    query = value;
+    return { deletedCount: 1 };
+  };
+
+  try {
+    const result = await unmuteInvitationRestrictionById({
+      muterUserId: 2,
+      restrictionId: "64f000000000000000000001",
+    });
+    assert.deepEqual(query, {
+      _id: "64f000000000000000000001",
+      muterUserId: 2,
+    });
+    assert.deepEqual(result, { ok: true, removed: true });
+  } finally {
+    DiscussionInvitationMute.deleteOne = originalDeleteOne;
+  }
+});
+
+test("short allow command resolves a public profile code before deleting the directional pair", async () => {
+  const originalFindOne = User.findOne;
+  const originalDeleteOne = DiscussionInvitationMute.deleteOne;
+  let profileQuery;
+  let deleteQuery;
+  User.findOne = (value) => {
+    profileQuery = value;
+    return { select: () => ({ lean: async () => ({ userId: 9 }) }) };
+  };
+  DiscussionInvitationMute.deleteOne = async (value) => {
+    deleteQuery = value;
+    return { deletedCount: 1 };
+  };
+
+  try {
+    const result = await unmuteInvitationRestrictionByProfileCode({
+      muterUserId: 2,
+      publicProfileCode: "u_ab12",
+    });
+    assert.deepEqual(profileQuery, { publicProfileCode: "u_AB12" });
+    assert.deepEqual(deleteQuery, { muterUserId: 2, mutedUserId: 9 });
+    assert.equal(result.removed, true);
+  } finally {
+    User.findOne = originalFindOne;
+    DiscussionInvitationMute.deleteOne = originalDeleteOne;
   }
 });

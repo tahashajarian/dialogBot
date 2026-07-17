@@ -9,8 +9,11 @@ const {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
+  discussionInvitationRestrictionConfirmKeyboard,
   discussionInvitationsBackKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
 } = require("../keyboards");
 const {
   buildInvitationSentText,
@@ -34,7 +37,10 @@ const {
   removeInvitationForUser,
   expireInvitation,
 } = require("../services/discussion-invitations");
-const { muteInviterForUser } = require("../services/discussion-invitation-mutes");
+const {
+  canRestrictInviterForUser,
+  muteInviterForUser,
+} = require("../services/discussion-invitation-mutes");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const {
   ensurePublicDiscussionCode,
@@ -360,17 +366,25 @@ async function acceptInvitationCommand(ctx, lang, text, {
   const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: found.discussion._id });
   if (!joined.ok) {
     let failureText = getDiscussionErrorMessage(messages, lang, joined.reason);
-    if (
+    const isJoinRuleFailure = (
       joined.reason === "requires_taste_label" ||
       joined.reason === "requires_top_ten_item" ||
       joined.reason === "requires_top_ten_completed"
-    ) {
+    );
+    if (isJoinRuleFailure) {
       failureText = buildDiscussionInviteLockedText(messages, lang, joined.reason, found.discussion);
     }
     if (joined.reason === "discussion_closed" || joined.reason === "missing_discussion" || joined.reason === "removed_by_owner") {
       await expireInvitation(found.invitation);
     }
-    return ctx.reply(failureText, discussionJoinErrorAckKeyboard(lang, "invitations"));
+    return ctx.reply(
+      failureText,
+      joined.reason === "leave_current_first"
+        ? discussionLeaveCurrentNoticeKeyboard(lang)
+        : isJoinRuleFailure
+          ? discussionJoinLockedKeyboard(lang)
+        : discussionJoinErrorAckKeyboard(lang, "invitations"),
+    );
   }
 
   await markInvitationAccepted(found.invitation);
@@ -423,6 +437,8 @@ function isDiscussionInvitationCallback(data = "") {
     data.startsWith(callBacks.discussionInviteSavedTarget) ||
     data.startsWith(callBacks.discussionInviteDiscussionTarget) ||
     data.startsWith(callBacks.discussionInvitationMute) ||
+    data.startsWith(callBacks.discussionInvitationMuteConfirm) ||
+    data === callBacks.discussionInvitationMuteCancel ||
     data.startsWith(callBacks.discussionInvitationAck);
 }
 
@@ -515,6 +531,32 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
   if (data.startsWith(callBacks.discussionInvitationMute)) {
     await ctx.answerCb?.();
     const mutedUserId = Number(data.replace(callBacks.discussionInvitationMute, ""));
+    const allowed = await canRestrictInviterForUser({
+      muterUserId: ctx.userId,
+      mutedUserId,
+    });
+    if (!allowed) {
+      await deleteCallbackMessageIfPossible?.(ctx);
+      return ctx.reply(messages[lang].discussionInvitationUnavailable);
+    }
+    return (editCallbackMessageOrReply || ((flowCtx, text, keyboard) => flowCtx.reply(text, keyboard)))(
+      ctx,
+      messages[lang].discussionInvitationRestrictConfirmText,
+      discussionInvitationRestrictionConfirmKeyboard(lang, mutedUserId),
+    );
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationMuteConfirm)) {
+    await ctx.answerCb?.();
+    const mutedUserId = Number(data.replace(callBacks.discussionInvitationMuteConfirm, ""));
+    const allowed = await canRestrictInviterForUser({
+      muterUserId: ctx.userId,
+      mutedUserId,
+    });
+    if (!allowed) {
+      await deleteCallbackMessageIfPossible?.(ctx);
+      return ctx.reply(messages[lang].discussionInvitationUnavailable);
+    }
     const muted = await muteInviterForUser({
       muterUserId: ctx.userId,
       mutedUserId,
@@ -524,6 +566,12 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
       : messages[lang].discussionInvitationUnavailable;
     await deleteCallbackMessageIfPossible?.(ctx);
     return ctx.reply(text, discussionInvitationAckKeyboard(lang, "invitations"));
+  }
+
+  if (data === callBacks.discussionInvitationMuteCancel) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible?.(ctx);
+    return renderInvitationsList(ctx, lang);
   }
 
   if (data.startsWith(callBacks.discussionInvitationAck)) {

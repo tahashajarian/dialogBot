@@ -156,10 +156,12 @@ test("own Profile keeps Back as the final bottom-keyboard row", () => {
   }
 });
 
-test("legacy Guide and Profile Settings reply actions remain mode scoped", () => {
+test("Guide, Profile Settings, and Privacy actions remain mode scoped", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }).callbackData, callBacks.helpRules);
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.PROFILE }), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.accountDelete);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profilePrivacySafetyButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.profilePrivacy);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_PRIVACY }).callbackData, callBacks.accountDelete);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_SETTINGS }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE }), null);
 });
 
@@ -169,16 +171,25 @@ test("Profile Settings buttons remain routed while the emoji picker is open", ()
     [messages.en.profileEditBio, callBacks.profileEditBio],
     [messages.en.profileEditPetPreference, callBacks.profileEditPetPreference],
     [messages.en.profileEditLocation, callBacks.profileEditLocation],
-    [messages.en.profileShowActiveDiscussion, callBacks.profileToggleActiveDiscussionVisible],
-    [messages.en.profileHideActiveDiscussion, callBacks.profileToggleActiveDiscussionVisible],
     [messages.en.profileEmojiButton, callBacks.profileEmoji],
-    [messages.en.accountDeleteButton, callBacks.accountDelete],
+    [messages.en.profilePrivacySafetyButton, callBacks.profilePrivacy],
     [messages.en.profileBackToProfile, callBacks.profileSettingsBack],
   ]);
 
   for (const [label, callbackData] of expected) {
     assert.equal(resolveReplyKeyboardAction(label, context)?.callbackData, callbackData);
   }
+});
+
+test("Privacy buttons and restriction list are exact-mode actions", () => {
+  const context = { mode: MODES.PROFILE_PRIVACY, state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }).callbackData, callBacks.profileEditLocation);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileHideFromPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}0`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileShowInPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}1`);
+  const restrictions = messages.en.profileInvitationRestrictionsButton;
+  assert.equal(resolveReplyKeyboardAction(restrictions, context).callbackData, callBacks.profileInvitationRestrictions);
+  assert.equal(resolveReplyKeyboardAction(restrictions, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }), null);
 });
 
 test("Favorites list-manager actions retain trusted section and list context", () => {

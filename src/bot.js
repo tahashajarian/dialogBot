@@ -95,6 +95,10 @@ const {
   sendProfileEditPrompt,
 } = require("./flows/profile-edit");
 const {
+  allowInvitationRestrictionCommand,
+  clearInvitationRestrictionsMessage,
+} = require("./flows/profile-privacy");
+const {
   DISCUSSION_PROFILE_NAME_MAX_LENGTH,
   getProfileNameErrorMessage,
   getDiscussionOpenCodeFromNameState,
@@ -200,6 +204,8 @@ function isAllowedDiscussionCommandLink(text = "") {
     /^\/remove_(u_)?[a-z0-9]+$/i.test(value) ||
     /^\/report_(u_)?[a-z0-9]+$/i.test(value) ||
     /^\/save_(u_)?[a-z0-9]+$/i.test(value) ||
+    /^\/allow_ir_[a-f0-9]{24}$/i.test(value) ||
+    /^\/allow_inv_[a-z0-9]+$/i.test(value) ||
     /^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i.test(value) ||
     /^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i.test(value) ||
     /^\/u_[a-z0-9]+$/i.test(value)
@@ -382,21 +388,12 @@ async function handleUpdate(ctx) {
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
 
-    if (shouldOfferOnboarding(ctx.user)) {
+    if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, startInviteCode);
     }
 
-    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
-    const userName = rawUserName.trim().replace(/\s+/g, " ");
-    const welcomeMessage = userName
-      ? messages[keyboardLang].discussionInviteWelcomeWithName.replace("{name}", userName)
-      : messages[keyboardLang].discussionInviteWelcome;
-
     await updateUserState(ctx.userId, "idle");
     await rememberStartInvite(ctx, startInviteCode);
-    if (ctx.wasUserCreated) {
-      await ctx.reply(welcomeMessage);
-    }
     return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
   }
 
@@ -404,7 +401,7 @@ async function handleUpdate(ctx) {
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
     const inviteCode = `d_${text.replace(/^\/join_/i, "")}`;
-    if (shouldOfferOnboarding(ctx.user)) {
+    if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, inviteCode);
     }
     await updateUserState(ctx.userId, "idle");
@@ -451,7 +448,7 @@ async function handleUpdate(ctx) {
 
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
 
-    if (shouldOfferOnboarding(ctx.user)) {
+    if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, "", { removeReplyKeyboard: isStartAgain });
     }
 
@@ -747,6 +744,10 @@ async function handleUpdate(ctx) {
     return saveProfileCommand(ctx, lang, text);
   }
 
+  if (/^\/(?:allow_ir_[a-f0-9]{24}|allow_inv_[a-z0-9]+)$/i.test(text)) {
+    return allowInvitationRestrictionCommand(ctx, lang, text);
+  }
+
   if (/^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i.test(text)) {
     return unsaveProfileCommand(ctx, lang, text);
   }
@@ -759,20 +760,24 @@ async function handleUpdate(ctx) {
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
+    const fromRestrictionList = /^profile_invitation_restrictions:\d+:\d+$/.test(String(ctx.user?.navigationMode || ""));
     const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
     const hasPeopleListContext = Number(ctx.user?.peopleLastListMessageId) > 0 ||
       ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
     const fromSavedList = hasSavedProfilesListContext;
     const fromPeopleList = !fromSavedList && hasPeopleListContext;
     const fromDiscussionMembers = !fromSavedList && !fromPeopleList && Number(ctx.user?.discussionLastMembersMessageId) > 0;
-    const fromInvitationList = !fromSavedList && !fromPeopleList && !fromDiscussionMembers && ctx.user?.discussionLastListType === "invitations";
+    const fromInvitationList = !fromRestrictionList && !fromSavedList && !fromPeopleList && !fromDiscussionMembers && ctx.user?.discussionLastListType === "invitations";
+    if (fromRestrictionList) {
+      await clearInvitationRestrictionsMessage(ctx);
+    }
     if (fromInvitationList) {
       await clearDiscussionListMessage(ctx);
     }
     if (!fromSavedList && !fromPeopleList && !fromInvitationList && !fromDiscussionMembers) {
       await clearDiscussionMembersMessage(ctx);
     }
-    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList, fromDiscussionMembers });
+    return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList, fromDiscussionMembers, fromRestrictionList });
   }
 
   // A delayed duplicate reply-keyboard tap can arrive after the first tap has

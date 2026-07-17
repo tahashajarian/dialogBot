@@ -10,7 +10,7 @@ const {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
-  normalizeDiscussionJoinErrorDestination,
+  discussionLeaveCurrentNoticeKeyboard,
 } = require("../keyboards");
 const User = require("../models/user");
 const {
@@ -552,7 +552,7 @@ async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
   }
 
   let blockedReason = "";
-  if (activeElsewhere && !(preview.discussion.memberUserIds || []).includes(Number(ctx.userId))) {
+  if (!(preview.discussion.memberUserIds || []).includes(Number(ctx.userId))) {
     const isOwner = Number(preview.discussion.creatorUserId) === Number(ctx.userId);
     if (
       !isOwner &&
@@ -623,10 +623,19 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     let keyboardToShow = discussionsMenuKeyboard(lang);
     let returnToMainMenu = false;
 
+    if (joined.reason === "leave_current_first") {
+      const keyboard = discussionLeaveCurrentNoticeKeyboard(lang);
+      if (editMessage) {
+        await editMessage(text, keyboard);
+        return joined;
+      }
+      const notice = await ctx.reply(text, keyboard);
+      await rememberDiscussionMenuNotice(ctx, notice);
+      return joined;
+    }
+
     if (joined.reason === "discussion_full") {
       text = messages[lang].discussionInviteFull;
-    } else if (joined.reason === "leave_current_first") {
-      keyboardToShow = discussionInvitePreviewKeyboard(lang, publicCode, { activeElsewhere: true });
     } else if (joined.reason === "removed_by_owner") {
       text = messages[lang].discussionErrRemovedByOwner;
       keyboardToShow = mainMenuKeyboard(lang);

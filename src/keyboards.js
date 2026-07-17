@@ -34,6 +34,7 @@ const {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
@@ -758,7 +759,7 @@ function profileKeyboard(lang, hasPhoto = false) {
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
+function profileSettingsKeyboard(lang) {
   return { reply_markup: { keyboard: [
     [
       { text: messages[lang].profileEditBio },
@@ -766,20 +767,61 @@ function profileSettingsKeyboard(lang, showsActiveDiscussion = false) {
     ],
     [
       { text: messages[lang].profileEditLocation },
+      { text: messages[lang].profileEmojiButton },
+    ],
+    [{ text: messages[lang].profilePrivacySafetyButton }],
+    [
+      { text: messages[lang].profileBackToProfile },
+    ],
+  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+}
+
+function profilePrivacySafetyKeyboard(lang, {
+  showsActiveDiscussion = true,
+  showsInPeopleDiscovery = true,
+} = {}) {
+  return { reply_markup: { keyboard: [
+    [
+      {
+        text: showsInPeopleDiscovery
+          ? messages[lang].profileHideFromPeopleDiscovery
+          : messages[lang].profileShowInPeopleDiscovery,
+      },
       {
         text: showsActiveDiscussion
           ? messages[lang].profileHideActiveDiscussion
           : messages[lang].profileShowActiveDiscussion,
       },
     ],
-    [
-      { text: messages[lang].profileEmojiButton },
-    ],
+    [{ text: messages[lang].profileInvitationRestrictionsButton }],
     [{ text: messages[lang].accountDeleteButton }],
-    [
-      { text: messages[lang].profileBackToProfile },
-    ],
+    [{ text: messages[lang].profilePrivacyBackToSettings }],
   ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+}
+
+function profileInvitationRestrictionsKeyboard(lang, _entries = [], { page = 0, totalPages = 1 } = {}) {
+  const rows = [];
+  const navigation = [];
+  if (page > 0) navigation.push({
+    text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+    callback_data: `${callBacks.profileInvitationRestrictionsPage}${page - 1}`,
+  });
+  if (page < totalPages - 1) navigation.push({
+    text: `${messages[lang].discussionListMorePage} ➡️`,
+    callback_data: `${callBacks.profileInvitationRestrictionsPage}${page + 1}`,
+  });
+  if (navigation.length) rows.push(navigation);
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.profileInvitationRestrictionsClose,
+  }]);
+  return inlineKeyboard(rows);
+}
+
+function profileRestrictionViewKeyboard(lang) {
+  return inlineKeyboard([[
+    { text: messages[lang].discussionShareClose, callback_data: callBacks.profileCloseDiscussionMember },
+  ]]);
 }
 
 function accountDeleteWarningKeyboard(lang) {
@@ -1028,11 +1070,24 @@ function profileInvitationBackKeyboard(lang, userId = "") {
   const mutedUserId = Number(userId);
   if (Number.isInteger(mutedUserId) && mutedUserId > 0) {
     rows.unshift([{
-      text: messages[lang].discussionInvitationMuteInviter,
+      text: messages[lang].discussionInvitationRestrictInviter,
       callback_data: `${callBacks.discussionInvitationMute}${mutedUserId}`,
     }]);
   }
   return inlineKeyboard(rows);
+}
+
+function discussionInvitationRestrictionConfirmKeyboard(lang, mutedUserId) {
+  return inlineKeyboard([
+    [{
+      text: messages[lang].discussionInvitationRestrictConfirmButton,
+      callback_data: `${callBacks.discussionInvitationMuteConfirm}${Number(mutedUserId)}`,
+    }],
+    [{
+      text: messages[lang].discussionInvitationRestrictCancelButton,
+      callback_data: callBacks.discussionInvitationMuteCancel,
+    }],
+  ]);
 }
 
 function savedProfilesListKeyboard(lang, items = []) {
@@ -1170,6 +1225,9 @@ module.exports = {
   aiListCancelCommentKeyboard,
   profileKeyboard,
   profileSettingsKeyboard,
+  profilePrivacySafetyKeyboard,
+  profileInvitationRestrictionsKeyboard,
+  profileRestrictionViewKeyboard,
   accountDeleteWarningKeyboard,
   accountDeleteConfirmKeyboard,
   startAgainKeyboard,
@@ -1177,6 +1235,7 @@ module.exports = {
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
+  discussionInvitationRestrictionConfirmKeyboard,
   profileStarsKeyboard,
   cancelEditKeyboard,
   ageKeyboard,
@@ -1200,6 +1259,7 @@ module.exports = {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,

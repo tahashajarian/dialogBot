@@ -6,7 +6,7 @@ This document is the product and implementation spec for the discussion invitati
 
 Discussion invitations let a user invite a saved profile into a discussion from inside Muze.
 
-Muze can also create one-time starter invitations during onboarding. These use the same invitations inbox and join/remove actions, but are clearly shown as coming from Muze and do not expose an inviter profile or inviter mute action.
+Muze can also create one-time starter invitations during onboarding. These use the same invitations inbox and join/remove actions, but are clearly shown as coming from Muze and do not expose an inviter profile or inviter-restriction action.
 
 The feature should connect existing social surfaces:
 
@@ -141,8 +141,8 @@ Accepted invitations stay visible as recent joined shortcuts so a user can retur
 - Seen pending invites stay in the list until accepted, removed, or expired.
 - Accepted invitations are excluded from the count, but the inbox can show the most recent accepted invites under a separate recent section.
 - Accepted invitation shortcuts stay until the invitee removes them or the target discussion becomes unavailable.
-- Invitees can mute future invitations from a specific inviter.
-- A muted user cannot join future discussions created by the user who muted them.
+- Invitees can restrict future invitations from a specific inviter.
+- A restricted user cannot newly join discussions created by the user who restricted them.
 - The inviter should not receive an acceptance notification in MVP.
 - The discussion owner should not receive an invite-sent notification in MVP.
 - The invitee should receive one low-noise bot-authored notification when a new stored invite is created.
@@ -778,31 +778,40 @@ Implementation note:
 - The sending limit applies equally regardless of Star balance or purchases. Stars must not buy a spam allowance.
 - Star reward idempotency is per directed inviter/invitee pair; it does not increase how many invitations can be sent.
 
-### Invitation Mutes
+### Invitation Restrictions
 
-Invitation mutes let an invitee stop future invitations from one inviter.
+Invitation restrictions let an invitee stop future invitations from one inviter. This is a directional invitation safety rule, not a full profile block.
 
 Entry point:
 
-- Only show the mute action on an inviter profile opened from the invitations list.
-- Do not show it on normal saved-profile or discussion-member profile views.
+- Only show the restriction action on an inviter profile opened from the invitations list, and require a confirmation step.
+- Do not show it on normal saved-profile or discussion-member profile views. Validate the source relationship again when confirming so a forged user-id callback cannot create an arbitrary restriction.
 
 Behavior:
 
-- The invitee taps `Don't receive invites from this user`.
+- The invitee taps `Don't receive invites from this user` and confirms the exact effect.
 - The bot creates a mute pair: `muterUserId` and `mutedUserId`.
 - Existing pending invitations from that inviter to that invitee are marked removed.
 - Future stored invitation attempts from that inviter to that invitee fail.
 - Sender-facing copy stays vague: `This profile can't receive invitations from you.`
-- Do not notify the muted inviter.
-- Do not remove either user's saved profiles.
+- Do not notify the restricted inviter.
+- Do not remove either user's saved profiles or hide ordinary profiles/discussion lists.
+- Do not remove either user from an existing shared discussion.
+
+Management and recovery:
+
+- Privacy & Safety shows a paginated `Invitation restrictions` list, newest first, with hydrated names rather than raw Telegram ids.
+- The Privacy & Safety button has no count; the full count appears in the list title. Rows follow the People-list style with command links for profile viewing and identity-bound Allow again. The inline keyboard contains only pagination when needed and delete-only Close.
+- Missing/deleted profiles remain removable through a neutral unavailable row.
+- `Allow invitations again` deletes only the exact directional pair. It allows future invitations and future eligible joins, but does not restore removed invitations, recreate notifications, change saved profiles, or notify the other person.
+- Do not add a transient Undo button; recovery must remain available across restarts and devices through Privacy & Safety.
 
 Discussion privacy rule:
 
-- A muted user cannot join future discussions created by the user who muted them.
+- A restricted user cannot newly join discussions created by the user who restricted them.
 - This applies only when joining a discussion where the muter is the creator.
 - It should fail with generic unavailable copy, not with "you were muted".
-- It should not remove the muted user from rooms they already joined before the mute.
+- It should not remove the restricted user from rooms they already joined before the restriction.
 
 Suggested model:
 

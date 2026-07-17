@@ -102,6 +102,7 @@ async function findPeopleBySharedTaste(viewer, {
       ? await User.find({
         userId: { $in: candidateIds },
         bannedAt: null,
+        showProfileInPeopleDiscovery: { $ne: false },
       })
         .select("userId publicProfileCode firstName profileName profileEmoji gender age")
         .lean()
@@ -136,6 +137,7 @@ async function findPeopleBySharedTaste(viewer, {
   const candidates = await User.find({
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
+    showProfileInPeopleDiscovery: { $ne: false },
   })
     .select("userId publicProfileCode firstName profileName profileEmoji gender age aiLists aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))

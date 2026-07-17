@@ -1194,8 +1194,9 @@ Discovery rules:
 - The viewer must have at least 3 items in one AI list section.
 - A candidate appears only when they share at least 3 normalized items with the viewer in the same section.
 - Matching uses movies, music, books, and broad interests list data.
-- Exclude the viewer, banned users, and users without a display name.
+- Exclude the viewer, banned users, users without a display name, and users whose `showProfileInPeopleDiscovery` value is explicitly `false`. A missing value remains visible for backward compatibility.
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
+- Apply the visibility filter in both indexed hydration and fallback scans before result counts, pagination, analytics, or public-code generation. Turning visibility off does not delete taste-index rows, and it does not prevent that user from browsing See People.
 - Do not expose private profile fields or private discussion membership.
 - Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
 - Results use page-bound inline Next and Previous actions plus a final Close that deletes only the result card. Profile entries remain code-based commands. The People-hub bottom keyboard remains visible and actionable.
@@ -1352,7 +1353,7 @@ MVP-safe rule:
 - Do not show membership history.
 - Do not show last seen or activity status.
 
-Active discussion visibility should be opt-in only.
+Active discussion visibility is a separate profile preference and defaults on.
 
 Setting:
 
@@ -1362,13 +1363,13 @@ Setting:
 
 Rules:
 
-- Default: off.
+- Default: on, including legacy records where the field is missing.
 - If off, profile viewers cannot see the user's active discussion.
 - If on, profile viewers can see the user's current active discussion on their profile.
 - If the viewer qualifies for the discussion's join rule, show a join action.
 - If the viewer does not qualify, show the lock reason.
-- Never reveal active discussion automatically without this setting.
-- Store this as a user profile setting, e.g. `showActiveDiscussionOnProfile`, default `false`.
+- Never reveal active discussion when this setting is explicitly off.
+- Store this as `showActiveDiscussionOnProfile`, default `true`.
 - The profile shows the current setting to its owner.
 - Show this setting only to the profile owner, not to other users viewing the profile.
 

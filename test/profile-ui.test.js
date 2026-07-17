@@ -11,6 +11,8 @@ const {
   profileKeyboard,
   profileInterestsKeyboard,
   profileSettingsKeyboard,
+  profilePrivacySafetyKeyboard,
+  profileInvitationRestrictionsKeyboard,
   ageKeyboard,
   ageRangeKeyboard,
   profileEmojiKeyboard,
@@ -32,6 +34,7 @@ const {
   isValidTextInput,
 } = require("../src/services/profile");
 const { extractCityFromReverseGeocode } = require("../src/services/location");
+const { buildInvitationRestrictionsView } = require("../src/services/profile-privacy-ui");
 const { handleProfileCancelText, handleProfileText } = require("../src/flows/profile-text");
 
 const user = {
@@ -448,23 +451,72 @@ test("profile age validation starts at 13", () => {
   assert.equal(isValidProfileAgeRangeStart(18), true);
 });
 
-test("profileSettingsKeyboard contains detail controls and back to profile", () => {
-  const keyboard = profileSettingsKeyboard("en", true);
+test("new profiles appear in See People by default", () => {
+  const user = new User({ userId: 1001 });
+  assert.equal(user.showProfileInPeopleDiscovery, true);
+  assert.equal(user.showActiveDiscussionOnProfile, true);
+});
+
+test("profile settings separates ordinary details from privacy controls", () => {
+  const keyboard = profileSettingsKeyboard("en");
   const rows = keyboard?.reply_markup?.keyboard || [];
   const buttons = rows.flat();
   const labels = buttons.map((button) => button.text);
   const bioPetRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
-  const locationVisibilityRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
 
   assert.ok(labels.includes(messages.en.profileEditBio));
   assert.ok(!labels.includes(messages.en.profileEditGender));
   assert.ok(labels.includes(messages.en.profileEditPetPreference));
   assert.ok(labels.includes(messages.en.profileEditLocation));
-  assert.ok(labels.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(!labels.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(!labels.includes(messages.en.accountDeleteButton));
   assert.ok(labels.includes(messages.en.profileEmojiButton));
+  assert.ok(labels.includes(messages.en.profilePrivacySafetyButton));
   assert.ok(labels.includes(messages.en.profileBackToProfile));
   assert.deepEqual(bioPetRow.map((button) => button.text), [messages.en.profileEditBio, messages.en.profileEditPetPreference]);
-  assert.deepEqual(locationVisibilityRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileHideActiveDiscussion]);
+
+  const locationEmojiRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
+  assert.deepEqual(locationEmojiRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileEmojiButton]);
+
+  const privacy = profilePrivacySafetyKeyboard("en", {
+    showsActiveDiscussion: true,
+    showsInPeopleDiscovery: true,
+    restrictionCount: 2,
+  }).reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(!privacy.includes(messages.en.profileEditLocation));
+  assert.ok(privacy.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(privacy.includes(messages.en.profileHideFromPeopleDiscovery));
+  assert.ok(privacy.includes(messages.en.profileInvitationRestrictionsButton));
+  assert.ok(privacy.includes(messages.en.accountDeleteButton));
+  assert.ok(privacy.includes(messages.en.profilePrivacyBackToSettings));
+  const visibilityRow = profilePrivacySafetyKeyboard("en", {
+    showsActiveDiscussion: true,
+    showsInPeopleDiscovery: true,
+  }).reply_markup.keyboard[0];
+  assert.deepEqual(visibilityRow.map((button) => button.text), [
+    messages.en.profileHideFromPeopleDiscovery,
+    messages.en.profileHideActiveDiscussion,
+  ]);
+});
+
+test("invitation restriction list keeps only pagination and Close inline", () => {
+  const keyboard = profileInvitationRestrictionsKeyboard("en", [
+    { userId: 44, name: "Taylor" },
+  ], { page: 1, totalPages: 3 }).reply_markup.inline_keyboard;
+  assert.equal(keyboard[0][0].callback_data, `${callBacks.profileInvitationRestrictionsPage}0`);
+  assert.equal(keyboard[0][1].callback_data, `${callBacks.profileInvitationRestrictionsPage}2`);
+  assert.equal(keyboard.at(-1)[0].callback_data, callBacks.profileInvitationRestrictionsClose);
+});
+
+test("invitation restriction rows put count in the title and use command actions", () => {
+  const view = buildInvitationRestrictionsView(messages, "en", [{
+    restriction: { _id: "64f000000000000000000001", mutedUserId: 44 },
+    user: { profileName: "Taylor", publicProfileCode: "u_AB12" },
+  }], { totalCount: 6, start: 5 });
+  assert.match(view.text, /Invitation restrictions \(6\)/);
+  assert.match(view.text, /6\. 👤 Taylor/);
+  assert.match(view.text, /\/u_AB12/);
+  assert.match(view.text, /\/allow_inv_AB12/);
 });
 
 test("canceling location sharing returns to Profile Settings", async () => {

@@ -81,6 +81,7 @@ test("people discovery returns users with at least 3 shared items and skips self
     assert.equal(result.ok, true);
     assert.equal(query.userId.$ne, 1);
     assert.equal(query.bannedAt, null);
+    assert.deepEqual(query.showProfileInPeopleDiscovery, { $ne: false });
     assert.deepEqual(result.items.map((item) => item.userId), [2, 4]);
     assert.equal(result.items[0].sharedSections[0].count, 3);
     assert.equal(result.items[1].isSaved, true);

@@ -324,6 +324,7 @@ test("onboarding completion shows invitation copy and action only when one exist
     const plainText = buildOnboardingCompleteText(lang);
     const matchText = buildOnboardingCompleteText(lang, { invitationKind: "match" });
     const freeText = buildOnboardingCompleteText(lang, { invitationKind: "free" });
+    const sharedText = buildOnboardingCompleteText(lang, { discussionContinuation: true });
     const plainButtons = onboardingCompleteKeyboard(lang).reply_markup.keyboard.flat();
     const invitedButtons = onboardingCompleteKeyboard(lang, { hasInvitation: true }).reply_markup.keyboard.flat();
     const sharedButtons = onboardingCompleteKeyboard(lang, { discussionContinuation: true }).reply_markup.keyboard.flat();
@@ -333,6 +334,8 @@ test("onboarding completion shows invitation copy and action only when one exist
     assert.equal(matchText.includes(messages[lang].onboardingInvitationReadyMatch), true);
     assert.equal(matchText.includes(messages[lang].onboardingInvitationReadyFree), false);
     assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyFree), true);
+    assert.equal(sharedText.includes(messages[lang].onboardingSharedDiscussionReady), true);
+    assert.equal(sharedText.includes(messages[lang].onboardingInvitationReadyMatch), false);
     assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyMatch), false);
     assert.deepEqual(plainButtons.map((button) => button.text), [
       messages[lang].discussionActiveList,
@@ -405,8 +408,8 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpText, /👥 People/);
   assert.match(messages.en.helpText, /people with shared favorites/);
   assert.match(messages.en.helpText, /invite them later/i);
-  assert.match(messages.fa.helpText, /تنظیمات ← حذف حساب/);
-  assert.match(messages.en.helpText, /Settings → Delete account/);
+  assert.match(messages.fa.helpText, /تنظیمات بیشتر ← حریم خصوصی و امنیت ← حذف حساب/);
+  assert.match(messages.en.helpText, /More settings → Privacy & safety → Delete account/);
   assert.ok(messages.fa.helpText.length < 950);
   assert.ok(messages.en.helpText.length < 950);
 });

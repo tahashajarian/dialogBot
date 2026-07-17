@@ -57,7 +57,7 @@ test("suggestion requests pass an AbortSignal through SDK request options", asyn
   });
 
   assert.equal(signals.length, 1);
-  assert.equal(signals[0] instanceof AbortSignal, true);
+  assert.equal(signals[0] instanceof globalThis.AbortSignal, true);
 });
 
 test("extractAiTokenUsage supports both provider usage shapes", () => {

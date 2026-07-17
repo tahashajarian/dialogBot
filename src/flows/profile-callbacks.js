@@ -71,6 +71,12 @@ const {
   getProfileEmojiOption,
   setProfileEmojiWithStars,
 } = require("../services/profile-emoji");
+const {
+  handleProfilePrivacyCallback,
+  isProfilePrivacyCallback,
+  sendProfilePrivacySafety,
+  sendProfilePrivacyStatus,
+} = require("./profile-privacy");
 
 function formatProfileInterestMessage(lang, key) {
   return messages[lang][key]
@@ -119,7 +125,8 @@ async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0, 
 }
 
 function isProfileSettingsOrEditCallback(data = "") {
-  return data === callBacks.accountDelete ||
+  return isProfilePrivacyCallback(data) ||
+    data === callBacks.accountDelete ||
     data === callBacks.accountDeleteContinue ||
     data === callBacks.accountDeleteCancel ||
     data.startsWith(callBacks.accountDeleteConfirm) ||
@@ -199,10 +206,7 @@ async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
     ctx,
     user,
     lang,
-    keyboard: profileSettingsKeyboard(
-      lang,
-      Boolean(user?.showActiveDiscussionOnProfile),
-    ),
+    keyboard: profileSettingsKeyboard(lang),
     messages,
     isOwnProfile: true,
   });
@@ -238,6 +242,7 @@ async function handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSet
 
 async function handleProfileSettingsOrEditCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
+  editCallbackMessageOrReply,
   leaveDiscussionAndClearKeyboardForNavigation,
   renderActiveDiscussionList,
   renderMyDiscussionList,
@@ -247,6 +252,14 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   showDiscussionInvitePreviewCommand,
 } = {}) {
   const data = ctx.callbackData || "";
+
+  if (isProfilePrivacyCallback(data)) {
+    return handleProfilePrivacyCallback(ctx, lang, {
+      editCallbackMessageOrReply,
+      retireCallbackMessageIfPossible,
+      sendOwnProfileSettings,
+    });
+  }
 
   const isProfileEmojiFlowCallback = data === callBacks.profileEmoji ||
     data.startsWith(callBacks.profileEmojiPage) ||
@@ -296,7 +309,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (pending) await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
     await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    return sendProfilePrivacySafety(ctx, lang, ctx.user || {});
   }
 
   if (data.startsWith(callBacks.accountDeleteConfirm)) {
@@ -488,17 +501,21 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   }
 
   if (data === callBacks.profileToggleActiveDiscussionVisible) {
-    const nextValue = !ctx.user?.showActiveDiscussionOnProfile;
-    await ctx.answerCb?.(
+    const nextValue = ctx.user?.showActiveDiscussionOnProfile === false;
+    await ctx.answerCb?.();
+    await retireCallbackMessageIfPossible?.(ctx);
+    const persistedUser = await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
+    if (ctx.user) ctx.user.showActiveDiscussionOnProfile = nextValue;
+    const updatedUser = toPlainUser(persistedUser || ctx.user);
+    updatedUser.showActiveDiscussionOnProfile = nextValue;
+    return sendProfilePrivacyStatus(
+      ctx,
+      lang,
+      updatedUser,
       nextValue
         ? messages[lang].profileActiveDiscussionVisibleOn
         : messages[lang].profileActiveDiscussionVisibleOff,
     );
-    await retireCallbackMessageIfPossible?.(ctx);
-    await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
-    const updatedUser = toPlainUser(ctx.user);
-    updatedUser.showActiveDiscussionOnProfile = nextValue;
-    return sendOwnProfileSettings(ctx, lang, updatedUser);
   }
 
   if (data === callBacks.profileEditCity) {

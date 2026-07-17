@@ -59,7 +59,7 @@
 
 ## Critical Product Rules
 
-- Profiles are public inside bot social surfaces for now; do not add a public/private profile setting unless `docs/discussions.md` changes.
+- Profiles remain public inside bot social surfaces. `showProfileInPeopleDiscovery` is only a narrow opt-out from new See People results; it must not hide Saved Profiles, discussion/member surfaces, invitations, or direct public-profile codes.
 - `showActiveDiscussionOnProfile` controls whether a user's current and created open discussions appear on their profile. It defaults true for new accounts; respect an existing user's saved choice.
 - Discussions are live rooms with last-10-message context, one active room per user, taste-based join rules, and no seen/read count in MVP.
 - Saved profiles should be a one-way private bookmark feature, not friendship/private chat. Users can save profiles found through discussions and access them from a main-menu saved-profiles entry.

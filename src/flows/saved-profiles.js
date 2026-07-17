@@ -10,6 +10,7 @@ const {
   peopleHubKeyboard,
   profilePublicActionsKeyboard,
   profileInvitationBackKeyboard,
+  profileRestrictionViewKeyboard,
   savedProfilesListKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
@@ -688,7 +689,7 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
   return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
-async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromPeopleList = false, fromDiscussionMembers = false } = {}) {
+async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromPeopleList = false, fromDiscussionMembers = false, fromRestrictionList = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
   const peopleReturnMode = ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse";
@@ -706,6 +707,11 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     || previousNavigationMode.match(/^public_profile:people:u_[A-Z0-9]+:(\d+):/)?.[1]
     || previousNavigationMode.match(/^profile_discussions:people:u_[A-Z0-9]+:(\d+)$/)?.[1]
     || previousNavigationMode.match(/^profile_unsave_confirm:people:u_[A-Z0-9]+:(\d+)$/)?.[1]
+    || 0,
+  );
+  const restrictionPage = Number(
+    previousNavigationMode.match(/^profile_invitation_restrictions:(\d+):/)?.[1]
+    || previousNavigationMode.match(/^public_profile:restrictions:(\d+)$/)?.[1]
     || 0,
   );
 
@@ -744,7 +750,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const currentSavedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const isSavedProfile = isCodeSaved(currentSavedCodes, code);
   const hasDiscussions = isSavedProfile ? await hasVisibleProfileDiscussions(target) : false;
-  const keyboard = fromInvitationList
+  const keyboard = fromRestrictionList
+    ? profileRestrictionViewKeyboard(lang)
+    : fromInvitationList
     ? profileInvitationBackKeyboard(lang, target.userId)
     : getPublicProfileActionKeyboard(lang, code, {
       fromSavedList,
@@ -773,7 +781,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
 
   await rememberViewedPublicProfileMessage(ctx, result);
-  if (!fromInvitationList && !fromDiscussionMembers) {
+  if (fromRestrictionList) {
+    await setNavigationMode(ctx, `public_profile:restrictions:${restrictionPage}`);
+  } else if (!fromInvitationList && !fromDiscussionMembers) {
     const source = fromSavedList ? "saved" : "people";
     const sourcePage = source === "saved" ? savedPage : peoplePage;
     const navigationMode = `public_profile:${source}:${code}:${sourcePage}:${isSavedProfile ? "saved" : "unsaved"}:${hasDiscussions ? 1 : 0}`;

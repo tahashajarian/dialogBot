@@ -49,6 +49,9 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 - Own profile may show only one private growth hint when taste/profile data is weak.
 - Public, saved-profile, People discovery, member-list, invitation, and shareable profile views never show Star balance or private growth hints.
 - Profile edit cards clean up after save/cancel.
+- Profile Settings contains Bio, Pet preference, Location beside Profile emoji, and Privacy & Safety; both visibility controls, invitation restrictions, and Delete account are only in Privacy & Safety.
+- Turning off `Appear in See People` removes that account from newly queried results without making its profile private or preventing it from browsing People; turning it on restores eligibility.
+- Location save/cancel returns to Profile Settings. Visibility changes send one compact bot confirmation and keep the Privacy & Safety keyboard without repeating its explanation. Delete-account cancel returns to Privacy & Safety and deletes no data.
 - Saved profiles behave as private bookmarks: save/remove does not notify the saved user.
 - Saved-profile list/profile Back navigation returns to the saved-profile list.
 - People browse profile Back navigation returns to the same People mode.
@@ -72,6 +75,8 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 - The prepared onboarding invitation appears in the normal inbox, opens a preview without joining, and explains a missing join requirement when applicable.
 - Stored saved-profile invitation can be sent and accepted.
+- Restricting an inviter requires confirmation, removes their pending invites, blocks future invites and new joins to the restricting user's rooms, but leaves saved profiles and existing memberships unchanged.
+- Privacy & Safety lists the restricted inviter after restart; allowing invitations again restores future invites/eligible joins without restoring removed invitations or notifying the other user.
 - First directed invite pair rewards only once.
 - Repeated stored invitations between the same pair do not mention or award Stars again.
 - Public discussion share links work for existing users.

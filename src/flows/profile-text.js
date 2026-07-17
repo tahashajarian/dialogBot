@@ -60,7 +60,7 @@ async function sendProfileSettings(ctx, updatedUser, lang, footerText = "") {
     ctx,
     user: updatedUser,
     lang,
-    keyboard: profileSettingsKeyboard(lang, Boolean(updatedUser?.showActiveDiscussionOnProfile)),
+    keyboard: profileSettingsKeyboard(lang),
     messages,
     isOwnProfile: true,
     footerText,
@@ -73,6 +73,7 @@ async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
   const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
   return sendProfileSettings(ctx, updatedUser, lang, footerText);
 }
+
 const {
   getProfileNameErrorMessage,
 } = require("./discussion-name-gate");

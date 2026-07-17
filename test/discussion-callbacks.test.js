@@ -21,6 +21,7 @@ const {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
@@ -42,7 +43,10 @@ const {
   isDiscussionCreateFlowCallback,
   isDiscussionCreateEntryPaymentCallback,
 } = require("../src/flows/discussions-callbacks");
-const { buildDiscussionInviteSharePayload } = require("../src/flows/discussions-text");
+const {
+  buildDiscussionInviteSharePayload,
+  showDiscussionInvitePreviewCommand,
+} = require("../src/flows/discussions-text");
 const {
   handleDiscussionCreateCallback,
   isDiscussionCreateCallback,
@@ -531,6 +535,15 @@ test("locked-room guidance uses an inline Got it that only closes the notice", a
   assert.deepEqual(deleted, [42]);
   assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:en");
   assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
+});
+
+test("leave-current warning uses one inline Got it without a reply keyboard", () => {
+  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa");
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(button.text, messages.fa.acknowledgeButton);
+  assert.equal(button.callback_data, callBacks.discussionJoinLockedClose);
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
+  assert.match(messages.fa.discussionErrLeaveCurrentFirst, /برای ورود به یه گفت‌وگوی جدید/);
 });
 
 test("discussion list title shows the full filtered count", () => {
@@ -1246,6 +1259,43 @@ test("discussion invite share and preview text stay privacy-safe", () => {
   assert.doesNotMatch(shareText, /recent/i);
   assert.match(previewText, /Invite preview/);
   assert.match(previewText, /👥 2\/5/);
+});
+
+test("invite preview does not offer Join when an inactive user fails the room rule", async () => {
+  const originalFindOne = Discussion.findOne;
+  const replies = [];
+  Discussion.findOne = async () => ({
+    _id: "room-1",
+    publicDiscussionCode: "d_AB12",
+    title: "Movie room",
+    description: "Film chat",
+    status: "open",
+    creatorUserId: 99,
+    memberUserIds: [99],
+    removedUserIds: [],
+    maxMembers: 100,
+    joinRule: { type: "top_ten_item", section: "movies", itemTitle: "Arrival" },
+  });
+  const ctx = {
+    userId: 7,
+    user: { userId: 7, activeDiscussionId: null, moviesTopTen: [] },
+    reply: async (text, keyboard) => {
+      replies.push({ text, keyboard });
+      return true;
+    },
+  };
+
+  try {
+    await showDiscussionInvitePreviewCommand(ctx, "en", "d_AB12");
+  } finally {
+    Discussion.findOne = originalFindOne;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Arrival/);
+  const buttons = replies[0].keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`), false);
+  assert.equal(buttons[0].text, messages.en.acknowledgeButton);
 });
 
 test("discussion invite Forward and Copy carry the same complete invitation", () => {

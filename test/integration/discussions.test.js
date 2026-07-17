@@ -31,6 +31,7 @@ const {
 } = require("../../src/services/discussion-invitations");
 const {
   muteInviterForUser,
+  unmuteInviterForUser,
 } = require("../../src/services/discussion-invitation-mutes");
 const {
   reportDiscussionMemberAndNotify,
@@ -1027,7 +1028,7 @@ test("starter invitation acceptance revalidates capacity after creation", async 
   assert.equal(invitation.status, "pending");
 });
 
-test("muting an inviter hides pending invites and blocks future invites", async () => {
+test("invitation restrictions remove pending invites, block new ones, and can be lifted without restoring old invites", async () => {
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_MUTE01",
   });
@@ -1065,9 +1066,21 @@ test("muting an inviter hides pending invites and blocks future invites", async 
   });
   assert.equal(next.ok, false);
   assert.equal(next.reason, "inviter_muted");
+
+  const unmuted = await unmuteInviterForUser({ muterUserId: 2, mutedUserId: 1 });
+  assert.equal(unmuted.ok, true);
+  assert.equal(unmuted.removed, true);
+  assert.equal((await DiscussionInvitation.findById(created.invitation._id).lean()).status, "removed");
+
+  const afterUnmute = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_BBBB",
+    discussionId: discussion._id,
+  });
+  assert.equal(afterUnmute.ok, true);
 });
 
-test("muted users cannot join discussions created by the muter", async () => {
+test("restricted users cannot join discussions created by the restricting user until allowed again", async () => {
   const discussion = await createOpenDiscussion(2, {
     publicDiscussionCode: "d_MUTE02",
   });
@@ -1084,6 +1097,10 @@ test("muted users cannot join discussions created by the muter", async () => {
   const joined = await joinOrOpenDiscussion(1, discussion._id);
   assert.equal(joined.ok, false);
   assert.equal(joined.reason, "discussion_unavailable");
+
+  await unmuteInviterForUser({ muterUserId: 2, mutedUserId: 1 });
+  const joinedAfterUnmute = await joinOrOpenDiscussion(1, discussion._id);
+  assert.equal(joinedAfterUnmute.ok, true);
 });
 
 test("discussion invitations enforce the centralized daily limit", async () => {

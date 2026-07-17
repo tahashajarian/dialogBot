@@ -1,6 +1,6 @@
 # Account deletion
 
-Account deletion is available only from Profile → Settings and requires a warning plus a short-lived, cryptographically random final-confirmation nonce. Cancel, Back, or another profile destination clears the persisted confirmation state, so stale cards cannot authorize deletion.
+Account deletion is available only from Profile → More settings → Privacy & safety and requires a warning plus a short-lived, cryptographically random final-confirmation nonce. Cancel, Back, or another profile destination clears the persisted confirmation state, so stale cards cannot authorize deletion.
 
 Cleanup is coordinated by `src/services/account-deletion.js`. A durable `AccountDeletion` operation claims execution, records progress, and permits idempotent retry. Open owned discussions are closed without ownership transfer; membership, recent messages, reports, invitations, mutes, taste indexes, paid AI drafts, legacy People entitlements, boost deliveries, saved-profile references, and personal analytics metadata are removed. The User document is removed last.
 
@@ -8,4 +8,4 @@ Star transactions, qualified referral facts, and boost audit rows are retained o
 
 Deletion forfeits the wallet balance. Ordinary messages and callbacks cannot recreate a missing account. `/start` or the localized `🌱 Start again` action may create it; the restart action is authorized by a durable, one-time `restartedAt` claim on the completed deletion record. On that first restart, any stray User document left by an interrupted or older deployment is removed before a genuinely fresh User is created. The reply keyboard is consumed when language selection opens, normal onboarding runs, and a new public-profile code is assigned. Later restart-label messages cannot erase an established account. A recreated account may be deleted again; beginning that later deletion safely resets the completed operation for a new cleanup cycle while retaining its audit tombstone. Old profile and invitation links do not resolve.
 
-Notification delivery is best effort. Cleanup failures after work begins remain resumable by opening Profile → Settings and starting Delete account again; the UI never reports success until required cleanup completes. Telegram messages already delivered to another chat are outside Muze's database and can remain visible.
+Notification delivery is best effort. Cleanup failures after work begins remain resumable by opening Profile → More settings → Privacy & safety and starting Delete account again; the UI never reports success until required cleanup completes. Telegram messages already delivered to another chat are outside Muze's database and can remain visible.

@@ -39,9 +39,9 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-invitations.js`: stored invitation rules and lifecycle.
   - create/list/count/accept/remove/expire/seen
   - duplicate and daily-limit checks
-- `src/services/discussion-invitation-mutes.js`: invitation mute rules.
-  - mute future invites from a user
-  - block muted users from joining discussions created by the muter
+- `src/services/discussion-invitation-mutes.js`: directional invitation-restriction rules (historical filename retained).
+  - restrict/list/count/allow future invites from one user
+  - block restricted users from newly joining discussions created by the restricting user
 - `src/services/discussion-join-rules.js`: discussion join-rule rules.
   - validate open, taste-label, completed-TopTen, and TopTen-item payloads
   - check whether a user satisfies a discussion's join rule
@@ -88,7 +88,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - first successful Active Discussions guidance delivery
 - `src/flows/discussion-invitations.js`: stored invitation commands/callbacks and source-specific return handling.
   - `/iv_CODE`, `/accept_inv_CODE`, `/remove_inv_CODE`
-  - invitation inbox, invite saved profile, invite from saved profile, mute inviter
+  - invitation inbox, invite saved profile, invite from saved profile, confirm inviter restriction
   - first inbox explanation shares the durable Discussions guidance state with Active Discussions
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.
@@ -103,6 +103,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/users.js`: whitelisted, atomic section-tip first-write helpers and centralized AI-list access/mutations.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
+- `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People visibility mutation, and invitation-restriction management.
+- `src/services/profile-privacy-ui.js`: invitation-restriction list rendering.
 - `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.

@@ -5,9 +5,7 @@ const {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
-  discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
-  normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
 const {
   hasSectionTipBeenShown,
@@ -217,7 +215,7 @@ function isDiscussionCreateState(state = "") {
   );
 }
 
-async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active", {
+async function sendDiscussionJoinErrorAck(ctx, lang, reason, _listType = "active", {
   discussion = null,
   retireCallbackMessageIfPossible,
 } = {}) {

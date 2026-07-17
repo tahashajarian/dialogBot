@@ -126,9 +126,14 @@ function buildOnboardingPrompt(lang, items = []) {
     .replace("{limit}", String(getOnboardingInterestLimit()));
 }
 
-function buildOnboardingCompleteText(lang, { invitationKind = "" } = {}) {
+function buildOnboardingCompleteText(lang, { invitationKind = "", discussionContinuation = false } = {}) {
   const base = messages[lang].onboardingComplete
     .replace("{goal}", String(getOnboardingInterestGoal()));
+  if (discussionContinuation) {
+    const paragraphs = base.split("\n\n");
+    paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, messages[lang].onboardingSharedDiscussionReady);
+    return paragraphs.join("\n\n");
+  }
   if (invitationKind !== "match" && invitationKind !== "free") return base;
   const paragraphs = base.split("\n\n");
   const invitationKey = invitationKind === "free"
@@ -148,7 +153,10 @@ async function prepareOnboardingCompletion(ctx, lang) {
     && (invitationKind === "match" || invitationKind === "free");
   await setNavigationMode(ctx, `onboarding_complete:${hasInvitation ? 1 : 0}:${discussionContinuation ? 1 : 0}`);
   return {
-    text: buildOnboardingCompleteText(lang, { invitationKind: hasInvitation ? invitationKind : "" }),
+    text: buildOnboardingCompleteText(lang, {
+      invitationKind: hasInvitation ? invitationKind : "",
+      discussionContinuation,
+    }),
     keyboard: onboardingCompleteKeyboard(lang, { hasInvitation, discussionContinuation }),
   };
 }
@@ -185,6 +193,7 @@ async function startOnboardingLanguage(ctx, lang, inviteCode = "", { removeReply
     ? `onboarding_invite_language:${inviteCode}`
     : "onboarding_language";
   await updateUserState(ctx.userId, state);
+  if (ctx.user) ctx.user.state = state;
   await setNavigationMode(ctx, "onboarding_language");
   void trackEvent({
     name: EVENT_NAMES.onboardingStarted,

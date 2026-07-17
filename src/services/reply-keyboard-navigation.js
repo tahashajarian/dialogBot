@@ -8,7 +8,7 @@ const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { updateProfileField } = require("./users");
 
-const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", HELP: "help", HELP_RULES: "help_rules" });
+const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
 
 async function setNavigationMode(ctx, mode) {
   const normalizedMode = String(mode || "");
@@ -25,7 +25,7 @@ function normalizeReplyButtonText(value) {
 
 function isKnownProfileNavigationLabel(value) {
   const normalized = normalizeReplyButtonText(value);
-  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
+  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "profilePrivacySafetyButton", "profilePrivacyBackToSettings", "profileHideFromPeopleDiscovery", "profileShowInPeopleDiscovery", "profileShowActiveDiscussion", "profileHideActiveDiscussion", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
   return keys.some((key) => labels(key).includes(normalized));
 }
 
@@ -52,7 +52,8 @@ const BY_MODE = {
   [MODES.DISCUSSIONS]: [["discussionActiveList", callBacks.discussionListActive], ["discussionInvitations", callBacks.discussionInvitations], ["discussionCreate", callBacks.discussionCreateStart], ["discussionMyList", callBacks.discussionListMine], ["aiBack", callBacks.menuMain]],
   [MODES.PEOPLE]: [["peopleDiscover", callBacks.peopleDiscover], ["savedProfiles", callBacks.savedProfiles], ["advancedSearchButton", callBacks.peopleAdvancedSearch], ["aiBack", callBacks.menuMain]],
   [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileAddPhoto", callBacks.profileEditPhoto], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["cancel", callBacks.profileBack]],
-  [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileEmojiButton", callBacks.profileEmoji], ["accountDeleteButton", callBacks.accountDelete], ["profileBackToProfile", callBacks.profileSettingsBack]],
+  [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileEmojiButton", callBacks.profileEmoji], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["profileBackToProfile", callBacks.profileSettingsBack]],
+  [MODES.PROFILE_PRIVACY]: [["profileHideFromPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}0`], ["profileShowInPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}1`], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileInvitationRestrictionsButton", callBacks.profileInvitationRestrictions], ["accountDeleteButton", callBacks.accountDelete], ["profilePrivacyBackToSettings", callBacks.profilePrivacyBack]],
   [MODES.HELP]: [["profileStarsButton", callBacks.profileStars], ["helpReferralButton", callBacks.helpReferral], ["helpRules", callBacks.helpRules], ["helpBackToMain", callBacks.menuMain]],
   [MODES.HELP_RULES]: [["helpBackToGuide", callBacks.help], ["helpBackToMain", callBacks.menuMain]],
   help_stars: [["profileStarsBack", callBacks.profileStarsBack]],
@@ -122,6 +123,8 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const profileDiscussionsMatch = String(mode).match(/^profile_discussions:(saved|people):(u_[A-Z0-9]+):(\d+)$/);
   const profileUnsaveConfirmMatch = String(mode).match(/^profile_unsave_confirm:(list|saved|people):(u_[A-Z0-9]+):(\d+)$/);
   const peopleResultsMatch = String(mode).match(/^people_discovery_results:(\d+):(\d+)$/);
+  const profileRestrictionsMatch = String(mode).match(/^profile_invitation_restrictions:(\d+):(\d+)$/);
+  const profileRestrictionViewMatch = String(mode).match(/^public_profile:restrictions:(\d+)$/);
   const expectedAiState = aiListMatch
     ? `ai_manage_${aiListMatch[1]}_${aiListMatch[2] === "topTen" ? "top_ten" : "watchlist"}`
     : "";
@@ -162,12 +165,14 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const keepsPeopleHubKeyboard = state === "idle" && Boolean(
     savedProfilesMatch || peopleResultsMatch || publicProfileMatch || profileDiscussionsMatch || mode === "people_discovery_empty"
   );
+  const keepsProfilePrivacyKeyboard = state === "idle" && Boolean(profileRestrictionsMatch || profileRestrictionViewMatch);
   const entries = [
     ...(mode === MODES.GLOBAL ? GLOBAL : []),
     ...(mode === MODES.GLOBAL ? GUIDE_GLOBAL_RECOVERY : []),
     ...((keepsPeopleHubKeyboard && mode === "people_discovery_empty") ? [] : (BY_MODE[mode] || [])),
     ...(keepsDiscussionHubKeyboard ? BY_MODE[MODES.DISCUSSIONS] : []),
     ...(keepsPeopleHubKeyboard ? BY_MODE[MODES.PEOPLE] : []),
+    ...(keepsProfilePrivacyKeyboard ? BY_MODE[MODES.PROFILE_PRIVACY] : []),
   ];
   if (discussionListMatch && state === "idle") {
     const [, type, pageRaw, pagesRaw, filter, language] = discussionListMatch;

@@ -75,14 +75,6 @@ test("banned users receive only the ban notice", async () => {
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
 });
 
-test("invite welcome copy leads into the invite instead of onboarding", () => {
-  for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].discussionInviteWelcome, /^👩‍🦳/);
-    assert.match(messages[lang].discussionInviteWelcome, /inv|دعوت/i);
-    assert.doesNotMatch(messages[lang].discussionInviteWelcome, /3 interests|۳ علاقه/);
-  }
-});
-
 test("repeated same start invite payload still opens invite preview", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalFindOneDiscussion = Discussion.findOne;
@@ -130,6 +122,38 @@ test("repeated same start invite payload still opens invite preview", async () =
   assert.equal(replies.length, 1);
   assert.match(replies.at(-1).text, /Invite preview/);
   assert.match(replies.at(-1).text, /Movie Chat/);
+});
+
+test("a newly created invite recipient always starts onboarding before the preview", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 1,
+    wasUserCreated: true,
+    user: {
+      userId: 1,
+      lang: "fa",
+      state: "idle",
+      onboardingVersion: 0,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.chooseLanguage);
+  assert.equal(ctx.user.state, "onboarding_invite_language:d_AB12");
+  assert.equal(ctx.user.navigationMode, "onboarding_language");
 });
 
 test("general referral payload remains a start entry without a discussion code", () => {

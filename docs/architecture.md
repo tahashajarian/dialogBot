@@ -43,7 +43,7 @@ Keep the router files thin:
 - `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, invite source return handling, and the shared first Discussions-guidance state when Invitations is visited first.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
 - `src/services/discussion-invitations.js` owns stored invitation creation, lookup, lifecycle, daily-limit checks, and received-invite listing.
-- `src/services/discussion-invitation-mutes.js` owns invitation mute pairs and the cross-feature "muted user cannot join muter's created discussions" predicate.
+- `src/services/discussion-invitation-mutes.js` owns directional invitation-restriction pairs, list/count/unrestrict operations, and the cross-feature "restricted user cannot join the restricting user's created discussions" predicate. The historical filename/model remain for compatibility.
 - `src/services/discussion-join-rules.js` owns discussion join-rule payload validation and user eligibility checks.
 - `src/services/discussion-notifications.js` owns low-level discussion notification payload normalization and best-effort member delivery helpers.
 - `src/services/discussion-messages.js` owns discussion message quota checks and recent-message append rules.
@@ -51,7 +51,7 @@ Keep the router files thin:
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.
 - `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
 - `src/services/public-codes.js` owns public profile/discussion code normalization, generation, and lookup helpers.
-- `src/services/people-discovery.js` owns shared-item filtering, ranking, and pagination for the free `👀 دیدن آدم‌ها` People entry.
+- `src/services/people-discovery.js` owns shared-item filtering, `showProfileInPeopleDiscovery` enforcement, ranking, and pagination for the free `👀 دیدن آدم‌ها` People entry.
 - `src/services/people-taste-matches.js` contains legacy time-limited Stars entitlement helpers kept for old callback/data compatibility; current People discovery does not charge Stars.
 - `src/services/people-discovery-ui.js` owns people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js` owns saved-profile bookmark mutation rules and caps.
@@ -83,6 +83,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/discussion-ui.js` for discussion error/preview copy shaping.
 - `src/services/discussion-room-ui.js` for room header/recent/member line rendering.
 - `src/services/discussion-invitations-ui.js` for stored invitation inbox and picker text shaping.
+- `src/services/profile-privacy-ui.js` for invitation-restriction list text shaping.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
 - `src/services/ai-paid-suggestions.js` for paid extra suggestion quote/spend/refund state after free quota exhaustion.
@@ -105,13 +106,15 @@ Visible discussions opened from a public-profile card edit that same text or pho
 - location
 - photo
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
+- See People discovery visibility (`showProfileInPeopleDiscovery`); missing values are treated as visible
 - owned open discussion reservations, capped at 3
 - saved profile references, capped at 50 per user
 - transient public-profile card id (`publicProfileLastMessageId`)
+- transient invitation-restrictions list card id (`profileInvitationRestrictionsLastMessageId`)
 - transient discussion member-list card id (`discussionLastMembersMessageId`)
 - pending profile view code (`pendingProfileViewCode`)
 
-Profiles are public inside bot social surfaces for now. Discussion visibility controls whether the user's current and created open discussions may be shown on that profile. It defaults to on for new accounts; existing saved choices remain unchanged.
+Profiles are public inside bot social surfaces for now. See People visibility is only a discovery opt-out, not a private-profile switch. Discussion visibility controls whether the user's current and created open discussions may be shown on that profile. Both preferences default to on for new accounts; missing legacy values are treated as on and existing saved choices remain unchanged.
 Profile display should stay compact: omit unset optional fields instead of showing placeholder or missing-value rows. Profiles without a real uploaded photo should render as text instead of uploading a default placeholder image.
 
 Star balance is a self-only profile field. Render it only through an explicit authenticated own-profile context; never include it in public, saved-profile, invitation, discovery, member-list, or shareable profile rendering.

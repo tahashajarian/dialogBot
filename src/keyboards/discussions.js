@@ -214,6 +214,15 @@ function discussionJoinLockedKeyboard(lang) {
   ]]);
 }
 
+function discussionLeaveCurrentNoticeKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionJoinLockedClose,
+    },
+  ]]);
+}
+
 function discussionBoostAckKeyboard(lang) {
   return inlineKeyboard([[
     {
@@ -560,6 +569,7 @@ module.exports = {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,

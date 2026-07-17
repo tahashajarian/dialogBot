@@ -995,6 +995,7 @@ async function handleCallback(ctx) {
         ? messages[newLang].onboardingWelcomeWithName.replace("{name}", userName)
         : messages[newLang].onboardingWelcome;
       await updateUserState(ctx.userId, "onboarding_welcome");
+      if (ctx.user) ctx.user.state = "onboarding_welcome";
       await setNavigationMode(ctx, "onboarding_welcome");
       return editCallbackMessageOrReply(
         ctx,
@@ -1008,11 +1009,12 @@ async function handleCallback(ctx) {
       const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
       const userName = rawUserName.trim().replace(/\s+/g, " ");
       const welcomeMessage = userName
-        ? messages[newLang].discussionInviteWelcomeWithName.replace("{name}", userName)
-        : messages[newLang].discussionInviteWelcome;
+        ? messages[newLang].onboardingWelcomeWithName.replace("{name}", userName)
+        : messages[newLang].onboardingWelcome;
       if (ctx.user) ctx.user.pendingDiscussionShareCode = inviteCode;
       await updateUserFields(ctx.userId, { pendingDiscussionShareCode: inviteCode });
       await updateUserState(ctx.userId, "onboarding_welcome");
+      if (ctx.user) ctx.user.state = "onboarding_welcome";
       await setNavigationMode(ctx, "onboarding_welcome");
       return editCallbackMessageOrReply(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
     }
