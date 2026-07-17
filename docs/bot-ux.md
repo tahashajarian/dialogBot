@@ -137,6 +137,7 @@ Stars UX rules:
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
 - Discussion-visibility status rows are self-only. Other users viewing a profile should not see that setting.
 - Profile edit prompts use temporary bottom modes. After save or cancel, switch modes and leave the prompt as harmless history; do not delete it.
+- Canceling the location-sharing prompt returns to Profile Settings, where the action started, rather than the main Profile menu.
 - Profile display names must be emoji-free. Profile emoji is a separate paid cosmetic chosen from a paged curated picker, appears after the display name, and users may also type exactly one allowed emoji. Reserved system emojis, including the current bot marker, are not available there. Users should get a clear retry prompt if they submit emoji in their typed name.
 - People and saved-profile lists use text command links for item actions plus page-bound bottom pagination and Back. Show saved-profile `/ds_CODE` links only when the user has a visible/open discussion.
 - Public profiles from People or Saved Profiles retain the source list and use profile-bound bottom actions: Save when unsaved, Remove when saved, discussions when visible, and Back to the exact source/page. Discussion-member profiles use their separate inline Save/Saved and Close contract.

@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { setImmediate } = require("node:timers");
+const axios = require("axios");
 
 const messages = require("../src/messages");
 const User = require("../src/models/user");
@@ -31,6 +32,7 @@ const {
   isValidTextInput,
 } = require("../src/services/profile");
 const { extractCityFromReverseGeocode } = require("../src/services/location");
+const { handleProfileCancelText, handleProfileText } = require("../src/flows/profile-text");
 
 const user = {
   firstName: "Ali",
@@ -451,6 +453,86 @@ test("profileSettingsKeyboard contains detail controls and back to profile", () 
   assert.ok(labels.includes(messages.en.profileBackToProfile));
   assert.deepEqual(bioPetRow.map((button) => button.text), [messages.en.profileEditBio, messages.en.profileEditPetPreference]);
   assert.deepEqual(locationVisibilityRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileHideActiveDiscussion]);
+});
+
+test("canceling location sharing returns to Profile Settings", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      userId: 123,
+      user: {
+        userId: 123,
+        lang: "en",
+        firstName: "Ali",
+        profileName: "Ali",
+        state: "editing_location",
+        showActiveDiscussionOnProfile: true,
+      },
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: replies.length };
+      },
+    };
+
+    const handled = await handleProfileCancelText(ctx, "en", "editing_location", {
+      sendProfile: async () => assert.fail("location cancel must not open the main Profile menu"),
+      keyboardLang: "en",
+    });
+
+    assert.ok(handled);
+    const labels = replies.at(-1).extra.reply_markup.keyboard.flat().map((button) => button.text);
+    assert.ok(labels.includes(messages.en.profileEditLocation));
+    assert.ok(labels.includes(messages.en.profileBackToProfile));
+    assert.equal(labels.includes(messages.en.cancel), false);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("sharing a location returns to Profile Settings", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalAxiosGet = axios.get;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  axios.get = async () => ({ data: { address: { city: "Tehran" } } });
+
+  try {
+    const ctx = {
+      userId: 123,
+      user: {
+        userId: 123,
+        lang: "en",
+        firstName: "Ali",
+        profileName: "Ali",
+        state: "editing_location",
+        showActiveDiscussionOnProfile: true,
+      },
+      message: { location: { latitude: 35.6892, longitude: 51.389 } },
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: replies.length };
+      },
+    };
+
+    const handled = await handleProfileText(ctx, "en", "", "editing_location", {
+      sendProfile: async () => assert.fail("location save must not open the main Profile menu"),
+      keyboardLang: "en",
+    });
+
+    assert.ok(handled);
+    assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+    const labels = replies.at(-1).extra.reply_markup.keyboard.flat().map((button) => button.text);
+    assert.ok(labels.includes(messages.en.profileEditLocation));
+    assert.ok(labels.includes(messages.en.profileBackToProfile));
+    assert.equal(labels.includes(messages.en.cancel), false);
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    axios.get = originalAxiosGet;
+  }
 });
 
 test("profile emoji keyboards use curated choices and explicit cost confirmation", () => {

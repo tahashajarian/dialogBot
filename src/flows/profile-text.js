@@ -55,8 +55,7 @@ async function sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, s
   return sendProfile(ctx, updatedUser, lang, keyboardLang, { footerText });
 }
 
-async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
-  const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
+async function sendProfileSettings(ctx, updatedUser, lang, footerText = "") {
   const sent = await sendProfileMessage({
     ctx,
     user: updatedUser,
@@ -68,6 +67,11 @@ async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
   });
   await setNavigationMode(ctx, MODES.PROFILE_SETTINGS);
   return sent;
+}
+
+async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
+  const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
+  return sendProfileSettings(ctx, updatedUser, lang, footerText);
 }
 const {
   getProfileNameErrorMessage,
@@ -122,6 +126,9 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
   await clearProfileEditPrompt(ctx);
   const updatedUser = toPlainUser(ctx.user);
   updatedUser.state = "idle";
+  if (state === "editing_location") {
+    return sendProfileSettings(ctx, updatedUser, lang);
+  }
   return sendProfile(ctx, updatedUser, lang, keyboardLang);
 }
 
@@ -249,7 +256,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       await clearProfileEditPrompt(ctx);
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
-      return sendProfile(ctx, updatedUser, lang, keyboardLang);
+      return sendProfileSettings(ctx, updatedUser, lang);
     }
 
     return sendProfileEditPrompt(ctx, messages[lang].profileEditHintLocation, locationKeyboard(lang));
