@@ -13,6 +13,8 @@ const {
   discussionCreateCapacityKeyboard,
   discussionPaidCapacityConfirmKeyboard,
   discussionPaidCapacityAckKeyboard,
+  discussionExtraSlotConfirmKeyboard,
+  discussionExtraSlotAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
 } = require("../keyboards");
@@ -50,6 +52,13 @@ const {
 } = require("../services/stars-ui");
 const { requireDiscussionProfileName } = require("./discussion-name-gate");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { starEconomy } = require("../services/star-settings");
+const {
+  isPaidExtraDiscussionAvailable,
+  authorizePaidExtraDiscussion,
+  refundPaidExtraDiscussionAuthorization,
+} = require("../services/discussion-paid-creation");
+const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 
 function isDiscussionCreateCallback(data = "") {
   return (
@@ -104,6 +113,13 @@ function getNoEligibleItemMessage(lang, section) {
 function fillPaidCapacityText(template, lang, values = {}) {
   return String(template || "")
     .replaceAll("{capacity}", formatStarNumber(values.capacity, lang))
+    .replaceAll("{cost}", formatStarNumber(values.cost, lang))
+    .replaceAll("{balance}", formatStarNumber(values.balance, lang));
+}
+
+function fillExtraSlotText(template, lang, values = {}) {
+  return String(template || "")
+    .replaceAll("{count}", formatStarNumber(values.count, lang))
     .replaceAll("{cost}", formatStarNumber(values.cost, lang))
     .replaceAll("{balance}", formatStarNumber(values.balance, lang));
 }
@@ -210,6 +226,26 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
 
   const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
   if (!activeLimit.ok) {
+    if (isPaidExtraDiscussionAvailable() && activeLimit.count < DISCUSSION_OWNED_HARD_LIMIT) {
+      const previousRefund = await refundPaidExtraDiscussionAuthorization(ctx.userId);
+      if (ctx.user && previousRefund.refunded) {
+        ctx.user.starBalance = previousRefund.balance;
+        ctx.user.discussionDraftPaidOwnedSlotTransactionId = null;
+        ctx.user.discussionDraftPaidOwnedSlotAuthorized = false;
+      }
+      const cost = Number(starEconomy.paidExtraDiscussionCost) || 0;
+      await setNavigationMode(ctx, "discussions");
+      return editCallbackMessageOrReply(
+        ctx,
+        fillExtraSlotText(messages[lang].discussionExtraSlotConfirmText, lang, {
+          count: activeLimit.count,
+          cost,
+          balance: ctx.user?.starBalance || 0,
+        }),
+        discussionExtraSlotConfirmKeyboard(lang, cost),
+      );
+    }
+    await refundPaidExtraDiscussionAuthorization(ctx.userId);
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     return editCallbackMessageOrReply(
@@ -219,6 +255,7 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
     );
   }
 
+  await refundPaidExtraDiscussionAuthorization(ctx.userId);
   await clearDiscussionDraft(ctx.userId);
   const defaultLanguage = normalizeDiscussionLanguage(ctx.user?.lang, lang);
   await updateProfileField(ctx.userId, "discussionDraftLanguage", defaultLanguage);
@@ -236,6 +273,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     clearDiscussionMenuNotice,
     rememberDiscussionMenuNotice,
     sendDiscussionRoom,
+    deleteCallbackMessageIfPossible = async () => {},
   } = helpers;
 
   const askDescription = (joinRule, options = {}) => askDiscussionDescription(ctx, lang, joinRule, {
@@ -288,6 +326,84 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await setNavigationMode(ctx, "discussion_create_paid_capacity_error");
     return editCallbackMessageOrReply(ctx, text, discussionPaidCapacityAckKeyboard(lang));
   };
+
+  const refundExtraSlotAuthorization = async (reason) => {
+    const refund = await refundPaidExtraDiscussionAuthorization(ctx.userId, { reason });
+    if (ctx.user && refund.refunded) ctx.user.starBalance = refund.balance;
+    return refund;
+  };
+
+  const beginPaidExtraDiscussionDraft = async (authorization) => {
+    if (ctx.user) {
+      if (Number.isFinite(Number(authorization.balance))) ctx.user.starBalance = Number(authorization.balance);
+      ctx.user.discussionDraftPaidOwnedSlotTransactionId = authorization.transaction?._id || null;
+      ctx.user.discussionDraftPaidOwnedSlotAuthorized = true;
+      ctx.user.discussionDraftPaidOwnedSlotCap = authorization.paidOwnedSlotCap;
+      ctx.user.discussionDraftPaidOwnedSlotCost = Number(starEconomy.paidExtraDiscussionCost) || 0;
+    }
+    await deleteCallbackMessageIfPossible(ctx);
+    const defaultLanguage = normalizeDiscussionLanguage(ctx.user?.lang, lang);
+    await updateProfileField(ctx.userId, "discussionDraftLanguage", defaultLanguage);
+    if (ctx.user) ctx.user.discussionDraftLanguage = defaultLanguage;
+    return sendDiscussionCreateTitlePrompt(ctx, lang, {
+      includeTitlePin: true,
+      rememberDiscussionMenuNotice,
+    });
+  };
+
+  if (data === callBacks.discussionCreateExtraSlotCancel || data === callBacks.discussionCreateExtraSlotAck) {
+    await ctx.answerCb?.();
+    await updateUserState(ctx.userId, "idle");
+    await setNavigationMode(ctx, "discussions");
+    return deleteCallbackMessageIfPossible(ctx);
+  }
+
+  if (data.startsWith(callBacks.discussionCreateExtraSlotConfirm)) {
+    await ctx.answerCb?.();
+    const quotedCost = Number(data.replace(callBacks.discussionCreateExtraSlotConfirm, ""));
+    const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
+    if (activeLimit.ok) {
+      await deleteCallbackMessageIfPossible(ctx);
+      return startDiscussionCreateFlow(ctx, lang, {
+        editCallbackMessageOrReply,
+        rememberDiscussionMenuNotice,
+      });
+    }
+    if (!isPaidExtraDiscussionAvailable() || activeLimit.count >= DISCUSSION_OWNED_HARD_LIMIT) {
+      return editCallbackMessageOrReply(ctx, messages[lang].discussionExtraSlotUnavailable, discussionExtraSlotAckKeyboard(lang));
+    }
+    const currentCost = Number(starEconomy.paidExtraDiscussionCost) || 0;
+    if (quotedCost !== currentCost) {
+      return editCallbackMessageOrReply(
+        ctx,
+        [messages[lang].discussionExtraSlotStale, fillExtraSlotText(messages[lang].discussionExtraSlotConfirmText, lang, {
+          count: activeLimit.count,
+          cost: currentCost,
+          balance: ctx.user?.starBalance || 0,
+        })].join("\n\n"),
+        discussionExtraSlotConfirmKeyboard(lang, currentCost),
+      );
+    }
+    await clearDiscussionDraft(ctx.userId);
+    const authorization = await authorizePaidExtraDiscussion({
+      userId: ctx.userId,
+      activeOwnedCount: activeLimit.count,
+      quotedCost,
+      idempotencyKey: `discussion-extra-slot:${ctx.userId}:${ctx.callbackMessageId || "message"}:${activeLimit.count}:${quotedCost}`,
+    });
+    if (!authorization.ok) {
+      const text = authorization.reason === "insufficient_balance"
+        ? fillExtraSlotText(messages[lang].discussionExtraSlotInsufficient, lang, {
+          cost: quotedCost,
+          balance: authorization.balance ?? ctx.user?.starBalance ?? 0,
+        })
+        : messages[lang].discussionExtraSlotUnavailable;
+      await updateUserState(ctx.userId, "idle");
+      await setNavigationMode(ctx, "discussions");
+      return editCallbackMessageOrReply(ctx, text, discussionExtraSlotAckKeyboard(lang));
+    }
+    return beginPaidExtraDiscussionDraft(authorization);
+  }
 
   if (data === callBacks.discussionCreateGuidanceAck) {
     await ctx.answerCb?.();
@@ -363,6 +479,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 
   if (data === callBacks.discussionCreateCancel) {
     await ctx.answerCb?.(messages[lang].discussionCreateCanceled.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
+    await refundExtraSlotAuthorization("discussion_extra_slot_cancelled");
     await clearDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     await clearDiscussionMenuNotice(ctx);
@@ -677,7 +794,11 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     }
     const created = await createCurrentDraft(false);
     if (!created.ok) {
+      await refundExtraSlotAuthorization("discussion_extra_slot_create_failed");
       return ctx.reply(getDiscussionErrorMessage(messages, lang, created.reason) || messages[lang].discussionCreateFailed);
+    }
+    if (!created.paidOwnedSlotUsed) {
+      await refundExtraSlotAuthorization("discussion_extra_slot_not_needed");
     }
     await clearDiscussionMenuNotice(ctx);
     await clearDiscussionDraft(ctx.userId);
@@ -743,9 +864,14 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
         refunded = Boolean(refund.ok);
         if (ctx.user && refund.ok) ctx.user.starBalance = refund.balance;
       }
+      await refundExtraSlotAuthorization("discussion_extra_slot_create_failed");
       return showPaidCapacityError(refunded
         ? messages[lang].discussionPaidCapacityFailedRefunded
         : messages[lang].discussionPaidCapacityFailed);
+    }
+
+    if (!created.paidOwnedSlotUsed) {
+      await refundExtraSlotAuthorization("discussion_extra_slot_not_needed");
     }
 
     await clearDiscussionMenuNotice(ctx);

@@ -20,6 +20,7 @@ const {
   updateUserFields,
   updateUserState,
 } = require("./services/users");
+const { refundPaidExtraDiscussionAuthorization } = require("./services/discussion-paid-creation");
 const {
   removeBottomKeyboard,
   replyWithKeyboardRemovalNoticeThenInline,
@@ -678,6 +679,8 @@ async function handleUpdate(ctx) {
 
   if (matchesMessageText(text, ["discussionCreateCancel"])) {
     await clearDiscussionMenuNotice(ctx);
+    const refund = await refundPaidExtraDiscussionAuthorization(ctx.userId);
+    if (ctx.user && refund.refunded) ctx.user.starBalance = refund.balance;
     await resetDiscussionDraft(ctx.userId);
     await updateUserState(ctx.userId, "idle");
     await ctx.reply(messages[lang].discussionCreateCanceled, {

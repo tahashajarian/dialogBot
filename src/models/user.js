@@ -96,9 +96,9 @@ const UserSchema = new mongoose.Schema({
     default: [],
     validate: {
       validator(value) {
-        return Array.isArray(value) && value.length <= 3;
+        return Array.isArray(value) && value.length <= 10;
       },
-      message: "ownedOpenDiscussionIds exceeds active owned discussion cap",
+      message: "ownedOpenDiscussionIds exceeds discussion membership cap",
     },
   },
   discussionMembershipIds: {
@@ -136,6 +136,10 @@ const UserSchema = new mongoose.Schema({
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
   discussionDraftMaxMembers: { type: Number, default: 20 },
   discussionDraftLanguage: { type: String, enum: ["", "fa", "en"], default: "" },
+  discussionDraftPaidOwnedSlotTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  discussionDraftPaidOwnedSlotAuthorized: { type: Boolean, default: false },
+  discussionDraftPaidOwnedSlotCap: { type: Number, default: 0, min: 0, max: 10 },
+  discussionDraftPaidOwnedSlotCost: { type: Number, default: 0, min: 0 },
   discussionLanguageFilter: { type: String, enum: ["", "fa", "en", "all"], default: "" },
   discussionLastRoomHeaderMessageId: { type: Number, default: null },
   discussionLastRoomRecentMessageId: { type: Number, default: null },

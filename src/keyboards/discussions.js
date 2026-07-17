@@ -441,6 +441,29 @@ function discussionPaidCapacityAckKeyboard(lang) {
   ]);
 }
 
+function discussionExtraSlotConfirmKeyboard(lang, cost) {
+  const formattedCost = formatStarNumber(cost, lang);
+  return inlineKeyboard([
+    [{
+      text: messages[lang].discussionExtraSlotConfirmButton.replace("{cost}", formattedCost),
+      callback_data: `${callBacks.discussionCreateExtraSlotConfirm}${cost}`,
+    }],
+    [{
+      text: messages[lang].discussionExtraSlotCancelButton,
+      callback_data: callBacks.discussionCreateExtraSlotCancel,
+    }],
+  ]);
+}
+
+function discussionExtraSlotAckKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionCreateExtraSlotAck,
+    },
+  ]]);
+}
+
 function discussionSelectTasteKeyboard(lang, section, tasteLabelKey, {
   tasteLabelTitle = "",
   cancelCallback = callBacks.discussionCreateCancel,
@@ -514,6 +537,8 @@ module.exports = {
   discussionCreateCapacityKeyboard,
   discussionPaidCapacityConfirmKeyboard,
   discussionPaidCapacityAckKeyboard,
+  discussionExtraSlotConfirmKeyboard,
+  discussionExtraSlotAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMembersKeyboard,

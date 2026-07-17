@@ -165,6 +165,52 @@ test("concurrent discussion creation respects active owned limit", async () => {
   assert.equal(user.ownedOpenDiscussionIds.length, 3);
 });
 
+test("a server-authorized paid slot permits exactly one room beyond the normal owned limit", async () => {
+  await createUser(1);
+  for (let index = 1; index <= 3; index += 1) {
+    const result = await createDiscussion({
+      creatorUserId: 1,
+      title: `Normal room ${index}`,
+      description: `Useful normal room ${index}`,
+      joinRule: { type: "open" },
+      maxMembers: 5,
+    });
+    assert.equal(result.ok, true);
+  }
+
+  await User.updateOne(
+    { userId: 1 },
+    {
+      $set: {
+        discussionDraftPaidOwnedSlotAuthorized: true,
+        discussionDraftPaidOwnedSlotCap: 4,
+        discussionDraftPaidOwnedSlotCost: 5,
+      },
+    },
+  );
+  const paid = await createDiscussion({
+    creatorUserId: 1,
+    title: "Paid fourth room",
+    description: "Useful paid overflow room",
+    joinRule: { type: "open" },
+    maxMembers: 5,
+  });
+  const extra = await createDiscussion({
+    creatorUserId: 1,
+    title: "Unpaid fifth room",
+    description: "This room must not be created",
+    joinRule: { type: "open" },
+    maxMembers: 5,
+  });
+  const user = await User.findOne({ userId: 1 }).lean();
+
+  assert.equal(paid.ok, true);
+  assert.equal(paid.paidOwnedSlotUsed, true);
+  assert.equal(extra.ok, false);
+  assert.equal(extra.reason, "active_owned_limit");
+  assert.equal(user.ownedOpenDiscussionIds.length, 4);
+});
+
 test("user must leave the active room before joining another", async () => {
   const first = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_FIRST1",

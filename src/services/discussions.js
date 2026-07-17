@@ -57,6 +57,7 @@ const {
   awardFirstDiscussionJoined,
 } = require("./star-milestones");
 const { decorateActiveBoosts, endBoostForDiscussion } = require("./discussion-boosts");
+const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -140,11 +141,12 @@ async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
     status: "open",
   });
 
-  if (activeOwned >= operationalLimits.activeOwnedDiscussions) {
-    return { ok: false, reason: "active_owned_limit", cap: operationalLimits.activeOwnedDiscussions, count: activeOwned };
+  const freeCap = Math.min(operationalLimits.activeOwnedDiscussions, DISCUSSION_OWNED_HARD_LIMIT);
+  if (activeOwned >= freeCap) {
+    return { ok: false, reason: "active_owned_limit", cap: freeCap, count: activeOwned };
   }
 
-  return { ok: true, count: activeOwned, cap: operationalLimits.activeOwnedDiscussions };
+  return { ok: true, count: activeOwned, cap: freeCap };
 }
 
 async function reconcileOwnedOpenDiscussionIds(userId) {
@@ -163,16 +165,24 @@ async function reconcileOwnedOpenDiscussionIds(userId) {
   return Array.isArray(updated?.ownedOpenDiscussionIds) ? updated.ownedOpenDiscussionIds : ids;
 }
 
-async function reserveOwnedDiscussionSlot(userId, discussionId) {
+async function reserveOwnedDiscussionSlot(userId, discussionId, paidOwnedSlotCap = 0) {
   await reconcileOwnedOpenDiscussionIds(userId);
 
-  return User.findOneAndUpdate(
+  const reservationCap = Math.min(
+    DISCUSSION_OWNED_HARD_LIMIT,
+    Math.max(
+      operationalLimits.activeOwnedDiscussions,
+      Number(paidOwnedSlotCap) || 0,
+    ),
+  );
+
+  const reservedUser = await User.findOneAndUpdate(
     {
       userId,
       $expr: {
         $lt: [
           { $size: { $ifNull: ["$ownedOpenDiscussionIds", []] } },
-          operationalLimits.activeOwnedDiscussions,
+          reservationCap,
         ],
       },
     },
@@ -185,6 +195,13 @@ async function reserveOwnedDiscussionSlot(userId, discussionId) {
     },
     { returnDocument: "after" },
   );
+  return {
+    user: reservedUser,
+    paidOwnedSlotUsed: Boolean(
+      reservedUser
+      && (reservedUser.ownedOpenDiscussionIds || []).length > operationalLimits.activeOwnedDiscussions
+    ),
+  };
 }
 
 async function rollbackOwnedDiscussionReservation(userId, discussionId, previousActiveDiscussionId = null) {
@@ -253,7 +270,11 @@ async function createDiscussion({
     lastActivityAt: new Date(),
   });
 
-  const reservedUser = await reserveOwnedDiscussionSlot(creatorUserId, discussion._id);
+  const paidOwnedSlotCap = user.discussionDraftPaidOwnedSlotAuthorized
+    ? Number(user.discussionDraftPaidOwnedSlotCap) || 0
+    : 0;
+  const reservation = await reserveOwnedDiscussionSlot(creatorUserId, discussion._id, paidOwnedSlotCap);
+  const reservedUser = reservation.user;
   if (!reservedUser) {
     const activeOwned = await checkActiveOwnedDiscussionsLimit(creatorUserId);
     return activeOwned.ok
@@ -291,6 +312,7 @@ async function createDiscussion({
     ok: true,
     discussion,
     membershipIds: reservedUser.discussionMembershipIds || [],
+    paidOwnedSlotUsed: reservation.paidOwnedSlotUsed,
     starRewards,
   };
 }

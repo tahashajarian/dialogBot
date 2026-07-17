@@ -168,6 +168,10 @@ async function resetDiscussionDraft(userId) {
     discussionDraftMaxMembers: 20,
     navigationMode: "discussions",
     discussionDraftLanguage: "",
+    discussionDraftPaidOwnedSlotTransactionId: null,
+    discussionDraftPaidOwnedSlotAuthorized: false,
+    discussionDraftPaidOwnedSlotCap: 0,
+    discussionDraftPaidOwnedSlotCost: 0,
   });
 }
 

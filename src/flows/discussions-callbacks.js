@@ -184,11 +184,22 @@ function isDiscussionCreateFlowCallback(data = "") {
     data === callBacks.discussionCreateGuidanceAck ||
     data === callBacks.discussionCreatePaidCapacityCancel ||
     data === callBacks.discussionCreatePaidCapacityAck ||
+    data === callBacks.discussionCreateExtraSlotCancel ||
+    data === callBacks.discussionCreateExtraSlotAck ||
     data.startsWith(callBacks.discussionCreateRuleSection) ||
     data.startsWith(callBacks.discussionCreateSelectTaste) ||
     data.startsWith(callBacks.discussionCreateSelectItem) ||
     data.startsWith(callBacks.discussionCreatePaidCapacityConfirm) ||
+    data.startsWith(callBacks.discussionCreateExtraSlotConfirm) ||
     data.startsWith(callBacks.discussionCreateSetCapacity)
+  );
+}
+
+function isDiscussionCreateEntryPaymentCallback(data = "") {
+  return (
+    data === callBacks.discussionCreateExtraSlotCancel
+    || data === callBacks.discussionCreateExtraSlotAck
+    || data.startsWith(callBacks.discussionCreateExtraSlotConfirm)
   );
 }
 
@@ -471,6 +482,7 @@ module.exports = {
   shouldKeepDiscussionRoomCardsForCallback,
   handleDiscussionListCallback,
   isDiscussionCreateFlowCallback,
+  isDiscussionCreateEntryPaymentCallback,
   isDiscussionCreateState,
   isDiscussionListCallback,
   renderActiveDiscussionList,

@@ -11,6 +11,10 @@ const { claimExistingProfileAndListMilestones } = require("../../src/services/st
 const { starEconomy } = require("../../src/services/star-settings");
 const { createStarsService } = require("../../src/services/stars");
 const { addAiListItem } = require("../../src/services/users");
+const {
+  authorizePaidExtraDiscussion,
+  refundPaidExtraDiscussionAuthorization,
+} = require("../../src/services/discussion-paid-creation");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
@@ -80,6 +84,50 @@ test("Mongo wallet prevents overspending and refunds once", async () => {
   ]);
   assert.equal(refunds.filter((result) => result.applied).length, 1);
   assert.equal((await User.findOne({ userId: 502 }).lean()).starBalance, 10);
+});
+
+test("paid extra discussion authorization charges once and cancellation refunds once", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    paidExtraDiscussionsEnabled: true,
+    paidExtraDiscussionCost: 5,
+  });
+  await User.create({ userId: 506, firstName: "Room Owner", starBalance: 8 });
+  await StarTransaction.create({
+    userId: 506,
+    amount: 8,
+    balanceAfter: 8,
+    status: "applied",
+    bucket: "earned",
+    type: "grant",
+    reason: "seed",
+    idempotencyKey: "integration:seed:506",
+  });
+
+  const request = {
+    userId: 506,
+    activeOwnedCount: 3,
+    quotedCost: 5,
+    idempotencyKey: "discussion-extra-slot:506:card:3:5",
+  };
+  const first = await authorizePaidExtraDiscussion(request);
+  const duplicate = await authorizePaidExtraDiscussion(request);
+  const firstRefund = await refundPaidExtraDiscussionAuthorization(506);
+  const duplicateRefund = await refundPaidExtraDiscussionAuthorization(506, {
+    transactionId: first.transaction._id,
+  });
+  const user = await User.findOne({ userId: 506 }).lean();
+
+  assert.equal(first.ok, true);
+  assert.equal(duplicate.ok, true);
+  assert.equal(first.balance, 3);
+  assert.equal(duplicate.balance, 3);
+  assert.equal(firstRefund.refunded, true);
+  assert.equal(duplicateRefund.applied, false);
+  assert.equal(user.starBalance, 8);
+  assert.equal(user.discussionDraftPaidOwnedSlotAuthorized, false);
+  assert.equal(await StarTransaction.countDocuments({ userId: 506 }), 3);
 });
 
 test("concurrent boost confirmations leave one active charge", async () => {

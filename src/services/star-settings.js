@@ -26,6 +26,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   paidSuggestionsEnabled: {
     label: "Paid extra suggestions", description: "Allow users to spend Stars for one extra AI suggestion after the free limit.", group: "Rollout", type: "boolean", default: false,
   },
+  paidExtraDiscussionsEnabled: {
+    label: "Paid extra discussions", description: "Allow creators at their active-owned limit to pay for one additional room slot.", group: "Rollout", type: "boolean", default: true,
+  },
   advancedSearchPreviewEnabled: {
     label: "Advanced Search preview", description: "Show the honest coming-soon preview in People.", group: "Rollout", type: "boolean", default: true,
   },
@@ -110,6 +113,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   },
   paidLargeDiscussionCost: {
     label: "Large discussion cost", description: "Stars charged when creating the large paid-capacity discussion.", group: "Paid discussion capacities", type: "number", unit: "Stars", default: 10, min: 0, max: 1000000,
+  },
+  paidExtraDiscussionCost: {
+    label: "Extra active discussion cost", description: "Stars charged for each room created beyond the normal active-owned limit.", group: "Paid discussion creation", type: "number", unit: "Stars", default: 5, min: 0, max: 1000000,
   },
 
   peopleTasteMatchesCost: {

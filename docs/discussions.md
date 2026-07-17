@@ -263,6 +263,8 @@ Room capacity is editable from the preview step:
 - creator counts as a member
 - joining another discussion removes the user from the previous discussion
 
+Before the create wizard starts, Muze checks the creator's active-owned room count. The normal configured allowance is free. At the limit, and only while Star spending plus the paid-extra-discussion switch are enabled, Muze shows an inline price confirmation while leaving the Discussions bottom keyboard in place. Confirmation revalidates the live price and count, spends idempotently, and stores a server-side authorization for exactly one additional owned slot before continuing to the title step. Insufficient balance is shown on an inline `Got it` card; acknowledging it quietly removes the card and leaves the Discussions menu available. Cancelled or failed creation refunds an already-charged extra-slot authorization exactly once.
+
 For restricted topics, show a preview before creating:
 
 ```text
@@ -1066,7 +1068,7 @@ Stored inside `recentMessages`, capped at 10:
 ### User Additions
 
 - `activeDiscussionId`
-- `ownedOpenDiscussionIds`, capped at 3 and used as an atomic reservation list for the active owned discussion limit
+- `ownedOpenDiscussionIds`, normally capped by the configured free limit and able to reach the overall 10-room membership cap only through one-charge-per-extra-room server authorizations; it remains the atomic reservation list
 - `discussionMembershipIds`, capped at 10 in MVP
 - optional muted discussion ids/preferences
 - optional discussion rate-limit metadata
@@ -1075,7 +1077,7 @@ Stored inside `recentMessages`, capped at 10:
 
 MVP should include basic limits:
 
-- Max 3 active (open) discussions per user at any time.
+- Max 3 free active (open) discussions created per user by default; each additional concurrently open owned room requires a fresh paid authorization, up to the overall 10-room membership cap.
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
@@ -1088,7 +1090,7 @@ Implementation rules:
 - Recent-message appends should be atomic and capped to the last 10 messages so concurrent sends do not overwrite each other.
 - Join capacity checks should be part of the join mutation so concurrent joins cannot exceed the configured room capacity.
 
-The 3 active discussions limit applies to all users without exception, including test accounts. This prevents users from accumulating too many open discussions.
+The normal active-owned limit applies to all users, including test accounts. Paid overflow does not remove the limit: each room above it consumes one separately confirmed Star spend, and atomic reservation still prevents unpaid or concurrent callbacks from exceeding the authorized cap.
 
 ## Moderation
 

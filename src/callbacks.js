@@ -70,6 +70,7 @@ const {
   shouldKeepDiscussionRoomCardsForCallback,
   handleDiscussionListCallback,
   isDiscussionCreateFlowCallback,
+  isDiscussionCreateEntryPaymentCallback,
   isDiscussionCreateState,
   isDiscussionListCallback,
   renderActiveDiscussionList,
@@ -580,7 +581,11 @@ async function handleCallback(ctx) {
       discussionsMenuKeyboard(lang), shouldClearKeyboard);
   }
 
-  if (isDiscussionCreateFlowCallback(data) && !isDiscussionCreateState(ctx.user?.state || "")) {
+  if (
+    isDiscussionCreateFlowCallback(data)
+    && !isDiscussionCreateEntryPaymentCallback(data)
+    && !isDiscussionCreateState(ctx.user?.state || "")
+  ) {
     await ctx.answerCb?.(messages[lang].unknownAction.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
     return deleteCallbackMessageIfPossible(ctx);
   }
@@ -630,6 +635,7 @@ async function handleCallback(ctx) {
       clearDiscussionMenuNotice,
       rememberDiscussionMenuNotice,
       sendDiscussionRoom,
+      deleteCallbackMessageIfPossible,
     });
   }
 

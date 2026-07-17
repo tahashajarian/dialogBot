@@ -11,6 +11,7 @@ const { updateProfileField, resetDiscussionDraft, updateUserState } = require(".
 const { toPlainUser } = require("../services/profile");
 const { hasLink, validateDiscussionTitle, validateDiscussionDescription } = require("../services/discussions");
 const { buildDiscussionPreviewText } = require("../services/discussion-ui");
+const { refundPaidExtraDiscussionAuthorization } = require("../services/discussion-paid-creation");
 const {
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
@@ -56,6 +57,8 @@ async function clearDiscussionDraft(ctx) {
 
 async function cancelDiscussionCreate(ctx, lang) {
   await clearDiscussionMenuNotice(ctx);
+  const refund = await refundPaidExtraDiscussionAuthorization(ctx.userId);
+  if (ctx.user && refund.refunded) ctx.user.starBalance = refund.balance;
   await clearDiscussionDraft(ctx);
   await updateUserState(ctx.userId, "idle");
   await ctx.reply(messages[lang].discussionCreateCanceled, {

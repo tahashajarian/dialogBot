@@ -23,6 +23,8 @@ const {
   discussionRoomKeyboard,
   discussionCreateCapacityKeyboard,
   discussionCreateLanguagePickerKeyboard,
+  discussionExtraSlotConfirmKeyboard,
+  discussionExtraSlotAckKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const { COPY_TEXT_LIMIT } = require("../src/services/share-actions");
@@ -36,6 +38,7 @@ const {
   renderMyDiscussionList,
   shouldKeepDiscussionRoomCardsForCallback,
   isDiscussionCreateFlowCallback,
+  isDiscussionCreateEntryPaymentCallback,
 } = require("../src/flows/discussions-callbacks");
 const { buildDiscussionInviteSharePayload } = require("../src/flows/discussions-text");
 const {
@@ -622,6 +625,47 @@ test("discussion create TopTen callback is routed and treated as create flow", (
   assert.equal(isDiscussionCreateCallback(`${callBacks.discussionCreatePaidCapacityConfirm}2:3`), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityCancel), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreatePaidCapacityAck), true);
+  assert.equal(isDiscussionCreateCallback(`${callBacks.discussionCreateExtraSlotConfirm}5`), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateExtraSlotCancel), true);
+  assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateExtraSlotAck), true);
+  assert.equal(isDiscussionCreateEntryPaymentCallback(`${callBacks.discussionCreateExtraSlotConfirm}5`), true);
+  assert.equal(isDiscussionCreateEntryPaymentCallback(callBacks.discussionCreateExtraSlotCancel), true);
+  assert.equal(isDiscussionCreateEntryPaymentCallback(callBacks.discussionCreateExtraSlotAck), true);
+  assert.equal(isDiscussionCreateEntryPaymentCallback(callBacks.discussionCreateConfirm), false);
+});
+
+test("extra discussion payment uses inline confirmation and acknowledgement cards", () => {
+  const confirmation = discussionExtraSlotConfirmKeyboard("en", 5).reply_markup.inline_keyboard.flat();
+  assert.equal(confirmation[0].text, messages.en.discussionExtraSlotConfirmButton.replace("{cost}", "5"));
+  assert.equal(confirmation[0].callback_data, `${callBacks.discussionCreateExtraSlotConfirm}5`);
+  assert.equal(confirmation[1].callback_data, callBacks.discussionCreateExtraSlotCancel);
+
+  const acknowledgement = discussionExtraSlotAckKeyboard("en").reply_markup.inline_keyboard.flat();
+  assert.equal(acknowledgement.length, 1);
+  assert.equal(acknowledgement[0].text, messages.en.acknowledgeButton);
+  assert.equal(acknowledgement[0].callback_data, callBacks.discussionCreateExtraSlotAck);
+});
+
+test("extra discussion payment callbacks remain valid while the create wizard is idle", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const answers = [];
+  const deleted = [];
+  User.findOneAndUpdate = async () => ({});
+  try {
+    await handleCallback({
+      callbackData: callBacks.discussionCreateExtraSlotCancel,
+      callbackMessageId: 77,
+      userId: 42,
+      user: { userId: 42, lang: "en", state: "idle", navigationMode: "discussions" },
+      answerCb: async (...args) => answers.push(args),
+      deleteMessage: async (messageId) => deleted.push(messageId),
+    });
+
+    assert.deepEqual(answers, [[]]);
+    assert.deepEqual(deleted, [77]);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("discussion creation language picker supports set and non-destructive back", () => {

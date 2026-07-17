@@ -3,6 +3,7 @@ const USER_LIMITS = {
     discussionInvitationsPer24h: 3,
   },
 };
+const DISCUSSION_OWNED_HARD_LIMIT = 10;
 const { operationalLimits } = require("../services/operational-limits");
 
 function getUserTier() {
@@ -19,6 +20,7 @@ function getUserLimits(user = {}) {
 }
 
 module.exports = {
+  DISCUSSION_OWNED_HARD_LIMIT,
   USER_LIMITS,
   getUserLimits,
 };
