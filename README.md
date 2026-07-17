@@ -56,6 +56,9 @@ ALLOWED_USERNAMES=
 # Moderation: unique reports needed before an automatic ban.
 REPORT_BAN_THRESHOLD=5
 
+# Stable secret for account-deletion/recreation anti-abuse identity checks.
+ACCOUNT_DELETION_SECRET=
+
 # Discussion invite link configuration.
 BOT_DEEP_LINK_BASE_URL=
 BOT_PUBLIC_URL=
@@ -119,6 +122,8 @@ Read these before changing related behavior:
 - [AI lists and suggestions](docs/ai-lists-and-suggestions.md)
 - [Discussions](docs/discussions.md)
 - [Analytics dashboard](docs/analytics-dashboard.md)
+- [Fresh server and fresh MongoDB deployment](docs/fresh-server-deployment.md)
+- [Production smoke-test checklist](docs/production-smoke-test-checklist.md)
 - [Product roadmap](docs/product-roadmap.md)
 
 ## Validation

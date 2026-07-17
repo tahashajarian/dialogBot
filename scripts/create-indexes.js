@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const mongoose = require("mongoose");
+const AccountDeletion = require("../src/models/account-deletion");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
 const AnalyticsEvent = require("../src/models/analytics-event");
 const AppSetting = require("../src/models/app-setting");
@@ -19,6 +20,7 @@ const User = require("../src/models/user");
 const UserTasteIndex = require("../src/models/user-taste-index");
 
 const MODELS = [
+  ["AccountDeletion", AccountDeletion],
   ["AiPaidSuggestion", AiPaidSuggestion],
   ["AnalyticsEvent", AnalyticsEvent],
   ["AppSetting", AppSetting],
