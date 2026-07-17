@@ -35,6 +35,8 @@ Discussions add a social layer to Muze without turning it into a generic matchin
 
 Discussions are live rooms with short memory.
 
+The Discussions hub uses a compact reply keyboard: Active Discussions with Invitations, Create New Discussion with My Discussions, then Back on its own row.
+
 - A discussion normally has a user-created title; the four starter rooms are Muze-created.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
@@ -59,7 +61,7 @@ Discussions are live rooms with short memory.
 - Muze-created rooms use the same join, full-room, and acknowledgment behavior as user-created rooms, while recognized language-specific starter rooms use the 100-member capacity exception above.
 - The first successful Active Discussions list response may include one compact explanation of live rooms, relevance, and join requirements. If the user saw the first-time Invitations explanation first, that consumes the same durable Discussions guidance state. List filters, pagination, Back actions, room views, and subsequent inbox opens do not repeat it.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
-- When a user tries to enter a locked room from a discussion list, show the `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites` for a Music taste-label room, then return to a fresh list after acknowledgment.
+- When a user tries to enter a locked room from a discussion list or a `/d_CODE` command, show a standalone inline `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites`. Keep the current reply keyboard and its navigation mode unchanged; acknowledgment only deletes the notice and does not navigate or rebuild the list.
 
 ## Non-Goals For MVP
 

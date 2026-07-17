@@ -482,13 +482,18 @@ async function handleCallback(ctx) {
 
   if (data === callBacks.language) {
     await ctx.answerCb?.();
-    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
     await clearViewedPublicProfileMessage(ctx, [ctx.callbackMessageId]);
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showBottomHub(ctx, lang, "language", MODES.LANGUAGE, messages[lang].chooseLanguage, languageKeyboard(lang), shouldClearKeyboard);
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    return editCallbackMessageOrReply(ctx, messages[lang].chooseLanguage, languageKeyboard(lang));
+  }
+
+  if (data === callBacks.languageClose) {
+    await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible(ctx);
   }
 
   if (data === callBacks.profile) {

@@ -33,6 +33,7 @@ const {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,
@@ -956,13 +957,13 @@ function locationKeyboard(lang) {
 }
 
 function languageKeyboard(lang = "fa") {
-  return { reply_markup: { keyboard: [
+  return inlineKeyboard([
     [
-      { text: "🇮🇷 فارسی" },
-      { text: "🇬🇧 English" },
+      { text: "🇮🇷 فارسی", callback_data: callBacks.langSetFa },
+      { text: "🇬🇧 English", callback_data: callBacks.langSetEn },
     ],
-    [{ text: messages[lang].aiBack }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.languageClose }],
+  ]);
 }
 
 function onboardingLanguageKeyboard() {
@@ -1198,6 +1199,7 @@ module.exports = {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,

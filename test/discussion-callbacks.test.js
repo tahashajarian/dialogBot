@@ -20,6 +20,7 @@ const {
   discussionLanguagePickerKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
@@ -498,6 +499,38 @@ test("join-error acknowledgement copy remains available for discussion recovery"
   assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
   assert.equal(button.text, messages.en.acknowledgeButton);
+});
+
+test("locked-room guidance uses an inline Got it that only closes the notice", async () => {
+  const button = discussionJoinLockedKeyboard("en").reply_markup.inline_keyboard[0][0];
+  assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(button.callback_data, callBacks.discussionJoinLockedClose);
+
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    callbackData: callBacks.discussionJoinLockedClose,
+    callbackMessageId: 42,
+    userId: 1,
+    user: { userId: 1, navigationMode: "discussion_list:active:0:1:all:en", discussionMenuNoticeMessageId: 42 },
+    answerCb: async () => true,
+  };
+
+  try {
+    await handleDiscussionListCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        deleted.push(42);
+        return true;
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, [42]);
+  assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:en");
+  assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
 });
 
 test("discussion list title shows the full filtered count", () => {

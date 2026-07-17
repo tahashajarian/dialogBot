@@ -134,6 +134,52 @@ test("language change sends confirmation before the localized main menu", async 
   assert.deepEqual(replies[1].extra, mainMenuKeyboard("fa"));
 });
 
+test("main-menu language button opens an inline picker without replacing the reply keyboard", async () => {
+  const replies = [];
+  const ctx = {
+    callbackData: callBacks.language,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle", navigationMode: "global" },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.chooseLanguage);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
+  assert.deepEqual(
+    replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
+    [callBacks.langSetFa, callBacks.langSetEn, callBacks.languageClose],
+  );
+  assert.equal(ctx.user.navigationMode, "global");
+});
+
+test("language picker Close deletes only its inline card", async () => {
+  const deleted = [];
+  const ctx = {
+    callbackData: callBacks.languageClose,
+    callbackMessageId: 123,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle", navigationMode: "global" },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+  };
+
+  await handleCallback(ctx);
+
+  assert.deepEqual(deleted, [123]);
+  assert.equal(ctx.user.navigationMode, "global");
+});
+
 test("profile Back leaves a main-menu footprint before a fresh menu card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];

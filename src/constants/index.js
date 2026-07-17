@@ -1,6 +1,7 @@
 module.exports = {
   callBacks: {
     language: "menu:language",
+    languageClose: "menu:language:close",
     profile: "menu:profile",
     aiAssistant: "menu:ai:assistant",
     discussions: "menu:discussions",
@@ -178,6 +179,7 @@ module.exports = {
     discussionBoostNotInterested: "discussion:boost:not-interested:",
     discussionBoostOptOut: "discussion:boost:opt-out",
     discussionJoinErrorAck: "discussion:join-error:ack:",
+    discussionJoinLockedClose: "discussion:join-locked:close",
     discussionRemoveMemberPicker: "discussion:remove:member:picker:",
     discussionRemoveMember: "discussion:remove:member:",
     discussionBack: "discussion:back",

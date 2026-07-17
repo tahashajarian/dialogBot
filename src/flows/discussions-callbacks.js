@@ -6,6 +6,7 @@ const {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
 const {
@@ -221,12 +222,9 @@ async function sendDiscussionJoinErrorAck(ctx, lang, reason, listType = "active"
   retireCallbackMessageIfPossible,
 } = {}) {
   const errorText = buildDiscussionJoinLockedText(messages, lang, reason, discussion);
-  const destination = normalizeDiscussionJoinErrorDestination(listType);
-  const navigationMode = `discussion_join_error:${destination}`;
-  await setNavigationMode(ctx, navigationMode);
   await retireCallbackMessageIfPossible?.(ctx);
   await clearDiscussionListMessage(ctx);
-  const errorNotice = await ctx.reply(errorText, discussionJoinErrorAckKeyboard(lang, destination));
+  const errorNotice = await ctx.reply(errorText, discussionJoinLockedKeyboard(lang));
   await rememberDiscussionMenuNotice(ctx, errorNotice);
   return errorNotice;
 }
@@ -371,6 +369,7 @@ function isDiscussionListCallback(data = "") {
     data === callBacks.discussionListClose ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListMinePage) ||
+    data === callBacks.discussionJoinLockedClose ||
     data.startsWith(callBacks.discussionJoinErrorAck);
 }
 
@@ -475,6 +474,14 @@ async function handleDiscussionListCallback(ctx, lang, {
       return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
     }
     return renderActiveDiscussionList(ctx, lang, 0, false, null, { editCallbackMessageOrReply });
+  }
+
+  if (data === callBacks.discussionJoinLockedClose) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible?.(ctx);
+    await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
+    if (ctx.user) ctx.user.discussionMenuNoticeMessageId = null;
+    return true;
   }
 
   return false;

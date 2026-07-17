@@ -34,10 +34,14 @@ function ltrText(value) {
 
 function discussionsMenuKeyboard(lang, { invitationCount: _invitationCount = 0 } = {}) {
   const rows = [
-    [{ text: messages[lang].discussionActiveList }],
-    [{ text: messages[lang].discussionInvitations }],
-    [{ text: messages[lang].discussionCreate }],
-    [{ text: messages[lang].discussionMyList }],
+    [
+      { text: messages[lang].discussionActiveList },
+      { text: messages[lang].discussionInvitations },
+    ],
+    [
+      { text: messages[lang].discussionCreate },
+      { text: messages[lang].discussionMyList },
+    ],
   ];
   rows.push([{ text: messages[lang].aiBack }]);
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
@@ -199,6 +203,15 @@ function discussionJoinErrorAckKeyboard(lang, listType = "active") {
       callback_data: `${callBacks.discussionJoinErrorAck}${normalizedListType}`,
     }],
   ]);
+}
+
+function discussionJoinLockedKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionJoinLockedClose,
+    },
+  ]]);
 }
 
 function discussionBoostAckKeyboard(lang) {
@@ -546,6 +559,7 @@ module.exports = {
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,
   discussionCreateGuidanceAckKeyboard,

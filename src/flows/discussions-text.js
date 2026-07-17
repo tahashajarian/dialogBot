@@ -9,6 +9,7 @@ const {
   discussionCloseConfirmKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
+  discussionJoinLockedKeyboard,
   normalizeDiscussionJoinErrorDestination,
 } = require("../keyboards");
 const User = require("../models/user");
@@ -385,15 +386,10 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
 }
 
 async function refreshDiscussionListAfterFailedJoin(ctx, lang, reason, discussion = null) {
-  const listType = ctx.user?.discussionLastListType || "active";
-  const destination = normalizeDiscussionJoinErrorDestination(listType);
-  const navigationMode = `discussion_join_error:${destination}`;
-  await updateProfileField(ctx.userId, "navigationMode", navigationMode);
-  if (ctx.user) ctx.user.navigationMode = navigationMode;
   await forgetRememberedDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(
     buildDiscussionJoinLockedText(messages, lang, reason, discussion),
-    discussionJoinErrorAckKeyboard(lang, destination)
+    discussionJoinLockedKeyboard(lang),
   );
   await rememberDiscussionMenuNotice(ctx, errorNotice);
 }

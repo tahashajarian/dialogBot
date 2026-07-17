@@ -63,6 +63,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Completion should confirm the number of saved interests without repeating the full selection list or inferring a taste label from only three broad choices. Briefly explain that media favorites improve personal suggestions and help users find relevant discussions.
 - End with active discussions as the primary action so users can choose a room themselves. Offer `My favorites 🎬🎵📚` and the main menu as secondary actions.
 - Keep a reusable Muze guide in the main menu; onboarding completion can reach it through the main menu.
+- Keep Change language in the main reply keyboard. Its normal picker is an inline card with Persian, English, and a delete-only Close; opening or closing it leaves the main reply keyboard active. After a selection, retire the picker and refresh the localized main menu. Onboarding language selection remains its separately scoped reply keyboard.
 - Keep the Guide reply keyboard compact: place Stars and Invite together, with Rules and Back each on a clear separate row.
 - Stars, Rules, and Invite open separate inline cards while the Guide reply keyboard stays visible and active. Stars and Rules contain only Close; Invite contains Share, Copy when available, and Close. Close deletes only the selected card and does not navigate or replace the reply keyboard.
 - Accept Guide reply buttons once from the global mode as recovery for keyboards left visible by the temporary inline Guide experiment; each destination immediately restores its normal scoped mode.

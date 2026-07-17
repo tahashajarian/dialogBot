@@ -335,7 +335,6 @@ async function handleUpdate(ctx) {
       return sendProfile(ctx, toPlainUser(ctx.user), lang, keyboardLang, { loading: true });
     }
     if (navigationCommand === "lang") {
-      await setNavigationMode(ctx, MODES.LANGUAGE);
       return ctx.reply(messages[keyboardLang].chooseLanguage, languageKeyboard(keyboardLang));
     }
     if (navigationCommand === "taste") {

@@ -21,10 +21,12 @@ test("main menu restores bot-language switching as a global bottom action", () =
   assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.DISCUSSIONS, state: "idle", user: { lang: "fa" } }), null);
 });
 
-test("normal and onboarding language selection use independently scoped bottom buttons", () => {
+test("normal language selection is inline while onboarding keeps scoped reply buttons", () => {
   const { languageKeyboard, onboardingLanguageKeyboard } = require("../src/keyboards");
-  assert.ok(languageKeyboard("fa").reply_markup.keyboard);
-  assert.equal(languageKeyboard("fa").reply_markup.inline_keyboard, undefined);
+  const normalRows = languageKeyboard("fa").reply_markup.inline_keyboard;
+  assert.equal(languageKeyboard("fa").reply_markup.keyboard, undefined);
+  assert.deepEqual(normalRows[0].map((button) => button.callback_data), [callBacks.langSetFa, callBacks.langSetEn]);
+  assert.equal(normalRows.at(-1)[0].callback_data, callBacks.languageClose);
   assert.ok(onboardingLanguageKeyboard().reply_markup.keyboard);
   const context = { mode: MODES.LANGUAGE, state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", context).callbackData, callBacks.langSetFa);
@@ -384,6 +386,13 @@ test("discussion hub remains actionable while the user still has an active room"
 });
 
 test("discussion hub bottom buttons remain actionable under inline discussion cards", () => {
+  const { discussionsMenuKeyboard } = require("../src/keyboards");
+  const rows = discussionsMenuKeyboard("en").reply_markup.keyboard.map((row) => row.map((button) => button.text));
+  assert.deepEqual(rows, [
+    [messages.en.discussionActiveList, messages.en.discussionInvitations],
+    [messages.en.discussionCreate, messages.en.discussionMyList],
+    [messages.en.aiBack],
+  ]);
   const modes = [
     "discussion_list:active:0:2:all:fa",
     "discussion_list:mine:0:1:all:all",
