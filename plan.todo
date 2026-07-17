@@ -42,7 +42,7 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ think about chagne بحث to گفت‌وگو @done (7/12/2026, 7:39:00 PM)
 
 
-☐ bot it's too slow and it's annoying sending footprints and the next message tooks so long to come and it's not good for user experience, we need to make it faster and more responsive
+✔ bot it's too slow and it's annoying sending footprints and the next message tooks so long to come and it's not good for user experience, we need to make it faster and more responsive @done (7/17/2026, 10:08:37 PM)
 
 
 
@@ -88,3 +88,5 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ discussoin need to combie with inline and bottom button the list of discusion could be with inline butotn and the buttons only update the message of lists and even lang under it just open a card and after select will be removed, so list can work like theis and butotn on bottom can do the navigation stuff,  let think about it @done (7/17/2026, 8:37:31 AM)
 ✔ also for invitaion too, could be seperate message with an inline butotn for close and nothing extar do, and bottom button remains i think and even my discusoin if it's full or empty could be a seperate card with its inline button, by this cahgen we are making it faster i think @done (7/17/2026, 8:37:38 AM)
 ✔ also in profile for sending location return back main menu of profile is wrong cancel, think make it to inline btton with no navigation @done (7/17/2026, 7:13:17 AM)
+
+☐ test invitation inside discussion and outside
