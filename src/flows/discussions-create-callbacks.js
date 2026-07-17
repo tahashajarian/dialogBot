@@ -3,7 +3,6 @@ const { callBacks } = require("../constants");
 const {
   discussionsMenuKeyboard,
   discussionJoinErrorAckKeyboard,
-  discussionCreateGuidanceAckKeyboard,
   discussionCreateDescriptionKeyboard,
   discussionCreateCancelKeyboard,
   discussionJoinRuleKeyboard,
@@ -289,8 +288,13 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     editCallbackMessageOrReply,
   });
   const pauseOnJoinRuleGuidance = async (text) => {
-    await updateUserState(ctx.userId, getJoinRulePromptOptions(ctx, lang).state);
-    return editCallbackMessageOrReply(ctx, text, discussionCreateGuidanceAckKeyboard(lang));
+    const options = getJoinRulePromptOptions(ctx, lang);
+    await updateUserState(ctx.userId, options.state);
+    await setNavigationMode(ctx, "discussion_create");
+    return ctx.reply(
+      `${text}\n\n${messages[lang].discussionJoinRulePrompt}`,
+      discussionJoinRuleKeyboard(lang, options),
+    );
   };
 
   const returnToDraftPreview = async () => {

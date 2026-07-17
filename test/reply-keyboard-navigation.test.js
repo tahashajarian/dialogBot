@@ -90,8 +90,8 @@ test("mode-specific labels do not activate from a stale keyboard", () => {
 test("empty People discovery actions work only in the empty-result mode in both languages", () => {
   for (const lang of ["en", "fa"]) {
     const empty = { mode: "people_discovery_empty", state: "idle", user: { lang } };
-    assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, empty).callbackData, callBacks.aiAssistant);
-    assert.equal(resolveReplyKeyboardAction(messages[lang].aiBack, empty).callbackData, callBacks.people);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, empty), null);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].aiBack, empty).callbackData, callBacks.menuMain);
     assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people" }), null);
     assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people_discovery_results:0:2" }), null);
   }
@@ -101,7 +101,7 @@ test("saved-profile pagination and Back are bound to the exact server page", () 
   const first = { mode: "saved_profiles:0:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.savedProfilesPage}1`);
   assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.people);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.menuMain);
 
   const middleFa = { mode: "saved_profiles:1:3", state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middleFa).callbackData, `${callBacks.savedProfilesPage}2`);
@@ -115,7 +115,7 @@ test("See People result pagination uses exact-page bottom actions in both langua
   const first = { mode: "people_discovery_results:0:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.peopleDiscoverPage}1`);
   assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.people);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.menuMain);
 
   const middle = { mode: "people_discovery_results:1:3", state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middle).callbackData, `${callBacks.peopleDiscoverPage}2`);
@@ -373,6 +373,40 @@ test("discussion hub remains actionable while the user still has an active room"
   assert.equal(resolveReplyKeyboardAction(messages.fa.mainMenuMe, context), null);
 });
 
+test("discussion hub bottom buttons remain actionable under inline discussion cards", () => {
+  const modes = [
+    "discussion_list:active:0:2:all:fa",
+    "discussion_list:mine:0:1:all:all",
+    "discussion_invitations:0:1",
+    "discussion_language:all:fa",
+  ];
+
+  for (const mode of modes) {
+    const context = { mode, state: "idle", activeDiscussionId: "room-1", user: { lang: "en" } };
+    assert.equal(resolveReplyKeyboardAction(messages.en.discussionActiveList, context).callbackData, callBacks.discussionListActive);
+    assert.equal(resolveReplyKeyboardAction(messages.en.discussionInvitations, context).callbackData, callBacks.discussionInvitations);
+    assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreate, context).callbackData, callBacks.discussionCreateStart);
+    assert.equal(resolveReplyKeyboardAction(messages.en.discussionMyList, context).callbackData, callBacks.discussionListMine);
+    assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, context).callbackData, callBacks.menuMain);
+  }
+});
+
+test("People hub bottom buttons remain actionable under inline People cards", () => {
+  const modes = [
+    "people_discovery_results:0:2",
+    "people_discovery_empty",
+    "saved_profiles:0:2",
+  ];
+
+  for (const mode of modes) {
+    const context = { mode, state: "idle", user: { lang: "en" } };
+    assert.equal(resolveReplyKeyboardAction(messages.en.peopleDiscover, context).callbackData, callBacks.peopleDiscover);
+    assert.equal(resolveReplyKeyboardAction(messages.en.savedProfiles, context).callbackData, callBacks.savedProfiles);
+    assert.equal(resolveReplyKeyboardAction(messages.en.advancedSearchButton, context).callbackData, callBacks.peopleAdvancedSearch);
+    assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, context).callbackData, callBacks.menuMain);
+  }
+});
+
 test("discussion join-lock acknowledgement is bottom-mode scoped to its exact source", () => {
   const active = { mode: "discussion_join_error:active", state: "idle", activeDiscussionId: "room-1", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(messages.fa.acknowledgeButton, active).callbackData, `${callBacks.discussionJoinErrorAck}active`);
@@ -460,20 +494,26 @@ test("discussion-member profiles use Save/Saved status and a source-specific Clo
   assert.ok(!savedWithDiscussion.some((button) => button.callback_data.startsWith(callBacks.savedProfilesDiscussions)));
 });
 
-test("People and Saved profile previews use source-aware bottom actions", () => {
+test("People and Saved profile previews use source-aware inline actions", () => {
   const { profilePublicActionsKeyboard } = require("../src/keyboards");
   const peopleKeyboard = profilePublicActionsKeyboard("en", "u_A1", { source: "people", isSaved: false }).reply_markup;
-  assert.ok(peopleKeyboard.keyboard);
-  assert.equal(peopleKeyboard.inline_keyboard, undefined);
-  assert.deepEqual(peopleKeyboard.keyboard.flat().map((button) => button.text), [messages.en.profileSaveButton, messages.en.aiBack]);
+  assert.deepEqual(peopleKeyboard.inline_keyboard.flat().map((button) => button.callback_data), [
+    `${callBacks.profileSaveByCode}u_A1`,
+    callBacks.profileCloseDiscussionMember,
+  ]);
 
   const savedKeyboard = profilePublicActionsKeyboard("fa", "u_A1", { source: "saved", isSaved: true, hasDiscussions: true }).reply_markup;
-  assert.ok(savedKeyboard.keyboard);
-  assert.deepEqual(savedKeyboard.keyboard.flat().map((button) => button.text), [messages.fa.savedProfileDiscussions, messages.fa.savedProfileRemove, messages.fa.profileBackToSaved]);
+  assert.deepEqual(savedKeyboard.inline_keyboard.flat().map((button) => button.callback_data), [
+    `${callBacks.savedProfilesDiscussions}saved:u_A1`,
+    `${callBacks.profileUnsaveByCode}u_A1`,
+    callBacks.profileCloseDiscussionMember,
+  ]);
 
   const peopleMode = { mode: "public_profile:people:u_A1:2:unsaved:0", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, peopleMode).callbackData, `${callBacks.profileSaveByCode}u_A1`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, peopleMode).callbackData, `${callBacks.peopleDiscoverPage}2`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, peopleMode).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.en.peopleDiscover, peopleMode).callbackData, callBacks.peopleDiscover);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfiles, peopleMode).callbackData, callBacks.savedProfiles);
   assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemove, peopleMode), null);
 
   const savedMode = { mode: "public_profile:saved:u_A1:1:saved:1", state: "idle", user: { lang: "en" } };
@@ -483,26 +523,28 @@ test("People and Saved profile previews use source-aware bottom actions", () => 
   assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, savedMode), null);
 });
 
-test("profile discussion view uses a profile-bound bottom Back action", () => {
+test("profile discussion view uses inline Back and Close while keeping the People hub available", () => {
   const { profileDiscussionBackKeyboard } = require("../src/flows/saved-profiles");
   const keyboard = profileDiscussionBackKeyboard("fa", "u_A1").reply_markup;
-  assert.deepEqual(keyboard.keyboard.flat().map((button) => button.text), [messages.fa.aiBack]);
-  assert.equal(keyboard.inline_keyboard, undefined);
+  assert.deepEqual(keyboard.inline_keyboard.flat().map((button) => button.callback_data), [
+    `${callBacks.profileDiscussionsBack}u_A1`,
+    callBacks.profileDiscussionsClose,
+  ]);
 
   const mode = { mode: "profile_discussions:saved:u_A1:2", state: "idle", user: { lang: "fa" } };
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, mode).callbackData, `${callBacks.profileViewByCode}u_A1`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, mode).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.peopleDiscover, mode).callbackData, callBacks.peopleDiscover);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, mode), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...mode, mode: "saved_profiles:2:3" }).callbackData, callBacks.people);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...mode, mode: "saved_profiles:2:3" }).callbackData, callBacks.menuMain);
 });
 
 test("saved-profile removal confirmation is exact-profile and source scoped", () => {
   const { savedProfileRemoveConfirmKeyboard, parseProfileUnsaveConfirmMode, parsePublicProfileNavigationMode } = require("../src/flows/saved-profiles");
   const keyboard = savedProfileRemoveConfirmKeyboard("fa").reply_markup;
-  assert.deepEqual(keyboard.keyboard.flat().map((button) => button.text), [
-    messages.fa.savedProfileRemoveConfirmButton,
-    messages.fa.savedProfileRemoveCancelButton,
+  assert.deepEqual(keyboard.inline_keyboard.flat().map((button) => button.callback_data), [
+    callBacks.profileUnsaveConfirm,
+    callBacks.profileUnsaveCancel,
   ]);
-  assert.equal(keyboard.inline_keyboard, undefined);
   assert.deepEqual(parseProfileUnsaveConfirmMode("profile_unsave_confirm:people:u_A1:2"), {
     origin: "people",
     code: "u_A1",

@@ -81,6 +81,7 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
 
 function isPeopleCallback(data = "") {
   return data === callBacks.people ||
+    data === callBacks.peopleListClose ||
     data === callBacks.peopleDiscover ||
     data === callBacks.peopleTasteMatches ||
     data === callBacks.peopleTasteMatchesUnlock ||

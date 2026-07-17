@@ -56,3 +56,24 @@ test("editMessageText suppresses duplicate fallback when an edit times out", asy
     logger.warn = originalWarn;
   }
 });
+
+test("editMessageCaption updates photo cards with inline controls", async () => {
+  const calls = [];
+  const ctx = {
+    chat: { id: 123 },
+    telegram: {
+      callApi: async (method, payload) => {
+        calls.push({ method, payload });
+        return true;
+      },
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 100 });
+  const keyboard = { reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "back" }]] } };
+
+  assert.equal(await appCtx.editMessageCaption(99, "Discussion", keyboard), true);
+  assert.equal(calls[0].method, "editMessageCaption");
+  assert.equal(calls[0].payload.message_id, 99);
+  assert.equal(calls[0].payload.caption, "Discussion");
+  assert.deepEqual(calls[0].payload.reply_markup, keyboard.reply_markup);
+});

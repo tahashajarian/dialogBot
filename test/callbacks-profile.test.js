@@ -7,6 +7,7 @@ const messages = require("../src/messages");
 const { mainMenuKeyboard } = require("../src/keyboards");
 const {
   handleSavedProfilesCallback,
+  requestUnsaveProfileConfirmation,
   saveProfileCommand,
   savedProfilesLimitKeyboard,
   sendPublicProfileByCode,
@@ -40,6 +41,61 @@ test("saved-profile limit notice has a dismiss-only Got it action", async () => 
 
   assert.equal(handled, true);
   assert.deepEqual(deleted, [44]);
+});
+
+test("inline saved-profile removal confirms and cancels on the same profile card", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const markups = [];
+  const deleted = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    profileName: "Saved User",
+    showActiveDiscussionOnProfile: false,
+  });
+  User.findOneAndUpdate = async () => ({ userId: 1 });
+  const ctx = {
+    callbackMessageId: 77,
+    userId: 1,
+    user: {
+      userId: 1,
+      navigationMode: "public_profile:saved:u_A1:2:saved:0",
+      savedProfileCodes: ["u_A1"],
+    },
+    editMessageReplyMarkup: async (messageId, replyMarkup) => {
+      markups.push({ messageId, replyMarkup });
+      return true;
+    },
+    reply: async () => {
+      throw new Error("inline profile confirmation should not send a new card");
+    },
+  };
+
+  try {
+    await requestUnsaveProfileConfirmation(ctx, "en", "u_A1");
+    assert.deepEqual(
+      markups[0].replyMarkup.inline_keyboard.flat().map((button) => button.callback_data),
+      [callBacks.profileUnsaveConfirm, callBacks.profileUnsaveCancel],
+    );
+
+    ctx.callbackData = callBacks.profileUnsaveCancel;
+    ctx.user.navigationMode = "profile_unsave_confirm:saved:u_A1:2";
+    await handleSavedProfilesCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        deleted.push(77);
+        return true;
+      },
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const restoredCallbacks = markups[1].replyMarkup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(restoredCallbacks.includes(`${callBacks.profileUnsaveByCode}u_A1`));
+  assert.equal(restoredCallbacks.at(-1), callBacks.profileCloseDiscussionMember);
+  assert.deepEqual(deleted, []);
 });
 
 test("language change sends confirmation before the localized main menu", async () => {
@@ -850,8 +906,8 @@ test("saved profiles clears bottom keyboard before rendering list when one is ac
   assert.equal(deletedIds[0], 456);
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, undefined);
   assert.equal(deletedIds.includes(1), false);
-  assert.match(replies[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
-  assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.aiBack);
+  assert.match(replies[0].text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
+  assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.discussionShareClose);
 });
 
 test("saved profiles sends footprint before a fresh list card", async () => {
@@ -888,10 +944,10 @@ test("saved profiles sends footprint before a fresh list card", async () => {
 
   await handleCallback(ctx);
 
-  assert.match(replies[0].text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.match(replies[0].text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
   assert.deepEqual(deletedIds, [456]);
   assert.deepEqual(edits, []);
-  assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.aiBack);
+  assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.discussionShareClose);
 });
 
 test("people hub opens discovery and saved profile choices", async () => {
@@ -974,11 +1030,11 @@ test("people discovery insufficient data state links users to lists", async () =
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(!buttons.some((button) => button.text === messages.fa.profileEditInterests));
   assert.ok(buttons.some((button) => button.text === messages.fa.aiAssistant));
-  assert.equal(buttons.at(-1).text, messages.fa.aiBack);
+  assert.equal(buttons.at(-1).text, messages.fa.discussionShareClose);
   assert.equal(ctx.user.peopleLastListMessageId, 77);
 });
 
-test("people profile opened from discovery returns to people discovery", async () => {
+test("people profile opened from discovery ends with Close", async () => {
   const originalFindOne = User.findOne;
   const deletedIds = [];
   const replies = [];
@@ -1022,10 +1078,10 @@ test("people profile opened from discovery returns to people discovery", async (
   assert.deepEqual(deletedIds, []);
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.profileSaveButton));
-  assert.equal(buttons.at(-1).text, messages.en.aiBack);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
-test("people profile opened from taste discovery returns to taste people list", async () => {
+test("people profile opened from taste discovery ends with Close", async () => {
   const originalFindOne = User.findOne;
   const deletedIds = [];
   const replies = [];
@@ -1070,10 +1126,10 @@ test("people profile opened from taste discovery returns to taste people list", 
   assert.deepEqual(deletedIds, []);
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.profileSaveButton));
-  assert.equal(buttons.at(-1).text, messages.en.aiBack);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
-test("typed people profile code keeps people actions when only mode context remains", async () => {
+test("typed people profile code keeps inline people actions when only mode context remains", async () => {
   const originalFindOne = User.findOne;
   const replies = [];
   User.findOne = async () => ({
@@ -1113,7 +1169,7 @@ test("typed people profile code keeps people actions when only mode context rema
 
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.profileSaveButton));
-  assert.equal(buttons.at(-1).text, messages.en.aiBack);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
 test("saving from people profile refreshes profile with saved actions", async () => {
@@ -1185,6 +1241,7 @@ test("profile discussions Back returns to profile with people source intact", as
   const originalFindDiscussion = Discussion.find;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
+  const edits = [];
   const deletedIds = [];
   const updates = [];
 
@@ -1212,6 +1269,7 @@ test("profile discussions Back returns to profile with people source intact", as
   const ctx = {
     callbackData: `${callBacks.savedProfilesDiscussions}taste:u_A1`,
     callbackMessageId: 50,
+    callbackMessage: { text: "profile card" },
     userId: 1,
     user: {
       userId: 1,
@@ -1224,6 +1282,10 @@ test("profile discussions Back returns to profile with people source intact", as
       showActiveDiscussionOnProfile: false,
     },
     answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     deleteMessage: async (messageId) => {
       deletedIds.push(messageId);
       return true;
@@ -1240,12 +1302,12 @@ test("profile discussions Back returns to profile with people source intact", as
   try {
     await handleCallback(ctx);
 
-    const discussionButtons = keyboardButtons(replies[0].extra);
-    assert.equal(discussionButtons.at(-1).text, messages.en.aiBack);
+    const discussionButtons = keyboardButtons(edits[0].extra);
+    assert.equal(discussionButtons.at(-2).text, messages.en.discussionBack);
+    assert.equal(discussionButtons.at(-1).text, messages.en.discussionShareClose);
     assert.equal(ctx.user.discussionLastListType, "people:taste:u_A1");
 
-    ctx.callbackData = `${callBacks.profileViewByCode}u_A1`;
-    ctx.callbackMessageId = 101;
+    ctx.callbackData = `${callBacks.profileDiscussionsBack}u_A1`;
     await handleCallback(ctx);
   } finally {
     User.findOne = originalFindOneUser;
@@ -1254,11 +1316,11 @@ test("profile discussions Back returns to profile with people source intact", as
     Discussion.find = originalFindDiscussion;
   }
 
-  const profileButtons = keyboardButtons(replies.at(-1).extra);
+  const profileButtons = keyboardButtons(edits.at(-1).extra);
   assert.ok(!profileButtons.some((button) => button.text === messages.en.savedProfileDiscussions));
-  assert.equal(profileButtons.at(-1).text, messages.en.aiBack);
+  assert.equal(profileButtons.at(-1).text, messages.en.discussionShareClose);
   assert.equal(ctx.user.discussionLastListType, "");
-  assert.ok(deletedIds.includes(50));
+  assert.deepEqual(deletedIds, []);
   assert.ok(updates.some((entry) => entry.update.$set?.discussionLastListType === "people:taste:u_A1"));
 });
 
@@ -1374,7 +1436,7 @@ test("saved profile back deletes viewed profile card and renders fresh list", as
   await handleCallback(ctx);
 
   assert.deepEqual(deletedIds, [789]);
-  assert.match(replies.at(-1).text, /پروفیل‌های ذخیره‌شده|هنوز پروفایلی ذخیره نکردی/);
+  assert.match(replies.at(-1).text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
 });
 
 test("opening saved profile clears old list and previous profile before rendering profile", async () => {
@@ -1426,7 +1488,7 @@ test("opening saved profile clears old list and previous profile before renderin
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(!buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
-  assert.equal(buttons.at(-1).text, messages.en.profileBackToSaved);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
 test("saved profile shows discussions action when user has an open discussion", async () => {
@@ -1555,6 +1617,6 @@ test("saved profile Back renders fresh list after profile card", async () => {
   await handleCallback(ctx);
 
   assert.deepEqual(deletedIds, [101]);
-  assert.match(replies.at(-1).text, /haven't saved any profiles yet/);
+  assert.match(replies.at(-1).text, /don't currently have any saved profiles/);
   assert.equal(ctx.user.savedProfilesLastListMessageId, 1);
 });

@@ -299,6 +299,7 @@ function getStarterDiscussionHint(messages, lang, discussion = {}) {
 function buildDiscussionListText(messages, lang, title, discussions = [], {
   startIndex = 0,
   totalCount = discussions.length,
+  includeActions = true,
 } = {}) {
   if (!discussions.length) {
     return title;
@@ -331,7 +332,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
         ? buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)
         : "";
     const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
-    const actionsBlock = actions ? `\n\n${actions}` : "";
+    const actionsBlock = includeActions && actions ? `\n\n${actions}` : "";
     const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
     const roomTitle = getDiscussionDisplayTitle(messages, lang, entry);
     const titleLine = lang === "fa"

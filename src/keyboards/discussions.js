@@ -90,8 +90,11 @@ function discussionListNavigationKeyboard(lang, {
     }]);
   }
 
-  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
-  return replyKeyboard(rows);
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.discussionListClose,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionLanguagePickerKeyboard(lang, { joinableOnly = false, languageFilter = "fa" } = {}) {
@@ -109,7 +112,7 @@ function discussionLanguagePickerKeyboard(lang, { joinableOnly = false, language
     text: messages[lang].discussionBack,
     callback_data: `${callBacks.discussionListActivePage}0:${joinability}:${languageFilter}`,
   }]);
-  return replyKeyboard(rows);
+  return inlineKeyboard(rows);
 }
 
 function discussionRoomKeyboard(lang, isOwner = false) {
@@ -140,6 +143,20 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       selective: true,
     },
   };
+}
+
+function discussionCloseConfirmKeyboard(lang, discussionId, source = "room") {
+  const suffix = `${discussionId}:${source}`;
+  return inlineKeyboard([
+    [{
+      text: messages[lang].discussionCloseConfirmYes,
+      callback_data: `${callBacks.discussionCloseConfirm}${suffix}`,
+    }],
+    [{
+      text: messages[lang].discussionCloseConfirmNo,
+      callback_data: `${callBacks.discussionCloseCancel}${suffix}`,
+    }],
+  ]);
 }
 
 function discussionInvitePreviewKeyboard(lang, publicDiscussionCode, { activeElsewhere = false, cancelOnly = false } = {}) {
@@ -287,8 +304,11 @@ function discussionInvitationsBackKeyboard(lang, {
     });
   }
   if (pageRows.length) rows.push(pageRows);
-  rows.push([{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }]);
-  return replyKeyboard(rows);
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.discussionListClose,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionCreateDescriptionKeyboard(lang, {
@@ -517,6 +537,7 @@ module.exports = {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,

@@ -6,6 +6,7 @@ const {
   discussionListNavigationKeyboard,
   discussionInviteModeKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   normalizeDiscussionJoinErrorDestination,
@@ -194,10 +195,12 @@ async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
     updateProfileField(ctx.userId, "navigationMode", "discussions"),
   ]);
   if (ctx.user) ctx.user.navigationMode = "discussions";
-  const text = left?.ok && left.discussion
-    ? `${formatDiscussionLeftMessage(lang, left.discussion)}\n\n${messages[lang].discussionsMenu}`
-    : messages[lang].discussionsMenu;
-  return ctx.reply(text, discussionsMenuKeyboard(lang));
+  if (left?.ok && left.discussion) {
+    await ctx.reply(formatDiscussionLeftMessage(lang, left.discussion), {
+      reply_markup: { remove_keyboard: true },
+    });
+  }
+  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
 }
 
 function normalizeProfileCodeFromActionCommand(value) {
@@ -490,19 +493,10 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
 
   if (isDiscussionCloseText(text)) {
     if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
-    const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
-      reply_markup: {
-        keyboard: [
-          [{ text: messages[lang].discussionCloseConfirmCommand }],
-          [{ text: messages[lang].discussionCloseCancelCommand }],
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false,
-        selective: true,
-      },
-    });
-    await updateUserState(ctx.userId, `discussion_close_confirm:${activeDiscussionId}:${getMessageId(sent) || ""}:room`);
-    return sent;
+    return ctx.reply(
+      messages[lang].discussionCloseConfirmPrompt,
+      discussionCloseConfirmKeyboard(lang, activeDiscussionId, "room"),
+    );
   }
 
   return null;
@@ -718,19 +712,10 @@ async function closeDiscussionCommand(ctx, lang, code) {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion) return ctx.reply(messages[lang].discussionErrMissingDiscussion);
   const listSource = ctx.user?.discussionLastListType === "mine" ? "mine" : "active";
-  const sent = await ctx.reply(messages[lang].discussionCloseConfirmPrompt, {
-    reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].discussionCloseConfirmCommand }],
-        [{ text: messages[lang].discussionCloseCancelCommand }],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
-    },
-  });
-  await updateUserState(ctx.userId, `discussion_close_confirm:${discussion._id}:${getMessageId(sent) || ""}:${listSource}`);
-  return sent;
+  return ctx.reply(
+    messages[lang].discussionCloseConfirmPrompt,
+    discussionCloseConfirmKeyboard(lang, discussion._id, listSource),
+  );
 }
 
 async function boostDiscussionCommand(ctx, lang, code) {
@@ -857,6 +842,7 @@ module.exports = {
   matchesMessageText,
   isDiscussionBottomControlText,
   handleDiscussionBottomButton,
+  enterDiscussionsAfterRoomExit,
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   sendDiscussionCreatePrompt,

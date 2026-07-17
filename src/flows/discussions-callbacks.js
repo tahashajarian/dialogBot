@@ -143,6 +143,7 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionListActivePage) ||
     data.startsWith(callBacks.discussionListLanguageOpen) ||
     data.startsWith(callBacks.discussionListLanguageSet) ||
+    data === callBacks.discussionListClose ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data === callBacks.discussionCreateStart ||
     isDiscussionCreateFlowCallback(data) ||
@@ -332,7 +333,11 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     const emptyNotice = await editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionListMineEmpty,
-      discussionsMenuKeyboard(lang),
+      discussionListNavigationKeyboard(lang, {
+        listType: "mine",
+        page: 0,
+        totalPages: 1,
+      }),
     );
     await rememberDiscussionMenuNotice(ctx, freshDestination ? emptyNotice : (ctx.callbackMessageId || emptyNotice));
     return emptyNotice;
@@ -363,6 +368,7 @@ function isDiscussionListCallback(data = "") {
     data.startsWith(callBacks.discussionListActivePage) ||
     data.startsWith(callBacks.discussionListLanguageOpen) ||
     data.startsWith(callBacks.discussionListLanguageSet) ||
+    data === callBacks.discussionListClose ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data.startsWith(callBacks.discussionJoinErrorAck);
@@ -375,6 +381,11 @@ async function handleDiscussionListCallback(ctx, lang, {
   renderInvitationsList,
 } = {}) {
   const data = ctx.callbackData || "";
+
+  if (data === callBacks.discussionListClose) {
+    await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible?.(ctx);
+  }
 
   if (data === callBacks.discussionListActive) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);

@@ -1,6 +1,6 @@
 # Discussions
 
-Discussion hub navigation, received-invitation pagination, Active/My list pagination and filters, and the ordinary create-discussion wizard use persistent bottom reply keyboards. Button text is resolved only against the user's server-side mode, exact page/filter, and durable wizard state; copied stale labels are ignored. A user may browse these lists while remaining in an active room without navigation labels being delivered as room messages.
+Discussion/People hub navigation and the ordinary create-discussion wizard use persistent bottom reply keyboards. Active Discussions, My Discussions, received invitations, See People results, and Saved Profiles render pagination, filters where applicable, and a final Close action inline on their cards. List Close actions remove only the tapped card and do not navigate or change the bottom keyboard. The visible hub bottom buttons remain actionable while these list cards or the Active-list language picker are open. Button text from reply-keyboard surfaces is resolved only against the user's server-side mode, exact page/filter, and durable wizard state; copied stale labels are ignored. A user may browse these lists while remaining in an active room without navigation labels being delivered as room messages.
 
 Identity-bound invitation/join actions, member selection, destructive confirmations, and acknowledgement cards remain inline when their payload or context is safety-sensitive. Paid-capacity confirmation uses a dedicated bottom-keyboard mode whose capacity and quoted cost are stored and revalidated server-side; copied or stale confirmation labels are rejected.
 
@@ -320,6 +320,8 @@ If creator has no items for item-restricted rooms:
 ```text
 برای ساخت گفت‌وگوی مخصوص یک علاقه، اول چند علاقه‌مندی به پروفایلت اضافه کن.
 ```
+
+Missing-label and missing-item guidance does not require an inline acknowledgement. Show the guidance together with the normal join-rule bottom keyboard so the creator can immediately choose another rule.
 
 ### Join Discussion
 
@@ -872,7 +874,7 @@ Joining another discussion leaves the old one after the new join succeeds. If th
 ### Close Discussion
 
 Only the owner can close a discussion.
-Close confirmations should remember their origin. Canceling from a room returns to the room, canceling from `🟢 گفت‌وگوهای فعال` returns to active discussions, and canceling from `🗂 گفت‌وگوهای من` returns to my discussions.
+Close confirmation uses discussion-bound inline Confirm/Cancel buttons. Cancel removes only the confirmation card without navigating. After successful closure, the same card shows the owner response as plain text with no inline buttons; it does not automatically render Active Discussions, My Discussions, or another content screen.
 
 Closing behavior:
 
@@ -890,7 +892,7 @@ Owner response:
 👩‍🦳 گفت‌وگو «بهترین ریف تاریخ؟» بسته شد.
 ```
 
-After this response, remove the room bottom keyboard and show the discussions menu.
+When closure started inside the room, replace the now-invalid room bottom keyboard with the Discussions menu. This keyboard correction does not replace the inline result card or open another content list.
 
 Member notification:
 
@@ -1194,12 +1196,12 @@ Discovery rules:
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
 - Do not expose private profile fields or private discussion membership.
 - Active discussion visibility remains controlled by `showActiveDiscussionOnProfile`.
-- Results use page-bound bottom-keyboard Next, Previous, and Back actions. Profile entries remain code-based commands, and stale page labels are ignored.
+- Results use page-bound inline Next and Previous actions plus a final Close that deletes only the result card. Profile entries remain code-based commands. The People-hub bottom keyboard remains visible and actionable.
 - Shared lines may show the matching section and count, but never private list metadata beyond the overlap count.
 
 Empty-state behavior:
 
-- Empty discovery results use a persistent bottom keyboard for `My favorites 🎬🎵📚` and Back. These labels resolve only while the server-side mode is the empty discovery state; copied labels and keyboards left visible after results appear are ignored.
+- Empty discovery results use inline `My favorites 🎬🎵📚` and Close actions on the result card while leaving the People-hub bottom keyboard available.
 - If the user lacks enough taste data, explain that they need at least 3 choices in one media favorites list or profile Interests and offer a `My favorites 🎬🎵📚` button. Empty discovery states may mention profile Interests, but should not link directly to their editor until that flow can return to People discovery instead of Profile.
 - If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
 - The old `people:taste` callbacks may route to the free `👀 دیدن آدم‌ها` list so stale inline cards do not break.
@@ -1238,7 +1240,7 @@ Recommended MVP limit:
 - max saved profiles per user: 50
 - Saving the 51st profile is rejected atomically across every profile surface. The bot leaves the current UI unchanged and explains that the user can remove someone from Saved Profiles to make room for a new profile. Show this as a temporary inline notice with one `Got it` action that only deletes the notice.
 
-When viewing another user's profile from People or Saved Profiles, show source-bound bottom profile actions. Discussion-member profiles keep their smaller identity-bound inline Save/Saved and Close surface:
+When viewing another user's profile from People or Saved Profiles, show inline profile actions ending in a delete-only Close and keep the People hub bottom keyboard actionable. Discussion-member profiles keep their smaller identity-bound inline Save/Saved and Close surface:
 
 ```text
 🔖 ذخیره پروفایل
@@ -1268,22 +1270,22 @@ Saved profiles inside the people hub:
 🔖 آدم‌های ذخیره‌شده
 
 1. 👤 علی
-دیدن پروفایل این کاربر 👈 /u_8K2P
+دیدن پروفایل 👈 /u_8K2P
 💬 دیدن گفت‌وگوهای این کاربر 👈 /ds_8K2P
 حذف از ذخیره‌شده‌ها 👈 /rm_8K2P
 
 2. 👤 سارا
-دیدن پروفایل این کاربر 👈 /u_9Q4M
+دیدن پروفایل 👈 /u_9Q4M
 حذف از ذخیره‌شده‌ها 👈 /rm_9Q4M
 ```
 
-Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion. Once a profile is opened from Saved Profiles or See People, its profile-level Save/Remove, visible-discussions, and source Back actions use a bottom keyboard bound server-side to the exact profile code, saved state, source, and source page. Discussion-member profile cards keep their separate inline Save/Close behavior.
-Saved-profile pagination and Back use a bottom keyboard bound to the exact server-side page and page count. Stale page labels are ignored.
-Removing a saved profile—whether started from its `/rm_CODE` list command or its profile preview—requires a bottom-keyboard confirmation bound to the exact profile, source, and source page. Cancel restores that list page or profile without mutation; stale confirmation labels are ignored.
+Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion. Once a profile is opened from Saved Profiles or See People, its profile-level Save/Remove and visible-discussions actions are inline and bound to the exact profile code and saved state, followed by a Close action that deletes only the profile card. Discussion-member profile cards keep their separate inline Save/Close behavior.
+Saved-profile pagination uses inline Previous/Next actions bound to the exact page and a final Close that deletes only the list card. The People-hub bottom keyboard remains visible and actionable.
+Removing a saved profile requires an inline confirmation bound to the exact profile, source, and source page. When Delete starts from an inline public-profile card, replace that card's action buttons with Confirm/Cancel in place; Cancel restores the same profile actions without sending another card. Command/list removal may use a separate confirmation card. Stale confirmation callbacks are ignored.
 After Save—whether triggered by `/save_CODE` directly on See People results or from the opened profile—return to the same See People results page instead of rendering the profile. After confirming removal from a viewed profile, return to the same source list page; only Cancel returns to the profile.
-Ordinary People results, Saved Profiles lists, their public-profile previews, and profile-discussion lists are not deleted or edited merely because the user navigates onward. Their tracking state is forgotten locally, and their bottom labels remain harmless because resolution is server-mode scoped. Safety-sensitive invitation and discussion-member inline cards retain explicit cleanup/Close behavior.
-The visible-discussions view opened from a Saved Profiles or See People profile also uses a bottom Back action bound to that exact profile and retains the original source page. Individual discussion actions remain code-based text commands.
-When opening a profile from the saved list, retain the list message. The profile renders Remove plus Back to the exact saved-list page, and includes discussions only when the target has a visible/open discussion. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
+Ordinary People results and Saved Profiles lists are edited only for inline pagination and deleted only when their Close action is tapped; navigating onward merely forgets their tracking state. Public-profile previews and their visible-discussion views use inline actions with delete-only Close. Safety-sensitive invitation and discussion-member inline cards retain explicit cleanup/Close behavior.
+The visible-discussions view opened from a Saved Profiles or See People profile edits the same profile card, including photo captions, and provides inline Join actions plus Back and Close. Back restores the same profile card and retains its original source page; Close deletes only the card. The `/ds_CODE` list-command entry sends a new inline card because the bot cannot edit a user-authored command message.
+When opening a profile from the saved list, retire the list card and render the profile with Remove, visible discussions when available, and a delete-only Close. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
 
 ### Viewing Discussions From Saved Profiles
 

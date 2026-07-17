@@ -37,12 +37,68 @@ const {
   getPaidDiscussionCapacity,
   getSelectableDiscussionCapacities,
 } = require("../src/services/discussion-capacities");
+const {
+  enterDiscussionsAfterRoomExit,
+  handleDiscussionBottomButton,
+} = require("../src/flows/discussions-text");
 
 test("discussion caps match MVP defaults", () => {
   assert.equal(DISCUSSION_MEMBER_CAP, 20);
   assert.deepEqual(DISCUSSION_ALLOWED_MEMBER_CAPS, [2, 3, 4, 5, 10, 15, 20]);
   assert.equal(DISCUSSION_RECENT_MESSAGES_CAP, 10);
   assert.equal(DISCUSSION_MESSAGE_BURST_WINDOW_MS, 1000);
+});
+
+test("leaving a room sends confirmation and Discussions menu as separate messages", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  try {
+    const ctx = {
+      userId: 42,
+      user: { userId: 42 },
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return { message_id: replies.length };
+      },
+    };
+    await enterDiscussionsAfterRoomExit(ctx, "fa", {
+      ok: true,
+      discussion: { title: "گفت‌وگوی فیلم" },
+    });
+
+    assert.equal(replies.length, 2);
+    assert.equal(replies[0].text, messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی فیلم"));
+    assert.equal(replies[0].keyboard.reply_markup.remove_keyboard, true);
+    assert.equal(replies[1].text, messages.fa.discussionsMenu);
+    assert.ok(replies[1].keyboard.reply_markup.keyboard.length > 1);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("room Close opens an inline confirmation without entering text-confirm state", async () => {
+  const replies = [];
+  const ctx = {
+    userId: 42,
+    user: { userId: 42, activeDiscussionId: "room-1", state: "idle" },
+    text: messages.en.discussionCloseButton,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 91 };
+    },
+  };
+
+  await handleDiscussionBottomButton(ctx, "en", messages.en.discussionCloseButton);
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.discussionCloseConfirmPrompt);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
+  assert.equal(
+    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    `${require("../src/constants").callBacks.discussionCloseConfirm}room-1:room`,
+  );
+  assert.equal(ctx.user.state, "idle");
 });
 
 test("normalizes discussion capacity to allowed values", () => {
@@ -259,6 +315,10 @@ test("discussion entry requires a valid profile name before joining", async () =
     assert.equal(hasValidDiscussionProfileName({ profileName: "Ali", profileNameConfirmedAt: new Date() }), true);
     assert.equal(hasValidDiscussionProfileName({ profileName: "Ali" }), false);
     assert.equal(hasValidDiscussionProfileName({ profileName: "Al" }), false);
+    assert.equal(hasValidDiscussionProfileName({
+      profileName: "منشتسیبمنتشکمیبتشکسیبتشمکسیبت",
+      profileNameConfirmedAt: new Date(),
+    }), false);
     assert.equal(await requireDiscussionProfileName(ctx, "en", {
       source: "join",
       token: "d_ROOM1",

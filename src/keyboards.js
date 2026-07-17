@@ -24,6 +24,7 @@ const {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
@@ -1013,26 +1014,12 @@ function profilePublicActionsKeyboard(lang, code, {
     }]);
   }
 
-  if (source === "discussion_members") {
-    rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.profileCloseDiscussionMember }]);
-  } else if (source === "saved") {
-    rows.push([{ text: messages[lang].profileBackToSaved, callback_data: callBacks.savedProfiles }]);
-  } else {
-    rows.push([{
-      text: messages[lang].aiBack,
-      callback_data: callBacks.peopleDiscover,
-    }]);
-  }
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.profileCloseDiscussionMember,
+  }]);
 
-  if (source === "discussion_members") return inlineKeyboard(rows);
-  return {
-    reply_markup: {
-      keyboard: rows.map((row) => row.map((button) => ({ text: button.text }))),
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
-    },
-  };
+  return inlineKeyboard(rows);
 }
 
 function profileInvitationBackKeyboard(lang, userId = "") {
@@ -1055,19 +1042,28 @@ function savedProfilesListKeyboard(lang, items = []) {
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
-    pageRows.push({ text: `${messages[lang].discussionListMorePage} ➡️` });
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.savedProfilesPage}${normalizedPage + 1}`,
+    });
   }
 
   if (normalizedPage > 0) {
-    pageRows.push({ text: `🔙 ${messages[lang].discussionListPrevPage}` });
+    pageRows.push({
+      text: `🔙 ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.savedProfilesPage}${normalizedPage - 1}`,
+    });
   }
 
   if (pageRows.length) {
     rows.push(pageRows);
   }
 
-  rows.push([{ text: messages[lang].aiBack }]);
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.peopleListClose,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function peopleHubKeyboard(lang) {
@@ -1102,33 +1098,38 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
   const pageRows = [];
 
   if (normalizedPage < maxPage) {
-    pageRows.push({ text: `${messages[lang].discussionListMorePage} ➡️` });
+    pageRows.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage + 1}`,
+    });
   }
 
   if (normalizedPage > 0) {
-    pageRows.push({ text: `🔙 ${messages[lang].discussionListPrevPage}` });
+    pageRows.push({
+      text: `🔙 ${messages[lang].discussionListPrevPage}`,
+      callback_data: `${callBacks.peopleDiscoverPage}${normalizedPage - 1}`,
+    });
   }
 
   if (pageRows.length) rows.push(pageRows);
   if (options.showLists) {
-    rows.push([{ text: messages[lang].peopleGoToLists }]);
+    rows.push([{
+      text: messages[lang].peopleGoToLists,
+      callback_data: callBacks.aiAssistant,
+    }]);
   }
-  rows.push([{ text: messages[lang].aiBack }]);
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.peopleListClose,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function peopleDiscoverEmptyKeyboard(lang) {
-  return {
-    reply_markup: {
-      keyboard: [
-        [{ text: messages[lang].peopleGoToLists }],
-        [{ text: messages[lang].aiBack }],
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      selective: true,
-    },
-  };
+  return inlineKeyboard([
+    [{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }],
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.peopleListClose }],
+  ]);
 }
 
 module.exports = {
@@ -1188,6 +1189,7 @@ module.exports = {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,

@@ -461,7 +461,7 @@ Recommended MVP:
 - Show up to the most recent accepted invitations as shortcuts below pending invitations.
 - Accepted shortcuts use the same `/accept_inv_CODE` command to reopen/rejoin the discussion and the same `/remove_inv_CODE` command to hide the shortcut.
 - Use pagination for long lists, with 5 invitations per page.
-- Keep the list keyboard limited to pagination plus Back.
+- Keep the list card limited to inline pagination plus Close. Close removes only the card and leaves the current bottom keyboard unchanged.
 
 This avoids surprising count changes.
 

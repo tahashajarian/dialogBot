@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const messages = require("../src/messages");
+const { callBacks } = require("../src/constants");
 const { peopleHubKeyboard, peopleDiscoverListKeyboard, peopleDiscoverEmptyKeyboard } = require("../src/keyboards");
 const {
   ensurePeopleDiscoveryCodes,
@@ -14,7 +15,7 @@ const {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
 } = require("../src/services/people-discovery-ui");
-const { sendPeopleHub } = require("../src/flows/saved-profiles");
+const { handleSavedProfilesCallback, sendPeopleHub } = require("../src/flows/saved-profiles");
 
 function userWithMusic(userId, items, extra = {}) {
   return {
@@ -232,17 +233,19 @@ test("failed People hub delivery does not mark its first-visit tip", async () =>
 
 test("people pagination uses canonical discover callbacks", () => {
   const replyMarkup = peopleDiscoverListKeyboard("en", { mode: "taste", page: 0, totalPages: 2 }).reply_markup;
-  const buttons = replyMarkup.keyboard.flat();
+  const buttons = replyMarkup.inline_keyboard.flat();
 
   assert.ok(buttons.some((button) => button.text === `${messages.en.discussionListMorePage} ➡️`));
-  assert.equal(replyMarkup.inline_keyboard, undefined);
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
+  assert.equal(replyMarkup.keyboard, undefined);
 });
 
-test("people discovery Back uses generic label and returns to People hub", () => {
-  const buttons = peopleDiscoverListKeyboard("fa").reply_markup.keyboard.flat();
-  const backButton = buttons.at(-1);
+test("people discovery ends with delete-only Close", () => {
+  const buttons = peopleDiscoverListKeyboard("fa").reply_markup.inline_keyboard.flat();
+  const closeButton = buttons.at(-1);
 
-  assert.equal(backButton.text, messages.fa.aiBack);
+  assert.equal(closeButton.text, messages.fa.discussionShareClose);
+  assert.equal(closeButton.callback_data, callBacks.peopleListClose);
 });
 
 test("people discovery UI uses a distinct no-match message", () => {
@@ -258,18 +261,36 @@ test("people discovery UI uses a distinct no-match message", () => {
 
 test("people discovery empty states link to media lists without opening profile Interests", () => {
   const buttons = peopleDiscoverListKeyboard("fa", { showLists: true })
-    .reply_markup.keyboard.flat();
+    .reply_markup.inline_keyboard.flat();
 
   assert.ok(!buttons.some((button) => button.text === messages.fa.profileEditInterests));
   assert.ok(buttons.some((button) => button.text === messages.fa.peopleGoToLists));
 });
 
-test("people discovery empty state uses bottom buttons", () => {
+test("people discovery empty state uses inline action and Close", () => {
   const keyboard = peopleDiscoverEmptyKeyboard("fa").reply_markup;
-  const buttons = keyboard.keyboard.flat();
+  const buttons = keyboard.inline_keyboard.flat();
 
-  assert.equal(keyboard.inline_keyboard, undefined);
-  assert.deepEqual(buttons.map((button) => button.text), [messages.fa.peopleGoToLists, messages.fa.aiBack]);
+  assert.equal(keyboard.keyboard, undefined);
+  assert.deepEqual(buttons.map((button) => button.text), [messages.fa.peopleGoToLists, messages.fa.discussionShareClose]);
+});
+
+test("People list Close only deletes the tapped card", async () => {
+  const events = [];
+  const ctx = {
+    callbackData: callBacks.peopleListClose,
+    callbackMessageId: 42,
+    answerCb: async () => events.push("answer"),
+  };
+
+  await handleSavedProfilesCallback(ctx, "en", {
+    deleteCallbackMessageIfPossible: async (callbackCtx) => {
+      events.push(`delete:${callbackCtx.callbackMessageId}`);
+      return true;
+    },
+  });
+
+  assert.deepEqual(events, ["answer", "delete:42"]);
 });
 
 test("people discovery pagination uses configured page size", () => {

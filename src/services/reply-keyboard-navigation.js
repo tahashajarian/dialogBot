@@ -148,7 +148,18 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
   if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiSettingsState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
-  const entries = [...(mode === MODES.GLOBAL ? GLOBAL : []), ...(BY_MODE[mode] || [])];
+  const keepsDiscussionHubKeyboard = state === "idle" && Boolean(
+    discussionListMatch || invitationListMatch || discussionLanguageMatch
+  );
+  const keepsPeopleHubKeyboard = state === "idle" && Boolean(
+    savedProfilesMatch || peopleResultsMatch || publicProfileMatch || profileDiscussionsMatch || mode === "people_discovery_empty"
+  );
+  const entries = [
+    ...(mode === MODES.GLOBAL ? GLOBAL : []),
+    ...((keepsPeopleHubKeyboard && mode === "people_discovery_empty") ? [] : (BY_MODE[mode] || [])),
+    ...(keepsDiscussionHubKeyboard ? BY_MODE[MODES.DISCUSSIONS] : []),
+    ...(keepsPeopleHubKeyboard ? BY_MODE[MODES.PEOPLE] : []),
+  ];
   if (discussionListMatch && state === "idle") {
     const [, type, pageRaw, pagesRaw, filter, language] = discussionListMatch;
     const page = Number(pageRaw); const pages = Number(pagesRaw);

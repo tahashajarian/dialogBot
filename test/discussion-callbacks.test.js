@@ -17,10 +17,11 @@ const {
 } = require("../src/services/discussion-ui");
 const {
   discussionListNavigationKeyboard,
+  discussionLanguagePickerKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
-  discussionCreateGuidanceAckKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
   discussionCreateLanguagePickerKeyboard,
   discussionExtraSlotConfirmKeyboard,
@@ -395,7 +396,7 @@ test("discussion navigation keyboard uses next page index and updated labels", (
     joinableOnly: false,
   });
 
-  const rows = keyboard?.reply_markup?.keyboard || [];
+  const rows = keyboard?.reply_markup?.inline_keyboard || [];
   const flatButtons = rows.flat();
   const moreButton = flatButtons.find((btn) => btn.text === `${messages.fa.discussionListMorePage} ➡️`);
 
@@ -419,13 +420,73 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
     joinableOnly: true,
   });
 
-  const allButtons = (allState?.reply_markup?.keyboard || []).flat();
-  const joinableButtons = (joinableState?.reply_markup?.keyboard || []).flat();
+  const allButtons = (allState?.reply_markup?.inline_keyboard || []).flat();
+  const joinableButtons = (joinableState?.reply_markup?.inline_keyboard || []).flat();
   const allToggle = allButtons.find((btn) => btn.text.includes(messages.fa.discussionListOnlyJoinable));
   const joinableToggle = joinableButtons.find((btn) => btn.text.includes(messages.fa.discussionListShowAll));
 
   assert.equal(allToggle?.text, "🔓 فقط قابل ورودها");
   assert.equal(joinableToggle?.text, "🔓 نمایش همه");
+  assert.equal(
+    allButtons.at(-1)?.callback_data,
+    callBacks.discussionListClose,
+  );
+  assert.equal(allButtons.at(-1)?.text, messages.fa.discussionShareClose);
+});
+
+test("My Discussions navigation is inline and ends with Close", () => {
+  const keyboard = discussionListNavigationKeyboard("en", {
+    listType: "mine",
+    page: 1,
+    totalPages: 3,
+  });
+  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
+  assert.equal(buttons.at(-1).callback_data, callBacks.discussionListClose);
+});
+
+test("active discussion language picker is inline and disappears into the refreshed list", () => {
+  const picker = discussionLanguagePickerKeyboard("en", {
+    joinableOnly: true,
+    languageFilter: "fa",
+  });
+  const buttons = picker.reply_markup.inline_keyboard.flat();
+
+  assert.equal(picker.reply_markup.keyboard, undefined);
+  assert.equal(
+    buttons.find((button) => button.text.includes(messages.en.discussionLanguageEnglish)).callback_data,
+    `${callBacks.discussionListLanguageSet}joinable:en`,
+  );
+
+  const refreshedList = discussionListNavigationKeyboard("en", {
+    listType: "active",
+    joinableOnly: true,
+    languageFilter: "en",
+  });
+  assert.ok(refreshedList.reply_markup.inline_keyboard.flat().some(
+    (button) => button.text === messages.en.discussionListLanguageFilterButton
+      .replace("{language}", messages.en.discussionLanguageEnglish),
+  ));
+});
+
+test("closing the active discussion list only removes its card", async () => {
+  const events = [];
+  const ctx = {
+    callbackData: callBacks.discussionListClose,
+    callbackMessageId: 42,
+    answerCb: async () => events.push("answer"),
+  };
+
+  await handleDiscussionListCallback(ctx, "en", {
+    deleteCallbackMessageIfPossible: async (callbackCtx) => {
+      events.push(`delete:${callbackCtx.callbackMessageId}`);
+      return true;
+    },
+  });
+
+  assert.deepEqual(events, ["answer", "delete:42"]);
 });
 
 test("join-error acknowledgement copy remains available for discussion recovery", () => {
@@ -546,10 +607,10 @@ test("my discussions empty callback offers normal discussion navigation without 
 
     assert.deepEqual(answerTexts, [undefined]);
     assert.equal(rendered[0].text, messages.en.discussionListMineEmpty);
-    assert.equal(
-      rendered[0].keyboard.reply_markup.keyboard.flat()[0].text,
-      messages.en.discussionActiveList,
-    );
+    const buttons = rendered[0].keyboard.reply_markup.inline_keyboard.flat();
+    assert.equal(buttons.length, 1);
+    assert.equal(buttons[0].text, messages.en.discussionShareClose);
+    assert.equal(buttons[0].callback_data, callBacks.discussionListClose);
   } finally {
     User.findOne = originalUserFindOne;
     Discussion.find = originalDiscussionFind;
@@ -678,39 +739,44 @@ test("discussion creation language picker supports set and non-destructive back"
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateLanguageBack), true);
 });
 
-test("discussion create guidance uses acknowledgement and edits in place without deleting", async () => {
-  const guidanceKeyboard = discussionCreateGuidanceAckKeyboard("en");
-  assert.equal(
-    guidanceKeyboard.reply_markup.inline_keyboard[0][0].text,
-    messages.en.acknowledgeButton,
-  );
-  assert.equal(
-    guidanceKeyboard.reply_markup.inline_keyboard[0][0].callback_data,
-    callBacks.discussionCreateGuidanceAck,
-  );
+test("discussion create guidance has no inline acknowledgement and restores join-rule buttons", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  User.findOneAndUpdate = async () => ({});
 
-  const deletedIds = [];
-  const renderedPrompts = [];
-  const ctx = {
-    callbackData: callBacks.discussionCreateGuidanceAck,
-    callbackMessageId: 88,
-    user: { state: "discussion_create_join_rule" },
-    answerCb: async () => true,
-  };
+  try {
+    for (const [callbackData, expectedText] of [
+      [callBacks.discussionCreateRuleTaste, "don't have any taste labels yet"],
+      [callBacks.discussionCreateRuleItem, "don't have any items available for a join condition yet"],
+    ]) {
+      const replies = [];
+      const ctx = {
+        callbackData,
+        callbackMessageId: 88,
+        userId: 10,
+        user: { state: "discussion_create_join_rule", lang: "en", aiTaste: {}, aiLists: {} },
+        answerCb: async () => true,
+        reply: async (text, keyboard) => {
+          replies.push({ text, keyboard });
+          return { message_id: 89 };
+        },
+      };
+      await handleDiscussionCreateCallback(ctx, "en", {
+        editCallbackMessageOrReply: async () => {
+          throw new Error("guidance should be a normal reply");
+        },
+      });
 
-  await handleDiscussionCreateCallback(ctx, "en", {
-    deleteCallbackMessageIfPossible: async (callbackCtx) => {
-      deletedIds.push(callbackCtx.callbackMessageId);
-      return true;
-    },
-    editCallbackMessageOrReply: async (_callbackCtx, text, keyboard) => {
-      renderedPrompts.push({ text, keyboard });
-      return true;
-    },
-  });
-
-  assert.deepEqual(deletedIds, []);
-  assert.deepEqual(renderedPrompts.map((entry) => entry.text), [messages.en.discussionJoinRulePrompt]);
+      assert.equal(replies.length, 1);
+      assert.ok(replies[0].text.includes(expectedText));
+      assert.ok(replies[0].text.includes(messages.en.discussionJoinRulePrompt));
+      assert.equal(replies[0].keyboard.reply_markup.inline_keyboard, undefined);
+      assert.ok(replies[0].keyboard.reply_markup.keyboard.flat().some(
+        (button) => button.text === messages.en.discussionJoinRuleOpen,
+      ));
+    }
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("discussion create start asks for profile name before title prompt", async () => {
@@ -829,6 +895,17 @@ test("discussion capacity picker marks paid capacities only when spending is ava
   } finally {
     Object.assign(starEconomy, originalSettings);
   }
+});
+
+test("discussion close confirmation actions are inline", () => {
+  const confirmation = discussionCloseConfirmKeyboard("en", "room-1", "mine");
+  const confirmButtons = confirmation.reply_markup.inline_keyboard.flat();
+
+  assert.equal(confirmation.reply_markup.keyboard, undefined);
+  assert.deepEqual(confirmButtons.map((button) => button.callback_data), [
+    `${callBacks.discussionCloseConfirm}room-1:mine`,
+    `${callBacks.discussionCloseCancel}room-1:mine`,
+  ]);
 });
 
 test("canceling a discussion draft edit quietly restores preview", async () => {

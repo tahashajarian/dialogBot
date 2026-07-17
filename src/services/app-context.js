@@ -248,6 +248,33 @@ function createAppContext(ctx, user, options = {}) {
         return false;
       }
     },
+    editMessageCaption: async (messageId, caption, extra = {}) => {
+      const chatId = resolveChatId(ctx);
+      const normalizedMessageId = Number(messageId);
+      if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
+        return false;
+      }
+
+      try {
+        return await sendApi("editMessageCaption", {
+          chat_id: chatId,
+          message_id: normalizedMessageId,
+          caption: formatBotText(caption),
+          ...extra,
+        });
+      } catch (error) {
+        if (isMessageNotFoundError(error)) return false;
+        if (isAmbiguousEditError(error)) return true;
+        logger.warn("Failed to edit bot message caption", {
+          chatId,
+          messageId: normalizedMessageId,
+          code: getErrorCode(error),
+          description: getErrorDescription(error),
+          error: getErrorText(error),
+        });
+        return false;
+      }
+    },
     editMessageReplyMarkup: async (messageId, replyMarkup = {}) => {
       const chatId = resolveChatId(ctx);
       const normalizedMessageId = Number(messageId);

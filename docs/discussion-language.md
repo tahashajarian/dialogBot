@@ -21,8 +21,8 @@ This is a refinement of the existing active-discussion list. Its compact languag
 
 ### Active-list language filter
 
-- The existing active-discussion list gains one inline language button. Tapping it edits the same message into a compact language picker; it does not send another message.
-- The picker directly selects Persian only (`fa`), English only (`en`), or All (`all`) and returns to the refreshed list immediately without an Apply step.
+- The active-discussion list renders all of its controls inline, including its language button. Tapping language edits the same card into a compact inline picker; it does not send another message.
+- The picker directly selects Persian only (`fa`), English only (`en`), or All (`all`) and returns to the refreshed list immediately without an Apply step, removing the picker as part of that edit.
 - The default is the user's current interface language.
 - Remember an explicit selection separately from the interface language. A later interface-language change must not overwrite an explicitly chosen discussion filter.
 - Until the user explicitly changes this filter, changing interface language changes the effective default.
@@ -36,7 +36,7 @@ Suggested existing-list controls:
 ```text
 [ 🔓 Only discussions I can join ]
 [ 🇮🇷 Language: Persian ]
-[ Back ]
+[ Close ]
 ```
 
 The language button changes only its own value. It does not change the bot interface language.

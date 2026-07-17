@@ -348,7 +348,7 @@ module.exports = {
     acknowledgeButton: "👍 Got it",
     profileCodeNotFound: "No profile found for this code.",
     savedProfilesTitle: "🔖 Saved people",
-    savedProfilesEmpty: "👩‍🦳 You haven't saved any profiles yet.\n\n💡 From See people, find and save people who share some of your favorites so you can easily find them later or invite them to your discussions.",
+    savedProfilesEmpty: "🔖 Saved people\n\n👩‍🦳 You don't currently have any saved profiles.\n\n💡 From See people, find and save people who share some of your favorites so you can easily find them later or invite them to your discussions.",
     savedProfileSaved: "👩‍🦳 “{name}” was saved.",
     savedProfileSavedUnknown: "👩‍🦳 Profile saved.",
     savedProfileRemoved: "👩‍🦳 “{name}” was removed from saved profiles.",

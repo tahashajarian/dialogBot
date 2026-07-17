@@ -663,9 +663,9 @@ test("saved profile command keeps retained list history before opening profile",
   }
 
   assert.equal(deleteAttempts.includes(42), false);
-  const buttons = replies.at(-1).extra.reply_markup.keyboard.flat();
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
-  assert.equal(buttons.at(-1).text, messages.en.profileBackToSaved);
+  assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
 test("discussion profile command does not use saved-profile back button for saved users", async () => {
@@ -831,6 +831,11 @@ test("saved profile discussions include visible active discussion without duplic
   assert.match(replies[0].text, /Current active discussion/);
   assert.match(replies[0].text, /Active room/);
   assert.doesNotMatch(replies[0].text, /Created discussions/);
+  const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(callbacks.includes(`${callBacks.discussionOpen}disc_active`));
+  assert.ok(callbacks.includes(`${callBacks.profileDiscussionsBack}u_3HNU`));
+  assert.equal(callbacks.at(-1), callBacks.profileDiscussionsClose);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
 });
 
 test("saved profile invite command leaves retained list surfaces untouched", async () => {

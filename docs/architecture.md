@@ -89,7 +89,9 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
-Public profiles opened from People or Saved Profiles retain chat history and use a source/page/profile-bound bottom mode for Save/Remove, visible discussions, and Back. Discussion-member profiles remain transient identity-bound inline cards with Save/Saved status and Close; they do not inherit People-only actions.
+Public profiles opened from People or Saved Profiles use profile-bound inline actions for Save/Remove, visible discussions, and delete-only Close, while the People hub bottom keyboard stays actionable. Discussion-member profiles remain transient identity-bound inline cards with Save/Saved status and Close; they do not inherit People-only actions.
+
+Visible discussions opened from a public-profile card edit that same text or photo message and use inline Join/Back/Close controls. Back reconstructs the profile in place. The command entry point sends a new inline card because Telegram user messages cannot be edited by the bot.
 
 ## Existing Profile Fields
 

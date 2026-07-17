@@ -9,6 +9,7 @@ const {
   aiAssistantKeyboard,
   discussionsMenuKeyboard,
   discussionRoomKeyboard,
+  discussionCloseConfirmKeyboard,
   discussionRemoveMembersKeyboard,
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
@@ -167,14 +168,6 @@ function parseDiscussionCloseCallbackPayload(raw = "") {
     discussionId,
     source: ["mine", "active"].includes(source) ? source : "room",
   };
-}
-
-function discussionCloseConfirmKeyboard(lang, discussionId, source = "room") {
-  const suffix = `${discussionId}:${source}`;
-  return inlineKeyboard([
-    [{ text: messages[lang].discussionCloseConfirmYes, callback_data: `${callBacks.discussionCloseConfirm}${suffix}` }],
-    [{ text: messages[lang].discussionCloseConfirmNo, callback_data: `${callBacks.discussionCloseCancel}${suffix}` }],
-  ]);
 }
 
 async function editCallbackMessageOrReply(ctx, text, keyboard) {
@@ -642,9 +635,12 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.discussionOpen)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionOpen, "");
+    const profileDiscussionMatch = String(ctx.user?.navigationMode || "")
+      .match(/^profile_discussions:(?:saved|people):(u_[A-Z0-9]+):\d+$/);
+    const joinErrorDestination = profileDiscussionMatch ? `saved:${profileDiscussionMatch[1]}` : "active";
     const discussion = await Discussion.findById(discussionId);
     if (!discussion) {
-      return sendDiscussionJoinErrorAck(ctx, lang, "missing_discussion", "active", {
+      return sendDiscussionJoinErrorAck(ctx, lang, "missing_discussion", joinErrorDestination, {
         retireCallbackMessageIfPossible,
       });
     }
@@ -666,7 +662,7 @@ async function handleCallback(ctx) {
     });
     if (!joined.ok) {
       await ctx.answerCb?.();
-      return sendDiscussionJoinErrorAck(ctx, lang, joined.reason, "active", {
+      return sendDiscussionJoinErrorAck(ctx, lang, joined.reason, joinErrorDestination, {
         discussion,
         retireCallbackMessageIfPossible,
       });
@@ -743,11 +739,12 @@ async function handleCallback(ctx) {
     }
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    return editCallbackMessageOrReply(
-      ctx,
-      `${formatDiscussionLeftMessage(lang, left?.discussion)}\n\n${messages[lang].discussionsMenu}`,
-      discussionsMenuKeyboard(lang),
-    );
+    await deleteCallbackMessageIfPossible(ctx);
+    await ctx.reply(formatDiscussionLeftMessage(lang, left?.discussion), {
+      reply_markup: { remove_keyboard: true },
+    });
+    await setNavigationMode(ctx, MODES.DISCUSSIONS);
+    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
 
   if (
@@ -771,7 +768,6 @@ async function handleCallback(ctx) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    await deleteCallbackMessageIfPossible(ctx);
     const { discussionId, source } = parseDiscussionCloseCallbackPayload(data.replace(callBacks.discussionCloseConfirm, ""));
     
     const closed = await closeDiscussionAndNotify({
@@ -784,40 +780,25 @@ async function handleCallback(ctx) {
       return ctx.reply(getDiscussionErrorMessage(messages, lang, closed.reason));
     }
 
-    if (source === "mine") {
-      await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion));
-      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
+    await updateUserState(ctx.userId, "idle");
+    await setNavigationMode(ctx, MODES.DISCUSSIONS);
+    if (ctx.user && String(ctx.user.activeDiscussionId || "") === String(discussionId)) {
+      ctx.user.activeDiscussionId = null;
     }
-    if (source === "active") {
-      await ctx.reply(formatDiscussionClosedMessage(lang, closed.discussion));
-      return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
-    }
-    return editCallbackMessageOrReply(
+    const resultCard = await editCallbackMessageOrReply(
       ctx,
-      `${formatDiscussionClosedMessage(lang, closed.discussion)}\n\n${messages[lang].discussionsMenu}`,
-      discussionsMenuKeyboard(lang),
+      formatDiscussionClosedMessage(lang, closed.discussion),
+      { reply_markup: { inline_keyboard: [] } },
     );
+    if (source === "room") {
+      await ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+    return resultCard;
   }
 
   if (data.startsWith(callBacks.discussionCloseCancel)) {
     await ctx.answerCb?.();
-    await deleteCallbackMessageIfPossible(ctx);
-    const { discussionId, source } = parseDiscussionCloseCallbackPayload(data.replace(callBacks.discussionCloseCancel, ""));
-    if (source === "mine") {
-      await ctx.reply(messages[lang].discussionCloseCanceled);
-      return renderMyDiscussionList(ctx, lang, 0, { editCallbackMessageOrReply });
-    }
-    if (source === "active") {
-      await ctx.reply(messages[lang].discussionCloseCanceled);
-      return renderActiveDiscussionList(ctx, lang, 0, false, { editCallbackMessageOrReply });
-    }
-    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
-    if (!opened.ok) {
-      const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
-      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
-      return ctx.reply(errorText);
-    }
-    return sendDiscussionRoom(ctx, lang, opened.discussion);
+    return deleteCallbackMessageIfPossible(ctx);
   }
 
   if (data.startsWith(callBacks.discussionMembers)) {
@@ -926,7 +907,6 @@ async function handleCallback(ctx) {
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.profileUnsaveByCode, "");
-    await deleteCallbackMessageIfPossible(ctx);
     return requestUnsaveProfileConfirmation(ctx, lang, code);
   }
 
