@@ -139,10 +139,16 @@ async function summarizeEvents({ kind, since }) {
 async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
   const since1h = new Date(now.getTime() - 60 * 60 * 1000);
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const [latestHeartbeat, aiLastHour, aiLast24h, recentFailures, slowUpdates] = await Promise.all([
+  const [latestHeartbeat, aiLastHour, aiLast24h, aiTimeoutsLastHour, recentFailures, slowUpdates] = await Promise.all([
     OperationalEvent.findOne({ kind: BOT_HEARTBEAT_KIND }).sort({ createdAt: -1 }).lean(),
     summarizeEvents({ kind: AI_API_KIND, since: since1h }),
     summarizeEvents({ kind: AI_API_KIND, since: since24h }),
+    OperationalEvent.countDocuments({
+      kind: AI_API_KIND,
+      ok: false,
+      reason: "timeout",
+      createdAt: { $gte: since1h },
+    }),
     OperationalEvent.find({ kind: AI_API_KIND, ok: false, createdAt: { $gte: since24h } })
       .sort({ createdAt: -1 })
       .limit(5)
@@ -171,7 +177,11 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
       heartbeatAgeSeconds: heartbeatAgeMs === null ? null : Math.round(heartbeatAgeMs / 1000),
     },
     aiApi: {
-      lastHour: aiLastHour,
+      lastHour: {
+        ...aiLastHour,
+        timeouts: aiTimeoutsLastHour,
+        timeoutRate: aiLastHour.total ? aiTimeoutsLastHour / aiLastHour.total : 0,
+      },
       last24h: aiLast24h,
       billingOrAccessAlert: recentFailures.some((event) => [
         "quota_exhausted",

@@ -7,6 +7,7 @@ const {
   extractAiResponseText,
   extractAiTokenUsage,
   requestSuggestionText,
+  withAiTimeout,
 } = require("../src/services/ai-client");
 
 test("AI provider errors distinguish billing, auth, rate limits, and timeouts", () => {
@@ -19,6 +20,44 @@ test("AI provider errors distinguish billing, auth, rate limits, and timeouts", 
 
 test("suggestion output stays within the compact two-line budget", () => {
   assert.equal(DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS, 60);
+});
+
+test("AI timeout aborts the provider request without waiting in real time", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal;
+  const request = withAiTimeout((requestSignal) => {
+    signal = requestSignal;
+    return new Promise(() => {});
+  }, "ai_test_timeout", 10000);
+
+  await Promise.resolve();
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(10000);
+  await assert.rejects(request, /ai_test_timeout/);
+  assert.equal(signal.aborted, true);
+});
+
+test("suggestion requests pass an AbortSignal through SDK request options", async () => {
+  const signals = [];
+  const openai = {
+    chat: {
+      completions: {
+        create: async (_body, options) => {
+          signals.push(options?.signal);
+          return { choices: [{ message: { content: "Suggestion" } }] };
+        },
+      },
+    },
+  };
+
+  await requestSuggestionText(openai, {
+    config: { model: "test-model", timeoutMs: 1000, suggestionProvider: "chat" },
+    instructions: "test",
+    input: "input",
+  });
+
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0] instanceof AbortSignal, true);
 });
 
 test("extractAiTokenUsage supports both provider usage shapes", () => {

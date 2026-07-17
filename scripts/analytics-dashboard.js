@@ -536,6 +536,10 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
       ${card("AI Calls 24h", aiDay.total || 0, `${formatNumber(aiDay.failures || 0)} failed (${percent(aiDay.failureRate)})`)}
     </div>`, { open: true, note: "server, db, bot, AI", view: "system" })}
 
+      ${collapsibleSection("Operational Alerts", `<div class="grid compact-grid">
+      ${(health?.alerts || []).map((alert) => statusCard(alert.label, alert.ok, alert.detail)).join("")}
+    </div>`, { open: true, note: "application, index, AI, ledger", view: "system" })}
+
       ${collapsibleSection("Recent AI Failures", `<div class="panel">${renderKeyCountTable(
     (health?.aiApi?.recentFailures || []).map((event) => ({
       key: `${event.operation || "ai"} / ${event.provider || "provider"}: ${event.reason || "failed"}${event.status ? ` (HTTP ${event.status})` : ""}`,

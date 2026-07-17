@@ -118,6 +118,7 @@ async function syncUserTasteIndex(userOrId, { sections = AI_TASTE_INDEX_SECTIONS
 async function rebuildAllUserTasteIndexes({
   batchSize = 200,
   concurrency = TASTE_INDEX_REBUILD_CONCURRENCY,
+  maxUsers = Infinity,
   now = new Date(),
 } = {}) {
   let lastId = 0;
@@ -125,9 +126,11 @@ async function rebuildAllUserTasteIndexes({
   let sections = 0;
 
   while (true) {
+    const remaining = Math.max(0, Number(maxUsers) - users);
+    if (remaining === 0) break;
     const batch = await User.find({ userId: { $gt: lastId } })
       .sort({ userId: 1 })
-      .limit(Math.max(1, Number(batchSize) || 200))
+      .limit(Math.min(Math.max(1, Number(batchSize) || 200), remaining))
       .lean();
     if (!batch.length) break;
 
@@ -144,6 +147,61 @@ async function rebuildAllUserTasteIndexes({
   }
 
   return { ok: true, users, sections };
+}
+
+async function getTasteIndexHealth({ maxUsers = 1000, agedAfterMs = 24 * 60 * 60 * 1000 } = {}) {
+  if (mongoose.connection.readyState !== 1) {
+    return { ok: false, reason: "db_unavailable" };
+  }
+  const checkedUsers = await User.find({})
+    .sort({ userId: 1 })
+    .limit(Math.max(1, Number(maxUsers) || 1000))
+    .lean();
+  const checkedUserIds = checkedUsers.map((user) => Number(user.userId));
+  const checkedRows = checkedUserIds.length
+    ? await UserTasteIndex.find({ userId: { $in: checkedUserIds } }).lean()
+    : [];
+  const actual = new Map(checkedRows.map((row) => [`${row.userId}:${row.section}`, row.items || []]));
+  let expectedRows = 0;
+  let missingRows = 0;
+  let mismatchedRows = 0;
+  for (const user of checkedUsers) {
+    const expected = buildUserTasteIndexSections(user);
+    for (const section of AI_TASTE_INDEX_SECTIONS) {
+      const key = `${user.userId}:${section}`;
+      const expectedItems = expected[section] || [];
+      const actualItems = actual.get(key);
+      if (!expectedItems.length) {
+        if (actualItems) mismatchedRows += 1;
+      } else {
+        expectedRows += 1;
+        if (!actualItems) missingRows += 1;
+        else if (JSON.stringify(actualItems) !== JSON.stringify(expectedItems)) mismatchedRows += 1;
+      }
+    }
+  }
+  const agedBefore = new Date(Date.now() - Math.max(0, Number(agedAfterMs) || 0));
+  const [rows, indexedUsers, agedRows, newestRow, oldestRow] = await Promise.all([
+    UserTasteIndex.countDocuments({}),
+    UserTasteIndex.distinct("userId").then((ids) => ids.length),
+    UserTasteIndex.countDocuments({ updatedAt: { $lt: agedBefore } }),
+    UserTasteIndex.findOne({}).sort({ updatedAt: -1 }).select("updatedAt").lean(),
+    UserTasteIndex.findOne({}).sort({ updatedAt: 1 }).select("updatedAt").lean(),
+  ]);
+  return {
+    ok: true,
+    rows,
+    indexedUsers,
+    checkedUsers: checkedUsers.length,
+    expectedRows,
+    missingRows,
+    mismatchedRows,
+    healthy: missingRows === 0 && mismatchedRows === 0,
+    agedRows,
+    agedAfterMs: Math.max(0, Number(agedAfterMs) || 0),
+    newestUpdatedAt: newestRow?.updatedAt || null,
+    oldestUpdatedAt: oldestRow?.updatedAt || null,
+  };
 }
 
 async function hasTasteIndexData() {
@@ -221,6 +279,7 @@ module.exports = {
   TASTE_INDEX_REBUILD_CONCURRENCY,
   buildUserTasteIndexSections,
   findIndexedSharedTasteCandidates,
+  getTasteIndexHealth,
   hasTasteIndexData,
   invalidateTasteIndexReadinessCache,
   rebuildAllUserTasteIndexes,

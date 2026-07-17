@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   buildGuidedJourneyFunnel,
+  buildOperationalAlerts,
   buildUserListMetrics,
 } = require("../src/services/analytics-dashboard");
 const { EVENT_NAMES } = require("../src/services/analytics-events");
@@ -96,4 +97,24 @@ test("guided journey funnel combines event, destination, and first-tip counts", 
   assert.equal(byKey["First People visit"].users, 4);
   assert.equal(byKey["Saved profile"].count, 2);
   assert.ok(byKey["Added Top 10 item"]);
+});
+
+test("operational alerts identify actionable backend health failures", () => {
+  const alerts = buildOperationalAlerts({
+    health: {
+      aiApi: { lastHour: { total: 20, timeouts: 3, timeoutRate: 0.15 } },
+      performance: { routes: [{ route: "callback:people:list", p95DurationMs: 3200 }] },
+    },
+    tasteIndex: { ok: true, healthy: false, checkedUsers: 100, missingRows: 2, mismatchedRows: 1 },
+    stars: { reconciliationChecked: 100, reconciliationMismatches: 1 },
+  });
+
+  assert.deepEqual(alerts.map((alert) => [alert.key, alert.ok]), [
+    ["slow_routes", false],
+    ["taste_index", false],
+    ["ai_timeouts", false],
+    ["star_reconciliation", false],
+  ]);
+  assert.equal(alerts[0].detail.includes("callback:people:list"), true);
+  assert.equal(alerts[1].detail.includes("2 missing"), true);
 });

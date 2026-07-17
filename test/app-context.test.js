@@ -34,7 +34,8 @@ test("editMessageText treats missing edit targets as stale without warning", asy
   }
 });
 
-test("editMessageText suppresses duplicate fallback when an edit times out", async () => {
+test("editMessageText suppresses duplicate fallback when an edit times out", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const originalWarn = logger.warn;
   const warnings = [];
   logger.warn = (message, details) => warnings.push({ message, details });
@@ -47,8 +48,10 @@ test("editMessageText suppresses duplicate fallback when an edit times out", asy
   };
 
   try {
-    const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 10 });
-    const edited = await appCtx.editMessageText(99, "Fresh card");
+    const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 10000 });
+    const editPromise = appCtx.editMessageText(99, "Fresh card");
+    t.mock.timers.tick(10000);
+    const edited = await editPromise;
 
     assert.equal(edited, true);
     assert.equal(warnings[0]?.message, "Telegram message edit result was uncertain; suppressing fallback");

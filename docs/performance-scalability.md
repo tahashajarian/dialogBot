@@ -20,6 +20,7 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
   - `discussionboostdeliveries`: discussion-recipient lookup and stale reserved-delivery cleanup.
 - `npm run create:indexes` creates declared Mongoose indexes during deployment without dropping existing indexes.
 - AI suggestion routing can be pinned with `AI_SUGGESTION_PROVIDER=chat` or `responses` to avoid sequential provider timeouts when one API shape is unsupported or too slow.
+- AI embedding, Chat Completions, and Responses requests receive an `AbortSignal`; the timeout wrapper aborts the underlying SDK request so timed-out work does not keep consuming local connections.
 - AI cache reads use lean/projection reads and share candidate loading between fuzzy and semantic matching.
 - A denormalized `user_taste_indexes` collection now stores normalized list titles and compact typo-match keys per user/section. Successful list add/remove/promote mutations refresh the affected section. People discovery retrieves exact or nearby-title candidates through those keys, then verifies matches conservatively in process; short titles remain strict and one candidate item cannot be counted twice.
 - Similar-people discovery and boost recipient selection prefer the taste index when it is populated, then hydrate only candidate user profiles and run the existing safety filters.
@@ -98,6 +99,13 @@ Possible refinements:
 - Add language/city filters only when those product filters exist and privacy rules are settled.
 - Add sampled old/new result comparison before removing the legacy scan fallback.
 - Add operational dashboard rows for taste-index row count, stale rows, and rebuild age.
+
+Operational commands:
+
+- `npm run taste-index:health` compares a bounded user sample with its index rows and reports missing/mismatched rows without writing. Row age is reported separately and does not by itself mean a row is unhealthy.
+- `npm run taste-index:repair -- --max-users=1000` rebuilds a bounded number of users; it writes only when the repair command supplies `--apply`.
+- `npm run benchmark:people -- --users=10000 --actions=200 --concurrency=20` benchmarks the real indexed People-discovery path against an isolated database configured through `LOAD_TEST_MONGO_URI` and a `LOAD_TEST_DB_NAME` containing `loadtest`.
+- The private dashboard's System view raises operational indicators when sampled route p95 reaches 3 seconds, AI timeouts reach 10% of hourly calls, the bounded taste-index comparison finds inconsistencies, or Star reconciliation finds mismatches.
 
 ## UX Safety Review
 

@@ -25,6 +25,7 @@ const {
   countUniqueUsersForEvents,
 } = require("./analytics-events");
 const { reconcileStarBalances } = require("./stars");
+const { getTasteIndexHealth } = require("./user-taste-index");
 
 const SECTIONS = ["movies", "music", "books", "random"];
 const SECTION_LABELS = {
@@ -57,6 +58,44 @@ function countAiItems(user, section, listType) {
 
 function metricsByKey(rows = []) {
   return Object.fromEntries(rows.map((row) => [row.key, row]));
+}
+
+function buildOperationalAlerts({ health = {}, tasteIndex = {}, stars = {} } = {}) {
+  const slowestRoute = (health.performance?.routes || [])[0];
+  const timeoutRate = Number(health.aiApi?.lastHour?.timeoutRate) || 0;
+  const reconciliationMismatches = stars.reconciliationMismatches;
+  return [
+    {
+      key: "slow_routes",
+      label: "Application routes",
+      ok: !slowestRoute || Number(slowestRoute.p95DurationMs) < 3000,
+      detail: slowestRoute
+        ? `Slowest sampled route: ${slowestRoute.route} p95 ${slowestRoute.p95DurationMs}ms`
+        : "No slow update samples in the last 24 hours",
+    },
+    {
+      key: "taste_index",
+      label: "Taste index",
+      ok: tasteIndex.ok !== false && tasteIndex.healthy !== false,
+      detail: tasteIndex.ok === false
+        ? `Health check unavailable: ${tasteIndex.reason || "unknown"}`
+        : `${tasteIndex.missingRows || 0} missing and ${tasteIndex.mismatchedRows || 0} mismatched rows across ${tasteIndex.checkedUsers || 0} checked users`,
+    },
+    {
+      key: "ai_timeouts",
+      label: "AI timeouts",
+      ok: timeoutRate < 0.1,
+      detail: `${health.aiApi?.lastHour?.timeouts || 0} timeouts across ${health.aiApi?.lastHour?.total || 0} calls in the last hour`,
+    },
+    {
+      key: "star_reconciliation",
+      label: "Star reconciliation",
+      ok: reconciliationMismatches === 0,
+      detail: reconciliationMismatches === null || reconciliationMismatches === undefined
+        ? "Reconciliation unavailable"
+        : `${reconciliationMismatches} mismatches across ${stars.reconciliationChecked || 0} checked wallets`,
+    },
+  ];
 }
 
 function buildGuidedJourneyFunnel(eventMetrics = {}, destinationRows = [], tipRows = []) {
@@ -155,6 +194,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     activeDiscussions7d,
     invitationStatusCounts,
     health,
+    tasteIndexHealth,
     events24h,
     events7d,
     topTenBySection7d,
@@ -191,6 +231,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     Discussion.countDocuments({ lastActivityAt: { $gte: since7d } }),
     countByField(DiscussionInvitation, "status"),
     getOperationalHealthSnapshot({ now }),
+    getTasteIndexHealth({ maxUsers: 1000 }).catch(() => ({ ok: false, reason: "query_failed" })),
     countEventsByName({ since: since24h }),
     countEventsByName({ since: since7d }),
     countEventsBySection({ name: EVENT_NAMES.topTenItemAdded, since: since7d }),
@@ -297,7 +338,18 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
         amount: row.amount,
       })),
     },
-    health,
+    health: {
+      ...health,
+      tasteIndex: tasteIndexHealth,
+      alerts: buildOperationalAlerts({
+        health,
+        tasteIndex: tasteIndexHealth,
+        stars: {
+          reconciliationChecked: starReconciliation.checked,
+          reconciliationMismatches: starReconciliation.mismatchCount,
+        },
+      }),
+    },
     events: {
       last24h: events24h,
       last7d: events7d,
@@ -314,4 +366,5 @@ module.exports = {
   getAnalyticsSnapshot,
   buildUserListMetrics,
   buildGuidedJourneyFunnel,
+  buildOperationalAlerts,
 };

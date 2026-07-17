@@ -43,13 +43,20 @@ function getClient(config = getAiConfig()) {
   return client;
 }
 
-async function withAiTimeout(promise, timeoutLabel, timeoutMs) {
+async function withAiTimeout(request, timeoutLabel, timeoutMs) {
+  const abortController = typeof AbortController === "undefined" ? null : new AbortController();
+  const promise = typeof request === "function"
+    ? Promise.resolve().then(() => request(abortController?.signal))
+    : request;
   let timeoutId;
   try {
     return await Promise.race([
       promise,
       new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs);
+        timeoutId = setTimeout(() => {
+          abortController?.abort();
+          reject(new Error(timeoutLabel));
+        }, timeoutMs);
       }),
     ]);
   } finally {
@@ -106,10 +113,13 @@ async function getEmbedding(openai, input, {
   try {
     const startedAt = Date.now();
     const response = await withAiTimeout(
-      openai.embeddings.create({
-        model: config.embeddingModel,
-        input,
-      }),
+      (signal) => openai.embeddings.create(
+        {
+          model: config.embeddingModel,
+          input,
+        },
+        { signal },
+      ),
       "ai_embedding_timeout",
       config.timeoutMs,
     );
@@ -149,14 +159,17 @@ async function requestSuggestionText(openai, {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(
-        openai.chat.completions.create({
-          model: config.model,
-          max_tokens: maxOutputTokens,
-          messages: [
-            { role: "system", content: instructions },
-            { role: "user", content: input },
-          ],
-        }),
+        (signal) => openai.chat.completions.create(
+          {
+            model: config.model,
+            max_tokens: maxOutputTokens,
+            messages: [
+              { role: "system", content: instructions },
+              { role: "user", content: input },
+            ],
+          },
+          { signal },
+        ),
         "ai_chat_completion_timeout",
         config.timeoutMs,
       );
@@ -197,12 +210,15 @@ async function requestSuggestionText(openai, {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(
-        openai.responses.create({
-          model: config.model,
-          max_output_tokens: maxOutputTokens,
-          instructions,
-          input,
-        }),
+        (signal) => openai.responses.create(
+          {
+            model: config.model,
+            max_output_tokens: maxOutputTokens,
+            instructions,
+            input,
+          },
+          { signal },
+        ),
         "ai_responses_timeout",
         config.timeoutMs,
       );
