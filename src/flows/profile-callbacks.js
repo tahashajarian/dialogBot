@@ -1,9 +1,9 @@
 const messages = require("../messages");
+const { sendGuideHub } = require("./guide-hub");
 const crypto = require("crypto");
 const { callBacks } = require("../constants");
 const {
   profileKeyboard,
-  helpKeyboard,
   mainMenuKeyboard,
   profileSettingsKeyboard,
   profileEmojiKeyboard,
@@ -480,7 +480,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
     await setNavigationMode(ctx, MODES.HELP);
-    return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
+    return sendGuideHub(ctx, lang);
   }
 
   if (data === callBacks.profileActiveDiscussionHelp) {

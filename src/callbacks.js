@@ -110,6 +110,7 @@ const {
   shouldKeepAiListTitleForCallback,
 } = require("./flows/ai-cards");
 const { sendAiAssistantHub } = require("./flows/ai-hub");
+const { sendGuideHub } = require("./flows/guide-hub");
 const {
   handleProfileSettingsOrEditCallback,
   isProfileSettingsOrEditCallback,
@@ -480,7 +481,10 @@ async function handleCallback(ctx) {
     await clearRememberedAiListMessage(ctx);
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
-    return showBottomHub(ctx, lang, "help", MODES.HELP, messages[lang].helpText, helpKeyboard(lang), shouldClearKeyboard);
+    await sendNavigationFootprint(ctx, { lang, destination: "help", removeKeyboard: shouldClearKeyboard });
+    const sent = await sendGuideHub(ctx, lang);
+    await setNavigationMode(ctx, MODES.HELP);
+    return sent;
   }
 
   if (data === callBacks.helpRules) {
@@ -534,7 +538,7 @@ async function handleCallback(ctx) {
       await ctx.answerCb?.();
       await retireCallbackMessageIfPossible(ctx);
       await setNavigationMode(ctx, MODES.HELP);
-      return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
+      return sendGuideHub(ctx, lang);
     }
     const card = await buildGuideReferralCard(ctx.userId, lang);
     if (!card.ok) return ctx.answerCb?.(messages[lang].unknownAction, { show_alert: true });

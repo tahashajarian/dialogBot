@@ -5,7 +5,6 @@ const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
-  helpKeyboard,
   languageKeyboard,
   profileKeyboard,
   cancelEditKeyboard,
@@ -35,6 +34,7 @@ const {
   getAiSectionFromState,
 } = require("./services/ai-section");
 const { sendAiAssistantHub } = require("./flows/ai-hub");
+const { sendGuideHub } = require("./flows/guide-hub");
 const {
   normalizePublicProfileCode,
 } = require("./services/discussions");
@@ -359,7 +359,7 @@ async function handleUpdate(ctx) {
       return sendPeopleHub(ctx, lang);
     }
     await setNavigationMode(ctx, MODES.HELP);
-    return ctx.reply(messages[lang].helpText, helpKeyboard(lang));
+    return sendGuideHub(ctx, lang);
   }
 
   if (shouldRejectDiscussionSlashCommand(ctx, state, text)) {
