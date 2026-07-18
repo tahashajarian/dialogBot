@@ -23,6 +23,8 @@ const {
   countPendingReceivedInvitations,
   createDiscussionInvitation,
   createOnboardingStarterInvitationsForUser,
+  preserveSharedLinkInvitation,
+  markSharedLinkInvitationAccepted,
   getInvitationForUser,
   listReceivedInvitations,
   markInvitationsSeen,
@@ -789,7 +791,7 @@ test("onboarding with no available room creates no invitation or durable claim",
   assert.equal(user.onboardingStarterInvitationsAt, null);
 });
 
-test("shared-discussion onboarding preserves its code and skips a starter invitation", async () => {
+test("shared-discussion onboarding preserves its preview and still prepares a starter invitation", async () => {
   const user = await createUser(506, {
     lang: "en",
     state: "onboarding_interests",
@@ -813,7 +815,19 @@ test("shared-discussion onboarding preserves its code and skips a starter invita
     memberUserIds: [],
     maxMembers: 100,
   });
+  await createOpenDiscussion(998, {
+    title: "Locked shared room",
+    publicDiscussionCode: "d_SHARED506",
+    language: "en",
+    joinRule: {
+      type: "top_ten_item",
+      section: "movies",
+      itemTitle: "Arrival",
+      itemAliases: ["Arrival"],
+    },
+  });
   const replies = [];
+  const previewCodes = [];
 
   await handleOnboardingText({
     userId: 506,
@@ -823,7 +837,12 @@ test("shared-discussion onboarding preserves its code and skips a starter invita
       replies.push({ text, extra });
       return { message_id: 1 };
     },
-  }, "en");
+  }, "en", {
+    showSharedDiscussionPreview: async (code) => {
+      previewCodes.push(code);
+      return { ok: true };
+    },
+  });
 
   const persisted = await User.findOne({ userId: 506 }).lean();
   const invitations = await DiscussionInvitation.find({ inviteeUserId: 506 }).lean();
@@ -833,10 +852,48 @@ test("shared-discussion onboarding preserves its code and skips a starter invita
   assert.equal(persisted.pendingDiscussionShareCode, "d_SHARED506");
   assert.equal(persisted.onboardingVersion, 1);
   assert.equal(persisted.state, "idle");
-  assert.equal(persisted.navigationMode, "onboarding_complete:0:1");
-  assert.deepEqual(invitations, []);
-  assert.equal(buttons[0].text, messages.en.onboardingDiscussionContinueButton);
-  assert.equal(buttons.some((button) => button.text === messages.en.onboardingInvitationButton), false);
+  assert.equal(persisted.navigationMode, "onboarding_complete:1:0");
+  assert.equal(invitations.length, 2);
+  assert.ok(invitations.some((entry) => (
+    entry.discussionPublicCode === "d_FREE506" && entry.source === "bot_onboarding"
+  )));
+  assert.ok(invitations.some((entry) => (
+    entry.discussionPublicCode === "d_SHARED506" && entry.source === "shared_link"
+  )));
+  assert.deepEqual(previewCodes, ["d_SHARED506"]);
+  assert.equal(buttons[0].text, messages.en.onboardingInvitationButton);
+  assert.equal(buttons.some((button) => button.text === messages.en.onboardingDiscussionContinueButton), false);
+});
+
+test("a joinable shared-link destination is also preserved in the invitations inbox", async () => {
+  await createUser(507, { lang: "en" });
+  await createOpenDiscussion(997, {
+    title: "Joinable shared room",
+    publicDiscussionCode: "d_SHARED507",
+    language: "en",
+    joinRule: { type: "open" },
+  });
+
+  const result = await preserveSharedLinkInvitation({
+    userId: 507,
+    discussionPublicCode: "d_SHARED507",
+    inviterUserId: 997,
+  });
+  const invitation = await DiscussionInvitation.findOne({
+    inviteeUserId: 507,
+    discussionPublicCode: "d_SHARED507",
+  }).lean();
+
+  assert.equal(result.ok, true);
+  assert.equal(result.count, 1);
+  assert.equal(invitation.source, "shared_link");
+  assert.equal(invitation.status, "pending");
+
+  const accepted = await markSharedLinkInvitationAccepted(507, invitation.discussionId);
+  const persisted = await DiscussionInvitation.findById(invitation._id).lean();
+  assert.equal(accepted.ok, true);
+  assert.equal(persisted.status, "accepted");
+  assert.ok(persisted.acceptedAt instanceof Date);
 });
 
 test("onboarding prefers a matching Interest room over Free Discussion", async () => {

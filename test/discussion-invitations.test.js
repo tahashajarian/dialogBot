@@ -358,6 +358,31 @@ test("bot onboarding invitations do not show an inviter profile link", async () 
   assert.doesNotMatch(text, /\/u_/);
 });
 
+test("locked shared-link invitations stay in the inbox without an inviter profile or Join action", async () => {
+  const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [] }, [{
+    invitation: {
+      publicInvitationCode: "i_SHARED1",
+      source: "shared_link",
+      seenAt: null,
+    },
+    discussion: {
+      title: "Arrival fans",
+      description: "A room for Arrival",
+      memberUserIds: [1],
+      maxMembers: 20,
+      joinRule: { type: "top_ten_item", section: "movies", itemTitle: "Arrival" },
+    },
+    inviter: { profileName: "Sara", publicProfileCode: "u_SARA1" },
+    state: { state: "locked", reason: "requires_top_ten_item" },
+  }]);
+
+  assert.match(text, /From: Shared link/);
+  assert.match(text, new RegExp(messages.en.discussionInvitationStateLocked));
+  assert.doesNotMatch(text, /Join 👉/);
+  assert.doesNotMatch(text, /Inviter profile/);
+  assert.ok(text.includes(`${messages.en.discussionInvitationRemove} 👉 /remove_inv_SHARED1`));
+});
+
 test("invitation guidance shares the durable Discussions tip state", () => {
   const entry = { invitation: { publicInvitationCode: "i_TIP123" } };
   assert.equal(shouldShowDiscussionInvitationFirstTimeTip({ discussionMembershipIds: [] }, [entry]), true);

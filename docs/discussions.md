@@ -403,8 +403,8 @@ Invite flow:
 3. If the member chooses shareable invite, bot sends a ready-to-share message/card for that discussion.
 4. User shares or forwards the invite outside the bot.
 5. Recipient opens the bot through the invite/deep link or sends the invite command.
-6. Bot shows a safe discussion preview.
-7. Recipient can join only if the discussion is open, not full, not closed, and they satisfy the join rule.
+6. A recipient with completed onboarding sees a safe discussion preview. A recipient with unfinished onboarding completes it and then sees that preview automatically.
+7. In either path, the recipient can join only if the discussion is open, not full, not closed, and they satisfy the join rule.
 
 First-time/deep-link handling:
 
@@ -412,11 +412,11 @@ First-time/deep-link handling:
 - If `BOT_DEEP_LINK_BASE_URL`, `BOT_PUBLIC_URL`, or `BOT_USERNAME` is configured, use one public bot deep link.
 - If no public bot link can be built, fall back to `/join_CODE`.
 - Preferred public link payload is `start=join_CODE`, for example `https://t.me/BOT_USERNAME?start=join_8K2P`.
-- If the platform opens the bot through `/start join_CODE`, handle it as an invite preview.
-- If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it as an invite preview too.
-- `/start d_CODE` may also resolve to the same invite preview for compatibility.
+- If the platform opens the bot through `/start join_CODE`, handle it as the shared-link entry: unfinished onboarding first, otherwise an invite preview.
+- If the platform delivers a query-like startup command such as `/start?join_CODE`, handle it through the same shared-link entry.
+- `/start d_CODE` may also resolve to the same shared-link entry for compatibility.
 - Repeated public invite links should still open the invite preview or re-focus the room. Star rewards remain protected by directed-pair ledger idempotency, not by blocking the preview.
-- Starting from an invite should not auto-join the user. New users can receive the invite welcome before the preview; existing users should go straight to the invite preview or room re-focus without repeating the generic intro.
+- Starting from a shared link never auto-joins. Users with unfinished onboarding see the original preview automatically after completion; users who already completed onboarding go straight to the preview or room re-focus without repeating the generic intro.
 - If the user is already active in that exact discussion, the invite can re-focus the room and show the already-member message instead of the preview. Dismissing a same-room invite notice should stay quiet after removing the preview.
 - If the user is inside another discussion, the invite preview should show `leave current and join` plus `cancel`, not a normal join button.
 - If that invite is already known to be locked for the user, show the locked reason in the preview before offering any switch action.
@@ -466,7 +466,7 @@ Rules:
 - Removed users can open the preview but must receive the same removed-user error if they try to join.
 - Closed, missing, or expired discussions should show a clean unavailable state.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
-- Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it never creates an invitation-inbox row. Close quietly deletes the temporary share card because the sender is already in the active room.
+- Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it for an already-onboarded user does not create an inbox row; the post-onboarding `shared_link` preservation rule is the narrow exception. Close quietly deletes the temporary share card because the sender is already in the active room.
 
 Ready-to-share message rules:
 
@@ -481,8 +481,8 @@ Ready-to-share message rules:
 
 Opening an invite:
 
-- `/join_CODE` or a deep-link equivalent should show the invite preview first.
-- The preview should not join automatically, even for open rooms.
+- `/join_CODE` or a deep-link equivalent should run unfinished onboarding first and automatically show the original preview afterward; users with completed onboarding should see the invite preview immediately.
+- A displayed preview should not join automatically, even for open rooms.
 - The preview message should be safe for non-members.
 - If the discussion is closed/missing/unavailable, show the unavailable state and return to the main menu.
 - If the discussion exists but is full, show the full-room state and return to the discussions menu.
@@ -606,7 +606,7 @@ Implementation test checklist:
 
 - Member can generate an invite for their active discussion.
 - Non-member/stale active state cannot generate an invite.
-- `/join_CODE` shows preview before joining.
+- `/join_CODE` runs unfinished onboarding and then shows the preview automatically; completed users see the preview immediately.
 - Open invite join succeeds when room is available.
 - Restricted invite join succeeds only when user satisfies the rule.
 - Invite join failures use two-step acknowledgment:
@@ -1421,7 +1421,7 @@ Stars remain a private supporting economy. Paid boosts or filters must not turn 
 
 ## Shared Links And Direct Invitations
 
-- Public discussion share links are preview destinations, not invitation-inbox items. Existing users see the preview immediately. New users complete the existing onboarding flow first; referral attribution and the public discussion code persist on the User across restarts.
-- Completion offers an explicit bilingual action to view the original preview. Join is never automatic and applies the current open/full, capacity, ban, mute, active-room, profile-name, and taste rules.
-- Only a direct in-bot invitation addressed to a specific existing saved profile creates an inbox row and may earn the directed-pair reward after its first eligible successful acceptance. Shared links can earn only the genuinely-new external-referral reward.
+- Users who have already completed onboarding see a public discussion share-link preview immediately without creating a new inbox row. New users and existing users with unfinished onboarding complete the normal onboarding flow first; referral attribution and the public discussion code persist on the User across restarts, and the available original room is preserved as described below.
+- After shared-link onboarding completes, Muze immediately renders the original discussion preview and preserves the available original room as a `shared_link` inbox invitation whether it is joinable or locked by an unmet condition. A joinable preview has inline Join and delete-only Close; a locked preview has its requirement guidance and delete-only Close; neither has Back. Keep the ordinary completion reply keyboard available for other sections and also prepare the normal Interest-matched or Free Discussion starter invitation. Do not preserve missing, closed, full, removed-user, or already-member shared rooms. Joining remains explicit and applies the normal profile-name, open/full, capacity, ban, mute, restriction, active-room, and taste rules. Do not show the optional post-join Interests nudge or leave its reply keyboard active inside the room.
+- Only a direct in-bot invitation addressed to a specific existing saved profile may earn the directed-pair reward after its first eligible successful acceptance. A joinable or locked shared-link destination preserved during onboarding is a non-rewarding inbox entry; shared links can otherwise earn only the genuinely-new external-referral reward.
 - If the room becomes unavailable during onboarding, continuation uses the normal unavailable/join error without replacing or duplicating attribution.

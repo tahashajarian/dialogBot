@@ -20,7 +20,10 @@ const {
 const { operationalLimits } = require("../services/operational-limits");
 const { localizeInterestChipTitle } = require("../services/interest-chips");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
-const { createOnboardingStarterInvitationsForUser } = require("../services/discussion-invitations");
+const {
+  createOnboardingStarterInvitationsForUser,
+  preserveSharedLinkInvitation,
+} = require("../services/discussion-invitations");
 const { awardOnboardingCompletionMilestone } = require("../services/star-milestones");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
@@ -127,6 +130,10 @@ function shouldOfferOnboarding(user, now = new Date()) {
   return accountAge >= 0 && accountAge <= NEW_USER_WINDOW_MS;
 }
 
+function shouldRunOnboardingForSharedDiscussion(user) {
+  return Boolean(user) && Number(user.onboardingVersion) < ONBOARDING_VERSION;
+}
+
 function shouldOfferTasteSetupNudge(user) {
   if (!user || Number(user.onboardingVersion) >= ONBOARDING_VERSION) return false;
   if (user.onboardingTasteSetupNudgedAt) return false;
@@ -155,36 +162,76 @@ function buildOnboardingPrompt(lang, items = []) {
 function buildOnboardingCompleteText(lang, { invitationKind = "", discussionContinuation = false } = {}) {
   const base = messages[lang].onboardingComplete
     .replace("{goal}", String(getOnboardingInterestGoal()));
-  if (discussionContinuation) {
-    const paragraphs = base.split("\n\n");
-    paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, messages[lang].onboardingSharedDiscussionReady);
-    return paragraphs.join("\n\n");
+  const additions = [];
+  if (discussionContinuation) additions.push(messages[lang].onboardingSharedDiscussionReady);
+  if (invitationKind !== "match" && invitationKind !== "free") {
+    return additions.length ? [base, ...additions].join("\n\n") : base;
   }
-  if (invitationKind !== "match" && invitationKind !== "free") return base;
   const paragraphs = base.split("\n\n");
   const invitationKey = invitationKind === "free"
     ? "onboardingInvitationReadyFree"
     : "onboardingInvitationReadyMatch";
-  paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, messages[lang][invitationKey]);
+  additions.push(messages[lang][invitationKey]);
+  paragraphs.splice(Math.max(1, paragraphs.length - 1), 0, ...additions);
   return paragraphs.join("\n\n");
 }
 
-async function prepareOnboardingCompletion(ctx, lang) {
+async function prepareOnboardingCompletion(ctx, lang, {
+  sharedPreviewWillBeShown = false,
+  createStarterInvitation = createOnboardingStarterInvitationsForUser,
+  preserveSharedInvitation = preserveSharedLinkInvitation,
+} = {}) {
   const discussionContinuation = Boolean(ctx.user?.pendingDiscussionShareCode);
-  const invitationResult = discussionContinuation
-    ? { count: 0 }
-    : await createOnboardingStarterInvitationsForUser(ctx.userId).catch(() => ({ count: 0 }));
+  const needsDiscussionContinuationButton = discussionContinuation && !sharedPreviewWillBeShown;
+  const invitationResult = await createStarterInvitation(ctx.userId)
+    .catch(() => ({ count: 0 }));
+  const sharedInvitationResult = discussionContinuation
+    ? await preserveSharedInvitation({
+      userId: ctx.userId,
+      discussionPublicCode: ctx.user.pendingDiscussionShareCode,
+      inviterUserId: ctx.user.pendingDiscussionShareInviterUserId,
+    }).catch(() => ({ count: 0 }))
+    : { count: 0 };
   const invitationKind = invitationResult?.invitation?.kind;
-  const hasInvitation = Number(invitationResult?.count) > 0
+  const hasStarterInvitation = Number(invitationResult?.count) > 0
     && (invitationKind === "match" || invitationKind === "free");
-  await setNavigationMode(ctx, `onboarding_complete:${hasInvitation ? 1 : 0}:${discussionContinuation ? 1 : 0}`);
+  const hasInvitation = hasStarterInvitation || Number(sharedInvitationResult?.count) > 0;
+  await setNavigationMode(ctx, `onboarding_complete:${hasInvitation ? 1 : 0}:${needsDiscussionContinuationButton ? 1 : 0}`);
   return {
     text: buildOnboardingCompleteText(lang, {
-      invitationKind: hasInvitation ? invitationKind : "",
+      invitationKind: hasStarterInvitation ? invitationKind : "",
       discussionContinuation,
     }),
-    keyboard: onboardingCompleteKeyboard(lang, { hasInvitation, discussionContinuation }),
+    keyboard: onboardingCompleteKeyboard(lang, {
+      hasInvitation,
+      discussionContinuation: needsDiscussionContinuationButton,
+    }),
   };
+}
+
+async function finishOnboardingSelection(ctx, lang, state, starNotices = [], helpers = {}) {
+  const onboardingRewards = await completeOnboardingForState(ctx, state);
+  const sharedDiscussionCode = String(ctx.user?.pendingDiscussionShareCode || "");
+  const sharedPreviewWillBeShown = Boolean(
+    sharedDiscussionCode && typeof helpers.showSharedDiscussionPreview === "function",
+  );
+  const completion = await prepareOnboardingCompletion(ctx, lang, {
+    sharedPreviewWillBeShown,
+    createStarterInvitation: helpers.createStarterInvitation,
+    preserveSharedInvitation: helpers.preserveSharedInvitation,
+  });
+  const text = [
+    completion.text,
+    buildOnboardingStarNotice(lang, onboardingRewards),
+    ...starNotices,
+  ].filter(Boolean).join("\n\n");
+  await helpers.deleteCallbackMessageIfPossible?.(ctx);
+  if (sharedPreviewWillBeShown) {
+    await sendOnboardingCompletion(ctx, text, completion.keyboard);
+    return helpers.showSharedDiscussionPreview(sharedDiscussionCode);
+  }
+
+  return sendOnboardingCompletion(ctx, text, completion.keyboard);
 }
 
 function buildOnboardingStarNotice(lang, rewards = []) {
@@ -260,13 +307,17 @@ async function completeOnboarding(ctx, skipped = false) {
   const starRewards = skipped ? [] : await awardOnboardingCompletionMilestone(ctx.userId);
   applyStarRewardsToContext(ctx, starRewards);
   await updateProfileField(ctx.userId, "onboardingVersion", ONBOARDING_VERSION);
+  if (ctx.user) ctx.user.onboardingVersion = ONBOARDING_VERSION;
   await updateProfileField(
     ctx.userId,
     skipped ? "onboardingSkippedAt" : "onboardingCompletedAt",
     new Date(),
   );
   await updateProfileField(ctx.userId, "onboardingPromptMessageId", null);
-  if (ctx.user) ctx.user.onboardingPromptMessageId = null;
+  if (ctx.user) {
+    ctx.user.onboardingPromptMessageId = null;
+    ctx.user.state = "idle";
+  }
   await updateUserState(ctx.userId, "idle");
   void trackEvent({
     name: skipped ? EVENT_NAMES.onboardingSkipped : EVENT_NAMES.onboardingCompleted,
@@ -363,14 +414,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
         { show_alert: true },
       );
     }
-    const starRewards = await completeOnboardingForState(ctx, state);
-    const completion = await prepareOnboardingCompletion(ctx, lang);
-    await helpers.deleteCallbackMessageIfPossible?.(ctx);
-    return sendOnboardingCompletion(
-      ctx,
-      [completion.text, buildOnboardingStarNotice(lang, starRewards)].filter(Boolean).join("\n\n"),
-      completion.keyboard,
-    );
+    return finishOnboardingSelection(ctx, lang, state, [], helpers);
   }
 
   if (data.startsWith(callBacks.onboardingInterestRemove)) {
@@ -430,16 +474,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   }
 
   if (result.ok && items.length >= getOnboardingInterestGoal()) {
-    const onboardingRewards = await completeOnboardingForState(ctx, state);
-    const completion = await prepareOnboardingCompletion(ctx, lang);
-    await helpers.deleteCallbackMessageIfPossible?.(ctx);
-    return sendOnboardingCompletion(
-      ctx,
-      [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice]
-        .filter(Boolean)
-        .join("\n\n"),
-      completion.keyboard,
-    );
+    return finishOnboardingSelection(ctx, lang, state, [starNotice], helpers);
   }
 
   const page = getOnboardingPage(data) || Math.floor(chipIndex / ONBOARDING_CHIPS_PER_PAGE);
@@ -453,7 +488,7 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   );
 }
 
-async function handleOnboardingText(ctx, lang) {
+async function handleOnboardingText(ctx, lang, helpers = {}) {
   const state = String(ctx.user?.state || "");
   const items = getAiListItemsFromUser(ctx.user, "random", "topTen");
   const pickerState = isInterestPickerState(state);
@@ -502,13 +537,7 @@ async function handleOnboardingText(ctx, lang) {
     const starNotice = buildOnboardingStarNotice(lang, result.starRewards);
 
     if (result.items.length >= getOnboardingInterestGoal()) {
-      const onboardingRewards = await completeOnboardingForState(ctx, state);
-      const completion = await prepareOnboardingCompletion(ctx, lang);
-      return sendOnboardingCompletion(
-        ctx,
-        [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice].filter(Boolean).join("\n\n"),
-        completion.keyboard,
-      );
+      return finishOnboardingSelection(ctx, lang, state, [starNotice], helpers);
     }
 
     const nextState = isTasteSetupState(state) ? TASTE_SETUP_INTERESTS_STATE : ONBOARDING_INTERESTS_STATE;
@@ -543,6 +572,7 @@ module.exports = {
   handleOnboardingText,
   isOnboardingCallback,
   shouldOfferOnboarding,
+  shouldRunOnboardingForSharedDiscussion,
   shouldOfferTasteSetupNudge,
   sendTasteSetupNudge,
   sendMuzeWelcome,

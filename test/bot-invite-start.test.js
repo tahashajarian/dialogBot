@@ -156,6 +156,38 @@ test("a newly created invite recipient always starts onboarding before the previ
   assert.equal(ctx.user.navigationMode, "onboarding_language");
 });
 
+test("an older account with unfinished onboarding still starts onboarding from a shared link", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    text: "/start join_AB12",
+    userId: 2,
+    wasUserCreated: false,
+    user: {
+      userId: 2,
+      lang: "en",
+      state: "idle",
+      onboardingVersion: 0,
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.chooseLanguage);
+  assert.equal(ctx.user.state, "onboarding_invite_language:d_AB12");
+});
+
 test("general referral payload remains a start entry without a discussion code", () => {
   const text = "/start ref_A1B2C3D4E5F6";
   assert.equal(Boolean(getStartReferralCode(text)), true);
@@ -272,7 +304,7 @@ test("start invite preview shows lock reason before switching rooms", async () =
   const buttons = finalReply.extra.reply_markup.inline_keyboard.flat();
   assert.match(finalReply.text, /Heat/);
   assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`));
-  assert.equal(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`).text, messages.en.acknowledgeButton);
+  assert.equal(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`).text, messages.en.discussionShareClose);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteSwitchJoin}d_AB12`), false);
   assert.notEqual(finalReply.extra.reply_markup.remove_keyboard, true);
 });

@@ -276,7 +276,7 @@ test("onboarding accepts a typed Persian interest directly from the current pick
   assert.equal(user.navigationMode, "onboarding_interests:0");
 });
 
-test("onboarding completion stays compact after the final typed Interest", async () => {
+test("shared-link onboarding automatically shows the discussion preview after the final typed Interest", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
@@ -297,6 +297,7 @@ test("onboarding completion stays compact after the final typed Interest", async
   };
   User.findOne = async () => user;
   User.findOneAndUpdate = async () => user;
+  const previewCodes = [];
 
   try {
     await handleOnboardingText({
@@ -311,7 +312,14 @@ test("onboarding completion stays compact after the final typed Interest", async
         replies.push({ photo, text: extra.caption, extra });
         return { message_id: 1, photo, caption: extra.caption };
       },
-    }, "en");
+    }, "en", {
+      showSharedDiscussionPreview: async (code) => {
+        previewCodes.push(code);
+        return { ok: true };
+      },
+      createStarterInvitation: async () => ({ count: 0 }),
+      preserveSharedInvitation: async () => ({ count: 0 }),
+    });
   } finally {
     User.findOne = originalFindOne;
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -322,7 +330,14 @@ test("onboarding completion stays compact after the final typed Interest", async
   assert.match(replies[0].text, /^👩‍🦳 Great/);
   assert.doesNotMatch(replies[0].text, /Selected: Movies, Gaming, Coffee/);
   assert.match(replies[0].text, /your 3 interests are saved/i);
-  assert.equal(replies[0].extra.reply_markup.keyboard.flat()[0].text, messages.en.onboardingDiscussionContinueButton);
+  assert.equal(
+    replies[0].extra.reply_markup.keyboard.flat()[0].text,
+    messages.en.discussionActiveList,
+  );
+  assert.deepEqual(previewCodes, ["d_SHARED"]);
+  assert.equal(user.onboardingVersion, 1);
+  assert.equal(user.state, "idle");
+  assert.equal(user.navigationMode, "onboarding_complete:0:0");
 });
 
 test("Muze welcome uses the portrait banner with its greeting as the caption", async () => {
@@ -348,6 +363,10 @@ test("onboarding completion shows invitation copy and action only when one exist
     const matchText = buildOnboardingCompleteText(lang, { invitationKind: "match" });
     const freeText = buildOnboardingCompleteText(lang, { invitationKind: "free" });
     const sharedText = buildOnboardingCompleteText(lang, { discussionContinuation: true });
+    const sharedWithStarterText = buildOnboardingCompleteText(lang, {
+      discussionContinuation: true,
+      invitationKind: "free",
+    });
     const plainButtons = onboardingCompleteKeyboard(lang).reply_markup.keyboard.flat();
     const invitedButtons = onboardingCompleteKeyboard(lang, { hasInvitation: true }).reply_markup.keyboard.flat();
     const sharedButtons = onboardingCompleteKeyboard(lang, { discussionContinuation: true }).reply_markup.keyboard.flat();
@@ -359,6 +378,8 @@ test("onboarding completion shows invitation copy and action only when one exist
     assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyFree), true);
     assert.equal(sharedText.includes(messages[lang].onboardingSharedDiscussionReady), true);
     assert.equal(sharedText.includes(messages[lang].onboardingInvitationReadyMatch), false);
+    assert.equal(sharedWithStarterText.includes(messages[lang].onboardingSharedDiscussionReady), true);
+    assert.equal(sharedWithStarterText.includes(messages[lang].onboardingInvitationReadyFree), true);
     assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyMatch), false);
     assert.deepEqual(plainButtons.map((button) => button.text), [
       messages[lang].discussionActiveList,

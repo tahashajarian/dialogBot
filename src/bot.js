@@ -119,6 +119,7 @@ const {
   handleOnboardingText,
   sendMuzeWelcome,
   shouldOfferOnboarding,
+  shouldRunOnboardingForSharedDiscussion,
   startOnboardingLanguage,
 } = require("./flows/onboarding");
 const {
@@ -383,7 +384,7 @@ async function handleUpdate(ctx) {
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
 
-    if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
+    if (ctx.wasUserCreated || shouldRunOnboardingForSharedDiscussion(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, startInviteCode);
     }
 
@@ -396,7 +397,7 @@ async function handleUpdate(ctx) {
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
     const inviteCode = `d_${text.replace(/^\/join_/i, "")}`;
-    if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
+    if (ctx.wasUserCreated || shouldRunOnboardingForSharedDiscussion(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, inviteCode);
     }
     await updateUserState(ctx.userId, "idle");
@@ -475,7 +476,13 @@ async function handleUpdate(ctx) {
       || state.startsWith("onboarding_custom_interest:")
       || state.startsWith("onboarding_taste_setup_custom_interest:")
     ) {
-      return handleOnboardingText(ctx, userLang || lang);
+      return handleOnboardingText(ctx, userLang || lang, {
+        showSharedDiscussionPreview: (code) => showDiscussionInvitePreviewCommand(
+          ctx,
+          userLang || lang,
+          code,
+        ),
+      });
     }
     return undefined;
   }

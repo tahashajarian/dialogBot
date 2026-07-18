@@ -167,20 +167,20 @@ function discussionInvitePreviewKeyboard(lang, publicDiscussionCode, { activeEls
   const cleanCode = String(publicDiscussionCode || "").replace(/^d_/i, "");
   if (cancelOnly) {
     return inlineKeyboard([
-      [{ text: messages[lang].acknowledgeButton, callback_data: `${callBacks.discussionInviteCancel}d_${cleanCode}` }],
+      [{ text: messages[lang].discussionShareClose, callback_data: `${callBacks.discussionInviteCancel}d_${cleanCode}` }],
     ]);
   }
 
   if (activeElsewhere) {
     return inlineKeyboard([
       [{ text: messages[lang].discussionInviteSwitchJoinButton, callback_data: `${callBacks.discussionInviteSwitchJoin}d_${cleanCode}` }],
-      [{ text: messages[lang].discussionInviteCancelButton, callback_data: `${callBacks.discussionInviteCancel}d_${cleanCode}` }],
+      [{ text: messages[lang].discussionShareClose, callback_data: `${callBacks.discussionInviteCancel}d_${cleanCode}` }],
     ]);
   }
 
   return inlineKeyboard([
     [{ text: messages[lang].discussionInviteJoinButton, callback_data: `${callBacks.discussionInviteJoin}d_${cleanCode}` }],
-    [{ text: messages[lang].discussionBack, callback_data: callBacks.discussions }],
+    [{ text: messages[lang].discussionShareClose, callback_data: `${callBacks.discussionInviteCancel}d_${cleanCode}` }],
   ]);
 }
 

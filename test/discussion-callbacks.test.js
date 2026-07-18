@@ -1074,6 +1074,9 @@ test("discussion invite preview keyboard joins by public code", () => {
   const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12");
   const buttons = keyboard?.reply_markup?.inline_keyboard.flat() || [];
   assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`));
+  const close = buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`);
+  assert.equal(close?.text, messages.en.discussionShareClose);
+  assert.equal(buttons.some((button) => button.callback_data === callBacks.discussions), false);
 });
 
 test("discussion invite preview keyboard can switch from active room", () => {
@@ -1081,15 +1084,18 @@ test("discussion invite preview keyboard can switch from active room", () => {
   const buttons = keyboard?.reply_markup?.inline_keyboard.flat() || [];
 
   assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteSwitchJoin}d_AB12`));
-  assert.ok(buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`));
+  assert.equal(
+    buttons.find((button) => button.callback_data === `${callBacks.discussionInviteCancel}d_AB12`)?.text,
+    messages.en.discussionShareClose,
+  );
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`), false);
 });
 
-test("locked discussion invite preview uses Got it dismissal", () => {
+test("locked discussion invite preview uses a Close dismissal", () => {
   const keyboard = discussionInvitePreviewKeyboard("en", "d_AB12", { cancelOnly: true });
   const button = keyboard?.reply_markup?.inline_keyboard.flat()[0];
 
-  assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(button.text, messages.en.discussionShareClose);
   assert.equal(button.callback_data, `${callBacks.discussionInviteCancel}d_AB12`);
 });
 
@@ -1295,7 +1301,8 @@ test("invite preview does not offer Join when an inactive user fails the room ru
   assert.match(replies[0].text, /Arrival/);
   const buttons = replies[0].keyboard.reply_markup.inline_keyboard.flat();
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.discussionInviteJoin}d_AB12`), false);
-  assert.equal(buttons[0].text, messages.en.acknowledgeButton);
+  assert.equal(buttons[0].text, messages.en.discussionShareClose);
+  assert.equal(buttons[0].callback_data, `${callBacks.discussionInviteCancel}d_AB12`);
 });
 
 test("discussion invite Forward and Copy carry the same complete invitation", () => {

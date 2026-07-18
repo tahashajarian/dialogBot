@@ -438,6 +438,7 @@ async function handleCallback(ctx) {
     return handleOnboardingCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
+      showSharedDiscussionPreview: (code) => showDiscussionInvitePreviewCommand(ctx, lang, code),
     });
   }
 

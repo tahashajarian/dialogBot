@@ -53,6 +53,7 @@ const {
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
+const { markSharedLinkInvitationAccepted } = require("../services/discussion-invitations");
 const { COPY_TEXT_LIMIT, buildNativeShareUrl, buildShareActionsKeyboard } = require("../services/share-actions");
 const {
   applyStarRewardsToContext,
@@ -64,7 +65,6 @@ const {
   requireDiscussionProfileName,
 } = require("./discussion-name-gate");
 const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
-const { sendTasteSetupNudge } = require("./onboarding");
 const {
   clearRememberedDiscussionRoomCards,
   clearDiscussionMembersMessage,
@@ -685,6 +685,7 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     // Preview cleanup is best-effort; joining feedback and room rendering should continue.
   }
   if (ctx.user) ctx.user.activeDiscussionId = joined.discussion._id;
+  await markSharedLinkInvitationAccepted(ctx.userId, joined.discussion._id).catch(() => null);
   const pendingShareCode = String(ctx.user?.pendingDiscussionShareCode || "");
   const pendingShareMatches = pendingShareCode.toLowerCase() === String(publicCode || "").toLowerCase();
   if (pendingShareCode && pendingShareMatches) {
@@ -702,7 +703,6 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   const roomMessage = sendRoom
     ? await sendRoom(ctx, lang, joined.discussion)
     : await sendDiscussionRoomFromText(ctx, lang, joined.discussion);
-  await sendTasteSetupNudge(ctx, lang).catch(() => null);
   return roomMessage;
 }
 

@@ -9,6 +9,7 @@ const {
   ensurePublicDiscussionCode,
   ensurePublicProfileCode,
   ensurePublicProfileCodes,
+  findDiscussionByPublicCode,
   normalizePublicProfileCode,
   validateJoinRules,
   resolveDiscussionMaxMembers,
@@ -572,6 +573,93 @@ async function getInvitationDisplayState(user, discussion) {
   return { state: "joinable" };
 }
 
+async function preserveSharedLinkInvitation({
+  userId,
+  discussionPublicCode,
+  inviterUserId = null,
+  now = new Date(),
+} = {}) {
+  const inviteeUserId = Number(userId);
+  if (!Number.isInteger(inviteeUserId) || inviteeUserId <= 0) {
+    return { ok: false, reason: "missing_user", count: 0 };
+  }
+  const [user, discussion] = await Promise.all([
+    User.findOne({ userId: inviteeUserId }),
+    findDiscussionByPublicCode(discussionPublicCode),
+  ]);
+  if (!user) return { ok: false, reason: "missing_user", count: 0 };
+  if (!discussion) return { ok: false, reason: "missing_discussion", count: 0 };
+
+  const state = await getInvitationDisplayState(user, discussion);
+  if (state.state !== "locked" && state.state !== "joinable") {
+    return { ok: true, skipped: true, reason: state.reason || state.state, count: 0 };
+  }
+
+  const existing = await DiscussionInvitation.findOne({
+    inviteeUserId,
+    discussionId: discussion._id,
+    status: "pending",
+  });
+  if (existing) return { ok: true, skipped: true, count: 1, invitation: existing, discussion };
+
+  const codeResult = await ensurePublicDiscussionCode(discussion);
+  if (!codeResult.ok) return { ...codeResult, count: 0 };
+  const attributedInviterUserId = Number(inviterUserId);
+  const resolvedInviterUserId = Number.isInteger(attributedInviterUserId)
+    && attributedInviterUserId > 0
+    && attributedInviterUserId !== inviteeUserId
+    ? attributedInviterUserId
+    : Number(discussion.creatorUserId);
+  const invitation = new DiscussionInvitation({
+    discussionId: discussion._id,
+    discussionPublicCode: codeResult.code,
+    inviterUserId: resolvedInviterUserId,
+    inviteeUserId,
+    inviteePublicProfileCode: user.publicProfileCode || "",
+    status: "pending",
+    source: "shared_link",
+    createdAt: now,
+  });
+
+  try {
+    const invitationCode = await ensurePublicInvitationCode(invitation);
+    return invitationCode.ok
+      ? { ok: true, count: 1, invitation, discussion }
+      : { ...invitationCode, count: 0 };
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+    const duplicate = await DiscussionInvitation.findOne({
+      inviteeUserId,
+      discussionId: discussion._id,
+      status: "pending",
+    });
+    return duplicate
+      ? { ok: true, skipped: true, count: 1, invitation: duplicate, discussion }
+      : { ok: false, reason: "duplicate_unavailable", count: 0 };
+  }
+}
+
+async function markSharedLinkInvitationAccepted(userId, discussionId, acceptedAt = new Date()) {
+  const invitation = await DiscussionInvitation.findOneAndUpdate(
+    {
+      inviteeUserId: Number(userId),
+      discussionId,
+      source: "shared_link",
+      status: "pending",
+    },
+    {
+      $set: {
+        status: "accepted",
+        acceptedAt,
+      },
+    },
+    { returnDocument: "after" },
+  );
+  return invitation
+    ? { ok: true, invitation }
+    : { ok: true, skipped: true, invitation: null };
+}
+
 module.exports = {
   normalizePublicInvitationCode,
   countPendingReceivedInvitations,
@@ -580,6 +668,8 @@ module.exports = {
   countAllVisibleReceivedInvitations,
   createDiscussionInvitation,
   createOnboardingStarterInvitationsForUser,
+  preserveSharedLinkInvitation,
+  markSharedLinkInvitationAccepted,
   dedupeInvitationsByInviterAndDiscussion,
   listEligibleDiscussionsForInvite,
   listReceivedInvitations,
