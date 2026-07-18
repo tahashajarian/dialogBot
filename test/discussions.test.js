@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { discussionsMenuKeyboard, peopleHubKeyboard } = require("../src/keyboards");
+const { callBacks } = require("../src/constants");
 
 const {
   normalizePublicProfileCode,
@@ -100,6 +101,43 @@ test("room Close opens an inline confirmation without entering text-confirm stat
     `${require("../src/constants").callBacks.discussionCloseConfirm}room-1:room`,
   );
   assert.equal(ctx.user.state, "idle");
+});
+
+test("full discussion blocks invite options with a dismiss-only Got it notice", async () => {
+  const originalUserFindOne = User.findOne;
+  const originalDiscussionFindById = Discussion.findById;
+  const replies = [];
+  User.findOne = async () => ({ userId: 42 });
+  Discussion.findById = async () => ({
+    _id: "507f1f77bcf86cd799439011",
+    status: "open",
+    memberUserIds: [42, 43],
+    maxMembers: 2,
+    publicDiscussionCode: "d_ROOM1",
+  });
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: { userId: 42, activeDiscussionId: "507f1f77bcf86cd799439011", savedProfileCodes: [] },
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: replies.length };
+      },
+    };
+
+    await handleDiscussionBottomButton(ctx, "en", messages.en.discussionInvite);
+
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0].text, messages.en.discussionInviteFull);
+    assert.deepEqual(replies[0].extra.reply_markup.inline_keyboard, [[{
+      text: messages.en.acknowledgeButton,
+      callback_data: callBacks.discussionInvitePickerClose,
+    }]]);
+  } finally {
+    User.findOne = originalUserFindOne;
+    Discussion.findById = originalDiscussionFindById;
+  }
 });
 
 test("normalizes discussion capacity to allowed values", () => {

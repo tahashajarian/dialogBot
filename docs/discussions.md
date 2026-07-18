@@ -388,6 +388,7 @@ Invites make active discussions easier to grow through direct sharing, without a
 Entry point:
 
 - Inside an active discussion, the bottom button `📨 دعوت` opens invite options.
+- Before opening invite options, revalidate the discussion's effective capacity. If the room is full, show a standalone inline full-room notice with a `Got it` acknowledgment that only deletes the notice.
 - Any current member can create a shareable invite message for the active discussion.
 - Any current member can also send a stored invitation to one of their saved profiles, subject to stored-invitation rules in [Discussion Invitations](discussion-invitations.md). The picker shows five eligible profiles per page and keeps Close available on every page.
 - The user must still be a member at the moment they tap `📨 دعوت`; stale bottom keyboards must fail safely.

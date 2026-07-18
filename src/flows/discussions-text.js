@@ -5,6 +5,7 @@ const {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
   discussionInviteModeKeyboard,
+  discussionInviteFullKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionInvitePreviewKeyboard,
@@ -432,6 +433,11 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
         : getDiscussionErrorMessage(messages, lang, invite.reason);
       await ctx.reply(textByReason, { reply_markup: { remove_keyboard: true } });
       return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    }
+
+    const capacity = resolveDiscussionMaxMembers(invite.discussion);
+    if ((invite.discussion.memberUserIds || []).length >= capacity) {
+      return ctx.reply(messages[lang].discussionInviteFull, discussionInviteFullKeyboard(lang));
     }
 
     return ctx.reply(

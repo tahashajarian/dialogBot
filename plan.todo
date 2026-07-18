@@ -26,10 +26,12 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ☐ find a way to make long textes more readable 
 
 ✔ 👱‍♀️ سلام Taha، من میوزم 🌱 we show this mesage at two place one when user press /start where ever and one when user start and at the begingin of onboarding i think istead of showing that image after finish onboarding we can show on when we say hello i'm muze @done (7/18/2026, 8:30:41 AM)
-☐ before create invite check discussion has capacity, 
+✔ before create invite check discussion has capacity, @done (7/18/2026, 9:03:58 AM)
 ☐ share my profile, a message combine intersts and favorits and maybe photo as banner which is based on perfoile interst and favorites and let think how we can encureage peopole to join and do the same to have thier profile like the one they saw, need to be so intersting and eye catching, let think... and maybe compare it with ourself or think abuout comparing too
 ☐ update guide and ruls maybe
 
 ☐ prevent disscussion name in persian and eng for sensetive words like sex sexchat سکس سکسچت سکس چت  and these things 
 ☐ 👱‍♀️ این پیام دعوت به گفت‌وگوه؛ می‌تونی برای هر کسی خواستی بفرستیش 👇 this message is worng we don't have this word in persin گفت‌وگوه؛ need to be fixed
-☐ hide list for later until it's empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too
+☐ hide 'list for later' until it's not empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too
+☐ think about seeing people can chose the lang, and maybe viewing proifle need spend star, think about it
+☐ test inivitaion with link it's broken

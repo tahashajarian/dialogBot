@@ -249,6 +249,15 @@ function discussionInviteModeKeyboard(lang, { hasSavedProfiles = true } = {}) {
   ]);
 }
 
+function discussionInviteFullKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionInvitePickerClose,
+    },
+  ]]);
+}
+
 function discussionInviteSavedProfilesKeyboard(lang, items = [], {
   page = 0,
   totalPages = 1,
@@ -561,6 +570,7 @@ module.exports = {
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionInviteModeKeyboard,
+  discussionInviteFullKeyboard,
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,

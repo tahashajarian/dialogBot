@@ -278,7 +278,7 @@ module.exports = {
     discussionInviteCopyAction: "📋 Copy discussion link",
     discussionShareClose: "✖️ Close",
     discussionInviteUnavailable: "👩‍🦳 This discussion is no longer available.",
-    discussionInviteFull: "👩‍🦳 This discussion is full.\n\n💡 Choose another room or create your own from the Discussions section.",
+    discussionInviteFull: "👩‍🦳 This discussion is full.",
     discussionInviteAlreadyMember: "👩‍🦳 You are already a member of this discussion.",
     discussionInviteLockedTaste: "👩‍🦳 To join this discussion, you need this taste label:\n{rule}\n\n💡 First complete all 10 favorites in {section} so your label can be calculated.\nThen you can try the same invite link again.\n\nGo to My favorites 🎬🎵📚 from the main menu.",
     discussionInviteLockedItem: "👩‍🦳 To join this discussion, {item} needs to be one of your {section} favorites:\n{rule}\n\n💡 Go to My favorites 🎬🎵📚 → {section} and add {item} to your favorites.\nThen try this invite link again.",

@@ -278,7 +278,7 @@ module.exports = {
     discussionInviteCopyAction: "📋 کپی لینک گفت‌وگو",
     discussionShareClose: "✖️ بستن",
     discussionInviteUnavailable: "👩‍🦳 این گفت‌وگو دیگه در دسترس نیست.",
-    discussionInviteFull: "👩‍🦳 ظرفیت این گفت‌وگو تکمیل شده.\n\n💡 می‌تونی یک گفت‌وگوی دیگه رو انتخاب کنی یا از بخش گفت‌وگوها، گفت‌وگوی خودت رو بسازی.",
+    discussionInviteFull: "👩‍🦳 ظرفیت این گفت‌وگو تکمیل شده.",
     discussionInviteAlreadyMember: "👩‍🦳 تو همین الان عضو این گفت‌وگویی.",
     discussionInviteLockedTaste: "👩‍🦳 برای ورود به این گفت‌وگو باید این برچسب رو داشته باشی:\n{rule}\n\n💡 اول ۱۰ انتخاب محبوب بخش {section} رو کامل کن تا برچسبت حساب بشه.\nبعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.\n\nاز منوی اصلی برو به محبوب‌های من 🎬🎵📚.",
     discussionInviteLockedItem: "👩‍🦳 برای ورود به این گفت‌وگو، «{item}» باید بین محبوب‌های {section}ت باشه:\n{rule}\n\n💡 از منوی اصلی برو به محبوب‌های من 🎬🎵📚 ← {section} و «{item}» رو به محبوب‌هات اضافه کن.\nبعدش همین لینک دعوت رو دوباره امتحان کن.",
