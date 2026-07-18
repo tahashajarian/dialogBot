@@ -4,7 +4,6 @@ const { detectLanguage } = require("./lang");
 const { handleCallback } = require("./callbacks");
 const {
   mainMenuKeyboard,
-  aiAssistantKeyboard,
   discussionsMenuKeyboard,
   helpKeyboard,
   languageKeyboard,
@@ -35,9 +34,7 @@ const {
 const {
   getAiSectionFromState,
 } = require("./services/ai-section");
-const {
-  buildAiAssistantMenuMessage,
-} = require("./services/ai-list-ui");
+const { sendAiAssistantHub } = require("./flows/ai-hub");
 const {
   normalizePublicProfileCode,
 } = require("./services/discussions");
@@ -120,6 +117,7 @@ const {
 } = require("./flows/saved-profiles");
 const {
   handleOnboardingText,
+  sendMuzeWelcome,
   shouldOfferOnboarding,
   startOnboardingLanguage,
 } = require("./flows/onboarding");
@@ -346,10 +344,7 @@ async function handleUpdate(ctx) {
     if (navigationCommand === "taste") {
       await setNavigationMode(ctx, MODES.FAVORITES);
       const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
-      const sent = await ctx.reply(
-        buildAiAssistantMenuMessage(lang, { showFirstVisitTip }),
-        aiAssistantKeyboard(lang),
-      );
+      const sent = await sendAiAssistantHub(ctx, lang, { showFirstVisitTip });
       if (showFirstVisitTip) {
         await markSectionTipShownForContext(ctx, "favorites", new Date()).catch(() => null);
       }
@@ -454,11 +449,11 @@ async function handleUpdate(ctx) {
 
     await updateUserState(ctx.userId, "idle");
     await setNavigationMode(ctx, MODES.GLOBAL);
-    if (shouldClearKeyboard) {
-      await removeBottomKeyboard(ctx, welcomeMessage, { deleteSentMessage: false });
-    } else {
-      await ctx.reply(welcomeMessage);
-    }
+    await sendMuzeWelcome(
+      ctx,
+      welcomeMessage,
+      shouldClearKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined,
+    );
     await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "menu" });
     return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
   }
@@ -638,12 +633,8 @@ async function handleUpdate(ctx) {
       await clearAiPendingInputPrompt(ctx);
       await clearRememberedAiListMessage(ctx);
       await clearAiSectionEntryMessage(ctx);
-      return replyWithKeyboardRemovalNoticeThenInline(
-        ctx,
-        messages[lang].navigationFootprintTaste,
-        buildAiAssistantMenuMessage(lang),
-        aiAssistantKeyboard(lang),
-      );
+      await removeBottomKeyboard(ctx);
+      return sendAiAssistantHub(ctx, lang);
     }
 
     const handledProfileCancel = await handleProfileCancelText(ctx, lang, state, {

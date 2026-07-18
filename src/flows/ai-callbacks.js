@@ -1,8 +1,29 @@
+const path = require("node:path");
 const messages = require("../messages");
 const { getAiConfig } = require("../config");
 const { logger } = require("../services/logger");
 
 const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
+const BOOKS_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/books-section-banner.jpg");
+const MUSIC_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/music-section-banner.jpg");
+const MOVIES_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/movies-section-banner.jpg");
+const AI_SECTION_BANNERS = Object.freeze({
+  movies: {
+    bannerKey: "movies_section_v2",
+    localSource: MOVIES_SECTION_BANNER_PATH,
+    configuredFileId: process.env.MOVIES_SECTION_BANNER_FILE_ID,
+  },
+  music: {
+    bannerKey: "music_section_v2",
+    localSource: MUSIC_SECTION_BANNER_PATH,
+    configuredFileId: process.env.MUSIC_SECTION_BANNER_FILE_ID,
+  },
+  books: {
+    bannerKey: "books_section_v4",
+    localSource: BOOKS_SECTION_BANNER_PATH,
+    configuredFileId: process.env.BOOKS_SECTION_BANNER_FILE_ID,
+  },
+});
 const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
@@ -20,7 +41,6 @@ const {
   getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
-  aiAssistantKeyboard,
   mainMenuKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
@@ -69,7 +89,6 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
-  buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
@@ -104,6 +123,7 @@ const {
   formatAiCommentPrompt,
   openAiListManager,
 } = require("./ai-text");
+const { sendAiAssistantHub } = require("./ai-hub");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -433,8 +453,13 @@ async function enterAiSection(ctx, lang, section, helpers) {
   await helpers.deleteCallbackMessageIfPossible?.(ctx);
   await rememberAiSectionEntryMessage(ctx, null);
   const titleText = `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}`;
-  await sendNavigationFootprint(ctx, { lang, destination: "aiSection", title: titleText });
-  return openAiListManager(ctx, lang, section, "topTen");
+  const banner = AI_SECTION_BANNERS[section] || null;
+  if (!banner) {
+    await sendNavigationFootprint(ctx, { lang, destination: "aiSection", title: titleText });
+  }
+  return openAiListManager(ctx, lang, section, "topTen", {
+    banner,
+  });
 }
 
 async function handleAiCallback(ctx, lang, helpers) {
@@ -1017,7 +1042,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await sendNavigationFootprint(ctx, { lang, destination: "taste", removeKeyboard: shouldClearKeyboard });
     await setNavigationMode(ctx, MODES.FAVORITES);
     if (ctx.user) ctx.user.navigationMode = MODES.FAVORITES;
-    return ctx.reply(buildAiAssistantMenuMessage(lang), aiAssistantKeyboard(lang));
+    return sendAiAssistantHub(ctx, lang);
   }
 
   if (data.startsWith(callBacks.aiSectionAnotherSuggestion)) {

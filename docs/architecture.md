@@ -28,6 +28,7 @@ Keep the router files thin:
 - `src/bot.js` also owns global Telegram command routing and the shared cleanup performed before command navigation.
 - `src/callbacks.js` dispatches callback queries.
 - `src/flows/ai-text.js` owns AI text states for section chat, list management, comments, and suggestion-context prompts.
+- `src/flows/ai-hub.js` owns delivery of the single Movies, Music & Books / Favorites hub banner card.
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
 - `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
@@ -86,6 +87,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/profile-privacy-ui.js` for invitation-restriction list text shaping.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
+- `src/services/banner-media.js` for global Telegram banner `file_id` lookup, first-upload persistence in `AppSetting`, invalid-cache recovery, and bundled-asset fallback.
 - `src/services/ai-paid-suggestions.js` for paid extra suggestion quote/spend/refund state after free quota exhaustion.
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.

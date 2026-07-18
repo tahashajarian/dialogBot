@@ -1,8 +1,10 @@
 const messages = require("../messages");
 const { getAiConfig } = require("../config");
 const { logger } = require("../services/logger");
+const { sendBannerPhoto } = require("../services/banner-media");
 
 const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
+const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
 const {
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
@@ -491,7 +493,7 @@ async function sendSingleSectionSuggestion({
   return resultMessage;
 }
 
-async function openAiListManager(ctx, lang, section, listType, { prefix = "" } = {}) {
+async function openAiListManager(ctx, lang, section, listType, { prefix = "", banner = null } = {}) {
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   const nextMode = `ai_list:${section}:${listType}`;
   await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
@@ -501,13 +503,24 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "" } =
   await setNavigationMode(ctx, nextMode);
   if (ctx.user) ctx.user.navigationMode = nextMode;
   const items = getAiListItemsFromUser(ctx.user, section, listType);
-  const listMessage = await ctx.reply(
-    await buildAiListManagerMessage({ ctx, lang, section, listType, prefix }),
-    aiListManageMenuKeyboard(lang, section, listType, {
-      hasItems: items.length > 0,
-      itemCount: items.length,
-    }),
-  );
+  const text = await buildAiListManagerMessage({ ctx, lang, section, listType, prefix });
+  const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
+    hasItems: items.length > 0,
+    itemCount: items.length,
+  });
+  let listMessage;
+  if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
+    try {
+      listMessage = await sendBannerPhoto(ctx, {
+        ...banner,
+        extra: { ...keyboard, caption: text },
+      });
+    } catch {
+      listMessage = await ctx.reply(text, keyboard);
+    }
+  } else {
+    listMessage = await ctx.reply(text, keyboard);
+  }
   await rememberAiListMessage(ctx, section, listType, listMessage);
   return listMessage;
 }

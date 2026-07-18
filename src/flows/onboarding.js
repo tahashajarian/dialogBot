@@ -1,4 +1,5 @@
 const messages = require("../messages");
+const path = require("node:path");
 const { callBacks } = require("../constants");
 const {
   ONBOARDING_CHIPS_PER_PAGE,
@@ -27,6 +28,7 @@ const {
   buildStarRewardNotice,
   notifyExternalReferralReward,
 } = require("../services/stars-ui");
+const { sendBannerPhoto } = require("../services/banner-media");
 
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
@@ -34,6 +36,8 @@ const ONBOARDING_INTERESTS_STATE = "onboarding_interests";
 const TASTE_SETUP_INTERESTS_STATE = "onboarding_taste_setup_interests";
 const ONBOARDING_CUSTOM_PREFIX = "onboarding_custom_interest:";
 const TASTE_SETUP_CUSTOM_PREFIX = "onboarding_taste_setup_custom_interest:";
+const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
+const MUZE_WELCOME_BANNER_PATH = path.join(__dirname, "../../assets/muze-welcome-banner.jpg");
 
 function getOnboardingInterestGoal() {
   return Math.min(operationalLimits.onboardingInterestMinItems, operationalLimits.onboardingInterestMaxItems);
@@ -73,6 +77,27 @@ function isInterestPickerState(state = "") {
 }
 
 async function sendFreshOnboardingPrompt(ctx, text, keyboard) {
+  return ctx.reply(text, keyboard);
+}
+
+async function sendMuzeWelcome(ctx, text, keyboard) {
+  if (!ctx.replyWithPhoto || text.length > TELEGRAM_CAPTION_MAX_LENGTH) {
+    return ctx.reply(text, keyboard);
+  }
+  const extra = { ...keyboard, caption: text };
+  try {
+    return await sendBannerPhoto(ctx, {
+      bannerKey: "muze_welcome_v2",
+      localSource: MUZE_WELCOME_BANNER_PATH,
+      configuredFileId: process.env.MUZE_WELCOME_BANNER_FILE_ID,
+      extra,
+    });
+  } catch {
+    return ctx.reply(text, keyboard);
+  }
+}
+
+async function sendOnboardingCompletion(ctx, text, keyboard) {
   return ctx.reply(text, keyboard);
 }
 
@@ -340,7 +365,8 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
     }
     const starRewards = await completeOnboardingForState(ctx, state);
     const completion = await prepareOnboardingCompletion(ctx, lang);
-    return helpers.editCallbackMessageOrReply(
+    await helpers.deleteCallbackMessageIfPossible?.(ctx);
+    return sendOnboardingCompletion(
       ctx,
       [completion.text, buildOnboardingStarNotice(lang, starRewards)].filter(Boolean).join("\n\n"),
       completion.keyboard,
@@ -406,7 +432,8 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
   if (result.ok && items.length >= getOnboardingInterestGoal()) {
     const onboardingRewards = await completeOnboardingForState(ctx, state);
     const completion = await prepareOnboardingCompletion(ctx, lang);
-    return helpers.editCallbackMessageOrReply(
+    await helpers.deleteCallbackMessageIfPossible?.(ctx);
+    return sendOnboardingCompletion(
       ctx,
       [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice]
         .filter(Boolean)
@@ -477,7 +504,8 @@ async function handleOnboardingText(ctx, lang) {
     if (result.items.length >= getOnboardingInterestGoal()) {
       const onboardingRewards = await completeOnboardingForState(ctx, state);
       const completion = await prepareOnboardingCompletion(ctx, lang);
-      return ctx.reply(
+      return sendOnboardingCompletion(
+        ctx,
         [completion.text, buildOnboardingStarNotice(lang, onboardingRewards), starNotice].filter(Boolean).join("\n\n"),
         completion.keyboard,
       );
@@ -517,6 +545,7 @@ module.exports = {
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
   sendTasteSetupNudge,
+  sendMuzeWelcome,
   startOnboardingLanguage,
   trackOnboardingCompletionDestination,
 };

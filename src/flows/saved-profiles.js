@@ -1,4 +1,5 @@
 const messages = require("../messages");
+const path = require("node:path");
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
@@ -21,6 +22,7 @@ const {
   updateUserFields,
 } = require("../services/users");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
+const { sendBannerPhoto } = require("../services/banner-media");
 const {
   buildProfileText,
   getBasicProfileMissingFields,
@@ -537,9 +539,22 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   await sendNavigationFootprint(ctx, { lang, destination: "people", removeKeyboard });
   const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "people");
   const text = buildPeopleHubText(messages, lang, { showFirstVisitTip });
-  const sent = send
-    ? await send(text, peopleHubKeyboard(lang))
-    : await ctx.reply(text, peopleHubKeyboard(lang));
+  const keyboard = peopleHubKeyboard(lang);
+  let sent;
+  if (send) {
+    sent = await send(text, keyboard);
+  } else {
+    try {
+      sent = await sendBannerPhoto(ctx, {
+        bannerKey: "people_section_v2",
+        localSource: path.join(__dirname, "..", "..", "assets", "people-section-banner.jpg"),
+        configuredFileId: process.env.PEOPLE_SECTION_BANNER_FILE_ID,
+        extra: { ...keyboard, caption: text },
+      });
+    } catch {
+      sent = await ctx.reply(text, keyboard);
+    }
+  }
   if (showFirstVisitTip) {
     await markSectionTipShownForContext(ctx, "people", new Date()).catch(() => null);
   }

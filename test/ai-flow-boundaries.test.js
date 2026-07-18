@@ -17,6 +17,7 @@ const User = require("../src/models/user");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
 const { starEconomy } = require("../src/services/star-settings");
 const { buildAiAssistantMenuMessage } = require("../src/services/ai-list-ui");
+const { sendAiAssistantHub } = require("../src/flows/ai-hub");
 const { handleCallback } = require("../src/callbacks");
 const {
   getAiListAddPrompt,
@@ -55,6 +56,23 @@ test("Favorites first-visit guidance stays inside the existing bilingual hub", (
     ].join("\n\n"));
     assert.match(messages[lang].favoritesFirstVisitTip, /^💡/);
   }
+});
+
+test("Favorites hub uses one banner card with its copy and controls", async () => {
+  const sent = [];
+  await sendAiAssistantHub({
+    user: { userId: 11 },
+    reply: async (text, extra) => sent.push({ text, extra }),
+    replyWithPhoto: async (photo, extra) => {
+      sent.push({ photo, extra });
+      return { message_id: 1, photo, caption: extra.caption };
+    },
+  }, "en");
+
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].photo.source, /assets[\\/]favorites-hub-banner\.jpg$/);
+  assert.match(sent[0].extra.caption, new RegExp(messages.en.aiAssistantTitle));
+  assert.ok(sent[0].extra.reply_markup.keyboard.length > 0);
 });
 
 test("Favorites entry shows its tip once and failed hub delivery does not mark it", async () => {
@@ -720,7 +738,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
-test("entering a media section leaves an untracked permanent footprint above Top Ten", async () => {
+test("entering Books uses its banner on the existing Top Ten manager card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -751,6 +769,10 @@ test("entering a media section leaves an untracked permanent footprint above Top
       replies.push({ text, extra });
       return { message_id: 100 + replies.length, text, extra };
     },
+    replyWithPhoto: async (photo, extra) => {
+      replies.push({ photo, extra });
+      return { message_id: 100 + replies.length, photo, extra };
+    },
     editMessageText: async (messageId, text, extra) => {
       edits.push({ messageId, text, extra });
       return { message_id: messageId, text, extra };
@@ -777,7 +799,9 @@ test("entering a media section leaves an untracked permanent footprint above Top
   assert.deepEqual(deletedIds, [60]);
   assert.deepEqual(edits, []);
   assert.equal(replies.length, 1);
-  assert.match(replies[0].text, /Dune/);
+  assert.match(replies[0].photo.source, /assets[\\/]books-section-banner\.jpg$/);
+  assert.match(replies[0].extra.caption, /📚 Books/);
+  assert.match(replies[0].extra.caption, /Dune/);
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
   assert.equal(ctx.user.aiLastListMessageId, 101);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten");

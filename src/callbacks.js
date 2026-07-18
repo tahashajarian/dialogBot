@@ -1,11 +1,11 @@
 const messages = require("./messages");
+const path = require("node:path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const {
   mainMenuKeyboard,
   helpKeyboard,
   helpRulesKeyboard,
   languageKeyboard,
-  aiAssistantKeyboard,
   discussionsMenuKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
@@ -26,6 +26,7 @@ const {
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
 const { sendNavigationFootprint } = require("./services/navigation-footprints");
+const { sendBannerPhoto } = require("./services/banner-media");
 const { MODES, setNavigationMode } = require("./services/reply-keyboard-navigation");
 const {
   getDiscussionErrorMessage,
@@ -108,9 +109,7 @@ const {
   clearRememberedAiListMessage,
   shouldKeepAiListTitleForCallback,
 } = require("./flows/ai-cards");
-const {
-  buildAiAssistantMenuMessage,
-} = require("./services/ai-list-ui");
+const { sendAiAssistantHub } = require("./flows/ai-hub");
 const {
   handleProfileSettingsOrEditCallback,
   isProfileSettingsOrEditCallback,
@@ -139,6 +138,7 @@ const {
 const {
   handleOnboardingCallback,
   isOnboardingCallback,
+  sendMuzeWelcome,
   sendTasteSetupNudge,
   trackOnboardingCompletionDestination,
 } = require("./flows/onboarding");
@@ -367,7 +367,21 @@ function getActiveRoomCallbackDiscussionId(data = "") {
 
 async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shouldClearKeyboard) {
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
-  const sent = await ctx.reply(text, keyboard);
+  let sent;
+  if (destination === "discussions") {
+    try {
+      sent = await sendBannerPhoto(ctx, {
+        bannerKey: "discussions_section_v2",
+        localSource: path.join(__dirname, "..", "assets", "discussions-section-banner.jpg"),
+        configuredFileId: process.env.DISCUSSIONS_SECTION_BANNER_FILE_ID,
+        extra: { ...keyboard, caption: text },
+      });
+    } catch {
+      sent = await ctx.reply(text, keyboard);
+    }
+  } else {
+    sent = await ctx.reply(text, keyboard);
+  }
   await setNavigationMode(ctx, mode);
   return sent;
 }
@@ -553,15 +567,9 @@ async function handleCallback(ctx) {
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
     const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
-    const sent = await showBottomHub(
-      ctx,
-      lang,
-      "taste",
-      MODES.FAVORITES,
-      buildAiAssistantMenuMessage(lang, { showFirstVisitTip }),
-      aiAssistantKeyboard(lang),
-      shouldClearKeyboard,
-    );
+    await sendNavigationFootprint(ctx, { lang, destination: "taste", removeKeyboard: shouldClearKeyboard });
+    const sent = await sendAiAssistantHub(ctx, lang, { showFirstVisitTip });
+    await setNavigationMode(ctx, MODES.FAVORITES);
     if (showFirstVisitTip) {
       await markSectionTipShownForContext(ctx, "favorites", new Date()).catch(() => null);
     }
@@ -998,11 +1006,8 @@ async function handleCallback(ctx) {
       await updateUserState(ctx.userId, "onboarding_welcome");
       if (ctx.user) ctx.user.state = "onboarding_welcome";
       await setNavigationMode(ctx, "onboarding_welcome");
-      return editCallbackMessageOrReply(
-        ctx,
-        welcomeMessage,
-        onboardingWelcomeKeyboard(newLang),
-      );
+      await deleteCallbackMessageIfPossible(ctx);
+      return sendMuzeWelcome(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
     }
 
     if (onboardingState.startsWith("onboarding_invite_language:")) {
@@ -1017,7 +1022,8 @@ async function handleCallback(ctx) {
       await updateUserState(ctx.userId, "onboarding_welcome");
       if (ctx.user) ctx.user.state = "onboarding_welcome";
       await setNavigationMode(ctx, "onboarding_welcome");
-      return editCallbackMessageOrReply(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
+      await deleteCallbackMessageIfPossible(ctx);
+      return sendMuzeWelcome(ctx, welcomeMessage, onboardingWelcomeKeyboard(newLang));
     }
 
     await deleteCallbackMessageIfPossible(ctx);

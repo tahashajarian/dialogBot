@@ -24,6 +24,7 @@ const {
   handleOnboardingCallback,
   handleOnboardingText,
   isOnboardingCallback,
+  sendMuzeWelcome,
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
 } = require("../src/flows/onboarding");
@@ -306,6 +307,10 @@ test("onboarding completion stays compact after the final typed Interest", async
         replies.push({ text, extra });
         return { message_id: 1 };
       },
+      replyWithPhoto: async (photo, extra) => {
+        replies.push({ photo, text: extra.caption, extra });
+        return { message_id: 1, photo, caption: extra.caption };
+      },
     }, "en");
   } finally {
     User.findOne = originalFindOne;
@@ -313,10 +318,28 @@ test("onboarding completion stays compact after the final typed Interest", async
   }
 
   assert.equal(replies.length, 1);
+  assert.equal(replies[0].photo, undefined);
   assert.match(replies[0].text, /^👩‍🦳 Great/);
   assert.doesNotMatch(replies[0].text, /Selected: Movies, Gaming, Coffee/);
   assert.match(replies[0].text, /your 3 interests are saved/i);
   assert.equal(replies[0].extra.reply_markup.keyboard.flat()[0].text, messages.en.onboardingDiscussionContinueButton);
+});
+
+test("Muze welcome uses the portrait banner with its greeting as the caption", async () => {
+  const replies = [];
+  await sendMuzeWelcome({
+    persistBannerFileIds: false,
+    reply: async (text, extra) => ({ text, extra }),
+    replyWithPhoto: async (photo, extra) => {
+      replies.push({ photo, extra });
+      return { photo: [], caption: extra.caption };
+    },
+  }, messages.en.onboardingWelcome, onboardingWelcomeKeyboard("en"));
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].photo.source, /assets[\\/]muze-welcome-banner\.jpg$/);
+  assert.equal(replies[0].extra.caption, messages.en.onboardingWelcome);
+  assert.equal(replies[0].extra.reply_markup.keyboard.flat()[0].text, messages.en.onboardingStartButton);
 });
 
 test("onboarding completion shows invitation copy and action only when one exists", () => {
