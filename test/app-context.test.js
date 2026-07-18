@@ -80,3 +80,51 @@ test("editMessageCaption updates photo cards with inline controls", async () => 
   assert.equal(calls[0].payload.caption, "Discussion");
   assert.deepEqual(calls[0].payload.reply_markup, keyboard.reply_markup);
 });
+
+test("Persian app context localizes visible digits without changing machine tokens", async () => {
+  const replies = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return true;
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1, lang: "fa" });
+
+  await appCtx.reply(
+    "Page 12 — /u_A1B2 — https://example.com/12 — d_A1B2",
+    {
+      reply_markup: {
+        inline_keyboard: [[{
+          text: "Page 12",
+          callback_data: "page:12",
+          copy_text: { text: "Count 12 /u_A1B2" },
+        }]],
+      },
+    },
+  );
+
+  assert.equal(replies[0].text, "Page ۱۲ — /u_A1B2 — https://example.com/12 — d_A1B2");
+  const button = replies[0].extra.reply_markup.inline_keyboard[0][0];
+  assert.equal(button.text, "Page ۱۲");
+  assert.equal(button.callback_data, "page:12");
+  assert.equal(button.copy_text.text, "Count ۱۲ /u_A1B2");
+});
+
+test("English app context normalizes Persian and Arabic-Indic digits to Latin", async () => {
+  const replies = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return true;
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1, lang: "en" });
+
+  await appCtx.reply("Count ۱۲ and ١٢", {
+    reply_markup: { keyboard: [[{ text: "Page ۱۲" }]] },
+  });
+
+  assert.equal(replies[0].text, "Count 12 and 12");
+  assert.equal(replies[0].extra.reply_markup.keyboard[0][0].text, "Page 12");
+});

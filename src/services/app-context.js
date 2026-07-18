@@ -3,6 +3,7 @@ const SLOW_TELEGRAM_API_MS = 1200;
 const PIN_RETRY_DELAY_MS = 400;
 const { logger } = require("./logger");
 const { formatBotText, formatBotExtra } = require("./bot-appearance");
+const { localizeOutgoingExtra, localizeVisibleDigits } = require("./number-localization");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -125,6 +126,9 @@ async function withTelegramTiming(label, fn, metrics) {
 function createAppContext(ctx, user, options = {}) {
   const operationTimeoutMs = Number(options.operationTimeoutMs) || DEFAULT_API_OPERATION_TIMEOUT_MS;
   const apiMetrics = options.apiMetrics || null;
+  const userLang = user?.lang === "fa" ? "fa" : "en";
+  const formatText = (text, lang = userLang) => localizeVisibleDigits(formatBotText(text), lang);
+  const formatExtra = (extra, lang = userLang) => localizeOutgoingExtra(formatBotExtra(extra), lang);
 
   const sendApi = (method, payload) => callTelegramApiWithTimeout(
     ctx,
@@ -148,18 +152,18 @@ function createAppContext(ctx, user, options = {}) {
 
     reply: (text, extra = undefined) => withTelegramTiming(
       "sendMessage",
-      () => ctx.reply(formatBotText(text), extra),
+      () => ctx.reply(formatText(text), formatExtra(extra)),
       apiMetrics,
     ),
     replyWithPhoto: (photo, extra = undefined) => withTelegramTiming(
       "sendPhoto",
-      () => ctx.replyWithPhoto(photo, formatBotExtra(extra)),
+      () => ctx.replyWithPhoto(photo, formatExtra(extra)),
       apiMetrics,
     ),
     answerCb: (text = "", extra = undefined) => {
       const payload = {
         callback_query_id: ctx.callbackQuery?.id,
-        text: formatBotText(String(text || "")),
+        text: formatText(String(text || "")),
         ...(extra && typeof extra === "object" ? extra : {}),
       };
       const shouldAwait = Boolean(payload.show_alert);
@@ -184,7 +188,7 @@ function createAppContext(ctx, user, options = {}) {
       }
       const promise = withTelegramTiming(
         "answerCallbackQuery",
-        () => ctx.answerCbQuery(formatBotText(String(text || ""))),
+        () => ctx.answerCbQuery(formatText(String(text || ""))),
         apiMetrics,
       ).catch(() => {});
       if (!shouldAwait) {
@@ -193,7 +197,7 @@ function createAppContext(ctx, user, options = {}) {
       }
       return promise;
     },
-    sendToUser: async (userId, text, extra = {}) => {
+    sendToUser: async (userId, text, extra = {}, recipientLang = null) => {
       const targetUserId = Number(userId);
       if (!Number.isInteger(targetUserId) || targetUserId <= 0 || !ctx.telegram?.callApi) {
         return false;
@@ -201,14 +205,14 @@ function createAppContext(ctx, user, options = {}) {
       try {
         return await sendApi("sendMessage", {
           chat_id: targetUserId,
-          text: formatBotText(text),
-          ...extra,
+          text: formatText(text, recipientLang || userLang),
+          ...formatExtra(extra, recipientLang || userLang),
         });
       } catch {
         return false;
       }
     },
-    editMessage: (text, extra = undefined) => ctx.editMessageText(formatBotText(text), extra),
+    editMessage: (text, extra = undefined) => ctx.editMessageText(formatText(text), formatExtra(extra)),
     editMessageText: async (messageId, text, extra = {}) => {
       const chatId = resolveChatId(ctx);
       const normalizedMessageId = Number(messageId);
@@ -220,8 +224,8 @@ function createAppContext(ctx, user, options = {}) {
         return await sendApi("editMessageText", {
           chat_id: chatId,
           message_id: normalizedMessageId,
-          text: formatBotText(text),
-          ...extra,
+          text: formatText(text),
+          ...formatExtra(extra),
         });
       } catch (error) {
         if (isMessageNotFoundError(error)) {
@@ -259,8 +263,8 @@ function createAppContext(ctx, user, options = {}) {
         return await sendApi("editMessageCaption", {
           chat_id: chatId,
           message_id: normalizedMessageId,
-          caption: formatBotText(caption),
-          ...extra,
+          caption: formatText(caption),
+          ...formatExtra(extra),
         });
       } catch (error) {
         if (isMessageNotFoundError(error)) return false;
@@ -286,7 +290,7 @@ function createAppContext(ctx, user, options = {}) {
         return await sendApi("editMessageReplyMarkup", {
           chat_id: chatId,
           message_id: normalizedMessageId,
-          reply_markup: replyMarkup,
+          reply_markup: formatExtra({ reply_markup: replyMarkup })?.reply_markup || replyMarkup,
         });
       } catch {
         return false;

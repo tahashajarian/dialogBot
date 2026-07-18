@@ -115,11 +115,13 @@ async function removeDiscussionMemberAndNotify({
         removed.memberUserId,
         messages[targetLang].discussionRemovedNotice.replace("{title}", discussionTitle),
         REMOVE_KEYBOARD,
+        targetLang,
       );
       await ctx.sendToUser?.(
         removed.memberUserId,
         messages[targetLang].discussionsMenu,
         discussionsMenuKeyboard(targetLang),
+        targetLang,
       );
     } catch {
       // Notification failures should not block the owner action.
@@ -157,7 +159,7 @@ async function reportDiscussionMemberAndNotify({ ctx, messages, discussionId, me
   const targetExtra = reported.banned ? REMOVE_KEYBOARD : {};
 
   try {
-    await ctx.sendToUser?.(reported.targetUserId, targetMessage, targetExtra);
+    await ctx.sendToUser?.(reported.targetUserId, targetMessage, targetExtra, targetLang);
   } catch {
     // Private warning delivery should not block the reporter action.
   }

@@ -18,7 +18,7 @@ async function notifyDiscussionMembers(ctx, messages, members = [], getPayloads)
     try {
       const payloads = normalizeNotificationPayloads(getPayloads(messages, memberLang));
       for (const payload of payloads) {
-        await ctx.sendToUser?.(member.userId, payload.text, payload.extra);
+        await ctx.sendToUser?.(member.userId, payload.text, payload.extra, memberLang);
       }
     } catch {
       // Individual notification failures should not block the acting user.

@@ -158,7 +158,7 @@ async function deliverBoostRecommendations(ctx, boost, discussion) {
           callback_data: callBacks.discussionBoostOptOut,
         },
       ],
-    ]));
+    ]), lang);
     if (sent) await markBoostDeliverySent(delivery._id, user.userId);
     else await releaseBoostDelivery(delivery._id, user.userId);
   }

@@ -103,7 +103,7 @@ async function notifyExternalReferralReward(ctx, messages, reward) {
     balance: reward.balance,
   }]);
   if (!text) return false;
-  return ctx.sendToUser?.(reward.inviterUserId, text) || false;
+  return ctx.sendToUser?.(reward.inviterUserId, text, {}, lang) || false;
 }
 
 module.exports = {

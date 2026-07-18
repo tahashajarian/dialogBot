@@ -45,6 +45,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - The discussion-entry name gate must consume localized bottom Cancel labels before profile-name validation. Cancel returns to the exact source surface and must never save the label as a name or continue into the room.
 - Text inputs should be length-limited and normalized before saving.
 - Profile name/city are short fields; bio can be longer.
+- Normalize all visible digits at the delivery boundary: Persian UI uses Persian digits and English UI uses Latin digits, regardless of whether values came from storage, configuration, or static copy. Preserve Latin digits inside URLs, email addresses, bot commands, public codes, and callback payloads so actions remain valid.
 
 ## First-Session Onboarding
 

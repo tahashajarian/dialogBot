@@ -107,6 +107,7 @@ async function notifyInviteeOfInvitation(ctx, invitationResult) {
       inviteeUserId,
       messages[targetLang].discussionInvitationReceivedNotice,
       discussionInvitationInboxKeyboard(targetLang),
+      targetLang,
     );
     return true;
   } catch {
@@ -402,7 +403,7 @@ async function acceptInvitationCommand(ctx, lang, text, {
       amount: inviterReward.transaction.amount,
       balance: inviterReward.balance,
     }]);
-    if (inviterNotice) await ctx.sendToUser?.(found.invitation.inviterUserId, inviterNotice);
+    if (inviterNotice) await ctx.sendToUser?.(found.invitation.inviterUserId, inviterNotice, {}, inviterLang);
   }
   applyStarRewardsToContext(ctx, joined.starRewards);
   const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
