@@ -607,7 +607,7 @@ test("discussion title and description reject command-like text", () => {
   assert.equal(validateDiscussionTitle("Best riffs ever").valid, true);
 });
 
-test("discussion titles reject English and Persian sexual-content terms", () => {
+test("discussion titles reject English and Persian sensitive or abusive terms", () => {
   const rejectedTitles = [
     "sex chat",
     "SexChat",
@@ -631,6 +631,15 @@ test("discussion titles reject English and Persian sexual-content terms", () => 
     "رابطه‌ جنسی",
     "خود ارضایی",
     "شهوانی",
+    "ارباب و برده",
+    "برده‌داری",
+    "بی غیرت",
+    "خاله",
+    "Master and slave",
+    "slave-girl",
+    "Bitch chat",
+    "cuckold room",
+    "khaleh group",
   ];
 
   for (const title of rejectedTitles) {
@@ -641,6 +650,7 @@ test("discussion titles reject English and Persian sexual-content terms", () => 
 test("discussion title moderation does not match sensitive substrings inside words", () => {
   assert.equal(validateDiscussionTitle("Sussex book club").valid, true);
   assert.equal(validateDiscussionTitle("Essex history").valid, true);
+  assert.equal(validateDiscussionTitle("Cinema masterpieces").valid, true);
 });
 
 test("top ten item join rule tolerates near-duplicate spelling", async () => {

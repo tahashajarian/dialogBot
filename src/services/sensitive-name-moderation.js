@@ -8,11 +8,23 @@ const SENSITIVE_NAME_TERMS = [
   "cock", "boobs", "tits", "blowjob", "handjob", "masturbation", "rape", "prostitute",
   "prostitution", "s3x", "pr0n", "seks", "seksi",
 
+  // English degrading, exploitative, and abusive terms.
+  "master", "slave", "slavery", "slavegirl", "slaveboy", "mistress", "servant",
+  "bitch", "slut", "whore", "hoe", "cunt", "cuck", "cuckold", "pimp", "bastard",
+  "motherfucker", "fuck", "fucking", "asshole", "scumbag", "dishonorable",
+  "aunt", "auntie", "arbab", "bardeh", "borde", "jende", "jendeh", "khale", "khaleh",
+  "bigheyrat", "binamoos", "deyoos",
+
   // Persian equivalents and common spellings.
   "سکس", "سکسچت", "سکسی", "پورن", "پورنو", "لخت", "برهنه", "اروتیک", "جنسی",
   "رابطهجنسی", "چتجنسی", "چتبزرگسالان", "محتوایبزرگسال", "بزرگسالان", "شهوت",
   "شهوانی", "تحریکجنسی", "همخوابگی", "همبستری", "خودارضایی", "واژن", "آلتجنسی",
   "کیر", "کص", "جنده", "فاحشه", "فحشا", "تجاوزجنسی", "لواط",
+
+  // Persian degrading, exploitative, and abusive terms.
+  "ارباب", "برده", "بردگی", "بردهداری", "کنیز", "نوکر", "خاله", "بیغیرت", "بیناموس",
+  "دیوث", "کسکش", "مادرجنده", "هرزه", "روسپی", "لاشی", "حرامزاده", "حرومزاده",
+  "عوضی", "احمق", "کثافت",
 ];
 
 const LETTER_SEPARATOR = "[\\s\\p{P}\\p{S}\\p{Cf}]*";

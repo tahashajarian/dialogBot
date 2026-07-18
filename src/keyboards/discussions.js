@@ -149,6 +149,15 @@ function discussionRoomKeyboard(lang, isOwner = false) {
   };
 }
 
+function discussionMembersCloseKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].discussionShareClose,
+      callback_data: callBacks.discussionMembersClose,
+    },
+  ]]);
+}
+
 function discussionCloseConfirmKeyboard(lang, discussionId, source = "room") {
   const suffix = `${discussionId}:${source}`;
   return inlineKeyboard([
@@ -568,6 +577,7 @@ module.exports = {
   discussionListNavigationKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
+  discussionMembersCloseKeyboard,
   discussionCloseConfirmKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteFullKeyboard,

@@ -151,6 +151,7 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionCloseConfirm) ||
     data.startsWith(callBacks.discussionCloseCancel) ||
     data.startsWith(callBacks.discussionClose) ||
+    data === callBacks.discussionMembersClose ||
     data.startsWith(callBacks.discussionMembers) ||
     data.startsWith(callBacks.discussionInviteJoin) ||
     data.startsWith(callBacks.discussionInviteSwitchJoin) ||
@@ -365,6 +366,7 @@ function isDiscussionListCallback(data = "") {
     data.startsWith(callBacks.discussionListLanguageOpen) ||
     data.startsWith(callBacks.discussionListLanguageSet) ||
     data === callBacks.discussionListClose ||
+    data === callBacks.discussionMembersClose ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListMinePage) ||
     data === callBacks.discussionJoinLockedClose ||
@@ -381,6 +383,12 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListClose) {
     await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible?.(ctx);
+  }
+
+  if (data === callBacks.discussionMembersClose) {
+    await ctx.answerCb?.();
+    await clearDiscussionMembersMessage(ctx);
     return deleteCallbackMessageIfPossible?.(ctx);
   }
 

@@ -138,6 +138,7 @@ test("formatDiscussionMemberLines uses Persian digits in fa", () => {
 });
 
 test("discussion member lists are visibly bot-authored", () => {
-  assert.equal(buildDiscussionMembersText(messages, "en", ["1. Member"]), `👩‍🦳 ${messages.en.discussionMembersTitle}\n\n1. Member`);
+  assert.equal(buildDiscussionMembersText(messages, "en", ["1. Member"]), `👩‍🦳 ${messages.en.discussionMembersTitle} (1)\n\n1. Member`);
   assert.match(buildDiscussionMembersText(messages, "fa", []), /^👩‍🦳/);
+  assert.match(buildDiscussionMembersText(messages, "fa", ["one", "two", "three"]), /اعضا \(۳\)/);
 });

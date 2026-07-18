@@ -87,7 +87,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before creating or entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, sensitive sexual terms, placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
+- Before creating or entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, sexual/degrading/abusive terms, placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Profile discussion visibility is a separate setting that controls both the user's current discussion and open discussions they created. It defaults to on for new accounts, can be turned off from Profile Settings, and must always respect the user's saved choice.
@@ -192,7 +192,7 @@ Title validation:
 - max 80 characters
 - normalize repeated spaces
 - reject links in title
-- reject English and Persian sexual-content terms, including joined, spaced, punctuated, and common Arabic-letter variants
+- reject English and Persian sexual, degrading, exploitative, and abusive terms, including joined, spaced, punctuated, transliterated, and common Arabic-letter variants
 - reject nonsense input: placeholders (test, asdf, تست, هیچی), Latin keyboard mash (qwerty, asdfg), Persian keyboard mash (سشبیل, شسیب), repeated characters (aaaa), long consonant-heavy chunks, long single Persian tokens with no spaces
 - allow duplicate titles (discussions are not global channels with unique names)
 - allow real short titles (Dune, Chess, شطرنج)
@@ -728,7 +728,7 @@ Inside an active discussion, the bottom button `👥 اعضا` shows the current
 Example:
 
 ```text
-👩‍🦳👥 اعضای این گفت‌وگو
+👩‍🦳👥 اعضای این گفت‌وگو (۳)
 
 1. 👤 علی — 🎙️ میزبان
 دیدن پروفایل 👈 /u_8K2P
@@ -756,10 +756,10 @@ Rules:
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `🎙️ میزبان`. `⭐` is reserved for the Stars economy.
 - Do not show a separate active/presence marker. If a user is in the member list, they are currently in the discussion.
-- Member lists should be plain text command links, not inline button rows.
+- Member profile/report/remove actions should remain plain text command links, not inline button rows. The card has one final inline Close action that only removes the member-list card.
 - Profile/report/remove actions should be shown with labels and pointer emojis on separate lines (e.g., `👁 View profile 👈 /u_CODE`, `🚩 Report 👈 /report_CODE`, `🗑 Remove 👈 /remove_CODE`).
 - Separate member blocks with a simple line divider when multiple members are shown.
-- Users stay inside the discussion after viewing the member list; no back button is needed on the member list.
+- Users stay inside the discussion after viewing or closing the member list; no navigation/back action is needed on the member list.
 - Keep the member list low-noise: remember the latest member-list bot message and remove it when the user opens the member list again, opens a profile from that list, leaves the discussion, or the discussion closes.
 - Profiles opened from the members list are transient identity-bound cards. Show inline Save only when unsaved, a non-action Saved tag when saved, and Close; omit People-only active-discussion actions.
 

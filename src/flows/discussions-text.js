@@ -8,6 +8,7 @@ const {
   discussionInviteFullKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
+  discussionMembersCloseKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
@@ -409,7 +410,7 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const preparedMembers = await ensurePublicProfileCodes(memberUsers);
     const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
     const memberText = buildDiscussionMembersText(messages, lang, rows);
-    const sent = await ctx.reply(memberText);
+    const sent = await ctx.reply(memberText, discussionMembersCloseKeyboard(lang));
     await rememberDiscussionMembersMessage(ctx, sent);
     return sent;
   }

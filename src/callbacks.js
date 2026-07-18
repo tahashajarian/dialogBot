@@ -9,6 +9,7 @@ const {
   discussionsMenuKeyboard,
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
+  discussionMembersCloseKeyboard,
   discussionRemoveMembersKeyboard,
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
@@ -349,6 +350,7 @@ async function retireStaleCallbackCardIfNeeded(ctx, data = "") {
 }
 
 function getActiveRoomCallbackDiscussionId(data = "") {
+  if (data === callBacks.discussionMembersClose) return "";
   if (
     data.startsWith(callBacks.discussionCloseConfirm) ||
     data.startsWith(callBacks.discussionCloseCancel)
@@ -840,7 +842,7 @@ async function handleCallback(ctx) {
     const membersMessage = await editCallbackMessageOrReply(
       ctx,
       buildDiscussionMembersText(messages, lang, rows),
-      { reply_markup: { inline_keyboard: [] } },
+      discussionMembersCloseKeyboard(lang),
     );
     await rememberDiscussionMembersMessage(ctx, ctx.callbackMessageId || membersMessage);
     return membersMessage;

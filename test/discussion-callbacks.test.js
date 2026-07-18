@@ -23,6 +23,7 @@ const {
   discussionJoinLockedKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
   discussionRoomKeyboard,
+  discussionMembersCloseKeyboard,
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
   discussionCreateLanguagePickerKeyboard,
@@ -37,6 +38,7 @@ const {
   clearDiscussionMenuNotice,
   clearRememberedDiscussionRoomCards,
   handleDiscussionListCallback,
+  isDiscussionListCallback,
   renderActiveDiscussionList,
   renderMyDiscussionList,
   shouldKeepDiscussionRoomCardsForCallback,
@@ -492,6 +494,43 @@ test("closing the active discussion list only removes its card", async () => {
   });
 
   assert.deepEqual(events, ["answer", "delete:42"]);
+});
+
+test("discussion members card has a Close-only inline action", () => {
+  const keyboard = discussionMembersCloseKeyboard("en");
+  const buttons = keyboard.reply_markup.inline_keyboard.flat();
+
+  assert.equal(buttons.length, 1);
+  assert.equal(buttons[0].text, messages.en.discussionShareClose);
+  assert.equal(buttons[0].callback_data, callBacks.discussionMembersClose);
+  assert.equal(isDiscussionListCallback(callBacks.discussionMembersClose), true);
+});
+
+test("closing the discussion members card only deletes it and clears tracking", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const events = [];
+  const ctx = {
+    userId: 7,
+    user: { discussionLastMembersMessageId: 52 },
+    callbackData: callBacks.discussionMembersClose,
+    callbackMessageId: 52,
+    answerCb: async () => events.push("answer"),
+  };
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleDiscussionListCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        events.push(`delete:${callbackCtx.callbackMessageId}`);
+        return true;
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(events, ["answer", "delete:52"]);
+  assert.equal(ctx.user.discussionLastMembersMessageId, null);
 });
 
 test("join-error acknowledgement copy remains available for discussion recovery", () => {

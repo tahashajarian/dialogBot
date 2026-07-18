@@ -112,7 +112,8 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 }
 
 function buildDiscussionMembersText(messages, lang, rows = []) {
-  return `👩‍🦳 ${messages[lang].discussionMembersTitle}\n\n${rows.join("\n")}`;
+  const count = formatListIndex(lang, rows.length);
+  return `👩‍🦳 ${messages[lang].discussionMembersTitle} (${count})\n\n${rows.join("\n")}`;
 }
 
 module.exports = {

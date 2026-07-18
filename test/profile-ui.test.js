@@ -120,6 +120,10 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(validateProfileName("Sex Chat", 30).reason, "sensitive_content");
   assert.equal(validateProfileName("سکس چت", 30).reason, "sensitive_content");
   assert.equal(validateProfileName("پورن فارسی", 30).reason, "sensitive_content");
+  assert.equal(validateProfileName("ارباب", 30).reason, "sensitive_content");
+  assert.equal(validateProfileName("بی غیرت", 30).reason, "sensitive_content");
+  assert.equal(validateProfileName("Slave Master", 30).reason, "sensitive_content");
+  assert.equal(validateProfileName("Khaleh", 30).reason, "sensitive_content");
   assert.deepEqual(
     validateProfileName("محمدرضاپورابراهیمی", 30),
     { ok: true, value: "محمدرضاپورابراهیمی" },
@@ -130,6 +134,7 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(sanitizeProfileNameCandidate("😀", 30), "");
   assert.equal(sanitizeProfileNameCandidate("منشتسیبمنتشکمیبتشکسیبتشمکسیبت", 30), "");
   assert.equal(sanitizeProfileNameCandidate("NSFW", 30), "");
+  assert.equal(sanitizeProfileNameCandidate("Jendeh", 30), "");
 });
 
 test("buildProfileText hides empty badge section", () => {
