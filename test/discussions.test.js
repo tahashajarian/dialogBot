@@ -607,6 +607,42 @@ test("discussion title and description reject command-like text", () => {
   assert.equal(validateDiscussionTitle("Best riffs ever").valid, true);
 });
 
+test("discussion titles reject English and Persian sexual-content terms", () => {
+  const rejectedTitles = [
+    "sex chat",
+    "SexChat",
+    "s.e.x room",
+    "porn talk",
+    "adult-chat",
+    "سکس",
+    "سکسچت",
+    "سکس چت",
+    "سـکـس چت",
+    "پورن فارسی",
+    "سكس چت",
+    "چت جنسی فارسی",
+    "محتوای بزرگسال",
+    "Adult dating room",
+    "NSFW group",
+    "only-fans chat",
+    "s3x talk",
+    "seks chat",
+    "fetish room",
+    "رابطه‌ جنسی",
+    "خود ارضایی",
+    "شهوانی",
+  ];
+
+  for (const title of rejectedTitles) {
+    assert.equal(validateDiscussionTitle(title).reason, "sensitive_content", title);
+  }
+});
+
+test("discussion title moderation does not match sensitive substrings inside words", () => {
+  assert.equal(validateDiscussionTitle("Sussex book club").valid, true);
+  assert.equal(validateDiscussionTitle("Essex history").valid, true);
+});
+
 test("top ten item join rule tolerates near-duplicate spelling", async () => {
   const user = {
     aiLists: {

@@ -5,6 +5,7 @@ const { isCommandLikeText } = require("./command-like-text");
 const { getProfileStarCompletionStatus } = require("./star-milestones");
 const { starEconomy } = require("./star-settings");
 const { isLowQualityProfileName } = require("./ai-input-quality");
+const { hasSensitiveName } = require("./sensitive-name-moderation");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -58,6 +59,7 @@ function sanitizeProfileNameCandidate(name, maxLength) {
   const sanitized = normalizeProfileName(String(name || "").replace(/\p{Extended_Pictographic}/gu, ""));
   if (!isValidTextInput(sanitized, maxLength)) return "";
   if (isLowQualityProfileName(sanitized)) return "";
+  if (hasSensitiveName(sanitized)) return "";
   return sanitized;
 }
 
@@ -71,6 +73,9 @@ function validateProfileName(name, maxLength) {
   }
   if (hasEmoji(name)) {
     return { ok: false, reason: "emoji" };
+  }
+  if (hasSensitiveName(normalized)) {
+    return { ok: false, reason: "sensitive_content" };
   }
   if (normalized.length < 3) {
     return { ok: false, reason: "too_short" };

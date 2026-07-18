@@ -159,6 +159,7 @@ async function handleDiscussionNameCancel(ctx, lang, {
 
 function getProfileNameErrorMessage(lang, reason) {
   if (reason === "emoji") return messages[lang].profileNameNoEmoji;
+  if (reason === "sensitive_content") return messages[lang].profileNameNotAcceptable;
   return messages[lang].profileNameInvalid;
 }
 

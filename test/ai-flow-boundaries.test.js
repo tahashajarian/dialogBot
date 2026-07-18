@@ -1933,9 +1933,17 @@ test("AI list manager keyboard shows list/filter/share controls only when eligib
     false,
   );
   assert.ok(labels.includes(messages.en.aiSuggestionGoToFavoritesButton));
-  assert.ok(
+  assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 }))
       .some((button) => button.text === messages.en.aiSectionListButtonMovies),
+    false,
+  );
+  assert.ok(
+    keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", {
+      hasItems: true,
+      itemCount: 1,
+      hasWatchlistItems: true,
+    })).some((button) => button.text === messages.en.aiSectionListButtonMovies),
   );
   assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 }))

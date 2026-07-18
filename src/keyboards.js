@@ -360,7 +360,12 @@ function getSectionStatusLabels(lang, section) {
   };
 }
 
-function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, itemCount = 0, filter = "all" } = {}) {
+function aiListManageMenuKeyboard(lang, section, listType, {
+  hasItems = false,
+  itemCount = 0,
+  filter = "all",
+  hasWatchlistItems = false,
+} = {}) {
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
   const isMediaSection = ["movies", "music", "books"].includes(section);
@@ -396,11 +401,13 @@ function aiListManageMenuKeyboard(lang, section, listType, { hasItems = false, i
       : section === "music"
         ? messages[lang].aiSectionListButtonMusic
         : messages[lang].aiSectionListButtonBooks;
-    rows.push([
-      {
-        text: listButtonText,
-      },
-    ]);
+    if (hasWatchlistItems) {
+      rows.push([
+        {
+          text: listButtonText,
+        },
+      ]);
+    }
     if (itemCount >= 3) {
       rows.push([
         {

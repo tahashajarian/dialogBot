@@ -98,7 +98,10 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
 
   const titleValidation = validateDiscussionTitle(normalized);
   if (!titleValidation.valid) {
-    return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitle, cancelKeyboard());
+    const validationMessage = titleValidation.reason === "sensitive_content"
+      ? messages[lang].discussionSensitiveTitle
+      : messages[lang].discussionInvalidTitle;
+    return sendDiscussionCreatePrompt(ctx, validationMessage, cancelKeyboard());
   }
 
   await clearDiscussionMenuNotice(ctx);

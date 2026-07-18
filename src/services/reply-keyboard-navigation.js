@@ -6,7 +6,7 @@ const { getSectionListLabel } = require("./ai-section");
 const { getSelectableDiscussionCapacities } = require("./discussion-capacities");
 const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
-const { updateProfileField } = require("./users");
+const { getAiListItemsFromUser, updateProfileField } = require("./users");
 
 const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
 
@@ -358,7 +358,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
         section === "movies" ? "aiFavoritesAddAnotherMovies" : section === "music" ? "aiFavoritesAddAnotherMusic" : "aiFavoritesAddAnotherBooks"];
     if (state === expectedAiState) for (const key of addKeys) entries.push([key, `${callBacks.aiListManageAdd}${section}:${token}`]);
     if (state === expectedAiState && listType === "topTen" && section !== "random") {
-      entries.push([section === "movies" ? "aiSectionListButtonMovies" : section === "music" ? "aiSectionListButtonMusic" : "aiSectionListButtonBooks", `${callBacks.aiListManageMenu}${section}:watchlist`]);
+      if (getAiListItemsFromUser(user, section, "watchlist").length > 0) {
+        entries.push([section === "movies" ? "aiSectionListButtonMovies" : section === "music" ? "aiSectionListButtonMusic" : "aiSectionListButtonBooks", `${callBacks.aiListManageMenu}${section}:watchlist`]);
+      }
       entries.push(["aiSectionSuggestButton", `${callBacks.aiSectionSuggestMenu}${section}`]);
       entries.push(["aiListManageShare", `${callBacks.aiListManageShare}${section}:${token}`]);
     }

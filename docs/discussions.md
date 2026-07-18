@@ -87,7 +87,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before creating or entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, and no placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
+- Before creating or entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, sensitive sexual terms, placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Profile discussion visibility is a separate setting that controls both the user's current discussion and open discussions they created. It defaults to on for new accounts, can be turned off from Profile Settings, and must always respect the user's saved choice.
@@ -192,6 +192,7 @@ Title validation:
 - max 80 characters
 - normalize repeated spaces
 - reject links in title
+- reject English and Persian sexual-content terms, including joined, spaced, punctuated, and common Arabic-letter variants
 - reject nonsense input: placeholders (test, asdf, تست, هیچی), Latin keyboard mash (qwerty, asdfg), Persian keyboard mash (سشبیل, شسیب), repeated characters (aaaa), long consonant-heavy chunks, long single Persian tokens with no spaces
 - allow duplicate titles (discussions are not global channels with unique names)
 - allow real short titles (Dune, Chess, شطرنج)

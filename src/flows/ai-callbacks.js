@@ -535,7 +535,12 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     const listMessage = await ctx.reply(
       titledListText,
-      aiListManageMenuKeyboard(lang, section, listType, { hasItems, itemCount, filter }),
+      aiListManageMenuKeyboard(lang, section, listType, {
+        hasItems,
+        itemCount,
+        filter,
+        hasWatchlistItems: allWatchlistItems.length > 0,
+      }),
     );
     await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
     if (listType === "watchlist" && filter !== "all") {
@@ -595,7 +600,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(lang, section, items)}`);
     const actionMessage = await ctx.reply(
       await buildAiListManagerMessage({ ctx, lang, section, listType: "topTen" }),
-      aiListManageMenuKeyboard(lang, section, "topTen"),
+      aiListManageMenuKeyboard(lang, section, "topTen", {
+        hasItems: items.length > 0,
+        itemCount: items.length,
+        hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
+      }),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:topTen`, actionMessage);
     return actionMessage;
@@ -1008,6 +1017,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       aiListManageMenuKeyboard(lang, section, listType, {
         hasItems: removeResult.items.length > 0,
         itemCount: removeResult.items.length,
+        hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
       }),
     );
   }

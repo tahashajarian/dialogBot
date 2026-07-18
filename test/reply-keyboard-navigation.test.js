@@ -209,6 +209,21 @@ test("Favorites list-manager actions retain trusted section and list context", (
   assert.equal(resolveReplyKeyboardAction(messages.en.aiFavoritesAddFirstMovies, { mode: "ai_list:books:topTen", state: "ai_manage_books_top_ten" }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten_add_input" }), null);
+  const listButton = messages.en.aiSectionListButtonMovies;
+  const emptyWatchlist = {
+    mode: "ai_list:movies:topTen",
+    state: "ai_manage_movies_top_ten",
+    user: { lang: "en", aiLists: { movies: { watchlist: [] } } },
+  };
+  const populatedWatchlist = {
+    ...emptyWatchlist,
+    user: { lang: "en", aiLists: { movies: { watchlist: [{ title: "Arrival" }] } } },
+  };
+  assert.equal(resolveReplyKeyboardAction(listButton, emptyWatchlist), null);
+  assert.equal(
+    resolveReplyKeyboardAction(listButton, populatedWatchlist).callbackData,
+    `${callBacks.aiListManageMenu}movies:watchlist`,
+  );
 });
 
 test("For Later Add works after entering from a saved suggestion", () => {

@@ -507,6 +507,7 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
   const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
+    hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
   });
   let listMessage;
   if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
@@ -735,6 +736,7 @@ async function handleAiText(ctx, lang, text, state) {
             aiListManageMenuKeyboard(lang, section, listType, {
               hasItems: currentItems.length > 0,
               itemCount: currentItems.length,
+              hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
             }),
           );
         }
@@ -861,6 +863,7 @@ async function handleAiText(ctx, lang, text, state) {
       aiListManageMenuKeyboard(lang, section, listType, {
         hasItems: currentItems.length > 0,
         itemCount: currentItems.length,
+        hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
       }),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);

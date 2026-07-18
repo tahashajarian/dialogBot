@@ -58,6 +58,7 @@ const {
 } = require("./star-milestones");
 const { decorateActiveBoosts, endBoostForDiscussion } = require("./discussion-boosts");
 const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
+const { hasSensitiveName } = require("./sensitive-name-moderation");
 
 const DISCUSSION_MEMBER_CAP = 20;
 const DISCUSSION_ALLOWED_MEMBER_CAPS = [2, 3, 4, 5, 10, 15, 20];
@@ -104,6 +105,10 @@ const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-qu
 function validateDiscussionTitle(title) {
   if (isCommandLikeText(title)) {
     return { valid: false, reason: "command_like" };
+  }
+
+  if (hasSensitiveName(title)) {
+    return { valid: false, reason: "sensitive_content" };
   }
 
   const lengthCheck = validateMinimumLength(title);
