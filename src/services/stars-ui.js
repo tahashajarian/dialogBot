@@ -1,4 +1,6 @@
 const { starEconomy } = require("./star-settings");
+const { operationalLimits } = require("./operational-limits");
+const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 
 function formatStarNumber(value, lang = "en") {
   const normalized = Math.max(0, Math.round(Number(value) || 0));
@@ -24,6 +26,8 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
     paidLargeDiscussionCapacity: formatStarNumber(settings.paidLargeDiscussionCapacity, lang),
     paidLargeDiscussionCost: formatStarNumber(settings.paidLargeDiscussionCost, lang),
     paidExtraDiscussionCost: formatStarNumber(settings.paidExtraDiscussionCost, lang),
+    freeActiveDiscussionLimit: formatStarNumber(operationalLimits.activeOwnedDiscussions, lang),
+    ownedDiscussionHardLimit: formatStarNumber(DISCUSSION_OWNED_HARD_LIMIT, lang),
   };
   return Object.entries(values).reduce(
     (text, [key, value]) => text.replaceAll(`{${key}}`, value),

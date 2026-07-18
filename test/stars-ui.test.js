@@ -25,6 +25,7 @@ test("Stars overview uses live settings and private balance", () => {
     paidTwoPersonDiscussionCost: 6,
     paidLargeDiscussionCapacity: 40,
     paidLargeDiscussionCost: 14,
+    paidExtraDiscussionCost: 8,
   });
   assert.match(text, /Balance: 18/);
   assert.match(text, /Watch Later, Listen Later, and Read Later lists do not award Stars/);
@@ -33,6 +34,7 @@ test("Stars overview uses live settings and private balance", () => {
   assert.match(text, /Profile emoji: 3 Stars/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
   assert.match(text, /Boost one discussion: 12 Stars/);
+  assert.match(text, /Each extra concurrently open discussion after 3 free: 8 Stars \(up to 10 total\)/);
   assert.match(text, /Add the first 4 favorites in each of Movies, Music, and Books: 3/);
   assert.match(text, /Complete all 9 favorites in each of Movies, Music, and Books: 7/);
   assert.doesNotMatch(text, /Top 10/);

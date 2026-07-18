@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
+const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
+const { localizeVisibleDigits } = require("../src/services/number-localization");
 const { callBacks } = require("../src/constants");
 const {
   getOnboardingInterestChipTitle,
@@ -394,6 +396,8 @@ test("onboarding completion shows invitation copy and action only when one exist
 });
 
 test("help is available from the main menu and onboarding completion", () => {
+  const faRulesText = localizeVisibleDigits(formatOperationalLimitsText(messages.fa.helpRulesText), "fa");
+  const enRulesText = localizeVisibleDigits(formatOperationalLimitsText(messages.en.helpRulesText), "en");
   const mainLabels = mainMenuKeyboard("fa").reply_markup.keyboard
     .flat()
     .map((button) => button.text);
@@ -428,14 +432,16 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpRules, /^📜/);
   assert.match(messages.fa.helpRulesText, /💡/);
   assert.match(messages.en.helpRulesText, /💡/);
-  assert.match(messages.fa.helpRulesText, /۳۰ پیام در ۱۰ دقیقه/);
-  assert.match(messages.en.helpRulesText, /30 messages per 10 minutes/);
-  assert.match(messages.fa.helpRulesText, /ذخیره‌کردن پروفایل‌ها خصوصی است/);
-  assert.match(messages.en.helpRulesText, /Saved profiles are private/);
-  assert.match(messages.fa.helpRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
-  assert.match(messages.en.helpRulesText, /Reports count only from different users/);
-  assert.match(messages.fa.helpRulesText, /۳ دعوت در هر ۲۴ ساعت/);
-  assert.match(messages.en.helpRulesText, /3 per 24 hours/);
+  assert.match(faRulesText, /۳۰ پیام در هر ۱۰ دقیقه/);
+  assert.match(enRulesText, /Discussion messages: 30 per 10 minutes/);
+  assert.match(faRulesText, /هر گفت‌وگوی باز اضافه ۵ ستاره تا سقف کلی ۱۰/);
+  assert.match(enRulesText, /each extra open discussion costs 5 Stars, up to 10 total/);
+  assert.match(faRulesText, /نشانک خصوصی/);
+  assert.match(enRulesText, /private bookmarks/);
+  assert.match(faRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
+  assert.match(enRulesText, /Reports count only from different users/);
+  assert.match(faRulesText, /۳ دعوت در هر ۲۴ ساعت/);
+  assert.match(enRulesText, /3 per 24 hours/);
   assert.match(messages.fa.helpGoToLists, /^محبوب‌های من/);
   assert.match(messages.en.helpGoToLists, /^My favorites/);
   assert.match(messages.fa.helpText, /^👩‍🦳/);
@@ -444,11 +450,11 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music & Books/);
   assert.match(messages.fa.helpText, /بعداً می‌بینم/);
   assert.match(messages.en.helpText, /Watch Later/);
-  assert.match(messages.fa.helpText, /۳ انتخاب/);
-  assert.match(messages.en.helpText, /3 favorites/);
+  assert.match(messages.fa.helpText, /۳ محبوب/);
+  assert.match(messages.en.helpText, /Three favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها/);
   assert.match(messages.fa.helpText, /محبوب‌های مشترک/);
-  assert.match(messages.fa.helpText, /به گفت‌وگوهات دعوتشون کن/);
+  assert.match(messages.fa.helpText, /بعداً دعوتشون کن/);
   assert.match(messages.en.helpText, /👥 People/);
   assert.match(messages.en.helpText, /people with shared favorites/);
   assert.match(messages.en.helpText, /invite them later/i);
