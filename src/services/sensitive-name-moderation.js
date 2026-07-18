@@ -35,7 +35,7 @@ function normalizeSensitiveName(value) {
     .toLocaleLowerCase("en-US")
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
-    .replace(/[\u0640\u064b-\u065f\u0670]/g, "");
+    .replace(/\u0640|[\u064b-\u065f]|\u0670/gu, "");
 }
 
 function buildSensitiveTermPattern(term) {

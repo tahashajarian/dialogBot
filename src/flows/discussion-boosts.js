@@ -204,6 +204,13 @@ async function handleDiscussionBoostCallback(ctx, lang, {
       balance: confirmed.spend.balance,
     });
     if (confirmed.applied) void deliverBoostRecommendations(ctx, confirmed.boost, confirmed.discussion);
+    if (source === "room") {
+      await deleteCallbackMessageIfPossible?.(ctx);
+      return ctx.reply(
+        text,
+        discussionRoomKeyboard(lang, true, { canBoost: false }),
+      );
+    }
     if (ctx.callbackMessageId && ctx.editMessageText) {
       const edited = await ctx.editMessageText(ctx.callbackMessageId, text, inlineKeyboard([]));
       if (edited) {

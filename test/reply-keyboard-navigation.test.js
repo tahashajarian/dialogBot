@@ -226,6 +226,37 @@ test("Favorites list-manager actions retain trusted section and list context", (
   );
 });
 
+test("every visible Favorites manager button resolves in its exact section", () => {
+  const { aiListManageMenuKeyboard } = require("../src/keyboards");
+  for (const lang of ["en", "fa"]) {
+    for (const section of ["movies", "music", "books"]) {
+      const user = {
+        lang,
+        aiLists: {
+          [section]: {
+            topTen: Array.from({ length: 6 }, (_, index) => ({ title: `Favorite ${index + 1}` })),
+            watchlist: [{ title: "Later" }],
+          },
+        },
+      };
+      const context = {
+        mode: `ai_list:${section}:topTen`,
+        state: `ai_manage_${section}_top_ten`,
+        user,
+      };
+      const labels = aiListManageMenuKeyboard(lang, section, "topTen", {
+        hasItems: true,
+        itemCount: 6,
+        hasWatchlistItems: true,
+      }).reply_markup.keyboard.flat().map((button) => button.text);
+
+      for (const label of labels) {
+        assert.ok(resolveReplyKeyboardAction(label, context), `${lang}/${section}: ${label}`);
+      }
+    }
+  }
+});
+
 test("For Later Add works after entering from a saved suggestion", () => {
   for (const [lang, section, key] of [
     ["en", "movies", "aiListManageAddLaterMovies"],
@@ -383,6 +414,28 @@ test("filtered For Later mode exposes only Show all and restores the full-list a
   assert.ok(!filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list_filter:movies:watched", state: "ai_manage_movies_watchlist", user: { lang: "en" } }).callbackData, `${callBacks.aiListManageShow}movies:watchlist:all`);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
+});
+
+test("filtered For Later navigation returns to Favorites instead of add guidance", () => {
+  for (const [lang, section, filter, addKey] of [
+    ["en", "movies", "watched", "aiListManageAddLaterMovies"],
+    ["fa", "music", "not_watched", "aiListManageAddLaterMusic"],
+    ["en", "books", "watched", "aiListManageAddLaterBooks"],
+  ]) {
+    const context = {
+      mode: `ai_list_filter:${section}:${filter}`,
+      state: `ai_manage_${section}_watchlist`,
+      user: { lang },
+    };
+    assert.equal(
+      resolveReplyKeyboardAction(messages[lang].aiSuggestionGoToFavoritesButton, context).callbackData,
+      `${callBacks.aiListManageBack}${section}`,
+    );
+    assert.equal(
+      resolveReplyKeyboardAction(messages[lang][addKey], context).callbackData,
+      `${callBacks.aiListManageAdd}${section}:watchlist`,
+    );
+  }
 });
 
 test("legacy Guide reply keyboards remain usable only in their existing modes", () => {

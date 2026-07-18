@@ -149,6 +149,94 @@ test("my discussions list hides boost action when spending is disabled", () => {
   }
 });
 
+test("my discussions list hides boost action for an active boost", () => {
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
+  try {
+    const text = buildDiscussionListText(messages, "en", "My discussions", [{
+      _id: "owned",
+      title: "Movie night",
+      description: "A room",
+      isBoosted: true,
+      isJoinable: true,
+      listAction: "close",
+      publicDiscussionCode: "d_AB12",
+      joinRule: { type: "open" },
+      memberUserIds: [],
+      maxMembers: 20,
+    }]);
+    assert.doesNotMatch(text, /\/boost_AB12/);
+  } finally {
+    Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("successful room boost removes the boost button from room controls", async () => {
+  const boostService = require("../src/services/discussion-boosts");
+  const originalConfirmBoost = boostService.confirmBoost;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  const flowPath = require.resolve("../src/flows/discussion-boosts");
+  delete require.cache[flowPath];
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+  });
+  boostService.confirmBoost = async () => ({
+    ok: true,
+    applied: false,
+    boost: { quotedCost: 10 },
+    discussion: { creatorUserId: 10 },
+    spend: { balance: 15 },
+  });
+
+  try {
+    const { handleDiscussionBoostCallback } = require("../src/flows/discussion-boosts");
+    const replies = [];
+    const deletedIds = [];
+    const ctx = {
+      callbackData: `${callBacks.discussionBoostConfirm}room:ABC123`,
+      callbackMessageId: 44,
+      userId: 10,
+      user: { userId: 10, activeDiscussionId: "discussion1", starBalance: 25 },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await handleDiscussionBoostCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        deletedIds.push(callbackCtx.callbackMessageId);
+        return true;
+      },
+    });
+
+    assert.deepEqual(deletedIds, [44]);
+    assert.match(replies[0].text, /Discussion boosted/);
+    const labels = (replies[0].keyboard?.reply_markup?.keyboard || []).flat().map((button) => button.text);
+    assert.equal(labels.includes(messages.en.discussionBoostButton), false);
+    assert.ok(labels.includes(messages.en.discussionLeave));
+  } finally {
+    boostService.confirmBoost = originalConfirmBoost;
+    Object.assign(starEconomy, originalSettings);
+    delete require.cache[flowPath];
+  }
+});
+
 test("room boost acknowledgement restores discussion bottom keyboard", async () => {
   const discussions = require("../src/services/discussions");
   const originalJoinOrOpenDiscussion = discussions.joinOrOpenDiscussion;

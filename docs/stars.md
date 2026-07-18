@@ -277,6 +277,7 @@ The active room may show a clean owner/member action:
 
 The cost appears on the confirmation card, not necessarily in the room keyboard label.
 Boost confirmations remember their source. From an active room, canceling or dismissing a recoverable error should remove only the confirmation/error card and keep the user in the room flow. From `My discussions`, opening the boost should remove the old list first; cancel, successful confirmation, or dismissing a recoverable error should then return to a fresh `My discussions` list.
+After a successful boost, remove the boost action from the active room keyboard and from the boosted discussion's `My discussions` entry while that boost is active.
 If boost confirmation fails for insufficient balance or another recoverable reason, show current cost and balance on a dismissible `Got it` card. Do not add extra text explaining what the `Got it` button does.
 
 A successful boost may:

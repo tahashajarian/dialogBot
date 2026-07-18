@@ -90,17 +90,8 @@ function matchesMessageText(text, keys) {
     .includes(normalizedText);
 }
 
-function getPlainKeyboardText(text) {
-  return normalizeKeyboardText(text)
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .toLowerCase()
-    .trim();
-}
-
 function isDiscussionMembersText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionMembersTitle"]) || plainText.includes("اعضا") || plainText.includes("members");
+  return matchesMessageText(text, ["discussionMembersTitle"]);
 }
 
 function isDiscussionMyListText(text) {
@@ -108,22 +99,15 @@ function isDiscussionMyListText(text) {
 }
 
 function isDiscussionLeaveText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionLeave"]) ||
-    (plainText.includes("خروج") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
-    plainText.includes("leave discussion");
+  return matchesMessageText(text, ["discussionLeave"]);
 }
 
 function isDiscussionCloseText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionCloseButton"]) ||
-    (plainText.includes("بستن") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
-    plainText.includes("close discussion");
+  return matchesMessageText(text, ["discussionCloseButton"]);
 }
 
 function isDiscussionInviteText(text) {
-  const plainText = getPlainKeyboardText(text);
-  return matchesMessageText(text, ["discussionInvite"]) || plainText.includes("دعوت") || plainText.includes("invite");
+  return matchesMessageText(text, ["discussionInvite"]);
 }
 
 function isDiscussionCloseConfirmText(text) {
@@ -141,12 +125,9 @@ function isDiscussionReturnToMenuText(text) {
     "💬 منوی گفت‌وگوها",
     "💬 Discussions menu",
   ].map(normalizeKeyboardText);
-  const plainText = getPlainKeyboardText(text);
   return (
     matchesMessageText(text, ["discussionReturnToMenu"]) ||
-    legacyLabels.includes(normalizedText) ||
-    (plainText.includes("منوی") && (plainText.includes("گفت‌وگو") || plainText.includes("بحث"))) ||
-    (plainText.includes("discussion") && plainText.includes("menu"))
+    legacyLabels.includes(normalizedText)
   );
 }
 

@@ -320,7 +320,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const openLink =
       code ? buildDiscussionActionLine(lang, joinLabel, `/${code}`) : "";
     const boostAction =
-      entry.listAction === "close" && code && isDiscussionBoostAvailable()
+      entry.listAction === "close" && code && !entry.isBoosted && isDiscussionBoostAvailable()
         ? buildDiscussionActionLine(lang, boostLabel, `/boost_${code.slice(2)}`)
         : "";
     const ownerAction =

@@ -2,7 +2,7 @@ const messages = require("../messages");
 const { callBacks } = require("../constants");
 const { AGE_RANGES, getProfileAgeRange } = require("./profile-age");
 const { getOnboardingInterestsReplyActions, getProfileInterestsReplyActions } = require("../keyboards");
-const { getSectionListLabel } = require("./ai-section");
+const { getSectionEmoji, getSectionListLabel } = require("./ai-section");
 const { getSelectableDiscussionCapacities } = require("./discussion-capacities");
 const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
@@ -292,7 +292,17 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     }
     }
   }
-  if (aiListFilterMatch) entries.push(["aiListManageShowAll", `${callBacks.aiListManageShow}${aiListFilterMatch[1]}:watchlist:all`]);
+  if (validAiListFilterState) {
+    const section = aiListFilterMatch[1];
+    const addKey = section === "movies" ? "aiListManageAddLaterMovies"
+      : section === "music" ? "aiListManageAddLaterMusic"
+        : section === "books" ? "aiListManageAddLaterBooks" : "aiListManageAdd";
+    entries.push(
+      [addKey, `${callBacks.aiListManageAdd}${section}:watchlist`],
+      ["aiListManageShowAll", `${callBacks.aiListManageShow}${section}:watchlist:all`],
+      ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`],
+    );
+  }
   if (aiShareMatch) {
     const [, section, listType] = aiShareMatch;
     entries.push(["aiListShareBackToList", `${callBacks.aiListShareBack}${section}:${listType === "topTen" ? "top_ten" : "watchlist"}`]);
@@ -360,6 +370,13 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (state === expectedAiState && listType === "topTen" && section !== "random") {
       if (getAiListItemsFromUser(user, section, "watchlist").length > 0) {
         entries.push([section === "movies" ? "aiSectionListButtonMovies" : section === "music" ? "aiSectionListButtonMusic" : "aiSectionListButtonBooks", `${callBacks.aiListManageMenu}${section}:watchlist`]);
+      }
+      const suggestionLangs = messages[user?.lang] ? [user.lang] : ["fa", "en"];
+      const isSuggestionButton = suggestionLangs.some((candidateLang) => (
+        normalized === normalizeReplyButtonText(`${getSectionEmoji(section)} ${messages[candidateLang].aiSectionSuggestButton}`)
+      ));
+      if (isSuggestionButton) {
+        return { callbackData: `${callBacks.aiSectionSuggestMenu}${section}`, key: "aiSectionSuggestButton" };
       }
       entries.push(["aiSectionSuggestButton", `${callBacks.aiSectionSuggestMenu}${section}`]);
       entries.push(["aiListManageShare", `${callBacks.aiListManageShare}${section}:${token}`]);

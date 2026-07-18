@@ -119,7 +119,7 @@ function discussionLanguagePickerKeyboard(lang, { joinableOnly = false, language
   return inlineKeyboard(rows);
 }
 
-function discussionRoomKeyboard(lang, isOwner = false) {
+function discussionRoomKeyboard(lang, isOwner = false, { canBoost = true } = {}) {
   const rows = [
     [
       { text: messages[lang].discussionMembersTitle },
@@ -135,7 +135,7 @@ function discussionRoomKeyboard(lang, isOwner = false) {
       ],
   ];
 
-  if (isOwner && isDiscussionBoostAvailable()) {
+  if (isOwner && canBoost && isDiscussionBoostAvailable()) {
     rows.splice(1, 0, [{ text: messages[lang].discussionBoostButton }]);
   }
 

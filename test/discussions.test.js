@@ -42,6 +42,7 @@ const {
 const {
   enterDiscussionsAfterRoomExit,
   handleDiscussionBottomButton,
+  isDiscussionBottomControlText,
 } = require("../src/flows/discussions-text");
 
 test("discussion caps match MVP defaults", () => {
@@ -49,6 +50,75 @@ test("discussion caps match MVP defaults", () => {
   assert.deepEqual(DISCUSSION_ALLOWED_MEMBER_CAPS, [2, 3, 4, 5, 10, 15, 20]);
   assert.equal(DISCUSSION_RECENT_MESSAGES_CAP, 10);
   assert.equal(DISCUSSION_MESSAGE_BURST_WINDOW_MS, 1000);
+});
+
+test("typed room-control words remain discussion messages", () => {
+  assert.equal(isDiscussionBottomControlText(messages.fa.discussionInvite), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionInvite), true);
+  assert.equal(isDiscussionBottomControlText(messages.fa.discussionMembersTitle), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionMembersTitle), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionLeave), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionCloseButton), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionReturnToMenu), true);
+  assert.equal(isDiscussionBottomControlText(messages.en.discussionBoostButton), true);
+
+  assert.equal(isDiscussionBottomControlText("دعوت"), false);
+  assert.equal(isDiscussionBottomControlText("کی رو دعوت کنیم؟"), false);
+  assert.equal(isDiscussionBottomControlText("invite"), false);
+  assert.equal(isDiscussionBottomControlText("invite them later"), false);
+  assert.equal(isDiscussionBottomControlText("اعضا"), false);
+  assert.equal(isDiscussionBottomControlText("اعضا موافقن"), false);
+  assert.equal(isDiscussionBottomControlText("members"), false);
+  assert.equal(isDiscussionBottomControlText("members agree"), false);
+  assert.equal(isDiscussionBottomControlText("خروج از گفت‌وگو"), false);
+  assert.equal(isDiscussionBottomControlText("leave discussion"), false);
+  assert.equal(isDiscussionBottomControlText("بستن گفت‌وگو"), false);
+  assert.equal(isDiscussionBottomControlText("close discussion"), false);
+  assert.equal(isDiscussionBottomControlText("منوی گفت‌وگوها"), false);
+  assert.equal(isDiscussionBottomControlText("discussion menu"), false);
+  assert.equal(isDiscussionBottomControlText("ارتقای گفت‌وگو"), false);
+  assert.equal(isDiscussionBottomControlText("boost discussion"), false);
+});
+
+test("invite button opens its picker only for the requesting member", async () => {
+  const originalUserFindOne = User.findOne;
+  const originalDiscussionFindById = Discussion.findById;
+  const replies = [];
+  const sends = [];
+  User.findOne = async () => ({ userId: 42 });
+  Discussion.findById = async () => ({
+    _id: "507f1f77bcf86cd799439011",
+    status: "open",
+    creatorUserId: 41,
+    memberUserIds: [41, 42, 43],
+    maxMembers: 20,
+    publicDiscussionCode: "d_ROOM1",
+    title: "Private picker test",
+  });
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: { userId: 42, activeDiscussionId: "507f1f77bcf86cd799439011", savedProfileCodes: [] },
+      reply: async (text, extra) => {
+        replies.push({ text, extra });
+        return { message_id: replies.length };
+      },
+      sendToUser: async (...args) => {
+        sends.push(args);
+        return true;
+      },
+    };
+
+    await handleDiscussionBottomButton(ctx, "en", messages.en.discussionInvite);
+
+    assert.equal(replies.length, 1);
+    assert.match(replies[0].text, /Invite to discussion/);
+    assert.deepEqual(sends, []);
+  } finally {
+    User.findOne = originalUserFindOne;
+    Discussion.findById = originalDiscussionFindById;
+  }
 });
 
 test("leaving a room sends confirmation and Discussions menu as separate messages", async () => {
