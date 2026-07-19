@@ -53,6 +53,7 @@ function discussionListNavigationKeyboard(lang, {
   totalPages = 1,
   joinableOnly = false,
   languageFilter = null,
+  hasRecentDiscussions = false,
 } = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(page) || 0);
@@ -94,11 +95,29 @@ function discussionListNavigationKeyboard(lang, {
     }]);
   }
 
+  if (listType === "mine" && hasRecentDiscussions) {
+    rows.push([{
+      text: messages[lang].discussionRecentListButton,
+      callback_data: `${callBacks.discussionListRecent}${normalizedPage}`,
+    }]);
+  }
+
   rows.push([{
     text: messages[lang].discussionShareClose,
     callback_data: callBacks.discussionListClose,
   }]);
   return inlineKeyboard(rows);
+}
+
+function discussionRecentListKeyboard(lang, { backPage = 0 } = {}) {
+  const safeBackPage = Math.max(0, Number(backPage) || 0);
+  return inlineKeyboard([
+    [{
+      text: messages[lang].discussionRecentListBack,
+      callback_data: `${callBacks.discussionListRecentBack}${safeBackPage}`,
+    }],
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.discussionListClose }],
+  ]);
 }
 
 function discussionLanguagePickerKeyboard(lang, { joinableOnly = false, languageFilter = "fa" } = {}) {
@@ -561,20 +580,23 @@ function discussionSelectItemKeyboard(lang, section, items = [], {
   return replyKeyboard(rows);
 }
 
-function discussionRemoveMembersKeyboard(lang, discussionId, members = []) {
-  const rows = members.map((entry) => ([
+function discussionRemoveMemberConfirmKeyboard(lang, discussionId, memberCode) {
+  return inlineKeyboard([[
     {
-      text: `${entry.profileName || entry.firstName || "کاربر"}`,
-      callback_data: `${callBacks.discussionRemoveMember}${discussionId}:${entry.publicProfileCode}`,
+      text: messages[lang].discussionRemoveMemberConfirmYes,
+      callback_data: `${callBacks.discussionRemoveMemberConfirm}${discussionId}:${memberCode}`,
     },
-  ]));
-  rows.push([{ text: messages[lang].discussionBackToRoom, callback_data: `${callBacks.discussionOpen}${discussionId}` }]);
-  return inlineKeyboard(rows);
+    {
+      text: messages[lang].discussionRemoveMemberConfirmNo,
+      callback_data: callBacks.discussionRemoveMemberCancel,
+    },
+  ]]);
 }
 
 module.exports = {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
   discussionMembersCloseKeyboard,
@@ -606,5 +628,5 @@ module.exports = {
   discussionExtraSlotAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
-  discussionRemoveMembersKeyboard,
+  discussionRemoveMemberConfirmKeyboard,
 };

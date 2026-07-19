@@ -13,6 +13,7 @@ const {
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
+  discussionRemoveMemberConfirmKeyboard,
 } = require("../keyboards");
 const User = require("../models/user");
 const {
@@ -23,6 +24,7 @@ const {
   joinOrOpenDiscussion,
   listActiveDiscussions,
   listMyDiscussions,
+  listRecentJoinedDiscussions,
   normalizePublicProfileCode,
   resolveDiscussionMaxMembers,
   validateJoinRules,
@@ -31,7 +33,6 @@ const {
   closeDiscussionAndNotify,
   joinDiscussionAndNotify,
   leaveDiscussionAndNotify,
-  removeDiscussionMemberAndNotify,
   reportDiscussionMemberAndNotify,
 } = require("../services/discussion-actions");
 const {
@@ -321,11 +322,18 @@ async function sendShareableInviteForActiveDiscussion(ctx, lang) {
 async function sendRememberedDiscussionList(ctx, lang, preferredType = "active") {
   const listType = preferredType === "mine" ? "mine" : "active";
   if (listType === "mine") {
-    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
+    const [result, recentResult] = await Promise.all([
+      listMyDiscussions(ctx.userId, { limit: 20 }),
+      listRecentJoinedDiscussions(ctx.userId),
+    ]);
+    const hasRecentDiscussions = Boolean(recentResult.ok && recentResult.discussions.length);
     if (!result.ok || !result.discussions.length) {
       const sentEmpty = await ctx.reply(
         messages[lang].discussionListMineEmpty,
-        discussionJoinErrorAckKeyboard(lang, "discussions"),
+        discussionListNavigationKeyboard(lang, {
+          listType: "mine",
+          hasRecentDiscussions,
+        }),
       );
       return rememberDiscussionMenuNotice(ctx, sentEmpty);
     }
@@ -334,11 +342,16 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
     const sent = await ctx.reply(
       buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
         startIndex: paged.startIndex,
+        totalCount: decorated.length,
+        headerTip: hasRecentDiscussions
+          ? messages[lang].discussionMyListTipWithRecent
+          : messages[lang].discussionMyListTip,
       }),
       discussionListNavigationKeyboard(lang, {
         listType: "mine",
         page: paged.page,
         totalPages: paged.totalPages,
+        hasRecentDiscussions,
       }),
     );
     return rememberDiscussionListMessage(ctx, "mine", sent);
@@ -434,18 +447,39 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
   }
 
   if (isDiscussionMyListText(text)) {
-    const result = await listMyDiscussions(ctx.userId, { limit: 20 });
+    const [result, recentResult] = await Promise.all([
+      listMyDiscussions(ctx.userId, { limit: 20 }),
+      listRecentJoinedDiscussions(ctx.userId),
+    ]);
+    const hasRecentDiscussions = Boolean(recentResult.ok && recentResult.discussions.length);
     if (!result.ok) return ctx.reply(messages[lang].unknownAction);
     if (!result.discussions.length) {
       const emptyNotice = await ctx.reply(
         messages[lang].discussionListMineEmpty,
-        discussionJoinErrorAckKeyboard(lang, "discussions"),
+        discussionListNavigationKeyboard(lang, {
+          listType: "mine",
+          hasRecentDiscussions,
+        }),
       );
       await rememberDiscussionMenuNotice(ctx, emptyNotice);
       return emptyNotice;
     }
     const decorated = await decorateDiscussionsForList(ctx.user, result.discussions, true);
-    const sent = await ctx.reply(buildDiscussionListText(messages, lang, messages[lang].discussionMyList, decorated));
+    const paged = paginateDiscussions(decorated, 0);
+    const sent = await ctx.reply(
+      buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
+        totalCount: decorated.length,
+        headerTip: hasRecentDiscussions
+          ? messages[lang].discussionMyListTipWithRecent
+          : messages[lang].discussionMyListTip,
+      }),
+      discussionListNavigationKeyboard(lang, {
+        listType: "mine",
+        page: paged.page,
+        totalPages: paged.totalPages,
+        hasRecentDiscussions,
+      }),
+    );
     await rememberDiscussionListMessage(ctx, "mine", sent);
     return sent;
   }
@@ -723,19 +757,16 @@ async function removeDiscussionMemberCommand(ctx, lang, text) {
   if (!activeDiscussionId) return ctx.reply(messages[lang].discussionNotMember);
 
   const code = normalizeProfileCodeFromActionCommand(text);
-  const member = code ? await User.findOne({ publicProfileCode: code }).select("userId").lean() : null;
+  const member = code
+    ? await User.findOne({ publicProfileCode: code }).select("userId profileName firstName").lean()
+    : null;
   const memberUserId = Number(member?.userId);
   if (!Number.isInteger(memberUserId)) return ctx.reply(getDiscussionErrorMessage(messages, lang, "not_member"));
-
-  const removed = await removeDiscussionMemberAndNotify({
-    ctx,
-    messages,
-    discussionId: activeDiscussionId,
-    memberUserId,
-    discussionsMenuKeyboard,
-  });
-  if (!removed.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, removed.reason));
-  return ctx.reply(messages[lang].discussionMemberRemoved.replace("{name}", removed.removedMemberName || "Member"));
+  const memberName = member.profileName || member.firstName || (lang === "fa" ? "عضو" : "member");
+  return ctx.reply(
+    messages[lang].discussionRemoveMemberConfirmPrompt.replace("{name}", memberName),
+    discussionRemoveMemberConfirmKeyboard(lang, activeDiscussionId, code),
+  );
 }
 
 async function reportDiscussionMemberCommand(ctx, lang, text) {

@@ -300,6 +300,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
   startIndex = 0,
   totalCount = discussions.length,
   includeActions = true,
+  headerTip = "",
 } = {}) {
   if (!discussions.length) {
     return title;
@@ -354,7 +355,8 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     ].filter(Boolean).join("\n") + actionsBlock;
   });
   const countedTitle = `${title} (${formatListIndex(lang, totalCount)})`;
-  return `${countedTitle}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
+  const header = [countedTitle, String(headerTip || "").trim()].filter(Boolean).join("\n");
+  return `${header}\n\n${lines.join(`\n\n${DISCUSSION_LIST_DIVIDER}\n\n`)}`;
 }
 
 function fillDiscussionInviteTemplate(template, values = {}) {

@@ -646,11 +646,17 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 
 ### My Discussions / Switching
 
-`🗂 گفت‌وگوهای من` shows discussions the user owns or has joined.
+`🗂 گفت‌وگوهای من` shows open discussions the user created. Joined rooms are not retained here after leaving them.
+
+Store the three most recently joined non-owned discussion IDs on the user, newest first. Rejoining moves an existing ID to the front instead of duplicating it, while joining or rejoining a discussion the user owns does not affect this history.
+
+When at least one recent room is still available, My Discussions includes an inline `🕘 Recent discussions` action before Close. It edits the same card to show at most three recent rooms, with a short localized hint explaining that these are discussions the user joined recently. Each room uses the normal join command link. The card includes Back, which restores the exact My Discussions page that opened it, and Close. Closed, missing, owned, or owner-removed rooms are omitted; if none remain, the Recent action is hidden.
+
+When this list is non-empty, its card includes one localized hint explaining that it contains discussions the user created. When recent history is available, the hint also points to the Recent discussions button below. The empty state keeps its existing focused guidance unchanged.
 Discussion lists should be plain text with bot-command links instead of dense inline button rows.
 Long discussion lists use exact-page bottom pagination and Back. Active-discussion filters are also bound to the current server-side list mode.
 For this toggle, keep the icon stable across states and change only the text label.
-If the list is empty, show a short empty-state notice with a useful tip and a single `Got it` acknowledgment that returns to the discussions menu. If closing a discussion from this list leaves the user with no discussions, show the same style of notice instead of immediately rendering the list again.
+If the list is empty, show a short empty-state notice with a useful tip. Keep the Recent action available when valid history exists, followed by Close. If closing a discussion from this list leaves the user with no discussions, show the same style of notice instead of immediately rendering the list again.
 
 Example:
 
@@ -661,7 +667,7 @@ Example:
 👥 ۳ نفر
 آخرین فعالیت: ۵ دقیقه پیش
 ورود 👈 /d_8K2P
-خروج 👈 /leave_8K2P
+بستن 👈 /close_8K2P
 
 💬 فیلمی که همه اشتباه فهمیدن؟
 👥 ۱۲ نفر
@@ -674,13 +680,6 @@ Commands per discussion:
 
 ```text
 ورود 👈 /d_CODE
-خروج 👈 /leave_CODE
-```
-
-If owner:
-
-```text
-ورود 👈 /d_CODE
 بستن 👈 /close_CODE
 ```
 
@@ -688,8 +687,7 @@ Owners should see both rejoin/open and close actions for discussions they create
 
 Opening a discussion from this list joins/rejoins it, sets it as `activeDiscussionId`, and shows the room info plus last 10 messages.
 
-Leaving a discussion from this list removes membership. If it was the active discussion, clear `activeDiscussionId`.
-For owner-created discussions, this list should offer rejoin/open and close. Owners can close their created discussions even when they are not currently members.
+This list offers rejoin/open and close for every entry. Owners can close their created discussions even when they are not currently members.
 
 ### Send Message
 
@@ -798,6 +796,7 @@ In the owner view of `👥 اعضا`, show owner-only remove links/actions under
 Rules:
 
 - Only the owner sees remove actions.
+- Removal is available only through the `/remove_CODE` command links on the members list card. Tapping one sends an inline confirmation naming that member. Only Confirm performs the removal; Cancel deletes only the confirmation card without changing membership or opening another picker.
 - Owner cannot remove themselves; they can leave or close the discussion.
 - Members do not see remove actions.
 - Every user can report another member from the member list.
@@ -812,7 +811,7 @@ Rules:
 - If the removed member is not currently in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.
 
-Remove confirmation for owner:
+Successful removal confirmation for owner:
 
 ```text
 👩‍🦳 عضو از گفت‌وگو حذف شد.
@@ -958,15 +957,21 @@ Notifications should be useful but quiet.
 
 Anti-noise rules:
 
-- If multiple users join close together, batch or throttle notifications when possible.
-- Suggested throttle: at most 1 join notification per discussion per 10 minutes.
-- If throttled, the next notification can summarize:
+- In addition to the live-room notice above, a discussion owner receives a private join card after every real non-member-to-member transition, including a genuine rejoin. Existing-member opens, retries, repeated taps, owner self-joins, and Muze starter-room joins do not produce this card.
+- If the owner is actively viewing that same room, only the live-room notice is sent. If the owner is elsewhere or has left their own still-open room, the private card is eligible.
+- The first eligible join is sent immediately. At most one immediate private owner card is delivered per discussion in each 10-minute window. Further distinct joiners are durably collected and a periodic worker atomically sends one due summary after the window, even if nobody else joins. Repeated leave/rejoin cycles by the same account count as one person per window. Joins seen live by the owner are never added to the summary.
+- The card uses the owner's saved language and localized digits, and reads the public title and current member count at delivery time. It exposes no invitation/referral source, usernames, private settings, or other non-public member data.
+- Delivery is bounded and best effort. A failure never rolls back membership; its claimed unique-user set is restored for a later summary. State is stored per discussion in MongoDB so throttling and due summaries survive restarts and multiple bot processes. Only stable user ids needed for per-window deduplication are stored; names and Telegram message ids are not.
+- The card's single Open action directly opens or genuinely rejoins the owned room when the owner has no active room. If the owner is active elsewhere, edit the notification card into the standard leave-current-first warning with one acknowledgment action; do not show an invitation preview for an owner notification. Current eligibility checks, stale-room handling, and owner capacity bypass remain owned by the existing join flow.
+- `DISCUSSION_OWNER_JOIN_NOTICES_ENABLED` is a fail-safe rollout switch and defaults off. It suppresses only these private owner cards; membership, live room notices, moderation/safety messages, and Stars are unchanged. Enable it only after index creation and live verification.
+- There is no Muze mute setting for this first version. Platform-level bot muting remains available; any future account or per-discussion setting must affect only private owner join cards.
+- A summary uses the exact accumulated count:
 
 ```text
-👩‍🦳 چند نفر جدید وارد گفت‌وگوت شدن.
+👩‍🦳 ۴ نفر جدید به گفت‌وگوی شما پیوستند.
 
 💬 بهترین ریف تاریخ؟
-👥 الان ۶ نفر داخل گفت‌وگون.
+👥 ۶ عضو
 ```
 
 Message notifications are not in MVP. They can be added later with careful rules such as mentions, quiet-period summaries, or explicit room subscriptions.

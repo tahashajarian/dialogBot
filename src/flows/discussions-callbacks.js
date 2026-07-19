@@ -4,6 +4,7 @@ const {
   mainMenuKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
   discussionJoinLockedKeyboard,
 } = require("../keyboards");
@@ -25,6 +26,7 @@ const {
 const {
   listActiveDiscussions,
   listMyDiscussions,
+  listRecentJoinedDiscussions,
 } = require("../services/discussions");
 
 function getMessageId(message) {
@@ -139,6 +141,8 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data === callBacks.discussions ||
     data === callBacks.discussionListActive ||
     data === callBacks.discussionListMine ||
+    data.startsWith(callBacks.discussionListRecent) ||
+    data.startsWith(callBacks.discussionListRecentBack) ||
     data.startsWith(callBacks.discussionListActivePage) ||
     data.startsWith(callBacks.discussionListLanguageOpen) ||
     data.startsWith(callBacks.discussionListLanguageSet) ||
@@ -156,8 +160,8 @@ function shouldKeepDiscussionRoomCardsForCallback(data = "") {
     data.startsWith(callBacks.discussionInviteJoin) ||
     data.startsWith(callBacks.discussionInviteSwitchJoin) ||
     data.startsWith(callBacks.discussionInviteCancel) ||
-    data.startsWith(callBacks.discussionRemoveMemberPicker) ||
-    data.startsWith(callBacks.discussionRemoveMember)
+    data.startsWith(callBacks.discussionRemoveMemberConfirm) ||
+    data === callBacks.discussionRemoveMemberCancel
   );
 }
 
@@ -319,7 +323,11 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
   freshDestination = false,
 } = {}) {
   if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "myDiscussions" });
-  const result = await listMyDiscussions(ctx.userId, { limit: 100 });
+  const [result, recentResult] = await Promise.all([
+    listMyDiscussions(ctx.userId, { limit: 100 }),
+    listRecentJoinedDiscussions(ctx.userId),
+  ]);
+  const hasRecentDiscussions = Boolean(recentResult.ok && recentResult.discussions.length);
   if (!result.ok) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
@@ -334,6 +342,7 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
         listType: "mine",
         page: 0,
         totalPages: 1,
+        hasRecentDiscussions,
       }),
     );
     await rememberDiscussionMenuNotice(ctx, freshDestination ? emptyNotice : (ctx.callbackMessageId || emptyNotice));
@@ -349,14 +358,44 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     buildDiscussionListText(messages, lang, messages[lang].discussionMyList, paged.items, {
       startIndex: paged.startIndex,
       totalCount: decorated.length,
+      headerTip: hasRecentDiscussions
+        ? messages[lang].discussionMyListTipWithRecent
+        : messages[lang].discussionMyListTip,
     }),
     discussionListNavigationKeyboard(lang, {
       listType: "mine",
       page: paged.page,
       totalPages: paged.totalPages,
+      hasRecentDiscussions,
     }),
   );
   await rememberDiscussionListMessage(ctx, "mine", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
+  return listMessage;
+}
+
+async function renderRecentDiscussionList(ctx, lang, backPage = 0, {
+  editCallbackMessageOrReply = editCallbackMessageOrReplyFallback,
+} = {}) {
+  const safeBackPage = Math.max(0, Number(backPage) || 0);
+  const result = await listRecentJoinedDiscussions(ctx.userId);
+  await ctx.answerCb?.();
+  await setNavigationMode(ctx, `discussion_list:recent:${safeBackPage}`);
+
+  const discussions = result.ok
+    ? await decorateDiscussionsForList(ctx.user, result.discussions, false)
+    : [];
+  const text = discussions.length
+    ? buildDiscussionListText(messages, lang, messages[lang].discussionRecentListTitle, discussions, {
+      totalCount: discussions.length,
+      headerTip: messages[lang].discussionRecentListTip,
+    })
+    : messages[lang].discussionRecentListEmpty;
+  const listMessage = await editCallbackMessageOrReply(
+    ctx,
+    text,
+    discussionRecentListKeyboard(lang, { backPage: safeBackPage }),
+  );
+  await rememberDiscussionListMessage(ctx, "recent", ctx.callbackMessageId || listMessage);
   return listMessage;
 }
 
@@ -369,6 +408,8 @@ function isDiscussionListCallback(data = "") {
     data === callBacks.discussionMembersClose ||
     data === callBacks.discussionListMine ||
     data.startsWith(callBacks.discussionListMinePage) ||
+    data.startsWith(callBacks.discussionListRecent) ||
+    data.startsWith(callBacks.discussionListRecentBack) ||
     data === callBacks.discussionJoinLockedClose ||
     data.startsWith(callBacks.discussionJoinErrorAck);
 }
@@ -449,6 +490,20 @@ async function handleDiscussionListCallback(ctx, lang, {
     return renderMyDiscussionList(ctx, lang, Number(pageRaw), { editCallbackMessageOrReply });
   }
 
+  if (data.startsWith(callBacks.discussionListRecentBack)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    const pageRaw = data.replace(callBacks.discussionListRecentBack, "");
+    const safePage = /^\d+$/.test(pageRaw) ? Number(pageRaw) : 0;
+    return renderMyDiscussionList(ctx, lang, safePage, { editCallbackMessageOrReply });
+  }
+
+  if (data.startsWith(callBacks.discussionListRecent)) {
+    await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
+    const pageRaw = data.replace(callBacks.discussionListRecent, "");
+    const safePage = /^\d+$/.test(pageRaw) ? Number(pageRaw) : 0;
+    return renderRecentDiscussionList(ctx, lang, safePage, { editCallbackMessageOrReply });
+  }
+
   if (data.startsWith(callBacks.discussionJoinErrorAck)) {
     await ctx.answerCb?.();
     const destination = data.replace(callBacks.discussionJoinErrorAck, "");
@@ -511,5 +566,6 @@ module.exports = {
   isDiscussionListCallback,
   renderActiveDiscussionList,
   renderMyDiscussionList,
+  renderRecentDiscussionList,
   sendDiscussionJoinErrorAck,
 };

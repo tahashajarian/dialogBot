@@ -30,6 +30,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-actions.js`: cross-user side effects around discussion mutations.
   - join/leave/close/remove notifications
   - pre-close active-member lookup before active state is cleared
+- `src/services/discussion-owner-join-notifications.js` and `src/models/discussion-owner-join-notice.js`: private owner join-card delivery plus durable unique-user deduplication, scheduled summaries, atomic ten-minute throttling, and failure restoration.
 - `src/services/discussion-notifications.js`: low-level discussion notification delivery helpers.
   - normalize single/multi-message payloads
   - send best-effort notifications to member lists

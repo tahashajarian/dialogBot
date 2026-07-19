@@ -10,7 +10,7 @@ const {
   discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionMembersCloseKeyboard,
-  discussionRemoveMembersKeyboard,
+  discussionLeaveCurrentNoticeKeyboard,
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
 const { buildGuideReferralCard } = require("./flows/guide-referrals");
@@ -49,7 +49,6 @@ const {
   updateUserState,
 } = require("./services/users");
 const {
-  joinOrOpenDiscussion,
   ensurePublicProfileCodes,
   ensurePublicDiscussionCode,
   findDiscussionByPublicCode,
@@ -144,6 +143,7 @@ const {
   sendTasteSetupNudge,
   trackOnboardingCompletionDestination,
 } = require("./flows/onboarding");
+const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 
 function getDiscussionCloseReturnSource(ctx) {
   return ctx.user?.discussionLastListType === "mine" ? "mine"
@@ -306,8 +306,8 @@ function getStaleCallbackFields(data = "") {
     data.startsWith(callBacks.discussionLeave) ||
     data.startsWith(callBacks.discussionClose) ||
     data.startsWith(callBacks.discussionMembers) ||
-    data.startsWith(callBacks.discussionRemoveMemberPicker) ||
-    data.startsWith(callBacks.discussionRemoveMember)
+    data.startsWith(callBacks.discussionRemoveMemberConfirm) ||
+    data === callBacks.discussionRemoveMemberCancel
   ) {
     return [
       "discussionLastListMessageId",
@@ -357,7 +357,7 @@ function getActiveRoomCallbackDiscussionId(data = "") {
   ) return "";
   const prefixes = [
     callBacks.discussionMembers,
-    callBacks.discussionRemoveMemberPicker,
+    callBacks.discussionRemoveMemberConfirm,
     callBacks.discussionClose,
   ];
   for (const prefix of prefixes) {
@@ -655,6 +655,43 @@ async function handleCallback(ctx) {
     });
   }
 
+  if (data.startsWith(callBacks.discussionOwnerJoinNoticeOpen)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.discussionOwnerJoinNoticeOpen, "");
+    const discussion = await findDiscussionByPublicCode(code);
+    if (!discussion) {
+      return showDiscussionInvitePreviewCommand(ctx, lang, code, {
+        editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
+      });
+    }
+    if (Number(discussion.creatorUserId) !== Number(ctx.userId)) {
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].discussionInviteUnavailable,
+        { reply_markup: { inline_keyboard: [] } },
+      );
+    }
+    void trackEvent({
+      name: EVENT_NAMES.discussionOwnerJoinNoticeOpened,
+      userId: ctx.userId,
+      source: "discussion_owner_join_notice",
+      metadata: { discussionId: String(discussion._id) },
+    });
+    const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
+    if (!activeDiscussionId || activeDiscussionId === String(discussion._id)) {
+      return joinDiscussionFromInvite(ctx, lang, code, {
+        editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
+        clearInvitePreview: () => deleteCallbackMessageIfPossible(ctx),
+        sendRoom: (roomCtx, roomLang, target) => sendDiscussionRoom(roomCtx, roomLang, target),
+      });
+    }
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionErrLeaveCurrentFirst,
+      discussionLeaveCurrentNoticeKeyboard(lang),
+    );
+  }
+
   if (data.startsWith(callBacks.discussionOpen)) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionOpen, "");
@@ -828,7 +865,7 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionMembers, "");
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
+    const opened = await joinDiscussionAndNotify({ ctx, messages, discussionId });
     if (!opened.ok) {
       const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
       await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
@@ -848,36 +885,14 @@ async function handleCallback(ctx) {
     return membersMessage;
   }
 
-  if (data.startsWith(callBacks.discussionRemoveMemberPicker)) {
+  if (data === callBacks.discussionRemoveMemberCancel) {
     await ctx.answerCb?.();
-    const discussionId = data.replace(callBacks.discussionRemoveMemberPicker, "");
-    const opened = await joinOrOpenDiscussion(ctx.userId, discussionId);
-    if (!opened.ok) {
-      const errorText = getDiscussionErrorMessage(messages, lang, opened.reason);
-      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
-      return ctx.reply(errorText);
-    }
-    if (opened.discussion.creatorUserId !== ctx.userId) {
-      const errorText = getDiscussionErrorMessage(messages, lang, "not_owner");
-      await ctx.answerCb?.(errorText.replace(/^(?:🤖|👩‍🦳)\s*/, ""));
-      return ctx.reply(errorText);
-    }
-    const memberUsers = await User.find({
-      userId: {
-        $in: opened.discussion.memberUserIds.filter((id) => id !== ctx.userId),
-      },
-    }).select("userId profileName firstName publicProfileCode").lean();
-    const preparedMembers = await ensurePublicProfileCodes(memberUsers);
-    return editCallbackMessageOrReply(
-      ctx,
-      messages[lang].discussionRemoveMember,
-      discussionRemoveMembersKeyboard(lang, String(opened.discussion._id), preparedMembers),
-    );
+    return deleteCallbackMessageIfPossible(ctx);
   }
 
-  if (data.startsWith(callBacks.discussionRemoveMember)) {
+  if (data.startsWith(callBacks.discussionRemoveMemberConfirm)) {
     await ctx.answerCb?.();
-    const payload = data.replace(callBacks.discussionRemoveMember, "");
+    const payload = data.replace(callBacks.discussionRemoveMemberConfirm, "");
     const [discussionId = "", memberCodeRaw = ""] = payload.split(":");
     const memberCode = normalizePublicProfileCode(memberCodeRaw);
     const member = memberCode

@@ -56,6 +56,9 @@ ALLOWED_USERNAMES=
 # Moderation: unique reports needed before an automatic ban.
 REPORT_BAN_THRESHOLD=5
 
+# Fail-safe rollout switch for private discussion-owner join cards.
+DISCUSSION_OWNER_JOIN_NOTICES_ENABLED=false
+
 # Stable secret for account-deletion/recreation anti-abuse identity checks.
 ACCOUNT_DELETION_SECRET=
 

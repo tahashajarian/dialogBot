@@ -24,6 +24,10 @@ function normalizeAiSuggestionProvider(value) {
   return normalized || DEFAULT_AI_SUGGESTION_PROVIDER;
 }
 
+function enabledByEnv(value) {
+  return ["1", "true", "yes", "on"].includes(clean(value).toLowerCase());
+}
+
 function looksLikeBotApiRoot(value) {
   const normalized = clean(value).toLowerCase();
   return (
@@ -116,6 +120,9 @@ function buildConfig(env = process.env) {
     moderation: {
       reportBanThreshold,
     },
+    discussionOwnerJoinNotices: {
+      enabled: enabledByEnv(env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED),
+    },
     invite: {
       deepLinkBaseUrl: clean(env.BOT_DEEP_LINK_BASE_URL),
       publicUrl: clean(env.BOT_PUBLIC_URL || env.PUBLIC_BOT_URL),
@@ -158,6 +165,10 @@ function getModerationConfig(env = process.env) {
   return validateConfig(buildConfig(env), { requireRuntime: false }).moderation;
 }
 
+function getDiscussionOwnerJoinNoticeConfig(env = process.env) {
+  return buildConfig(env).discussionOwnerJoinNotices;
+}
+
 module.exports = {
   DEFAULT_ALLOWED_USERNAMES,
   DEFAULT_AI_MODEL,
@@ -172,6 +183,7 @@ module.exports = {
   getAiConfig,
   getInviteConfig,
   getModerationConfig,
+  getDiscussionOwnerJoinNoticeConfig,
   normalizeUsername,
   resolveAllowedUsernames,
 };

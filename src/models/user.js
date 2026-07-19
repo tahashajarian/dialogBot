@@ -112,6 +112,16 @@ const UserSchema = new mongoose.Schema({
       message: "discussionMembershipIds exceeds membership cap",
     },
   },
+  recentJoinedDiscussionIds: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Discussion" }],
+    default: [],
+    validate: {
+      validator(value) {
+        return Array.isArray(value) && value.length <= 3;
+      },
+      message: "recentJoinedDiscussionIds exceeds recent discussion cap",
+    },
+  },
   savedProfileCodes: {
     type: [String],
     default: [],

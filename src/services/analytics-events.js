@@ -20,6 +20,11 @@ const EVENT_NAMES = Object.freeze({
   discussionListOpened: "discussion_list_opened",
   discussionJoined: "discussion_joined",
   discussionCreated: "discussion_created",
+  discussionOwnerJoinNoticeSent: "discussion_owner_join_notice_sent",
+  discussionOwnerJoinNoticeThrottled: "discussion_owner_join_notice_throttled",
+  discussionOwnerJoinNoticeSummarized: "discussion_owner_join_notice_summarized",
+  discussionOwnerJoinNoticeDeliveryFailed: "discussion_owner_join_notice_delivery_failed",
+  discussionOwnerJoinNoticeOpened: "discussion_owner_join_notice_opened",
   inviteSent: "invite_sent",
   profileSaved: "profile_saved",
   starsEarned: "stars_earned",
@@ -62,6 +67,7 @@ const SAFE_METADATA_KEYS = new Set([
   "skippedReasons",
   "destination",
   "tipKey",
+  "discussionId",
 ]);
 const THROTTLE_CACHE_LIMIT = 1000;
 const throttleCache = new Map();

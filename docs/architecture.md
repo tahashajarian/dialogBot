@@ -43,6 +43,7 @@ Keep the router files thin:
 - `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, join-error acknowledgements, and first Active Discussions guidance delivery.
 - `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, invite source return handling, and the shared first Discussions-guidance state when Invitations is visited first.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
+- `src/services/discussion-owner-join-notifications.js` owns private owner join-card orchestration, unique-joiner batching, the durable due-summary scan, copy shaping, bounded delivery, and atomic claim/restore calls. `src/models/discussion-owner-join-notice.js` stores stable ids needed for per-window deduplication and minimal per-discussion throttle state; it never stores names, Telegram message ids, or notification text.
 - `src/services/discussion-invitations.js` owns stored invitation creation, lookup, lifecycle, daily-limit checks, and received-invite listing.
 - `src/services/discussion-invitation-mutes.js` owns directional invitation-restriction pairs, list/count/unrestrict operations, and the cross-feature "restricted user cannot join the restricting user's created discussions" predicate. The historical filename/model remain for compatibility.
 - `src/services/discussion-join-rules.js` owns discussion join-rule payload validation and user eligibility checks.
@@ -162,6 +163,7 @@ Age is optional and not enforced by the profile viewing gate.
 - `BOT_DEEP_LINK_BASE_URL` is the public bot URL for invite deep links. For Telegram use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
 - `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings.
 - `REPORT_BAN_THRESHOLD` controls how many unique reporters trigger an automatic global user ban. Default: `5`.
+- `DISCUSSION_OWNER_JOIN_NOTICES_ENABLED` enables private, throttled discussion-owner join cards. It defaults off; create the `DiscussionOwnerJoinNotice` indexes before rollout.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep bot-platform and AI endpoint configuration separate to avoid launch failures.
 - Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.

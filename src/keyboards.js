@@ -22,6 +22,7 @@ const discussionKeyboards = require("./keyboards/discussions");
 const {
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
   discussionMembersCloseKeyboard,
@@ -53,7 +54,7 @@ const {
   discussionExtraSlotAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
-  discussionRemoveMembersKeyboard,
+  discussionRemoveMemberConfirmKeyboard,
 } = discussionKeyboards;
 
 function inlineKeyboard(rows) {
@@ -1256,6 +1257,7 @@ module.exports = {
   onboardingLanguageKeyboard,
   discussionsMenuKeyboard,
   discussionListNavigationKeyboard,
+  discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
   discussionRoomKeyboard,
   discussionMembersCloseKeyboard,
@@ -1287,7 +1289,7 @@ module.exports = {
   discussionExtraSlotAckKeyboard,
   discussionSelectTasteKeyboard,
   discussionSelectItemKeyboard,
-  discussionRemoveMembersKeyboard,
+  discussionRemoveMemberConfirmKeyboard,
   profileViewBackKeyboard,
   profilePeopleBackKeyboard,
   profilePublicActionsKeyboard,

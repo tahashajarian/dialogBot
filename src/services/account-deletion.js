@@ -4,6 +4,7 @@ const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const DiscussionInvitation = require("../models/discussion-invitation");
 const DiscussionInvitationMute = require("../models/discussion-invitation-mute");
+const DiscussionOwnerJoinNotice = require("../models/discussion-owner-join-notice");
 const DiscussionBoost = require("../models/discussion-boost");
 const DiscussionBoostDelivery = require("../models/discussion-boost-delivery");
 const AiPaidSuggestion = require("../models/ai-paid-suggestion");
@@ -128,6 +129,7 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
     await Promise.all([
       DiscussionInvitation.deleteMany({ $or: [{ inviterUserId: normalized }, { inviteeUserId: normalized }] }),
       DiscussionInvitationMute.deleteMany({ $or: [{ muterUserId: normalized }, { mutedUserId: normalized }] }),
+      DiscussionOwnerJoinNotice.deleteMany({ ownerUserId: normalized }),
       DiscussionBoostDelivery.deleteMany({ recipientUserId: normalized }),
       AiPaidSuggestion.deleteMany({ userId: normalized }), PeopleTasteUnlock.deleteMany({ userId: normalized }),
       UserTasteIndex.deleteMany({ userId: normalized }),

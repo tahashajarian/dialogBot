@@ -11,6 +11,7 @@ const DiscussionBoost = require("../src/models/discussion-boost");
 const DiscussionBoostDelivery = require("../src/models/discussion-boost-delivery");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
+const DiscussionOwnerJoinNotice = require("../src/models/discussion-owner-join-notice");
 const OperationalEvent = require("../src/models/operational-event");
 const PeopleTasteUnlock = require("../src/models/people-taste-unlock");
 const StarReferralClaim = require("../src/models/star-referral-claim");
@@ -30,6 +31,7 @@ const MODELS = [
   ["DiscussionBoostDelivery", DiscussionBoostDelivery],
   ["DiscussionInvitation", DiscussionInvitation],
   ["DiscussionInvitationMute", DiscussionInvitationMute],
+  ["DiscussionOwnerJoinNotice", DiscussionOwnerJoinNotice],
   ["OperationalEvent", OperationalEvent],
   ["PeopleTasteUnlock", PeopleTasteUnlock],
   ["StarReferralClaim", StarReferralClaim],

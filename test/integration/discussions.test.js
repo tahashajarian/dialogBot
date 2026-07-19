@@ -6,6 +6,7 @@ const User = require("../../src/models/user");
 const Discussion = require("../../src/models/discussion");
 const DiscussionInvitation = require("../../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../../src/models/discussion-invitation-mute");
+const DiscussionOwnerJoinNotice = require("../../src/models/discussion-owner-join-notice");
 const {
   DISCUSSION_MESSAGE_LIMIT,
   DISCUSSION_MESSAGE_WINDOW_MS,
@@ -15,6 +16,8 @@ const {
   createDiscussion,
   joinOrOpenDiscussion,
   leaveDiscussionAsMember,
+  listMyDiscussions,
+  listRecentJoinedDiscussions,
   removeMemberAsOwner,
   removeSavedProfileCode,
   reportDiscussionMember,
@@ -49,6 +52,15 @@ const {
   markSectionTipShown,
 } = require("../../src/services/users");
 const messages = require("../../src/messages");
+const {
+  NOTICE_WINDOW_MS,
+  claimDueOwnerJoinNoticeSummary,
+  claimOwnerJoinNotice,
+  completeOwnerJoinNoticeClaim,
+  flushDueOwnerJoinNoticeSummaries,
+  notifyDiscussionOwnerOfJoin,
+  restoreOwnerJoinNoticeClaim,
+} = require("../../src/services/discussion-owner-join-notifications");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_integration_${process.pid}_${Date.now()}`;
@@ -85,7 +97,13 @@ test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, {
     dbName: MONGODB_TEST_DB,
   });
-  await Promise.all([User.init(), Discussion.init(), DiscussionInvitation.init(), DiscussionInvitationMute.init()]);
+  await Promise.all([
+    User.init(),
+    Discussion.init(),
+    DiscussionInvitation.init(),
+    DiscussionInvitationMute.init(),
+    DiscussionOwnerJoinNotice.init(),
+  ]);
 }, { timeout: 120000 });
 
 test.after(async () => {
@@ -101,7 +119,258 @@ test.beforeEach(async () => {
     Discussion.deleteMany({}),
     DiscussionInvitation.deleteMany({}),
     DiscussionInvitationMute.deleteMany({}),
+    DiscussionOwnerJoinNotice.deleteMany({}),
   ]);
+});
+
+test("concurrent distinct owner join notice claims produce one send and exact unique pending users", async () => {
+  const discussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE1" });
+  const now = new Date("2026-01-01T00:00:00.000Z");
+  const claims = await Promise.all(
+    Array.from({ length: 8 }, (_, index) => claimOwnerJoinNotice({
+      discussionId: discussion._id,
+      ownerUserId: 1,
+      joinerUserId: index + 2,
+      now,
+    })),
+  );
+  const state = await DiscussionOwnerJoinNotice.findOne({ discussionId: discussion._id }).lean();
+
+  assert.equal(claims.filter((entry) => entry.action === "send").length, 1);
+  assert.equal(claims.filter((entry) => entry.action === "throttled").length, 7);
+  assert.equal(state.claimedCount, 1);
+  assert.equal(state.pendingCount, 7);
+  assert.equal(new Set(state.pendingUserIds).size, 7);
+});
+
+test("repeated rejoins by one account count as one person per notification window", async () => {
+  const discussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE7" });
+  const now = new Date("2026-01-01T00:00:00.000Z");
+  const claims = await Promise.all(
+    Array.from({ length: 8 }, () => claimOwnerJoinNotice({
+      discussionId: discussion._id,
+      ownerUserId: 1,
+      joinerUserId: 2,
+      now,
+    })),
+  );
+  const state = await DiscussionOwnerJoinNotice.findOne({ discussionId: discussion._id }).lean();
+
+  assert.equal(claims.filter((entry) => entry.action === "send").length, 1);
+  assert.equal(claims.filter((entry) => entry.action === "duplicate").length, 7);
+  assert.equal(state.claimedCount, 1);
+  assert.equal(state.pendingCount, 0);
+});
+
+test("owner join notice batching survives persisted state and summarizes at the boundary", async () => {
+  const discussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE2" });
+  const firstAt = new Date("2026-01-01T00:00:00.000Z");
+  const first = await claimOwnerJoinNotice({
+    discussionId: discussion._id,
+    ownerUserId: 1,
+    joinerUserId: 2,
+    now: firstAt,
+  });
+  await completeOwnerJoinNoticeClaim(discussion._id, first.claimToken, firstAt);
+
+  for (let index = 1; index <= 3; index += 1) {
+    const throttled = await claimOwnerJoinNotice({
+      discussionId: discussion._id,
+      ownerUserId: 1,
+      joinerUserId: index + 2,
+      now: new Date(firstAt.getTime() + index * 1000),
+    });
+    assert.equal(throttled.action, "throttled");
+  }
+
+  const summary = await claimDueOwnerJoinNoticeSummary(
+    discussion._id,
+    new Date(firstAt.getTime() + NOTICE_WINDOW_MS),
+  );
+  assert.equal(summary.action, "send");
+  assert.equal(summary.count, 3);
+  assert.equal(summary.claimKind, "summary");
+});
+
+test("due owner join summaries flush without waiting for another join", async () => {
+  const previousSwitch = process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+  process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = "true";
+  try {
+    const discussion = await createOpenDiscussion(1, {
+      publicDiscussionCode: "d_NOTICE8",
+      memberUserIds: [2, 3],
+    });
+    await createUser(1, { lang: "en", activeDiscussionId: null });
+    const firstAt = new Date("2026-01-01T00:00:00.000Z");
+    const first = await claimOwnerJoinNotice({
+      discussionId: discussion._id,
+      ownerUserId: 1,
+      joinerUserId: 2,
+      now: firstAt,
+    });
+    await completeOwnerJoinNoticeClaim(discussion._id, first.claimToken, firstAt);
+    const pending = await claimOwnerJoinNotice({
+      discussionId: discussion._id,
+      ownerUserId: 1,
+      joinerUserId: 3,
+      now: new Date(firstAt.getTime() + 1000),
+    });
+    assert.equal(pending.action, "throttled");
+
+    const sent = [];
+    const flushed = await flushDueOwnerJoinNoticeSummaries({
+      messages,
+      now: new Date(firstAt.getTime() + NOTICE_WINDOW_MS),
+      sendToUser: async (...args) => {
+        sent.push(args);
+        return { message_id: 1 };
+      },
+    });
+    const state = await DiscussionOwnerJoinNotice.findOne({ discussionId: discussion._id }).lean();
+
+    assert.deepEqual(flushed, { checked: 1, delivered: 1 });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0][1], /1 more person joined/);
+    assert.equal(state.pendingCount, 0);
+    assert.deepEqual(state.windowUserIds, [3]);
+  } finally {
+    if (previousSwitch === undefined) delete process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+    else process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = previousSwitch;
+  }
+});
+
+test("failed owner join notice delivery restores the full claimed count", async () => {
+  const discussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE3" });
+  const now = new Date("2026-01-01T00:00:00.000Z");
+  const claim = await claimOwnerJoinNotice({
+    discussionId: discussion._id,
+    ownerUserId: 1,
+    joinerUserId: 2,
+    now,
+  });
+  await DiscussionOwnerJoinNotice.updateOne(
+    { discussionId: discussion._id },
+    {
+      $set: {
+        claimedUserIds: [2, 3, 4, 5],
+        claimedCount: 4,
+        pendingUserIds: [6, 7],
+        pendingCount: 2,
+      },
+    },
+  );
+
+  const restored = await restoreOwnerJoinNoticeClaim(discussion._id, claim.claimToken);
+  assert.equal(restored.pendingCount, 6);
+  assert.equal(restored.claimToken, "");
+  assert.equal(restored.claimedCount, 0);
+  const retried = await claimDueOwnerJoinNoticeSummary(discussion._id, now);
+  assert.equal(retried.count, 6);
+});
+
+test("a stale owner join notice claim is recovered into the next summary", async () => {
+  const discussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE6" });
+  const firstAt = new Date("2026-01-01T00:00:00.000Z");
+  const first = await claimOwnerJoinNotice({
+    discussionId: discussion._id,
+    ownerUserId: 1,
+    joinerUserId: 2,
+    now: firstAt,
+  });
+  await DiscussionOwnerJoinNotice.updateOne(
+    { discussionId: discussion._id, claimToken: first.claimToken },
+    {
+      $set: {
+        claimedUserIds: [2, 3, 4],
+        claimedCount: 3,
+        pendingUserIds: [5, 6],
+        pendingCount: 2,
+      },
+    },
+  );
+
+  const recovered = await claimDueOwnerJoinNoticeSummary(
+    discussion._id,
+    new Date(firstAt.getTime() + 61 * 1000),
+  );
+  assert.equal(recovered.action, "send");
+  assert.equal(recovered.count, 5);
+});
+
+test("an inactive owner who left their room receives one private join card", async () => {
+  const previousSwitch = process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+  process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = "true";
+  try {
+    const discussion = await createOpenDiscussion(1, {
+      publicDiscussionCode: "d_NOTICE4",
+      memberUserIds: [2],
+    });
+    await createUser(1, { lang: "en", activeDiscussionId: null, discussionMembershipIds: [] });
+    const sent = [];
+    const result = await notifyDiscussionOwnerOfJoin({
+      ctx: {
+        userId: 2,
+        sendToUser: async (...args) => {
+          sent.push(args);
+          return { message_id: 1 };
+        },
+      },
+      messages,
+      joined: {
+        joined: true,
+        joinerName: "Sara",
+        discussion,
+      },
+    });
+    const state = await DiscussionOwnerJoinNotice.findOne({ discussionId: discussion._id }).lean();
+
+    assert.equal(result.action, "sent");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0][0], 1);
+    assert.match(sent[0][1], /"Sara" joined your discussion/);
+    assert.match(sent[0][1], /1 members/);
+    assert.equal(sent[0][2].reply_markup.inline_keyboard[0][0].callback_data,
+      "discussion:owner-join:open:d_NOTICE4");
+    assert.ok(state.lastSuccessfulSendAt instanceof Date);
+  } finally {
+    if (previousSwitch === undefined) delete process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+    else process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = previousSwitch;
+  }
+});
+
+test("same-room owners get only the live notice and failed private delivery restores pending", async () => {
+  const previousSwitch = process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+  process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = "true";
+  try {
+    const liveDiscussion = await createOpenDiscussion(1, { publicDiscussionCode: "d_NOTICE5" });
+    await createUser(1, {
+      activeDiscussionId: liveDiscussion._id,
+      discussionMembershipIds: [liveDiscussion._id],
+    });
+    let sends = 0;
+    const live = await notifyDiscussionOwnerOfJoin({
+      ctx: { userId: 2, sendToUser: async () => { sends += 1; return true; } },
+      messages,
+      joined: { joined: true, joinerName: "Sara", discussion: liveDiscussion },
+    });
+    assert.equal(live.action, "live");
+    assert.equal(sends, 0);
+    assert.equal(await DiscussionOwnerJoinNotice.countDocuments({ discussionId: liveDiscussion._id }), 0);
+
+    await User.updateOne({ userId: 1 }, { $set: { activeDiscussionId: null } });
+    const failed = await notifyDiscussionOwnerOfJoin({
+      ctx: { userId: 2, sendToUser: async () => false },
+      messages,
+      joined: { joined: true, joinerName: "Sara", discussion: liveDiscussion },
+    });
+    const restored = await DiscussionOwnerJoinNotice.findOne({ discussionId: liveDiscussion._id }).lean();
+    assert.equal(failed.action, "failed");
+    assert.equal(restored.pendingCount, 1);
+    assert.equal(restored.claimToken, "");
+  } finally {
+    if (previousSwitch === undefined) delete process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED;
+    else process.env.DISCUSSION_OWNER_JOIN_NOTICES_ENABLED = previousSwitch;
+  }
 });
 
 test("create discussion persists creator membership and active room", async () => {
@@ -128,6 +397,62 @@ test("create discussion persists creator membership and active room", async () =
   assert.deepEqual(discussion.memberUserIds, [1]);
   assert.equal(discussion.maxMembers, 5);
   assert.equal(discussion.language, "fa");
+});
+
+test("My Discussions lists only rooms the user created", async () => {
+  const [owned, joined] = await Promise.all([
+    createOpenDiscussion(1, { publicDiscussionCode: "d_MYOWN1" }),
+    createOpenDiscussion(2, { publicDiscussionCode: "d_JOINED1", memberUserIds: [1, 2] }),
+  ]);
+  await createUser(1, {
+    activeDiscussionId: joined._id,
+    discussionMembershipIds: [owned._id, joined._id],
+  });
+
+  const result = await listMyDiscussions(1);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.discussions.map((discussion) => String(discussion._id)), [String(owned._id)]);
+});
+
+test("recent joined discussions are unique, capped, ordered, and hide unavailable rooms", async () => {
+  await createUser(1);
+  const rooms = await Promise.all([
+    createOpenDiscussion(10, { publicDiscussionCode: "d_RECENT1" }),
+    createOpenDiscussion(20, { publicDiscussionCode: "d_RECENT2" }),
+    createOpenDiscussion(30, { publicDiscussionCode: "d_RECENT3" }),
+    createOpenDiscussion(40, { publicDiscussionCode: "d_RECENT4" }),
+  ]);
+
+  for (const room of rooms) {
+    const joined = await joinOrOpenDiscussion(1, room._id);
+    assert.equal(joined.ok, true);
+    assert.equal(joined.joined, true);
+    await leaveDiscussionAsMember(1, room._id);
+  }
+
+  await joinOrOpenDiscussion(1, rooms[1]._id);
+  await leaveDiscussionAsMember(1, rooms[1]._id);
+
+  let result = await listRecentJoinedDiscussions(1);
+  assert.deepEqual(result.discussions.map((room) => String(room._id)), [
+    String(rooms[1]._id),
+    String(rooms[3]._id),
+    String(rooms[2]._id),
+  ]);
+
+  const user = await User.findOne({ userId: 1 }).lean();
+  assert.deepEqual(user.recentJoinedDiscussionIds.map(String), [
+    String(rooms[1]._id),
+    String(rooms[3]._id),
+    String(rooms[2]._id),
+  ]);
+
+  await Promise.all([
+    Discussion.updateOne({ _id: rooms[1]._id }, { $set: { status: "closed" } }),
+    Discussion.updateOne({ _id: rooms[3]._id }, { $addToSet: { removedUserIds: 1 } }),
+  ]);
+  result = await listRecentJoinedDiscussions(1);
+  assert.deepEqual(result.discussions.map((room) => String(room._id)), [String(rooms[2]._id)]);
 });
 
 test("discussion creation defaults to the creator interface language", async () => {

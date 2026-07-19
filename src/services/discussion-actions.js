@@ -12,6 +12,10 @@ const {
 } = require("./discussion-notifications");
 const { getDiscussionDisplayTitle } = require("./discussion-ui");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
+const {
+  notifyDiscussionOwnerOfJoin,
+  removeOwnerJoinNoticeState,
+} = require("./discussion-owner-join-notifications");
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
@@ -53,6 +57,11 @@ async function joinDiscussionAndNotify({ ctx, messages, discussionId, allowActiv
     );
   }
 
+  if (joined.joined) {
+    // Membership and room entry are authoritative; private owner delivery is bounded and best effort.
+    void notifyDiscussionOwnerOfJoin({ ctx, messages, joined }).catch(() => {});
+  }
+
   return joined;
 }
 
@@ -79,6 +88,8 @@ async function closeDiscussionAndNotify({ ctx, messages, discussionId, discussio
   const activeMembers = await getActiveMembersInDiscussion(discussionId, [ctx.userId]);
   const closed = await closeDiscussionAsOwner(ctx.userId, discussionId);
   if (!closed.ok) return closed;
+
+  await removeOwnerJoinNoticeState(discussionId).catch(() => null);
 
   await notifyDiscussionMembers(ctx, messages, activeMembers, (msgs, lang) => [
     {

@@ -16,7 +16,9 @@ const { logger } = require("./services/logger");
 const { recordBotHeartbeat, recordUpdatePerformanceEvent } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
-const { formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
+const { formatBotExtra, formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
+const { localizeOutgoingExtra, localizeVisibleDigits } = require("./services/number-localization");
+const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owner-join-notifications");
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
 const {
   createRuntimeMetricsMonitor,
@@ -29,6 +31,8 @@ const User = require("./models/user");
 const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
 const SLOW_UPDATE_MS = 1500;
+const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
+const BACKGROUND_SEND_TIMEOUT_MS = 2500;
 
 function normalizeCallbackRoute(data = "") {
   const value = String(data || "");
@@ -101,6 +105,22 @@ const bot = new Telegraf(
   config.botToken,
   buildTelegramOptions(config),
 );
+
+async function sendBackgroundMessage(userId, text, extra = {}, lang = "fa") {
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  const timeout = setTimeout(() => controller?.abort(), BACKGROUND_SEND_TIMEOUT_MS);
+  try {
+    return await bot.telegram.callApi("sendMessage", {
+      chat_id: Number(userId),
+      text: localizeVisibleDigits(formatBotText(text), lang),
+      ...localizeOutgoingExtra(formatBotExtra(extra), lang),
+    }, controller ? { signal: controller.signal } : undefined);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 bot.catch((err) => {
   logger.error("Bot update error", err);
@@ -238,6 +258,8 @@ bot.on("callback_query", processUpdate);
 let pollingStarted = false;
 let shuttingDown = false;
 let heartbeatTimer = null;
+let ownerJoinSummaryTimer = null;
+let ownerJoinSummaryRunning = false;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const runtimeMetrics = createRuntimeMetricsMonitor({ intervalMs: HEARTBEAT_INTERVAL_MS });
 
@@ -256,6 +278,10 @@ async function shutdown(reason, exitCode = 0) {
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
     heartbeatTimer = null;
+  }
+  if (ownerJoinSummaryTimer) {
+    clearInterval(ownerJoinSummaryTimer);
+    ownerJoinSummaryTimer = null;
   }
 
   try {
@@ -355,6 +381,23 @@ async function retry(fn, {
       void recordBotHeartbeat({ botId: botInfo?.id, ...runtimeMetrics.snapshot() });
     }, HEARTBEAT_INTERVAL_MS);
     heartbeatTimer.unref?.();
+    const flushOwnerJoinSummaries = async () => {
+      if (ownerJoinSummaryRunning) return;
+      ownerJoinSummaryRunning = true;
+      try {
+        await flushDueOwnerJoinNoticeSummaries({
+          sendToUser: sendBackgroundMessage,
+          messages,
+        });
+      } catch (error) {
+        logger.warn("Failed to flush due discussion owner join summaries", error);
+      } finally {
+        ownerJoinSummaryRunning = false;
+      }
+    };
+    void flushOwnerJoinSummaries();
+    ownerJoinSummaryTimer = setInterval(flushOwnerJoinSummaries, OWNER_JOIN_SUMMARY_INTERVAL_MS);
+    ownerJoinSummaryTimer.unref?.();
     logger.info("Bot started in polling mode");
 
     pollingLoop.catch(async (pollingError) => {

@@ -1,48 +1,20 @@
 # Muze Next Steps
 
-Completed implementation plans are removed from this file. Product behavior for Profile privacy, invitation restrictions, invite onboarding, and discussion join failures now lives in `docs/bot-ux.md`, `docs/discussions.md`, and `docs/discussion-invitations.md`.
+Completed discussion-owner join notification behavior is documented in `docs/discussions.md`.
 
-## Immediate live verification
+## Live verification and rollout
 
-☐ Test the consolidated change in Persian and English with two normal accounts and one account created from a discussion invite:
-- Profile Settings layout and Location return path;
-- both Privacy & Safety visibility toggles and their compact confirmations;
-- See People opt-out and opt-in;
-- restrict confirmation, pending-invitation removal, restricted join behavior, restriction list count/pagination, View profile, and Allow invitations again;
-- invitation acceptance while already in a room;
-- invitation acceptance when a taste, favorite, or Interest rule is unmet;
-- direct invite preview for an eligible and an ineligible returning user;
-- fresh invite recipient language selection, complete onboarding, final invitation notice, preview, and join;
-- stale cards, repeated taps, and restarts where practical.
+☐ Test with an owner and at least two joiners in Persian and English:
+- owner viewing the same room receives only the live room notice;
+- owner with no active room receives the private notification and opens the room in one tap;
+- owner active in another room sees only the leave-current-first warning;
+- repeated leave/rejoin by one account is counted once per notification window;
+- rapid distinct joins produce one immediate card and one accurate summary;
+- stale Open actions for closed or unavailable rooms fail safely;
+- rollout switch off suppresses only private owner join cards.
+
+☐ Verify the `due_owner_join_notice_summaries` index exists before production rollout.
 
 ☐ Deploy only after explicit approval, following `docs/fresh-server-deployment.md` one section at a time. Never run tests, seed scripts, clearing scripts, or load tests against the production database.
 
-☐ After rollout, monitor privacy-toggle errors, restriction/unrestrict failures, People result and empty-state rates, invitation failures, and join-unavailable rates. Do not bulk rewrite User or invitation-restriction documents.
-
-## Deferred measured starter-topic expansion
-
-Current starter topics are Free Discussion, Gaming Hangout, Movie Chat, and Metalheads. Each topic has separate Persian and English instances.
-
-☐ Collect privacy-light aggregate metrics for:
-- onboarding Interest-chip selections by normalized predefined chip key;
-- starter-room previews, joins, active members, messages, and reports;
-- rooms that repeatedly approach capacity;
-- rooms that remain empty or inactive.
-
-☐ After enough real usage, consider topics such as Movies, Gaming, Music, Books, Technology, Sports, and Everyday Life. Add a topic only when onboarding selections and discussion activity show clear demand.
-
-☐ For each added topic:
-- define a stable seed key and bilingual title and description;
-- use a broad predefined onboarding Interest chip for a clear join rule;
-- seed separate Persian and English rooms;
-- preserve idempotent seeding and stable ordering;
-- add matching-invitation and discovery-ranking tests;
-- verify locked-room guidance explains the exact eligibility path.
-
-☐ Keep one open Free Discussion fallback per language.
-
-☐ Do not delete inactive rooms or user data automatically. Any retirement requires a separately reviewed migration covering current members and notifications.
-
-☐ Add numbered overflow rooms only after defining the occupancy threshold, observation window, routing strategy, user-facing titles, discovery deduplication, moderation monitoring, and safe retirement policy.
-
-☐ Validate topic or overflow expansion with translation validation, unit and integration tests, diff checks, and bilingual live tests.
+☐ After rollout, monitor private-card delivery failures, summary volume, suppression rates, and Open usage. Do not bulk rewrite user or discussion documents.

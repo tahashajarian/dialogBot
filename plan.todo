@@ -28,10 +28,21 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ 👱‍♀️ سلام Taha، من میوزم 🌱 we show this mesage at two place one when user press /start where ever and one when user start and at the begingin of onboarding i think istead of showing that image after finish onboarding we can show on when we say hello i'm muze @done (7/18/2026, 8:30:41 AM)
 ✔ before create invite check discussion has capacity, @done (7/18/2026, 9:03:58 AM)
 ☐ share my profile, a message combine intersts and favorits and maybe photo as banner which is based on perfoile interst and favorites and let think how we can encureage peopole to join and do the same to have thier profile like the one they saw, need to be so intersting and eye catching, let think... and maybe compare it with ourself or think abuout comparing too
-☐ update guide and ruls maybe
 
-☐ prevent disscussion name in persian and eng for sensetive words like sex sexchat سکس سکسچت سکس چت  and these things 
-☐ 👱‍♀️ این پیام دعوت به گفت‌وگوه؛ می‌تونی برای هر کسی خواستی بفرستیش 👇 this message is worng we don't have this word in persin گفت‌وگوه؛ need to be fixed
-☐ hide 'list for later' until it's not empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too
-☐ think about seeing people can chose the lang, and maybe viewing proifle need spend star, think about it
-☐ test inivitaion with link it's broken
+✔ prevent disscussion name in persian and eng for sensetive words like sex sexchat سکس سکسچت سکس چت  and these things @done (7/18/2026, 1:25:30 PM)
+✔ 👱‍♀️ این پیام دعوت به گفت‌وگوه؛ می‌تونی برای هر کسی خواستی بفرستیش 👇 this message is worng we don't have this word in persin گفت‌وگوه؛ need to be fixed @done (7/18/2026, 1:33:50 PM)
+✔ hide 'list for later' until it's not empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too @done (7/18/2026, 1:40:28 PM)
+☐ think about seeing people can chose the lang, and maybe viewing proifle need spend star, think about it and maybe sort them with most common items, they can see gender and age and name if they want to see profile need spend one star for example
+✔ test inivitaion with link it's broken @done (7/18/2026, 9:18:41 AM)
+☐ think about pin discussion title inside the discusion and by leave remove the pin
+✔ add an inline button for members list in discussion too which just close the card nothing else @done (7/18/2026, 2:02:25 PM)
+☐ think about change the name of منوی اصلی to somthing better
+✔ notif the owner on new joines to the their discussions @done (7/19/2026)
+✔ on list for later when i try to use reply keyborad to get back to favoirts thinks i'm going to add and tell me you need to frist press + @done (7/19/2026, 12:23:19 AM)
+✔ in discussion if soemone send دعوت word by type the invitaion will open for all users @done (7/19/2026, 12:16:33 AM)
+✔ aftr boost remove the boost botton @done (7/19/2026, 12:16:07 AM)
+✔ add a tip to my discussion @done (7/19/2026, 6:22:09 AM)
+✔ remove a user from discusion is working fine, just need a confirm i think, which could be inline butotn confirm then remove the user @done (7/19/2026)
+✔ close discussion is not working fine after confirm we should leave and back to prev menu @done (7/19/2026, 6:16:34 AM)
+✔ if we are active in a discussion and see a notif that someone joined by press on open discusion it open another card that the title is preview of invitaion which is wrong @done (7/19/2026, 6:45:53 AM)
+☐ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas

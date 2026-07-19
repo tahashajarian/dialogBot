@@ -17,6 +17,7 @@ const {
 } = require("../src/services/discussion-ui");
 const {
   discussionListNavigationKeyboard,
+  discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
@@ -47,6 +48,7 @@ const {
 } = require("../src/flows/discussions-callbacks");
 const {
   buildDiscussionInviteSharePayload,
+  removeDiscussionMemberCommand,
   showDiscussionInvitePreviewCommand,
 } = require("../src/flows/discussions-text");
 const {
@@ -441,6 +443,24 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
   assert.equal(allButtons.at(-1)?.text, messages.fa.discussionShareClose);
 });
 
+test("non-empty My Discussions includes its width-friendly creator tip", () => {
+  const text = buildDiscussionListText(messages, "en", messages.en.discussionMyList, [{
+    title: "Hi",
+    description: "Short",
+    publicDiscussionCode: "d_SHORT1",
+    memberUserIds: [1],
+    joinRule: { type: "open" },
+  }], {
+    headerTip: messages.en.discussionMyListTip,
+  });
+
+  assert.match(text, /🗂 My discussions \(1\)\n💡 These are the discussions you created\./);
+  assert.match(messages.en.discussionMyListTipWithRecent, /button below/);
+  assert.match(messages.fa.discussionMyListTipWithRecent, /دکمه‌ی پایین/);
+  assert.match(messages.en.discussionRecentListTip, /recently joined/);
+  assert.match(messages.fa.discussionRecentListTip, /اخیراً/);
+});
+
 test("My Discussions navigation is inline and ends with Close", () => {
   const keyboard = discussionListNavigationKeyboard("en", {
     listType: "mine",
@@ -452,6 +472,35 @@ test("My Discussions navigation is inline and ends with Close", () => {
   assert.equal(keyboard.reply_markup.keyboard, undefined);
   assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
   assert.equal(buttons.at(-1).callback_data, callBacks.discussionListClose);
+});
+
+test("My Discussions exposes recent history only when available and preserves its page", () => {
+  const withoutHistory = discussionListNavigationKeyboard("en", {
+    listType: "mine",
+    page: 2,
+    totalPages: 4,
+  });
+  assert.equal(withoutHistory.reply_markup.inline_keyboard.flat().some(
+    (button) => button.callback_data?.startsWith(callBacks.discussionListRecent),
+  ), false);
+
+  const withHistory = discussionListNavigationKeyboard("en", {
+    listType: "mine",
+    page: 2,
+    totalPages: 4,
+    hasRecentDiscussions: true,
+  });
+  const recentButton = withHistory.reply_markup.inline_keyboard.flat().find(
+    (button) => button.text === messages.en.discussionRecentListButton,
+  );
+  assert.equal(recentButton.callback_data, `${callBacks.discussionListRecent}2`);
+
+  const recentKeyboard = discussionRecentListKeyboard("en", { backPage: 2 });
+  const recentButtons = recentKeyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(recentButtons[0].callback_data, `${callBacks.discussionListRecentBack}2`);
+  assert.equal(recentButtons.at(-1).callback_data, callBacks.discussionListClose);
+  assert.equal(isDiscussionListCallback(`${callBacks.discussionListRecent}2`), true);
+  assert.equal(shouldKeepDiscussionRoomCardsForCallback(`${callBacks.discussionListRecentBack}2`), true);
 });
 
 test("active discussion language picker is inline and disappears into the refreshed list", () => {
@@ -537,10 +586,11 @@ test("join-error acknowledgement copy remains available for discussion recovery"
   const keyboard = discussionJoinErrorAckKeyboard("en", "discussions");
   const [button] = keyboard.reply_markup.keyboard.flat();
 
-  assert.match(messages.en.discussionListMineEmpty, /Active discussions/);
-  assert.match(messages.en.discussionListMineEmpty, /create a new discussion/);
+  assert.doesNotMatch(messages.en.discussionListMineEmpty, /Active discussions/);
+  assert.match(messages.en.discussionListMineEmpty, /have not created/);
+  assert.match(messages.en.discussionListMineEmpty, /Create a new discussion/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
-  assert.match(messages.en.discussionListMineEmptyAfterClose, /My discussions now/);
+  assert.match(messages.en.discussionListMineEmptyAfterClose, /created discussions/);
   assert.equal(button.text, messages.en.acknowledgeButton);
 });
 
@@ -583,6 +633,45 @@ test("leave-current warning uses one inline Got it without a reply keyboard", ()
   assert.equal(button.callback_data, callBacks.discussionJoinLockedClose);
   assert.equal(keyboard.reply_markup.keyboard, undefined);
   assert.match(messages.fa.discussionErrLeaveCurrentFirst, /برای ورود به یه گفت‌وگوی جدید/);
+});
+
+test("owner join notification shows leave-current warning instead of an invitation preview", async () => {
+  const originalFindOne = Discussion.findOne;
+  const edits = [];
+  Discussion.findOne = async () => ({
+    _id: "notified-room",
+    publicDiscussionCode: "d_NOTICE1",
+    title: "Notified room",
+    status: "open",
+    creatorUserId: 7,
+  });
+  const ctx = {
+    callbackData: `${callBacks.discussionOwnerJoinNoticeOpen}d_NOTICE1`,
+    callbackMessageId: 44,
+    userId: 7,
+    user: { userId: 7, lang: "en", activeDiscussionId: "current-room" },
+    answerCb: async () => {},
+    editMessageText: async (messageId, text, keyboard) => {
+      edits.push({ messageId, text, keyboard });
+      return { message_id: messageId };
+    },
+    reply: async () => {
+      throw new Error("notification warning should edit the existing card");
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findOne = originalFindOne;
+  }
+
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].text, messages.en.discussionErrLeaveCurrentFirst);
+  assert.doesNotMatch(edits[0].text, /Invitation preview/i);
+  const buttons = edits[0].keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(buttons.length, 1);
+  assert.equal(buttons[0].callback_data, callBacks.discussionJoinLockedClose);
 });
 
 test("discussion list title shows the full filtered count", () => {
@@ -980,6 +1069,58 @@ test("discussion capacity picker marks paid capacities only when spending is ava
   } finally {
     Object.assign(starEconomy, originalSettings);
   }
+});
+
+test("the visible remove command asks for confirmation without removing immediately", async () => {
+  const originalFindOne = User.findOne;
+  const replies = [];
+  User.findOne = () => ({
+    select: () => ({
+      lean: async () => ({ userId: 8, profileName: "Taha", firstName: "Taha" }),
+    }),
+  });
+  const ctx = {
+    userId: 7,
+    user: { userId: 7, activeDiscussionId: "room-1" },
+    reply: async (text, keyboard) => {
+      replies.push({ text, keyboard });
+      return { message_id: 61 };
+    },
+  };
+
+  try {
+    await removeDiscussionMemberCommand(ctx, "en", "/remove_ABC123");
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /Taha/);
+  assert.doesNotMatch(replies[0].text, /was removed/);
+  const buttons = replies[0].keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(buttons[0].callback_data, `${callBacks.discussionRemoveMemberConfirm}room-1:u_ABC123`);
+  assert.equal(buttons[1].callback_data, callBacks.discussionRemoveMemberCancel);
+});
+
+test("canceling member removal deletes only the confirmation card", async () => {
+  const events = [];
+  const ctx = {
+    callbackData: callBacks.discussionRemoveMemberCancel,
+    callbackMessageId: 72,
+    userId: 7,
+    user: { userId: 7, lang: "en", activeDiscussionId: "room-1" },
+    answerCb: async () => events.push("answer"),
+    deleteMessage: async (messageId) => {
+      events.push(`delete:${messageId}`);
+      return true;
+    },
+    reply: async () => {
+      throw new Error("cancel should not open a picker or send another card");
+    },
+  };
+
+  await handleCallback(ctx);
+  assert.deepEqual(events, ["answer", "delete:72"]);
 });
 
 test("discussion close confirmation actions are inline", () => {

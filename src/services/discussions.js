@@ -1,5 +1,6 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
+const { recordRecentJoinedDiscussion } = require("./users");
 const { normalizeDiscussionLanguage, normalizeDiscussionLanguageFilter } = require("./discussion-language");
 const { isUserMutedBy } = require("./discussion-invitation-mutes");
 const {
@@ -362,17 +363,12 @@ async function listActiveDiscussions({ userId, limit = 50, languageFilter = "all
 }
 
 async function listMyDiscussions(userId, { limit = 50 } = {}) {
-  const user = await User.findOne({ userId }).select("activeDiscussionId discussionMembershipIds").lean();
+  const user = await User.findOne({ userId }).select("activeDiscussionId").lean();
   if (!user) return { ok: false, reason: "missing_user" };
 
-  const ids = Array.isArray(user.discussionMembershipIds) ? user.discussionMembershipIds : [];
   const discussions = await Discussion.find({
     status: "open",
-    $or: [
-      { creatorUserId: userId },
-      { _id: { $in: ids } },
-      { memberUserIds: userId },
-    ],
+    creatorUserId: userId,
   })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
@@ -388,6 +384,26 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   });
 
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
+}
+
+async function listRecentJoinedDiscussions(userId, { limit = 3 } = {}) {
+  const user = await User.findOne({ userId }).select("recentJoinedDiscussionIds").lean();
+  if (!user) return { ok: false, reason: "missing_user", discussions: [] };
+
+  const recentIds = (user.recentJoinedDiscussionIds || []).slice(0, Math.max(0, Number(limit) || 3));
+  if (!recentIds.length) return { ok: true, discussions: [] };
+
+  const discussions = await Discussion.find({
+    _id: { $in: recentIds },
+    status: "open",
+    creatorUserId: { $ne: userId },
+    removedUserIds: { $ne: userId },
+  });
+  const byId = new Map(discussions.map((discussion) => [String(discussion._id), discussion]));
+  return {
+    ok: true,
+    discussions: recentIds.map((id) => byId.get(String(id))).filter(Boolean),
+  };
 }
 
 async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = false } = {}) {
@@ -476,6 +492,10 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
         return { ok: true, discussion: latest, joined: false };
       }
       return { ok: false, reason: "discussion_full", cap: maxMembers };
+    }
+
+    if (!isOwner) {
+      await recordRecentJoinedDiscussion(userId, joinedDiscussion._id);
     }
 
     await User.findOneAndUpdate(
@@ -828,6 +848,7 @@ module.exports = {
   seedBotDiscussions,
   listActiveDiscussions,
   listMyDiscussions,
+  listRecentJoinedDiscussions,
   joinOrOpenDiscussion,
   getActiveDiscussionInviteForUser,
   leaveDiscussionAsMember,

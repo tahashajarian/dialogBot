@@ -14,6 +14,7 @@ const { syncUserTasteIndex } = require("./user-taste-index");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 const SECTION_TIP_KEYS = Object.freeze(["discussions", "favorites", "people"]);
+const RECENT_JOINED_DISCUSSION_LIMIT = 3;
 
 function firstPresent(...values) {
   return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
@@ -71,6 +72,35 @@ async function updateProfileField(userId, field, value) {
     { userId },
     { [field]: value },
     { returnDocument: "after" },
+  );
+}
+
+async function recordRecentJoinedDiscussion(userId, discussionId) {
+  if (!discussionId) return null;
+  return User.findOneAndUpdate(
+    { userId },
+    [{
+      $set: {
+        recentJoinedDiscussionIds: {
+          $slice: [
+            {
+              $concatArrays: [
+                [discussionId],
+                {
+                  $filter: {
+                    input: { $ifNull: ["$recentJoinedDiscussionIds", []] },
+                    as: "recentDiscussionId",
+                    cond: { $ne: ["$$recentDiscussionId", discussionId] },
+                  },
+                },
+              ],
+            },
+            RECENT_JOINED_DISCUSSION_LIMIT,
+          ],
+        },
+      },
+    }],
+    { returnDocument: "after", updatePipeline: true },
   );
 }
 
@@ -917,6 +947,7 @@ module.exports = {
   getOrCreateUser,
   updateLanguage,
   updateProfileField,
+  recordRecentJoinedDiscussion,
   updateLocationCityForSharedAt,
   updateUserFields,
   normalizePlatformUserSource,
