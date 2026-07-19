@@ -98,12 +98,20 @@ function resolveDiscussionMaxMembers(discussion = {}) {
 
 const { isLowQualityAiListItem, validateMinimumLength } = require("./ai-input-quality");
 
+function containsEmoji(value = "") {
+  return /[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u20E3]/u.test(String(value || ""));
+}
+
 /**
  * Validate discussion title for quality and meaningfulness.
  * Checks minimum length (3+ letters) and rejects nonsense patterns.
  * Returns { valid: boolean, reason?: string }
  */
 function validateDiscussionTitle(title) {
+  if (containsEmoji(title)) {
+    return { valid: false, reason: "emoji" };
+  }
+
   if (isCommandLikeText(title)) {
     return { valid: false, reason: "command_like" };
   }
@@ -127,6 +135,10 @@ function validateDiscussionTitle(title) {
  * Returns { valid: boolean, reason?: string }
  */
 function validateDiscussionDescription(description) {
+  if (containsEmoji(description)) {
+    return { valid: false, reason: "emoji" };
+  }
+
   if (isCommandLikeText(description)) {
     return { valid: false, reason: "command_like" };
   }
@@ -366,12 +378,13 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   const user = await User.findOne({ userId }).select("activeDiscussionId").lean();
   if (!user) return { ok: false, reason: "missing_user" };
 
-  const discussions = await Discussion.find({
+  let discussions = await Discussion.find({
     status: "open",
     creatorUserId: userId,
   })
     .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
     .limit(limit);
+  discussions = await decorateActiveBoosts(discussions);
 
   void trackThrottledEvent({
     name: EVENT_NAMES.discussionListOpened,

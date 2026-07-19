@@ -9,7 +9,13 @@ const {
 } = require("../keyboards");
 const { updateProfileField, resetDiscussionDraft, updateUserState } = require("../services/users");
 const { toPlainUser } = require("../services/profile");
-const { hasLink, validateDiscussionTitle, validateDiscussionDescription } = require("../services/discussions");
+const {
+  hasLink,
+  normalizeDescription,
+  normalizeTitle,
+  validateDiscussionTitle,
+  validateDiscussionDescription,
+} = require("../services/discussions");
 const { buildDiscussionPreviewText } = require("../services/discussion-ui");
 const { refundPaidExtraDiscussionAuthorization } = require("../services/discussion-paid-creation");
 const {
@@ -87,7 +93,7 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
     );
   }
 
-  const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 80);
+  const normalized = normalizeTitle(text);
   if (!normalized) {
     return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitle, cancelKeyboard());
   }
@@ -100,7 +106,9 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
   if (!titleValidation.valid) {
     const validationMessage = titleValidation.reason === "sensitive_content"
       ? messages[lang].discussionSensitiveTitle
-      : messages[lang].discussionInvalidTitle;
+      : titleValidation.reason === "emoji"
+        ? messages[lang].discussionTitleNoEmoji
+        : messages[lang].discussionInvalidTitle;
     return sendDiscussionCreatePrompt(ctx, validationMessage, cancelKeyboard());
   }
 
@@ -180,14 +188,20 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
     );
   }
 
-  const normalized = String(text).trim().replace(/\s+/g, " ").slice(0, 300);
+  const normalized = normalizeDescription(text);
   if (isOpenRule && !normalized) {
     return sendDiscussionCreatePrompt(ctx, messages[lang].discussionOpenNeedsDescription, cancelKeyboard());
   }
 
   const descValidation = validateDiscussionDescription(normalized);
   if (normalized && !descValidation.valid) {
-    return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidDescription, cancelKeyboard());
+    return sendDiscussionCreatePrompt(
+      ctx,
+      descValidation.reason === "emoji"
+        ? messages[lang].discussionDescriptionNoEmoji
+        : messages[lang].discussionInvalidDescription,
+      cancelKeyboard(),
+    );
   }
 
   await clearDiscussionMenuNotice(ctx);

@@ -4,7 +4,6 @@ const { formatOperationalLimitsText } = require("../services/operational-limits-
 const { callBacks } = require("../constants");
 const {
   discussionsMenuKeyboard,
-  discussionRoomKeyboard,
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
@@ -51,6 +50,7 @@ const {
   normalizePublicProfileCode,
 } = require("../services/discussions");
 const { buildSavedProfileListItems } = require("../services/saved-profiles-ui");
+const { buildDiscussionRoomKeyboard } = require("../services/discussion-room-ui");
 const {
   getDiscussionDisplayTitle,
   getDiscussionErrorMessage,
@@ -411,7 +411,7 @@ async function acceptInvitationCommand(ctx, lang, text, {
     await ctx.reply(statusText);
     return sendRoom(ctx, lang, joined.discussion);
   }
-  return ctx.reply(statusText, discussionRoomKeyboard(lang, joined.discussion.creatorUserId === ctx.userId));
+  return ctx.reply(statusText, await buildDiscussionRoomKeyboard(lang, joined.discussion, ctx.userId));
 }
 
 async function removeInvitationCommand(ctx, lang, text) {

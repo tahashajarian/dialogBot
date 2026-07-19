@@ -677,6 +677,13 @@ test("discussion title and description reject command-like text", () => {
   assert.equal(validateDiscussionTitle("Best riffs ever").valid, true);
 });
 
+test("discussion titles and descriptions reject emoji", () => {
+  assert.equal(validateDiscussionTitle("Movie night 🎬").reason, "emoji");
+  assert.equal(validateDiscussionTitle("Music 🇮🇷").reason, "emoji");
+  assert.equal(validateDiscussionDescription("Let us talk 🚀").reason, "emoji");
+  assert.equal(validateDiscussionDescription("A plain meaningful description").valid, true);
+});
+
 test("discussion titles reject English and Persian sensitive or abusive terms", () => {
   const rejectedTitles = [
     "sex chat",

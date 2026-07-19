@@ -7,7 +7,6 @@ const {
   helpRulesKeyboard,
   languageKeyboard,
   discussionsMenuKeyboard,
-  discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionMembersCloseKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
@@ -36,6 +35,7 @@ const {
 const {
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
+  buildDiscussionRoomKeyboard,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
 } = require("./services/discussion-room-ui");
@@ -242,7 +242,7 @@ async function restoreActiveDiscussionKeyboardAfterInviteDismiss(ctx, lang, invi
   const title = getDiscussionDisplayTitle(messages, lang, discussion);
   return ctx.reply(
     messages[lang].discussionInviteStillInRoom.replace("{title}", title),
-    discussionRoomKeyboard(lang, Number(discussion.creatorUserId) === Number(ctx.userId)),
+    await buildDiscussionRoomKeyboard(lang, discussion, ctx.userId),
   );
 }
 
@@ -409,7 +409,7 @@ async function sendDiscussionRoom(ctx, lang, discussion) {
   const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   const recentMessage = await ctx.reply(
     formatDiscussionRoomFollowup(messages, lang, discussion),
-    discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
+    await buildDiscussionRoomKeyboard(lang, discussion, ctx.userId),
   );
   await clearRememberedDiscussionRoomCards(ctx, [
     ctx.callbackMessageId,

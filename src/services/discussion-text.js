@@ -1,5 +1,7 @@
 function normalizeDiscussionText(value, maxLength) {
-  return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
+  return Array.from(String(value || "").trim().replace(/\s+/g, " "))
+    .slice(0, maxLength)
+    .join("");
 }
 
 function hasLink(value) {

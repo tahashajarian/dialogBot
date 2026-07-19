@@ -81,13 +81,10 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
     label: "Boost duration", description: "How long an activated boost remains active.", group: "Discussion boosts", type: "number", unit: "hours", default: 24, min: 1, max: 8760,
   },
   discussionBoostCooldownHours: {
-    label: "Boost cooldown", description: "Delay before the same creator/discussion can boost again.", group: "Discussion boosts", type: "number", unit: "hours", default: 24, min: 0, max: 8760,
+    label: "Boost cooldown", description: "Delay before the same discussion can be boosted again.", group: "Discussion boosts", type: "number", unit: "hours", default: 24, min: 0, max: 8760,
   },
   discussionBoostsPerDiscussion: {
     label: "Active boosts per discussion", description: "Safety invariant; boost stacking is disabled.", group: "Discussion boosts", type: "number", unit: "boosts", default: 1, min: 1, max: 1,
-  },
-  discussionBoostsPerOwner: {
-    label: "Active boosts per creator", description: "Safety invariant; each creator may boost one discussion.", group: "Discussion boosts", type: "number", unit: "boosts", default: 1, min: 1, max: 1,
   },
   discussionBoostedSlotsPerPage: {
     label: "Boosted positions per page", description: "Maximum relevant boosted discussions shown on one result page.", group: "Discussion boosts", type: "number", unit: "positions", default: 1, min: 1, max: 2,

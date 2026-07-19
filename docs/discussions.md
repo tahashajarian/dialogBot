@@ -191,6 +191,7 @@ Title validation:
 - minimum 3 letters (rejects AI, Go, ش, شش, but allows iOS, Dune, شما)
 - max 80 characters
 - normalize repeated spaces
+- reject emoji in titles; `🚀` is reserved for system-rendered boost status
 - reject links in title
 - reject English and Persian sexual, degrading, exploitative, and abusive terms, including joined, spaced, punctuated, transliterated, and common Arabic-letter variants
 - reject nonsense input: placeholders (test, asdf, تست, هیچی), Latin keyboard mash (qwerty, asdfg), Persian keyboard mash (سشبیل, شسیب), repeated characters (aaaa), long consonant-heavy chunks, long single Persian tokens with no spaces
@@ -200,6 +201,7 @@ Title validation:
 Description validation:
 
 - minimum 3 letters (same as title)
+- reject emoji
 - uses the same nonsense detection as title and TopTen input (shared `isLowQualityAiListItem` and `validateMinimumLength` from `src/services/ai-input-quality.js`)
 
 Join rule prompt:
@@ -634,13 +636,15 @@ Future possibilities:
 Boost behavior is specified in [Stars Economy](stars.md). It is an optional discovery amplifier, not a join bypass or replacement for organic ranking.
 
 - Only the discussion creator may buy a boost at launch.
-- Multiple creators may have boosted discussions simultaneously across Muze, but each creator and each discussion may have only one active boost.
+- Each discussion may have only one active boost, but a creator may boost any number of their open discussions independently.
 - The room action uses `🚀 Boost discussion` in English and `🚀 ارتقای گفت‌وگو` in Persian. Owners can start the same flow from `🗂 گفت‌وگوهای من` through the listed boost action; current admin-configured cost, duration, balance, and confirm/cancel actions appear on the confirmation card.
 - Charge and boost creation must be atomic/idempotent, with exactly one automatic refund if activation fails after charge.
-- Boosted rooms are visibly labeled and still pass open status, capacity, join-rule, removal, mute/block, ban, moderation, relevance, freshness, cooldown, and owner-diversity checks.
+- Boosted rooms show `🚀` beside the title in discussion lists, with no separate boosted-status line, and still pass open status, capacity, join-rule, removal, mute/block, ban, moderation, relevance, freshness, cooldown, and owner-diversity checks.
 - A boost may improve list placement and send a capped Muze-authored recommendation to eligible taste-relevant users.
 - Recommendations are not personal invitations, never count toward invitation Star rewards, never expose selected recipients to the booster, and support opt-out/not-interested controls.
-- Recipient frequency, delivery count, boost duration, cost, cooldown, and per-owner active boost limit are editable Star economy settings.
+- Recipient frequency, delivery count, boost duration, cost, and per-discussion cooldown are editable Star economy settings.
+- The boosted room hides its own Boost action in `My discussions` and whenever its room reply keyboard is rebuilt, including after rejoining. Other owned rooms keep their Boost actions.
+- Closing a boosted room cancels its active boost and clears its cooldown without refunding Stars.
 - Each viewer page reserves only one or two relevant boosted positions. If more eligible boosts exist, relevance and freshness rank/rotate them; Muze does not pin every active boost for every viewer.
 - A boost never guarantees joins, messages, or a fixed rank.
 - Basic discussion browsing, creating, joining, and participation remain free.

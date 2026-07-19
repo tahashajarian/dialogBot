@@ -2,13 +2,41 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
+const DiscussionBoost = require("../src/models/discussion-boost");
+const { starEconomy } = require("../src/services/star-settings");
 const {
+  buildDiscussionRoomKeyboard,
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
   formatRecentDiscussionMessages,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
 } = require("../src/services/discussion-room-ui");
+
+test("rebuilding a boosted owner room keyboard keeps Boost hidden", async () => {
+  const originalFindOne = DiscussionBoost.findOne;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+    boostEnabled: starEconomy.boostEnabled,
+  };
+  Object.assign(starEconomy, { economyEnabled: true, spendingEnabled: true, boostEnabled: true });
+  DiscussionBoost.findOne = () => ({
+    select: () => ({ lean: async () => ({ _id: "active-boost" }) }),
+  });
+
+  try {
+    const keyboard = await buildDiscussionRoomKeyboard("en", {
+      _id: "507f1f77bcf86cd799439011",
+      creatorUserId: 10,
+    }, 10);
+    const labels = keyboard.reply_markup.keyboard.flat().map((button) => button.text);
+    assert.equal(labels.includes(messages.en.discussionBoostButton), false);
+  } finally {
+    DiscussionBoost.findOne = originalFindOne;
+    Object.assign(starEconomy, originalSettings);
+  }
+});
 
 test("formatDiscussionRoom renders title, description, and counts", () => {
   const text = formatDiscussionRoom(messages, "en", {

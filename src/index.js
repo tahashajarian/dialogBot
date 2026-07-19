@@ -16,6 +16,7 @@ const { logger } = require("./services/logger");
 const { recordBotHeartbeat, recordUpdatePerformanceEvent } = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
+const { removeLegacyOwnerBoostIndex } = require("./services/discussion-boosts");
 const { formatBotExtra, formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
 const { localizeOutgoingExtra, localizeVisibleDigits } = require("./services/number-localization");
 const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owner-join-notifications");
@@ -328,6 +329,10 @@ async function retry(fn, {
   try {
     logger.info("Connecting database");
     await connectDB(config);
+    const removedLegacyBoostIndex = await removeLegacyOwnerBoostIndex();
+    if (removedLegacyBoostIndex) {
+      logger.info("Removed legacy one-boost-per-owner database index");
+    }
     try {
       await refreshOperationalLimits({ force: true });
     } catch (limitsError) {

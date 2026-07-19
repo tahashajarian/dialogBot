@@ -4,6 +4,8 @@ const {
   getDiscussionDisplayTitle,
 } = require("./discussion-ui");
 const { formatUserDisplayName } = require("./profile");
+const { discussionRoomKeyboard } = require("../keyboards");
+const { hasActiveBoostForDiscussion } = require("./discussion-boosts");
 
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
@@ -81,6 +83,12 @@ function formatDiscussionRoomFollowup(messages, lang, discussion) {
   return parts.join("\n\n");
 }
 
+async function buildDiscussionRoomKeyboard(lang, discussion, currentUserId) {
+  const isOwner = Number(discussion?.creatorUserId) === Number(currentUserId);
+  const canBoost = !isOwner || !await hasActiveBoostForDiscussion(discussion?._id);
+  return discussionRoomKeyboard(lang, isOwner, { canBoost });
+}
+
 const DISCUSSION_MEMBER_DIVIDER = PAGINATION.listDivider;
 
 function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, _discussionId = null) {
@@ -119,6 +127,7 @@ function buildDiscussionMembersText(messages, lang, rows = []) {
 module.exports = {
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
+  buildDiscussionRoomKeyboard,
   formatRecentDiscussionMessages,
   getStarterDiscussionJoinNudge,
   formatDiscussionMemberLines,

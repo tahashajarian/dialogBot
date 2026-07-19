@@ -28,6 +28,7 @@ const {
   authorizePaidExtraDiscussion,
   refundPaidExtraDiscussionAuthorization,
 } = require("../../src/services/discussion-paid-creation");
+const { closeDiscussionAsOwner } = require("../../src/services/discussions");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
@@ -194,6 +195,69 @@ test("concurrent boost confirmations leave one active charge", async () => {
     { $group: { _id: null, amount: { $sum: "$amount" } } },
   ]);
   assert.equal(ledger[0].amount, 10);
+});
+
+test("one owner can boost multiple discussions and closing one does not refund Stars", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    boostEnabled: true,
+    discussionBoostCost: 10,
+    discussionBoostDurationHours: 24,
+    discussionBoostCooldownHours: 24,
+  });
+  await User.create({ userId: 507, firstName: "Multi Boost Owner", starBalance: 30 });
+  await StarTransaction.create({
+    userId: 507,
+    amount: 30,
+    balanceAfter: 30,
+    status: "applied",
+    bucket: "earned",
+    type: "grant",
+    reason: "seed",
+    idempotencyKey: "integration:seed:507",
+  });
+  const discussions = await Discussion.create([
+    {
+      title: "First boost room",
+      description: "The first independently boosted discussion.",
+      publicDiscussionCode: "d_BOOST507A",
+      creatorUserId: 507,
+      memberUserIds: [507],
+      status: "open",
+      joinRule: { type: "open" },
+    },
+    {
+      title: "Second boost room",
+      description: "The second independently boosted discussion.",
+      publicDiscussionCode: "d_BOOST507B",
+      creatorUserId: 507,
+      memberUserIds: [507],
+      status: "open",
+      joinRule: { type: "open" },
+    },
+  ]);
+
+  for (const discussion of discussions) {
+    const quote = await createBoostQuote(507, discussion._id);
+    assert.equal(quote.ok, true);
+    const confirmed = await confirmBoost(507, quote.quote.publicCode);
+    assert.equal(confirmed.ok, true);
+    assert.equal(confirmed.applied, true);
+  }
+
+  assert.equal(await DiscussionBoost.countDocuments({ creatorUserId: 507, status: "active" }), 2);
+  assert.equal((await User.findOne({ userId: 507 }).lean()).starBalance, 10);
+
+  const closedAt = new Date();
+  const closed = await closeDiscussionAsOwner(507, discussions[0]._id);
+  assert.equal(closed.ok, true);
+  const endedBoost = await DiscussionBoost.findOne({ discussionId: discussions[0]._id }).lean();
+  assert.equal(endedBoost.status, "cancelled");
+  assert.ok(endedBoost.cooldownUntil <= closedAt || endedBoost.cooldownUntil <= new Date());
+  assert.equal(await DiscussionBoost.countDocuments({ creatorUserId: 507, status: "active" }), 1);
+  assert.equal((await User.findOne({ userId: 507 }).lean()).starBalance, 10);
+  assert.equal(await StarTransaction.countDocuments({ userId: 507, type: "refund" }), 0);
 });
 
 test("opening Stars lazily claims verifiable existing milestones once", async () => {

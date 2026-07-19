@@ -23,7 +23,6 @@ test("Star settings expose safe launch defaults", () => {
   assert.equal(values.profileEmojiCost, 3);
   assert.equal(values.peopleTasteMatchesCost, 5);
   assert.equal(values.peopleTasteMatchesDurationHours, 24);
-  assert.equal(values.discussionBoostsPerOwner, 1);
   assert.equal(values.discussionBoostsPerDiscussion, 1);
   assert.equal(values.discussionBoostedSlotsPerPage, 1);
   assert.equal(values.paidTwoPersonDiscussionsEnabled, true);
@@ -48,7 +47,6 @@ test("Star settings normalize form booleans and numeric boundaries", () => {
     paidLargeDiscussionCapacity: "15",
     paidLargeDiscussionCost: "99999999",
     paidExtraDiscussionCost: "99999999",
-    discussionBoostsPerOwner: "50",
     discussionBoostedSlotsPerPage: "8",
   });
   assert.equal(values.economyEnabled, false);
@@ -63,7 +61,6 @@ test("Star settings normalize form booleans and numeric boundaries", () => {
   assert.equal(values.paidLargeDiscussionCapacity, STAR_SETTING_DEFINITIONS.paidLargeDiscussionCapacity.min);
   assert.equal(values.paidLargeDiscussionCost, STAR_SETTING_DEFINITIONS.paidLargeDiscussionCost.max);
   assert.equal(values.paidExtraDiscussionCost, STAR_SETTING_DEFINITIONS.paidExtraDiscussionCost.max);
-  assert.equal(values.discussionBoostsPerOwner, 1);
   assert.equal(values.discussionBoostedSlotsPerPage, 2);
 });
 

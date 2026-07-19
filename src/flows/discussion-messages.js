@@ -1,7 +1,7 @@
 const messages = require("../messages");
-const { discussionRoomKeyboard } = require("../keyboards");
 const { getMessageId } = require("../services/bot-navigation");
 const { addRecentMessage } = require("../services/discussion-messages");
+const { buildDiscussionRoomKeyboard } = require("../services/discussion-room-ui");
 const { formatUserDisplayName } = require("../services/profile");
 const { mapWithConcurrency } = require("../services/bounded-concurrency");
 const {
@@ -96,13 +96,13 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
     if (added.reason === "message_burst_limit") {
       return ctx.reply(
         messages[lang].discussionMessageBurstLimit,
-        discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+        await buildDiscussionRoomKeyboard(lang, added.discussion, ctx.userId),
       );
     }
     if (added.reason === "message_rate_limit") {
       return ctx.reply(
         messages[lang].discussionMessageRateLimit,
-        discussionRoomKeyboard(lang, added.discussion?.creatorUserId === ctx.userId),
+        await buildDiscussionRoomKeyboard(lang, added.discussion, ctx.userId),
       );
     }
     if (added.reason === "message_contains_link") {

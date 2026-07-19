@@ -17,6 +17,7 @@ const {
 } = require("../services/discussion-boosts");
 const { joinOrOpenDiscussion } = require("../services/discussions");
 const { getDiscussionDisplayTitle } = require("../services/discussion-ui");
+const { buildDiscussionRoomKeyboard } = require("../services/discussion-room-ui");
 const { formatStarNumber } = require("../services/stars-ui");
 const { starEconomy } = require("../services/star-settings");
 const { updateProfileField } = require("../services/users");
@@ -113,7 +114,7 @@ async function restoreRoomControls(ctx, lang, text = messages[lang].discussionBo
 
   return ctx.reply(
     text,
-    discussionRoomKeyboard(lang, Number(opened.discussion.creatorUserId) === Number(ctx.userId)),
+    await buildDiscussionRoomKeyboard(lang, opened.discussion, ctx.userId),
   );
 }
 

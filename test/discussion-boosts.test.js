@@ -25,6 +25,9 @@ test("discussion boost codes and schema are stable", () => {
     quoteExpiresAt: new Date(Date.now() + 60000),
   });
   assert.equal(boost.validateSync(), undefined);
+  const indexNames = DiscussionBoost.schema.indexes().map(([, options]) => options.name).filter(Boolean);
+  assert.ok(indexNames.includes("one_active_boost_per_discussion"));
+  assert.equal(indexNames.includes("one_active_boost_per_creator"), false);
 });
 
 test("boosts receive reserved positions only within their relevance tier", async () => {
@@ -75,7 +78,7 @@ test("full discussions cannot be quoted or charged for a boost", async () => {
   }
 });
 
-test("discussion list labels boosted placement", () => {
+test("discussion list puts the boost icon beside the title without a separate label", () => {
   const text = buildDiscussionListText(messages, "en", "Discussions", [{
     _id: "boosted",
     title: "Movie night",
@@ -86,7 +89,8 @@ test("discussion list labels boosted placement", () => {
     memberUserIds: [],
     maxMembers: 20,
   }]);
-  assert.match(text, /🚀 Boosted/);
+  assert.match(text, /💬 🚀 Movie night/);
+  assert.doesNotMatch(text, /🚀 Boosted/);
 });
 
 test("my discussions list exposes Persian boost action when boosts are available", () => {
@@ -161,19 +165,34 @@ test("my discussions list hides boost action for an active boost", () => {
     boostEnabled: true,
   });
   try {
-    const text = buildDiscussionListText(messages, "en", "My discussions", [{
-      _id: "owned",
-      title: "Movie night",
-      description: "A room",
-      isBoosted: true,
-      isJoinable: true,
-      listAction: "close",
-      publicDiscussionCode: "d_AB12",
-      joinRule: { type: "open" },
-      memberUserIds: [],
-      maxMembers: 20,
-    }]);
+    const text = buildDiscussionListText(messages, "en", "My discussions", [
+      {
+        _id: "boosted-owned",
+        title: "Movie night",
+        description: "A room",
+        isBoosted: true,
+        isJoinable: true,
+        listAction: "close",
+        publicDiscussionCode: "d_AB12",
+        joinRule: { type: "open" },
+        memberUserIds: [],
+        maxMembers: 20,
+      },
+      {
+        _id: "other-owned",
+        title: "Book night",
+        description: "Another room",
+        isBoosted: false,
+        isJoinable: true,
+        listAction: "close",
+        publicDiscussionCode: "d_CD34",
+        joinRule: { type: "open" },
+        memberUserIds: [],
+        maxMembers: 20,
+      },
+    ]);
     assert.doesNotMatch(text, /\/boost_AB12/);
+    assert.match(text, /\/boost_CD34/);
   } finally {
     Object.assign(starEconomy, originalSettings);
   }

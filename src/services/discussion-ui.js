@@ -335,7 +335,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
     const actionsBlock = includeActions && actions ? `\n\n${actions}` : "";
     const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
-    const roomTitle = getDiscussionDisplayTitle(messages, lang, entry);
+    const roomTitle = `${entry.isBoosted ? "🚀 " : ""}${getDiscussionDisplayTitle(messages, lang, entry)}`;
     const titleLine = lang === "fa"
       ? `${roomNumber} 💬 ${isolateText(lang, roomTitle)}`
       : `${roomNumber} 💬 ${roomTitle}`;
@@ -344,7 +344,6 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const languageDiffers = entry.language && entry.language !== lang;
     return [
       lineForLang(lang, titleLine),
-      entry.isBoosted ? lineForLang(lang, messages[lang].discussionBoostedLabel) : "",
       mixedValueLine(lang, "📄", description),
       lineForLang(lang, memberCountLine),
       lineForLang(lang, joinRuleLine),

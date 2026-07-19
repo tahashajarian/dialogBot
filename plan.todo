@@ -37,17 +37,19 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ☐ think about pin discussion title inside the discusion and by leave remove the pin
 ✔ add an inline button for members list in discussion too which just close the card nothing else @done (7/18/2026, 2:02:25 PM)
 ☐ think about change the name of منوی اصلی to somthing better
-✔ notif the owner on new joines to the their discussions @done (7/19/2026)
+✔ notif the owner on new joines to the their discussions @done (7/19/2026, 7:43:36 AM)
 ✔ on list for later when i try to use reply keyborad to get back to favoirts thinks i'm going to add and tell me you need to frist press + @done (7/19/2026, 12:23:19 AM)
 ✔ in discussion if soemone send دعوت word by type the invitaion will open for all users @done (7/19/2026, 12:16:33 AM)
 ✔ aftr boost remove the boost botton @done (7/19/2026, 12:16:07 AM)
-✔ add a tip to my discussion @done (7/19/2026, 6:22:09 AM)
-✔ remove a user from discusion is working fine, just need a confirm i think, which could be inline butotn confirm then remove the user @done (7/19/2026)
+✔ add a tip to my discussion make it a bit longer like say you can see recent join useing that boottm @done (7/19/2026, 6:56:51 AM)
+✔ remove a user from discusion is working fine, just need a confirm i think, which could be inline butotn confirm then remove the user @done (7/19/2026, 7:17:49 AM)
 ✔ close discussion is not working fine after confirm we should leave and back to prev menu @done (7/19/2026, 6:16:34 AM)
 ✔ if we are active in a discussion and see a notif that someone joined by press on open discusion it open another card that the title is preview of invitaion which is wrong @done (7/19/2026, 6:45:53 AM)
-✔ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas @done (7/19/2026)
-✔ in discussion after see someone profile and save it, do not show the See People list @done (7/19/2026)
-✔ after closing My Discussions, keep the visible Discussions reply-keyboard buttons responsive @done (7/19/2026)
-✔ keep My Discussions tips consistent between empty and populated lists @done (7/19/2026)
-✔ keep ordinary list messages instead of deleting them after join, open, close, save, or remove actions @done (7/19/2026)
-✔ let a removed discussion member rejoin only through a fresh owner invitation, replacing any older pending invite @done (7/19/2026)
+✔ in discussion after see someone profle and save it, somthing werid happaend, it shows me the list of peopls, kind of thinks i'm in see people list, which should be fix @done (7/19/2026, 7:43:30 AM)
+✔ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas @done (7/19/2026, 7:32:17 AM)
+✔ after first tiem open my discussion and hit close that button is not working amymore i have to for example open acitve then that button works again not only that most of them not work, not always, let think aboout this situation to find out a way when we don't recoginize what user entered, somthing llike recent the reply keyboard that they are in it or atleast bot thinks user is there @done (7/19/2026, 7:44:01 AM)
+✔ reject emoji in discussion titles/descriptions; show 🚀 beside boosted titles; hide Boost only for that room; allow multiple boosted rooms per owner; keep Boost hidden after rejoin; closing cancels boost without refund @done (7/19/2026, 8:30:11 AM)
+✔ 👱‍♀️ این دعوت دیگه در دسترس نیست. after we remove a user as owner from the discussion and i want to invite them, it say this message, i think here we should send them the inivitaion i think this way we let them join agian, so we need to remove the removal form the discussion and let them join again as we inivte them or not sure let's think abou it @done (7/19/2026, 8:17:02 AM)
+✔ on my discusson tips are diffent if list is empty or not @done (7/19/2026, 8:05:27 AM)
+
+☐ taste label on books are so weak

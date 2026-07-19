@@ -6,7 +6,6 @@ const {
   discussionListNavigationKeyboard,
   discussionInviteModeKeyboard,
   discussionInviteFullKeyboard,
-  discussionRoomKeyboard,
   discussionCloseConfirmKeyboard,
   discussionMembersCloseKeyboard,
   discussionInvitePreviewKeyboard,
@@ -52,6 +51,7 @@ const {
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
   formatDiscussionRoom,
+  buildDiscussionRoomKeyboard,
 } = require("../services/discussion-room-ui");
 const { buildBotStartLink } = require("../services/invite-links");
 const { createReferralLink } = require("../services/star-referrals");
@@ -245,7 +245,7 @@ async function sendDiscussionRoomFromText(ctx, lang, discussion) {
   await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   return ctx.reply(
     formatDiscussionRoomFollowup(messages, lang, discussion),
-    discussionRoomKeyboard(lang, discussion.creatorUserId === ctx.userId),
+    await buildDiscussionRoomKeyboard(lang, discussion, ctx.userId),
   );
 }
 
@@ -801,7 +801,10 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     if (!opened.ok) {
       return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu, { removeKeyboard: true });
     }
-    return ctx.reply(messages[lang].discussionCloseCanceled, discussionRoomKeyboard(lang, opened.discussion.creatorUserId === ctx.userId));
+    return ctx.reply(
+      messages[lang].discussionCloseCanceled,
+      await buildDiscussionRoomKeyboard(lang, opened.discussion, ctx.userId),
+    );
   }
 
   if (!isDiscussionCloseConfirmText(ctx.text)) {

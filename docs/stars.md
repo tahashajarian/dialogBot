@@ -264,7 +264,7 @@ Recommended launch default:
 - cost: 10 Stars
 - duration: 24 hours
 - one active boost per discussion
-- one owner-wide active boosted discussion at a time
+- no owner-wide active-boost limit; each owned discussion is independent
 - cooldown after expiry: 24 hours
 - recommendation delivery cap: 10 eligible users per boost
 - recipient cap: at most one boosted-discussion recommendation per 24 hours
@@ -277,7 +277,7 @@ The active room may show a clean owner/member action:
 
 The cost appears on the confirmation card, not necessarily in the room keyboard label.
 Boost confirmations remember their source. From an active room, canceling or dismissing a recoverable error should remove only the confirmation/error card and keep the user in the room flow. From `My discussions`, opening the boost should remove the old list first; cancel, successful confirmation, or dismissing a recoverable error should then return to a fresh `My discussions` list.
-After a successful boost, remove the boost action from the active room keyboard and from the boosted discussion's `My discussions` entry while that boost is active.
+After a successful boost, remove the boost action from the active room keyboard and from the boosted discussion's `My discussions` entry while that boost is active. Keep Boost available on the creator's other unboosted discussions. Whenever room controls are rebuilt, including after rejoining, recheck active boost state instead of restoring a stale Boost button.
 If boost confirmation fails for insufficient balance or another recoverable reason, show current cost and balance on a dismissible `Got it` card. Do not add extra text explaining what the `Got it` button does.
 
 A successful boost may:
@@ -295,7 +295,7 @@ A boost must not:
 - look like a personal invitation
 - reward the booster through invitation/referral earning rules
 
-Only the discussion creator may purchase a boost at launch. This avoids ownership disputes and users spending Stars on a room they cannot manage. The boost may continue if the creator leaves their own open room, but ends/refunds according to policy if the room closes or becomes ineligible.
+Only the discussion creator may purchase a boost at launch. This avoids ownership disputes and users spending Stars on a room they cannot manage. The boost may continue if the creator leaves their own open room. Closing the room cancels its boost and clears that discussion's cooldown, but does not refund Stars.
 
 Recommendation targeting:
 
@@ -493,7 +493,6 @@ Recommended launch definitions:
 | `discussionBoostDurationHours` | 24 | 1 | 8,760 | hours |
 | `discussionBoostCooldownHours` | 24 | 0 | 8,760 | hours |
 | `discussionBoostsPerDiscussion` | 1 | 1 | 1 | concurrent boosts |
-| `discussionBoostsPerOwner` | 1 | 1 | 1 | concurrent boosts |
 | `discussionBoostedSlotsPerPage` | 1 | 1 | 2 | relevant boosted positions |
 | `discussionBoostRecipientCap` | 10 | 0 | 100,000 | recipients/boost |
 | `boostRecipientWindowHours` | 24 | 1 | 8,760 | hours |
@@ -828,7 +827,7 @@ This task is explicitly deferred and must not be bundled into the first Stars re
 - `/start` never awards Stars; qualification happens later and is idempotent.
 - Discussion boosting is the first implemented Star spending feature and remains rollout-controlled.
 - Advanced Search appears only as an uncharged coming-soon preview in the first release; its filters and Star purchase are deferred.
-- Multiple discussions may be boosted across Muze, but each creator and each discussion may have only one active boost.
+- Each discussion may have one active boost, and one creator may independently boost multiple owned discussions.
 - Star prices, rewards, durations, limits, and feature switches are editable from the admin dashboard.
 - Real-money Star purchases are a later phase.
 

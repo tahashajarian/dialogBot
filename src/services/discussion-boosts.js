@@ -17,6 +17,7 @@ const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguage } = re
 
 const BOOST_QUOTE_TTL_MS = 10 * 60 * 1000;
 const BOOST_LIST_EXPIRE_SWEEP_MS = 60 * 1000;
+const LEGACY_OWNER_BOOST_INDEX = "one_active_boost_per_creator";
 let lastListExpireSweepAt = 0;
 
 function generateBoostCode() {
@@ -46,12 +47,12 @@ async function getBoostEligibility(userId, discussionId, { now = new Date() } = 
     return { ok: false, reason: "discussion_full", discussion, cap: capacity };
   }
   const active = await DiscussionBoost.findOne({
+    discussionId: discussion._id,
     status: "active",
-    $or: [{ discussionId: discussion._id }, { creatorUserId: Number(userId) }],
   });
   if (active) return { ok: false, reason: "boost_already_active", discussion, boost: active };
   const latest = await DiscussionBoost.findOne({
-    $or: [{ discussionId: discussion._id }, { creatorUserId: Number(userId) }],
+    discussionId: discussion._id,
     cooldownUntil: { $gt: now },
   }).sort({ cooldownUntil: -1 });
   if (latest) return { ok: false, reason: "boost_cooldown", discussion, boost: latest };
@@ -198,6 +199,28 @@ async function decorateActiveBoosts(discussions = [], { now = new Date() } = {})
     }
   }
   return discussions;
+}
+
+async function hasActiveBoostForDiscussion(discussionId, { now = new Date() } = {}) {
+  if (!discussionId || !DiscussionBoost.db.base.isValidObjectId(discussionId)) return false;
+  const boost = await DiscussionBoost.findOne({
+    discussionId,
+    status: "active",
+    endsAt: { $gt: now },
+  }).select("_id").lean();
+  return Boolean(boost);
+}
+
+async function removeLegacyOwnerBoostIndex() {
+  try {
+    const indexes = await DiscussionBoost.collection.indexes();
+    if (!indexes.some((index) => index.name === LEGACY_OWNER_BOOST_INDEX)) return false;
+    await DiscussionBoost.collection.dropIndex(LEGACY_OWNER_BOOST_INDEX);
+    return true;
+  } catch (error) {
+    if ([26, 27].includes(Number(error?.code))) return false;
+    throw error;
+  }
 }
 
 function incrementSkip(skipped, reason) {
@@ -399,7 +422,7 @@ async function markBoostNotInterested(publicCode, recipientUserId, { now = new D
 async function endBoostForDiscussion(discussionId, { now = new Date() } = {}) {
   return DiscussionBoost.findOneAndUpdate(
     { discussionId, status: "active" },
-    { $set: { status: "cancelled", endsAt: now } },
+    { $set: { status: "cancelled", endsAt: now, cooldownUntil: now } },
     { returnDocument: "after" },
   );
 }
@@ -412,8 +435,10 @@ module.exports = {
   expireFinishedBoosts,
   generateBoostCode,
   getBoostEligibility,
+  hasActiveBoostForDiscussion,
   markBoostDeliverySent,
   markBoostNotInterested,
+  removeLegacyOwnerBoostIndex,
   recordBoostDelivery,
   releaseBoostDelivery,
   selectBoostRecipients,
