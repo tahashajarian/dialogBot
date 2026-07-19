@@ -446,6 +446,7 @@ Recommended MVP:
 - Accepted invitations use the same `/accept_inv_CODE` command to reopen/rejoin the discussion and the same `/remove_inv_CODE` command to hide it.
 - Use pagination for long lists, with 5 invitations per page.
 - Keep the list card limited to inline pagination plus Close. Close removes only the card and leaves the current bottom keyboard unchanged.
+- Accepting, reopening, or removing an invitation leaves the earlier inbox card and its pagination/Close keyboard unchanged. The commands are identity-bound and revalidate current state; only an explicit Close tap deletes that card.
 
 This avoids surprising count changes.
 

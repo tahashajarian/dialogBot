@@ -96,14 +96,14 @@ async function clearDiscussionMembersMessage(ctx, exceptMessageIds = []) {
 async function clearDiscussionListMessage(ctx, exceptMessageIds = []) {
   const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
   const messageId = Number(ctx.user?.discussionLastListMessageId);
-  if (
-    !Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId) ||
-    !ctx.editMessageReplyMarkup
-  ) {
+  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) {
     return false;
   }
-  const retired = await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
-  if (!retired) {
+  return forgetDiscussionListMessage(ctx);
+}
+
+async function forgetDiscussionListMessage(ctx) {
+  if (!ctx.user?.discussionLastListMessageId && !ctx.user?.discussionLastListType) {
     return false;
   }
   if (ctx.user) {
@@ -222,10 +222,8 @@ function isDiscussionCreateState(state = "") {
 
 async function sendDiscussionJoinErrorAck(ctx, lang, reason, _listType = "active", {
   discussion = null,
-  retireCallbackMessageIfPossible,
 } = {}) {
   const errorText = buildDiscussionJoinLockedText(messages, lang, reason, discussion);
-  await retireCallbackMessageIfPossible?.(ctx);
   await clearDiscussionListMessage(ctx);
   const errorNotice = await ctx.reply(errorText, discussionJoinLockedKeyboard(lang));
   await rememberDiscussionMenuNotice(ctx, errorNotice);
@@ -337,7 +335,9 @@ async function renderMyDiscussionList(ctx, lang, page = 0, {
     await setNavigationMode(ctx, "discussions");
     const emptyNotice = await editCallbackMessageOrReply(
       ctx,
-      messages[lang].discussionListMineEmpty,
+      hasRecentDiscussions
+        ? messages[lang].discussionListMineEmptyWithRecent
+        : messages[lang].discussionListMineEmpty,
       discussionListNavigationKeyboard(lang, {
         listType: "mine",
         page: 0,
@@ -556,6 +556,7 @@ module.exports = {
   rememberDiscussionMembersMessage,
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
+  forgetDiscussionListMessage,
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   shouldKeepDiscussionRoomCardsForCallback,

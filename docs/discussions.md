@@ -1,6 +1,6 @@
 # Discussions
 
-Discussion/People hub navigation and the ordinary create-discussion wizard use persistent bottom reply keyboards. Active Discussions, My Discussions, received invitations, See People results, and Saved Profiles render pagination, filters where applicable, and a final Close action inline on their cards. List Close actions remove only the tapped card and do not navigate or change the bottom keyboard. The visible hub bottom buttons remain actionable while these list cards or the Active-list language picker are open. Button text from reply-keyboard surfaces is resolved only against the user's server-side mode, exact page/filter, and durable wizard state; copied stale labels are ignored. A user may browse these lists while remaining in an active room without navigation labels being delivered as room messages.
+Discussion/People hub navigation and the ordinary create-discussion wizard use persistent bottom reply keyboards. Active Discussions, My Discussions, received invitations, See People results, and Saved Profiles render pagination, filters where applicable, and a final Close action inline on their cards. Ordinary navigation and consumed list actions keep the old card and its controls unchanged as chat history. Identity-bound actions always revalidate current state when tapped again, while pagination edits a card only after the user explicitly requests another page. List Close actions are the explicit exception: they remove only the tapped card and do not navigate or change the bottom keyboard. The visible hub bottom buttons remain actionable while these list cards or the Active-list language picker are open. Button text from reply-keyboard surfaces is resolved only against the user's server-side mode, exact page/filter, and durable wizard state; copied stale labels are ignored. A user may browse these lists while remaining in an active room without navigation labels being delivered as room messages.
 
 Identity-bound invitation/join actions, member selection, destructive confirmations, and acknowledgement cards remain inline when their payload or context is safety-sensitive. Paid-capacity confirmation uses a dedicated bottom-keyboard mode whose capacity and quoted cost are stored and revalidated server-side; copied or stale confirmation labels are rejected.
 
@@ -647,6 +647,8 @@ Boost behavior is specified in [Stars Economy](stars.md). It is an optional disc
 ### My Discussions / Switching
 
 `🗂 گفت‌وگوهای من` shows open discussions the user created. Joined rooms are not retained here after leaving them.
+
+Its empty and populated guidance use the same ownership explanation. The empty state additionally suggests creating a discussion, and both states mention the Recent discussions button only when recent history is actually available.
 
 Store the three most recently joined non-owned discussion IDs on the user, newest first. Rejoining moves an existing ID to the front instead of duplicating it, while joining or rejoining a discussion the user owns does not affect this history.
 
@@ -1295,7 +1297,7 @@ Removing a saved profile requires an inline confirmation bound to the exact prof
 After Save—whether triggered by `/save_CODE` directly on See People results or from the opened profile—return to the same See People results page instead of rendering the profile. After confirming removal from a viewed profile, return to the same source list page; only Cancel returns to the profile.
 Ordinary People results and Saved Profiles lists are edited only for inline pagination and deleted only when their Close action is tapped; navigating onward merely forgets their tracking state. Public-profile previews and their visible-discussion views use inline actions with delete-only Close. Safety-sensitive invitation and discussion-member inline cards retain explicit cleanup/Close behavior.
 The visible-discussions view opened from a Saved Profiles or See People profile edits the same profile card, including photo captions, and provides inline Join actions plus Back and Close. Back restores the same profile card and retains its original source page; Close deletes only the card. The `/ds_CODE` list-command entry sends a new inline card because the bot cannot edit a user-authored command message.
-When opening a profile from the saved list, retire the list card and render the profile with Remove, visible discussions when available, and a delete-only Close. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
+When opening a profile from the saved list, leave the list card in history and render the profile with Remove, visible discussions when available, and a delete-only Close. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
 
 ### Viewing Discussions From Saved Profiles
 

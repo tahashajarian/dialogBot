@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const Discussion = require("../src/models/discussion");
+const DiscussionInvitation = require("../src/models/discussion-invitation");
 const User = require("../src/models/user");
 const {
   formatDiscussionOutboundMessage,
@@ -780,6 +781,103 @@ test("discussion profile command does not use saved-profile back button for save
   assert.ok(buttons.some((button) => button.callback_data === callBacks.profileCloseDiscussionMember));
   assert.notEqual(buttons.at(-1).callback_data, callBacks.savedProfiles);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
+});
+
+test("discussion member profile wins over stale People list context", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Member",
+    profileName: "Member",
+  });
+  User.findOneAndUpdate = async () => ({});
+
+  const ctx = {
+    text: "/u_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      activeDiscussionId: "discussion-id",
+      savedProfileCodes: [],
+      discussionLastMembersMessageId: 88,
+      peopleLastListMessageId: 42,
+      peopleLastListMode: "browse",
+      showActiveDiscussionOnProfile: false,
+    },
+    deleteMessage: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_3HNU:members`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_3HNU`));
+});
+
+test("invitation commands preserve the earlier inbox card and its controls", async () => {
+  const originalInvitationFindOne = DiscussionInvitation.findOne;
+  const originalUserFindOneAndUpdate = User.findOneAndUpdate;
+  DiscussionInvitation.findOne = async () => null;
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    for (const text of ["/accept_inv_MISSING", "/remove_inv_MISSING"]) {
+      const telegramOperations = [];
+      const replies = [];
+      const ctx = {
+        text,
+        userId: 1,
+        user: {
+          userId: 1,
+          lang: "en",
+          state: "idle",
+          discussionLastListMessageId: 42,
+          discussionLastListType: "invitations",
+        },
+        deleteMessage: async (messageId) => {
+          telegramOperations.push(["delete", messageId]);
+          return true;
+        },
+        editMessageReplyMarkup: async (messageId) => {
+          telegramOperations.push(["edit", messageId]);
+          return true;
+        },
+        reply: async (replyText, extra) => {
+          replies.push({ text: replyText, extra });
+          return { message_id: 100 };
+        },
+      };
+
+      await handleUpdate(ctx);
+
+      assert.deepEqual(telegramOperations, []);
+      assert.equal(ctx.user.discussionLastListMessageId, null);
+      assert.equal(ctx.user.discussionLastListType, "");
+      assert.equal(replies.length, 1);
+    }
+  } finally {
+    DiscussionInvitation.findOne = originalInvitationFindOne;
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+  }
 });
 
 test("saved profile discussions command keeps retained saved-profile list", async () => {

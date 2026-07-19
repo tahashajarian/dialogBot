@@ -36,6 +36,7 @@ const { COPY_TEXT_LIMIT } = require("../src/services/share-actions");
 const {
   addDiscussionFirstVisitTip,
   clearDiscussionMembersMessage,
+  clearDiscussionListMessage,
   clearDiscussionMenuNotice,
   clearRememberedDiscussionRoomCards,
   handleDiscussionListCallback,
@@ -77,6 +78,8 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
       discussionLastRoomRecentMessageId: 11,
       discussionLastMembersMessageId: 12,
       discussionMenuNoticeMessageId: 13,
+      discussionLastListMessageId: 14,
+      discussionLastListType: "active",
     },
     deleteMessage: async (id) => telegramOperations.push(["delete", id]),
     editMessageReplyMarkup: async (id) => telegramOperations.push(["edit", id]),
@@ -86,6 +89,7 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
     await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionMembersMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
+    await clearDiscussionListMessage(ctx);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
@@ -95,7 +99,9 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
   assert.equal(ctx.user.discussionLastRoomRecentMessageId, null);
   assert.equal(ctx.user.discussionLastMembersMessageId, null);
   assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
-  assert.equal(updates.length, 4);
+  assert.equal(ctx.user.discussionLastListMessageId, null);
+  assert.equal(ctx.user.discussionLastListType, "");
+  assert.equal(updates.length, 6);
 });
 
 test("discussion callback error mapping returns specific copy", () => {
@@ -454,7 +460,7 @@ test("non-empty My Discussions includes its width-friendly creator tip", () => {
     headerTip: messages.en.discussionMyListTip,
   });
 
-  assert.match(text, /🗂 My discussions \(1\)\n💡 These are the discussions you created\./);
+  assert.ok(text.startsWith(`🗂 My discussions (1)\n${messages.en.discussionMyListTip}`));
   assert.match(messages.en.discussionMyListTipWithRecent, /button below/);
   assert.match(messages.fa.discussionMyListTipWithRecent, /دکمه‌ی پایین/);
   assert.match(messages.en.discussionRecentListTip, /recently joined/);
@@ -790,6 +796,13 @@ test("my discussions empty callback offers normal discussion navigation without 
     Discussion.find = originalDiscussionFind;
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
+});
+
+test("empty My Discussions mentions recent history only when its button is available", () => {
+  assert.match(messages.en.discussionListMineEmptyWithRecent, /button below/);
+  assert.match(messages.fa.discussionListMineEmptyWithRecent, /دکمه‌ی پایین/);
+  assert.doesNotMatch(messages.en.discussionListMineEmpty, /button below/);
+  assert.doesNotMatch(messages.fa.discussionListMineEmpty, /دکمه‌ی پایین/);
 });
 
 test("acknowledging an empty discussion list enters Discussions with a footprint", async () => {

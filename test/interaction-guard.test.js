@@ -27,3 +27,32 @@ test("different reply-keyboard actions remain independent", () => {
   first.finish();
   second.finish();
 });
+
+test("an intervening accepted action resets the prior button cooldown", () => {
+  const userId = 454545;
+  const first = beginInteraction({ userId, text: "My Discussions" }, { cooldownMs: 5000 });
+  assert.equal(first.allowed, true);
+  first.finish();
+
+  const close = beginInteraction({ userId, callbackData: "discussion:list:close" }, { cooldownMs: 5000 });
+  assert.equal(close.allowed, true);
+  close.finish();
+
+  const reopen = beginInteraction({ userId, text: "My Discussions" }, { cooldownMs: 5000 });
+  assert.equal(reopen.allowed, true);
+  reopen.finish();
+});
+
+test("an intervening action resets a prior key even if its handler finishes later", () => {
+  const userId = 464646;
+  const first = beginInteraction({ userId, text: "My Discussions" }, { cooldownMs: 5000 });
+  const close = beginInteraction({ userId, callbackData: "discussion:list:close" }, { cooldownMs: 5000 });
+  assert.equal(first.allowed, true);
+  assert.equal(close.allowed, true);
+
+  first.finish();
+  close.finish();
+  const reopen = beginInteraction({ userId, text: "My Discussions" }, { cooldownMs: 5000 });
+  assert.equal(reopen.allowed, true);
+  reopen.finish();
+});

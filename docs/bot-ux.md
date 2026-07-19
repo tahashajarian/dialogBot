@@ -14,7 +14,7 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Edit an existing bot message when navigating menus if possible.
 - Delete stale inline picker messages after the user chooses an item.
 - When a returning user changes the interface language, retire the language picker, send the localized change confirmation, then enter the localized main-menu bottom mode. Old-language labels no longer resolve.
-- When an inline card is consumed and the next step sends a fresh card/message, delete the old inline card first instead of leaving dead buttons in the chat.
+- Keep ordinary social-list cards and their identity-bound controls unchanged as chat history after actions. Revalidate those actions against current state when tapped again; edit pagination only on an explicit page tap, and reserve deletion for temporary confirmations, warnings, explicit Close/Cancel actions, and other unsafe cards.
 - After a create/edit flow is confirmed or canceled, remove leftover step cards so dead inline actions are not left in chat.
 - If a flow naturally moves from one picker to another, editing the same message in place is preferred.
 - Do not delete user messages.
@@ -127,6 +127,7 @@ Stars UX rules:
 - Repeated identical user interactions are guarded in `src/services/interaction-guard.js` and applied from `src/index.js`.
 - Keep duplicate-tap protection centralized.
 - The guard should be conservative: block obvious duplicate interactions for a short window, but do not block normal follow-up text, different buttons, or intentional repeated actions after the window expires.
+- A successfully accepted different interaction resets the previous action's duplicate cooldown, so flows such as opening a list, closing its card, and immediately reopening that list remain responsive.
 - The guard should fail open if unsure, so bot features keep working even if guard state is missing or malformed.
 
 ## Callback Acknowledgements

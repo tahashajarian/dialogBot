@@ -66,6 +66,7 @@ const {
   rememberDiscussionMembersMessage,
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
+  forgetDiscussionListMessage,
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   shouldKeepDiscussionRoomCardsForCallback,
@@ -184,9 +185,8 @@ async function editCallbackMessageOrReply(ctx, text, keyboard) {
 
 async function clearDiscussionCardsAfterVisibleReply(ctx, exceptMessageIds = []) {
   try {
-    await clearDiscussionListMessage(ctx, exceptMessageIds);
+    await forgetDiscussionListMessage(ctx);
     await clearDiscussionMenuNotice(ctx, exceptMessageIds);
-    await retireCallbackMessageIfPossible(ctx);
   } catch {
     // Cleanup is best-effort; visible user feedback must not depend on it.
   }
@@ -344,6 +344,21 @@ async function retireStaleCallbackCardIfNeeded(ctx, data = "") {
     return false;
   }
 
+  const historySafeListCallback = isDiscussionListCallback(data) ||
+    data === callBacks.discussionInvitations ||
+    data.startsWith(callBacks.discussionInvitationsPage) ||
+    data === callBacks.peopleDiscover ||
+    data.startsWith(callBacks.peopleDiscoverPage) ||
+    data.startsWith(callBacks.peopleTasteMatchesPage) ||
+    data === callBacks.savedProfiles ||
+    data.startsWith(callBacks.savedProfilesPage) ||
+    data.startsWith(callBacks.discussionOpen) ||
+    data.startsWith(callBacks.discussionInviteJoin) ||
+    data.startsWith(callBacks.discussionInviteSwitchJoin);
+  if (historySafeListCallback) {
+    return false;
+  }
+
   await ctx.answerCb?.();
   await retireCallbackMessageIfPossible(ctx);
   return true;
@@ -401,7 +416,6 @@ async function sendDiscussionRoom(ctx, lang, discussion) {
     getMessageId(headerMessage),
     getMessageId(recentMessage),
   ]);
-  await retireCallbackMessageIfPossible(ctx);
   await rememberDiscussionRoomCards(ctx, headerMessage, recentMessage);
   return recentMessage;
 }
@@ -681,7 +695,6 @@ async function handleCallback(ctx) {
     if (!activeDiscussionId || activeDiscussionId === String(discussion._id)) {
       return joinDiscussionFromInvite(ctx, lang, code, {
         editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
-        clearInvitePreview: () => deleteCallbackMessageIfPossible(ctx),
         sendRoom: (roomCtx, roomLang, target) => sendDiscussionRoom(roomCtx, roomLang, target),
       });
     }
@@ -700,9 +713,7 @@ async function handleCallback(ctx) {
     const joinErrorDestination = profileDiscussionMatch ? `saved:${profileDiscussionMatch[1]}` : "active";
     const discussion = await Discussion.findById(discussionId);
     if (!discussion) {
-      return sendDiscussionJoinErrorAck(ctx, lang, "missing_discussion", joinErrorDestination, {
-        retireCallbackMessageIfPossible,
-      });
+      return sendDiscussionJoinErrorAck(ctx, lang, "missing_discussion", joinErrorDestination);
     }
     const codeResult = await ensurePublicDiscussionCode(discussion);
     if (!codeResult.ok) {
@@ -724,7 +735,6 @@ async function handleCallback(ctx) {
       await ctx.answerCb?.();
       return sendDiscussionJoinErrorAck(ctx, lang, joined.reason, joinErrorDestination, {
         discussion,
-        retireCallbackMessageIfPossible,
       });
     }
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
@@ -758,7 +768,6 @@ async function handleCallback(ctx) {
       editMessage: (text, keyboard) => editCallbackMessageOrReply(ctx, text, keyboard),
       clearListMessage: () => clearDiscussionListMessage(ctx, [ctx.callbackMessageId]),
       clearMenuNotice: () => clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]),
-      clearInvitePreview: () => (ctx.deleteMessage ? ctx.deleteMessage(ctx.callbackMessageId) : deleteCallbackMessageIfPossible(ctx)),
       sendRoom: (roomCtx, roomLang, discussion) => sendDiscussionRoom(roomCtx, roomLang, discussion),
       allowActiveSwitch: true,
     });

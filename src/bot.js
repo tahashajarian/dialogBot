@@ -65,6 +65,7 @@ const {
   clearRememberedDiscussionRoomCards,
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
+  forgetDiscussionListMessage,
   renderActiveDiscussionList,
   renderMyDiscussionList,
   rememberDiscussionMenuNotice,
@@ -413,7 +414,7 @@ async function handleUpdate(ctx) {
 
   if (/^\/accept_inv_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
-    await clearDiscussionListMessage(ctx);
+    await forgetDiscussionListMessage(ctx);
     await updateUserState(ctx.userId, "idle");
     return acceptInvitationCommand(ctx, lang, text, {
       sendRoom: sendDiscussionRoomFromText,
@@ -422,7 +423,7 @@ async function handleUpdate(ctx) {
 
   if (/^\/remove_inv_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
-    await clearDiscussionListMessage(ctx);
+    await forgetDiscussionListMessage(ctx);
     await updateUserState(ctx.userId, "idle");
     return removeInvitationCommand(ctx, lang, text);
   }
@@ -759,12 +760,14 @@ async function handleUpdate(ctx) {
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
     const fromRestrictionList = /^profile_invitation_restrictions:\d+:\d+$/.test(String(ctx.user?.navigationMode || ""));
-    const hasSavedProfilesListContext = Number(ctx.user?.savedProfilesLastListMessageId) > 0;
-    const hasPeopleListContext = Number(ctx.user?.peopleLastListMessageId) > 0 ||
-      ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
+    const fromDiscussionMembers = !fromRestrictionList && Number(ctx.user?.discussionLastMembersMessageId) > 0;
+    const hasSavedProfilesListContext = !fromDiscussionMembers && Number(ctx.user?.savedProfilesLastListMessageId) > 0;
+    const hasPeopleListContext = !fromDiscussionMembers && (
+      Number(ctx.user?.peopleLastListMessageId) > 0 ||
+      ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""))
+    );
     const fromSavedList = hasSavedProfilesListContext;
     const fromPeopleList = !fromSavedList && hasPeopleListContext;
-    const fromDiscussionMembers = !fromSavedList && !fromPeopleList && Number(ctx.user?.discussionLastMembersMessageId) > 0;
     const fromInvitationList = !fromRestrictionList && !fromSavedList && !fromPeopleList && !fromDiscussionMembers && ctx.user?.discussionLastListType === "invitations";
     if (fromRestrictionList) {
       await clearInvitationRestrictionsMessage(ctx);

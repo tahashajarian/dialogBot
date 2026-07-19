@@ -1,4 +1,5 @@
 const activeInteractions = new Map();
+const latestInteractionKeys = new Map();
 const DEFAULT_COOLDOWN_MS = 1200;
 const MAX_KEY_AGE_MS = 5 * 60 * 1000;
 
@@ -33,6 +34,11 @@ function cleanupOldInteractions(now = Date.now()) {
       activeInteractions.delete(key);
     }
   }
+  for (const [userKey, entry] of latestInteractionKeys.entries()) {
+    if (now - entry.updatedAt > MAX_KEY_AGE_MS) {
+      latestInteractionKeys.delete(userKey);
+    }
+  }
 }
 
 function beginInteraction(input, options = {}) {
@@ -47,10 +53,13 @@ function beginInteraction(input, options = {}) {
   cleanupOldInteractions(now);
 
   const current = activeInteractions.get(key);
-  if (current?.inFlight || (current?.cooldownUntil && current.cooldownUntil > now)) {
+  const userKey = String(input.userId || "");
+  const isConsecutiveDuplicate = latestInteractionKeys.get(userKey)?.key === key;
+  if (isConsecutiveDuplicate && (current?.inFlight || (current?.cooldownUntil && current.cooldownUntil > now))) {
     return { allowed: false, finish: () => {} };
   }
 
+  latestInteractionKeys.set(userKey, { key, updatedAt: now });
   activeInteractions.set(key, {
     inFlight: true,
     cooldownUntil: 0,
@@ -60,10 +69,11 @@ function beginInteraction(input, options = {}) {
   return {
     allowed: true,
     finish: () => {
+      const finishedAt = Date.now();
       activeInteractions.set(key, {
         inFlight: false,
-        cooldownUntil: Date.now() + cooldownMs,
-        updatedAt: Date.now(),
+        cooldownUntil: finishedAt + cooldownMs,
+        updatedAt: finishedAt,
       });
     },
   };

@@ -611,7 +611,6 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   editMessage = null,
   clearListMessage = null,
   clearMenuNotice = null,
-  clearInvitePreview = null,
   sendRoom = null,
   allowActiveSwitch = false,
 } = {}) {
@@ -695,11 +694,6 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
 
   await clearListMessage?.();
   await clearMenuNotice?.();
-  try {
-    await clearInvitePreview?.();
-  } catch {
-    // Preview cleanup is best-effort; joining feedback and room rendering should continue.
-  }
   if (ctx.user) ctx.user.activeDiscussionId = joined.discussion._id;
   await markSharedLinkInvitationAccepted(ctx.userId, joined.discussion._id).catch(() => null);
   const pendingShareCode = String(ctx.user?.pendingDiscussionShareCode || "");

@@ -708,7 +708,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
   const peopleReturnMode = ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse";
-  const fromPeopleSurface = fromPeopleList || ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""));
+  const fromPeopleSurface = !fromSavedList && !fromInvitationList && !fromDiscussionMembers && !fromRestrictionList && (
+    fromPeopleList || ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""))
+  );
   const previousNavigationMode = String(ctx.user?.navigationMode || "");
   const savedPage = Number(
     previousNavigationMode.match(/^saved_profiles:(\d+):/)?.[1]
@@ -1222,7 +1224,6 @@ async function handleSavedProfilesCallback(ctx, lang, {
   if (data.startsWith(callBacks.savedProfilesOpen)) {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.savedProfilesOpen, "");
-    await deleteInlineCallbackMessage();
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList: true });
   }
 
