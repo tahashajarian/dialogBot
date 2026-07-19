@@ -26,7 +26,7 @@ const {
 } = require("../services/discussion-invitations-ui");
 const {
   createDiscussionInvitation,
-  countAllPendingReceivedInvitations,
+  countAllVisibleReceivedInvitations,
   countUnseenPendingReceivedInvitations,
   getInvitationDisplayState,
   getInvitationForUser,
@@ -35,7 +35,7 @@ const {
   markInvitationsSeen,
   markInvitationAccepted,
   removeInvitationForUser,
-  expireInvitation,
+  trimReceivedInvitationInbox,
 } = require("../services/discussion-invitations");
 const {
   canRestrictInviterForUser,
@@ -69,7 +69,6 @@ const { PAGINATION } = require("../constants/pagination");
 const { paginateItems } = require("../services/pagination");
 
 const INVITATIONS_PAGE_SIZE = 5;
-const ACCEPTED_INVITATIONS_LIMIT = 5;
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
@@ -280,7 +279,8 @@ async function showDiscussionPickerForSavedProfile(ctx, lang, profileCode, {
 async function renderInvitationsList(ctx, lang, page = 0, {
   editCallbackMessageOrReply,
 } = {}) {
-  const totalInvitations = await countAllPendingReceivedInvitations(ctx.userId);
+  await trimReceivedInvitationInbox(ctx.userId);
+  const totalInvitations = await countAllVisibleReceivedInvitations(ctx.userId);
   const totalPages = Math.max(1, Math.ceil(totalInvitations / INVITATIONS_PAGE_SIZE));
   const normalizedPage = Math.min(Math.max(0, Number(page) || 0), totalPages - 1);
   const navigationMode = `discussion_invitations:${normalizedPage}:${totalPages}`;
@@ -290,15 +290,9 @@ async function renderInvitationsList(ctx, lang, page = 0, {
   const listed = await listReceivedInvitations(ctx.userId, {
     skip: start,
     limit: INVITATIONS_PAGE_SIZE,
+    statuses: ["pending", "accepted"],
   });
-  const acceptedListed = normalizedPage === 0
-    ? await listReceivedInvitations(ctx.userId, {
-      limit: ACCEPTED_INVITATIONS_LIMIT,
-      statuses: ["accepted"],
-    })
-    : { invitations: [] };
   const pageEntries = listed.invitations || [];
-  const acceptedPageEntries = acceptedListed.invitations || [];
   const entries = [];
   for (const entry of pageEntries) {
     entries.push({
@@ -306,15 +300,12 @@ async function renderInvitationsList(ctx, lang, page = 0, {
       state: await getInvitationDisplayState(ctx.user, entry.discussion),
     });
   }
-  const acceptedEntries = [];
-  for (const entry of acceptedPageEntries) {
-    acceptedEntries.push({
-      ...entry,
-      state: await getInvitationDisplayState(ctx.user, entry.discussion),
-    });
-  }
-  const text = await buildReceivedInvitationsText(messages, lang, ctx.user, entries, acceptedEntries);
-  const showsFirstDiscussionTip = shouldShowDiscussionInvitationFirstTimeTip(ctx.user, entries);
+  const text = await buildReceivedInvitationsText(messages, lang, ctx.user, entries, {
+    startIndex: start,
+    totalCount: totalInvitations,
+  });
+  const pendingEntries = entries.filter((entry) => entry.invitation?.status === "pending");
+  const showsFirstDiscussionTip = shouldShowDiscussionInvitationFirstTimeTip(ctx.user, pendingEntries);
   const unopenedStarter = entries.find((entry) => (
     ["bot_onboarding", "onboarding_match"].includes(entry.invitation?.source)
     && !entry.invitation?.seenAt
@@ -360,7 +351,6 @@ async function acceptInvitationCommand(ctx, lang, text, {
     return { ok: false, reason: "requires_profile_name" };
   }
   if (!found.discussion || found.discussion.status !== "open") {
-    await expireInvitation(found.invitation);
     return ctx.reply(messages[lang].discussionInviteUnavailable, discussionJoinErrorAckKeyboard(lang, "invitations"));
   }
 
@@ -374,9 +364,6 @@ async function acceptInvitationCommand(ctx, lang, text, {
     );
     if (isJoinRuleFailure) {
       failureText = buildDiscussionInviteLockedText(messages, lang, joined.reason, found.discussion);
-    }
-    if (joined.reason === "discussion_closed" || joined.reason === "missing_discussion" || joined.reason === "removed_by_owner") {
-      await expireInvitation(found.invitation);
     }
     return ctx.reply(
       failureText,

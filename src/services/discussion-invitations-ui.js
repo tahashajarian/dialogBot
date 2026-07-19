@@ -69,8 +69,9 @@ function buildInvitationJoinRuleText(rule, state = {}) {
   return state.state === "joinable" ? `${rule} ✅` : rule;
 }
 
-function buildInvitationEntryText(messages, lang, entry, index, { accepted = false } = {}) {
+function buildInvitationEntryText(messages, lang, entry, index) {
   const { invitation, discussion, inviter, state } = entry;
+  const accepted = invitation?.status === "accepted";
   const code = commandCode(invitation.publicInvitationCode);
   const isBotInvite = invitation?.source === "bot_onboarding" && discussion?.isBotCreated;
   const isSharedLinkInvite = invitation?.source === "shared_link";
@@ -121,11 +122,16 @@ function shouldShowDiscussionInvitationFirstTimeTip(user, entries = []) {
     && !user?.sectionTipsShownAt?.discussions;
 }
 
-async function buildReceivedInvitationsText(messages, lang, user, entries = [], acceptedEntries = []) {
-  const hasPending = entries.length > 0;
-  const hasAccepted = acceptedEntries.length > 0;
-  const parts = [messages[lang].discussionInvitationsTitle, ""];
-  if (!hasPending && !hasAccepted) {
+async function buildReceivedInvitationsText(messages, lang, user, entries = [], {
+  startIndex = 0,
+  totalCount = entries.length,
+} = {}) {
+  const title = messages[lang].discussionInvitationsTitle.replace(
+    "{count}",
+    String(Math.max(0, Number(totalCount) || 0)),
+  );
+  const parts = [title, ""];
+  if (!entries.length) {
     parts.push(messages[lang].discussionInvitationsEmpty);
     if (messages[lang].discussionInvitationsEmptyTip) {
       parts.push("");
@@ -139,38 +145,16 @@ async function buildReceivedInvitationsText(messages, lang, user, entries = [], 
     parts.push("");
   }
 
-  if (hasPending) {
-    for (let index = 0; index < entries.length; index += 1) {
-      parts.push(buildInvitationEntryText(messages, lang, entries[index], index));
-      if (index < entries.length - 1) {
-        parts.push("");
-        parts.push(DIVIDER);
-        parts.push("");
-      }
-    }
-  } else {
-    parts.push(messages[lang].discussionInvitationsEmpty);
-  }
+  parts.push(messages[lang].discussionInvitationsListTip);
+  parts.push("");
 
-  if (hasAccepted) {
-    if (hasPending) {
+  for (let index = 0; index < entries.length; index += 1) {
+    parts.push(buildInvitationEntryText(messages, lang, entries[index], startIndex + index));
+    if (index < entries.length - 1) {
       parts.push("");
       parts.push(DIVIDER);
+      parts.push("");
     }
-    parts.push("");
-    parts.push(messages[lang].discussionInvitationsRecentTitle);
-    parts.push("");
-    for (let index = 0; index < acceptedEntries.length; index += 1) {
-      parts.push(buildInvitationEntryText(messages, lang, acceptedEntries[index], index, { accepted: true }));
-      if (index < acceptedEntries.length - 1) {
-        parts.push("");
-        parts.push(DIVIDER);
-        parts.push("");
-      }
-    }
-  } else if (!hasPending && messages[lang].discussionInvitationsEmptyTip) {
-    parts.push("");
-    parts.push(messages[lang].discussionInvitationsEmptyTip);
   }
 
   return parts.join("\n");

@@ -124,8 +124,7 @@ Users can send stored discussion invitations in two places:
 - From an active discussion: choose a saved profile to invite to the current room.
 - From a saved profile: choose one of the inviter's eligible discussions.
 
-Invitees can open the invitations section, review each pending discussion invitation, join if eligible, or remove the invite.
-Accepted invitations stay visible as recent joined shortcuts so a user can return to a discussion later even after leaving it.
+Invitees can open one unified invitations inbox, review pending or previously accepted discussion invitations, join if eligible, or remove an invitation.
 
 ## MVP Rules
 
@@ -135,12 +134,14 @@ Accepted invitations stay visible as recent joined shortcuts so a user can retur
 - The invitee can be invited even if they have never joined a discussion before.
 - The invite does not bypass join rules, capacity, removed-user checks, closed-room checks, or one-active-room behavior.
 - Duplicate pending invites for the same recipient and discussion are blocked.
-- Inbox display and counts collapse duplicate stored rows by inviter and discussion, including recent joined shortcuts from accepted invites.
+- Inbox display and counts collapse duplicate stored rows by inviter and discussion.
 - Sender daily invite limits are enforced.
 - Invitation counts show all pending invites, including seen pending and bot starter invites.
 - Seen pending invites stay in the list until accepted, removed, or expired.
-- Accepted invitations are excluded from the count, but the inbox can show the most recent accepted invites under a separate recent section.
-- Accepted invitation shortcuts stay until the invitee removes them or the target discussion becomes unavailable.
+- Pending and accepted invitations share one newest-first inbox, capped at 20 visible records and paginated five per page.
+- The inbox title includes the total visible count in parentheses, and the card includes a short hint explaining newest-first order, manual removal, and the 20-record cap.
+- Accepting an invitation does not move or hide it. Invitations remain in their original creation order until the invitee removes them or the oldest visible record is retired when the cap is exceeded.
+- Missing, full, locked, or removed-user destinations remain visible with their safe unavailable state and Remove action; a failed open does not silently remove the invitation. When an owner closes a discussion, delete all pending and accepted invitations for that discussion in one database operation because the room can never reopen.
 - Invitees can restrict future invitations from a specific inviter.
 - A restricted user cannot newly join discussions created by the user who restricted them.
 - The inviter should not receive an acceptance notification in MVP.
@@ -361,7 +362,7 @@ Do not reveal sensitive moderation details unless the inviter already has permis
 ## Invitee Flow: Received Invitations
 
 1. Invitee opens `Invitations (N)`.
-2. Bot lists pending invitations and, below them, recent accepted invitation shortcuts.
+2. Bot lists pending and accepted invitations together, newest first.
 3. Each invitation shows:
    - discussion title
    - optional short description
@@ -418,26 +419,7 @@ Persian pointer convention:
 
 Use stable invitation public codes, not array indexes.
 
-If there are no pending invites but the user has recently joined from invitations, keep the inbox useful:
-
-```text
-📨 Invitations
-
-🤖 No invitations right now.
-
-Recently joined from invitations:
-
-1. ✅ Movie Night
-From: Sara
-📄 Weekend movie talk
-👥 4/20
-🔐 Join condition:
-🌍 Open ✅
-Join 👉 /accept_inv_ABC123
-Remove invitation 👉 /remove_inv_ABC123
-```
-
-The recent section is a shortcut list, not a pending-invite count. `Invitations (0)` can still show while recent accepted shortcuts are visible, but pending invitations stay counted after they are seen.
+Accepted invitations use a `✅` marker in the same list and keep their normal Join/Open and Remove commands. There is no separate recent-invitations section; Recent discussions is an independent My Discussions feature.
 
 ## Invitation Count And Seen State
 
@@ -458,8 +440,10 @@ Recommended MVP:
 - Show seen pending invites with `📨` while still counting them.
 - After a page renders successfully, set `seenAt` on invitations shown on that page.
 - Keep stale pending invites visible once with a clear unavailable state and a remove action.
-- Show up to the most recent accepted invitations as shortcuts below pending invitations.
-- Accepted shortcuts use the same `/accept_inv_CODE` command to reopen/rejoin the discussion and the same `/remove_inv_CODE` command to hide the shortcut.
+- Show pending and accepted invitations in one list ordered by `createdAt` descending.
+- Keep at most 20 visible invitations per recipient. When a new record exceeds the cap, mark the oldest visible record expired rather than hard-deleting it.
+- Successful discussion closure hard-deletes every invitation targeting that discussion. This is the narrow permanent-room cleanup exception to recipient-controlled removal.
+- Accepted invitations use the same `/accept_inv_CODE` command to reopen/rejoin the discussion and the same `/remove_inv_CODE` command to hide it.
 - Use pagination for long lists, with 5 invitations per page.
 - Keep the list card limited to inline pagination plus Close. Close removes only the card and leaves the current bottom keyboard unchanged.
 

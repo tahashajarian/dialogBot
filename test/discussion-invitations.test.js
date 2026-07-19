@@ -138,6 +138,10 @@ test("discussion invitation schema indexes inbox and rate-limit queries", () => 
     fields.inviterUserId === 1 &&
     fields.createdAt === -1
   )));
+  assert.ok(indexes.some(([fields, options]) => (
+    options?.name === "closed_discussion_invitation_cleanup" &&
+    fields.discussionId === 1
+  )));
 });
 
 test("pending invitation count includes seen pending invitations", async () => {
@@ -458,8 +462,8 @@ test("locked invitations keep explicit locked state", async () => {
   assert.match(text, /^🔒 Join condition not completed yet$/m);
 });
 
-test("received invitations can show accepted invites as recent shortcuts", async () => {
-  const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [] }, [], [{
+test("received invitations keep accepted invites in the unified newest-first list", async () => {
+  const text = await buildReceivedInvitationsText(messages, "en", { userId: 2, discussionMembershipIds: [] }, [{
     invitation: {
       publicInvitationCode: "i_DONE123",
       status: "accepted",
@@ -477,11 +481,13 @@ test("received invitations can show accepted invites as recent shortcuts", async
       publicProfileCode: "u_SARA1",
     },
     state: { state: "joinable" },
-  }]);
+  }], { startIndex: 5 });
 
-  assert.match(text, /No invitations right now/);
-  assert.match(text, /Recently joined from invitations:/);
-  assert.match(text, /✅ Movie Chat/);
+  assert.doesNotMatch(text, /No invitations right now/);
+  assert.doesNotMatch(text, /Recently joined/);
+  assert.match(text, /✉️ Invitations \(1\)/);
+  assert.match(text, /Newest invitations appear first/);
+  assert.match(text, /6\. ✅ Movie Chat/);
   assert.match(text, /Join 👉 \/accept_inv_DONE123/);
   assert.match(text, /Remove invitation 👉 \/remove_inv_DONE123/);
   assert.doesNotMatch(text, /Inviter profile/);
@@ -491,7 +497,8 @@ test("empty invitations text includes a useful next-step tip", async () => {
   const text = await buildReceivedInvitationsText(messages, "en", { userId: 2 }, []);
 
   assert.match(text, /No invitations right now/);
-  assert.match(text, /recent shortcuts/);
+  assert.match(text, /✉️ Invitations \(0\)/);
+  assert.match(text, /newest first/);
 });
 
 test("new invitation notification points invitee to invitations inbox", async () => {

@@ -596,7 +596,7 @@ No longer a member state:
 
 Invite abuse and rate limits:
 
-- The Discussions-menu badge counts only unseen pending invitations, including unseen bot starter invitations. Opening the inbox clears the badge, while seen pending invitations stay in the inbox until the invited user accepts or removes them, or the target discussion becomes unavailable.
+- The Discussions-menu badge counts only unseen pending invitations, including unseen bot starter invitations. The inbox itself combines pending and accepted invitations newest first, keeps at most 20 visible records, and paginates five per page. Opening the inbox clears the badge; acceptance does not remove or reorder a record. Only the recipient's Remove command hides it, except that exceeding the cap expires the oldest visible record and successful discussion closure hard-deletes all invitations targeting that permanently closed room. Other unavailable destinations remain visible with a safe state and Remove action.
 - Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
 - Public share-link generation can add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
 - Do not notify the discussion owner when someone generates or uses an invite.

@@ -33,12 +33,14 @@ const {
   markInvitationsSeen,
   markInvitationAccepted,
   removeInvitationForUser,
+  trimReceivedInvitationInbox,
 } = require("../../src/services/discussion-invitations");
 const {
   muteInviterForUser,
   unmuteInviterForUser,
 } = require("../../src/services/discussion-invitation-mutes");
 const {
+  closeDiscussionAndNotify,
   reportDiscussionMemberAndNotify,
 } = require("../../src/services/discussion-actions");
 const {
@@ -761,6 +763,44 @@ test("owner removal and closing clear persisted user membership", async () => {
   assert.equal(closedDiscussion.status, "closed");
 });
 
+test("closing a discussion deletes all of its pending and accepted invitations", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_CLOSEIV",
+    memberUserIds: [1],
+  });
+  await createUser(1, {
+    activeDiscussionId: discussion._id,
+    discussionMembershipIds: [discussion._id],
+  });
+  await DiscussionInvitation.insertMany([
+    {
+      publicInvitationCode: "i_CLOSEP1",
+      discussionId: discussion._id,
+      inviterUserId: 1,
+      inviteeUserId: 2,
+      status: "pending",
+    },
+    {
+      publicInvitationCode: "i_CLOSEA1",
+      discussionId: discussion._id,
+      inviterUserId: 1,
+      inviteeUserId: 3,
+      status: "accepted",
+      acceptedAt: new Date(),
+    },
+  ]);
+
+  const result = await closeDiscussionAndNotify({
+    ctx: { userId: 1 },
+    messages,
+    discussionId: discussion._id,
+    discussionsMenuKeyboard: () => ({}),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(await DiscussionInvitation.countDocuments({ discussionId: discussion._id }), 0);
+});
+
 test("unique discussion reports ban user and remove them from active discussions", async () => {
   const previousThreshold = process.env.REPORT_BAN_THRESHOLD;
   process.env.REPORT_BAN_THRESHOLD = "2";
@@ -1054,6 +1094,32 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(removed.ok, true);
   const hiddenList = await listReceivedInvitations(2, { statuses: ["accepted"] });
   assert.equal(hiddenList.invitations.length, 0);
+});
+
+test("received invitation inbox keeps the newest 20 visible records", async () => {
+  const discussionId = new mongoose.Types.ObjectId();
+  const invitations = Array.from({ length: 22 }, (_, index) => ({
+    publicInvitationCode: `i_CAP${String(index).padStart(4, "0")}`,
+    discussionId,
+    inviterUserId: 100 + index,
+    inviteeUserId: 1,
+    status: "accepted",
+    createdAt: new Date(Date.UTC(2026, 0, 1, 0, index)),
+  }));
+  await DiscussionInvitation.insertMany(invitations);
+
+  const result = await trimReceivedInvitationInbox(1, new Date("2026-01-02T00:00:00.000Z"));
+  assert.equal(result.retiredCount, 2);
+
+  const visible = await DiscussionInvitation.find({
+    inviteeUserId: 1,
+    status: { $in: ["pending", "accepted"] },
+  }).sort({ createdAt: -1 }).lean();
+  const expired = await DiscussionInvitation.find({ inviteeUserId: 1, status: "expired" })
+    .sort({ createdAt: 1 })
+    .lean();
+  assert.equal(visible.length, 20);
+  assert.deepEqual(expired.map((entry) => entry.publicInvitationCode), ["i_CAP0000", "i_CAP0001"]);
 });
 
 test("onboarding starter invitations include only the open free discussion", async () => {

@@ -43,6 +43,10 @@ DiscussionInvitationSchema.index(
   { name: "inviter_invitation_rate_limit" },
 );
 DiscussionInvitationSchema.index(
+  { discussionId: 1 },
+  { name: "closed_discussion_invitation_cleanup" },
+);
+DiscussionInvitationSchema.index(
   { inviteeUserId: 1, discussionId: 1, status: 1 },
   {
     name: "pending_invitation_per_discussion_recipient",

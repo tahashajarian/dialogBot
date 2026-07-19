@@ -45,4 +45,4 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ remove a user from discusion is working fine, just need a confirm i think, which could be inline butotn confirm then remove the user @done (7/19/2026)
 ✔ close discussion is not working fine after confirm we should leave and back to prev menu @done (7/19/2026, 6:16:34 AM)
 ✔ if we are active in a discussion and see a notif that someone joined by press on open discusion it open another card that the title is preview of invitaion which is wrong @done (7/19/2026, 6:45:53 AM)
-☐ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas
+✔ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas @done (7/19/2026)

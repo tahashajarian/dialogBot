@@ -16,6 +16,7 @@ const {
   notifyDiscussionOwnerOfJoin,
   removeOwnerJoinNoticeState,
 } = require("./discussion-owner-join-notifications");
+const { deleteInvitationsForDiscussion } = require("./discussion-invitations");
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
@@ -90,6 +91,7 @@ async function closeDiscussionAndNotify({ ctx, messages, discussionId, discussio
   if (!closed.ok) return closed;
 
   await removeOwnerJoinNoticeState(discussionId).catch(() => null);
+  await deleteInvitationsForDiscussion(discussionId).catch(() => null);
 
   await notifyDiscussionMembers(ctx, messages, activeMembers, (msgs, lang) => [
     {

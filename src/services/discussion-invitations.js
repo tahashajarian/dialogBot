@@ -17,6 +17,27 @@ const {
 
 const INVITATION_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const ONBOARDING_INVITATION_SOURCES = ["bot_onboarding", "onboarding_match"];
+const RECEIVED_INVITATION_INBOX_LIMIT = 20;
+
+async function trimReceivedInvitationInbox(userId, now = new Date()) {
+  const visible = await DiscussionInvitation.find({
+    inviteeUserId: Number(userId),
+    status: { $in: ["pending", "accepted"] },
+  }).sort({ createdAt: -1 }).lean();
+  const overflowIds = visible.slice(RECEIVED_INVITATION_INBOX_LIMIT).map((entry) => entry._id);
+  if (!overflowIds.length) return { retiredCount: 0 };
+  const result = await DiscussionInvitation.updateMany(
+    { _id: { $in: overflowIds }, status: { $in: ["pending", "accepted"] } },
+    { $set: { status: "expired", expiredAt: now } },
+  );
+  return { retiredCount: result.modifiedCount || 0 };
+}
+
+async function deleteInvitationsForDiscussion(discussionId) {
+  if (!discussionId) return { deletedCount: 0 };
+  const result = await DiscussionInvitation.deleteMany({ discussionId });
+  return { deletedCount: result.deletedCount || 0 };
+}
 
 function generatePublicCodeSuffix(length) {
   let suffix = "";
@@ -209,6 +230,7 @@ async function createDiscussionInvitation({
   try {
     const codeResult = await ensurePublicInvitationCode(invitation);
     if (!codeResult.ok) return codeResult;
+    await trimReceivedInvitationInbox(invitee.userId, now);
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
     const duplicate = await DiscussionInvitation.findOne({
@@ -328,7 +350,9 @@ async function createOnboardingInvitation({ user, discussionId, language, kind, 
 
   try {
     const codeResult = await ensurePublicInvitationCode(invitation);
-    return codeResult.ok ? buildOnboardingInvitationMetadata(invitation, discussion, kind) : null;
+    if (!codeResult.ok) return null;
+    await trimReceivedInvitationInbox(inviteeUserId, now);
+    return buildOnboardingInvitationMetadata(invitation, discussion, kind);
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
     const duplicate = await DiscussionInvitation.findOne({
@@ -487,9 +511,13 @@ async function listReceivedInvitations(userId, { limit = 20, skip = 0, statuses 
     status: { $in: statusList.length ? statusList : ["pending"] },
   }).sort({ createdAt: -1 }).lean();
   const deduped = dedupeInvitationsByInviterAndDiscussion(invitations);
+  const normalizedLimit = Math.min(
+    RECEIVED_INVITATION_INBOX_LIMIT,
+    Math.max(1, Number(limit) || RECEIVED_INVITATION_INBOX_LIMIT),
+  );
   const paged = deduped.slice(
     Math.max(0, Number(skip) || 0),
-    Math.max(0, Number(skip) || 0) + Math.max(1, Number(limit) || 20),
+    Math.max(0, Number(skip) || 0) + normalizedLimit,
   );
 
   return {
@@ -548,14 +576,6 @@ async function markInvitationAccepted(invitation) {
   if (!invitation) return { ok: false, reason: "missing_invitation" };
   invitation.status = "accepted";
   invitation.acceptedAt = new Date();
-  await invitation.save();
-  return { ok: true, invitation };
-}
-
-async function expireInvitation(invitation) {
-  if (!invitation) return { ok: false, reason: "missing_invitation" };
-  invitation.status = "expired";
-  invitation.expiredAt = new Date();
   await invitation.save();
   return { ok: true, invitation };
 }
@@ -623,9 +643,9 @@ async function preserveSharedLinkInvitation({
 
   try {
     const invitationCode = await ensurePublicInvitationCode(invitation);
-    return invitationCode.ok
-      ? { ok: true, count: 1, invitation, discussion }
-      : { ...invitationCode, count: 0 };
+    if (!invitationCode.ok) return { ...invitationCode, count: 0 };
+    await trimReceivedInvitationInbox(inviteeUserId, now);
+    return { ok: true, count: 1, invitation, discussion };
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
     const duplicate = await DiscussionInvitation.findOne({
@@ -661,12 +681,14 @@ async function markSharedLinkInvitationAccepted(userId, discussionId, acceptedAt
 }
 
 module.exports = {
+  RECEIVED_INVITATION_INBOX_LIMIT,
   normalizePublicInvitationCode,
   countPendingReceivedInvitations,
   countUnseenPendingReceivedInvitations,
   countAllPendingReceivedInvitations,
   countAllVisibleReceivedInvitations,
   createDiscussionInvitation,
+  deleteInvitationsForDiscussion,
   createOnboardingStarterInvitationsForUser,
   preserveSharedLinkInvitation,
   markSharedLinkInvitationAccepted,
@@ -677,6 +699,6 @@ module.exports = {
   getInvitationForUser,
   removeInvitationForUser,
   markInvitationAccepted,
-  expireInvitation,
+  trimReceivedInvitationInbox,
   getInvitationDisplayState,
 };
