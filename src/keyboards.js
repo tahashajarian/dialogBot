@@ -17,6 +17,8 @@ const {
 const {
   getSectionEmoji,
   getSectionListLabel,
+  getTasteLabelEmoji,
+  getTasteLabelTitle,
 } = require("./services/ai-section");
 const discussionKeyboards = require("./keyboards/discussions");
 const {
@@ -367,6 +369,7 @@ function aiListManageMenuKeyboard(lang, section, listType, {
   itemCount = 0,
   filter = "all",
   hasWatchlistItems = false,
+  hasTasteLabel = false,
 } = {}) {
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
@@ -416,6 +419,9 @@ function aiListManageMenuKeyboard(lang, section, listType, {
           text: `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`,
         },
       ]);
+    }
+    if (itemCount >= operationalLimits.aiTopTenItems || hasTasteLabel) {
+      rows.push([{ text: messages[lang].aiTasteReviewButton }]);
     }
   }
 
@@ -474,6 +480,57 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
   ]);
 
   return inlineKeyboard(rows);
+}
+
+function aiTasteSuggestionKeyboard(lang, section, labelKeys = [], {
+  selectedLabelKey = "",
+  includeClose = false,
+} = {}) {
+  const ranks = ["🥇", "🥈", "🥉"];
+  const visibleLabelKeys = labelKeys.slice(0, 4);
+  const rows = visibleLabelKeys.map((labelKey, index) => ([{
+    text: `${labelKey === selectedLabelKey ? "✓" : (index === visibleLabelKeys.length - 1 ? "🧩" : ranks[index])} ${getTasteLabelEmoji(section, labelKey)} ${getTasteLabelTitle(messages, lang, section, labelKey)}`,
+    callback_data: `${callBacks.aiTasteConfirm}${section}:${labelKey}`,
+  }]));
+  rows.push([{ text: messages[lang].aiTasteSkipButton, callback_data: `${callBacks.aiTasteSkip}${section}` }]);
+  if (includeClose) {
+    rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.aiTasteClose }]);
+  }
+  return inlineKeyboard(rows);
+}
+
+function aiTasteFailureKeyboard(lang, section) {
+  return inlineKeyboard([
+    [{ text: messages[lang].aiTasteRetryButton, callback_data: `${callBacks.aiTasteRetry}${section}` }],
+    [{
+      text: messages[lang].aiListManageAddBackToList,
+      callback_data: `${callBacks.aiListManageMenu}${section}:top_ten`,
+    }],
+  ]);
+}
+
+function aiTasteCurrentKeyboard(lang, section, { canRecheck = false, recheckCost = 0 } = {}) {
+  const rows = [
+    [{ text: messages[lang].aiTasteChangeButton, callback_data: `${callBacks.aiTasteChoose}${section}` }],
+    [{ text: messages[lang].aiTasteSkipButton, callback_data: `${callBacks.aiTasteSkip}${section}` }],
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.aiTasteClose }],
+  ];
+  if (canRecheck) {
+    rows.unshift([{
+      text: messages[lang].aiTasteRecheckButton.replace("{cost}", String(recheckCost)),
+      callback_data: `${callBacks.aiTasteRecheck}${section}`,
+    }]);
+  }
+  return inlineKeyboard(rows);
+}
+
+function aiTasteRecheckConfirmKeyboard(lang, publicCode) {
+  return inlineKeyboard([
+    [
+      { text: messages[lang].aiTasteRecheckConfirmButton, callback_data: `${callBacks.aiTasteRecheckConfirm}${publicCode}` },
+      { text: messages[lang].cancelEdit, callback_data: `${callBacks.aiTasteRecheckCancel}${publicCode}` },
+    ],
+  ]);
 }
 
 function aiListCancelAddKeyboard(lang, _section, _listType, { backToList = false } = {}) {
@@ -1220,6 +1277,10 @@ module.exports = {
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
+  aiTasteSuggestionKeyboard,
+  aiTasteFailureKeyboard,
+  aiTasteCurrentKeyboard,
+  aiTasteRecheckConfirmKeyboard,
   aiListCancelAddKeyboard,
   aiInterestTopTenChipKeyboard,
   getInterestTopTenChipTitle,

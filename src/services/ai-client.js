@@ -149,6 +149,7 @@ async function requestSuggestionText(openai, {
   config = getAiConfig(),
   maxOutputTokens = DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
   recordEvent = recordAiApiEvent,
+  operation = "suggestion",
 }) {
   const errors = [];
   const provider = config.suggestionProvider || "auto";
@@ -177,7 +178,7 @@ async function requestSuggestionText(openai, {
       if (text) {
         void recordEvent({
           ok: true,
-          operation: "suggestion",
+          operation,
           provider: "chat_completions",
           durationMs: Date.now() - startedAt,
           metadata: extractAiTokenUsage(response),
@@ -186,7 +187,7 @@ async function requestSuggestionText(openai, {
       }
       void recordEvent({
         ok: false,
-        operation: "suggestion",
+        operation,
         provider: "chat_completions",
         reason: "empty_output",
         durationMs: Date.now() - startedAt,
@@ -196,7 +197,7 @@ async function requestSuggestionText(openai, {
       const classified = classifyAiProviderError(error);
       void recordEvent({
         ok: false,
-        operation: "suggestion",
+        operation,
         provider: "chat_completions",
         reason: classified.category,
         durationMs: Date.now() - startedAt,
@@ -226,7 +227,7 @@ async function requestSuggestionText(openai, {
       if (text) {
         void recordEvent({
           ok: true,
-          operation: "suggestion",
+          operation,
           provider: "responses",
           durationMs: Date.now() - startedAt,
           metadata: extractAiTokenUsage(response),
@@ -235,7 +236,7 @@ async function requestSuggestionText(openai, {
       }
       void recordEvent({
         ok: false,
-        operation: "suggestion",
+        operation,
         provider: "responses",
         reason: "empty_output",
         durationMs: Date.now() - startedAt,
@@ -245,7 +246,7 @@ async function requestSuggestionText(openai, {
       const classified = classifyAiProviderError(error);
       void recordEvent({
         ok: false,
-        operation: "suggestion",
+        operation,
         provider: "responses",
         reason: classified.category,
         durationMs: Date.now() - startedAt,

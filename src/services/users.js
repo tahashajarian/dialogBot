@@ -11,6 +11,14 @@ const { sanitizeProfileNameCandidate } = require("./profile");
 const { isCommandLikeText } = require("./command-like-text");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { syncUserTasteIndex } = require("./user-taste-index");
+const {
+  TASTE_CLASSIFIER_VERSION,
+  buildRankedTasteShortlist,
+  buildTasteInputFingerprint,
+  classifyMediaTaste,
+  isAllowedTasteLabel,
+  isMediaTasteSection,
+} = require("./taste-label-classifier");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 const SECTION_TIP_KEYS = Object.freeze(["discussions", "favorites", "people"]);
@@ -236,88 +244,6 @@ function normalizeAiListItems(items = []) {
 const AI_SECTIONS = ["movies", "music", "books", "random"];
 const AI_SUGGESTION_QUOTA_LIMIT = 10;
 const AI_SUGGESTION_QUOTA_WINDOW_MS = 60 * 60 * 1000;
-const TASTE_LABELS_BY_SECTION = {
-  music: {
-    metalhead: ["metallica", "metalica", "enter sandman", "enter sand man", "master of puppets", "nothing else matters", "nothing else matter", "bleeding me", "megadeth", "symphony of destruction", "slayer", "raining blood", "iron maiden", "pantera", "walk", "slipknot", "system of a down", "toxicity", "black sabbath", "judas priest", "anthrax", "opeth", "gojira", "rage against the machine", "killing in the name"],
-    rocker: ["queen", "bohemian rhapsody", "pink floyd", "comfortably numb", "nirvana", "smells like teen spirit", "radiohead", "creep", "led zeppelin", "stairway to heaven", "guns n roses", "guns and roses", "welcome to the jungle", "sweet child o mine", "foo fighters", "the beatles", "u2", "acdc", "ac/dc", "back in black", "highway to hell", "highway to the hell", "arctic monkeys"],
-    pop_lover: ["taylor swift", "blank space", "dua lipa", "levitating", "ed sheeran", "shape of you", "justin bieber", "ariana grande", "the weeknd", "blinding lights", "katy perry", "rihanna", "billie eilish", "bad guy", "olivia rodrigo"],
-    hiphop_head: ["drake", "kendrick lamar", "humble", "j cole", "eminem", "lose yourself", "travis scott", "kanye west", "future", "cardi b", "nas", "tupac", "snoop dogg"],
-    electronic_fan: ["daft punk", "get lucky", "one more time", "calvin harris", "tiesto", "martin garrix", "animals", "deadmau5", "avicii", "levels", "skrilllex", "kygo", "swedish house mafia", "alan walker", "faded"],
-    classical_soul: ["mozart", "beethoven", "fur elise", "moonlight sonata", "bach", "vivaldi", "four seasons", "chopin", "nocturne", "tchaikovsky", "debussy", "clair de lune", "handel", "brahms"],
-    jazz_vibe: ["miles davis", "kind of blue", "john coltrane", "ella fitzgerald", "louis armstrong", "charlie parker", "duke ellington", "bill evans", "take five", "dave brubeck"],
-    indie_spirit: ["tame impala", "the less i know the better", "the strokes", "phoebe bridgers", "bon iver", "skinny love", "the national", "alt-j", "vampire weekend", "mac demarco"],
-  },
-  movies: {
-    sci_fi_explorer: ["interstellar", "inception", "blade runner", "arrival", "the matrix", "dune", "ex machina", "star wars", "alien", "2001", "minority report", "edge of tomorrow"],
-    action_junkie: ["john wick", "mad max", "mission impossible", "die hard", "the dark knight", "gladiator", "top gun", "fast and furious", "the raid", "terminator", "casino royale", "kill bill"],
-    drama_seeker: ["the godfather", "shawshank redemption", "parasite", "forrest gump", "forest gump", "a beautiful mind", "spotlight", "moonlight", "fight club", "green mile", "whiplash", "pianist", "schindler"],
-    comedy_chaser: ["superbad", "the hangover", "mean girls", "step brothers", "groundhog day", "anchorman", "deadpool", "bridesmaids", "borat", "office space"],
-    horror_hunter: ["the conjuring", "hereditary", "the exorcist", "insidious", "it", "the shining", "get out", "scream", "midsommar", "a quiet place", "sinister"],
-    animation_lover: ["spirited away", "coco", "inside out", "toy story", "up", "zootopia", "finding nemo", "ratatouille", "wall-e", "shrek", "your name"],
-    arthouse_curious: ["amelie", "in the mood for love", "the lobster", "the lighthouse", "persona", "8 1/2", "tokyo story", "stalker", "mulholland drive", "tree of life"],
-    documentary_mind: ["planet earth", "free solo", "the social dilemma", "making a murderer", "blackfish", "icarus", "13th", "inside job", "won't you be my neighbor"],
-  },
-  books: {
-    fantasy_dreamer: ["harry potter", "lord of the rings", "the hobbit", "wheel of time", "mistborn", "stormlight archive", "game of thrones", "name of the wind", "earthsea", "narnia"],
-    sci_fi_reader: ["dune", "foundation", "neuromancer", "ender's game", "the expanse", "snow crash", "the martian", "three body problem", "hitchhiker", "fahrenheit 451"],
-    thriller_detective: ["gone girl", "the girl with the dragon tattoo", "da vinci code", "sherlock holmes", "big little lies", "silent patient", "agatha christie", "murder on the orient express"],
-    classic_reader: ["pride and prejudice", "1984", "to kill a mockingbird", "crime and punishment", "moby dick", "great gatsby", "anna karenina", "war and peace", "catcher in the rye"],
-    self_growth: ["atomic habits", "deep work", "the power of habit", "thinking fast and slow", "the subtle art of not giving", "7 habits", "mans search for meaning", "rich dad poor dad"],
-    romance_reader: ["me before you", "the notebook", "normal people", "it ends with us", "outlander", "red white royal blue", "beach read", "love hypothesis"],
-    history_buff: ["sapiens", "guns germs and steel", "team of rivals", "the silk roads", "1776", "a people's history", "chernobyl", "emperor of all maladies"],
-    non_fiction_curious: ["educated", "born a crime", "bad blood", "outliers", "factfulness", "quiet", "freakonomics", "into thin air", "when breath becomes air"],
-  },
-  random: {
-    strategy_mind: ["chess", "شطرنج", "board game", "board games", "mensch", "منچ", "strategy", "puzzle", "sudoku", "go game", "ذهنی", "استراتژی", "بازی فکری"],
-    tech_minded: ["coding", "programming", "code", "technology", "tech", "software", "developer", "ai", "gadgets", "کدنویسی", "برنامه نویسی", "برنامه‌نویسی", "تکنولوژی", "فناوری"],
-    cafe_lover: ["cafe", "coffee", "espresso", "latte", "tea", "کافه", "قهوه", "اسپرسو", "لاته", "چای", "کافه گردی", "کافه‌گردی"],
-    explorer: ["travel", "hiking", "animals", "camping", "road trip", "adventure", "backpacking", "mountain", "nature", "سفر", "طبیعت", "کوهنوردی", "حیوانات", "ماجراجویی"],
-    foodie: ["cooking", "baking", "restaurant", "food", "coffee", "tea", "dessert", "pizza", "burger", "sushi", "غذا", "آشپزی", "رستوران"],
-    gamer: ["game", "gaming", "xbox", "playstation", "nintendo", "steam", "esports", "dota", "fifa", "valorant", "گیم", "بازی"],
-    creator: ["drawing", "design", "photography", "video editing", "writing", "singing", "languages", "painting", "craft", "maker", "هنر", "عکاسی", "نقاشی", "نوشتن", "خوانندگی", "زبان آموزی", "زبان‌آموزی"],
-    sporty: ["football", "basketball", "gym", "running", "yoga", "swimming", "cycling", "tennis", "ورزش", "فوتبال", "باشگاه", "دویدن", "شنا"],
-    mindful: ["meditation", "journal", "mindfulness", "wellness", "calm", "mental health", "therapy", "آرامش", "مدیتیشن", "ذهن‌آگاهی"],
-    social: ["party", "friends", "community", "event", "festival", "concert", "meetup", "دوستان", "اجتماعی", "رویداد", "کنسرت"],
-  },
-};
-const LOCALIZED_TASTE_LABELS_BY_SECTION = {
-  music: {
-    metalhead: ["متالیکا", "مگادث", "اسلیر", "آیرون میدن", "بلک سبث", "پنترا", "اسلیپ نات", "سیستم آو ا داون", "اپث", "گوجیرا"],
-    rocker: ["کویین", "پینک فلوید", "نیروانا", "ریدیوهید", "لد زپلین", "گانز ان روزز", "بیتلز", "ای سی دی سی", "آرکتیک مانکیز"],
-    pop_lover: ["تیلور سویفت", "دوا لیپا", "اد شیرن", "جاستین بیبر", "آریانا گرانده", "د ویکند", "ریانا", "بیلی آیلیش"],
-    hiphop_head: ["امینم", "توپاک", "کندریک لامار", "دریک", "کانیه وست", "اسنوپ داگ", "هیچکس", "یاس", "بهرام"],
-    electronic_fan: ["دفت پانک", "آویچی", "تیستو", "کلوین هریس", "اسکریلکس", "مارتین گریکس"],
-    classical_soul: ["موتسارت", "بتهوون", "باخ", "ویوالدی", "شوپن", "چایکوفسکی", "دبوسی", "برامس"],
-    jazz_vibe: ["مایلز دیویس", "جان کولترین", "الا فیتزجرالد", "لویی آرمسترانگ", "بیل اوانز", "دیو بروبک"],
-    indie_spirit: ["تیم ایمپالا", "استروکز", "فیبی بریجرز", "بن ایور", "مک دمارکو", "محسن نامجو"],
-  },
-  movies: {
-    sci_fi_explorer: ["میان ستاره ای", "تلقین", "بلید رانر", "ورود", "ماتریکس", "تل ماسه", "اکس ماکینا", "جنگ ستارگان", "بیگانه"],
-    action_junkie: ["جان ویک", "مکس دیوانه", "ماموریت غیرممکن", "جان سخت", "شوالیه تاریکی", "گلادیاتور", "تاپ گان", "ترمیناتور"],
-    drama_seeker: ["پدرخوانده", "رستگاری در شاوشنک", "انگل", "فارست گامپ", "ذهن زیبا", "ویپلش", "پیانیست", "فهرست شیندلر", "جدایی نادر از سیمین", "درباره الی"],
-    comedy_chaser: ["خماری", "دختران بدجنس", "روز گراندهاگ", "ددپول", "بورات"],
-    horror_hunter: ["احضار", "موروثی", "جن گیر", "درخشش", "میدسامر", "یک مکان ساکت", "جیغ"],
-    animation_lover: ["شهر اشباح", "کوکو", "درون و بیرون", "داستان اسباب بازی", "زوتوپیا", "در جستجوی نمو", "راتاتویی", "شرک"],
-    arthouse_curious: ["آملی", "در حال و هوای عشق", "پرسونا", "هشت و نیم", "داستان توکیو", "استاکر", "جاده مالهالند", "طعم گیلاس", "کلوزآپ"],
-    documentary_mind: ["سیاره زمین", "فری سولو", "معضل اجتماعی", "بلک فیش", "ایکاروس", "داخل کار"],
-  },
-  books: {
-    fantasy_dreamer: ["هری پاتر", "ارباب حلقه ها", "هابیت", "چرخ زمان", "مه زاد", "بازی تاج و تخت", "نام باد", "نارنیا"],
-    sci_fi_reader: ["تل ماسه", "بنیاد", "نورومنسر", "بازی اندر", "مریخی", "مسئله سه جسم", "راهنمای مسافران مجانی کهکشان", "فارنهایت ۴۵۱"],
-    thriller_detective: ["دختر گمشده", "دختری با خالکوبی اژدها", "رمز داوینچی", "شرلوک هولمز", "بیمار خاموش", "آگاتا کریستی", "قتل در قطار سریع السیر شرق"],
-    classic_reader: ["غرور و تعصب", "کشتن مرغ مقلد", "جنایت و مکافات", "جنایات و مکافات", "موبی دیک", "گتسبی بزرگ", "آنا کارنینا", "جنگ و صلح", "ناطور دشت", "گور به گور", "فاکنر", "سفر به انتهای شب", "مرگ قسطی", "سلین", "سمفونی مردگان", "سال بلوا", "عباس معروفی", "جان فانته", "بوکوفسکی"],
-    self_growth: ["عادت های اتمی", "کار عمیق", "قدرت عادت", "تفکر سریع و کند", "هنر ظریف بی خیالی", "هفت عادت", "انسان در جستجوی معنا", "پدر پولدار پدر بی پول"],
-    romance_reader: ["من پیش از تو", "دفترچه خاطرات", "آدم های معمولی", "ما تمامش می کنیم", "فرضیه عشق"],
-    history_buff: ["انسان خردمند", "اسلحه میکروب و فولاد", "راه های ابریشم", "تاریخ مردم آمریکا", "چرنوبیل"],
-    non_fiction_curious: ["شدن", "خون بد", "استثنایی ها", "واقعیت", "سکوت", "اقتصاد ناهنجاری های پنهان اجتماعی", "وقتی نفس هوا می شود"],
-  },
-};
-const DEFAULT_TASTE_LABEL_BY_SECTION = {
-  movies: "eclectic_watcher",
-  music: "eclectic_listener",
-  books: "eclectic_reader",
-  random: "multi_interest",
-};
 const LEGACY_FIELDS = {
   movies: { watchlist: "aiWatchlistMovies", topTen: "aiTopTenMovies" },
   music: { watchlist: "aiWatchlistMusic", topTen: "aiTopTenMusic" },
@@ -512,94 +438,25 @@ function getAiTasteTopTenFromUser(user, section) {
 function getAiTasteFromUser(user, section) {
   const sectionTaste = user?.aiTaste?.[section] || {};
   const labelKey = String(sectionTaste?.labelKey || "").trim();
+  const suggestedLabelKeys = Array.isArray(sectionTaste?.suggestedLabelKeys)
+    ? sectionTaste.suggestedLabelKeys.map((key) => String(key || "").trim()).filter(Boolean)
+    : [];
+  const suggestionInsight = String(sectionTaste?.suggestionInsight || "").trim().slice(0, 120);
   const emoji = String(sectionTaste?.emoji || "").trim() || (labelKey ? getTasteLabelEmoji(section, labelKey) : "");
   const sampleCount = Number(sectionTaste?.sampleCount) || 0;
   const confidence = Number(sectionTaste?.confidence) || 0;
   return {
     labelKey,
+    suggestedLabelKeys,
+    suggestionInsight,
     emoji,
     sampleCount,
     confidence: Number.isFinite(confidence) ? confidence : 0,
-  };
-}
-
-function getAiTasteKeywordsForSection(section) {
-  const base = TASTE_LABELS_BY_SECTION[section] || {};
-  const localized = LOCALIZED_TASTE_LABELS_BY_SECTION[section] || {};
-  return Object.fromEntries([...new Set([...Object.keys(base), ...Object.keys(localized)])]
-    .map((labelKey) => [labelKey, [...(base[labelKey] || []), ...(localized[labelKey] || [])]]));
-}
-
-function normalizeTasteMatchText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[يى]/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/[أإٱ]/g, "ا")
-    .replace(/ؤ/g, "و")
-    .replace(/ۀ/g, "ه")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/[\u200C\u200D]/g, " ")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function matchesTasteKeyword(item, keyword) {
-  const normalizedKeyword = normalizeTasteMatchText(keyword);
-  if (!normalizedKeyword) return false;
-
-  if (normalizedKeyword.length <= 2) {
-    return item.split(/\s+/).includes(normalizedKeyword);
-  }
-
-  return item.includes(normalizedKeyword);
-}
-
-function inferTasteLabel(section, items = []) {
-  const normalizedItems = items
-    .map((item) => normalizeTasteMatchText(normalizeTasteItem(item)))
-    .filter(Boolean);
-  const labels = getAiTasteKeywordsForSection(section);
-  const scores = {};
-  let totalMatches = 0;
-
-  for (const labelKey of Object.keys(labels)) {
-    scores[labelKey] = 0;
-  }
-
-  for (const item of normalizedItems) {
-    for (const [labelKey, keywords] of Object.entries(labels)) {
-      const matched = keywords.some((keyword) => matchesTasteKeyword(item, keyword));
-      if (!matched) continue;
-      scores[labelKey] += 1;
-      totalMatches += 1;
-    }
-  }
-
-  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const [topLabel, topScore = 0] = ranked[0] || [];
-
-  if (!topLabel || topScore <= 0) {
-    return {
-      labelKey: DEFAULT_TASTE_LABEL_BY_SECTION[section] || "eclectic",
-      emoji: getTasteLabelEmoji(section, DEFAULT_TASTE_LABEL_BY_SECTION[section] || "eclectic"),
-      confidence: 0.45,
-      sampleCount: normalizedItems.length,
-    };
-  }
-
-  const confidenceBase = totalMatches > 0 ? topScore / totalMatches : 0;
-  const confidenceBySamples = Math.min(1, normalizedItems.length / 10);
-  const confidence = Number(
-    Math.max(0.5, Math.min(0.95, (confidenceBase * 0.75) + (confidenceBySamples * 0.25))).toFixed(2),
-  );
-
-  return {
-    labelKey: topLabel,
-    emoji: getTasteLabelEmoji(section, topLabel),
-    confidence,
-    sampleCount: normalizedItems.length,
+    source: String(sectionTaste?.source || "").trim(),
+    classifierVersion: Number(sectionTaste?.classifierVersion) || 0,
+    inputFingerprint: String(sectionTaste?.inputFingerprint || "").trim(),
+    classificationStatus: String(sectionTaste?.classificationStatus || "").trim(),
+    freeClassificationUsedAt: sectionTaste?.freeClassificationUsedAt || null,
   };
 }
 
@@ -608,7 +465,7 @@ function getTasteProgressStatus(section, currentCount) {
   const count = Math.max(0, Math.min(goal, Number(currentCount) || 0));
   const remaining = Math.max(0, goal - count);
   const completed = count >= goal;
-  const labelReady = completed;
+  const labelReady = isMediaTasteSection(section) && completed;
   return {
     section,
     count,
@@ -619,7 +476,7 @@ function getTasteProgressStatus(section, currentCount) {
   };
 }
 
-async function syncAiTasteForSection(userId, section) {
+async function syncAiTasteForSection(userId, section, { retryFailed = false } = {}) {
   const user = await User.findOne({ userId });
   if (!user) {
     return { ok: false, reason: "missing_user" };
@@ -629,16 +486,83 @@ async function syncAiTasteForSection(userId, section) {
   const progress = getTasteProgressStatus(section, topTenTitles.length);
   const existingTaste = getAiTasteFromUser(user, section);
 
+  if (!isMediaTasteSection(section)) {
+    return {
+      ok: true,
+      taste: { labelKey: "", emoji: "", confidence: 0, sampleCount: progress.count },
+      progress,
+    };
+  }
+
+  if (
+    isMediaTasteSection(section) &&
+    ["confirmed", "confirmed_review"].includes(existingTaste.classificationStatus) &&
+    existingTaste.labelKey
+  ) {
+    const currentItems = getAiListItemsFromUser(user, section, "topTen");
+    const currentFingerprint = buildTasteInputFingerprint(section, currentItems);
+    if (
+      existingTaste.classificationStatus === "confirmed_review" &&
+      existingTaste.inputFingerprint !== currentFingerprint
+    ) {
+      const updatedAt = new Date();
+      await User.findOneAndUpdate(
+        { userId },
+        { $set: {
+          [`aiTaste.${section}.suggestedLabelKeys`]: [],
+          [`aiTaste.${section}.suggestionInsight`]: "",
+          [`aiTaste.${section}.sampleCount`]: progress.count,
+          [`aiTaste.${section}.inputFingerprint`]: currentFingerprint,
+          [`aiTaste.${section}.classificationStatus`]: "confirmed",
+          [`aiTaste.${section}.updatedAt`]: updatedAt,
+        } },
+        { returnDocument: "after" },
+      );
+      return {
+        ok: true,
+        taste: {
+          ...existingTaste,
+          suggestedLabelKeys: [],
+          suggestionInsight: "",
+          sampleCount: progress.count,
+          inputFingerprint: currentFingerprint,
+          classificationStatus: "confirmed",
+          updatedAt,
+        },
+        progress,
+      };
+    }
+    if (existingTaste.sampleCount !== progress.count) {
+      await User.findOneAndUpdate(
+        { userId },
+        { $set: {
+          [`aiTaste.${section}.sampleCount`]: progress.count,
+          [`aiTaste.${section}.updatedAt`]: new Date(),
+        } },
+        { returnDocument: "after" },
+      );
+    }
+    return {
+      ok: true,
+      taste: { ...existingTaste, sampleCount: progress.count },
+      progress,
+    };
+  }
+
   if (!progress.labelReady) {
     const updates = {
+      [`aiTaste.${section}.labelKey`]: "",
       [`aiTaste.${section}.sampleCount`]: progress.count,
       [`aiTaste.${section}.updatedAt`]: new Date(),
+      [`aiTaste.${section}.suggestedLabelKeys`]: [],
+      [`aiTaste.${section}.suggestionInsight`]: "",
+      [`aiTaste.${section}.emoji`]: "",
+      [`aiTaste.${section}.confidence`]: 0,
+      [`aiTaste.${section}.source`]: "",
+      [`aiTaste.${section}.inputFingerprint`]: "",
+      [`aiTaste.${section}.classificationStatus`]: "",
+      [`aiTaste.${section}.confirmedAt`]: null,
     };
-    if (existingTaste.labelKey) {
-      updates[`aiTaste.${section}.labelKey`] = "";
-      updates[`aiTaste.${section}.emoji`] = "";
-      updates[`aiTaste.${section}.confidence`] = 0;
-    }
     await User.findOneAndUpdate({ userId }, { $set: updates }, { returnDocument: "after" });
     return {
       ok: true,
@@ -652,37 +576,262 @@ async function syncAiTasteForSection(userId, section) {
     };
   }
 
-  const inferred = inferTasteLabel(section, topTenTitles);
-  await User.findOneAndUpdate(
-    { userId },
-    {
-      $set: {
-        [`aiTaste.${section}.labelKey`]: inferred.labelKey,
-        [`aiTaste.${section}.emoji`]: inferred.emoji,
-        [`aiTaste.${section}.confidence`]: inferred.confidence,
-        [`aiTaste.${section}.sampleCount`]: inferred.sampleCount,
-        [`aiTaste.${section}.updatedAt`]: new Date(),
-      },
-    },
-    { returnDocument: "after" },
-  );
+  if (isMediaTasteSection(section)) {
+    const topTenItems = getAiListItemsFromUser(user, section, "topTen");
+    const inputFingerprint = buildTasteInputFingerprint(section, topTenItems);
+    const cacheIsCurrent = (
+      existingTaste.inputFingerprint === inputFingerprint &&
+      existingTaste.classifierVersion === TASTE_CLASSIFIER_VERSION &&
+      ["confirmed", "suggested", "needs_choice", "skipped"].includes(existingTaste.classificationStatus) &&
+      !(retryFailed && existingTaste.classificationStatus === "needs_choice")
+    );
+    if (cacheIsCurrent) {
+      return {
+        ok: true,
+        taste: existingTaste,
+        progress,
+        needsConfirmation: existingTaste.classificationStatus === "suggested",
+        needsManualSelection: existingTaste.classificationStatus === "needs_choice",
+      };
+    }
 
-  if (!existingTaste.labelKey && inferred.labelKey) {
-    void trackEvent({
-      name: EVENT_NAMES.tasteLabelUnlocked,
-      userId,
-      section,
-      metadata: {
-        labelKey: inferred.labelKey,
-        count: inferred.sampleCount,
-        goal: progress.goal,
-      },
-    });
+    if (existingTaste.freeClassificationUsedAt) {
+      const suggestedLabelKeys = buildRankedTasteShortlist(section, []);
+      const updatedAt = new Date();
+      const updates = {
+        [`aiTaste.${section}.labelKey`]: "",
+        [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
+        [`aiTaste.${section}.suggestionInsight`]: "",
+        [`aiTaste.${section}.emoji`]: "",
+        [`aiTaste.${section}.confidence`]: 0,
+        [`aiTaste.${section}.sampleCount`]: progress.count,
+        [`aiTaste.${section}.source`]: "",
+        [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
+        [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
+        [`aiTaste.${section}.classificationStatus`]: "suggested",
+        [`aiTaste.${section}.updatedAt`]: updatedAt,
+      };
+      await User.findOneAndUpdate({ userId }, { $set: updates }, { returnDocument: "after" });
+      return {
+        ok: true,
+        taste: {
+          ...existingTaste,
+          labelKey: "",
+          suggestedLabelKeys,
+          suggestionInsight: "",
+          emoji: "",
+          confidence: 0,
+          sampleCount: progress.count,
+          source: "",
+          classifierVersion: TASTE_CLASSIFIER_VERSION,
+          inputFingerprint,
+          classificationStatus: "suggested",
+          updatedAt,
+        },
+        progress,
+        needsConfirmation: true,
+        classificationReason: "free_check_used",
+      };
+    }
+
+    const classification = await classifyMediaTaste(section, topTenItems, { language: user.lang === "fa" ? "fa" : "en" });
+    const hasReliableSuggestion = classification.ok;
+    const suggestedLabelKeys = hasReliableSuggestion
+      ? buildRankedTasteShortlist(section, classification.labelKeys)
+      : [];
+    const suggestionInsight = hasReliableSuggestion ? String(classification.insight || "").trim().slice(0, 120) : "";
+    const confidence = 0;
+    const classificationStatus = hasReliableSuggestion ? "suggested" : "needs_choice";
+    const freeClassificationUsedAt = hasReliableSuggestion ? new Date() : null;
+    const updates = {
+      [`aiTaste.${section}.labelKey`]: "",
+      [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
+      [`aiTaste.${section}.suggestionInsight`]: suggestionInsight,
+      [`aiTaste.${section}.emoji`]: "",
+      [`aiTaste.${section}.confidence`]: confidence,
+      [`aiTaste.${section}.sampleCount`]: progress.count,
+      [`aiTaste.${section}.source`]: hasReliableSuggestion ? "ai" : "",
+      [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
+      [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
+      [`aiTaste.${section}.classificationStatus`]: classificationStatus,
+      ...(freeClassificationUsedAt
+        ? { [`aiTaste.${section}.freeClassificationUsedAt`]: freeClassificationUsedAt }
+        : {}),
+      [`aiTaste.${section}.confirmedAt`]: null,
+      [`aiTaste.${section}.updatedAt`]: new Date(),
+    };
+    await User.findOneAndUpdate({ userId }, { $set: updates }, { returnDocument: "after" });
+    const taste = {
+      labelKey: "",
+      suggestedLabelKeys,
+      suggestionInsight,
+      emoji: updates[`aiTaste.${section}.emoji`],
+      confidence,
+      sampleCount: progress.count,
+      source: updates[`aiTaste.${section}.source`],
+      classifierVersion: TASTE_CLASSIFIER_VERSION,
+      inputFingerprint,
+      classificationStatus,
+      freeClassificationUsedAt: freeClassificationUsedAt || existingTaste.freeClassificationUsedAt,
+    };
+    return {
+      ok: true,
+      taste,
+      progress,
+      needsConfirmation: hasReliableSuggestion,
+      needsManualSelection: !hasReliableSuggestion,
+      classificationReason: hasReliableSuggestion ? "" : (classification.reason || "low_certainty"),
+    };
   }
 
+}
+
+async function confirmAiTasteLabel(userId, section, labelKey) {
+  if (!isMediaTasteSection(section) || !isAllowedTasteLabel(section, labelKey)) {
+    return { ok: false, reason: "invalid_label" };
+  }
+  const user = await User.findOne({ userId });
+  if (!user) return { ok: false, reason: "missing_user" };
+  const items = getAiListItemsFromUser(user, section, "topTen");
+  const progress = getTasteProgressStatus(section, items.length);
+  const currentTaste = getAiTasteFromUser(user, section);
+  const hasEarnedLabel = ["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus) && currentTaste.labelKey;
+  if (!progress.labelReady && !hasEarnedLabel) return { ok: false, reason: "incomplete_list" };
+  const inputFingerprint = buildTasteInputFingerprint(section, items);
+  const canUseSavedShortlist = ["confirmed", "skipped"].includes(currentTaste.classificationStatus);
+  if (
+    !currentTaste.suggestedLabelKeys.includes(labelKey) ||
+    !["suggested", "confirmed_review", "confirmed", "skipped"].includes(currentTaste.classificationStatus) ||
+    (!canUseSavedShortlist && currentTaste.inputFingerprint !== inputFingerprint)
+  ) {
+    return { ok: false, reason: "stale_suggestion" };
+  }
+  if (
+    currentTaste.classificationStatus === "confirmed" &&
+    currentTaste.labelKey === labelKey &&
+    currentTaste.inputFingerprint === inputFingerprint
+  ) {
+    return { ok: true, taste: currentTaste, progress };
+  }
+  const now = new Date();
+  const taste = {
+    labelKey,
+    suggestedLabelKeys: currentTaste.suggestedLabelKeys,
+    suggestionInsight: currentTaste.suggestionInsight,
+    emoji: getTasteLabelEmoji(section, labelKey),
+    confidence: 1,
+    sampleCount: progress.count,
+    source: "ai_confirmed",
+    classifierVersion: TASTE_CLASSIFIER_VERSION,
+    inputFingerprint,
+    classificationStatus: "confirmed",
+    freeClassificationUsedAt: currentTaste.freeClassificationUsedAt,
+  };
+  await User.findOneAndUpdate(
+    { userId },
+    { $set: {
+      [`aiTaste.${section}.labelKey`]: taste.labelKey,
+      [`aiTaste.${section}.suggestedLabelKeys`]: taste.suggestedLabelKeys,
+      [`aiTaste.${section}.suggestionInsight`]: taste.suggestionInsight,
+      [`aiTaste.${section}.emoji`]: taste.emoji,
+      [`aiTaste.${section}.confidence`]: taste.confidence,
+      [`aiTaste.${section}.sampleCount`]: taste.sampleCount,
+      [`aiTaste.${section}.source`]: taste.source,
+      [`aiTaste.${section}.classifierVersion`]: taste.classifierVersion,
+      [`aiTaste.${section}.inputFingerprint`]: taste.inputFingerprint,
+      [`aiTaste.${section}.classificationStatus`]: taste.classificationStatus,
+      [`aiTaste.${section}.confirmedAt`]: now,
+      [`aiTaste.${section}.updatedAt`]: now,
+    } },
+    { returnDocument: "after" },
+  );
+  void trackEvent({
+    name: EVENT_NAMES.tasteLabelUnlocked,
+    userId,
+    section,
+    metadata: { labelKey, count: progress.count, goal: progress.goal, source: taste.source },
+  });
+  return { ok: true, taste, progress };
+}
+
+async function skipAiTasteLabel(userId, section) {
+  if (!isMediaTasteSection(section)) return { ok: false, reason: "invalid_section" };
+  const user = await User.findOne({ userId });
+  if (!user) return { ok: false, reason: "missing_user" };
+  const items = getAiListItemsFromUser(user, section, "topTen");
+  const progress = getTasteProgressStatus(section, items.length);
+  const currentTaste = getAiTasteFromUser(user, section);
+  const hasEarnedLabel = ["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus) && currentTaste.labelKey;
+  if (!progress.labelReady && !hasEarnedLabel) return { ok: false, reason: "incomplete_list" };
+  if (!["suggested", "confirmed_review", "confirmed", "skipped"].includes(currentTaste.classificationStatus)) {
+    return { ok: false, reason: "stale_suggestion" };
+  }
+  const inputFingerprint = buildTasteInputFingerprint(section, items);
+  if (currentTaste.classificationStatus === "suggested" && currentTaste.inputFingerprint !== inputFingerprint) {
+    return { ok: false, reason: "stale_suggestion" };
+  }
+  const suggestedLabelKeys = (
+    currentTaste.classificationStatus === "confirmed_review" &&
+    currentTaste.inputFingerprint !== inputFingerprint
+  ) ? [] : currentTaste.suggestedLabelKeys;
+  const suggestionInsight = suggestedLabelKeys.length ? currentTaste.suggestionInsight : "";
+  const now = new Date();
+  await User.findOneAndUpdate({ userId }, { $set: {
+    [`aiTaste.${section}.labelKey`]: "",
+    [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
+    [`aiTaste.${section}.suggestionInsight`]: suggestionInsight,
+    [`aiTaste.${section}.emoji`]: "",
+    [`aiTaste.${section}.confidence`]: 0,
+    [`aiTaste.${section}.sampleCount`]: progress.count,
+    [`aiTaste.${section}.source`]: "user",
+    [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
+    [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
+    [`aiTaste.${section}.classificationStatus`]: "skipped",
+    [`aiTaste.${section}.confirmedAt`]: now,
+    [`aiTaste.${section}.updatedAt`]: now,
+  } }, { returnDocument: "after" });
+  return { ok: true, progress, suggestedLabelKeys, suggestionInsight };
+}
+
+async function recalculateAiTasteForSection(userId, section) {
+  if (!isMediaTasteSection(section)) return { ok: false, reason: "invalid_section" };
+  const user = await User.findOne({ userId: Number(userId) });
+  if (!user) return { ok: false, reason: "missing_user" };
+  const items = getAiListItemsFromUser(user, section, "topTen");
+  const progress = getTasteProgressStatus(section, items.length);
+  if (items.length !== operationalLimits.aiTopTenItems) return { ok: false, reason: "incomplete_list" };
+  const currentTaste = getAiTasteFromUser(user, section);
+  if (!currentTaste.labelKey || !["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus)) {
+    return { ok: false, reason: "missing_confirmed_label" };
+  }
+  const classification = await classifyMediaTaste(section, items, { language: user.lang === "fa" ? "fa" : "en" });
+  if (!classification.ok) return classification;
+  const suggestedLabelKeys = buildRankedTasteShortlist(section, classification.labelKeys);
+  const suggestionInsight = String(classification.insight || "").trim().slice(0, 120);
+  const inputFingerprint = buildTasteInputFingerprint(section, items);
+  const isSameLabel = suggestedLabelKeys[0] === currentTaste.labelKey;
+  const now = new Date();
+  await User.findOneAndUpdate({ userId: Number(userId) }, { $set: {
+    [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
+    [`aiTaste.${section}.suggestionInsight`]: suggestionInsight,
+    [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
+    [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
+    [`aiTaste.${section}.classificationStatus`]: "confirmed_review",
+    [`aiTaste.${section}.updatedAt`]: now,
+  } }, { returnDocument: "after" });
   return {
     ok: true,
-    taste: inferred,
+    sameLabel: isSameLabel,
+    suggestedLabelKeys,
+    suggestionInsight,
+    taste: {
+      ...currentTaste,
+      suggestedLabelKeys,
+      suggestionInsight,
+      classifierVersion: TASTE_CLASSIFIER_VERSION,
+      inputFingerprint,
+      classificationStatus: "confirmed_review",
+    },
     progress,
   };
 }
@@ -941,9 +1090,7 @@ module.exports = {
   AI_SECTIONS,
   AI_SUGGESTION_QUOTA_LIMIT,
   AI_SUGGESTION_QUOTA_WINDOW_MS,
-  TASTE_LABELS_BY_SECTION,
   SECTION_TIP_KEYS,
-  DEFAULT_TASTE_LABEL_BY_SECTION,
   getOrCreateUser,
   updateLanguage,
   updateProfileField,
@@ -978,7 +1125,9 @@ module.exports = {
   normalizeTasteItem,
   getAiTasteTopTenFromUser,
   getAiTasteFromUser,
-  inferTasteLabel,
   getTasteProgressStatus,
   syncAiTasteForSection,
+  confirmAiTasteLabel,
+  skipAiTasteLabel,
+  recalculateAiTasteForSection,
 };

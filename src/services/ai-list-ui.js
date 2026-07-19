@@ -2,10 +2,8 @@ const messages = require("../messages");
 const { operationalLimits } = require("./operational-limits");
 const { formatOperationalLimitsText } = require("./operational-limits-ui");
 const {
-  DEFAULT_TASTE_LABEL_BY_SECTION,
   getAiListItemsFromUser,
   getAiTasteFromUser,
-  inferTasteLabel,
   syncAiTasteForSection,
 } = require("./users");
 const { localizeInterestChipItem } = require("./interest-chips");
@@ -205,7 +203,7 @@ function formatTasteWithStoredEmoji(section, taste, labelTitle) {
   return `${taste?.emoji || getTasteLabelEmoji(section, taste?.labelKey)} ${labelTitle}`;
 }
 
-function buildTopTenInsightMessage(lang, section, items) {
+function buildTopTenInsightMessage(lang, section, items, storedTaste = null) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const goal = operationalLimits.aiTopTenItems;
   if (items.length < goal) {
@@ -215,7 +213,10 @@ function buildTopTenInsightMessage(lang, section, items) {
       .replace("{goal}", String(goal));
   }
 
-  const inferredTaste = inferTasteLabel(section, items.map((entry) => entry.title));
+  if (!storedTaste?.labelKey) {
+    return messages[lang].aiTopTenInsightNeedLabel;
+  }
+  const inferredTaste = storedTaste;
   const labelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
   const label = formatTasteWithStoredEmoji(section, inferredTaste, labelTitle);
   const style = getTasteLabelStyleHint(messages, lang, section, inferredTaste.labelKey);
@@ -232,9 +233,20 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   const count = topTenItems.length;
   const goal = operationalLimits.aiTopTenItems;
   const isMediaSection = ["movies", "music", "books"].includes(section);
+  const earnedTaste = getAiTasteFromUser(ctx.user, section);
+  const withEarnedTaste = (text) => {
+    if (!["confirmed", "confirmed_review"].includes(earnedTaste.classificationStatus) || !earnedTaste.labelKey) return text;
+    const label = `${earnedTaste.emoji || getTasteLabelEmoji(section, earnedTaste.labelKey)} ${getTasteLabelTitle(messages, lang, section, earnedTaste.labelKey)}`;
+    return `${text}\n\n${messages[lang].aiTasteEarnedLabelLine.replace("{label}", label)}`;
+  };
+  if (!isMediaSection) {
+    return messages[lang].profileInterestsEditPrompt
+      .replace("{count}", String(count))
+      .replace("{limit}", String(operationalLimits.profileInterestItems));
+  }
   if (isMediaSection && count === 0) {
-    return messages[lang].aiFavoritesIntro
-      .replace("{goal}", String(goal));
+    return withEarnedTaste(messages[lang].aiFavoritesIntro
+      .replace("{goal}", String(goal)));
   }
   if (isMediaSection && count < 3) {
     const suggestionTargetKey = section === "books"
@@ -242,42 +254,32 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
       : section === "music"
         ? "aiSuggestionTargetMusic"
         : "aiSuggestionTargetMovies";
-    return messages[lang].aiFavoritesEarlyProgress
+    return withEarnedTaste(messages[lang].aiFavoritesEarlyProgress
       .replace("{count}", String(count))
       .replace("{remaining}", String(3 - count))
-      .replace("{section}", messages[lang][suggestionTargetKey]);
+      .replace("{section}", messages[lang][suggestionTargetKey]));
   }
   if (topTenItems.length < operationalLimits.aiTopTenItems) {
     if (topTenItems.length >= 3) {
-      const taste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
-      const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
-      const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
-      return messages[lang].aiFavoritesUnlockedProgress
+      return withEarnedTaste(messages[lang].aiFavoritesUnlockedProgress
         .replace("{count}", String(count))
-        .replace("{goal}", String(goal))
-        .replace("{label}", label);
+        .replace("{goal}", String(goal)));
     }
     return messages[lang].aiTopTenManageInlineEntry;
   }
 
   let taste = getAiTasteFromUser(ctx.user, section);
-  const inferredTaste = inferTasteLabel(section, topTenItems.map((entry) => entry.title));
-  const storedTasteIsStale = (
-    taste.labelKey !== inferredTaste.labelKey ||
-    taste.emoji !== inferredTaste.emoji ||
-    taste.sampleCount !== inferredTaste.sampleCount ||
-    taste.confidence !== inferredTaste.confidence
-  );
-  if (storedTasteIsStale) {
-    const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
-    if (syncedTaste.ok) {
-      taste = syncedTaste.taste;
-    }
+  const syncedTaste = await syncAiTasteForSection(ctx.userId, section);
+  if (syncedTaste.ok) taste = syncedTaste.taste;
+  if (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) {
+    const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
+    const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
+    return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
   }
-
-  const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
-  const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
-  return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
+  if (taste.classificationStatus === "suggested" && taste.suggestedLabelKeys?.length) {
+    return messages[lang].aiTopTenManageInlineEntryCompleteSuggested;
+  }
+  return messages[lang].aiTopTenManageInlineEntryCompleteNoLabel;
 }
 
 async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "" }) {
@@ -348,20 +350,8 @@ function getTopTenNextPrompt(lang, count) {
   return text.startsWith("👩‍🦳") ? text : `👩‍🦳 ${text}`;
 }
 
-function isWeakTasteLabel(section, taste) {
-  return (
-    !taste?.labelKey ||
-    taste.labelKey === DEFAULT_TASTE_LABEL_BY_SECTION[section] ||
-    Number(taste.confidence) < 0.55
-  );
-}
-
-function formatTasteLabelWithEmoji(section, labelKey, labelTitle) {
-  return `${getTasteLabelEmoji(section, labelKey)} ${labelTitle}`;
-}
-
 async function buildTopTenSavedMessage({
-  ctx,
+  ctx: _ctx,
   lang,
   section,
   item,
@@ -371,10 +361,6 @@ async function buildTopTenSavedMessage({
 }) {
   const count = items.length;
   const goal = operationalLimits.aiTopTenItems;
-  const itemTitles = items.map((entry) => entry.title);
-  const inferredTaste = inferTasteLabel(section, itemTitles);
-  const rawLabelTitle = getTasteLabelTitle(messages, lang, section, inferredTaste.labelKey);
-  const labelTitle = formatTasteLabelWithEmoji(section, inferredTaste.labelKey, rawLabelTitle);
   const savedText = messages[lang][savedMessageKey]
     .replace("{item}", item)
     .replace("{count}", String(count))
@@ -382,12 +368,9 @@ async function buildTopTenSavedMessage({
 
   const responseParts = [savedText];
 
-  if (count >= 3 && count < goal) {
-    const preliminaryText = isWeakTasteLabel(section, inferredTaste)
-      ? messages[lang].aiTastePreliminaryWeak
-      : messages[lang].aiTastePreliminaryLabel.replace("{label}", labelTitle);
+  if (["movies", "music", "books"].includes(section) && count >= 3 && count < goal) {
     responseParts.push(
-      preliminaryText
+      messages[lang].aiFavoritesUnlockedProgress
         .replace("{count}", String(count))
         .replace("{goal}", String(goal)),
     );
@@ -398,23 +381,11 @@ async function buildTopTenSavedMessage({
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
-  void syncAiTasteForSection(ctx.userId, section).catch(() => null);
-  const resolvedTaste = inferredTaste;
-  const finalLabel = formatTasteWithStoredEmoji(
-    section,
-    resolvedTaste,
-    getTasteLabelTitle(messages, lang, section, resolvedTaste.labelKey),
-  );
-  const styleHint = getTasteLabelStyleHint(messages, lang, section, resolvedTaste.labelKey);
-  const sectionLabel = getSectionLabel(messages, lang, section);
-  const unlockedText = (messages[lang].aiTasteLabelUnlockedDetailed || messages[lang].aiTasteLabelUnlocked)
-    .replaceAll("{section}", sectionLabel)
-    .replaceAll("{label}", finalLabel)
-    .replaceAll("{style}", styleHint)
-    .replaceAll("{count}", String(count))
-    .replaceAll("{goal}", String(goal));
+  if (["movies", "music", "books"].includes(section)) {
+    responseParts.push(messages[lang].aiTasteCompletionReady);
+    return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
+  }
 
-  responseParts.push(unlockedText);
   return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
 }
 

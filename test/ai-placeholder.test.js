@@ -9,6 +9,13 @@ test("long-running suggestion copy includes a genuine still-thinking step", () =
   assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Still thinking...");
 });
 
+test("taste-label waiting copy reports waiting without claiming guessed progress", () => {
+  const messages = require("../src/messages");
+  assert.equal(messages.fa.aiTasteWaitingStill, "👩‍🦳 بررسی هنوز ادامه داره؛ یکم دیگه منتظر بمون…");
+  assert.equal(messages.fa.aiTasteWaitingLonger, "👩‍🦳 این بررسی کمی بیشتر طول کشیده؛ هنوز منتظر نتیجه‌ام…");
+  assert.doesNotMatch(`${messages.fa.aiTasteWaitingStill} ${messages.fa.aiTasteWaitingLonger}`, /تقریباً|نزدیک/);
+});
+
 test("editPlaceholder preserves original message when edit returns true", async () => {
   const placeholder = { message_id: 42 };
   const editedCalls = [];

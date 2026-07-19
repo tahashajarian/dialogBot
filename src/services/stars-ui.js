@@ -21,6 +21,7 @@ function buildStarsOverviewText(messages, lang, user, settings = starEconomy) {
     referralReward: formatStarNumber(settings.rewardExternalReferral, lang),
     boostCost: formatStarNumber(settings.discussionBoostCost, lang),
     paidSuggestionCost: formatStarNumber(settings.paidSuggestionCost, lang),
+    tasteLabelRecheckCost: formatStarNumber(settings.tasteLabelRecheckCost, lang),
     profileEmojiCost: formatStarNumber(settings.profileEmojiCost, lang),
     paidTwoPersonDiscussionCost: formatStarNumber(settings.paidTwoPersonDiscussionCost, lang),
     paidLargeDiscussionCapacity: formatStarNumber(settings.paidLargeDiscussionCapacity, lang),

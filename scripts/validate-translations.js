@@ -3,11 +3,7 @@ const path = require("path");
 
 const messages = require("../src/messages");
 const { SUPPORTED_LANGS } = require("../src/lang");
-const {
-  AI_SECTIONS,
-  TASTE_LABELS_BY_SECTION,
-  DEFAULT_TASTE_LABEL_BY_SECTION,
-} = require("../src/services/users");
+const { TASTE_LABEL_CATALOG } = require("../src/services/taste-label-classifier");
 
 const SRC_DIR = path.join(__dirname, "..", "src");
 const DIRECT_MESSAGE_KEY_PATTERN = /messages(?:\?\.)?\[[^\]]+\](?:\?\.)?\.([A-Za-z0-9_]+)/g;
@@ -48,15 +44,8 @@ function getExpectedDynamicKeys() {
     "aiTasteLabelStyleFallback",
   ]);
 
-  for (const section of AI_SECTIONS) {
-    const labels = new Set(Object.keys(TASTE_LABELS_BY_SECTION[section] || {}));
-    const defaultLabel = DEFAULT_TASTE_LABEL_BY_SECTION[section];
-
-    if (defaultLabel) {
-      labels.add(defaultLabel);
-    }
-
-    for (const label of labels) {
+  for (const [section, labels] of Object.entries(TASTE_LABEL_CATALOG)) {
+    for (const label of Object.keys(labels)) {
       keys.add(`aiTasteLabelTitle_${section}_${label}`);
       keys.add(`aiTasteLabelStyle_${section}_${label}`);
     }

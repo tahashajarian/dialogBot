@@ -21,6 +21,7 @@ test("Stars overview uses live settings and private balance", () => {
     rewardExternalReferral: 10,
     discussionBoostCost: 12,
     paidSuggestionCost: 1,
+    tasteLabelRecheckCost: 10,
     profileEmojiCost: 3,
     paidTwoPersonDiscussionCost: 6,
     paidLargeDiscussionCapacity: 40,
@@ -33,6 +34,7 @@ test("Stars overview uses live settings and private balance", () => {
   assert.doesNotMatch(text, /Build the first/);
   assert.match(text, /Profile emoji: 3 Stars/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
+  assert.match(text, /Taste-label recheck after the first free check: 10 Stars/);
   assert.match(text, /Boost one discussion: 12 Stars/);
   assert.match(text, /Each extra concurrently open discussion after 3 free: 8 Stars \(up to 10 total\)/);
   assert.match(text, /Add the first 4 favorites in each of Movies, Music, and Books: 3/);

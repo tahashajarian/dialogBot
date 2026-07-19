@@ -66,15 +66,21 @@
 
 ## TopTen
 
-Taste-label inference remains deterministic and adds no extra user step. It matches multilingual title and creator aliases after normalizing Persian/Arabic letter variants, punctuation, spacing, and zero-width joiners. The winning label is based on the strongest pattern among recognized favorites; unrelated or unknown favorites do not need to match it. When nothing is recognized, keep the existing section fallback label. Opening a completed Favorites manager compares its stored result with current inference and persists only a changed result, allowing classifier improvements to refresh existing users without a migration or repeated write.
+Media taste labels are suggested only after all 10 Favorites are complete. The bot sends the complete section list, including optional comments, to the configured AI provider and asks for up to three meaningful section-label keys ordered from strongest to weaker match. The code must not contain title, creator, author, artist, or alias dictionaries for media classification. Provider output is accepted only as compact structured data containing allowlisted keys. Unknown titles must not become genre evidence merely from how their words sound, look, or are spelled; when most entries cannot be recognized or understood from their comments, the provider should return no specific matches. The application appends the section's broad Book Buff, Movie Buff, or Music Buff fallback as the final choice, for at most four label choices total.
+
+An AI shortlist is not an active label until the user taps one choice. Selecting a ranked option confirms it in one tap and returns to the refreshed Favorites list; `No label` does the same without a badge. A result may also include one optional, factual sentence about the shared pattern across the choices. Keep it to 5–18 words and 120 characters, describe the list rather than the user's personality, and show it only when at least one specific label matches and the provider supplies at least four exact recognized titles as hidden evidence. Wrong-language, multiline, malformed, weakly evidenced, fallback-only, or overlong insights are discarded without failing the badge result. Later, `Change label` reopens only that latest saved shortlist, marks the active choice with the same plain `✓` used by Interest pickers, and includes an inline Close action that deletes only the picker card. The full label catalog is never offered for arbitrary selection, and the server rejects labels outside the saved shortlist. The bot edits one placeholder through honest still-waiting messages while the provider call runs and never claims that completion is near. When the first AI check is unavailable or returns invalid output, show `Try again` and `Back to list`; explain that the completed Favorites list keeps its `Taste label` reply-keyboard action so the user can retry later. A failed provider call does not consume the first successful free check. Suggestions and profiles continue to use the actual Favorites data; the label is an optional identity/discovery badge rather than an objective verdict.
+
+Classification is cached by a versioned fingerprint of the exact ordered list and its comments. Reopening an unchanged completed list must not make another provider request. List changes discard an unconfirmed AI suggestion, but a user-confirmed label is an earned optional badge and remains until the user changes it to another option from its saved shortlist or chooses no label.
+
+The first successful classification in each Favorites section is free. Record that free use so editing and refilling the list cannot silently trigger more free provider calls; if an unconfirmed free result is invalidated by a list edit, offer only the section's broad fallback or no label until a paid recheck is available. After the user has confirmed a label, a fresh AI recheck is optional and costs the configured Star price (default 10). Show that action only while the section contains exactly 10 current Favorites and the economy, spending, and dashboard `Paid taste-label rechecks` switches are enabled. Rechecks require a price/balance confirmation, revalidate the dashboard switch, current price, exact list, and active label before spending, and refund through the Star ledger if no usable AI result is produced. A recheck returns the same ranked shortlist and leaves the earned label active until the user taps a choice. Provider failures or invalid output offer retry/back for the first free classification and trigger a refund for a paid recheck.
 
 The stable internal keys keep these approved user-facing titles:
 
 | Section | Persian | English |
 | --- | --- | --- |
-| Music | `🤘 متال‌هد`, `🎸 راکر`, `🎤 پاپ‌استن`, `🎧 هیپ‌هاپ‌هد`, `🎛️ ریور`, `🎼 روح کلاسیک`, `🎷 جزکت`, `🌙 ایندی‌کید`, `🎵 کنجکاو` | `Metalhead`, `Rocker`, `Pop Stan`, `Hip-Hop Head`, `Raver`, `Classical Soul`, `Jazz Cat`, `Indie Kid`, `Curious Listener` |
-| Movies | `🚀 سای‌فای‌گیک`, `💥 اکشن‌فریک`, `🎭 درام‌باز`, `😄 کمدی‌نرد`, `🕯️ هارر‌فریک`, `✨ انیمیشن‌گیک`, `🎞️ آرت‌هاوسر`, `🧠 مستندبین`, `🎬 فیلم‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Drama Buff`, `Comedy Nerd`, `Horror Head`, `Animation Geek`, `Arthouse Aficionado`, `Documentary Buff`, `Movie Buff` |
-| Books | `🐉 فانتزی‌خوان`, `🪐 علمی‌تخیلی‌خوان`, `🔎 جنایی‌خوان`, `📜 کلاسیک‌خوان`, `🌱 توسعه‌فردی`, `💌 عاشقانه‌خوان`, `🏛️ تاریخ‌خوان`, `💡 غیرداستان‌خوان`, `📚 کتاب‌باز` | `Fantasy Reader`, `Sci-Fi Reader`, `Crime Reader`, `Classics Reader`, `Personal Growth`, `Romance Reader`, `History Reader`, `Nonfiction Reader`, `Book Lover` |
+| Music | `🤘 متال‌هد`, `🎸 راکر`, `🌌 پست‌راکر`, `⚡ پانک`, `🎤 پاپ‌باز`, `🎧 هیپ‌هاپ‌هد`, `🎛️ الکترونیک‌باز`, `🎼 کلاسیک‌باز`, `🎷 جزباز`, `🌙 روح‌ایندی`, `🪕 سنتی‌باز`, `🎧 موزیک‌باز` | `Metalhead`, `Rocker`, `Post-Rocker`, `Punk`, `Pop Lover`, `Hip-Hop Head`, `Electronic Fan`, `Classical Listener`, `Jazz Head`, `Indie Spirit`, `Traditional Music Fan`, `Music Buff` |
+| Movies | `🚀 علمی‌تخیلی‌باز`, `💥 اکشن‌باز`, `🎭 درام‌باز`, `🔎 معما و تریلر`, `😄 کمدی‌باز`, `🕯️ ترسناک‌باز`, `💌 عاشقانه‌باز`, `🐉 فانتزی‌باز`, `✨ انیمیشن‌باز`, `🎥 مستندبین`, `🎞️ سینه‌فیل`, `🎬 فیلم‌باز` | `Sci-Fi Fan`, `Action Junkie`, `Drama Lover`, `Mystery & Thriller Fan`, `Comedy Fan`, `Horror Fan`, `Romance Fan`, `Fantasy Fan`, `Animation Lover`, `Documentary Viewer`, `Cinephile`, `Movie Buff` |
+| Books | `📖 رمان‌خوان`, `📜 روح قدیمی`, `🐉 خیال‌پرداز`, `🚀 کاوشگر علمی‌تخیلی`, `🔎 کارآگاه بالفطره`, `💌 رمانتیک درمان‌ناپذیر`, `🧠 فیلسوف نیمه‌شب`, `🪞 روان‌کاو آماتور`, `💡 حقیقت‌یاب`, `✒️ شاعرانه`, `📚 کتاب‌باز` | `Novel Reader`, `Old Soul`, `Fantasy Dreamer`, `Sci-Fi Explorer`, `Natural Detective`, `Hopeless Romantic`, `Midnight Philosopher`, `Amateur Psychoanalyst`, `Truth Seeker`, `Poetic Soul`, `Book Buff` |
 
 Changing display titles must not rename internal label keys because stored profiles and discussion join rules depend on those keys.
 
@@ -158,7 +164,7 @@ Purpose:
 
 - make the section easier to start
 - help non-media users enjoy the bot
-- improve label quality with normalized/common interest inputs
+- improve suggestion and discussion matching with normalized/common interest inputs
 - let users either tap a common item or type their own
 
 Suggested chips should be optional, not restrictive. Users can always type anything.
@@ -216,38 +222,25 @@ Implementation notes:
 - Built-in Interests chips and typed interests use the same normal saved/progress response and never call AI for item feedback.
 - Built-in chip selections should be stored canonically and displayed in the current UI language; custom typed interests should keep the user's original text.
 
-### Interests Labels
+Profile Interests do not generate taste labels. They appear directly on the profile and may support suggestions, discovery relevance, and concrete Interest-based discussion rules. Do not infer, store, render, or offer an Interests badge from either typed interests or curated chips.
 
-The Interests section should have cooler and more specific labels than a generic "multi-interest" fallback.
+## Media Taste Labels
 
-Potential labels:
-
-- `♟ استراتژی‌باز` / strategy-minded
-- `💻 تکنولوژی‌باز` / tech fan
-- `☕ کافه‌گرد` / cafe lover
-- `🍜 فودی` / foodie
-- `🎮 گیمر` / gamer
-- `🌍 ماجراجو` / explorer
-- `🎨 اهل ساختن` / maker
-- `🏃 اسپرتی` / sporty
-- `🧘 آرام‌جو` / mindful
-- `🎉 اهل جمع` / people person
-- `📸 لحظه‌ساز` / photo/story seeker
-- `🌿 چندعلاقه‌ای` / multi-interest
-
-Labels should be inferred from both typed items and suggested chips.
-
-## Taste Labels
-
-- Taste labels are stored in `aiTaste.{section}` with:
+- Movies, Music, and Books taste labels are stored in `aiTaste.{section}` with:
   - `labelKey`
+  - ranked suggested label keys
+  - the optional evidence-gated shortlist insight
   - `emoji`
   - confidence
   - sample count
+  - source and confirmation status
+  - classifier version and input fingerprint
+  - first-free-check and confirmation timestamps
   - updated time
 - Derive translated label titles at render time.
-- Taste labels are temporary after 3 TopTen items and stronger after 10.
-- Recalculate labels whenever TopTen changes.
+- Movies, Music, and Books unlock suggestions after 3 TopTen items without showing a preliminary label. Their taste label appears only after all 10 favorites are complete.
+- Reclassify an unconfirmed result only when a completed TopTen fingerprint or classifier version changes. Lists below 10 clear pending suggestions but retain user-confirmed labels.
+- The first completed-list classification is free. Later user-requested rechecks use the explicit paid confirmation/refund flow described above and are offered only when the list has exactly 10 items and the dashboard-controlled feature is available.
 
 ## Duplicate Detection
 

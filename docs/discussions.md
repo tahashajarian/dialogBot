@@ -156,7 +156,7 @@ Flow:
 
 1. Ask for title.
 2. Ask who can join.
-3. If the rule is taste label, show creator's existing labels and verify selection.
+3. If the rule is taste label, show the creator's existing Movies, Music, and Books labels and verify selection. Profile Interests never generate or appear as labels.
 4. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
 5. Ask for description last.
 6. If the rule is open, require a description before preview.
@@ -995,7 +995,7 @@ Any user can join, unless the discussion has a stricter join rule.
 
 ### Taste Label
 
-User must have a specific taste label in a selected section.
+User must have a specific Movies, Music, or Books taste label. Profile Interests are not eligible for this rule; use the concrete Interest/item rule instead.
 
 Example:
 

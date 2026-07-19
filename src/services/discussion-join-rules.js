@@ -23,6 +23,7 @@ function validateJoinRulePayload(joinRule = {}) {
   }
 
   if (type === "taste_label") {
+    if (section === "random") return { ok: false, reason: "invalid_section" };
     const tasteLabelKey = String(joinRule.tasteLabelKey || "").trim();
     if (!tasteLabelKey) return { ok: false, reason: "missing_taste_label" };
     return { ok: true, joinRule: { type, section, tasteLabelKey } };

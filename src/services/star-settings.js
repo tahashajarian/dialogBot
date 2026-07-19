@@ -26,6 +26,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   paidSuggestionsEnabled: {
     label: "Paid extra suggestions", description: "Allow users to spend Stars for one extra AI suggestion after the free limit.", group: "Rollout", type: "boolean", default: false,
   },
+  tasteLabelRecheckEnabled: {
+    label: "Paid taste-label rechecks", description: "Allow users with a completed media Favorites list to spend Stars on a fresh AI label check.", group: "Rollout", type: "boolean", default: true,
+  },
   paidExtraDiscussionsEnabled: {
     label: "Paid extra discussions", description: "Allow creators at their active-owned limit to pay for one additional room slot.", group: "Rollout", type: "boolean", default: true,
   },
@@ -127,6 +130,9 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
 
   paidSuggestionCost: {
     label: "Extra suggestion cost", description: "Stars charged for one extra AI suggestion after the free limit.", group: "AI suggestions", type: "number", unit: "Stars", default: 1, min: 0, max: 1000000,
+  },
+  tasteLabelRecheckCost: {
+    label: "Taste-label recheck cost", description: "Stars charged for each user-requested AI taste-label recalculation after the first free classification.", group: "AI suggestions", type: "number", unit: "Stars", default: 10, min: 0, max: 1000000,
   },
   profileEmojiCost: {
     label: "Profile emoji cost", description: "Stars charged to choose a curated cosmetic profile emoji.", group: "Profile cosmetics", type: "number", unit: "Stars", default: 3, min: 0, max: 1000000,

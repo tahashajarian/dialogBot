@@ -20,9 +20,17 @@ const AiListsSchema = new mongoose.Schema({
 
 const AiTasteSectionSchema = new mongoose.Schema({
   labelKey: { type: String, default: "" },
+  suggestedLabelKeys: { type: [String], default: [] },
+  suggestionInsight: { type: String, default: "", maxlength: 120 },
   emoji: { type: String, default: "" },
   confidence: { type: Number, default: 0 },
   sampleCount: { type: Number, default: 0 },
+  source: { type: String, default: "" },
+  classifierVersion: { type: Number, default: 0 },
+  inputFingerprint: { type: String, default: "" },
+  classificationStatus: { type: String, default: "" },
+  freeClassificationUsedAt: { type: Date, default: null },
+  confirmedAt: { type: Date, default: null },
   updatedAt: Date,
 }, { _id: false });
 
@@ -30,7 +38,6 @@ const AiTasteSchema = new mongoose.Schema({
   movies: { type: AiTasteSectionSchema, default: () => ({}) },
   music: { type: AiTasteSectionSchema, default: () => ({}) },
   books: { type: AiTasteSectionSchema, default: () => ({}) },
-  random: { type: AiTasteSectionSchema, default: () => ({}) },
 }, { _id: false });
 
 const AiRecentSuggestionsSchema = new mongoose.Schema({

@@ -153,6 +153,22 @@ test("buildProfileText hides empty badge section", () => {
   assert.doesNotMatch(publicText, /You do not have a badge yet/);
 });
 
+test("profile Interests never render a legacy Interests taste label", () => {
+  const text = buildProfileText({
+    firstName: "Ali",
+    profileName: "Ali",
+    aiLists: { random: { topTen: [{ title: "Gaming" }, { title: "Coffee" }] } },
+    aiTaste: {
+      random: { labelKey: "gamer", emoji: "🎮" },
+      movies: { labelKey: "drama_lover", emoji: "🎭" },
+    },
+  }, "en", messages, { isOwnProfile: false });
+
+  assert.match(text, /🌿 Interests/);
+  assert.match(text, /🎬 Movies: 🎭 Drama/);
+  assert.doesNotMatch(text, /Gamer|🌿 Interests: 🎮/);
+});
+
 test("buildProfileText shows compact interests preview", () => {
   const profileUser = {
     firstName: "Ali",

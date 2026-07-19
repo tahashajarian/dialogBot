@@ -7,6 +7,7 @@ const Discussion = require("../../src/models/discussion");
 const DiscussionBoost = require("../../src/models/discussion-boost");
 const StarTransaction = require("../../src/models/star-transaction");
 const StarReferralClaim = require("../../src/models/star-referral-claim");
+const AiTasteRecheck = require("../../src/models/ai-taste-recheck");
 const AccountDeletion = require("../../src/models/account-deletion");
 const { confirmBoost, createBoostQuote } = require("../../src/services/discussion-boosts");
 const {
@@ -29,13 +30,18 @@ const {
   refundPaidExtraDiscussionAuthorization,
 } = require("../../src/services/discussion-paid-creation");
 const { closeDiscussionAsOwner } = require("../../src/services/discussions");
+const {
+  confirmTasteLabelRecheck,
+  createTasteLabelRecheckQuote,
+  refundTasteLabelRecheck,
+} = require("../../src/services/taste-label-rechecks");
 
 const MONGODB_TEST_URI = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017";
 const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
 process.env.ACCOUNT_DELETION_SECRET ||= "integration-account-deletion-secret";
 test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, { dbName: MONGODB_TEST_DB });
-  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init(), StarReferralClaim.init(), AccountDeletion.init()]);
+  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init(), StarReferralClaim.init(), AccountDeletion.init(), AiTasteRecheck.init()]);
 }, { timeout: 120000 });
 
 test.after(async () => {
@@ -53,6 +59,7 @@ test.beforeEach(async () => {
     StarTransaction.deleteMany({}),
     StarReferralClaim.deleteMany({}),
     AccountDeletion.deleteMany({}),
+    AiTasteRecheck.deleteMany({}),
   ]);
 });
 
@@ -101,6 +108,60 @@ test("Mongo wallet prevents overspending and refunds once", async () => {
   ]);
   assert.equal(refunds.filter((result) => result.applied).length, 1);
   assert.equal((await User.findOne({ userId: 502 }).lean()).starBalance, 10);
+});
+
+test("paid taste-label recheck charges 10 Stars and refunds a failed AI result once", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    tasteLabelRecheckEnabled: true,
+    tasteLabelRecheckCost: 10,
+  });
+  await User.create({
+    userId: 508,
+    firstName: "Taste User",
+    starBalance: 15,
+    aiLists: {
+      books: {
+        topTen: Array.from({ length: 10 }, (_, index) => ({ title: `Book ${index + 1}` })),
+      },
+    },
+    aiTaste: {
+      books: { labelKey: "novel_reader", classificationStatus: "confirmed" },
+    },
+  });
+  await StarTransaction.create({
+    userId: 508,
+    amount: 15,
+    balanceAfter: 15,
+    status: "applied",
+    bucket: "earned",
+    type: "grant",
+    reason: "seed",
+    idempotencyKey: "integration:seed:508",
+  });
+
+  const quoted = await createTasteLabelRecheckQuote(508, "books");
+  const confirmed = await confirmTasteLabelRecheck(508, quoted.quote.publicCode);
+  const firstRefund = await refundTasteLabelRecheck(
+    quoted.quote._id,
+    confirmed.spend.transaction._id,
+  );
+  const duplicateRefund = await refundTasteLabelRecheck(
+    quoted.quote._id,
+    confirmed.spend.transaction._id,
+  );
+  const user = await User.findOne({ userId: 508 }).lean();
+  const storedQuote = await AiTasteRecheck.findById(quoted.quote._id).lean();
+
+  assert.equal(quoted.quote.quotedCost, 10);
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.spend.balance, 5);
+  assert.equal(firstRefund.ok, true);
+  assert.equal(duplicateRefund.applied, false);
+  assert.equal(user.starBalance, 15);
+  assert.equal(storedQuote.status, "refunded");
+  assert.equal(await StarTransaction.countDocuments({ userId: 508 }), 3);
 });
 
 test("paid extra discussion authorization charges once and cancellation refunds once", async () => {

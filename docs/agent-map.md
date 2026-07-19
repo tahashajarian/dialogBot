@@ -138,12 +138,16 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-list-input.js`: list-add prompt selection plus typed/audio input extraction for AI lists.
 - `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
+- `src/flows/ai-taste-labels.js`: taste-label result/current/failure card presentation and progressive review delivery.
 - `src/flows/ai-cards.js`: remembered AI list/section card IDs and stale-card cleanup helpers shared by AI text/callback flows.
-- `src/services/users.js`: centralized AI list storage helpers and taste label inference.
+- `src/services/users.js`: centralized AI list storage helpers and media taste-label state.
 - `src/services/ai.js`: AI suggestion requests and recommendation parsing.
 - `src/services/ai-list-ui.js`: AI list/taste/suggestion text rendering helpers.
 - `src/services/ai-paid-suggestions.js`: paid extra suggestion quote/spend/refund rules after free quota exhaustion.
-- `src/services/ai-section.js`: section labels, taste labels, state-to-section helpers.
+- `src/services/taste-label-classifier.js`: allowlisted media label catalog, conservative structured AI classification, ranked shortlist, evidence-gated optional insight, and list fingerprinting.
+- `src/services/taste-label-rechecks.js`: dashboard-gated paid recheck quotes, exact-list validation, Star spending, completion, cancellation, and refunds.
+- `src/models/ai-taste-recheck.js`: durable paid taste-label recheck lifecycle and result snapshot.
+- `src/services/ai-section.js`: section labels, media taste labels, state-to-section helpers.
 - `src/services/ai-list-duplicates.js`: duplicate matching.
 - `src/constants/ai.js`: AI list and suggestion limits.
 

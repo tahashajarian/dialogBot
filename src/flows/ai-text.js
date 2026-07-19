@@ -35,7 +35,6 @@ const {
   setAiListItemComment,
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
-  inferTasteLabel,
   getAiTasteFromUser,
   getTasteProgressStatus,
   syncAiTasteForSection,
@@ -43,6 +42,7 @@ const {
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
+const { sendTasteLabelReview } = require("./ai-taste-labels");
 const {
   clearSuggestionMood,
   setPendingSuggestion,
@@ -329,8 +329,6 @@ async function resolveSectionTasteContext({ ctx, lang, section, topTenItems }) {
     const syncResult = await syncAiTasteForSection(ctx.userId, section);
     if (syncResult.ok) {
       taste = syncResult.taste;
-    } else {
-      taste = inferTasteLabel(section, topTenItems);
     }
   }
 
@@ -508,6 +506,9 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
     hasItems: items.length > 0,
     itemCount: items.length,
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
+    hasTasteLabel: ["movies", "music", "books"].includes(section) && ["confirmed", "confirmed_review"].includes(
+      getAiTasteFromUser(ctx.user, section).classificationStatus,
+    ),
   });
   let listMessage;
   if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
@@ -791,6 +792,9 @@ async function handleAiText(ctx, lang, text, state) {
         );
         if (listIsFull) {
           await rememberAiPendingInputPrompt(ctx, saved);
+          if (["movies", "music", "books"].includes(section)) {
+            await sendTasteLabelReview(ctx, lang, section, { withPlaceholder: true });
+          }
           return saved;
         }
         await rememberAiPendingInputPrompt(ctx, saved);

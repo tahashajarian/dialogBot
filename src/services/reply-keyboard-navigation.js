@@ -7,6 +7,7 @@ const { getSelectableDiscussionCapacities } = require("./discussion-capacities")
 const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { getAiListItemsFromUser, updateProfileField } = require("./users");
+const { operationalLimits } = require("./operational-limits");
 
 const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
 
@@ -379,6 +380,16 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
         return { callbackData: `${callBacks.aiSectionSuggestMenu}${section}`, key: "aiSectionSuggestButton" };
       }
       entries.push(["aiSectionSuggestButton", `${callBacks.aiSectionSuggestMenu}${section}`]);
+      const taste = user?.aiTaste?.[section] || {};
+      if (
+        ["movies", "music", "books"].includes(section) &&
+        (
+        getAiListItemsFromUser(user, section, "topTen").length >= operationalLimits.aiTopTenItems ||
+        (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey)
+        )
+      ) {
+        entries.push(["aiTasteReviewButton", `${callBacks.aiTasteReview}${section}`]);
+      }
       entries.push(["aiListManageShare", `${callBacks.aiListManageShare}${section}:${token}`]);
     }
     if (state === expectedAiState && listType === "watchlist") {

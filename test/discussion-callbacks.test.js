@@ -28,9 +28,11 @@ const {
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
   discussionCreateLanguagePickerKeyboard,
+  discussionSectionKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
 } = require("../src/keyboards");
+const { validateJoinRulePayload } = require("../src/services/discussion-join-rules");
 const { callBacks } = require("../src/constants");
 const { COPY_TEXT_LIMIT } = require("../src/services/share-actions");
 const {
@@ -924,6 +926,21 @@ test("discussion creation language picker supports set and non-destructive back"
   assert.equal(keyboard.length, 3);
   assert.equal(isDiscussionCreateFlowCallback(`${callBacks.discussionCreateSetLanguage}en`), true);
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateLanguageBack), true);
+});
+
+test("taste-label discussion rules exclude Interests while item rules retain them", () => {
+  const mediaOnly = discussionSectionKeyboard("en", "rule:", { includeInterests: false });
+  const withInterests = discussionSectionKeyboard("en", "rule:");
+  const mediaLabels = mediaOnly.reply_markup.keyboard.flat().map((button) => button.text);
+  const itemLabels = withInterests.reply_markup.keyboard.flat().map((button) => button.text);
+
+  assert.ok(!mediaLabels.includes(messages.en.aiSuggestRandom));
+  assert.ok(itemLabels.includes(messages.en.aiSuggestRandom));
+  assert.equal(validateJoinRulePayload({
+    type: "taste_label",
+    section: "random",
+    tasteLabelKey: "gamer",
+  }).reason, "invalid_section");
 });
 
 test("discussion create guidance has no inline acknowledgement and restores join-rule buttons", async () => {

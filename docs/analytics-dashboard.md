@@ -54,7 +54,7 @@ http://127.0.0.1:8787/?token=your_token
   user-document size for the last 24 hours
 - total, new, onboarded, named, active, saved-profile, and banned users
 - Top 10 and watchlist activity per section
-- users with 3+ items, full Top 10s, and unlocked taste labels
+- users with 3+ items and full Top 10s, plus unlocked taste labels for Movies, Music, and Books only
 - discussion counts, open/closed rooms, bot starter rooms, members, messages,
   reports, and recent activity
 - invitation status counts

@@ -257,6 +257,12 @@ Recommended launch default:
 - confirmation shows selected emoji, cost, and balance
 - spend reason: `profile_emoji`
 
+### Taste-Label Recheck
+
+The first AI classification after a Movies, Music, or Books Favorites list reaches all 10 items is free. Once the user confirms a label from its saved AI shortlist, they may switch freely among that shortlist or request another AI classification for the configured price, recommended as 10 Stars per recheck.
+
+The recheck action is visible only while that section contains exactly 10 current Favorites and the master economy, spending, and dashboard `Paid taste-label rechecks` switches are enabled. It first shows the current cost and balance and requires explicit confirmation. Confirmation revalidates the dashboard switch, current price, exact ordered-list fingerprint, and active confirmed label before spending with reason `ai_taste_label_recheck`. Every confirmed recheck is a separate spend. If the provider fails or returns unusable output, refund the linked spend idempotently and retain the existing label. A usable result presents up to three ranked specific labels plus the broad section fallback; the existing label remains active until the user taps one choice.
+
 ### Discussion Boost
 
 Recommended launch default:
@@ -459,6 +465,7 @@ Recommended settings groups:
 - paid 2-person discussion enabled/cost
 - paid large discussion enabled/capacity/cost
 - paid extra AI suggestion cost
+- taste-label recheck enabled/cost
 - profile emoji cost
 - future Advanced Search cost
 - future Advanced Search duration
@@ -472,6 +479,7 @@ Recommended settings groups:
 - spending enabled/disabled switch
 - boost recommendations enabled/disabled switch
 - paid extra AI suggestions enabled/disabled switch
+- paid taste-label rechecks enabled/disabled switch
 - Advanced Search preview enabled/disabled switch
 - Advanced Search notification signup enabled/disabled switch
 - future Advanced Search purchase/filter switch, disabled until separately approved
@@ -502,6 +510,8 @@ Recommended launch definitions:
 | `paidLargeDiscussionsEnabled` | true | false | true | rollout switch |
 | `paidLargeDiscussionCapacity` | 50 | 21 | 10,000 | members |
 | `paidLargeDiscussionCost` | 10 | 0 | 1,000,000 | Stars |
+| `tasteLabelRecheckEnabled` | true | false | true | rollout switch |
+| `tasteLabelRecheckCost` | 10 | 0 | 1,000,000 | Stars |
 | `profileEmojiCost` | 3 | 0 | 1,000,000 | Stars |
 | `advancedSearchCost` | 5 | 0 | 1,000,000 | future Stars setting; inactive |
 | `advancedSearchDurationHours` | 24 | 1 | 8,760 | future hours setting; inactive |
@@ -616,6 +626,7 @@ Existing module responsibilities remain:
 - `src/services/discussions.js` remains the source of truth for room mutations and eligibility.
 - `src/services/people-discovery.js` remains the base discovery filter/ranker; the preview does not change ranking, and any future Advanced Search filters must compose with it rather than duplicate it.
 - `src/services/ai-paid-suggestions.js` owns paid extra suggestion quote/spend/refund state. AI text/callback flows may request it only after the normal free suggestion quota is exhausted and the user confirms.
+- `src/services/taste-label-rechecks.js` owns paid taste-label quote, exact-list revalidation, spend, completion, cancellation, and refund state. The initial completed-list classification remains free.
 - `src/bot.js` and `src/callbacks.js` remain dispatchers.
 - `src/messages.js` and keyboard helpers own localized copy/actions.
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js` expose aggregate metrics and editable settings, not arbitrary balance mutation.
@@ -631,6 +642,7 @@ This map describes the implemented module boundaries and is not permission to pl
 | Onboarding | `src/flows/onboarding.js`, `src/messages.js`, `src/keyboards.js` | Normal Interests milestone, earned/balance/next-step copy, pending referral preservation, no `/start` reward |
 | Lists and Top 10 | `src/services/users.js`, `src/flows/ai-text.js`, `src/flows/ai-callbacks.js`, `src/services/ai-list-ui.js` | Qualify after successful mutations; render progress/reward once without duplicating list logic |
 | Paid extra suggestions | `src/models/ai-paid-suggestion.js`, `src/services/ai-paid-suggestions.js`, AI text/callback flows, keyboards/messages | Confirmed one-off Star spend after free quota exhaustion; one combined Cancel-and-return-to-Favorites action; no requirement bypass; refund on generation failure |
+| Paid taste-label rechecks | `src/models/ai-taste-recheck.js`, `src/services/taste-label-rechecks.js`, taste-label callbacks/keyboards/messages | First classification free; dashboard-gated recheck only at exactly 10 current Favorites; ranked shortlist; explicit 10-Star default quote; exact-list revalidation; refund unusable AI results; keep the earned label until a new choice |
 | Profile | `src/services/profile.js`, `src/flows/profile-text.js`, `src/flows/profile-callbacks.js`, `src/messages.js`, `src/keyboards.js` | Central profile milestone, self-only balance/progress, privacy-safe hints |
 | Saved-profile visuals | `src/messages.js`, `src/services/saved-profiles-ui.js`, `src/services/people-discovery-ui.js`, invitation pickers/keyboards | Replace only saved-profile `⭐` icons with `🔖`; preserve wording and behavior |
 | Discussion host visuals | `src/services/discussion-room-ui.js`, related messages/examples | Replace only host `⭐` with `🎙️`; preserve host semantics |

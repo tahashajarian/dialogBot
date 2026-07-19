@@ -420,13 +420,16 @@ function discussionSectionKeyboard(lang, prefix, {
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
   backButton = null,
+  includeInterests = true,
 } = {}) {
   const rows = [
     [{ text: messages[lang].aiSuggestMovies, callback_data: `${prefix}movies` }],
     [{ text: messages[lang].aiSuggestMusic, callback_data: `${prefix}music` }],
     [{ text: messages[lang].aiSuggestBooks, callback_data: `${prefix}books` }],
-    [{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }],
   ];
+  if (includeInterests) {
+    rows.push([{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }]);
+  }
   if (backButton?.text && backButton?.callback_data) {
     rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
   }

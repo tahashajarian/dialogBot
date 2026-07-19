@@ -96,10 +96,8 @@ function createStepBackButton(_messages, lang, callbackData) {
 }
 
 function getNoEligibleTasteMessage(lang, section) {
-  const key = section === "random"
-    ? "discussionRuleNoEligibleProfileInterestTaste"
-    : "discussionRuleNoEligibleTaste";
-  return messages[lang][key].replace("{section}", getSectionLabel(messages, lang, section));
+  return messages[lang].discussionRuleNoEligibleTaste
+    .replace("{section}", getSectionLabel(messages, lang, section));
 }
 
 function getNoEligibleItemMessage(lang, section) {
@@ -536,7 +534,9 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     const type = data === callBacks.discussionCreateRuleTaste ? "taste_label" : "top_ten_item";
     
     // Check if user has ANY badges or items across all sections
-    const sections = ["movies", "music", "books", "random"];
+    const sections = type === "taste_label"
+      ? ["movies", "music", "books"]
+      : ["movies", "music", "books", "random"];
     if (type === "taste_label") {
       const hasBadge = sections.some((section) => {
         const taste = getAiTasteFromUser(ctx.user, section);
@@ -562,6 +562,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       ctx,
       messages[lang].discussionChooseSection,
       discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
+        includeInterests: type !== "taste_label",
         cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
         cancelText: editMode ? messages[lang].discussionCancelEdit : null,
         backButton: editMode
@@ -588,6 +589,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       ctx,
       messages[lang].discussionChooseSection,
       discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
+        includeInterests: ctx.user?.discussionDraftJoinRule?.type !== "taste_label",
         cancelCallback: callBacks.discussionCreateCancel,
         cancelText: messages[lang].discussionCreateCancel,
         backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule),
@@ -601,6 +603,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     const baseRule = ctx.user?.discussionDraftJoinRule || {};
     const nextRule = { ...baseRule, section };
     if (baseRule.type === "taste_label") {
+      if (section === "random") return ctx.reply(messages[lang].unknownAction);
       const taste = getAiTasteFromUser(ctx.user, section);
       if (!taste?.labelKey) {
         return pauseOnJoinRuleGuidance(getNoEligibleTasteMessage(lang, section));
@@ -674,6 +677,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.discussionCreateSelectTaste, "");
     const [section = "", tasteLabelKey = ""] = payload.split(":");
+    if (section === "random") return ctx.reply(messages[lang].unknownAction);
     const nextRule = {
       ...(ctx.user?.discussionDraftJoinRule || {}),
       type: "taste_label",

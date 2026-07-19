@@ -144,7 +144,7 @@ function buildUserListMetrics(users = []) {
       if (topTenCount > 0) perSection[section].usersWithTopTenItem += 1;
       if (topTenCount >= 3) perSection[section].usersWithThreeTopTen += 1;
       if (topTenCount >= operationalLimits.aiTopTenItems) perSection[section].usersWithFullTopTen += 1;
-      if (taste.labelKey && Number(taste.sampleCount) > 0) {
+      if (section !== "random" && taste.labelKey && Number(taste.sampleCount) > 0) {
         perSection[section].usersWithTasteLabel += 1;
       }
     }

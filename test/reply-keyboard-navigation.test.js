@@ -257,6 +257,38 @@ test("every visible Favorites manager button resolves in its exact section", () 
   }
 });
 
+test("completed media Favorites expose the taste-label review action", () => {
+  const { aiListManageMenuKeyboard } = require("../src/keyboards");
+  const topTen = Array.from({ length: 10 }, (_, index) => ({ title: `Favorite ${index + 1}` }));
+  const user = { lang: "fa", aiLists: { books: { topTen, watchlist: [] } } };
+  const labels = aiListManageMenuKeyboard("fa", "books", "topTen", {
+    hasItems: true, itemCount: 10,
+  }).reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.fa.aiTasteReviewButton));
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiTasteReviewButton, {
+    mode: "ai_list:books:topTen",
+    state: "ai_manage_books_top_ten",
+    user,
+  }).callbackData, `${callBacks.aiTasteReview}books`);
+});
+
+test("an earned taste label remains reviewable after the list drops below 10", () => {
+  const { aiListManageMenuKeyboard } = require("../src/keyboards");
+  const topTen = Array.from({ length: 9 }, (_, index) => ({ title: `Favorite ${index + 1}` }));
+  const user = {
+    lang: "en",
+    aiLists: { movies: { topTen, watchlist: [] } },
+    aiTaste: { movies: { labelKey: "drama_lover", classificationStatus: "confirmed" } },
+  };
+  const labels = aiListManageMenuKeyboard("en", "movies", "topTen", {
+    hasItems: true, itemCount: 9, hasTasteLabel: true,
+  }).reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.en.aiTasteReviewButton));
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiTasteReviewButton, {
+    mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten", user,
+  }).callbackData, `${callBacks.aiTasteReview}movies`);
+});
+
 test("For Later Add works after entering from a saved suggestion", () => {
   for (const [lang, section, key] of [
     ["en", "movies", "aiListManageAddLaterMovies"],

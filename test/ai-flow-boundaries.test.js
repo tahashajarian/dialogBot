@@ -528,6 +528,31 @@ test("Top Ten saved message can omit its progress prompt when add mode supplies 
   assert.doesNotMatch(text, /یکی دیگه هم بفرست/);
 });
 
+test("media favorites do not show preliminary taste labels before all 10 are complete", async () => {
+  const cases = [
+    ["books", ["سمفونی مردگان", "سال بلوا", "بوف کور"]],
+    ["movies", ["Interstellar", "Arrival", "The Matrix"]],
+    ["music", ["Enter Sandman", "Master of Puppets", "Metallica"]],
+  ];
+
+  for (const [section, titles] of cases) {
+    const items = titles.map((title) => ({ title }));
+    const savedText = await buildTopTenSavedMessage({
+      ctx: { userId: 1 }, lang: "fa", section, item: titles.at(-1), items, includeNextPrompt: false,
+    });
+    const managerText = await getTopTenManageEntryMessage({
+      userId: 1,
+      user: { aiLists: { [section]: { topTen: items } } },
+    }, "fa", section);
+
+    for (const text of [savedText, managerText]) {
+      assert.match(text, /۳|3/);
+      assert.match(text, /۱۰|10/);
+      assert.doesNotMatch(text, /برداشت موقت|برچسب فعلی|کلاسیک‌خوان|سای‌فای‌گیک|متال‌هد/);
+    }
+  }
+});
+
 test("canceling AI list comment returns to the refreshed list manager", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
@@ -1673,6 +1698,8 @@ test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.aiListManageMenu), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShow}movies:watchlist`), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShare}movies:watchlist`), true);
+  assert.equal(isAiCallback(`${callBacks.aiTasteRetry}books`), true);
+  assert.equal(isAiCallback(callBacks.aiTasteClose), true);
   assert.equal(isAiCallback(callBacks.aiBack), true);
 
   assert.equal(isAiCallback(callBacks.profile), false);
@@ -1832,6 +1859,17 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   const empty = await getTopTenManageEntryMessage(makeCtx(0), "en", "movies");
   const early = await getTopTenManageEntryMessage(makeCtx(2), "en", "movies");
   const unlocked = await getTopTenManageEntryMessage(makeCtx(3), "en", "movies");
+  const booksUnlocked = await getTopTenManageEntryMessage({
+    userId: 502,
+    user: {
+      aiLists: {
+        books: {
+          topTen: ["Symphony of the Dead", "Year of Turmoil", "The Blind Owl"]
+            .map((title) => ({ title })),
+        },
+      },
+    },
+  }, "en", "books");
 
   assert.match(empty, /genuinely love/);
   assert.match(empty, /Start with 3 favorites/);
@@ -1840,6 +1878,10 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.match(early, /movie suggestions/);
   assert.match(unlocked, /Suggestions unlocked/);
   assert.match(unlocked, /3\/10/);
+  assert.doesNotMatch(unlocked, /Current label|Movie Buff/);
+  assert.match(booksUnlocked, /Suggestions unlocked/);
+  assert.match(booksUnlocked, /3\/10/);
+  assert.doesNotMatch(booksUnlocked, /Current label|Classics Reader/);
 
   const persianBookEarly = await getTopTenManageEntryMessage({
     userId: 502,

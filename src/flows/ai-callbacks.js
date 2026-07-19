@@ -41,6 +41,8 @@ const {
   getInterestTopTenChipTitle,
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
+  aiTasteRecheckConfirmKeyboard,
+  aiTasteSuggestionKeyboard,
   mainMenuKeyboard,
 } = require("../keyboards");
 const { callBacks } = require("../constants");
@@ -62,6 +64,9 @@ const {
   getAiRecentSuggestionTitlesFromUser,
   getAiRejectedSuggestionTitlesFromUser,
   getAiTasteFromUser,
+  confirmAiTasteLabel,
+  recalculateAiTasteForSection,
+  skipAiTasteLabel,
 } = require("../services/users");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -74,6 +79,8 @@ const {
   getSectionMessage,
   getTasteLabelStyleHint,
 } = require("../services/ai-section");
+const { isAllowedTasteLabel } = require("../services/taste-label-classifier");
+const { sendTasteLabelReview, withTasteInsight } = require("./ai-taste-labels");
 const {
   setPendingSuggestion,
   getPendingSuggestion,
@@ -136,6 +143,14 @@ const {
   completePaidSuggestion,
   refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
+const { starEconomy } = require("../services/star-settings");
+const {
+  cancelTasteLabelRecheck,
+  completeTasteLabelRecheck,
+  confirmTasteLabelRecheck,
+  createTasteLabelRecheckQuote,
+  refundTasteLabelRecheck,
+} = require("../services/taste-label-rechecks");
 
 function normalizeAiListTypeToken(value) {
   if (value === "watchlist") return "watchlist";
@@ -185,6 +200,15 @@ function isAiCallback(data = "") {
     data.startsWith(callBacks.aiListManageShare) ||
     data.startsWith(callBacks.aiListShareBack) ||
     data.startsWith(callBacks.aiTopTenInsight) ||
+    data.startsWith(callBacks.aiTasteRecheckConfirm) ||
+    data.startsWith(callBacks.aiTasteRecheckCancel) ||
+    data.startsWith(callBacks.aiTasteRecheck) ||
+    data.startsWith(callBacks.aiTasteRetry) ||
+    data.startsWith(callBacks.aiTasteReview) ||
+    data.startsWith(callBacks.aiTasteConfirm) ||
+    data.startsWith(callBacks.aiTasteChoose) ||
+    data === callBacks.aiTasteClose ||
+    data.startsWith(callBacks.aiTasteSkip) ||
     data.startsWith(callBacks.aiListManageTogglePicker) ||
     data.startsWith(callBacks.aiListManageToggleItem) ||
     data.startsWith(callBacks.aiListManageCommentPicker) ||
@@ -471,6 +495,179 @@ async function handleAiCallback(ctx, lang, helpers) {
     return helpers.deleteCallbackMessageIfPossible(ctx);
   }
 
+  if (data.startsWith(callBacks.aiTasteRecheckConfirm)) {
+    await ctx.answerCb?.();
+    const publicCode = data.replace(callBacks.aiTasteRecheckConfirm, "").trim();
+    const paid = await confirmTasteLabelRecheck(ctx.userId, publicCode);
+    if (!paid.ok) {
+      if (paid.reason === "insufficient_balance") {
+        return helpers.editCallbackMessageOrReply(
+          ctx,
+          messages[lang].aiTasteRecheckInsufficient
+            .replace("{cost}", formatStarNumber(paid.quote?.quotedCost ?? starEconomy.tasteLabelRecheckCost, lang))
+            .replace("{balance}", formatStarNumber(paid.balance, lang)),
+        );
+      }
+      if (paid.reason === "list_changed") {
+        return helpers.editCallbackMessageOrReply(ctx, messages[lang].aiTasteRecheckListChanged);
+      }
+      return helpers.editCallbackMessageOrReply(ctx, messages[lang].aiTasteRecheckUnavailable);
+    }
+
+    if (ctx.user && paid.spend?.balance !== undefined) {
+      ctx.user.starBalance = Number(paid.spend.balance) || 0;
+    }
+    const placeholder = await startAiPlaceholder(ctx, [
+      messages[lang].aiTasteAnalyzing,
+      messages[lang].aiTasteWaitingStill,
+      messages[lang].aiTasteWaitingLonger,
+    ], {
+      placeholder: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
+    });
+
+    let recalculated;
+    try {
+      recalculated = await recalculateAiTasteForSection(ctx.userId, paid.quote.section);
+    } catch (error) {
+      logger.warn("Taste-label recheck failed", error);
+      recalculated = { ok: false, reason: "unexpected_error" };
+    }
+    if (!recalculated.ok) {
+      const refund = await refundTasteLabelRecheck(
+        paid.quote._id,
+        paid.spend?.transaction?._id,
+      );
+      if (ctx.user && refund.balance !== undefined) {
+        ctx.user.starBalance = Number(refund.balance) || 0;
+      }
+      return placeholder.finish(
+        refund.ok ? messages[lang].aiTasteRecheckRefunded : messages[lang].aiTemporaryUnavailable,
+      );
+    }
+
+    const completed = await completeTasteLabelRecheck(
+      paid.quote._id,
+      recalculated.suggestedLabelKeys,
+      recalculated.suggestionInsight,
+    );
+    if (!completed.ok) logger.warn("Taste-label recheck result could not be finalized", completed);
+    if (ctx.user) {
+      if (!ctx.user.aiTaste) ctx.user.aiTaste = {};
+      ctx.user.aiTaste[paid.quote.section] = recalculated.taste;
+    }
+    return placeholder.finish(
+      withTasteInsight(messages[lang].aiTasteRecheckDifferent, recalculated.suggestionInsight),
+      aiTasteSuggestionKeyboard(lang, paid.quote.section, recalculated.suggestedLabelKeys),
+    );
+  }
+
+  if (data.startsWith(callBacks.aiTasteRecheckCancel)) {
+    await ctx.answerCb?.();
+    const publicCode = data.replace(callBacks.aiTasteRecheckCancel, "").trim();
+    await cancelTasteLabelRecheck(ctx.userId, publicCode);
+    return helpers.editCallbackMessageOrReply(ctx, messages[lang].aiTasteRecheckCancelled);
+  }
+
+  if (data.startsWith(callBacks.aiTasteRecheck)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiTasteRecheck, "").trim();
+    const quoteResult = await createTasteLabelRecheckQuote(ctx.userId, section);
+    if (!quoteResult.ok) {
+      const text = quoteResult.reason === "incomplete_list"
+        ? messages[lang].aiTasteRecheckListChanged
+        : messages[lang].aiTasteRecheckUnavailable;
+      return helpers.editCallbackMessageOrReply(ctx, text);
+    }
+    return helpers.editCallbackMessageOrReply(
+      ctx,
+      messages[lang].aiTasteRecheckQuote
+        .replace("{cost}", formatStarNumber(quoteResult.quote.quotedCost, lang))
+        .replace("{balance}", formatStarNumber(quoteResult.balance, lang)),
+      aiTasteRecheckConfirmKeyboard(lang, quoteResult.quote.publicCode),
+    );
+  }
+
+  if (data.startsWith(callBacks.aiTasteRetry)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiTasteRetry, "").trim();
+    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    return sendTasteLabelReview(ctx, lang, section, {
+      withPlaceholder: true,
+      placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
+      retryFailed: true,
+    });
+  }
+
+  if (data.startsWith(callBacks.aiTasteReview)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiTasteReview, "").trim();
+    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    const taste = getAiTasteFromUser(ctx.user, section);
+    const retryFailed = taste.classificationStatus === "needs_choice" && !taste.freeClassificationUsedAt;
+    return sendTasteLabelReview(ctx, lang, section, {
+      withPlaceholder: retryFailed,
+      retryFailed,
+      replaceMessage: !retryFailed && ctx.callbackMessageId
+        ? { message_id: ctx.callbackMessageId }
+        : null,
+    });
+  }
+
+  if (data === callBacks.aiTasteClose) {
+    await ctx.answerCb?.();
+    return helpers.deleteCallbackMessageIfPossible(ctx);
+  }
+
+  if (data.startsWith(callBacks.aiTasteChoose)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiTasteChoose, "").trim();
+    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    const taste = getAiTasteFromUser(ctx.user, section);
+    if (!taste.suggestedLabelKeys.length) return sendTasteLabelReview(ctx, lang, section, {
+      replaceMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
+    });
+    return helpers.editCallbackMessageOrReply(ctx,
+      withTasteInsight(messages[lang].aiTasteSavedSuggestionsPrompt, taste.suggestionInsight),
+      aiTasteSuggestionKeyboard(lang, section, taste.suggestedLabelKeys, {
+        selectedLabelKey: taste.labelKey,
+        includeClose: true,
+      }));
+  }
+
+  if (data.startsWith(callBacks.aiTasteConfirm)) {
+    await ctx.answerCb?.();
+    const payload = data.replace(callBacks.aiTasteConfirm, "");
+    const [section = "", labelKey = ""] = payload.split(":");
+    if (!isAllowedTasteLabel(section, labelKey)) return ctx.reply(messages[lang].unknownAction);
+    const result = await confirmAiTasteLabel(ctx.userId, section, labelKey);
+    if (result.reason === "stale_suggestion") return sendTasteLabelReview(ctx, lang, section);
+    if (!result.ok) return ctx.reply(messages[lang].aiTemporaryUnavailable);
+    if (ctx.user) {
+      if (!ctx.user.aiTaste) ctx.user.aiTaste = {};
+      ctx.user.aiTaste[section] = result.taste;
+    }
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    return openAiListManager(ctx, lang, section, "topTen");
+  }
+
+  if (data.startsWith(callBacks.aiTasteSkip)) {
+    await ctx.answerCb?.();
+    const section = data.replace(callBacks.aiTasteSkip, "").trim();
+    const result = await skipAiTasteLabel(ctx.userId, section);
+    if (result.reason === "stale_suggestion") return sendTasteLabelReview(ctx, lang, section, {
+      replaceMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
+    });
+    if (!result.ok) return ctx.reply(messages[lang].aiTemporaryUnavailable);
+    if (ctx.user?.aiTaste?.[section]) {
+      ctx.user.aiTaste[section].labelKey = "";
+      ctx.user.aiTaste[section].suggestedLabelKeys = result.suggestedLabelKeys;
+      ctx.user.aiTaste[section].suggestionInsight = result.suggestionInsight;
+      ctx.user.aiTaste[section].classificationStatus = "skipped";
+    }
+    await helpers.deleteCallbackMessageIfPossible(ctx);
+    return openAiListManager(ctx, lang, section, "topTen");
+  }
+
   if (data.startsWith(callBacks.aiListManageMenu)) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.aiListManageMenu, "");
@@ -593,11 +790,16 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiTopTenInsight)) {
     await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTopTenInsight, "").trim();
-    if (!section) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
 
     const items = getAiListItemsFromUser(ctx.user, section, "topTen");
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(lang, section, items)}`);
+    await ctx.reply(`${messages[lang].aiTopTenInsightIntro}\n\n${buildTopTenInsightMessage(
+      lang,
+      section,
+      items,
+      getAiTasteFromUser(ctx.user, section),
+    )}`);
     const actionMessage = await ctx.reply(
       await buildAiListManagerMessage({ ctx, lang, section, listType: "topTen" }),
       aiListManageMenuKeyboard(lang, section, "topTen", {

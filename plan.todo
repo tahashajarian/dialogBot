@@ -52,4 +52,4 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ 👱‍♀️ این دعوت دیگه در دسترس نیست. after we remove a user as owner from the discussion and i want to invite them, it say this message, i think here we should send them the inivitaion i think this way we let them join agian, so we need to remove the removal form the discussion and let them join again as we inivte them or not sure let's think abou it @done (7/19/2026, 8:17:02 AM)
 ✔ on my discusson tips are diffent if list is empty or not @done (7/19/2026, 8:05:27 AM)
 
-☐ taste label on books are so weak
+✔ replace weak temporary/hardcoded media taste labels with AI-selected broad labels, user confirmation, and a ledger-backed 10-Star recheck after the first free classification @done (7/19/2026)

@@ -91,7 +91,6 @@ function getFinalTasteLabels(user, lang, messages) {
     { key: "movies", icon: "🎬" },
     { key: "music", icon: "🎵" },
     { key: "books", icon: "📚" },
-    { key: "random", icon: "🌿" },
   ];
 
   return sections

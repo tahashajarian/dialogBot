@@ -354,7 +354,11 @@ async function retireStaleCallbackCardIfNeeded(ctx, data = "") {
     data.startsWith(callBacks.savedProfilesPage) ||
     data.startsWith(callBacks.discussionOpen) ||
     data.startsWith(callBacks.discussionInviteJoin) ||
-    data.startsWith(callBacks.discussionInviteSwitchJoin);
+    data.startsWith(callBacks.discussionInviteSwitchJoin) ||
+    data.startsWith(callBacks.aiTasteConfirm) ||
+    data.startsWith(callBacks.aiTasteSkip) ||
+    data.startsWith(callBacks.aiTasteReview) ||
+    data.startsWith(callBacks.aiTasteChoose);
   if (historySafeListCallback) {
     return false;
   }
