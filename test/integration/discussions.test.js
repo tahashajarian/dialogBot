@@ -29,6 +29,8 @@ const {
   preserveSharedLinkInvitation,
   markSharedLinkInvitationAccepted,
   getInvitationForUser,
+  getInvitationDisplayState,
+  isOwnerReentryInvitation,
   listReceivedInvitations,
   markInvitationsSeen,
   markInvitationAccepted,
@@ -1094,6 +1096,100 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(removed.ok, true);
   const hiddenList = await listReceivedInvitations(2, { statuses: ["accepted"] });
   assert.equal(hiddenList.invitations.length, 0);
+});
+
+test("only a new owner invitation lets a removed member rejoin", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_REENTRY",
+    memberUserIds: [1, 3],
+  });
+  await Promise.all([
+    createUser(1, {
+      activeDiscussionId: discussion._id,
+      discussionMembershipIds: [discussion._id],
+      savedProfileCodes: ["u_REJOIN"],
+    }),
+    createUser(2, { publicProfileCode: "u_REJOIN" }),
+    createUser(3, {
+      activeDiscussionId: discussion._id,
+      discussionMembershipIds: [discussion._id],
+      savedProfileCodes: ["u_REJOIN"],
+    }),
+  ]);
+
+  const oldInvitation = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_REJOIN",
+    discussionId: discussion._id,
+    source: "room",
+  });
+  assert.equal(oldInvitation.ok, true);
+  assert.equal(oldInvitation.invitation.restoresOwnerRemoval, false);
+
+  assert.equal((await joinOrOpenDiscussion(2, discussion._id)).ok, true);
+  assert.equal((await removeMemberAsOwner(1, discussion._id, 2)).ok, true);
+  const removedDiscussion = await Discussion.findById(discussion._id);
+
+  const oldState = await getInvitationDisplayState(
+    { userId: 2 },
+    removedDiscussion,
+    oldInvitation.invitation,
+  );
+  assert.equal(oldState.state, "blocked");
+  assert.equal((await joinOrOpenDiscussion(2, discussion._id)).reason, "removed_by_owner");
+
+  const memberInvite = await createDiscussionInvitation({
+    inviterUserId: 3,
+    inviteePublicProfileCode: "u_REJOIN",
+    discussionId: discussion._id,
+    source: "room",
+  });
+  assert.equal(memberInvite.ok, false);
+  assert.equal(memberInvite.reason, "removed_by_owner");
+
+  const ownerInvite = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_REJOIN",
+    discussionId: discussion._id,
+    source: "room",
+  });
+  assert.equal(ownerInvite.ok, true);
+  assert.equal(String(ownerInvite.replacedInvitationId), String(oldInvitation.invitation._id));
+  assert.notEqual(String(ownerInvite.invitation._id), String(oldInvitation.invitation._id));
+  assert.equal(ownerInvite.invitation.restoresOwnerRemoval, true);
+  const expiredOldInvitation = await DiscussionInvitation.findById(oldInvitation.invitation._id).lean();
+  assert.equal(expiredOldInvitation.status, "expired");
+  const visibleInvitations = await listReceivedInvitations(2, { statuses: ["pending", "accepted"] });
+  assert.equal(visibleInvitations.invitations.length, 1);
+  assert.equal(
+    String(visibleInvitations.invitations[0].invitation._id),
+    String(ownerInvite.invitation._id),
+  );
+  assert.equal(isOwnerReentryInvitation(ownerInvite.invitation, removedDiscussion, 2), true);
+  assert.equal(
+    (await getInvitationDisplayState({ userId: 2 }, removedDiscussion, ownerInvite.invitation)).state,
+    "joinable",
+  );
+
+  const publicJoinAfterInvite = await joinOrOpenDiscussion(2, discussion._id);
+  assert.equal(publicJoinAfterInvite.ok, false);
+  assert.equal(publicJoinAfterInvite.reason, "removed_by_owner");
+
+  const rejoined = await joinOrOpenDiscussion(2, discussion._id, { allowOwnerReentry: true });
+  assert.equal(rejoined.ok, true);
+  assert.equal(rejoined.joined, true);
+  const afterRejoin = await Discussion.findById(discussion._id).lean();
+  assert.equal(afterRejoin.memberUserIds.includes(2), true);
+  assert.equal(afterRejoin.removedUserIds.includes(2), false);
+
+  await markInvitationAccepted(ownerInvite.invitation);
+  assert.equal(ownerInvite.invitation.restoresOwnerRemoval, false);
+  assert.equal((await removeMemberAsOwner(1, discussion._id, 2)).ok, true);
+  const removedAgain = await Discussion.findById(discussion._id);
+  assert.equal(
+    (await getInvitationDisplayState({ userId: 2 }, removedAgain, ownerInvite.invitation)).state,
+    "blocked",
+  );
 });
 
 test("received invitation inbox keeps the newest 20 visible records", async () => {

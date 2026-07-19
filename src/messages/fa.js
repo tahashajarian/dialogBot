@@ -153,6 +153,7 @@ module.exports = {
     discussionInviteChooseDiscussion: "💬 {name} رو به کدوم گفت‌وگو دعوت می‌کنی؟",
     discussionInviteDiscussionPickerTitle: "گفت‌وگوهای قابل دعوت",
     discussionInvitationSent: "👩‍🦳 دعوت برای {name} ارسال شد.",
+    discussionReentryInvitationSent: "👩‍🦳 دعوت برای {name} ارسال شد. می‌تونه دوباره وارد این گفت‌وگو بشه.",
     discussionInvitationReceivedNotice: "👩‍🦳 یک دعوت به گفت‌وگو برات اومده.\n\nاز بخش «💬 گفت‌وگوها» وارد «📨 دعوت‌ها» شو و ببینش.",
     discussionInvitationOpenInbox: "✉️ دیدن دعوت‌ها",
     discussionInvitationAlreadySent: "👩‍🦳 این دعوت قبلاً ارسال شده.",

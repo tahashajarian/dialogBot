@@ -21,8 +21,17 @@ const { deleteInvitationsForDiscussion } = require("./discussion-invitations");
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
 
-async function joinDiscussionAndNotify({ ctx, messages, discussionId, allowActiveSwitch = false }) {
-  const joined = await joinOrOpenDiscussion(ctx.userId, discussionId, { allowActiveSwitch });
+async function joinDiscussionAndNotify({
+  ctx,
+  messages,
+  discussionId,
+  allowActiveSwitch = false,
+  allowOwnerReentry = false,
+}) {
+  const joined = await joinOrOpenDiscussion(ctx.userId, discussionId, {
+    allowActiveSwitch,
+    allowOwnerReentry,
+  });
   if (!joined.ok) return joined;
 
   if (joined.previousActiveDiscussionId) {

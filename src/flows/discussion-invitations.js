@@ -30,6 +30,7 @@ const {
   countUnseenPendingReceivedInvitations,
   getInvitationDisplayState,
   getInvitationForUser,
+  isOwnerReentryInvitation,
   listEligibleDiscussionsForInvite,
   listReceivedInvitations,
   markInvitationsSeen,
@@ -235,7 +236,9 @@ async function createInvitationAndAck(ctx, lang, {
   await notifyInviteeOfInvitation(ctx, created);
   return send(
     ctx,
-    buildInvitationSentText(messages, lang, created.invitee),
+    buildInvitationSentText(messages, lang, created.invitee, {
+      restoresOwnerRemoval: created.restoresOwnerRemoval,
+    }),
     { reply_markup: { inline_keyboard: [] } },
   );
 }
@@ -297,7 +300,7 @@ async function renderInvitationsList(ctx, lang, page = 0, {
   for (const entry of pageEntries) {
     entries.push({
       ...entry,
-      state: await getInvitationDisplayState(ctx.user, entry.discussion),
+      state: await getInvitationDisplayState(ctx.user, entry.discussion, entry.invitation),
     });
   }
   const text = await buildReceivedInvitationsText(messages, lang, ctx.user, entries, {
@@ -354,7 +357,13 @@ async function acceptInvitationCommand(ctx, lang, text, {
     return ctx.reply(messages[lang].discussionInviteUnavailable, discussionJoinErrorAckKeyboard(lang, "invitations"));
   }
 
-  const joined = await joinDiscussionAndNotify({ ctx, messages, discussionId: found.discussion._id });
+  const allowOwnerReentry = isOwnerReentryInvitation(found.invitation, found.discussion, ctx.userId);
+  const joined = await joinDiscussionAndNotify({
+    ctx,
+    messages,
+    discussionId: found.discussion._id,
+    allowOwnerReentry,
+  });
   if (!joined.ok) {
     let failureText = getDiscussionErrorMessage(messages, lang, joined.reason);
     const isJoinRuleFailure = (

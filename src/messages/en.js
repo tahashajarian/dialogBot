@@ -153,6 +153,7 @@ module.exports = {
     discussionInviteChooseDiscussion: "💬 Which discussion do you want to invite {name} to?",
     discussionInviteDiscussionPickerTitle: "Available discussions",
     discussionInvitationSent: "👩‍🦳 Invitation sent to {name}.",
+    discussionReentryInvitationSent: "👩‍🦳 Invitation sent to {name}. If they accept it, they can join this discussion again.",
     discussionInvitationReceivedNotice: "👩‍🦳 You got a discussion invitation.\n\nOpen Discussions → Invitations to see it.",
     discussionInvitationOpenInbox: "✉️ Open invitations",
     discussionInvitationAlreadySent: "👩‍🦳 Invitation already sent.",

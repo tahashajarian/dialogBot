@@ -142,8 +142,19 @@ async function listEligibleDiscussionsForInvite(inviterUserId, inviteeUserId) {
   return discussions.filter((discussion) => {
     const members = discussion.memberUserIds || [];
     const removed = discussion.removedUserIds || [];
-    return !members.includes(Number(inviteeUserId)) && !removed.includes(Number(inviteeUserId));
+    const inviterIsOwner = Number(discussion.creatorUserId) === Number(inviterUserId);
+    return !members.includes(Number(inviteeUserId)) && (
+      inviterIsOwner || !removed.includes(Number(inviteeUserId))
+    );
   });
+}
+
+function isOwnerReentryInvitation(invitation, discussion, userId) {
+  return Boolean(
+    invitation?.restoresOwnerRemoval &&
+    Number(invitation.inviterUserId) === Number(discussion?.creatorUserId) &&
+    Number(invitation.inviteeUserId) === Number(userId)
+  );
 }
 
 async function createDiscussionInvitation({
@@ -182,7 +193,9 @@ async function createDiscussionInvitation({
   if ((discussion.memberUserIds || []).includes(Number(invitee.userId))) {
     return { ok: false, reason: "already_member", discussion, invitee };
   }
-  if ((discussion.removedUserIds || []).includes(Number(invitee.userId))) {
+  const removedByOwner = (discussion.removedUserIds || []).includes(Number(invitee.userId));
+  const restoresOwnerRemoval = removedByOwner && Number(discussion.creatorUserId) === Number(inviter.userId);
+  if (removedByOwner && !restoresOwnerRemoval) {
     return { ok: false, reason: "removed_by_owner", discussion, invitee };
   }
 
@@ -191,7 +204,10 @@ async function createDiscussionInvitation({
     discussionId: discussion._id,
     status: "pending",
   });
-  if (existing) {
+  const replacedInvitation = existing && restoresOwnerRemoval && !existing.restoresOwnerRemoval
+    ? existing
+    : null;
+  if (existing && !replacedInvitation) {
     return { ok: false, reason: "duplicate", invitation: existing, discussion, invitee };
   }
 
@@ -222,16 +238,48 @@ async function createDiscussionInvitation({
     inviterUserId: inviter.userId,
     inviteeUserId: invitee.userId,
     inviteePublicProfileCode: refreshedInvitee?.publicProfileCode || normalizedProfileCode,
+    restoresOwnerRemoval,
     status: "pending",
     source: source === "saved_profile" ? "saved_profile" : "room",
     createdAt: now,
   });
 
+  if (replacedInvitation) {
+    const expired = await DiscussionInvitation.findOneAndUpdate(
+      { _id: replacedInvitation._id, status: "pending" },
+      { $set: { status: "expired", expiredAt: now } },
+      { returnDocument: "after" },
+    );
+    if (!expired) {
+      return { ok: false, reason: "duplicate", invitation: replacedInvitation, discussion, invitee };
+    }
+  }
+
+  const restoreReplacedInvitation = async () => {
+    if (!replacedInvitation) return;
+    const replacement = await DiscussionInvitation.findOne({
+      inviteeUserId: invitee.userId,
+      discussionId: discussion._id,
+      status: "pending",
+    });
+    if (replacement) return;
+    await DiscussionInvitation.findOneAndUpdate(
+      { _id: replacedInvitation._id, status: "expired" },
+      { $set: { status: "pending", expiredAt: null } },
+    );
+  };
+
+  let invitationSaved = false;
   try {
     const codeResult = await ensurePublicInvitationCode(invitation);
-    if (!codeResult.ok) return codeResult;
+    if (!codeResult.ok) {
+      await restoreReplacedInvitation();
+      return codeResult;
+    }
+    invitationSaved = true;
     await trimReceivedInvitationInbox(invitee.userId, now);
   } catch (error) {
+    if (!invitationSaved) await restoreReplacedInvitation();
     if (!isDuplicateKeyError(error)) throw error;
     const duplicate = await DiscussionInvitation.findOne({
       inviteeUserId: invitee.userId,
@@ -248,7 +296,14 @@ async function createDiscussionInvitation({
     source: invitation.source,
   });
 
-  return { ok: true, invitation, discussion, invitee };
+  return {
+    ok: true,
+    invitation,
+    discussion,
+    invitee,
+    restoresOwnerRemoval,
+    replacedInvitationId: replacedInvitation?._id || null,
+  };
 }
 
 async function revalidateOnboardingDiscussion({ user, discussionId, language, kind }) {
@@ -576,16 +631,21 @@ async function markInvitationAccepted(invitation) {
   if (!invitation) return { ok: false, reason: "missing_invitation" };
   invitation.status = "accepted";
   invitation.acceptedAt = new Date();
+  invitation.restoresOwnerRemoval = false;
   await invitation.save();
   return { ok: true, invitation };
 }
 
-async function getInvitationDisplayState(user, discussion) {
+async function getInvitationDisplayState(user, discussion, invitation = null) {
   if (!discussion) return { state: "unavailable", reason: "missing_discussion" };
   if (discussion.status !== "open") return { state: "unavailable", reason: "discussion_closed" };
   const userId = Number(user?.userId);
   if ((discussion.memberUserIds || []).includes(userId)) return { state: "already_member" };
-  if ((discussion.removedUserIds || []).includes(userId)) return { state: "blocked", reason: "removed_by_owner" };
+  if ((discussion.removedUserIds || []).includes(userId)) {
+    if (!isOwnerReentryInvitation(invitation, discussion, userId)) {
+      return { state: "blocked", reason: "removed_by_owner" };
+    }
+  }
   const maxMembers = resolveDiscussionMaxMembers(discussion);
   if ((discussion.memberUserIds || []).length >= maxMembers) return { state: "full", reason: "discussion_full" };
   const eligibility = await validateJoinRules({ user, joinRule: discussion.joinRule });
@@ -701,4 +761,5 @@ module.exports = {
   markInvitationAccepted,
   trimReceivedInvitationInbox,
   getInvitationDisplayState,
+  isOwnerReentryInvitation,
 };

@@ -81,9 +81,17 @@ test("invitation rule failure uses inline Got it without replacing the reply key
 test("sent invitation confirmation is bot-authored without speculative Star copy", () => {
   const fa = buildInvitationSentText(messages, "fa", { profileName: "Lina" });
   const en = buildInvitationSentText(messages, "en", { profileName: "Lina" });
+  const reentryFa = buildInvitationSentText(messages, "fa", { profileName: "Lina" }, {
+    restoresOwnerRemoval: true,
+  });
+  const reentryEn = buildInvitationSentText(messages, "en", { profileName: "Lina" }, {
+    restoresOwnerRemoval: true,
+  });
 
   assert.equal(fa, "👩‍🦳 دعوت برای Lina ارسال شد.");
   assert.equal(en, "👩‍🦳 Invitation sent to Lina.");
+  assert.match(reentryFa, /دوباره وارد این گفت‌وگو بشه/);
+  assert.match(reentryEn, /join this discussion again/);
   assert.doesNotMatch(fa, /⭐|متوجه شدم/);
   assert.doesNotMatch(en, /⭐|Got it/);
 });
@@ -281,6 +289,33 @@ test("createDiscussionInvitation blocks pending duplicates before daily limit", 
 test("getInvitationDisplayState treats muted creator rooms as unavailable through join service mapping", async () => {
   const state = await getInvitationDisplayState({ userId: 2 }, null);
   assert.equal(state.state, "unavailable");
+});
+
+test("only an exact owner re-entry invitation makes a removed room joinable", async () => {
+  const discussion = {
+    creatorUserId: 1,
+    status: "open",
+    memberUserIds: [1],
+    removedUserIds: [2],
+    joinRule: { type: "open" },
+  };
+  const oldInvitation = {
+    inviterUserId: 1,
+    inviteeUserId: 2,
+    restoresOwnerRemoval: false,
+  };
+  const ownerReentryInvitation = {
+    ...oldInvitation,
+    restoresOwnerRemoval: true,
+  };
+  const memberInvitation = {
+    ...ownerReentryInvitation,
+    inviterUserId: 3,
+  };
+
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, discussion, oldInvitation)).state, "blocked");
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, discussion, memberInvitation)).state, "blocked");
+  assert.equal((await getInvitationDisplayState({ userId: 2 }, discussion, ownerReentryInvitation)).state, "joinable");
 });
 
 test("starter invitation state uses capacity 100 without relaxing user-created rooms", async () => {

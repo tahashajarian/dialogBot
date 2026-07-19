@@ -27,7 +27,7 @@ In particular:
 - Keep the existing shareable invite behavior intact.
 - Keep existing `/join_CODE`, `/d_CODE`, and discussion preview behavior intact.
 - Keep existing join failure behavior intact, including `Got it` acknowledgement and return destinations.
-- Keep existing discussion membership, capacity, removed-user, and join-rule checks as the source of truth.
+- Keep existing discussion membership, capacity, removed-user, and join-rule checks as the source of truth. The only removed-user exception is a fresh stored invitation from the room owner, bound to that invitation and consumed on acceptance.
 - Keep saved profiles one-way and private; do not turn them into contacts or friendships.
 - Keep `src/bot.js` and `src/callbacks.js` thin dispatchers.
 - Prefer small new invitation modules over expanding existing routers.
@@ -132,8 +132,8 @@ Invitees can open one unified invitations inbox, review pending or previously ac
 - The inviter does not need to be the discussion owner.
 - The invitee does not need to have saved the inviter.
 - The invitee can be invited even if they have never joined a discussion before.
-- The invite does not bypass join rules, capacity, removed-user checks, closed-room checks, or one-active-room behavior.
-- Duplicate pending invites for the same recipient and discussion are blocked.
+- The invite does not bypass join rules, capacity, closed-room checks, or one-active-room behavior. Removed-user checks are bypassed only by a fresh stored owner re-entry invitation.
+- Duplicate pending invites for the same recipient and discussion are blocked. When the owner explicitly re-invites a removed user, expire any older pending invite and create one new re-entry invitation at the top instead of updating or displaying both records.
 - Inbox display and counts collapse duplicate stored rows by inviter and discussion.
 - Sender daily invite limits are enforced.
 - Invitation counts show all pending invites, including seen pending and bot starter invites.
@@ -141,7 +141,7 @@ Invitees can open one unified invitations inbox, review pending or previously ac
 - Pending and accepted invitations share one newest-first inbox, capped at 20 visible records and paginated five per page.
 - The inbox title includes the total visible count in parentheses, and the card includes a short hint explaining newest-first order, manual removal, and the 20-record cap.
 - Accepting an invitation does not move or hide it. Invitations remain in their original creation order until the invitee removes them or the oldest visible record is retired when the cap is exceeded.
-- Missing, full, locked, or removed-user destinations remain visible with their safe unavailable state and Remove action; a failed open does not silently remove the invitation. When an owner closes a discussion, delete all pending and accepted invitations for that discussion in one database operation because the room can never reopen.
+- Missing, full, locked, or removed-user destinations remain visible with their safe unavailable state and Remove action; a failed open does not silently remove the invitation. A valid fresh owner re-entry invitation is shown as joinable even while the user remains in `removedUserIds`. When an owner closes a discussion, delete all pending and accepted invitations for that discussion in one database operation because the room can never reopen.
 - Invitees can restrict future invitations from a specific inviter.
 - A restricted user cannot newly join discussions created by the user who restricted them.
 - The inviter should not receive an acceptance notification in MVP.
@@ -323,7 +323,7 @@ Eligible discussions:
 - Open.
 - Inviter is currently a member.
 - Target user is not already a member.
-- Target user is not removed from that discussion.
+- Target user is not removed from that discussion, unless the inviter owns the room and is explicitly inviting that user back.
 
 The picker may include both discussions the inviter created and discussions they joined.
 
@@ -351,7 +351,7 @@ Actions:
 - ساخت گفت‌وگو
 - برگشت به ذخیره‌شده‌ها
 
-If all discussions are ineligible because the target is already a member or removed, show a specific safe message:
+If all discussions are ineligible because the target is already a member or was removed from a room the inviter does not own, show a specific safe message:
 
 ```text
 🤖 There is no available discussion to invite this profile to.
@@ -463,7 +463,7 @@ Validation order when accepting an invite:
 5. Verify discussion exists and is open.
 6. Verify inviter still exists enough to render safe display, if needed.
 7. Load current invitee user.
-8. Check whether invitee was removed from the discussion.
+8. Check whether invitee was removed from the discussion. Continue only if this exact invitation carries valid owner re-entry approval.
 9. Check whether invitee is already a member.
 10. Check capacity.
 11. Check join rule.
@@ -641,15 +641,18 @@ List state:
 
 - Show locked/unavailable safely.
 - Do not reveal unnecessary moderation detail.
+- A fresh stored invitation from the room owner replaces any older pending invitation and appears as joinable.
 
 Accept:
 
 - Use the same removed-user error as normal discussion join.
 - Keep or expire the invite.
+- For the exact fresh owner invitation, atomically remove the user from `removedUserIds`, join them, then consume the re-entry approval.
 
 Recommended MVP:
 
 - Mark invite stale/blocked after removed-user failure.
+- Invitations sent before removal, public links, and invitations from non-owners remain blocked.
 
 ### Join Rule Not Satisfied
 
@@ -717,7 +720,7 @@ This keeps invites tied to the saved-profile feature.
 
 MVP protections:
 
-- Duplicate pending invite block.
+- Duplicate pending invite block, except that a fresh owner re-entry invitation expires and replaces the older pending record.
 - Existing repeated-tap guard.
 - Per-sender daily cap.
 
@@ -1101,8 +1104,8 @@ Service tests:
 - Non-owner member can invite.
 - Owner can invite.
 - Closed discussion cannot receive new invitations.
-- Duplicate pending invite is blocked.
-- Removed invitee cannot be invited or cannot accept, depending selected rule.
+- Duplicate pending invite is blocked; owner re-entry creates one fresh visible replacement.
+- Removed invitee remains blocked for public/member invitations, while a fresh owner invitation grants one re-entry.
 - Target must be in inviter's saved profiles.
 - Self-invite is rejected.
 - Pending invitation count includes all pending invitations, including bot starter invitations.
@@ -1160,7 +1163,7 @@ Behavior tests:
 2. Should the active discussion `📨 دعوت` first show a mode menu, or should it default to saved-profile invites and include shareable invite as a secondary action?
 3. Should pending invites expire automatically after 30 days?
 4. Should full-room invites stay pending so invitees can retry later?
-5. Should removed-user invite failures mark the invite expired/blocked immediately?
+5. Resolved: ordinary removed-user invites stay blocked; a fresh owner invitation replaces any older pending record and grants one single-use re-entry.
 6. Should there be a sender daily invite limit in MVP?
 7. Should invitee see inviter profile link by default?
 

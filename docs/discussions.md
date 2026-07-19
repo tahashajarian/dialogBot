@@ -456,7 +456,7 @@ For locked rooms, include the join condition:
 Rules:
 
 - Invites must not bypass taste-label or TopTen-item join rules.
-- Invites must not bypass capacity, removed-user checks, or closed-room checks.
+- Public invites must not bypass capacity, removed-user checks, or closed-room checks. A fresh stored invitation sent by the room owner is the only removed-user exception.
 - Invites must not reveal private member details, full member lists, raw ids, Telegram user ids, phone numbers, or location.
 - Invites should use the discussion public code, not the database id.
 - Invite codes should be stable public discussion codes, not per-user tokens, for MVP.
@@ -464,7 +464,7 @@ Rules:
 - Old invite messages do not need to be deleted; every open/join attempt must re-read the discussion and revalidate current state.
 - A user who opens an invite for their currently active discussion should see the already-member message instead of a generic preview.
 - Existing members who use the invite while active elsewhere should be moved/re-focused to that discussion, matching normal `/d_CODE` behavior.
-- Removed users can open the preview but must receive the same removed-user error if they try to join.
+- Removed users can open a public preview but must receive the same removed-user error if they try to join. Public previews never carry owner re-entry approval.
 - Closed, missing, or expired discussions should show a clean unavailable state.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
 - Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it for an already-onboarded user does not create an inbox row; the post-onboarding `shared_link` preservation rule is the narrow exception. Close quietly deletes the temporary share card because the sender is already in the active room.
@@ -495,7 +495,7 @@ Join attempt validation order:
 1. Resolve the public discussion code.
 2. Verify the discussion exists and is open.
 3. Load the current user.
-4. Check whether the user was removed from the discussion.
+4. Check whether the user was removed from the discussion; only an exact fresh stored owner invitation may authorize re-entry.
 5. Check whether the user is already a member.
 6. Check discussion capacity.
 7. Check the discussion join rule.
@@ -616,7 +616,8 @@ Implementation test checklist:
 - Restricted invite join failure gives a specific hint about what's missing and where to update it.
 - Closed/missing discussion invite shows unavailable message.
 - Full discussion invite shows capacity reached message.
-- Removed user cannot rejoin through an invite.
+- Removed users cannot rejoin through public invites, ordinary member invitations, or invitations sent before removal.
+- A fresh stored owner invitation permits one re-entry and is consumed after acceptance.
 - An existing active member using an invite re-focuses the same discussion without duplicate membership.
 - Old preview button revalidates current state before joining.
 
@@ -803,7 +804,9 @@ Rules:
 - Members do not see remove actions.
 - Every user can report another member from the member list.
 - A removed member is removed from `memberIds`, added to `removedUserIds`, and removed from their discussion memberships.
-- **Removed users cannot rejoin**: If a user who was previously removed by the owner tries to join the discussion again, they will receive an error message.
+- **Removed users cannot rejoin normally**: public links, discovery actions, saved commands, and invitations from ordinary members remain blocked after owner removal.
+- The owner may explicitly invite a removed user back. Only a fresh owner invitation created after the removal carries re-entry approval. An older pending invitation is expired and replaced by the new one, so only the new invitation appears at the top of the inbox; an older invitation sent before removal stays blocked.
+- Sending the owner invitation does not clear the removal. Accepting that exact invitation atomically removes the user from `removedUserIds` and adds them back to the room; removing or ignoring it leaves the removal intact. The re-entry approval is single-use, so a later owner removal requires another new owner invitation.
 - Removed users will not see the discussion in their "My Discussions" list anymore.
 - **Removed users see discussions but can't join**: Discussions where a user has been removed appear in the regular "Active Discussions" list, but are filtered out when "Show only joinable discussions" is enabled.
 - If a removed user somehow attempts to join (e.g., via a saved link or command), they get both:

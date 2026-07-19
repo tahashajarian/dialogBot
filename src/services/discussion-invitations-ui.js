@@ -19,8 +19,11 @@ function displayName(user = {}, fallback = "") {
   return String(user?.profileName || user?.firstName || fallback || "").trim();
 }
 
-function buildInvitationSentText(messages, lang, invitee = {}) {
-  return messages[lang].discussionInvitationSent.replace(
+function buildInvitationSentText(messages, lang, invitee = {}, { restoresOwnerRemoval = false } = {}) {
+  const template = restoresOwnerRemoval
+    ? messages[lang].discussionReentryInvitationSent
+    : messages[lang].discussionInvitationSent;
+  return template.replace(
     "{name}",
     displayName(invitee, lang === "fa" ? "کاربر" : "User"),
   );

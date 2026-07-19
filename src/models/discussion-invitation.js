@@ -7,6 +7,7 @@ const DiscussionInvitationSchema = new mongoose.Schema({
   inviterUserId: { type: Number, required: true, index: true },
   inviteeUserId: { type: Number, required: true, index: true },
   inviteePublicProfileCode: { type: String, default: "" },
+  restoresOwnerRemoval: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ["pending", "accepted", "removed", "expired"],

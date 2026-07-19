@@ -406,7 +406,10 @@ async function listRecentJoinedDiscussions(userId, { limit = 3 } = {}) {
   };
 }
 
-async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = false } = {}) {
+async function joinOrOpenDiscussion(userId, discussionId, {
+  allowActiveSwitch = false,
+  allowOwnerReentry = false,
+} = {}) {
   const [user, discussion] = await Promise.all([
     User.findOne({ userId }),
     Discussion.findById(discussionId),
@@ -439,7 +442,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
     }
     if (!isOwner) {
       const wasRemoved = Array.isArray(discussion.removedUserIds) && discussion.removedUserIds.includes(userId);
-      if (wasRemoved) {
+      if (wasRemoved && !allowOwnerReentry) {
         return { ok: false, reason: "removed_by_owner" };
       }
 
@@ -458,7 +461,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
         _id: discussion._id,
         status: "open",
         memberUserIds: { $ne: userId },
-        ...(isOwner ? {} : { removedUserIds: { $ne: userId } }),
+        ...(isOwner || allowOwnerReentry ? {} : { removedUserIds: { $ne: userId } }),
         ...(isOwner
           ? {}
           : {
@@ -472,6 +475,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
       },
       {
         $addToSet: { memberUserIds: userId },
+        ...(allowOwnerReentry ? { $pull: { removedUserIds: userId } } : {}),
         $set: { updatedAt: new Date(), maxMembers },
       },
       { returnDocument: "after" },
@@ -481,7 +485,7 @@ async function joinOrOpenDiscussion(userId, discussionId, { allowActiveSwitch = 
       const latest = await Discussion.findById(discussion._id).lean();
       if (!latest) return { ok: false, reason: "missing_discussion" };
       if (latest.status !== "open") return { ok: false, reason: "discussion_closed" };
-      if (!isOwner && Array.isArray(latest.removedUserIds) && latest.removedUserIds.includes(userId)) {
+      if (!isOwner && !allowOwnerReentry && Array.isArray(latest.removedUserIds) && latest.removedUserIds.includes(userId)) {
         return { ok: false, reason: "removed_by_owner" };
       }
       if (latest.memberUserIds?.includes(userId)) {

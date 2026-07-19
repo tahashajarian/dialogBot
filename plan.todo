@@ -50,3 +50,4 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ after closing My Discussions, keep the visible Discussions reply-keyboard buttons responsive @done (7/19/2026)
 ✔ keep My Discussions tips consistent between empty and populated lists @done (7/19/2026)
 ✔ keep ordinary list messages instead of deleting them after join, open, close, save, or remove actions @done (7/19/2026)
+✔ let a removed discussion member rejoin only through a fresh owner invitation, replacing any older pending invite @done (7/19/2026)
