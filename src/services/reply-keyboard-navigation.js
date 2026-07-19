@@ -2,11 +2,11 @@ const messages = require("../messages");
 const { callBacks } = require("../constants");
 const { AGE_RANGES, getProfileAgeRange } = require("./profile-age");
 const { getOnboardingInterestsReplyActions, getProfileInterestsReplyActions } = require("../keyboards");
-const { getSectionEmoji, getSectionListLabel } = require("./ai-section");
+const { getDiscussionTasteLabelOptionText, getSectionEmoji, getSectionListLabel } = require("./ai-section");
 const { getSelectableDiscussionCapacities } = require("./discussion-capacities");
 const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
-const { getAiListItemsFromUser, updateProfileField } = require("./users");
+const { getAiListItemsFromUser, getAiTasteFromUser, updateProfileField } = require("./users");
 const { operationalLimits } = require("./operational-limits");
 
 const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
@@ -264,9 +264,16 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       );
     } else {
     const isEditState = state.endsWith("_edit") || mode === "discussion_create_capacity";
+    const itemMode = String(mode).match(/^discussion_create_item:(movies|music|books|random)$/);
+    const isTasteLabelsMode = mode === "discussion_create_taste_labels";
+    let discussionBackCallback = callBacks.discussionCreatePreview;
+    if (isEditState) discussionBackCallback = callBacks.discussionCreatePreview;
+    else if (itemMode) discussionBackCallback = callBacks.discussionCreateBackToSection;
+    else if (isTasteLabelsMode || mode === "discussion_create_section") discussionBackCallback = callBacks.discussionCreateBackToJoinRule;
+    else if (state === "discussion_create_join_rule") discussionBackCallback = callBacks.discussionCreateBackToTitle;
     entries.push(
       [isEditState ? "discussionCancelEdit" : "discussionCreateCancel", isEditState ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel],
-      ["discussionBack", state === "discussion_create_join_rule" ? callBacks.discussionCreateBackToTitle : callBacks.discussionCreatePreview],
+      ["discussionBack", discussionBackCallback],
     );
     if (state.includes("description")) entries.push(["discussionSkipDescription", callBacks.discussionCreateSkipDescription]);
     if (state.includes("join_rule")) entries.push(["discussionJoinRuleOpen", callBacks.discussionCreateRuleOpen], ["discussionJoinRuleTaste", callBacks.discussionCreateRuleTaste], ["discussionJoinRuleItem", callBacks.discussionCreateRuleItem]);
@@ -279,13 +286,16 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (mode === "discussion_create_language") entries.push([`🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`✓ 🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], [`✓ 🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], ["discussionBack", callBacks.discussionCreateLanguageBack]);
     if (mode === "discussion_create_capacity") for (const capacity of getSelectableDiscussionCapacities()) entries.push([formatCapacityOptionLabel(capacity, user?.lang || "fa"), `${callBacks.discussionCreateSetCapacity}${capacity}`], [`✅ ${formatCapacityOptionLabel(capacity, user?.lang || "fa")}`, `${callBacks.discussionCreateSetCapacity}${capacity}`]);
     if (mode === "discussion_create_section") entries.push(["aiSuggestMovies", `${callBacks.discussionCreateRuleSection}movies`], ["aiSuggestMusic", `${callBacks.discussionCreateRuleSection}music`], ["aiSuggestBooks", `${callBacks.discussionCreateRuleSection}books`], ["aiSuggestRandom", `${callBacks.discussionCreateRuleSection}random`], ["discussionBack", callBacks.discussionCreateBackToJoinRule]);
-    const tasteMode = String(mode).match(/^discussion_create_taste:(movies|music|books|random):(.+)$/);
-    if (tasteMode) {
-      const section = tasteMode[1]; const labelKey = tasteMode[2];
-      const { getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
-      entries.push([`${getTasteLabelEmoji(section, labelKey)} ${getTasteLabelTitle(messages, user?.lang || "fa", section, labelKey)}`, `${callBacks.discussionCreateSelectTaste}${section}:${labelKey}`], ["discussionBack", callBacks.discussionCreateBackToSection]);
+    if (isTasteLabelsMode) {
+      for (const section of ["movies", "music", "books"]) {
+        const labelKey = getAiTasteFromUser(user, section).labelKey;
+        if (!labelKey) continue;
+        entries.push([
+          getDiscussionTasteLabelOptionText(messages, user?.lang || "fa", section, labelKey),
+          `${callBacks.discussionCreateSelectTaste}${section}:${labelKey}`,
+        ]);
+      }
     }
-    const itemMode = String(mode).match(/^discussion_create_item:(movies|music|books|random)$/);
     if (itemMode) {
       const section = itemMode[1]; const items = user?.aiLists?.[section]?.topTen || [];
       items.slice(0, 10).forEach((entry, index) => entries.push([section === "random" ? localizeInterestChipTitleWithEmoji(entry.title, user?.lang || "fa") : entry.title, `${callBacks.discussionCreateSelectItem}${section}:${index}`]));

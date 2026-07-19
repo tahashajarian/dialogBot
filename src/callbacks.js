@@ -813,11 +813,11 @@ async function handleCallback(ctx) {
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
-    await ctx.reply(formatDiscussionLeftMessage(lang, left?.discussion), {
-      reply_markup: { remove_keyboard: true },
-    });
     await setNavigationMode(ctx, MODES.DISCUSSIONS);
-    return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+    return ctx.reply(
+      `${formatDiscussionLeftMessage(lang, left?.discussion)}\n\n${messages[lang].discussionsMenu}`,
+      discussionsMenuKeyboard(lang),
+    );
   }
 
   if (

@@ -121,7 +121,7 @@ test("invite button opens its picker only for the requesting member", async () =
   }
 });
 
-test("leaving a room sends confirmation and Discussions menu as separate messages", async () => {
+test("leaving a room atomically restores the Discussions menu keyboard", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   User.findOneAndUpdate = async () => ({});
@@ -139,11 +139,12 @@ test("leaving a room sends confirmation and Discussions menu as separate message
       discussion: { title: "گفت‌وگوی فیلم" },
     });
 
-    assert.equal(replies.length, 2);
-    assert.equal(replies[0].text, messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی فیلم"));
-    assert.equal(replies[0].keyboard.reply_markup.remove_keyboard, true);
-    assert.equal(replies[1].text, messages.fa.discussionsMenu);
-    assert.ok(replies[1].keyboard.reply_markup.keyboard.length > 1);
+    assert.equal(replies.length, 1);
+    assert.equal(
+      replies[0].text,
+      `${messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی فیلم")}\n\n${messages.fa.discussionsMenu}`,
+    );
+    assert.ok(replies[0].keyboard.reply_markup.keyboard.length > 1);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

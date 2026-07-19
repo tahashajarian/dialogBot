@@ -14,7 +14,7 @@ const {
   discussionPaidCapacityAckKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
-  discussionSelectTasteKeyboard,
+  discussionTasteLabelsKeyboard,
   discussionSelectItemKeyboard,
 } = require("../keyboards");
 const {
@@ -28,8 +28,6 @@ const { toPlainUser } = require("../services/profile");
 const { normalizeDiscussionLanguage } = require("../services/discussion-language");
 const {
   getSectionLabel,
-  getTasteLabelEmoji,
-  getTasteLabelTitle,
 } = require("../services/ai-section");
 const {
   getDiscussionErrorMessage,
@@ -93,11 +91,6 @@ function createStepBackButton(_messages, lang, callbackData) {
     text: messages[lang].discussionBack,
     callback_data: callbackData,
   };
-}
-
-function getNoEligibleTasteMessage(lang, section) {
-  return messages[lang].discussionRuleNoEligibleTaste
-    .replace("{section}", getSectionLabel(messages, lang, section));
 }
 
 function getNoEligibleItemMessage(lang, section) {
@@ -292,6 +285,31 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return ctx.reply(
       `${text}\n\n${messages[lang].discussionJoinRulePrompt}`,
       discussionJoinRuleKeyboard(lang, options),
+    );
+  };
+  const getEarnedTasteLabels = () => ["movies", "music", "books"]
+    .map((section) => ({ section, labelKey: getAiTasteFromUser(ctx.user, section).labelKey }))
+    .filter((entry) => entry.labelKey);
+  const showTasteLabelPicker = async () => {
+    const tasteLabels = getEarnedTasteLabels();
+    if (!tasteLabels.length) {
+      return pauseOnJoinRuleGuidance(messages[lang].discussionRuleNoBadgesAtAll);
+    }
+    const editMode = isEditingDiscussionRuleFromPreview(ctx);
+    const draftRule = { type: "taste_label" };
+    await updateProfileField(ctx.userId, "discussionDraftJoinRule", draftRule);
+    if (ctx.user) ctx.user.discussionDraftJoinRule = draftRule;
+    await setNavigationMode(ctx, "discussion_create_taste_labels");
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].discussionChooseTasteLabel,
+      discussionTasteLabelsKeyboard(lang, tasteLabels, {
+        cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
+        cancelText: editMode ? messages[lang].discussionCancelEdit : null,
+        backButton: editMode
+          ? createStepBackButton(messages, lang, callBacks.discussionCreatePreview)
+          : createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule),
+      }),
     );
   };
 
@@ -532,20 +550,12 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
   if (data === callBacks.discussionCreateRuleTaste || data === callBacks.discussionCreateRuleItem) {
     await ctx.answerCb?.();
     const type = data === callBacks.discussionCreateRuleTaste ? "taste_label" : "top_ten_item";
-    
-    // Check if user has ANY badges or items across all sections
-    const sections = type === "taste_label"
-      ? ["movies", "music", "books"]
-      : ["movies", "music", "books", "random"];
     if (type === "taste_label") {
-      const hasBadge = sections.some((section) => {
-        const taste = getAiTasteFromUser(ctx.user, section);
-        return taste?.labelKey;
-      });
-      if (!hasBadge) {
-        return pauseOnJoinRuleGuidance(messages[lang].discussionRuleNoBadgesAtAll);
-      }
-    } else if (type === "top_ten_item") {
+      return showTasteLabelPicker();
+    }
+
+    const sections = ["movies", "music", "books", "random"];
+    if (type === "top_ten_item") {
       const hasItem = sections.some((section) => {
         const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
         return topTen.length > 0;
@@ -562,7 +572,6 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       ctx,
       messages[lang].discussionChooseSection,
       discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
-        includeInterests: type !== "taste_label",
         cancelCallback: editMode ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
         cancelText: editMode ? messages[lang].discussionCancelEdit : null,
         backButton: editMode
@@ -589,7 +598,6 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       ctx,
       messages[lang].discussionChooseSection,
       discussionSectionKeyboard(lang, callBacks.discussionCreateRuleSection, {
-        includeInterests: ctx.user?.discussionDraftJoinRule?.type !== "taste_label",
         cancelCallback: callBacks.discussionCreateCancel,
         cancelText: messages[lang].discussionCreateCancel,
         backButton: createStepBackButton(messages, lang, callBacks.discussionCreateBackToJoinRule),
@@ -602,36 +610,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     const section = data.replace(callBacks.discussionCreateRuleSection, "");
     const baseRule = ctx.user?.discussionDraftJoinRule || {};
     const nextRule = { ...baseRule, section };
-    if (baseRule.type === "taste_label") {
-      if (section === "random") return ctx.reply(messages[lang].unknownAction);
-      const taste = getAiTasteFromUser(ctx.user, section);
-      if (!taste?.labelKey) {
-        return pauseOnJoinRuleGuidance(getNoEligibleTasteMessage(lang, section));
-      }
-      const finalizedRule = { ...nextRule, tasteLabelKey: taste.labelKey };
-      await updateProfileField(ctx.userId, "discussionDraftJoinRule", finalizedRule);
-      if (isEditingDiscussionRuleFromPreview(ctx)) {
-        await updateUserState(ctx.userId, "discussion_create_preview");
-        return editCallbackMessageOrReply(
-          ctx,
-          buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: finalizedRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
-        );
-      }
-      await setNavigationMode(ctx, `discussion_create_taste:${section}:${taste.labelKey}`);
-      return editCallbackMessageOrReply(
-        ctx,
-        messages[lang].discussionChooseTasteLabel.replace("{section}", getSectionLabel(messages, lang, section)),
-        discussionSelectTasteKeyboard(lang, section, taste.labelKey, {
-          tasteLabelTitle: `${getTasteLabelEmoji(section, taste.labelKey)} ${getTasteLabelTitle(messages, lang, section, taste.labelKey)}`,
-          cancelCallback: isEditingDiscussionRuleFromPreview(ctx) ? callBacks.discussionCreateCancelEdit : callBacks.discussionCreateCancel,
-          cancelText: isEditingDiscussionRuleFromPreview(ctx) ? messages[lang].discussionCancelEdit : null,
-          backButton: isEditingDiscussionRuleFromPreview(ctx)
-            ? createStepBackButton(messages, lang, callBacks.discussionCreatePreview)
-            : createStepBackButton(messages, lang, callBacks.discussionCreateBackToSection),
-        }),
-      );
-    }
+    if (baseRule.type === "taste_label") return showTasteLabelPicker();
 
     if (baseRule.type === "top_ten_item") {
       const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
@@ -677,9 +656,12 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.discussionCreateSelectTaste, "");
     const [section = "", tasteLabelKey = ""] = payload.split(":");
-    if (section === "random") return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    const currentTaste = getAiTasteFromUser(ctx.user, section);
+    if (!currentTaste.labelKey || currentTaste.labelKey !== tasteLabelKey) {
+      return showTasteLabelPicker();
+    }
     const nextRule = {
-      ...(ctx.user?.discussionDraftJoinRule || {}),
       type: "taste_label",
       section,
       tasteLabelKey,

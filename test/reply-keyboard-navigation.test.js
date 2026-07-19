@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const { MODES, isKnownProfileNavigationLabel, normalizeReplyButtonText, resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
+const { getDiscussionTasteLabelOptionText } = require("../src/services/ai-section");
 
 test("global reply navigation resolves both languages with Telegram direction marks", () => {
   for (const lang of ["fa", "en"]) {
@@ -719,6 +720,15 @@ test("discussion create and paid-capacity buttons are bound to their exact serve
   const ruleEdit = { mode: "discussion_create", state: "discussion_create_join_rule_edit", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionCancelEdit, ruleEdit).callbackData, callBacks.discussionCreateCancelEdit);
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateCancel, ruleEdit), null);
+  const tasteLabelText = getDiscussionTasteLabelOptionText(messages, "en", "movies", "cinephile");
+  const tasteLabels = {
+    mode: "discussion_create_taste_labels",
+    state: "discussion_create_join_rule",
+    user: { lang: "en", aiTaste: { movies: { labelKey: "cinephile" } } },
+  };
+  assert.equal(resolveReplyKeyboardAction(tasteLabelText, tasteLabels).callbackData, `${callBacks.discussionCreateSelectTaste}movies:cinephile`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionBack, tasteLabels).callbackData, callBacks.discussionCreateBackToJoinRule);
+  assert.equal(resolveReplyKeyboardAction(tasteLabelText, rule), null);
   const capacityEdit = { mode: "discussion_create_capacity", state: "discussion_create_preview", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionCancelEdit, capacityEdit).callbackData, callBacks.discussionCreateCancelEdit);
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreateCancel, capacityEdit), null);

@@ -138,7 +138,7 @@ Only the discussion owner can close a discussion. Regular members must not see t
 The owner can leave their own discussion without closing it. The discussion stays open, the owner remains `creatorUserId`, and other members can continue talking. The owner can later find the discussion in `🗂 گفت‌وگوهای من`, rejoin it, or close it.
 All current members can use the exact bottom button `📨 دعوت` to open invite options for the active discussion. The invite picker is shown privately only to the member who pressed it and is never sent to other room members. Every active-room control requires its exact icon-prefixed keyboard label; manually typed words or phrases such as `دعوت` / `invite`, `اعضا` / `members`, leave, close, boost, or discussion menu remain normal room messages and cannot open those controls. Members can create a shareable invite message or send a stored invitation to a saved profile. This is not a private-room feature; it only helps users bring others to the existing discussion preview.
 
-There is no separate room-level discussion-menu/back button. `🚪 خروج از گفت‌وگو` is the explicit way to leave the room; after leaving, the bot removes the room keyboard and shows the discussions menu.
+There is no separate room-level discussion-menu/back button. `🚪 خروج از گفت‌وگو` is the explicit way to leave the room; after leaving, one confirmation response atomically replaces the room keyboard with the discussions menu keyboard so a failed follow-up send cannot strand the user.
 
 Important distinction:
 
@@ -156,7 +156,7 @@ Flow:
 
 1. Ask for title.
 2. Ask who can join.
-3. If the rule is taste label, show the creator's existing Movies, Music, and Books labels and verify selection. Profile Interests never generate or appear as labels.
+3. If the rule is taste label, skip section selection and show the creator's existing Movies, Music, and Books labels together in one picker; each row names both its section and label. If none exist, explain that completing 10 Favorites in any media section is required. Profile Interests never generate or appear as labels.
 4. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
 5. Ask for description last.
 6. If the rule is open, require a description before preview.

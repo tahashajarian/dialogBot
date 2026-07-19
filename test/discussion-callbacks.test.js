@@ -28,7 +28,7 @@ const {
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
   discussionCreateLanguagePickerKeyboard,
-  discussionSectionKeyboard,
+  discussionTasteLabelsKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
 } = require("../src/keyboards");
@@ -928,19 +928,60 @@ test("discussion creation language picker supports set and non-destructive back"
   assert.equal(isDiscussionCreateFlowCallback(callBacks.discussionCreateLanguageBack), true);
 });
 
-test("taste-label discussion rules exclude Interests while item rules retain them", () => {
-  const mediaOnly = discussionSectionKeyboard("en", "rule:", { includeInterests: false });
-  const withInterests = discussionSectionKeyboard("en", "rule:");
-  const mediaLabels = mediaOnly.reply_markup.keyboard.flat().map((button) => button.text);
-  const itemLabels = withInterests.reply_markup.keyboard.flat().map((button) => button.text);
+test("taste-label discussion rules show earned media labels directly", () => {
+  const keyboard = discussionTasteLabelsKeyboard("en", [
+    { section: "movies", labelKey: "cinephile" },
+    { section: "books", labelKey: "novel_reader" },
+  ]);
+  const buttons = keyboard.reply_markup.keyboard.flat();
 
-  assert.ok(!mediaLabels.includes(messages.en.aiSuggestRandom));
-  assert.ok(itemLabels.includes(messages.en.aiSuggestRandom));
+  assert.equal(buttons[0].text, "🎬 Movies · 🎞️ Cinephile");
+  assert.equal(buttons[1].text, "📚 Books · 📖 Novel Reader");
+  assert.ok(!buttons.some((button) => button.text === messages.en.aiSuggestRandom));
   assert.equal(validateJoinRulePayload({
     type: "taste_label",
     section: "random",
     tasteLabelKey: "gamer",
   }).reason, "invalid_section");
+});
+
+test("choosing a taste-label join rule skips the section picker", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const cards = [];
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    const ctx = {
+      callbackData: callBacks.discussionCreateRuleTaste,
+      callbackMessageId: 88,
+      userId: 10,
+      user: {
+        state: "discussion_create_join_rule",
+        lang: "en",
+        aiTaste: {
+          movies: { labelKey: "cinephile" },
+          books: { labelKey: "novel_reader" },
+        },
+      },
+      answerCb: async () => true,
+      reply: async () => {
+        throw new Error("earned labels should replace the current wizard card");
+      },
+    };
+    await handleDiscussionCreateCallback(ctx, "en", {
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => cards.push({ text, keyboard }),
+    });
+
+    assert.equal(cards.length, 1);
+    assert.equal(cards[0].text, messages.en.discussionChooseTasteLabel);
+    assert.deepEqual(
+      cards[0].keyboard.reply_markup.keyboard.slice(0, 2).flat().map((button) => button.text),
+      ["🎬 Movies · 🎞️ Cinephile", "📚 Books · 📖 Novel Reader"],
+    );
+    assert.equal(ctx.user.discussionDraftJoinRule.type, "taste_label");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("discussion create guidance has no inline acknowledgement and restores join-rule buttons", async () => {

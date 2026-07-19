@@ -54,7 +54,7 @@ const {
   discussionPaidCapacityAckKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
-  discussionSelectTasteKeyboard,
+  discussionTasteLabelsKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMemberConfirmKeyboard,
 } = discussionKeyboards;
@@ -1348,7 +1348,7 @@ module.exports = {
   discussionPaidCapacityAckKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
-  discussionSelectTasteKeyboard,
+  discussionTasteLabelsKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMemberConfirmKeyboard,
   profileViewBackKeyboard,

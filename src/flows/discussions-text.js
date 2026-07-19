@@ -161,11 +161,10 @@ function formatDiscussionClosedMessage(lang, discussion = {}) {
   );
 }
 
-async function replyWithDiscussionMenu(ctx, lang, text, { removeKeyboard = false } = {}) {
-  await ctx.reply(text, removeKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined);
+async function replyWithDiscussionMenu(ctx, lang, text) {
   await updateProfileField(ctx.userId, "navigationMode", "discussions");
   if (ctx.user) ctx.user.navigationMode = "discussions";
-  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  return ctx.reply(`${text}\n\n${messages[lang].discussionsMenu}`, discussionsMenuKeyboard(lang));
 }
 
 async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
@@ -180,12 +179,10 @@ async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
     updateProfileField(ctx.userId, "navigationMode", "discussions"),
   ]);
   if (ctx.user) ctx.user.navigationMode = "discussions";
-  if (left?.ok && left.discussion) {
-    await ctx.reply(formatDiscussionLeftMessage(lang, left.discussion), {
-      reply_markup: { remove_keyboard: true },
-    });
-  }
-  return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
+  const notice = left?.ok && left.discussion
+    ? formatDiscussionLeftMessage(lang, left.discussion)
+    : messages[lang].discussionReturnedToMenu;
+  return ctx.reply(`${notice}\n\n${messages[lang].discussionsMenu}`, discussionsMenuKeyboard(lang));
 }
 
 function normalizeProfileCodeFromActionCommand(value) {
@@ -726,7 +723,7 @@ async function leaveDiscussionCommand(ctx, lang, code) {
   }
   await clearDiscussionMembersMessage(ctx);
   await clearRememberedDiscussionListMessage(ctx);
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussion), { removeKeyboard: true });
+  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussion));
 }
 
 async function closeDiscussionCommand(ctx, lang, code) {
@@ -799,7 +796,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     }
     const opened = await joinOrOpenDiscussion(ctx.userId, parsed.discussionId || String(ctx.user?.activeDiscussionId || ""));
     if (!opened.ok) {
-      return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu, { removeKeyboard: true });
+      return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionReturnedToMenu);
     }
     return ctx.reply(
       messages[lang].discussionCloseCanceled,
@@ -814,13 +811,13 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
   const discussionId = parsed.discussionId || String(ctx.user?.activeDiscussionId || "");
   if (!discussionId) {
     await updateUserState(ctx.userId, "idle");
-    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionNotMember, { removeKeyboard: true });
+    return replyWithDiscussionMenu(ctx, lang, messages[lang].discussionNotMember);
   }
 
   const closed = await closeDiscussionAndNotify({ ctx, messages, discussionId, discussionsMenuKeyboard });
   if (!closed.ok) {
     await updateUserState(ctx.userId, "idle");
-    return replyWithDiscussionMenu(ctx, lang, getDiscussionErrorMessage(messages, lang, closed.reason), { removeKeyboard: true });
+    return replyWithDiscussionMenu(ctx, lang, getDiscussionErrorMessage(messages, lang, closed.reason));
   }
   if (parsed.messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(parsed.messageId);
@@ -855,7 +852,7 @@ async function closeDiscussionFromTextConfirmation({ ctx, lang, parsed }) {
     return sendRememberedDiscussionList(ctx, lang, sourceListType);
   }
 
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussion), { removeKeyboard: true });
+  return replyWithDiscussionMenu(ctx, lang, formatDiscussionClosedMessage(lang, closed.discussion));
 }
 
 module.exports = {

@@ -148,6 +148,10 @@ function getTasteLabelTitle(messages, lang, section, labelKey) {
   return messages[lang]?.aiTasteLabelTitleFallback || "Taste Explorer";
 }
 
+function getDiscussionTasteLabelOptionText(messages, lang, section, labelKey) {
+  return `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)} · ${getTasteLabelEmoji(section, labelKey)} ${getTasteLabelTitle(messages, lang, section, labelKey)}`;
+}
+
 function getTasteLabelStyleHint(messages, lang, section, labelKey) {
   const key = `aiTasteLabelStyle_${section}_${labelKey}`;
   if (messages?.[lang]?.[key]) {
@@ -165,5 +169,6 @@ module.exports = {
   getSectionMessage,
   getTasteLabelEmoji,
   getTasteLabelTitle,
+  getDiscussionTasteLabelOptionText,
   getTasteLabelStyleHint,
 };

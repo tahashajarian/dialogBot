@@ -8,6 +8,7 @@ const {
   getSelectableDiscussionCapacities,
 } = require("../services/discussion-capacities");
 const { formatStarNumber } = require("../services/stars-ui");
+const { getDiscussionTasteLabelOptionText } = require("../services/ai-section");
 
 function inlineKeyboard(rows) {
   return {
@@ -420,16 +421,13 @@ function discussionSectionKeyboard(lang, prefix, {
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
   backButton = null,
-  includeInterests = true,
 } = {}) {
   const rows = [
     [{ text: messages[lang].aiSuggestMovies, callback_data: `${prefix}movies` }],
     [{ text: messages[lang].aiSuggestMusic, callback_data: `${prefix}music` }],
     [{ text: messages[lang].aiSuggestBooks, callback_data: `${prefix}books` }],
+    [{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }],
   ];
-  if (includeInterests) {
-    rows.push([{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }]);
-  }
   if (backButton?.text && backButton?.callback_data) {
     rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
   }
@@ -546,18 +544,15 @@ function discussionExtraSlotAckKeyboard(lang) {
   ]]);
 }
 
-function discussionSelectTasteKeyboard(lang, section, tasteLabelKey, {
-  tasteLabelTitle = "",
+function discussionTasteLabelsKeyboard(lang, tasteLabels = [], {
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
   backButton = null,
 } = {}) {
-  const tasteButtonText = tasteLabelTitle
-    ? tasteLabelTitle
-    : messages[lang].discussionCreateSelectCurrentTaste;
-  const rows = [
-    [{ text: tasteButtonText, callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${tasteLabelKey}` }],
-  ];
+  const rows = tasteLabels.map(({ section, labelKey }) => ([{
+    text: getDiscussionTasteLabelOptionText(messages, lang, section, labelKey),
+    callback_data: `${callBacks.discussionCreateSelectTaste}${section}:${labelKey}`,
+  }]));
   if (backButton?.text && backButton?.callback_data) {
     rows.push([{ text: backButton.text, callback_data: backButton.callback_data }]);
   }
@@ -629,7 +624,7 @@ module.exports = {
   discussionPaidCapacityAckKeyboard,
   discussionExtraSlotConfirmKeyboard,
   discussionExtraSlotAckKeyboard,
-  discussionSelectTasteKeyboard,
+  discussionTasteLabelsKeyboard,
   discussionSelectItemKeyboard,
   discussionRemoveMemberConfirmKeyboard,
 };
