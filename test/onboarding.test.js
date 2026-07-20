@@ -452,12 +452,12 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /Watch Later/);
   assert.match(messages.fa.helpText, /۳ محبوب/);
   assert.match(messages.en.helpText, /Three favorites/);
-  assert.match(messages.fa.helpText, /👥 آدم‌ها/);
-  assert.match(messages.fa.helpText, /محبوب‌های مشترک/);
-  assert.match(messages.fa.helpText, /بعداً دعوتشون کن/);
-  assert.match(messages.en.helpText, /👥 People/);
-  assert.match(messages.en.helpText, /people with shared favorites/);
-  assert.match(messages.en.helpText, /invite them later/i);
+  assert.match(messages.fa.helpText, /👥 آدم‌ها و ذخیره‌شده‌ها/);
+  assert.match(messages.fa.helpText, /دیدن آدم‌ها.*اعضای گفت‌وگو/);
+  assert.match(messages.fa.helpText, /به گفت‌وگوهای نمایشی‌شون بپیوند.*دعوتشون کن/);
+  assert.match(messages.en.helpText, /👥 People & Saved/);
+  assert.match(messages.en.helpText, /See People or discussion member lists/);
+  assert.match(messages.en.helpText, /join discussions they show.*invite them directly/i);
   assert.match(messages.fa.helpText, /تنظیمات بیشتر ← حریم خصوصی و امنیت ← حذف حساب/);
   assert.match(messages.en.helpText, /More settings → Privacy & safety → Delete account/);
   assert.ok(messages.fa.helpText.length < 950);
