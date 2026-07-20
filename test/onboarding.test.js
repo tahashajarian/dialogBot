@@ -454,7 +454,7 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /Three favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها و ذخیره‌شده‌ها/);
   assert.match(messages.fa.helpText, /دیدن آدم‌ها.*اعضای گفت‌وگو/);
-  assert.match(messages.fa.helpText, /به گفت‌وگوهای نمایشی‌شون بپیوند.*دعوتشون کن/);
+  assert.match(messages.fa.helpText, /گفت‌وگوهاشون رو ببینی و بهشون بپیوندی.*دعوتشون کنی/);
   assert.match(messages.en.helpText, /👥 People & Saved/);
   assert.match(messages.en.helpText, /See People or discussion member lists/);
   assert.match(messages.en.helpText, /join discussions they show.*invite them directly/i);
