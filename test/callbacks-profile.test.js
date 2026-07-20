@@ -16,6 +16,7 @@ const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
+const { starEconomy } = require("../src/services/star-settings");
 
 const keyboardButtons = (extra) => (
   extra?.reply_markup?.keyboard || extra?.reply_markup?.inline_keyboard || []
@@ -799,8 +800,10 @@ test("main Profile reply buttons also preserve remembered cards", async () => {
 
 test("saving a More Settings choice stays in More Settings", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const previousPetEnabled = starEconomy.profilePetPreferenceEnabled;
   const replies = [];
   User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+  starEconomy.profilePetPreferenceEnabled = true;
 
   const ctx = {
     callbackData: `${callBacks.profilePetSet}cat`,
@@ -830,6 +833,7 @@ test("saving a More Settings choice stays in More Settings", async () => {
     await handleCallback(ctx);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    starEconomy.profilePetPreferenceEnabled = previousPetEnabled;
   }
 
   assert.equal(ctx.user.navigationMode, "profile_settings");

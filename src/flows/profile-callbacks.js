@@ -25,6 +25,7 @@ const {
 } = require("../keyboards");
 const { deleteAccount } = require("../services/account-deletion");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { starEconomy } = require("../services/star-settings");
 const {
   addAiListItem,
   getAiListItemsFromUser,
@@ -537,6 +538,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
+    if (!starEconomy.profilePetPreferenceEnabled) {
+      await retireCallbackMessageIfPossible?.(ctx);
+      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    }
     await setNavigationMode(ctx, "profile_pet");
     return beginProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang), { retireCallbackMessageIfPossible });
   }
@@ -627,6 +632,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEditLocation) {
     await ctx.answerCb?.();
+    if (!starEconomy.profileLocationEnabled) {
+      await retireCallbackMessageIfPossible?.(ctx);
+      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    }
     return beginProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
@@ -651,6 +660,14 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
+    if (!starEconomy.profilePetPreferenceEnabled) {
+      await ctx.answerCb?.();
+      await retireCallbackMessageIfPossible?.(ctx);
+      await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
+      await updateUserState(ctx.userId, "idle");
+      if (ctx.user) ctx.user.state = "idle";
+      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    }
     const petPreference = data.replace(callBacks.profilePetSet, "");
     const allowedPetPreferences = new Set(["any", "none", "cat", "dog", "bird", "small_pets"]);
 

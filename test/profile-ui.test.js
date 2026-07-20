@@ -6,6 +6,7 @@ const axios = require("axios");
 const messages = require("../src/messages");
 const User = require("../src/models/user");
 const { botAppearance, FIXED_RESERVED_EMOJIS } = require("../src/services/bot-appearance");
+const { starEconomy } = require("../src/services/star-settings");
 const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/services/profile-emoji");
 const {
   profileKeyboard,
@@ -77,9 +78,9 @@ test("buildProfileText shows one private growth hint only on own profile", () =>
   const ownText = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
 
-  assert.match(ownText, /Next: add 2 more Interests/);
-  assert.match(ownText, /\n\n💡 Next: add 2 more Interests[^\n]*$/);
-  assert.doesNotMatch(publicText, /Next:/);
+  assert.match(ownText, /Add 2 more Interests/);
+  assert.match(ownText, /\n\n💡 Add 2 more Interests[^\n]*$/);
+  assert.doesNotMatch(publicText, /Add 2 more Interests/);
 });
 
 test("Persian own-profile growth hint is a separated footer without extra wording", () => {
@@ -92,9 +93,27 @@ test("Persian own-profile growth hint is a separated footer without extra wordin
   const ownText = buildProfileText(profileUser, "fa", messages, { isOwnProfile: true });
   const publicText = buildProfileText(profileUser, "fa", messages, { isOwnProfile: false });
 
-  assert.match(ownText, /\n\n‏💡 قدم بعدی: ۳ علاقه‌مندی اضافه کن تا پروفایلت دقیق‌تر بشه\.$/);
-  assert.doesNotMatch(ownText, /دیگه/);
-  assert.doesNotMatch(publicText, /قدم بعدی/);
+  assert.match(ownText, /\n\n‏💡 ۳ علاقه‌مندی دیگه اضافه کن تا پروفایلت دقیق‌تر بشه\.$/);
+  assert.doesNotMatch(ownText, /قدم بعدی/);
+  assert.doesNotMatch(publicText, /علاقه‌مندی دیگه/);
+});
+
+test("profile growth hints name one concrete missing field", () => {
+  const threeItems = [{ title: "One" }, { title: "Two" }, { title: "Three" }];
+  const profileUser = {
+    firstName: "Ali",
+    profileName: "Ali",
+    bio: "Books and music",
+    aiLists: {
+      random: { topTen: threeItems },
+      movies: { topTen: threeItems },
+      music: { topTen: threeItems },
+      books: { topTen: threeItems },
+    },
+  };
+  const text = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
+  assert.match(text, /Add your city to make your profile more useful/);
+  assert.doesNotMatch(text, /more profile fields|Next:/);
 });
 
 test("buildProfileText uses public title when viewing someone else", () => {
@@ -487,20 +506,30 @@ test("profile settings separates ordinary details from privacy controls", () => 
   const rows = keyboard?.reply_markup?.keyboard || [];
   const buttons = rows.flat();
   const labels = buttons.map((button) => button.text);
-  const bioPetRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
+  const bioRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
 
   assert.ok(labels.includes(messages.en.profileEditBio));
   assert.ok(!labels.includes(messages.en.profileEditGender));
-  assert.ok(labels.includes(messages.en.profileEditPetPreference));
-  assert.ok(labels.includes(messages.en.profileEditLocation));
+  assert.ok(!labels.includes(messages.en.profileEditPetPreference));
+  assert.ok(!labels.includes(messages.en.profileEditLocation));
   assert.ok(!labels.includes(messages.en.profileHideActiveDiscussion));
   assert.ok(!labels.includes(messages.en.accountDeleteButton));
   assert.ok(labels.includes(messages.en.profileEmojiButton));
   assert.ok(labels.includes(messages.en.profilePrivacySafetyButton));
   assert.ok(labels.includes(messages.en.profileBackToProfile));
-  assert.deepEqual(bioPetRow.map((button) => button.text), [messages.en.profileEditBio, messages.en.profileEditPetPreference]);
+  assert.deepEqual(bioRow.map((button) => button.text), [messages.en.profileEditBio]);
 
-  const locationEmojiRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
+  const enabledKeyboard = profileSettingsKeyboard("en", {
+    petPreferenceEnabled: true,
+    locationEnabled: true,
+  });
+  const enabledLabels = enabledKeyboard
+    .reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(enabledLabels.includes(messages.en.profileEditPetPreference));
+  assert.ok(enabledLabels.includes(messages.en.profileEditLocation));
+
+  const locationEmojiRow = enabledKeyboard.reply_markup.keyboard
+    .find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
   assert.deepEqual(locationEmojiRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileEmojiButton]);
 
   const privacy = profilePrivacySafetyKeyboard("en", {
@@ -522,6 +551,35 @@ test("profile settings separates ordinary details from privacy controls", () => 
     messages.en.profileHideFromPeopleDiscovery,
     messages.en.profileHideActiveDiscussion,
   ]);
+});
+
+test("Pet stays hidden on profiles unless the dashboard switch is enabled", () => {
+  const previous = starEconomy.profilePetPreferenceEnabled;
+  const profileUser = { profileName: "Ali", petPreference: "cat" };
+  try {
+    starEconomy.profilePetPreferenceEnabled = false;
+    assert.doesNotMatch(buildProfileText(profileUser, "en", messages), /Pet:/);
+    starEconomy.profilePetPreferenceEnabled = true;
+    assert.match(buildProfileText(profileUser, "en", messages), /Pet:.*Cat/);
+  } finally {
+    starEconomy.profilePetPreferenceEnabled = previous;
+  }
+});
+
+test("Location stays hidden on profiles unless the dashboard switch is enabled", () => {
+  const previous = starEconomy.profileLocationEnabled;
+  const profileUser = {
+    profileName: "Ali",
+    location: { latitude: 35.6892, longitude: 51.389, city: "Tehran" },
+  };
+  try {
+    starEconomy.profileLocationEnabled = false;
+    assert.doesNotMatch(buildProfileText(profileUser, "en", messages), /Location:/);
+    starEconomy.profileLocationEnabled = true;
+    assert.match(buildProfileText(profileUser, "en", messages), /Location:.*Tehran/);
+  } finally {
+    starEconomy.profileLocationEnabled = previous;
+  }
 });
 
 test("invitation restriction list keeps only pagination and Close inline", () => {
@@ -546,8 +604,10 @@ test("invitation restriction rows put count in the title and use command actions
 
 test("canceling location sharing returns to Profile Settings", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const previousLocationEnabled = starEconomy.profileLocationEnabled;
   const replies = [];
   User.findOneAndUpdate = async () => ({});
+  starEconomy.profileLocationEnabled = true;
 
   try {
     const ctx = {
@@ -578,15 +638,18 @@ test("canceling location sharing returns to Profile Settings", async () => {
     assert.equal(labels.includes(messages.en.cancel), false);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    starEconomy.profileLocationEnabled = previousLocationEnabled;
   }
 });
 
 test("sharing a location returns to Profile Settings", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalAxiosGet = axios.get;
+  const previousLocationEnabled = starEconomy.profileLocationEnabled;
   const replies = [];
   User.findOneAndUpdate = async () => ({});
   axios.get = async () => ({ data: { address: { city: "Tehran" } } });
+  starEconomy.profileLocationEnabled = true;
 
   try {
     const ctx = {
@@ -621,6 +684,7 @@ test("sharing a location returns to Profile Settings", async () => {
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
     axios.get = originalAxiosGet;
+    starEconomy.profileLocationEnabled = previousLocationEnabled;
   }
 });
 

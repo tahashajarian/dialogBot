@@ -838,14 +838,19 @@ function profileKeyboard(lang, hasPhoto = false) {
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function profileSettingsKeyboard(lang) {
+function profileSettingsKeyboard(lang, {
+  petPreferenceEnabled = starEconomy.profilePetPreferenceEnabled,
+  locationEnabled = starEconomy.profileLocationEnabled,
+} = {}) {
   return { reply_markup: { keyboard: [
+    petPreferenceEnabled
+      ? [
+        { text: messages[lang].profileEditBio },
+        { text: messages[lang].profileEditPetPreference },
+      ]
+      : [{ text: messages[lang].profileEditBio }],
     [
-      { text: messages[lang].profileEditBio },
-      { text: messages[lang].profileEditPetPreference },
-    ],
-    [
-      { text: messages[lang].profileEditLocation },
+      ...(locationEnabled ? [{ text: messages[lang].profileEditLocation }] : []),
       { text: messages[lang].profileEmojiButton },
     ],
     [{ text: messages[lang].profilePrivacySafetyButton }],

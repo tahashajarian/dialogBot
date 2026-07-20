@@ -13,7 +13,7 @@ function getProfileStarCompletionStatus(user = {}) {
     hasText(user.city),
     Number.isFinite(Number(user.age)) && Number(user.age) > 0,
     ["female", "male", "other"].includes(user.gender),
-    hasText(user.petPreference),
+    starEconomy.profilePetPreferenceEnabled && hasText(user.petPreference),
     hasText(user.photoFileId),
   ];
   const optionalCompleted = optionalFields.filter(Boolean).length;

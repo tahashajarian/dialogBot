@@ -19,6 +19,7 @@ const {
   updateUserState,
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
+const { starEconomy } = require("../services/star-settings");
 const { isKnownProfileNavigationLabel, MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { resolveCityByCoordinates } = require("../services/location");
 const {
@@ -134,6 +135,14 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
 }
 
 async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboardLang }) {
+  if (state === "editing_location" && !starEconomy.profileLocationEnabled) {
+    await updateUserState(ctx.userId, "idle");
+    await clearProfileEditPrompt(ctx);
+    const updatedUser = toPlainUser(ctx.user);
+    updatedUser.state = "idle";
+    return sendProfileSettings(ctx, updatedUser, lang);
+  }
+
   if (state === "editing_name" && text) {
     if (text.startsWith("/")) {
       return sendProfileEditPrompt(ctx, messages[lang].profileEditHintName, cancelEditKeyboard(lang));
@@ -248,6 +257,13 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
   }
 
   if (state === "editing_pet_preference") {
+    if (!starEconomy.profilePetPreferenceEnabled) {
+      await updateUserState(ctx.userId, "idle");
+      await clearProfileEditPrompt(ctx);
+      const updatedUser = toPlainUser(ctx.user);
+      updatedUser.state = "idle";
+      return sendProfileSettings(ctx, updatedUser, lang);
+    }
     return sendProfileEditPrompt(ctx, messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
   }
 

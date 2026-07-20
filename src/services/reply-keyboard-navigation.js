@@ -8,6 +8,7 @@ const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { getAiListItemsFromUser, getAiTasteFromUser, updateProfileField } = require("./users");
 const { operationalLimits } = require("./operational-limits");
+const { starEconomy } = require("./star-settings");
 
 const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
 
@@ -138,7 +139,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const validAiListCompletionState = aiListCompletionMatch && state === `ai_manage_${aiListCompletionMatch[1]}_top_ten`;
   const validAiListFilterState = aiListFilterMatch && state === `ai_manage_${aiListFilterMatch[1]}_watchlist`;
   const ageMode = mode === "profile_age" || /^profile_age_range:\d+$/.test(String(mode));
-  const profilePickerState = (mode === "profile_gender" && state === "editing_gender") || (mode === "profile_pet" && state === "editing_pet_preference");
+  const profilePickerState = (mode === "profile_gender" && state === "editing_gender") || (
+    starEconomy.profilePetPreferenceEnabled && mode === "profile_pet" && state === "editing_pet_preference"
+  );
   const profileEmojiSettingsState = mode === MODES.PROFILE_SETTINGS && state === "editing_profile_emoji";
   const interestMode = String(mode).match(/^profile_interests:(\d+)$/);
   const validAiShareState = aiShareMatch && state === `ai_manage_${aiShareMatch[1]}_${aiShareMatch[2] === "topTen" ? "top_ten" : "watchlist"}`;
@@ -358,7 +361,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     entries.push(["🔙", callBacks.profileAgeRangeBack], ["cancelEdit", callBacks.profileCancelEdit]);
   }
   if (mode === "profile_gender") entries.push(["genderOptionFemaleButton", `${callBacks.profileGenderSet}female`], ["genderOptionMaleButton", `${callBacks.profileGenderSet}male`], ["genderOptionOtherButton", `${callBacks.profileGenderSet}other`], ["cancelEdit", callBacks.profileCancelEdit]);
-  if (mode === "profile_pet") entries.push(["petOptionAnyButton", `${callBacks.profilePetSet}any`], ["petOptionNoneButton", `${callBacks.profilePetSet}none`], ["petOptionCatButton", `${callBacks.profilePetSet}cat`], ["petOptionDogButton", `${callBacks.profilePetSet}dog`], ["petOptionBirdButton", `${callBacks.profilePetSet}bird`], ["petOptionSmallPetsButton", `${callBacks.profilePetSet}small_pets`], ["cancelEdit", callBacks.profileCancelEdit]);
+  if (starEconomy.profilePetPreferenceEnabled && mode === "profile_pet") entries.push(["petOptionAnyButton", `${callBacks.profilePetSet}any`], ["petOptionNoneButton", `${callBacks.profilePetSet}none`], ["petOptionCatButton", `${callBacks.profilePetSet}cat`], ["petOptionDogButton", `${callBacks.profilePetSet}dog`], ["petOptionBirdButton", `${callBacks.profilePetSet}bird`], ["petOptionSmallPetsButton", `${callBacks.profilePetSet}small_pets`], ["cancelEdit", callBacks.profileCancelEdit]);
   if (interestMode) {
     const selected = user?.aiLists?.random?.topTen || [];
     for (const row of getProfileInterestsReplyActions(user?.lang || "fa", selected, Number(interestMode[1]))) {
@@ -416,6 +419,8 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   // still-active bottom keyboard underneath them.
   for (const [key, callbackData] of entries) {
     if (key === "advancedSearchButton" && !advancedSearchEnabled) continue;
+    if (key === "profileEditPetPreference" && !starEconomy.profilePetPreferenceEnabled) continue;
+    if (key === "profileEditLocation" && !starEconomy.profileLocationEnabled) continue;
     const currentLang = messages[user?.lang] ? user.lang : "";
     const localizedValue = currentLang ? normalizeReplyButtonText(messages[currentLang][key]) : "";
     const variants = localizedValue ? [localizedValue] : labels(key);

@@ -41,6 +41,12 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   advancedSearchPurchaseEnabled: {
     label: "Advanced Search purchase", description: "Reserved for the future reviewed filter product.", group: "Rollout", type: "boolean", default: false,
   },
+  profilePetPreferenceEnabled: {
+    label: "Profile pet preference", description: "Show and allow editing the optional Pet field on profiles.", group: "Rollout", type: "boolean", default: false,
+  },
+  profileLocationEnabled: {
+    label: "Profile location sharing", description: "Show and allow editing the optional exact Location field on profiles.", group: "Rollout", type: "boolean", default: false,
+  },
 
   rewardFirstThreePerSection: {
     label: "First TopTen milestone reward", description: "Stars awarded once per section at the first TopTen milestone.", group: "Rewards", type: "number", unit: "Stars", default: 3, min: 0, max: 1000,

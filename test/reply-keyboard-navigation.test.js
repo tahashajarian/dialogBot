@@ -4,6 +4,7 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const { MODES, isKnownProfileNavigationLabel, normalizeReplyButtonText, resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
 const { getDiscussionTasteLabelOptionText } = require("../src/services/ai-section");
+const { starEconomy } = require("../src/services/star-settings");
 
 test("global reply navigation resolves both languages with Telegram direction marks", () => {
   for (const lang of ["fa", "en"]) {
@@ -180,8 +181,6 @@ test("Profile Settings buttons remain routed while the emoji picker is open", ()
   const context = { mode: MODES.PROFILE_SETTINGS, state: "editing_profile_emoji", user: { lang: "en" } };
   const expected = new Map([
     [messages.en.profileEditBio, callBacks.profileEditBio],
-    [messages.en.profileEditPetPreference, callBacks.profileEditPetPreference],
-    [messages.en.profileEditLocation, callBacks.profileEditLocation],
     [messages.en.profileEmojiButton, callBacks.profileEmoji],
     [messages.en.profilePrivacySafetyButton, callBacks.profilePrivacy],
     [messages.en.profileBackToProfile, callBacks.profileSettingsBack],
@@ -190,12 +189,29 @@ test("Profile Settings buttons remain routed while the emoji picker is open", ()
   for (const [label, callbackData] of expected) {
     assert.equal(resolveReplyKeyboardAction(label, context)?.callbackData, callbackData);
   }
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditPetPreference, context), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context), null);
+});
+
+test("dashboard-enabled optional Profile Settings fields are routed", () => {
+  const previousPet = starEconomy.profilePetPreferenceEnabled;
+  const previousLocation = starEconomy.profileLocationEnabled;
+  const context = { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } };
+  try {
+    starEconomy.profilePetPreferenceEnabled = true;
+    starEconomy.profileLocationEnabled = true;
+    assert.equal(resolveReplyKeyboardAction(messages.en.profileEditPetPreference, context).callbackData, callBacks.profileEditPetPreference);
+    assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context).callbackData, callBacks.profileEditLocation);
+  } finally {
+    starEconomy.profilePetPreferenceEnabled = previousPet;
+    starEconomy.profileLocationEnabled = previousLocation;
+  }
 });
 
 test("Privacy buttons and restriction list are exact-mode actions", () => {
   const context = { mode: MODES.PROFILE_PRIVACY, state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }).callbackData, callBacks.profileEditLocation);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileHideFromPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}0`);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileShowInPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}1`);
   const restrictions = messages.en.profileInvitationRestrictionsButton;
@@ -346,9 +362,19 @@ test("age ranges and exact ages resolve only in their matching edit mode", () =>
 
 test("gender and pet choices are scoped to their profile picker states", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.genderOptionFemaleButton, { mode: "profile_gender", state: "editing_gender" }).callbackData, `${callBacks.profileGenderSet}female`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.petOptionCatButton, { mode: "profile_pet", state: "editing_pet_preference" }).callbackData, `${callBacks.profilePetSet}cat`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.petOptionCatButton, { mode: "profile_pet", state: "editing_pet_preference" }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.genderOptionFemaleButton, { mode: "profile_pet", state: "editing_pet_preference" }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.petOptionCatButton, { mode: MODES.PROFILE, state: "idle" }), null);
+
+  const previous = starEconomy.profilePetPreferenceEnabled;
+  try {
+    starEconomy.profilePetPreferenceEnabled = true;
+    assert.equal(resolveReplyKeyboardAction(messages.fa.petOptionCatButton, {
+      mode: "profile_pet", state: "editing_pet_preference",
+    }).callbackData, `${callBacks.profilePetSet}cat`);
+  } finally {
+    starEconomy.profilePetPreferenceEnabled = previous;
+  }
 });
 
 test("Interests chips resolve add, selected removal, More, and Done from the trusted page", () => {

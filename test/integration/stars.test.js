@@ -329,7 +329,7 @@ test("opening Stars lazily claims verifiable existing milestones once", async ()
     profileName: "Existing User",
     bio: "Books, films, and long conversations.",
     city: "Tehran",
-    petPreference: "cats",
+    photoFileId: "existing-photo",
     aiLists: {
       movies: {
         watchlist: Array.from({ length: 5 }, (_, index) => ({ title: `Watch ${index}` })),

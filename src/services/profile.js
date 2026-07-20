@@ -197,6 +197,14 @@ function getAiTopTenCount(user, section) {
   return items.length;
 }
 
+function getNextProfileGrowthFieldKey(user) {
+  if (!hasText(user?.city)) return "profileGrowthFieldCity";
+  if (!(Number.isFinite(Number(user?.age)) && Number(user.age) > 0)) return "profileGrowthFieldAge";
+  if (!["female", "male", "other"].includes(user?.gender)) return "profileGrowthFieldGender";
+  if (!hasText(user?.photoFileId)) return "profileGrowthFieldPhoto";
+  return "";
+}
+
 function buildOwnProfileGrowthHint(user, lang, messages) {
   const firstGoal = Math.max(1, Number(starEconomy.firstTopTenMilestoneItems) || 3);
   const interestsCount = getAiTopTenCount(user, "random");
@@ -217,8 +225,10 @@ function buildOwnProfileGrowthHint(user, lang, messages) {
   if (!profileStatus.complete) {
     if (!profileStatus.hasBio) return messages[lang].profileGrowthHintBio;
     if (profileStatus.optionalNeeded > 0) {
+      const missingFieldKey = getNextProfileGrowthFieldKey(user);
+      if (!missingFieldKey) return "";
       return messages[lang].profileGrowthHintProfile
-        .replace("{remaining}", profileStatus.optionalNeeded.toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
+        .replace("{field}", messages[lang][missingFieldKey]);
     }
   }
 
@@ -302,11 +312,11 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   }
 
   const petPreference = petPreferenceMap[user?.petPreference];
-  if (petPreference) {
+  if (starEconomy.profilePetPreferenceEnabled && petPreference) {
     lines.push(lineForLang(lang, `🐾 ${messages[lang].profilePetPreference}: ${isolateText(lang, petPreference)}`));
   }
 
-  if (hasValidLocation(user?.location)) {
+  if (starEconomy.profileLocationEnabled && hasValidLocation(user?.location)) {
     const locationText = user.location.city || messages[lang].locationSet;
     lines.push(lineForLang(lang, `📍 ${messages[lang].profileLocation}: ${isolateText(lang, locationText)}`));
   }

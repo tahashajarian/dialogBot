@@ -109,7 +109,7 @@ Recommended launch qualification:
 
 - display name is set; and
 - bio is set; and
-- any two of city, age, gender, pet preference, or uploaded photo are set.
+- any two enabled optional fields among city, age, gender, uploaded photo, and Pet preference are set. Pet preference counts only while the dashboard `profilePetPreferenceEnabled` switch is enabled.
 
 Exact GPS/location sharing must never be required or separately rewarded. Age and gender remain optional; a user can complete the milestone using other fields. Empty placeholders and default images do not count.
 
@@ -512,6 +512,8 @@ Recommended launch definitions:
 | `paidLargeDiscussionCost` | 10 | 0 | 1,000,000 | Stars |
 | `tasteLabelRecheckEnabled` | true | false | true | rollout switch |
 | `tasteLabelRecheckCost` | 10 | 0 | 1,000,000 | Stars |
+| `profilePetPreferenceEnabled` | false | false | true | profile rollout switch |
+| `profileLocationEnabled` | false | false | true | profile rollout switch |
 | `profileEmojiCost` | 3 | 0 | 1,000,000 | Stars |
 | `advancedSearchCost` | 5 | 0 | 1,000,000 | future Stars setting; inactive |
 | `advancedSearchDurationHours` | 24 | 1 | 8,760 | future hours setting; inactive |
