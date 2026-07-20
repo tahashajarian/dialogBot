@@ -303,7 +303,7 @@ test("profile callback deletes current menu message before rendering profile", a
   assert.ok(replies.length >= 1);
 });
 
-test("opening a custom-photo profile sends one footprint, then the photo without a loading message", async () => {
+test("opening a custom-photo profile sends compact controls, then the inline photo card without loading", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const photos = [];
@@ -339,7 +339,7 @@ test("opening a custom-photo profile sends one footprint, then the photo without
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(replies, []);
+  assert.deepEqual(replies, [messages.en.profileEditMenuText]);
   assert.equal(photos.length, 1);
   assert.equal(photos[0].photo, "profile-photo");
   assert.match(photos[0].extra.caption, /Your profile:/);
@@ -397,7 +397,7 @@ test("Guide card Close deletes only the selected inline card", async () => {
   assert.equal(ctx.user.navigationMode, "help");
 });
 
-test("profile settings keeps the profile display with settings controls", async () => {
+test("legacy profile settings callback returns to the flattened profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});
   const deletedIds = [];
@@ -441,7 +441,7 @@ test("profile settings keeps the profile display with settings controls", async 
   assert.match(replies.at(-1).text, /Ali/);
   assert.equal(
     keyboardButtons(replies.at(-1).extra)[0].text,
-    messages.en.profileEditBio,
+    messages.en.profileEditAge,
   );
 });
 
@@ -535,11 +535,12 @@ test("discussion help Got it does not navigate when card deletion fails", async 
   assert.equal(edits.length, 0);
 });
 
-test("profile emoji insufficient Stars retires confirm card and shows acknowledgement", async () => {
+test("profile emoji insufficient Stars edits the profile card to acknowledgement", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
 
   User.findOne = () => ({
     select: () => ({
@@ -564,6 +565,10 @@ test("profile emoji insufficient Stars retires confirm card and shows acknowledg
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -577,17 +582,19 @@ test("profile emoji insufficient Stars retires confirm card and shows acknowledg
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [321]);
-  assert.match(replies[0].text, /complete your profile/i);
-  const buttons = replies[0].extra.reply_markup.inline_keyboard.flat();
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, []);
+  assert.match(edits[0].text, /complete your profile/i);
+  const buttons = edits[0].extra.reply_markup.inline_keyboard.flat();
   assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.profileEmojiInsufficientDone]);
 });
 
-test("profile emoji confirm Back returns to emoji picker", async () => {
+test("profile emoji confirm Back edits the same card to the emoji picker", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
   const states = [];
+  const edits = [];
 
   User.findOneAndUpdate = async (query, update) => {
     if (Object.hasOwn(update || {}, "state")) {
@@ -612,6 +619,10 @@ test("profile emoji confirm Back returns to emoji picker", async () => {
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -625,17 +636,19 @@ test("profile emoji confirm Back returns to emoji picker", async () => {
   }
 
   assert.deepEqual(states, ["editing_profile_emoji"]);
-  assert.deepEqual(deletedIds, [333]);
-  assert.match(replies[0].text, /Choose an emoji/);
-  const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, []);
+  assert.match(edits[0].text, /Choose an emoji/);
+  const callbacks = edits[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
   assert.ok(callbacks.includes("profile:emoji:choose:0"));
 });
 
-test("profile emoji Close only removes the picker", async () => {
+test("profile emoji Close restores the same profile card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
   const states = [];
+  const edits = [];
 
   User.findOneAndUpdate = async (query, update) => {
     if (Object.hasOwn(update || {}, "state")) states.push(update.state);
@@ -652,6 +665,10 @@ test("profile emoji Close only removes the picker", async () => {
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -665,14 +682,17 @@ test("profile emoji Close only removes the picker", async () => {
   }
 
   assert.deepEqual(states, ["idle"]);
-  assert.deepEqual(deletedIds, [334]);
+  assert.deepEqual(deletedIds, []);
   assert.deepEqual(replies, []);
+  assert.match(edits[0].text, /Your profile/);
+  assert.equal(keyboardButtons(edits[0].extra)[0].callback_data, callBacks.profileEditAge);
 });
 
-test("selection-only profile picker Close removes only the picker", async () => {
+test("selection-only profile picker Close restores the same profile card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
+  const edits = [];
   User.findOneAndUpdate = async () => ({ userId: 999 });
   const ctx = {
     callbackData: callBacks.profilePickerClose,
@@ -690,6 +710,10 @@ test("selection-only profile picker Close removes only the picker", async () => 
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: 1 };
@@ -702,9 +726,134 @@ test("selection-only profile picker Close removes only the picker", async () => 
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [456]);
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, []);
+  assert.match(edits[0].text, /Your profile/);
+  assert.equal(ctx.user.state, "idle");
+  assert.equal(ctx.user.profileEditPromptMessageId, null);
+});
+
+test("Interests opens inline by editing a photo profile card and remembering it", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const captionEdits = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+  const ctx = {
+    callbackData: callBacks.profileEditInterests,
+    callbackMessageId: 457,
+    callbackMessage: { photo: [{}], caption: "old profile" },
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "idle",
+      photoFileId: "photo-file",
+      aiLists: { random: { topTen: [] } },
+    },
+    answerCb: async () => true,
+    editMessageCaption: async (messageId, text, extra) => {
+      captionEdits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    reply: async () => assert.fail("Interests should edit the profile card"),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(captionEdits[0].messageId, 457);
+  assert.match(captionEdits[0].text, /Interests/);
+  assert.equal(ctx.user.profileEditPromptMessageId, 457);
+  assert.equal(ctx.user.navigationMode, "profile_interests:0");
+});
+
+test("saving inline Age restores the same photo profile card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const captionEdits = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+  const ctx = {
+    callbackData: `${callBacks.profileAgeSet}29`,
+    callbackMessageId: 458,
+    callbackMessage: { photo: [{}], caption: messages.en.profileAskAge },
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "editing_age",
+      profileName: "Ali",
+      firstName: "Ali",
+      photoFileId: "photo-file",
+      starBalance: 0,
+      showActiveDiscussionOnProfile: true,
+    },
+    answerCb: async () => true,
+    editMessageCaption: async (messageId, text, extra) => {
+      captionEdits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    reply: async () => assert.fail("Age save should restore the profile card in place"),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(captionEdits.at(-1).messageId, 458);
+  assert.match(captionEdits.at(-1).text, /Age:.*29/);
+  assert.equal(keyboardButtons(captionEdits.at(-1).extra)[0].callback_data, callBacks.profileEditAge);
+  assert.equal(ctx.user.navigationMode, "profile");
+});
+
+test("Profile reply-keyboard Back closes an inline Pet picker without redrawing it", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const previousPetEnabled = starEconomy.profilePetPreferenceEnabled;
+  const captionEdits = [];
+  const replies = [];
+  User.findOneAndUpdate = async (query) => ({ userId: query.userId });
+  starEconomy.profilePetPreferenceEnabled = true;
+  const ctx = {
+    callbackData: callBacks.profileCancelEdit,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "fa",
+      state: "editing_pet_preference",
+      navigationMode: "profile_pet",
+      profileEditPromptMessageId: 459,
+      profileName: "Ali",
+      firstName: "Ali",
+      photoFileId: "photo-file",
+      showActiveDiscussionOnProfile: true,
+    },
+    answerCb: async () => true,
+    editMessageCaption: async (messageId, text, extra) => {
+      captionEdits.push({ messageId, text, extra });
+      return { message_id: messageId };
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 999 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    starEconomy.profilePetPreferenceEnabled = previousPetEnabled;
+  }
+
+  assert.equal(captionEdits.length, 1);
+  assert.equal(captionEdits[0].messageId, 459);
+  assert.match(captionEdits[0].text, /پروفایل/);
   assert.deepEqual(replies, []);
   assert.equal(ctx.user.state, "idle");
+  assert.equal(ctx.user.navigationMode, "profile");
   assert.equal(ctx.user.profileEditPromptMessageId, null);
 });
 
@@ -798,7 +947,7 @@ test("main Profile reply buttons also preserve remembered cards", async () => {
   assert.equal(ctx.user.discussionMenuNoticeMessageId, 303);
 });
 
-test("saving a More Settings choice stays in More Settings", async () => {
+test("saving a legacy Pet picker choice returns to flattened Profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const previousPetEnabled = starEconomy.profilePetPreferenceEnabled;
   const replies = [];
@@ -836,16 +985,17 @@ test("saving a More Settings choice stays in More Settings", async () => {
     starEconomy.profilePetPreferenceEnabled = previousPetEnabled;
   }
 
-  assert.equal(ctx.user.navigationMode, "profile_settings");
+  assert.equal(ctx.user.navigationMode, "profile");
   assert.match(replies.at(-1).text, /cat/i);
-  assert.equal(keyboardButtons(replies.at(-1).extra)[0].text, messages.en.profileEditBio);
+  assert.equal(keyboardButtons(replies.at(-1).extra)[0].callback_data, callBacks.profileEditAge);
 });
 
-test("profile emoji insufficient Got it only removes the warning", async () => {
+test("profile emoji insufficient Got it restores the same profile card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
   const states = [];
+  const edits = [];
 
   User.findOneAndUpdate = async (query, update) => {
     if (Object.hasOwn(update || {}, "state")) {
@@ -872,6 +1022,10 @@ test("profile emoji insufficient Got it only removes the warning", async () => {
       deletedIds.push(messageId);
       return true;
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
@@ -888,8 +1042,9 @@ test("profile emoji insufficient Got it only removes the warning", async () => {
   }
 
   assert.deepEqual(states, ["idle"]);
-  assert.deepEqual(deletedIds, [444]);
+  assert.deepEqual(deletedIds, []);
   assert.deepEqual(replies, []);
+  assert.match(edits[0].text, /Your profile/);
 });
 
 test("public profile viewing asks for basic profile first", async () => {

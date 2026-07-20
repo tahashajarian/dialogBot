@@ -8,7 +8,6 @@ const {
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
   profileInterestsKeyboard,
-  profileSettingsKeyboard,
 } = require("../keyboards");
 const {
   addAiListItem,
@@ -20,18 +19,18 @@ const {
 } = require("../services/users");
 const { operationalLimits } = require("../services/operational-limits");
 const { starEconomy } = require("../services/star-settings");
-const { isKnownProfileNavigationLabel, MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-navigation");
 const { resolveCityByCoordinates } = require("../services/location");
 const {
   isValidTextInput,
   saveLocationProfile,
-  sendProfileMessage,
   toPlainUser,
   validateProfileName,
 } = require("../services/profile");
 const {
   clearProfileEditPrompt,
   sendProfileEditPrompt,
+  updateRememberedProfileEditPrompt,
 } = require("./profile-edit");
 const { awardProfileCompletionMilestone } = require("../services/star-milestones");
 const {
@@ -54,25 +53,6 @@ async function buildProfileMilestoneNotice(ctx, updatedUser, lang) {
 async function sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile) {
   const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
   return sendProfile(ctx, updatedUser, lang, keyboardLang, { footerText });
-}
-
-async function sendProfileSettings(ctx, updatedUser, lang, footerText = "") {
-  const sent = await sendProfileMessage({
-    ctx,
-    user: updatedUser,
-    lang,
-    keyboard: profileSettingsKeyboard(lang),
-    messages,
-    isOwnProfile: true,
-    footerText,
-  });
-  await setNavigationMode(ctx, MODES.PROFILE_SETTINGS);
-  return sent;
-}
-
-async function sendProfileSettingsAfterMilestone(ctx, updatedUser, lang) {
-  const footerText = await buildProfileMilestoneNotice(ctx, updatedUser, lang);
-  return sendProfileSettings(ctx, updatedUser, lang, footerText);
 }
 
 const {
@@ -128,9 +108,6 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
   await clearProfileEditPrompt(ctx);
   const updatedUser = toPlainUser(ctx.user);
   updatedUser.state = "idle";
-  if (state === "editing_location") {
-    return sendProfileSettings(ctx, updatedUser, lang);
-  }
   return sendProfile(ctx, updatedUser, lang, keyboardLang);
 }
 
@@ -140,7 +117,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
-    return sendProfileSettings(ctx, updatedUser, lang);
+    return sendProfile(ctx, updatedUser, lang, keyboardLang);
   }
 
   if (state === "editing_name" && text) {
@@ -241,7 +218,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.location = location;
     updatedUser.state = "idle";
-    return sendProfileSettingsAfterMilestone(ctx, updatedUser, lang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_photo") {
@@ -262,7 +239,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       await clearProfileEditPrompt(ctx);
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
-      return sendProfileSettings(ctx, updatedUser, lang);
+      return sendProfile(ctx, updatedUser, lang, keyboardLang);
     }
     return sendProfileEditPrompt(ctx, messages[lang].profileEditHintPetPreference, petPreferenceKeyboard(lang));
   }
@@ -273,7 +250,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       await clearProfileEditPrompt(ctx);
       const updatedUser = toPlainUser(ctx.user);
       updatedUser.state = "idle";
-      return sendProfileSettings(ctx, updatedUser, lang);
+      return sendProfile(ctx, updatedUser, lang, keyboardLang);
     }
 
     return sendProfileEditPrompt(ctx, messages[lang].profileEditHintLocation, locationKeyboard(lang));
@@ -298,13 +275,13 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.bio = text;
     updatedUser.state = "idle";
-    return sendProfileSettingsAfterMilestone(ctx, updatedUser, lang);
+    return sendProfileAfterMilestone(ctx, updatedUser, lang, keyboardLang, sendProfile);
   }
 
   if (state === "editing_interests" && text) {
     const currentItems = getAiListItemsFromUser(ctx.user, "random", "topTen");
     if (text.startsWith("/")) {
-      return sendProfileEditPrompt(
+      return updateRememberedProfileEditPrompt(
         ctx,
         formatProfileInterestMessage(lang, "profileEditHintInterests"),
         profileInterestsKeyboard(lang, currentItems),
@@ -313,7 +290,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
 
     const item = String(text || "").trim().replace(/\s+/g, " ");
     if (!item || isKnownProfileNavigationLabel(item) || Array.from(item).length > operationalLimits.profileInterestCustomMaxLength) {
-      return sendProfileEditPrompt(
+      return updateRememberedProfileEditPrompt(
         ctx,
         `${formatProfileInterestMessage(lang, "profileInterestTooLong")}\n${formatProfileInterestMessage(lang, "profileEditHintInterests")}`,
         profileInterestsKeyboard(lang, currentItems),
@@ -327,7 +304,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
         : result.reason === "exists"
           ? formatProfileInterestMessage(lang, "profileInterestsDuplicate")
           : formatProfileInterestMessage(lang, "profileInterestsInvalid");
-      return sendProfileEditPrompt(
+      return updateRememberedProfileEditPrompt(
         ctx,
         `${errorText}\n${formatProfileInterestMessage(lang, "profileEditHintInterests")}`,
         profileInterestsKeyboard(lang, result.items || currentItems),
@@ -339,7 +316,7 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       if (!ctx.user.aiLists.random) ctx.user.aiLists.random = {};
       ctx.user.aiLists.random.topTen = result.items;
     }
-    return sendProfileEditPrompt(
+    return updateRememberedProfileEditPrompt(
       ctx,
       messages[lang].profileInterestsSaved
         .replace("{count}", String(result.items.length))

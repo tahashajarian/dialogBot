@@ -27,7 +27,7 @@ function normalizeReplyButtonText(value) {
 
 function isKnownProfileNavigationLabel(value) {
   const normalized = normalizeReplyButtonText(value);
-  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "profilePrivacySafetyButton", "profilePrivacyBackToSettings", "profileHideFromPeopleDiscovery", "profileShowInPeopleDiscovery", "profileShowActiveDiscussion", "profileHideActiveDiscussion", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
+  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "profilePrivacySafetyButton", "profilePrivacyBackToSettings", "profileHideFromPeopleDiscovery", "profileShowInPeopleDiscovery", "profileShowActiveDiscussion", "profileHideActiveDiscussion", "profileInvitationRestrictionsButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
   return keys.some((key) => labels(key).includes(normalized));
 }
 
@@ -58,7 +58,9 @@ const BY_MODE = {
   [MODES.FAVORITES]: [["aiSuggestMovies", callBacks.aiSuggestMovies], ["aiSuggestMusic", callBacks.aiSuggestMusic], ["aiSuggestBooks", callBacks.aiSuggestBooks], ["aiBack", callBacks.menuMain]],
   [MODES.DISCUSSIONS]: [["discussionActiveList", callBacks.discussionListActive], ["discussionInvitations", callBacks.discussionInvitations], ["discussionCreate", callBacks.discussionCreateStart], ["discussionMyList", callBacks.discussionListMine], ["aiBack", callBacks.menuMain]],
   [MODES.PEOPLE]: [["peopleDiscover", callBacks.peopleDiscover], ["savedProfiles", callBacks.savedProfiles], ["advancedSearchButton", callBacks.peopleAdvancedSearch], ["aiBack", callBacks.menuMain]],
-  [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileAddPhoto", callBacks.profileEditPhoto], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["cancel", callBacks.profileBack]],
+  [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileAddPhoto", callBacks.profileEditPhoto], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditBio", callBacks.profileEditBio], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["profileEditLocation", callBacks.profileEditLocation], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["cancel", callBacks.profileBack]],
+  // Keep the old persisted mode actionable across deployments, but route its
+  // surviving controls into the flattened Profile destination.
   [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileEmojiButton", callBacks.profileEmoji], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["profileBackToProfile", callBacks.profileSettingsBack]],
   [MODES.PROFILE_PRIVACY]: [["profileHideFromPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}0`], ["profileShowInPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}1`], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileInvitationRestrictionsButton", callBacks.profileInvitationRestrictions], ["accountDeleteButton", callBacks.accountDelete], ["profilePrivacyBackToSettings", callBacks.profilePrivacyBack]],
   [MODES.HELP]: [["profileStarsButton", callBacks.profileStars], ["helpReferralButton", callBacks.helpReferral], ["helpRules", callBacks.helpRules], ["helpBackToMain", callBacks.menuMain]],
@@ -142,7 +144,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const profilePickerState = (mode === "profile_gender" && state === "editing_gender") || (
     starEconomy.profilePetPreferenceEnabled && mode === "profile_pet" && state === "editing_pet_preference"
   );
-  const profileEmojiSettingsState = mode === MODES.PROFILE_SETTINGS && state === "editing_profile_emoji";
+  const profileEmojiState = (mode === "profile_emoji" || mode === MODES.PROFILE_SETTINGS) && (
+    state === "editing_profile_emoji" || /^profile_emoji_confirm:/.test(String(state))
+  );
   const interestMode = String(mode).match(/^profile_interests:(\d+)$/);
   const validAiShareState = aiShareMatch && state === `ai_manage_${aiShareMatch[1]}_${aiShareMatch[2] === "topTen" ? "top_ten" : "watchlist"}`;
   const validSuggestionModeState = suggestionModeMatch && [
@@ -167,7 +171,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || profileUnsaveConfirmMatch
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
-  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiSettingsState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
+  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
   const keepsDiscussionHubKeyboard = state === "idle" && Boolean(
     discussionListMatch || invitationListMatch || discussionLanguageMatch
   );
@@ -362,6 +366,12 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   }
   if (mode === "profile_gender") entries.push(["genderOptionFemaleButton", `${callBacks.profileGenderSet}female`], ["genderOptionMaleButton", `${callBacks.profileGenderSet}male`], ["genderOptionOtherButton", `${callBacks.profileGenderSet}other`], ["cancelEdit", callBacks.profileCancelEdit]);
   if (starEconomy.profilePetPreferenceEnabled && mode === "profile_pet") entries.push(["petOptionAnyButton", `${callBacks.profilePetSet}any`], ["petOptionNoneButton", `${callBacks.profilePetSet}none`], ["petOptionCatButton", `${callBacks.profilePetSet}cat`], ["petOptionDogButton", `${callBacks.profilePetSet}dog`], ["petOptionBirdButton", `${callBacks.profilePetSet}bird`], ["petOptionSmallPetsButton", `${callBacks.profilePetSet}small_pets`], ["cancelEdit", callBacks.profileCancelEdit]);
+  if (
+    (ageMode && state === "editing_age")
+    || profilePickerState
+    || profileEmojiState
+    || (interestMode && state === "editing_interests")
+  ) entries.push(["cancel", callBacks.profileCancelEdit]);
   if (interestMode) {
     const selected = user?.aiLists?.random?.topTen || [];
     for (const row of getProfileInterestsReplyActions(user?.lang || "fa", selected, Number(interestMode[1]))) {

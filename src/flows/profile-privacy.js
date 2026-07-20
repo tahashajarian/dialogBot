@@ -141,7 +141,7 @@ async function allowInvitationRestrictionCommand(ctx, lang, text) {
 async function handleProfilePrivacyCallback(ctx, lang, {
   editCallbackMessageOrReply,
   retireCallbackMessageIfPossible,
-  sendOwnProfileSettings,
+  sendOwnProfile,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -154,7 +154,7 @@ async function handleProfilePrivacyCallback(ctx, lang, {
   if (data === callBacks.profilePrivacyBack) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    return sendOwnProfile(ctx, lang, ctx.user || {});
   }
 
   if (data.startsWith(callBacks.profileSetPeopleDiscovery)) {

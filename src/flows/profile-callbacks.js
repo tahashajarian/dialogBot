@@ -5,7 +5,7 @@ const { callBacks } = require("../constants");
 const {
   profileKeyboard,
   mainMenuKeyboard,
-  profileSettingsKeyboard,
+  profileQuickActionsKeyboard,
   profileEmojiKeyboard,
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,
@@ -35,6 +35,7 @@ const {
 } = require("../services/users");
 const {
   sendProfileMessage,
+  buildProfileText,
   toPlainUser,
 } = require("../services/profile");
 const {
@@ -55,6 +56,7 @@ const {
 } = require("../services/star-milestones");
 const {
   clearProfileEditPrompt,
+  rememberProfileEditPrompt,
   sendProfileEditPrompt,
   startProfileEdit,
 } = require("./profile-edit");
@@ -118,11 +120,16 @@ async function showProfileInterestsEditor(ctx, lang, user = ctx.user, page = 0, 
   const text = [messages[lang].profileInterestsTitle, notice, prompt, selected].filter(Boolean).join("\n\n");
   const keyboard = profileInterestsKeyboard(lang, items, page);
   await setNavigationMode(ctx, `profile_interests:${Number(page) || 0}`);
-  if (ctx.callbackMessageId && ctx.editMessageText) {
-    const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
-    if (edited) return edited;
+  if (ctx.callbackMessageId && (ctx.editMessageText || ctx.editMessageCaption)) {
+    const edited = await editProfileSurfaceCard(ctx, text, keyboard);
+    if (edited) {
+      await rememberProfileEditPrompt(ctx, edited === true ? ctx.callbackMessageId : edited);
+      return edited;
+    }
   }
-  return ctx.reply(text, keyboard);
+  const sent = await ctx.reply(text, keyboard);
+  await rememberProfileEditPrompt(ctx, sent);
+  return sent;
 }
 
 function isProfileSettingsOrEditCallback(data = "") {
@@ -184,14 +191,15 @@ function parseProfileEmojiState(state = "") {
 
 async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
   await sendNavigationFootprint(ctx, { lang, destination: "profile" });
+  await ctx.reply(messages[lang].profileEditMenuText, profileKeyboard(
+    lang,
+    Boolean(user?.photoFileId),
+  ));
   const sentProfile = await sendProfileMessage({
     ctx,
     user,
     lang,
-    keyboard: profileKeyboard(
-      lang,
-      Boolean(user?.photoFileId),
-    ),
+    keyboard: profileQuickActionsKeyboard(lang),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
@@ -201,18 +209,35 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
   return sentProfile;
 }
 
-async function sendOwnProfileSettings(ctx, lang, user = ctx.user) {
-  await sendNavigationFootprint(ctx, { lang, destination: "settings" });
-  const settingsCard = await sendProfileMessage({
-    ctx,
-    user,
-    lang,
-    keyboard: profileSettingsKeyboard(lang),
-    messages,
-    isOwnProfile: true,
-  });
-  await setNavigationMode(ctx, MODES.PROFILE_SETTINGS);
-  return settingsCard;
+async function editProfileSurfaceCard(ctx, text, keyboard) {
+  const messageId = Number(ctx.callbackMessageId || ctx.user?.profileEditPromptMessageId);
+  if (Number.isInteger(messageId) && messageId > 0) {
+    const isMedia = Boolean(
+      ctx.callbackMessage?.photo
+      || ctx.callbackMessage?.document
+      || ctx.callbackMessage?.caption
+      || (!ctx.callbackMessage && ctx.user?.photoFileId),
+    );
+    const edited = isMedia && ctx.editMessageCaption
+      ? await ctx.editMessageCaption(messageId, text, keyboard)
+      : ctx.editMessageText
+        ? await ctx.editMessageText(messageId, text, keyboard)
+        : false;
+    if (edited) return edited;
+  }
+  return ctx.reply(text, keyboard);
+}
+
+async function restoreOwnProfileCard(ctx, lang, user = ctx.user, { footerText = "" } = {}) {
+  const surfaceMessageId = Number(ctx.callbackMessageId || ctx.user?.profileEditPromptMessageId);
+  const text = [
+    buildProfileText(user, lang, messages, { isOwnProfile: true }),
+    String(footerText || "").trim(),
+  ].filter(Boolean).join("\n\n");
+  const restored = await editProfileSurfaceCard(ctx, text, profileQuickActionsKeyboard(lang));
+  await clearProfileEditPrompt(ctx, [surfaceMessageId]);
+  await setNavigationMode(ctx, MODES.PROFILE);
+  return restored;
 }
 
 async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMessageIfPossible } = {}) {
@@ -221,7 +246,19 @@ async function beginProfileEdit(ctx, state, prompt, keyboard, { retireCallbackMe
   });
 }
 
-async function handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSettings = false } = {}) {
+async function beginInlineProfilePicker(ctx, state, mode, prompt, keyboard, options = {}) {
+  await updateUserState(ctx.userId, state);
+  if (ctx.user) ctx.user.state = state;
+  await setNavigationMode(ctx, mode);
+  if (!ctx.isReplyKeyboardAction && ctx.callbackMessageId) {
+    const edited = await editProfileSurfaceCard(ctx, prompt, keyboard);
+    if (edited) await rememberProfileEditPrompt(ctx, ctx.callbackMessageId);
+    return edited;
+  }
+  return beginProfileEdit(ctx, state, prompt, keyboard, options);
+}
+
+async function handleProfileEditCompletion(ctx, lang, updatedUser, { restoreCard = false } = {}) {
   const milestone = await awardProfileCompletionMilestone(ctx.userId, updatedUser);
   applyStarRewardsToContext(ctx, milestone.rewards);
   if (ctx.user) updatedUser.starBalance = ctx.user.starBalance;
@@ -234,10 +271,7 @@ async function handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSet
     return sendPublicProfileByCode(ctx, lang, pendingCode);
   }
   // Otherwise show their own profile
-  if (returnToSettings) {
-    if (starNotice) await ctx.reply(starNotice);
-    return sendOwnProfileSettings(ctx, lang, updatedUser);
-  }
+  if (restoreCard) return restoreOwnProfileCard(ctx, lang, updatedUser, { footerText: starNotice });
   return sendOwnProfile(ctx, lang, updatedUser, { footerText: starNotice });
 }
 
@@ -258,7 +292,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     return handleProfilePrivacyCallback(ctx, lang, {
       editCallbackMessageOrReply,
       retireCallbackMessageIfPossible,
-      sendOwnProfileSettings,
+      sendOwnProfile,
     });
   }
 
@@ -337,7 +371,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileSettings) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    return sendOwnProfile(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileSettingsBack) {
@@ -350,42 +384,49 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_profile_emoji");
     if (ctx.user) ctx.user.state = "editing_profile_emoji";
-    await retireCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(
+    await setNavigationMode(ctx, "profile_emoji");
+    const edited = await editProfileSurfaceCard(
+      ctx,
       formatProfileEmojiText(lang, "profileEmojiPickerText", {
         cost: getProfileEmojiCost(),
         balance: ctx.user?.starBalance || 0,
       }),
       profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
     );
+    if (edited && ctx.callbackMessageId) await rememberProfileEditPrompt(ctx, ctx.callbackMessageId);
+    return edited;
   }
 
   if (data === callBacks.profileEmojiClose) {
+    if (ctx.user?.state !== "editing_profile_emoji") {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
-    return deleteCallbackMessageIfPossible?.(ctx);
+    return restoreOwnProfileCard(ctx, lang, ctx.user || {});
   }
 
   if (data.startsWith(callBacks.profileEmojiPage)) {
+    if (ctx.user?.state !== "editing_profile_emoji") {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     const page = Number(data.replace(callBacks.profileEmojiPage, ""));
     const text = formatProfileEmojiText(lang, "profileEmojiPickerText", {
       cost: getProfileEmojiCost(),
       balance: ctx.user?.starBalance || 0,
     });
-    if (ctx.callbackMessageId && ctx.editMessageText) {
-      const edited = await ctx.editMessageText(
-        ctx.callbackMessageId,
-        text,
-        profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page),
-      );
-      if (edited) return edited;
-    }
-    return ctx.reply(text, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page));
+    return editProfileSurfaceCard(ctx, text, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page));
   }
 
   if (data.startsWith(callBacks.profileEmojiChoose)) {
+    if (ctx.user?.state !== "editing_profile_emoji") {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     const index = Number(data.replace(callBacks.profileEmojiChoose, ""));
     const emoji = getProfileEmojiOption(index);
@@ -399,15 +440,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       cost,
       balance: ctx.user?.starBalance || 0,
     });
-    if (ctx.callbackMessageId && ctx.editMessageText) {
-      const edited = await ctx.editMessageText(
-        ctx.callbackMessageId,
-        text,
-        profileEmojiConfirmKeyboard(lang, nonce, cost),
-      );
-      if (edited) return edited;
-    }
-    return ctx.reply(text, profileEmojiConfirmKeyboard(lang, nonce, cost));
+    return editProfileSurfaceCard(ctx, text, profileEmojiConfirmKeyboard(lang, nonce, cost));
   }
 
   if (data.startsWith(callBacks.profileEmojiConfirm)) {
@@ -425,8 +458,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
         await ctx.answerCb?.();
         await updateUserState(ctx.userId, "editing_profile_emoji");
         if (ctx.user) ctx.user.state = "editing_profile_emoji";
-        await retireCallbackMessageIfPossible?.(ctx);
-        return ctx.reply(
+        return editProfileSurfaceCard(
+          ctx,
           formatProfileEmojiText(lang, "profileEmojiInsufficient", result),
           profileEmojiInsufficientKeyboard(lang),
         );
@@ -441,17 +474,21 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       ctx.user.starBalance = Number(result.balance) || 0;
       ctx.user.state = "idle";
     }
-    await retireCallbackMessageIfPossible?.(ctx);
-    await ctx.reply(formatProfileEmojiText(lang, "profileEmojiSaved", result));
-    return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+    return restoreOwnProfileCard(ctx, lang, ctx.user || {}, {
+      footerText: formatProfileEmojiText(lang, "profileEmojiSaved", result),
+    });
   }
 
   if (data === callBacks.profileEmojiCancel) {
+    if (!parseProfileEmojiState(ctx.user?.state)) {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_profile_emoji");
     if (ctx.user) ctx.user.state = "editing_profile_emoji";
-    await retireCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(
+    return editProfileSurfaceCard(
+      ctx,
       formatProfileEmojiText(lang, "profileEmojiPickerText", {
         cost: getProfileEmojiCost(),
         balance: ctx.user?.starBalance || 0,
@@ -461,10 +498,14 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   }
 
   if (data === callBacks.profileEmojiInsufficientDone) {
+    if (ctx.user?.state !== "editing_profile_emoji") {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
-    return deleteCallbackMessageIfPossible?.(ctx);
+    return restoreOwnProfileCard(ctx, lang, ctx.user || {});
   }
 
   if (data === callBacks.profileStars) {
@@ -526,24 +567,20 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEditAge) {
     await ctx.answerCb?.();
-    await setNavigationMode(ctx, "profile_age");
-    return beginProfileEdit(ctx, "editing_age", messages[lang].profileAskAge, ageKeyboard(lang), { retireCallbackMessageIfPossible });
+    return beginInlineProfilePicker(ctx, "editing_age", "profile_age", messages[lang].profileAskAge, ageKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data === callBacks.profileEditGender) {
     await ctx.answerCb?.();
-    await setNavigationMode(ctx, "profile_gender");
-    return beginProfileEdit(ctx, "editing_gender", messages[lang].profileAskGender, genderKeyboard(lang), { retireCallbackMessageIfPossible });
+    return beginInlineProfilePicker(ctx, "editing_gender", "profile_gender", messages[lang].profileAskGender, genderKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data === callBacks.profileEditPetPreference) {
     await ctx.answerCb?.();
     if (!starEconomy.profilePetPreferenceEnabled) {
-      await retireCallbackMessageIfPossible?.(ctx);
-      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+      return restoreOwnProfileCard(ctx, lang, ctx.user || {});
     }
-    await setNavigationMode(ctx, "profile_pet");
-    return beginProfileEdit(ctx, "editing_pet_preference", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang), { retireCallbackMessageIfPossible });
+    return beginInlineProfilePicker(ctx, "editing_pet_preference", "profile_pet", messages[lang].profileAskPetPreference, petPreferenceKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data === callBacks.profileEditBio) {
@@ -554,7 +591,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileEditInterests) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_interests");
-    await retireCallbackMessageIfPossible?.(ctx);
+    if (ctx.user) ctx.user.state = "editing_interests";
     return showProfileInterestsEditor(ctx, lang, ctx.user || {});
   }
 
@@ -611,22 +648,25 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileInterestsDone) {
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
+    const restoresProfileCard = !ctx.isReplyKeyboardAction && Boolean(ctx.callbackMessageId);
+    if (!restoresProfileCard) await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
-    return handleProfileEditCompletion(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser, { restoreCard: restoresProfileCard });
   }
 
   if (data === callBacks.profilePickerClose) {
     await ctx.answerCb?.();
-    const returnToSettings = ctx.user?.state === "editing_pet_preference";
-    await retireCallbackMessageIfPossible?.(ctx);
+    const restoresProfileCard = ["editing_age", "editing_gender", "editing_pet_preference", "editing_interests"]
+      .includes(ctx.user?.state) && !ctx.isReplyKeyboardAction;
+    if (!restoresProfileCard) await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
-    await setNavigationMode(ctx, returnToSettings ? MODES.PROFILE_SETTINGS : MODES.PROFILE);
+    await setNavigationMode(ctx, MODES.PROFILE);
+    if (restoresProfileCard) return restoreOwnProfileCard(ctx, lang, ctx.user || {});
     return true;
   }
 
@@ -634,12 +674,16 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await ctx.answerCb?.();
     if (!starEconomy.profileLocationEnabled) {
       await retireCallbackMessageIfPossible?.(ctx);
-      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+      return sendOwnProfile(ctx, lang, ctx.user || {});
     }
     return beginProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang), { retireCallbackMessageIfPossible });
   }
 
   if (data.startsWith(callBacks.profileGenderSet)) {
+    if (ctx.user?.state !== "editing_gender") {
+      await ctx.answerCb?.();
+      return false;
+    }
     const gender = data.replace(callBacks.profileGenderSet, "");
     const allowedGenders = new Set(["female", "male", "other"]);
 
@@ -649,24 +693,26 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "gender", gender);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.gender = gender;
     updatedUser.state = "idle";
-    return handleProfileEditCompletion(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser, { restoreCard: !ctx.isReplyKeyboardAction });
   }
 
   if (data.startsWith(callBacks.profilePetSet)) {
+    if (ctx.user?.state !== "editing_pet_preference") {
+      await ctx.answerCb?.();
+      return false;
+    }
     if (!starEconomy.profilePetPreferenceEnabled) {
       await ctx.answerCb?.();
-      await retireCallbackMessageIfPossible?.(ctx);
       await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
       await updateUserState(ctx.userId, "idle");
       if (ctx.user) ctx.user.state = "idle";
-      return sendOwnProfileSettings(ctx, lang, ctx.user || {});
+      return restoreOwnProfileCard(ctx, lang, ctx.user || {});
     }
     const petPreference = data.replace(callBacks.profilePetSet, "");
     const allowedPetPreferences = new Set(["any", "none", "cat", "dog", "bird", "small_pets"]);
@@ -677,17 +723,20 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "petPreference", petPreference);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.petPreference = petPreference;
     updatedUser.state = "idle";
-    return handleProfileEditCompletion(ctx, lang, updatedUser, { returnToSettings: true });
+    return handleProfileEditCompletion(ctx, lang, updatedUser, { restoreCard: !ctx.isReplyKeyboardAction });
   }
 
   if (data.startsWith(callBacks.profileAgeRangeSet)) {
+    if (ctx.user?.state !== "editing_age") {
+      await ctx.answerCb?.();
+      return false;
+    }
     const startAge = Number(data.replace(callBacks.profileAgeRangeSet, ""));
 
     await ctx.answerCb?.();
@@ -697,24 +746,30 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     }
     await setNavigationMode(ctx, `profile_age_range:${startAge}`);
 
-    const edited = ctx.callbackMessageId && ctx.editMessageText
-      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge))
-      : false;
-    if (edited) return edited;
+    if (!ctx.isReplyKeyboardAction && ctx.callbackMessageId) {
+      return editProfileSurfaceCard(ctx, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
+    }
     return sendProfileEditPrompt(ctx, messages[lang].profileAskAge, ageRangeKeyboard(lang, startAge));
   }
 
   if (data === callBacks.profileAgeRangeBack) {
+    if (ctx.user?.state !== "editing_age") {
+      await ctx.answerCb?.();
+      return false;
+    }
     await ctx.answerCb?.();
     await setNavigationMode(ctx, "profile_age");
-    const edited = ctx.callbackMessageId && ctx.editMessageText
-      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].profileAskAge, ageKeyboard(lang))
-      : false;
-    if (edited) return edited;
+    if (!ctx.isReplyKeyboardAction && ctx.callbackMessageId) {
+      return editProfileSurfaceCard(ctx, messages[lang].profileAskAge, ageKeyboard(lang));
+    }
     return sendProfileEditPrompt(ctx, messages[lang].profileAskAge, ageKeyboard(lang));
   }
 
   if (data.startsWith(callBacks.profileAgeSet)) {
+    if (ctx.user?.state !== "editing_age") {
+      await ctx.answerCb?.();
+      return false;
+    }
     const age = Number(data.replace(callBacks.profileAgeSet, ""));
 
     await ctx.answerCb?.();
@@ -723,14 +778,13 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       return ctx.reply(messages[lang].unknownAction);
     }
 
-    await retireCallbackMessageIfPossible?.(ctx);
     await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateProfileField(ctx.userId, "age", age);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.age = age;
     updatedUser.state = "idle";
-    return handleProfileEditCompletion(ctx, lang, updatedUser);
+    return handleProfileEditCompletion(ctx, lang, updatedUser, { restoreCard: !ctx.isReplyKeyboardAction });
   }
 
   if (data === callBacks.profileEditPhoto) {
@@ -761,11 +815,16 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
         showDiscussionInvitePreviewCommand,
       });
     }
+    const rememberedPickerId = Number(ctx.user?.profileEditPromptMessageId);
     await retireCallbackMessageIfPossible?.(ctx);
-    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     await updateUserState(ctx.userId, "idle");
     const updatedUser = toPlainUser(ctx.user);
     updatedUser.state = "idle";
+    if (ctx.isReplyKeyboardAction && Number.isInteger(rememberedPickerId) && rememberedPickerId > 0) {
+      if (ctx.user) ctx.user.state = "idle";
+      return restoreOwnProfileCard(ctx, lang, updatedUser);
+    }
+    await clearProfileEditPrompt(ctx, [ctx.callbackMessageId]);
     return handleProfileEditCompletion(ctx, lang, updatedUser);
   }
 

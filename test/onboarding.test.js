@@ -458,8 +458,8 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /👥 People & Saved/);
   assert.match(messages.en.helpText, /See People or discussion member lists/);
   assert.match(messages.en.helpText, /join discussions they show.*invite them directly/i);
-  assert.match(messages.fa.helpText, /تنظیمات بیشتر ← حریم خصوصی و امنیت ← حذف حساب/);
-  assert.match(messages.en.helpText, /More settings → Privacy & safety → Delete account/);
+  assert.match(messages.fa.helpText, /من ← حریم خصوصی و امنیت ← حذف حساب/);
+  assert.match(messages.en.helpText, /Me → Privacy & safety → Delete account/);
   assert.ok(messages.fa.helpText.length < 950);
   assert.ok(messages.en.helpText.length < 950);
 });

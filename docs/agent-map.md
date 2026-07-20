@@ -102,11 +102,11 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps.
 - `src/services/users.js`: whitelisted, atomic section-tip first-write helpers and centralized AI-list access/mutations.
-- `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, and edit-start helpers.
+- `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, edit-start helpers, and remembered inline-card refresh for typed Interests.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People visibility mutation, and invitation-restriction management.
 - `src/services/profile-privacy-ui.js`: invitation-restriction list rendering.
-- `src/flows/profile-callbacks.js`: profile edit/settings callback routing, own-profile callback rendering, and profile completion redirect handling.
+- `src/flows/profile-callbacks.js`: inline profile-picker routing, legacy settings-callback compatibility, own-profile card restoration, and profile completion redirect handling.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
@@ -189,7 +189,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion rendering text: `src/services/discussion-ui.js` or `src/services/discussion-room-ui.js`.
 - New profile rendering rule: `src/services/profile.js`.
 - New typed profile edit state or reset-photo command: `src/flows/profile-text.js`.
-- New profile edit/settings callback action: `src/flows/profile-callbacks.js`.
+- New profile inline edit or legacy settings callback action: `src/flows/profile-callbacks.js`.
 - New profile edit prompt lifecycle rule: `src/flows/profile-edit.js`.
 - New saved-profile storage/mutation rule: `src/services/saved-profiles.js`.
 - New saved-profile action or public-profile card lifecycle rule: `src/flows/saved-profiles.js`.

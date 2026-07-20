@@ -11,7 +11,7 @@ const { getProfileEmojiIndex, getProfileEmojiOptions } = require("../src/service
 const {
   profileKeyboard,
   profileInterestsKeyboard,
-  profileSettingsKeyboard,
+  profileQuickActionsKeyboard,
   profilePrivacySafetyKeyboard,
   profileInvitationRestrictionsKeyboard,
   ageKeyboard,
@@ -433,23 +433,26 @@ test("profileKeyboard offers Add photo before a profile photo exists", () => {
   assert.ok(!labels.includes(messages.en.profileResetPhoto));
 });
 
-test("profileKeyboard groups frequent profile edits into compact rows", () => {
+test("profileKeyboard keeps only typed and media actions in compact rows", () => {
   const keyboard = profileKeyboard("en", true);
   const rows = keyboard?.reply_markup?.keyboard || [];
   const buttons = rows.flat();
   const labels = buttons.map((button) => button.text);
-  const nameAgeRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditName));
-  const cityGenderRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditCity));
-  const interestsSettingsRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditInterests));
+  const nameCityRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditName));
+  const bioRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
 
-  assert.ok(labels.includes(messages.en.profileMoreSettings));
-  assert.ok(!labels.includes(messages.en.profileEditBio));
+  assert.ok(!labels.includes(messages.en.profileMoreSettings));
+  assert.ok(labels.includes(messages.en.profileEditBio));
   assert.ok(!labels.includes(messages.en.profileEditPetPreference));
   assert.ok(!labels.includes(messages.en.profileEditLocation));
-  assert.deepEqual(nameAgeRow.map((button) => button.text), [messages.en.profileEditName, messages.en.profileEditAge]);
-  assert.deepEqual(cityGenderRow.map((button) => button.text), [messages.en.profileEditCity, messages.en.profileEditGender]);
-  assert.deepEqual(interestsSettingsRow.map((button) => button.text), [messages.en.profileEditInterests, messages.en.profileMoreSettings]);
-  assert.ok(rows.indexOf(cityGenderRow) < rows.findIndex((row) => row.some((button) => [messages.en.profileAddPhoto, messages.en.profileEditPhoto].includes(button.text))));
+  assert.ok(!labels.includes(messages.en.profileEditAge));
+  assert.ok(!labels.includes(messages.en.profileEditGender));
+  assert.ok(!labels.includes(messages.en.profileEmojiButton));
+  assert.deepEqual(nameCityRow.map((button) => button.text), [messages.en.profileEditName, messages.en.profileEditCity]);
+  assert.deepEqual(bioRow.map((button) => button.text), [messages.en.profileEditBio]);
+  assert.ok(!labels.includes(messages.en.profilePrivacySafetyButton));
+  assert.equal(rows.length, 4);
+  assert.ok(rows.every((row) => row.length <= 2));
 });
 
 test("profile interests keep selected built-in chips in place", () => {
@@ -501,36 +504,38 @@ test("new profiles appear in See People by default", () => {
   assert.equal(user.showActiveDiscussionOnProfile, true);
 });
 
-test("profile settings separates ordinary details from privacy controls", () => {
-  const keyboard = profileSettingsKeyboard("en");
-  const rows = keyboard?.reply_markup?.keyboard || [];
-  const buttons = rows.flat();
-  const labels = buttons.map((button) => button.text);
-  const bioRow = rows.find((row) => row.some((button) => button.text === messages.en.profileEditBio));
+test("profile quick actions stay inline and privacy controls stay isolated", () => {
+  const quick = profileQuickActionsKeyboard("en").reply_markup.inline_keyboard.flat();
+  assert.deepEqual(quick.map((button) => button.callback_data), [
+    callBacks.profileEditAge,
+    callBacks.profileEditGender,
+    callBacks.profileEditInterests,
+    callBacks.profileEmoji,
+    callBacks.profilePrivacy,
+  ]);
 
-  assert.ok(labels.includes(messages.en.profileEditBio));
-  assert.ok(!labels.includes(messages.en.profileEditGender));
-  assert.ok(!labels.includes(messages.en.profileEditPetPreference));
-  assert.ok(!labels.includes(messages.en.profileEditLocation));
-  assert.ok(!labels.includes(messages.en.profileHideActiveDiscussion));
-  assert.ok(!labels.includes(messages.en.accountDeleteButton));
-  assert.ok(labels.includes(messages.en.profileEmojiButton));
-  assert.ok(labels.includes(messages.en.profilePrivacySafetyButton));
-  assert.ok(labels.includes(messages.en.profileBackToProfile));
-  assert.deepEqual(bioRow.map((button) => button.text), [messages.en.profileEditBio]);
+  const enabledQuick = profileQuickActionsKeyboard("en", { petPreferenceEnabled: true })
+    .reply_markup.inline_keyboard;
+  assert.ok(enabledQuick.every((row) => row.length <= 2));
+  assert.ok(enabledQuick.flat().some((button) => button.callback_data === callBacks.profileEditPetPreference));
+  assert.deepEqual(enabledQuick.at(-1).map((button) => button.callback_data), [callBacks.profilePrivacy]);
 
-  const enabledKeyboard = profileSettingsKeyboard("en", {
-    petPreferenceEnabled: true,
-    locationEnabled: true,
-  });
-  const enabledLabels = enabledKeyboard
-    .reply_markup.keyboard.flat().map((button) => button.text);
-  assert.ok(enabledLabels.includes(messages.en.profileEditPetPreference));
-  assert.ok(enabledLabels.includes(messages.en.profileEditLocation));
-
-  const locationEmojiRow = enabledKeyboard.reply_markup.keyboard
-    .find((row) => row.some((button) => button.text === messages.en.profileEditLocation));
-  assert.deepEqual(locationEmojiRow.map((button) => button.text), [messages.en.profileEditLocation, messages.en.profileEmojiButton]);
+  const previousLocation = starEconomy.profileLocationEnabled;
+  try {
+    starEconomy.profileLocationEnabled = true;
+    const locationRows = profileKeyboard("en", true).reply_markup.keyboard;
+    const labels = locationRows.flat().map((button) => button.text);
+    assert.ok(labels.includes(messages.en.profileEditLocation));
+    assert.deepEqual(
+      locationRows.find((row) => row.some((button) => button.text === messages.en.profileEditBio))
+        .map((button) => button.text),
+      [messages.en.profileEditBio, messages.en.profileEditLocation],
+    );
+    assert.equal(locationRows.length, 4);
+    assert.ok(locationRows.every((row) => row.length <= 2));
+  } finally {
+    starEconomy.profileLocationEnabled = previousLocation;
+  }
 
   const privacy = profilePrivacySafetyKeyboard("en", {
     showsActiveDiscussion: true,
@@ -602,10 +607,10 @@ test("invitation restriction rows put count in the title and use command actions
   assert.match(view.text, /\/allow_inv_AB12/);
 });
 
-test("canceling location sharing returns to Profile Settings", async () => {
+test("canceling location sharing returns to Profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const previousLocationEnabled = starEconomy.profileLocationEnabled;
-  const replies = [];
+  let returnedUser = null;
   User.findOneAndUpdate = async () => ({});
   starEconomy.profileLocationEnabled = true;
 
@@ -620,33 +625,28 @@ test("canceling location sharing returns to Profile Settings", async () => {
         state: "editing_location",
         showActiveDiscussionOnProfile: true,
       },
-      reply: async (text, extra) => {
-        replies.push({ text, extra });
-        return { message_id: replies.length };
-      },
+      reply: async () => ({ message_id: 1 }),
     };
 
     const handled = await handleProfileCancelText(ctx, "en", "editing_location", {
-      sendProfile: async () => assert.fail("location cancel must not open the main Profile menu"),
+      sendProfile: async (_ctx, user) => { returnedUser = user; return true; },
       keyboardLang: "en",
     });
 
     assert.ok(handled);
-    const labels = replies.at(-1).extra.reply_markup.keyboard.flat().map((button) => button.text);
-    assert.ok(labels.includes(messages.en.profileEditLocation));
-    assert.ok(labels.includes(messages.en.profileBackToProfile));
-    assert.equal(labels.includes(messages.en.cancel), false);
+    assert.equal(returnedUser.state, "idle");
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
     starEconomy.profileLocationEnabled = previousLocationEnabled;
   }
 });
 
-test("sharing a location returns to Profile Settings", async () => {
+test("sharing a location returns to Profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalAxiosGet = axios.get;
   const previousLocationEnabled = starEconomy.profileLocationEnabled;
   const replies = [];
+  let returnedUser = null;
   User.findOneAndUpdate = async () => ({});
   axios.get = async () => ({ data: { address: { city: "Tehran" } } });
   starEconomy.profileLocationEnabled = true;
@@ -670,16 +670,14 @@ test("sharing a location returns to Profile Settings", async () => {
     };
 
     const handled = await handleProfileText(ctx, "en", "", "editing_location", {
-      sendProfile: async () => assert.fail("location save must not open the main Profile menu"),
+      sendProfile: async (_ctx, user) => { returnedUser = user; return true; },
       keyboardLang: "en",
     });
 
     assert.ok(handled);
     assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-    const labels = replies.at(-1).extra.reply_markup.keyboard.flat().map((button) => button.text);
-    assert.ok(labels.includes(messages.en.profileEditLocation));
-    assert.ok(labels.includes(messages.en.profileBackToProfile));
-    assert.equal(labels.includes(messages.en.cancel), false);
+    assert.equal(returnedUser.state, "idle");
+    assert.equal(returnedUser.location.latitude, 35.6892);
     await new Promise((resolve) => setImmediate(resolve));
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;

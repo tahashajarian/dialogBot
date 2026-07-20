@@ -33,7 +33,7 @@ Keep the router files thin:
 - `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
 - `src/flows/profile-text.js` owns typed profile edit states, profile edit cancellation, and reset-photo text commands.
-- `src/flows/profile-callbacks.js` owns profile edit/settings callback routing and own-profile callback rendering.
+- `src/flows/profile-callbacks.js` owns inline profile-picker routing, legacy settings-callback compatibility, and own-profile card restoration.
 - `src/flows/saved-profiles.js` owns the people hub, its durable first-visit guidance, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
 - `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.

@@ -30,6 +30,29 @@ async function sendProfileEditPrompt(ctx, text, keyboard) {
   return sent;
 }
 
+async function rememberProfileEditPrompt(ctx, messageOrId) {
+  const messageId = Number(getMessageId(messageOrId) || messageOrId);
+  if (!Number.isInteger(messageId) || messageId <= 0) return false;
+  await updateProfileField(ctx.userId, "profileEditPromptMessageId", messageId);
+  if (ctx.user) ctx.user.profileEditPromptMessageId = messageId;
+  return true;
+}
+
+async function updateRememberedProfileEditPrompt(ctx, text, keyboard) {
+  const messageId = Number(ctx.user?.profileEditPromptMessageId);
+  if (Number.isInteger(messageId) && messageId > 0) {
+    const editors = ctx.user?.photoFileId
+      ? [ctx.editMessageCaption, ctx.editMessageText]
+      : [ctx.editMessageText, ctx.editMessageCaption];
+    for (const edit of editors) {
+      if (!edit) continue;
+      const edited = await edit(messageId, text, keyboard);
+      if (edited) return edited;
+    }
+  }
+  return sendProfileEditPrompt(ctx, text, keyboard);
+}
+
 async function startProfileEdit(ctx, state, prompt, keyboard, { deleteCurrentMessage = null } = {}) {
   await deleteCurrentMessage?.();
   await updateUserState(ctx.userId, state);
@@ -38,6 +61,8 @@ async function startProfileEdit(ctx, state, prompt, keyboard, { deleteCurrentMes
 
 module.exports = {
   clearProfileEditPrompt,
+  rememberProfileEditPrompt,
   sendProfileEditPrompt,
   startProfileEdit,
+  updateRememberedProfileEditPrompt,
 };

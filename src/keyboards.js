@@ -812,24 +812,28 @@ function profileKeyboard(lang, hasPhoto = false) {
   const rows = [
     [
       { text: messages[lang].profileEditName },
-      { text: messages[lang].profileEditAge },
-    ],
-    [
       { text: messages[lang].profileEditCity },
-      { text: messages[lang].profileEditGender },
     ],
     hasPhoto
       ? [
-        { text: messages[lang].profileEditPhoto },
-        { text: messages[lang].profileResetPhoto },
+        { text: messages[lang].profileEditBio },
+        ...(starEconomy.profileLocationEnabled
+          ? [{ text: messages[lang].profileEditLocation }]
+          : []),
       ]
       : [
+        { text: messages[lang].profileEditBio },
         { text: messages[lang].profileAddPhoto },
       ],
-    [
-      { text: messages[lang].profileEditInterests },
-      { text: messages[lang].profileMoreSettings },
-    ],
+    ...(hasPhoto
+      ? [[
+        { text: messages[lang].profileEditPhoto },
+        { text: messages[lang].profileResetPhoto },
+      ]]
+      : []),
+    ...(!hasPhoto && starEconomy.profileLocationEnabled
+      ? [[{ text: messages[lang].profileEditLocation }]]
+      : []),
     [
       { text: messages[lang].cancel },
     ],
@@ -838,26 +842,28 @@ function profileKeyboard(lang, hasPhoto = false) {
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function profileSettingsKeyboard(lang, {
+function profileQuickActionsKeyboard(lang, {
   petPreferenceEnabled = starEconomy.profilePetPreferenceEnabled,
-  locationEnabled = starEconomy.profileLocationEnabled,
 } = {}) {
-  return { reply_markup: { keyboard: [
-    petPreferenceEnabled
-      ? [
-        { text: messages[lang].profileEditBio },
-        { text: messages[lang].profileEditPetPreference },
-      ]
-      : [{ text: messages[lang].profileEditBio }],
-    [
-      ...(locationEnabled ? [{ text: messages[lang].profileEditLocation }] : []),
-      { text: messages[lang].profileEmojiButton },
-    ],
-    [{ text: messages[lang].profilePrivacySafetyButton }],
-    [
-      { text: messages[lang].profileBackToProfile },
-    ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  const rows = [[
+    { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
+    { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
+  ]];
+  rows.push([
+    { text: messages[lang].profileEditInterests, callback_data: callBacks.profileEditInterests },
+    { text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji },
+  ]);
+  if (petPreferenceEnabled) {
+    rows.push([{
+      text: messages[lang].profileEditPetPreference,
+      callback_data: callBacks.profileEditPetPreference,
+    }]);
+  }
+  rows.push([{
+    text: messages[lang].profilePrivacySafetyButton,
+    callback_data: callBacks.profilePrivacy,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function profilePrivacySafetyKeyboard(lang, {
@@ -1312,7 +1318,7 @@ module.exports = {
   aiListActionItemsKeyboard,
   aiListCancelCommentKeyboard,
   profileKeyboard,
-  profileSettingsKeyboard,
+  profileQuickActionsKeyboard,
   profilePrivacySafetyKeyboard,
   profileInvitationRestrictionsKeyboard,
   profileRestrictionViewKeyboard,

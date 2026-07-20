@@ -7,6 +7,7 @@ const {
   discussionsMenuKeyboard,
   languageKeyboard,
   profileKeyboard,
+  profileQuickActionsKeyboard,
   cancelEditKeyboard,
   profileActiveDiscussionHelpKeyboard,
 } = require("./keyboards");
@@ -800,14 +801,15 @@ async function clearOwnProfileMessage(ctx) {
 
 async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
   await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "profile" });
+  await ctx.reply(messages[keyboardLang].profileEditMenuText, profileKeyboard(
+    keyboardLang,
+    Boolean(user?.photoFileId),
+  ));
   const sentProfile = await sendProfileMessage({
     ctx,
     user,
     lang,
-    keyboard: profileKeyboard(
-      keyboardLang,
-      Boolean(user?.photoFileId),
-    ),
+    keyboard: profileQuickActionsKeyboard(keyboardLang),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,

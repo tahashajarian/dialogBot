@@ -156,6 +156,11 @@ test("own-profile actions resolve only while the server says profile", () => {
   assert.equal(resolveReplyKeyboardAction(messages.fa.profileEditName, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditName);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileAddPhoto, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditPhoto);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileAddPhoto, { mode: MODES.GLOBAL }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditBio, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditBio);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profilePrivacySafetyButton, { mode: MODES.PROFILE }).callbackData, callBacks.profilePrivacy);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditAge, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditAge);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditGender, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditGender);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditInterests, { mode: MODES.PROFILE }).callbackData, callBacks.profileEditInterests);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileMoreSettings, { mode: MODES.PROFILE }).callbackData, callBacks.profileSettings);
 });
 
@@ -168,9 +173,10 @@ test("own Profile keeps Back as the final bottom-keyboard row", () => {
   }
 });
 
-test("Guide, Profile Settings, and Privacy actions remain mode scoped", () => {
+test("Guide, flattened Profile, and Privacy actions remain mode scoped", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }).callbackData, callBacks.helpRules);
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.PROFILE }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.profilePrivacySafetyButton, { mode: MODES.PROFILE }).callbackData, callBacks.profilePrivacy);
   assert.equal(resolveReplyKeyboardAction(messages.fa.profilePrivacySafetyButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.profilePrivacy);
   assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_PRIVACY }).callbackData, callBacks.accountDelete);
   assert.equal(resolveReplyKeyboardAction(messages.fa.accountDeleteButton, { mode: MODES.PROFILE_SETTINGS }), null);
@@ -193,14 +199,14 @@ test("Profile Settings buttons remain routed while the emoji picker is open", ()
   assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context), null);
 });
 
-test("dashboard-enabled optional Profile Settings fields are routed", () => {
+test("dashboard-enabled optional Profile fields are routed", () => {
   const previousPet = starEconomy.profilePetPreferenceEnabled;
   const previousLocation = starEconomy.profileLocationEnabled;
-  const context = { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } };
+  const context = { mode: MODES.PROFILE, state: "idle", user: { lang: "en" } };
   try {
     starEconomy.profilePetPreferenceEnabled = true;
     starEconomy.profileLocationEnabled = true;
-    assert.equal(resolveReplyKeyboardAction(messages.en.profileEditPetPreference, context).callbackData, callBacks.profileEditPetPreference);
+    assert.equal(resolveReplyKeyboardAction(messages.en.profileEditPetPreference, context), null);
     assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, context).callbackData, callBacks.profileEditLocation);
   } finally {
     starEconomy.profilePetPreferenceEnabled = previousPet;
@@ -374,6 +380,30 @@ test("gender and pet choices are scoped to their profile picker states", () => {
     }).callbackData, `${callBacks.profilePetSet}cat`);
   } finally {
     starEconomy.profilePetPreferenceEnabled = previous;
+  }
+});
+
+test("Profile Back exits every inline profile picker instead of becoming picker input", () => {
+  const previousPet = starEconomy.profilePetPreferenceEnabled;
+  starEconomy.profilePetPreferenceEnabled = true;
+  try {
+    const cases = [
+      { mode: "profile_age", state: "editing_age" },
+      { mode: "profile_gender", state: "editing_gender" },
+      { mode: "profile_pet", state: "editing_pet_preference" },
+      { mode: "profile_interests:0", state: "editing_interests" },
+      { mode: "profile_emoji", state: "editing_profile_emoji" },
+      { mode: "profile_emoji", state: "profile_emoji_confirm:0:3:abc" },
+    ];
+    for (const context of cases) {
+      assert.equal(
+        resolveReplyKeyboardAction(messages.fa.cancel, { ...context, user: { lang: "fa" } })?.callbackData,
+        callBacks.profileCancelEdit,
+        `${context.mode}/${context.state}`,
+      );
+    }
+  } finally {
+    starEconomy.profilePetPreferenceEnabled = previousPet;
   }
 });
 
