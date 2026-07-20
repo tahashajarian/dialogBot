@@ -395,7 +395,7 @@ test("onboarding completion shows invitation copy and action only when one exist
   }
 });
 
-test("help is available from the main menu and onboarding completion", () => {
+test("help is available from Home and onboarding completion", () => {
   const faRulesText = localizeVisibleDigits(formatOperationalLimitsText(messages.fa.helpRulesText), "fa");
   const enRulesText = localizeVisibleDigits(formatOperationalLimitsText(messages.en.helpRulesText), "en");
   const mainLabels = mainMenuKeyboard("fa").reply_markup.keyboard
@@ -464,7 +464,7 @@ test("help is available from the main menu and onboarding completion", () => {
   assert.ok(messages.en.helpText.length < 950);
 });
 
-test("main menu uses the warmer Me label without renaming profile copy", () => {
+test("Home uses the warmer Me label without renaming profile copy", () => {
   const faButtons = mainMenuKeyboard("fa").reply_markup.keyboard.flat();
   const enButtons = mainMenuKeyboard("en").reply_markup.keyboard.flat();
 

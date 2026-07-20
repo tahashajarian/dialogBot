@@ -158,7 +158,7 @@ Invitees can open one unified invitations inbox, review pending or previously ac
 
 Recommended placement:
 
-- Add an `Invitations (N)` button near `Discussions` in the main menu, or
+- Add an `Invitations (N)` button near `Discussions` in Home, or
 - Add it inside the discussions menu as a first-class action.
 
 Preferred MVP placement: discussions menu.
@@ -166,12 +166,12 @@ Preferred MVP placement: discussions menu.
 Reason:
 
 - Invitations are discussion-specific.
-- It avoids making the main menu too busy.
+- It avoids making Home too busy.
 - Counts can still be shown in the discussions menu label.
 
 Future option:
 
-- If invitations become central, show the count in the main menu too.
+- If invitations become central, show the count in Home too.
 
 ### Active Discussion Invite Button
 
@@ -384,7 +384,7 @@ Join failures should match the existing discussion join-error UX:
 - After `Got it`, return the user to where they came from.
 - For invitation-list joins, return to the invitations list.
 - For saved-profile discussion joins, return to that saved user's discussions view.
-- For public invite previews, return to the current invite-preview/main-menu behavior.
+- For public invite previews, return to the current invite-preview/Home behavior.
 
 Do not strand the user in a dead state after a failed join. The invitation should remain visible when the failure is recoverable, such as a missing TopTen item or taste label requirement.
 
@@ -991,7 +991,7 @@ Use stable public codes, not indexes.
   - active-room invite flow returns to room
   - saved-profile invite flow returns to saved profiles
   - invitations accept error returns to invitations list
-- If a user navigates to main menu, clear temporary invite picker cards where possible.
+- If a user navigates to Home, clear temporary invite picker cards where possible.
 - Do not send multiple explanatory messages for one invite action.
 - Use callback notifications for repeated taps or no-op actions.
 
@@ -1002,7 +1002,7 @@ Counting invitations on every main/discussion menu render may require a database
 Recommended MVP:
 
 - Count when rendering discussions menu.
-- Optionally count when rendering main menu if the main-menu button includes invitations.
+- Optionally count when rendering Home if the Home button includes invitations.
 - Do not store denormalized count on user unless performance requires it.
 
 If denormalized later:
@@ -1159,7 +1159,7 @@ Behavior tests:
 
 ## Open Product Decisions Before Implementation
 
-1. Should `Invitations (N)` live in the main menu, discussions menu, or both?
+1. Should `Invitations (N)` live in Home, the discussions menu, or both?
 2. Should the active discussion `📨 دعوت` first show a mode menu, or should it default to saved-profile invites and include shareable invite as a secondary action?
 3. Should pending invites expire automatically after 30 days?
 4. Should full-room invites stay pending so invitees can retry later?

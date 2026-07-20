@@ -53,7 +53,7 @@ The Discussions hub uses a compact reply keyboard: Active Discussions with Invit
 - When starter rooms are pinned for new users, keep this seed order so the open `Free Discussion` room appears first.
 - The item-gated starter rooms should use popular onboarding chips so new users can unlock at least one relevant room through the configurable Interest onboarding flow.
 - Normal onboarding completion prepares at most one invitation. Prefer the most recent open, non-full, joinable discussion in the user's interface language whose specific profile-Interest rule matches an onboarding choice; the room may be user-created or Muze-created. Fall back to the matching-language open `Free Discussion` starter room. Persist the invitation before mentioning it or showing the invitation button, never auto-join, never create duplicates on retries, and exclude automated onboarding invitations from invitation-pair Star rewards.
-- Recognized language-specific Muze starter rooms have a fixed effective capacity of 100 members. User-created room defaults, free capacity choices, and paid-capacity rules are unchanged. If both a relevant matching room and the matching-language `Free Discussion` room are full or unavailable, onboarding completes without a starter invitation and keeps the normal Active Discussions, My favorites, and Main menu destinations. The current implementation does not automatically increase capacity or create overflow global rooms; either scaling policy requires a separately reviewed product and moderation change based on real usage.
+- Recognized language-specific Muze starter rooms have a fixed effective capacity of 100 members. User-created room defaults, free capacity choices, and paid-capacity rules are unchanged. If both a relevant matching room and the matching-language `Free Discussion` room are full or unavailable, onboarding completes without a starter invitation and keeps the normal Active Discussions, My favorites, and Home destinations. The current implementation does not automatically increase capacity or create overflow global rooms; either scaling policy requires a separately reviewed product and moderation change based on real usage.
 - Starter room cards should make the first social step obvious: the open room says to start there, unlocked gated rooms rely on their concise rule/status line, and locked rooms say which Interest TopTen item to add.
 - Discussion list cards stay compact: the numbered title, description, member count, and join rule each have a clear line; repeated field labels are omitted, and language is shown only when it differs from the viewer's interface language.
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
@@ -96,7 +96,7 @@ Profile discussion visibility is a separate setting that controls both the user'
 
 ### Open Discussions
 
-Entry point from main menu:
+Entry point from Home:
 
 ```text
 💬 گفت‌وگوها
@@ -339,7 +339,7 @@ When user joins:
   3. Delete the error message and redirect to appropriate screen:
      - From discussion list → show the same list type (active/mine)
      - From saved-profile discussions → show that same saved user's discussions again
-     - From invite (requirement/removed errors) → show main menu
+     - From invite (requirement/removed errors) → show Home
      - From invite (other errors) → show discussions menu
 
 - If they are already inside another discussion, reject the join and ask them to leave the current room first.
@@ -468,7 +468,7 @@ Rules:
 - Existing members who use the invite while active elsewhere should be moved/re-focused to that discussion, matching normal `/d_CODE` behavior.
 - Removed users can open a public preview but must receive the same removed-user error if they try to join. Public previews never carry owner re-entry approval.
 - Closed, missing, or expired discussions should show a clean unavailable state.
-- If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to the main menu so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
+- If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to Home so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
 - Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it for an already-onboarded user does not create an inbox row; the post-onboarding `shared_link` preservation rule is the narrow exception. Close quietly deletes the temporary share card because the sender is already in the active room.
 
 Ready-to-share message rules:
@@ -487,10 +487,10 @@ Opening an invite:
 - `/join_CODE` or a deep-link equivalent should run unfinished onboarding first and automatically show the original preview afterward; users with completed onboarding should see the invite preview immediately.
 - A displayed preview should not join automatically, even for open rooms.
 - The preview message should be safe for non-members.
-- If the discussion is closed/missing/unavailable, show the unavailable state and return to the main menu.
+- If the discussion is closed/missing/unavailable, show the unavailable state and return to Home.
 - If the discussion exists but is full, show the full-room state and return to the discussions menu.
-- If the viewer was removed by the owner, show the removed-user message and return to the main menu.
-- If the viewer does not satisfy a join rule, show the specific locked hint and return to the main menu.
+- If the viewer was removed by the owner, show the removed-user message and return to Home.
+- If the viewer does not satisfy a join rule, show the specific locked hint and return to Home.
 
 Join attempt validation order:
 
@@ -557,7 +557,7 @@ Specific locked hints:
 
 - Taste-label room: tell the user which section/label is required and guide them to complete that section's Top 10 so the label can be calculated.
 - TopTen-item room: tell the user which section/item is required and guide them to add that item to the relevant Top 10 list.
-- After the hint, show the main menu reply keyboard.
+- After the hint, show the Home reply keyboard.
 - Tell the user they can use the same invite link/command again or find the discussion again from `🟢 گفت‌وگوهای فعال`.
 
 Taste-label example:
@@ -569,7 +569,7 @@ Taste-label example:
 💡 اول تاپ ۱۰ موسیقی‌ات رو کامل کن تا برچسبت حساب بشه.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
 
-از منوی اصلی برو به محبوب‌های من 🎬🎵📚.
+برو به محبوب‌های من 🎬🎵📚.
 ```
 
 Profile-interest item example:
@@ -578,7 +578,7 @@ Profile-interest item example:
 👩‍🦳 برای ورود به این گفت‌وگو، «شطرنج» باید توی علاقه‌مندی‌های پروفایلت باشه:
 🔑 🌿 علاقه‌مندی‌ها - شطرنج
 
-💡 از منوی اصلی برو به 👤 من ← علاقه‌مندی‌ها و «شطرنج» رو اضافه کن.
+💡 برو به 👤 من ← علاقه‌مندی‌ها و «شطرنج» رو اضافه کن.
 بعدش می‌تونی همین لینک دعوت رو دوباره امتحان کنی.
 ```
 
@@ -614,7 +614,7 @@ Implementation test checklist:
 - Restricted invite join succeeds only when user satisfies the rule.
 - Invite join failures use two-step acknowledgment:
   1. Show error message with "Got it" / "فهمیدم" button
-  2. After user presses button, redirect to main menu (for requirement/removed errors) or discussions menu (for other errors)
+  2. After user presses button, redirect to Home (for requirement/removed errors) or the discussions menu (for other errors)
 - Restricted invite join failure gives a specific hint about what's missing and where to update it.
 - Closed/missing discussion invite shows unavailable message.
 - Full discussion invite shows capacity reached message.
@@ -1185,7 +1185,7 @@ Implementation note: member lists can include `/u_CODE` buttons and still suppor
 
 The `👥 آدم‌ها` / `👥 People` hub is the lightweight people surface connected to discussion profile viewing.
 
-Main menu entry:
+Home entry:
 
 ```text
 👥 آدم‌ها

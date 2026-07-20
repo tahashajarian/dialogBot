@@ -237,6 +237,7 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiBackText(messages.en.aiBack), true);
   assert.equal(isAiBackText(messages.fa.aiBack), true);
   assert.equal(isAiBackText("Back"), true);
+  assert.equal(isAiBackText("برگشت"), true);
 
   assert.equal(isAiSectionListText(messages.en.aiSectionListButtonMovies, "movies"), true);
   assert.equal(isAiSectionListText(messages.fa.aiSectionListButtonRandom, "random"), true);

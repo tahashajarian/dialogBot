@@ -129,7 +129,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - server-scoped bottom onboarding language/welcome/chip/remove/more/completion handling, plus direct typed Interests
   - append-only onboarding prompt transitions without Telegram delete/edit cleanup
   - optional post-invite quick taste setup nudge for invite-first users who have not completed onboarding
-  - handoff to starter invitations, Lists, discussions, or the main menu
+  - handoff to starter invitations, Lists, discussions, or Home
   - completion destination analytics without Interest text or other user content
 
 ## AI Lists And Suggestions

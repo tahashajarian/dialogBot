@@ -139,7 +139,7 @@ function isAiBackText(text) {
     .toLowerCase()
     .trim();
 
-  return plainText === "back" || plainText === "بازگشت";
+  return plainText === "back" || plainText === "برگشت" || plainText === "بازگشت";
 }
 
 function isAiListText(text) {

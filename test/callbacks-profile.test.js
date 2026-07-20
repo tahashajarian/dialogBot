@@ -98,7 +98,7 @@ test("inline saved-profile removal confirms and cancels on the same profile card
   assert.deepEqual(deleted, []);
 });
 
-test("language change sends confirmation before the localized main menu", async () => {
+test("language change sends confirmation before localized Home", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const deletedIds = [];
@@ -130,11 +130,11 @@ test("language change sends confirmation before the localized main menu", async 
   assert.equal(replies[0].text, "👩‍🦳 زبان به فارسی تغییر کرد.");
   assert.equal(replies[0].extra, undefined);
   assert.equal(replies[1].text, messages.fa.mainMenu);
-  assert.match(replies[1].text, /^🏠 منوی اصلی/);
+  assert.match(replies[1].text, /^🏠 خانه/);
   assert.deepEqual(replies[1].extra, mainMenuKeyboard("fa"));
 });
 
-test("main-menu language button opens an inline picker without replacing the reply keyboard", async () => {
+test("Home language button opens an inline picker without replacing the reply keyboard", async () => {
   const replies = [];
   const ctx = {
     callbackData: callBacks.language,
@@ -180,7 +180,7 @@ test("language picker Close deletes only its inline card", async () => {
   assert.equal(ctx.user.navigationMode, "global");
 });
 
-test("profile Back leaves a main-menu footprint before a fresh menu card", async () => {
+test("profile Back leaves a Home footprint before a fresh card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
   const deletedIds = [];
@@ -219,7 +219,7 @@ test("profile Back leaves a main-menu footprint before a fresh menu card", async
   assert.deepEqual(replies, [messages.en.mainMenu]);
 });
 
-test("profile Back deletes a photo profile before sending the main menu", async () => {
+test("profile Back deletes a photo profile before sending Home", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
   const deletedIds = [];
@@ -935,7 +935,7 @@ test("public profile viewing asks for basic profile first", async () => {
   );
 });
 
-test("main menu entries retain history and open their bottom-keyboard hubs", async () => {
+test("Home entries retain history and open their bottom-keyboard hubs", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalCountDocuments = DiscussionInvitation.countDocuments;
   User.findOneAndUpdate = async () => ({});
@@ -1463,7 +1463,7 @@ test("saved profiles remembers the real list message id when edit returns true",
   assert.equal(ctx.user.savedProfilesLastListMessageId, 77);
 });
 
-test("AI inline back leaves a main-menu footprint before a fresh card", async () => {
+test("AI inline back leaves a Home footprint before a fresh card", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -1501,7 +1501,7 @@ test("AI inline back leaves a main-menu footprint before a fresh card", async ()
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.match(replies[0].text, /منوی اصلی/);
+  assert.match(replies[0].text, /خانه/);
   assert.deepEqual(deletedIds, [456]);
   assert.deepEqual(edits, []);
   assert.deepEqual(

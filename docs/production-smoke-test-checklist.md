@@ -20,7 +20,7 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 - A matching Interest room is preferred for the one prepared invitation; otherwise the correct-language Free Discussion is used. Completion copy distinguishes these cases, says opening is only a preview, and never auto-joins.
 - If both candidates are full or unavailable, completion stays neutral and shows no invitation-ready claim or button.
 - Restarting before opening the prepared invitation preserves exactly one invitation and the same destination.
-- Repeated `/start` sends a returning user with meaningful activity to the main menu.
+- Repeated `/start` sends a returning user with meaningful activity to Home.
 
 ## Invite-First Onboarding
 

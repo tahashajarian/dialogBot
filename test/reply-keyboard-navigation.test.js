@@ -14,7 +14,7 @@ test("global reply navigation resolves both languages with Telegram direction ma
   assert.equal(normalizeReplyButtonText("  A   B  "), "A B");
 });
 
-test("main menu restores bot-language switching as a global bottom action", () => {
+test("Home restores bot-language switching as a global bottom action", () => {
   const { mainMenuKeyboard } = require("../src/keyboards");
   const labels = mainMenuKeyboard("fa").reply_markup.keyboard.flat().map((button) => button.text);
   assert.ok(labels.includes(messages.fa.language));
