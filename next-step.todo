@@ -26,7 +26,7 @@ Implementation steps:
 
 ✔ 6. Added caption-safe public Favorites hub/section views for Movies/Music/Books and stored taste labels only, with in-place Back-to-profile restoration and delete-only Close.
 
-✔ 7. Added bilingual copy and callback/navigation recognition; `npm.cmd run validate:translations` passes for all 912 English/Persian keys.
+✔ 7. Added bilingual copy and callback/navigation recognition; `npm.cmd run validate:translations` passes for all 903 English/Persian keys after removing the retired standalone Favorites-sharing copy.
 
 ✔ 8. Added focused unit, flow, callback-adjacent, and integration coverage for caption privacy/length/copy, complete-list gating, fallback delivery, referral destinations and non-rewarding cases, onboarding order, public Favorites, photo restoration, exact reply-keyboard restoration, in-place Save, and safe current-discussion handling; the full existing suite remains green.
 

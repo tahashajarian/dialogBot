@@ -434,12 +434,6 @@ test("Movies add and comment input controls resolve across every recovery state"
   assert.equal(resolveReplyKeyboardAction(messages.en.cancelEdit, { mode, state: "ai_manage_books_top_ten_add_input" }), null);
 });
 
-test("shared-list guidance uses a scoped bottom Back action", () => {
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiListShareBackToList, { mode: "ai_share:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListShareBack}movies:top_ten`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiListShareBackToList, { mode: "ai_share:books:topTen", state: "ai_manage_books_top_ten" }).callbackData, `${callBacks.aiListShareBack}books:top_ten`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiListShareBackToList, { mode: "ai_list:books:topTen", state: "ai_manage_books_top_ten" }), null);
-});
-
 test("suggestion source selection uses section-scoped bottom actions", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, { mode: "ai_suggestion_mode:movies", state: "ai_chat_movies" }).callbackData, `${callBacks.aiSectionSuggestFromTopTen}movies`);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, { mode: "ai_suggestion_mode:music", state: "ai_chat_music" }).callbackData, `${callBacks.aiListManageMenu}music:top_ten`);

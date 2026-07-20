@@ -15,7 +15,6 @@ function localizeAiListItemsForDisplay(items, section, lang) {
   if (section !== "random") return items;
   return items.map((entry) => localizeInterestChipItem(entry, lang));
 }
-const { buildBotBaseLink } = require("./invite-links");
 const {
   getSectionEmoji,
   getSectionLabel,
@@ -175,28 +174,6 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
       listType: "watchlist",
     }),
   );
-}
-
-function buildShareListMessage({ ctx, lang, section, listType, botLink = buildBotBaseLink() }) {
-  const sectionLabel = listType === "topTen"
-    ? getSectionLabelWithEmoji(messages, lang, section)
-    : getSectionLabel(messages, lang, section);
-  const listLabel = getSectionListLabel(messages, lang, section);
-  const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, listType), section, lang);
-  const favoritesTitleKey = section === "movies" ? "aiFavoritesTitleMovies"
-    : section === "music" ? "aiFavoritesTitleMusic"
-      : section === "books" ? "aiFavoritesTitleBooks" : "aiTopTenTitle";
-  const title = (listType === "topTen" ? messages[lang][favoritesTitleKey] : messages[lang].aiWatchlistTitle)
-    .replace("{section}", sectionLabel)
-    .replace("{listName}", listLabel);
-  const emptyText = (listType === "topTen" ? messages[lang].aiTopTenEmpty : messages[lang].aiWatchlistEmpty)
-    .replace("{section}", sectionLabel)
-    .replace("{listName}", listLabel);
-
-  const listText = formatAiItemsList(title, entries, emptyText);
-  const cleanBotLink = String(botLink || "").trim();
-  if (!cleanBotLink) return listText;
-  return `${listText}\n\n${messages[lang].aiListShareFooter.replace("{link}", cleanBotLink)}`;
 }
 
 function formatTasteWithStoredEmoji(section, taste, labelTitle) {
@@ -398,7 +375,6 @@ module.exports = {
   buildTopTenListMessage,
   buildTopTenSavedMessage,
   buildWatchlistMessage,
-  buildShareListMessage,
   getAiListCommandSectionToken,
   formatAiItemsList,
   formatSuggestionLimitMessage,

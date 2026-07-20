@@ -196,7 +196,6 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
   assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
 });
 const {
-  aiListShareReturnKeyboard,
   handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,
@@ -214,7 +213,6 @@ const {
   buildTopTenListMessage,
   buildTopTenSavedMessage,
   buildWatchlistMessage,
-  buildShareListMessage,
   formatAiItemsList,
   getDuplicateListMessage,
   getNeedTopTenMessage,
@@ -277,15 +275,6 @@ test("suggestion save buttons name the concrete section list", () => {
 test("AI-authored list promotion confirmation uses the Muze emoji", () => {
   assert.equal(messages.fa.aiWatchlistPromotedToTopTen, "👩‍🦳 به محبوب‌هات اضافه شد.");
   assert.equal(messages.en.aiWatchlistPromotedToTopTen, "👩‍🦳 Added to your favorites.");
-});
-
-test("shareable list return buttons use consistent Back to list wording", () => {
-  const faButton = keyboardButtons(aiListShareReturnKeyboard("fa", "movies", "topTen"))[0];
-  const enButton = keyboardButtons(aiListShareReturnKeyboard("en", "books", "topTen"))[0];
-
-  assert.equal(faButton.text, messages.fa.aiListManageAddBackToList);
-  assert.equal(enButton.text, messages.en.aiListManageAddBackToList);
-  assert.doesNotMatch(`${faButton.text} ${enButton.text}`, /تاپ ۱۰|Top 10/);
 });
 
 test("AI section keyboard prefixes section actions with section emoji", () => {
@@ -1215,137 +1204,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);
 });
 
-test("sharing AI list renders clean titles and comments without management commands", async () => {
-  const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const originalDeepLinkBaseUrl = process.env.BOT_DEEP_LINK_BASE_URL;
-  process.env.BOT_DEEP_LINK_BASE_URL = "https://t.me/MuzeTestBot";
-  const replies = [];
-
-  const ctx = {
-    callbackData: `${callBacks.aiListManageShare}movies:watchlist`,
-    callbackMessageId: 61,
-    userId: 83,
-    user: {
-      userId: 83,
-      lang: "en",
-      state: "ai_manage_movies_watchlist",
-      aiLists: {
-        movies: {
-          topTen: [],
-          watchlist: [
-            { title: "Arrival", comment: "quiet sci-fi", watched: true },
-            { title: "Heat" },
-            { title: "Dune" },
-            { title: "Alien" },
-            { title: "Her" },
-            { title: "Jaws", comment: "classic" },
-          ],
-        },
-      },
-    },
-    answerCb: async () => true,
-    deleteMessage: async () => true,
-    reply: async (text, extra) => {
-      replies.push({ text, extra });
-      return { message_id: 110 + replies.length };
-    },
-  };
-
-  User.findOneAndUpdate = async (query, update) => {
-    Object.assign(ctx.user, update);
-    return ctx.user;
-  };
-
-  try {
-    await handleAiCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
-    });
-  } finally {
-    User.findOneAndUpdate = originalFindOneAndUpdate;
-    if (originalDeepLinkBaseUrl === undefined) delete process.env.BOT_DEEP_LINK_BASE_URL;
-    else process.env.BOT_DEEP_LINK_BASE_URL = originalDeepLinkBaseUrl;
-  }
-
-  const sharedReply = replies.at(-2);
-  const introReply = replies.at(-1);
-
-  assert.match(introReply.text, new RegExp(`^${messages.en.aiListShareIntroMovies}`));
-  assert.equal(
-    introReply.extra.reply_markup.keyboard.flat().some((button) => button.text === messages.en.aiListShareBackToList),
-    true,
-  );
-  assert.doesNotMatch(introReply.text, /👇|button below/i);
-  assert.equal(ctx.user.aiActionMessageId, undefined);
-  assert.equal(ctx.user.aiActionContext, undefined);
-  assert.doesNotMatch(sharedReply.text, /📌/);
-  assert.match(sharedReply.text, /Arrival — quiet sci-fi/);
-  assert.match(sharedReply.text, /Jaws — classic/);
-  assert.doesNotMatch(sharedReply.text, /\/cm_mv_l_1/);
-  assert.doesNotMatch(sharedReply.text, /\/rm_mv_l_1/);
-  assert.doesNotMatch(sharedReply.text, /Change to watched/);
-  assert.doesNotMatch(sharedReply.text, /Long-press/);
-});
-
-test("AI share return button consumes guidance card before reopening list", async () => {
-  const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const replies = [];
-  const deleted = [];
-  const ctx = {
-    callbackData: `${callBacks.aiListShareBack}movies:watchlist`,
-    callbackMessageId: 77,
-    userId: 84,
-    user: {
-      userId: 84,
-      lang: "en",
-      state: "ai_chat_movies",
-      aiLists: {
-        movies: {
-          topTen: [],
-          watchlist: [
-            { title: "Arrival", watched: true },
-            { title: "Heat" },
-            { title: "Dune" },
-            { title: "Alien" },
-            { title: "Her" },
-            { title: "Jaws" },
-          ],
-        },
-      },
-    },
-    answerCb: async () => true,
-    deleteMessage: async (messageId) => {
-      deleted.push(messageId);
-      return true;
-    },
-    reply: async (text, extra) => {
-      replies.push({ text, extra });
-      return { message_id: 210 + replies.length };
-    },
-  };
-
-  User.findOneAndUpdate = async (query, update) => {
-    Object.assign(ctx.user, update);
-    return ctx.user;
-  };
-
-  try {
-    await handleAiCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async () => {
-        throw new Error("generic fallback should not be needed");
-      },
-    });
-  } finally {
-    User.findOneAndUpdate = originalFindOneAndUpdate;
-  }
-
-  assert.deepEqual(deleted, [77]);
-  assert.equal(ctx.user.aiActionMessageId, null);
-  assert.equal(ctx.user.aiActionContext, "");
-  assert.match(replies.at(-1).text, /🎬📋 watch later/);
-  assert.ok(replies.at(-1).extra?.reply_markup?.keyboard);
-});
-
-test("back to list after adding uses current item count for share button", async () => {
+test("back to list after adding uses the current item count", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
 
@@ -1398,7 +1257,7 @@ test("back to list after adding uses current item count for share button", async
   assert.equal(ctx.user.state, "ai_manage_random_top_ten");
   assert.match(managerReply.text, /Chess/);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}random:top_ten`), false);
-  assert.equal(labels.includes(messages.en.aiListManageShare), true);
+  assert.equal(labels.some((label) => /shareable message/i.test(label)), false);
 });
 
 test("back to list works from the completion card after the 10th item", async () => {
@@ -1753,7 +1612,7 @@ test("Interests editor shares the paged onboarding chip catalog", () => {
 test("AI callback predicate keeps AI cards only for AI callbacks", () => {
   assert.equal(isAiCallback(callBacks.aiListManageMenu), true);
   assert.equal(isAiCallback(`${callBacks.aiListManageShow}movies:watchlist`), true);
-  assert.equal(isAiCallback(`${callBacks.aiListManageShare}movies:watchlist`), true);
+  assert.equal(isAiCallback("ai:list:share:movies:watchlist"), false);
   assert.equal(isAiCallback(`${callBacks.aiTasteRetry}books`), true);
   assert.equal(isAiCallback(callBacks.aiTasteClose), true);
   assert.equal(isAiCallback(callBacks.aiBack), true);
@@ -1951,31 +1810,6 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.equal(earlyButtons[0].text, messages.fa.aiFavoritesAddAnotherMusic.replace("{count}", "2").replace("{goal}", "10"));
 });
 
-test("AI share list appends configured bot link footer", () => {
-  const ctx = {
-    user: {
-      aiLists: {
-        music: {
-          topTen: [{ title: "Toranj", comment: "Mohsen Namjoo" }],
-        },
-      },
-    },
-  };
-
-  const shareText = buildShareListMessage({
-    ctx,
-    lang: "en",
-    section: "music",
-    listType: "topTen",
-    botLink: "https://ble.ir/@Muze",
-  });
-
-  assert.match(shareText, /❤️ My favorite songs/);
-  assert.match(shareText, /1\. Toranj — Mohsen Namjoo/);
-  assert.match(shareText, /👩‍🦳 Made with Muze\nhttps:\/\/ble\.ir\/@Muze/);
-  assert.doesNotMatch(shareText, /📌/);
-});
-
 test("watchlist action labels use section-specific status wording", () => {
   const ctx = {
     user: {
@@ -2001,29 +1835,23 @@ test("watchlist action labels use section-specific status wording", () => {
   assert.match(musicText, /Change to not listened 👉 \/un_mu_l_1/);
 });
 
-test("AI list manager keyboard shows list/filter/share controls only when eligible", () => {
+test("AI list manager keyboard shows list and filter controls without standalone sharing", () => {
   const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
   const emptyButtons = keyboardButtons(emptyKeyboard);
   const emptyLabels = emptyButtons.map((button) => button.text);
   const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true });
   const buttons = keyboardButtons(keyboard);
   const labels = buttons.map((button) => button.text);
-  const shareKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 6 });
-  const shareLabels = keyboardButtons(shareKeyboard).map((button) => button.text);
-
   assert.equal(emptyButtons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
-  assert.equal(emptyLabels.includes(messages.en.aiListManageShare), false);
   assert.equal(emptyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
   assert.ok(labels.includes(messages.en.aiListManageAddLaterMovies));
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
-  assert.equal(labels.includes(messages.en.aiListManageShare), false);
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
-  assert.equal(shareLabels.includes(messages.en.aiListManageShare), false);
   assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 6 }))
-      .some((button) => button.text === messages.en.aiListManageShare),
-    true,
+      .some((button) => /shareable message/i.test(button.text)),
+    false,
   );
   assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 10 }))

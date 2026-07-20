@@ -115,7 +115,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const aiListMatch = String(mode).match(/^ai_list:(movies|music|books|random):(topTen|watchlist)$/);
   const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|music|books):topTen$/);
   const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/);
-  const aiShareMatch = String(mode).match(/^ai_share:(movies|music|books|random):(topTen|watchlist)$/);
   const suggestionModeMatch = String(mode).match(/^ai_suggestion_mode:(movies|music|books|random)$/);
   const suggestionResultMatch = String(mode).match(/^ai_suggestion_result:(movies|music|books|random)$/);
   const suggestionNextMatch = String(mode).match(/^ai_suggestion_next:(movies|music|books|random)$/);
@@ -149,7 +148,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     state === "editing_profile_emoji" || /^profile_emoji_confirm:/.test(String(state))
   );
   const interestMode = String(mode).match(/^profile_interests:(\d+)$/);
-  const validAiShareState = aiShareMatch && state === `ai_manage_${aiShareMatch[1]}_${aiShareMatch[2] === "topTen" ? "top_ten" : "watchlist"}`;
   const validSuggestionModeState = suggestionModeMatch && [
     `ai_chat_${suggestionModeMatch[1]}`,
     `ai_suggest_context_${suggestionModeMatch[1]}`,
@@ -173,7 +171,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || profileUnsaveConfirmMatch
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
-  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validAiShareState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
+  if ((state !== "idle" && !String(state).startsWith("discussion_create_") && !validAiListState && !validAiListCompletionState && !validAiListFilterState && !validSuggestionModeState && !validSuggestionResultState && !validSuggestionNextState && !validSuggestionAddedState && !validSuggestionContextState && !(ageMode && state === "editing_age") && !profilePickerState && !profileEmojiState && !(interestMode && state === "editing_interests")) || (activeDiscussionId && !activeRoomNavigationAllowed)) return null;
   const keepsDiscussionHubKeyboard = state === "idle" && Boolean(
     discussionListMatch || invitationListMatch || discussionLanguageMatch
   );
@@ -323,10 +321,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`],
     );
   }
-  if (aiShareMatch) {
-    const [, section, listType] = aiShareMatch;
-    entries.push(["aiListShareBackToList", `${callBacks.aiListShareBack}${section}:${listType === "topTen" ? "top_ten" : "watchlist"}`]);
-  }
   if (suggestionModeMatch) {
     const section = suggestionModeMatch[1];
     entries.push(["aiSuggestionFromTopTenButton", `${callBacks.aiSectionSuggestFromTopTen}${section}`], ["aiBack", `${callBacks.aiListManageMenu}${section}:top_ten`]);
@@ -416,7 +410,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       ) {
         entries.push(["aiTasteReviewButton", `${callBacks.aiTasteReview}${section}`]);
       }
-      entries.push(["aiListManageShare", `${callBacks.aiListManageShare}${section}:${token}`]);
     }
     if (state === expectedAiState && listType === "watchlist") {
       const status = section === "music" ? ["aiListManageShowWatchedMusic", "aiListManageShowNotWatchedMusic"] : section === "books" ? ["aiListManageShowWatchedBooks", "aiListManageShowNotWatchedBooks"] : ["aiListManageShowWatchedMovies", "aiListManageShowNotWatchedMovies"];

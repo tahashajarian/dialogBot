@@ -425,14 +425,6 @@ function aiListManageMenuKeyboard(lang, section, listType, {
     }
   }
 
-  if (listType === "topTen" && itemCount > 5) {
-    rows.push([
-      {
-        text: messages[lang].aiListManageShare,
-      },
-    ]);
-  }
-
   if (listType === "watchlist" && hasItems) {
     const statusLabels = getSectionStatusLabels(lang, section);
     if (filter !== "all") rows.push([{ text: messages[lang].aiListManageShowAll }]);
