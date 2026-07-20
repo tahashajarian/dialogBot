@@ -555,6 +555,28 @@ test("unsupported discussion notice falls back when native reply fails", async (
   ]);
 });
 
+test("failed discussion warning replies to the exact message and preserves room controls", async () => {
+  const replies = [];
+  const keyboard = { reply_markup: { keyboard: [[{ text: "Leave" }]] } };
+  const ctx = {
+    message: { message_id: 77 },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 78 };
+    },
+  };
+
+  await replyToUnsupportedDiscussionMessage(ctx, "Not sent", keyboard);
+
+  assert.deepEqual(replies, [{
+    text: "Not sent",
+    extra: {
+      reply_markup: keyboard.reply_markup,
+      reply_to_message_id: 77,
+    },
+  }]);
+});
+
 test("active discussions reject unknown global slash commands before navigation", async () => {
   const replies = [];
   const ctx = {
@@ -713,6 +735,27 @@ test("discussion message sender preserves text parse mode with reply id", async 
     extra: { parse_mode: "HTML", reply_to_message_id: 55 },
   }]);
   assert.equal(sent.message_id, 99);
+});
+
+test("discussion message sender retries without a native reply when that delivery throws", async () => {
+  const sends = [];
+  const ctx = {
+    sendToUser: async (userId, text, extra = {}) => {
+      sends.push({ userId, text, extra });
+      if (extra.reply_to_message_id) throw new Error("reply target unavailable");
+      return { message_id: 100 };
+    },
+  };
+
+  const sent = await sendDiscussionMessageToRecipient(ctx, 2, "Sara: fallback", {
+    deliveries: { 2: 55 },
+  });
+
+  assert.deepEqual(sends, [
+    { userId: 2, text: "Sara: fallback", extra: { reply_to_message_id: 55 } },
+    { userId: 2, text: "Sara: fallback", extra: {} },
+  ]);
+  assert.equal(sent.message_id, 100);
 });
 
 test("saved profile command keeps retained list history before opening profile", async () => {

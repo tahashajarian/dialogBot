@@ -4,6 +4,7 @@ const { addRecentMessage } = require("../services/discussion-messages");
 const { buildDiscussionRoomKeyboard } = require("../services/discussion-room-ui");
 const { formatUserDisplayName } = require("../services/profile");
 const { mapWithConcurrency } = require("../services/bounded-concurrency");
+const { logger } = require("../services/logger");
 const {
   findDiscussionDelivery,
   getReplyMessageIdForRecipient,
@@ -43,16 +44,16 @@ function isUnsupportedDiscussionMessage(ctx, state, text) {
   );
 }
 
-async function replyToUnsupportedDiscussionMessage(ctx, text) {
+async function replyToUnsupportedDiscussionMessage(ctx, text, extra = {}) {
   const messageId = getMessageId(ctx.message);
   if (messageId) {
     try {
-      return await ctx.reply(text, { reply_to_message_id: messageId });
+      return await ctx.reply(text, { ...extra, reply_to_message_id: messageId });
     } catch {
       // A normal reply still gives the user clear delivery feedback.
     }
   }
-  return ctx.reply(text);
+  return Object.keys(extra).length ? ctx.reply(text, extra) : ctx.reply(text);
 }
 
 async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, replyDelivery) {
@@ -62,9 +63,14 @@ async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, r
     if (!replyMessageId) {
       return ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id);
     }
-    const sent = await ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id, {
-      reply_to_message_id: replyMessageId,
-    });
+    let sent = null;
+    try {
+      sent = await ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id, {
+        reply_to_message_id: replyMessageId,
+      });
+    } catch {
+      sent = null;
+    }
     if (sent) return sent;
     return ctx.telegram?.sendVoice(recipientUserId, payload.voice.file_id);
   }
@@ -75,10 +81,15 @@ async function sendDiscussionMessageToRecipient(ctx, recipientUserId, payload, r
     return ctx.sendToUser?.(recipientUserId, text, payloadExtra);
   }
 
-  const sent = await ctx.sendToUser?.(recipientUserId, text, {
-    ...payloadExtra,
-    reply_to_message_id: replyMessageId,
-  });
+  let sent = null;
+  try {
+    sent = await ctx.sendToUser?.(recipientUserId, text, {
+      ...payloadExtra,
+      reply_to_message_id: replyMessageId,
+    });
+  } catch {
+    sent = null;
+  }
   if (sent) return sent;
   return ctx.sendToUser?.(recipientUserId, text);
 }
@@ -94,13 +105,15 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
 
   if (!added.ok) {
     if (added.reason === "message_burst_limit") {
-      return ctx.reply(
+      return replyToUnsupportedDiscussionMessage(
+        ctx,
         messages[lang].discussionMessageBurstLimit,
         await buildDiscussionRoomKeyboard(lang, added.discussion, ctx.userId),
       );
     }
     if (added.reason === "message_rate_limit") {
-      return ctx.reply(
+      return replyToUnsupportedDiscussionMessage(
+        ctx,
         messages[lang].discussionMessageRateLimit,
         await buildDiscussionRoomKeyboard(lang, added.discussion, ctx.userId),
       );
@@ -111,34 +124,52 @@ async function handleDiscussionMessage(ctx, lang, messageType, payload) {
     if (added.reason === "message_command_like") {
       return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageNoCommands);
     }
-    return ctx.reply(messages[lang].discussionMessageSendFailed);
+    return replyToUnsupportedDiscussionMessage(ctx, messages[lang].discussionMessageSendFailed);
   }
 
   const deliveriesByUserId = {
     [ctx.userId]: getMessageId(ctx.message),
   };
 
-  await mapWithConcurrency(added.recipients || [], DISCUSSION_DELIVERY_CONCURRENCY, async (recipientUserId) => {
-    const sent = await sendDiscussionMessageToRecipient(
-      ctx,
-      recipientUserId,
-      messageType === "voice"
-        ? { voice: { file_id: payload.voiceFileId, duration: payload.voiceDuration || 0 } }
-        : {
-            text: formatDiscussionOutboundMessage(messages, lang, { senderDisplayName: senderName, text: payload.text }),
-            extra: { parse_mode: "HTML" },
-          },
-      messageType === "text" ? findDiscussionDelivery({
-        userId: ctx.userId,
-        messageId: getReplyMessageId(ctx.message),
-        discussionId: ctx.user.activeDiscussionId,
-      }) : undefined,
-    );
-    const sentMessageId = getMessageId(sent);
-    if (sentMessageId) {
-      deliveriesByUserId[recipientUserId] = sentMessageId;
-    }
-  });
+  const deliveryResults = await mapWithConcurrency(
+    added.recipients || [],
+    DISCUSSION_DELIVERY_CONCURRENCY,
+    async (recipientUserId) => {
+      try {
+        const sent = await sendDiscussionMessageToRecipient(
+          ctx,
+          recipientUserId,
+          messageType === "voice"
+            ? { voice: { file_id: payload.voiceFileId, duration: payload.voiceDuration || 0 } }
+            : {
+                text: formatDiscussionOutboundMessage(messages, lang, { senderDisplayName: senderName, text: payload.text }),
+                extra: { parse_mode: "HTML" },
+              },
+          messageType === "text" ? findDiscussionDelivery({
+            userId: ctx.userId,
+            messageId: getReplyMessageId(ctx.message),
+            discussionId: ctx.user.activeDiscussionId,
+          }) : undefined,
+        );
+        const sentMessageId = getMessageId(sent);
+        if (sentMessageId) deliveriesByUserId[recipientUserId] = sentMessageId;
+        return Boolean(sent);
+      } catch {
+        return false;
+      }
+    },
+  );
+
+  const failedDeliveries = deliveryResults.filter((delivered) => !delivered).length;
+  if (failedDeliveries) {
+    logger.warn("Discussion message delivery incomplete", {
+      discussionId: String(ctx.user.activeDiscussionId),
+      messageType,
+      attempted: deliveryResults.length,
+      delivered: deliveryResults.length - failedDeliveries,
+      failed: failedDeliveries,
+    });
+  }
 
   rememberDiscussionDelivery({
     discussionId: ctx.user.activeDiscussionId,

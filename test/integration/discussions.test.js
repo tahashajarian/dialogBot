@@ -43,6 +43,7 @@ const {
 } = require("../../src/services/discussion-invitation-mutes");
 const {
   closeDiscussionAndNotify,
+  leaveDiscussionAndNotify,
   reportDiscussionMemberAndNotify,
 } = require("../../src/services/discussion-actions");
 const {
@@ -416,6 +417,38 @@ test("My Discussions lists only rooms the user created", async () => {
   const result = await listMyDiscussions(1);
   assert.equal(result.ok, true);
   assert.deepEqual(result.discussions.map((discussion) => String(discussion._id)), [String(owned._id)]);
+});
+
+test("leave waits until every remaining member has received an independent notice attempt", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_LEAVE1",
+    memberUserIds: [1, 2, 3, 4],
+  });
+  await Promise.all([
+    createUser(1, { activeDiscussionId: discussion._id, discussionMembershipIds: [discussion._id] }),
+    createUser(2, { lang: "en", activeDiscussionId: discussion._id, discussionMembershipIds: [discussion._id] }),
+    createUser(3, { lang: "fa", activeDiscussionId: discussion._id, discussionMembershipIds: [discussion._id] }),
+    createUser(4, { lang: "en", activeDiscussionId: discussion._id, discussionMembershipIds: [discussion._id] }),
+  ]);
+  const completed = [];
+  const ctx = {
+    userId: 1,
+    user: { userId: 1, activeDiscussionId: discussion._id },
+    sendToUser: async (userId) => {
+      await Promise.resolve();
+      completed.push(userId);
+      return { message_id: userId };
+    },
+  };
+
+  const result = await leaveDiscussionAndNotify({
+    ctx,
+    messages,
+    discussionId: discussion._id,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(completed.sort((a, b) => a - b), [2, 3, 4]);
 });
 
 test("recent joined discussions are unique, capped, ordered, and hide unavailable rooms", async () => {

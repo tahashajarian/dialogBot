@@ -1,3 +1,7 @@
+const { mapWithConcurrency } = require("./bounded-concurrency");
+
+const DISCUSSION_NOTIFICATION_CONCURRENCY = 8;
+
 function normalizeNotificationPayloads(payload) {
   const payloads = Array.isArray(payload) ? payload : [payload];
   return payloads
@@ -13,17 +17,35 @@ function normalizeNotificationPayloads(payload) {
 }
 
 async function notifyDiscussionMembers(ctx, messages, members = [], getPayloads) {
-  for (const member of members || []) {
-    const memberLang = messages[member.lang] ? member.lang : "fa";
-    try {
-      const payloads = normalizeNotificationPayloads(getPayloads(messages, memberLang));
-      for (const payload of payloads) {
-        await ctx.sendToUser?.(member.userId, payload.text, payload.extra, memberLang);
+  const recipients = Array.from(members || []);
+  const results = await mapWithConcurrency(
+    recipients,
+    DISCUSSION_NOTIFICATION_CONCURRENCY,
+    async (member) => {
+      const memberLang = messages[member.lang] ? member.lang : "fa";
+      let delivered = true;
+      try {
+        const payloads = normalizeNotificationPayloads(getPayloads(messages, memberLang));
+        for (const payload of payloads) {
+          try {
+            const sent = await ctx.sendToUser?.(member.userId, payload.text, payload.extra, memberLang);
+            if (!sent) delivered = false;
+          } catch {
+            delivered = false;
+          }
+        }
+      } catch {
+        delivered = false;
       }
-    } catch {
-      // Individual notification failures should not block the acting user.
-    }
-  }
+      return delivered;
+    },
+  );
+  const delivered = results.filter(Boolean).length;
+  return {
+    attempted: recipients.length,
+    delivered,
+    failed: recipients.length - delivered,
+  };
 }
 
 function createActiveDiscussionNotifier(getActiveMembersInDiscussion) {
@@ -38,12 +60,18 @@ function createActiveDiscussionNotifier(getActiveMembersInDiscussion) {
     excludeUserIds,
     getPayloads,
   ) {
-    const activeMembers = await getActiveMembersInDiscussion(discussionId, excludeUserIds);
-    await notifyDiscussionMembers(ctx, messages, activeMembers, getPayloads);
+    let activeMembers;
+    try {
+      activeMembers = await getActiveMembersInDiscussion(discussionId, excludeUserIds);
+    } catch {
+      return { attempted: 0, delivered: 0, failed: 0, lookupFailed: true };
+    }
+    return notifyDiscussionMembers(ctx, messages, activeMembers, getPayloads);
   };
 }
 
 module.exports = {
+  DISCUSSION_NOTIFICATION_CONCURRENCY,
   normalizeNotificationPayloads,
   notifyDiscussionMembers,
   createActiveDiscussionNotifier,

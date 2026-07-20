@@ -43,6 +43,7 @@ The Discussions hub uses a compact reply keyboard: Active Discussions with Invit
 - Discussion membership means current room presence. Leaving the room removes membership.
 - Each discussion has an editable capacity. Normal capacities are free; special 2-person and large-room capacities can be Stars-gated from the admin dashboard.
 - Messages are broadcast live to current room members.
+- Live messages and membership notices use bounded per-recipient fan-out. Every current member receives an independent delivery attempt; one blocked account or Telegram failure must not stop later recipients. Leave handling waits for this bounded fan-out before completing, while individual failures remain best effort and are logged only as aggregate counts without message content.
 - Each discussion keeps only the last 10 messages as recent context.
 - When a user joins or rejoins, they see the last 10 messages, not full history.
 - There is no seen count in MVP. Sender only gets a delivery confirmation.
@@ -1166,6 +1167,7 @@ MVP message behavior:
 - Accept at most one discussion message per user per second. Reject faster messages before storage or broadcast with a short localized slow-down notice.
 - Keep the broader limit of 30 accepted discussion messages per user within 10 minutes.
 - When an active-room user sends unsupported content (photos, stickers, files, forwards), do not forward or store it. Reply directly to that unsupported message with a short localized `👩‍🦳` notice explaining that discussions currently support text and voice only; fall back to a normal message if native reply metadata is rejected.
+- Any discussion message that is rejected or cannot be accepted, including burst and rate limits, receives its not-sent notice as a native reply to that exact user message so the failed item is unambiguous. Preserve the active-room keyboard and fall back to a normal notice if Telegram rejects the reply target.
 - When a user sends a message containing links, reject it immediately with a localized `👩‍🦳` notice that links are not allowed in discussions.
 - Keep this unsupported-content notice separate from valid-text delivery failures; a failed text send should ask the user to reopen the discussion and retry.
 

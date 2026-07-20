@@ -18,6 +18,7 @@ const {
 } = require("./discussion-owner-join-notifications");
 const { deleteInvitationsForDiscussion } = require("./discussion-invitations");
 const { updateProfileField } = require("./users");
+const { logger } = require("./logger");
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
@@ -89,15 +90,24 @@ async function leaveDiscussionAndNotify({ ctx, messages, discussionId }) {
   }
 
   if (left.leaverName && left.discussionId) {
-    // Leaving should not wait on recipient lookups or Telegram delivery.
-    // The membership mutation above is authoritative; this notice is best effort.
-    void notifyActiveMembersInDiscussion(
+    // Await bounded fan-out so a completed leave update does not abandon live
+    // notification work. Per-recipient failures remain isolated and best effort.
+    const delivery = await notifyActiveMembersInDiscussion(
       ctx,
       messages,
       left.discussionId,
       [ctx.userId],
       (msgs, lang) => msgs[lang].discussionLeftNotice.replace("{name}", left.leaverName),
-    ).catch(() => {});
+    ).catch(() => ({ attempted: 0, delivered: 0, failed: 0, lookupFailed: true }));
+    if (delivery.failed || delivery.lookupFailed) {
+      logger.warn("Discussion leave notice delivery incomplete", {
+        discussionId: String(left.discussionId),
+        attempted: delivery.attempted,
+        delivered: delivery.delivered,
+        failed: delivery.failed,
+        lookupFailed: Boolean(delivery.lookupFailed),
+      });
+    }
   }
 
   return left;
