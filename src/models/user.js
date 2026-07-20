@@ -75,6 +75,8 @@ const UserSchema = new mongoose.Schema({
   profileName: String,
   profileNameConfirmedAt: { type: Date, default: null },
   profileEmoji: { type: String, default: "" },
+  profileEmojiUnlockedAt: { type: Date, default: null },
+  profileEmojiUnlockPendingNonce: { type: String, default: "" },
   city: String,
   age: Number,
   gender: String,

@@ -72,6 +72,8 @@ const { localizeInterestChipTitle } = require("../services/interest-chips");
 const {
   getProfileEmojiCost,
   getProfileEmojiOption,
+  getProfileEmojiSelectionCost,
+  isProfileEmojiUnlocked,
   setProfileEmojiWithStars,
 } = require("../services/profile-emoji");
 const {
@@ -181,6 +183,15 @@ function formatProfileEmojiText(lang, key, values = {}) {
     .replace("{emoji}", values.emoji || "")
     .replace("{cost}", formatStarNumber(values.cost ?? getProfileEmojiCost(), lang))
     .replace("{balance}", formatStarNumber(values.balance ?? 0, lang));
+}
+
+function getProfileEmojiPickerText(lang, user = {}) {
+  const unlocked = isProfileEmojiUnlocked(user);
+  return formatProfileEmojiText(
+    lang,
+    unlocked ? "profileEmojiPickerUnlockedText" : "profileEmojiPickerText",
+    { cost: getProfileEmojiSelectionCost(user), balance: user?.starBalance || 0 },
+  );
 }
 
 function parseProfileEmojiState(state = "") {
@@ -387,10 +398,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await setNavigationMode(ctx, "profile_emoji");
     const edited = await editProfileSurfaceCard(
       ctx,
-      formatProfileEmojiText(lang, "profileEmojiPickerText", {
-        cost: getProfileEmojiCost(),
-        balance: ctx.user?.starBalance || 0,
-      }),
+      getProfileEmojiPickerText(lang, ctx.user),
       profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
     );
     if (edited && ctx.callbackMessageId) await rememberProfileEditPrompt(ctx, ctx.callbackMessageId);
@@ -415,10 +423,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     }
     await ctx.answerCb?.();
     const page = Number(data.replace(callBacks.profileEmojiPage, ""));
-    const text = formatProfileEmojiText(lang, "profileEmojiPickerText", {
-      cost: getProfileEmojiCost(),
-      balance: ctx.user?.starBalance || 0,
-    });
+    const text = getProfileEmojiPickerText(lang, ctx.user);
     return editProfileSurfaceCard(ctx, text, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || "", page));
   }
 
@@ -432,10 +437,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const emoji = getProfileEmojiOption(index);
     if (!emoji) return ctx.reply(messages[lang].unknownAction);
     const nonce = Date.now().toString(36);
-    const cost = getProfileEmojiCost();
+    const cost = getProfileEmojiSelectionCost(ctx.user);
     await updateUserState(ctx.userId, `profile_emoji_confirm:${index}:${cost}:${nonce}`);
     if (ctx.user) ctx.user.state = `profile_emoji_confirm:${index}:${cost}:${nonce}`;
-    const text = formatProfileEmojiText(lang, "profileEmojiConfirmText", {
+    const text = formatProfileEmojiText(lang, cost > 0 ? "profileEmojiConfirmText" : "profileEmojiConfirmUnlockedText", {
       emoji,
       cost,
       balance: ctx.user?.starBalance || 0,
@@ -446,7 +451,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data.startsWith(callBacks.profileEmojiConfirm)) {
     const nonce = data.replace(callBacks.profileEmojiConfirm, "");
     const pending = parseProfileEmojiState(ctx.user?.state);
-    if (!pending || pending.nonce !== nonce || pending.cost !== getProfileEmojiCost()) {
+    if (!pending || pending.nonce !== nonce || pending.cost !== getProfileEmojiSelectionCost(ctx.user)) {
       await ctx.answerCb?.(messages[lang].profileEmojiStale);
       return ctx.reply(messages[lang].profileEmojiStale);
     }
@@ -471,11 +476,16 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await updateUserState(ctx.userId, "idle");
     if (ctx.user) {
       ctx.user.profileEmoji = emoji;
+      ctx.user.profileEmojiUnlockedAt = ctx.user.profileEmojiUnlockedAt || new Date();
       ctx.user.starBalance = Number(result.balance) || 0;
       ctx.user.state = "idle";
     }
     return restoreOwnProfileCard(ctx, lang, ctx.user || {}, {
-      footerText: formatProfileEmojiText(lang, "profileEmojiSaved", result),
+      footerText: formatProfileEmojiText(
+        lang,
+        result.cost > 0 ? "profileEmojiUnlocked" : "profileEmojiSaved",
+        result,
+      ),
     });
   }
 
@@ -489,10 +499,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     if (ctx.user) ctx.user.state = "editing_profile_emoji";
     return editProfileSurfaceCard(
       ctx,
-      formatProfileEmojiText(lang, "profileEmojiPickerText", {
-        cost: getProfileEmojiCost(),
-        balance: ctx.user?.starBalance || 0,
-      }),
+      getProfileEmojiPickerText(lang, ctx.user),
       profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""),
     );
   }

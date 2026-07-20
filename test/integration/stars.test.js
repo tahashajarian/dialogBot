@@ -24,6 +24,10 @@ const {
 } = require("../../src/services/account-deletion");
 const { starEconomy } = require("../../src/services/star-settings");
 const { createStarsService } = require("../../src/services/stars");
+const {
+  getProfileEmojiOptions,
+  setProfileEmojiWithStars,
+} = require("../../src/services/profile-emoji");
 const { addAiListItem } = require("../../src/services/users");
 const {
   authorizePaidExtraDiscussion,
@@ -78,6 +82,67 @@ test("Mongo wallet keeps concurrent reward idempotent", async () => {
   assert.equal(results.filter((result) => result.applied).length, 1);
   assert.equal(await StarTransaction.countDocuments({ userId: 501 }), 1);
   assert.equal((await User.findOne({ userId: 501 }).lean()).starBalance, 5);
+});
+
+test("profile emoji charges once under concurrent first selections and later changes stay free", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    profileEmojiCost: 3,
+  });
+  await User.create({ userId: 509, firstName: "Emoji User", starBalance: 10 });
+  await StarTransaction.create({
+    userId: 509,
+    amount: 10,
+    balanceAfter: 10,
+    status: "applied",
+    bucket: "earned",
+    type: "earn",
+    reason: "integration_seed",
+    idempotencyKey: "integration:emoji:seed:509",
+  });
+  const [firstEmoji, secondEmoji, thirdEmoji] = getProfileEmojiOptions();
+
+  const firstResults = await Promise.all([
+    setProfileEmojiWithStars({ userId: 509, emoji: firstEmoji, nonce: "first" }),
+    setProfileEmojiWithStars({ userId: 509, emoji: secondEmoji, nonce: "second" }),
+  ]);
+  assert.equal(firstResults.every((result) => result.ok), true);
+  assert.equal(await StarTransaction.countDocuments({ userId: 509, reason: "profile_emoji" }), 1);
+  assert.equal((await User.findOne({ userId: 509 }).lean()).starBalance, 7);
+
+  const changed = await setProfileEmojiWithStars({ userId: 509, emoji: thirdEmoji, nonce: "third" });
+  const user = await User.findOne({ userId: 509 }).lean();
+  assert.equal(changed.ok, true);
+  assert.equal(changed.cost, 0);
+  assert.equal(changed.charged, false);
+  assert.equal(user.profileEmoji, thirdEmoji);
+  assert.ok(user.profileEmojiUnlockedAt instanceof Date);
+  assert.equal(user.starBalance, 7);
+  assert.equal(await StarTransaction.countDocuments({ userId: 509, reason: "profile_emoji" }), 1);
+});
+
+test("a legacy profile emoji grants the permanent unlock without a retroactive charge", async () => {
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    profileEmojiCost: 3,
+  });
+  const [legacyEmoji, replacementEmoji] = getProfileEmojiOptions();
+  await User.create({ userId: 510, firstName: "Legacy Emoji", starBalance: 4, profileEmoji: legacyEmoji });
+
+  const result = await setProfileEmojiWithStars({
+    userId: 510,
+    emoji: replacementEmoji,
+    nonce: "legacy",
+  });
+  const user = await User.findOne({ userId: 510 }).lean();
+  assert.equal(result.ok, true);
+  assert.equal(result.cost, 0);
+  assert.equal(user.starBalance, 4);
+  assert.equal(user.profileEmoji, replacementEmoji);
+  assert.ok(user.profileEmojiUnlockedAt instanceof Date);
+  assert.equal(await StarTransaction.countDocuments({ userId: 510, reason: "profile_emoji" }), 0);
 });
 
 test("Mongo wallet prevents overspending and refunds once", async () => {

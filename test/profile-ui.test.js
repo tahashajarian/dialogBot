@@ -712,11 +712,15 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
-  assert.match(messages.en.profileEmojiConfirmText, /💡 This emoji will appear after your name/);
-  assert.equal(confirm[0].text, "Confirm — 3 Stars");
+  assert.match(messages.en.profileEmojiConfirmText, /unlocks profile emojis permanently/);
+  assert.equal(confirm[0].text, "Unlock — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].text, "🔙 Back");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");
+
+  const freeConfirm = profileEmojiConfirmKeyboard("en", "free", 0).reply_markup.inline_keyboard.flat();
+  assert.equal(freeConfirm[0].text, messages.en.profileEmojiConfirmUnlockedButton);
+  assert.equal(freeConfirm[0].callback_data, "profile:emoji:confirm:free");
 
   const insufficient = profileEmojiInsufficientKeyboard("en").reply_markup.inline_keyboard.flat();
   assert.equal(insufficient.length, 1);

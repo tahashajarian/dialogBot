@@ -41,6 +41,7 @@ const {
 const {
   getProfileEmojiCost,
   getProfileEmojiIndex,
+  getProfileEmojiSelectionCost,
 } = require("../services/profile-emoji");
 
 async function buildProfileMilestoneNotice(ctx, updatedUser, lang) {
@@ -333,12 +334,12 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
     }
 
     const nonce = Date.now().toString(36);
-    const cost = getProfileEmojiCost();
+    const cost = getProfileEmojiSelectionCost(ctx.user);
     await updateUserState(ctx.userId, `profile_emoji_confirm:${index}:${cost}:${nonce}`);
     if (ctx.user) ctx.user.state = `profile_emoji_confirm:${index}:${cost}:${nonce}`;
     return sendProfileEditPrompt(
       ctx,
-      formatProfileEmojiText(lang, "profileEmojiConfirmText", {
+      formatProfileEmojiText(lang, cost > 0 ? "profileEmojiConfirmText" : "profileEmojiConfirmUnlockedText", {
         emoji,
         cost,
         balance: ctx.user?.starBalance || 0,

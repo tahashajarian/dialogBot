@@ -252,10 +252,12 @@ Profile emoji is an optional cosmetic shown beside the user's display name on pr
 
 Recommended launch default:
 
-- cost: 3 Stars
+- one-time permanent unlock cost: 3 Stars; all later emoji changes are free
 - paged curated inline picker; exact typed emoji is allowed only when it is in the same allowed set
-- confirmation shows selected emoji, cost, and balance
+- the first confirmation shows selected emoji, unlock cost, and balance; unlocked users see a free save confirmation
 - spend reason: `profile_emoji`
+- users who already had a profile emoji before the unlock field was introduced are treated as unlocked, with no retroactive charge
+- the unlock is durable and has no refund when the user changes emoji or stops using the profile
 
 ### Taste-Label Recheck
 

@@ -32,7 +32,7 @@ test("Stars overview uses live settings and private balance", () => {
   assert.match(text, /Watch Later, Listen Later, and Read Later lists do not award Stars/);
   assert.doesNotMatch(text, /Watchlists|playlists|reading lists are free/);
   assert.doesNotMatch(text, /Build the first/);
-  assert.match(text, /Profile emoji: 3 Stars/);
+  assert.match(text, /Unlock profile emojis once: 3 Stars; later changes are free/);
   assert.match(text, /Extra suggestion after the free limit: 1 Star/);
   assert.match(text, /Taste-label recheck after the first free check: 10 Stars/);
   assert.match(text, /Boost one discussion: 12 Stars/);

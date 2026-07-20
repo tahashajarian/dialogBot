@@ -960,7 +960,9 @@ function profileEmojiKeyboard(lang, currentEmoji = "", page = 0) {
 function profileEmojiConfirmKeyboard(lang, nonce, cost) {
   return inlineKeyboard([
     [{
-      text: messages[lang].profileEmojiConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost)),
+      text: cost > 0
+        ? messages[lang].profileEmojiConfirmButton.replace("{cost}", formatKeyboardNumber(lang, cost))
+        : messages[lang].profileEmojiConfirmUnlockedButton,
       callback_data: `${callBacks.profileEmojiConfirm}${nonce}`,
     }],
     [{
