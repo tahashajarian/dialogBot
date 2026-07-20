@@ -556,8 +556,13 @@ async function handleAiCallback(ctx, lang, helpers) {
       ctx.user.aiTaste[paid.quote.section] = recalculated.taste;
     }
     return placeholder.finish(
-      withTasteInsight(messages[lang].aiTasteRecheckDifferent, recalculated.suggestionInsight),
-      aiTasteSuggestionKeyboard(lang, paid.quote.section, recalculated.suggestedLabelKeys),
+      withTasteInsight(
+        messages[lang][recalculated.hadActiveLabel ? "aiTasteRecheckDifferent" : "aiTasteRecheckDifferentNoLabel"],
+        recalculated.suggestionInsight,
+      ),
+      aiTasteSuggestionKeyboard(lang, paid.quote.section, recalculated.suggestedLabelKeys, {
+        selectedNoLabel: !recalculated.hadActiveLabel,
+      }),
     );
   }
 
@@ -580,7 +585,9 @@ async function handleAiCallback(ctx, lang, helpers) {
     }
     return helpers.editCallbackMessageOrReply(
       ctx,
-      messages[lang].aiTasteRecheckQuote
+      messages[lang][quoteResult.quote.previousClassificationStatus === "skipped"
+        ? "aiTasteRecheckQuoteNoLabel"
+        : "aiTasteRecheckQuote"]
         .replace("{cost}", formatStarNumber(quoteResult.quote.quotedCost, lang))
         .replace("{balance}", formatStarNumber(quoteResult.balance, lang)),
       aiTasteRecheckConfirmKeyboard(lang, quoteResult.quote.publicCode),

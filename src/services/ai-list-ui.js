@@ -358,6 +358,7 @@ async function buildTopTenSavedMessage({
   items,
   savedMessageKey = "aiTasteItemSaved",
   includeNextPrompt = true,
+  includeCompletionPrompt = true,
 }) {
   const count = items.length;
   const goal = operationalLimits.aiTopTenItems;
@@ -381,7 +382,7 @@ async function buildTopTenSavedMessage({
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
-  if (["movies", "music", "books"].includes(section)) {
+  if (["movies", "music", "books"].includes(section) && includeCompletionPrompt) {
     responseParts.push(messages[lang].aiTasteCompletionReady);
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }

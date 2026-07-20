@@ -290,6 +290,27 @@ test("an earned taste label remains reviewable after the list drops below 10", (
   }).callbackData, `${callBacks.aiTasteReview}movies`);
 });
 
+test("a saved No-label shortlist remains reviewable after the list drops below 10", () => {
+  const { aiListManageMenuKeyboard } = require("../src/keyboards");
+  const topTen = Array.from({ length: 7 }, (_, index) => ({ title: `Favorite ${index + 1}` }));
+  const user = {
+    lang: "fa",
+    aiLists: { music: { topTen, watchlist: [] } },
+    aiTaste: { music: {
+      classificationStatus: "skipped",
+      suggestedLabelKeys: ["metalhead", "music_buff"],
+      freeClassificationUsedAt: new Date("2026-01-01T00:00:00Z"),
+    } },
+  };
+  const labels = aiListManageMenuKeyboard("fa", "music", "topTen", {
+    hasItems: true, itemCount: 7, hasTasteLabel: true,
+  }).reply_markup.keyboard.flat().map((button) => button.text);
+  assert.ok(labels.includes(messages.fa.aiTasteReviewButton));
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiTasteReviewButton, {
+    mode: "ai_list:music:topTen", state: "ai_manage_music_top_ten", user,
+  }).callbackData, `${callBacks.aiTasteReview}music`);
+});
+
 test("For Later Add works after entering from a saved suggestion", () => {
   for (const [lang, section, key] of [
     ["en", "movies", "aiListManageAddLaterMovies"],
@@ -492,7 +513,7 @@ test("Guide reply buttons recover from the inline experiment's persisted global 
 test("discussion list and invitation navigation is bound to its exact server page", () => {
   const active = { mode: "discussion_list:active:0:2:all:fa", state: "idle", activeDiscussionId: "room", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, active).callbackData, `${callBacks.discussionListActivePage}1:all:fa`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.discussions);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.menuMain);
   assert.equal(resolveReplyKeyboardAction("🌐 زبان گفت‌وگوها (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, { ...active, mode: "discussions" }), null);
   const invitations = { mode: "discussion_invitations:1:3", state: "idle", user: { lang: "en" } };

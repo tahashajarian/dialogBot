@@ -29,6 +29,7 @@ const AiTasteSectionSchema = new mongoose.Schema({
   classifierVersion: { type: Number, default: 0 },
   inputFingerprint: { type: String, default: "" },
   classificationStatus: { type: String, default: "" },
+  freeClassificationAutoAttemptedAt: { type: Date, default: null },
   freeClassificationUsedAt: { type: Date, default: null },
   confirmedAt: { type: Date, default: null },
   updatedAt: Date,

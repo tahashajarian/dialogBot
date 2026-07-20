@@ -12,6 +12,7 @@ const {
   isAiSectionSuggestText,
   isAiSectionTopTenText,
   isAiTextState,
+  shouldStartAutomaticTasteCheck,
 } = require("../src/flows/ai-text");
 const User = require("../src/models/user");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
@@ -247,6 +248,16 @@ test("AI text button predicates accept localized keyboard labels", () => {
   assert.equal(isAiSectionSuggestText(`🎬 ${messages.en.aiSectionSuggestButton}`), true);
 });
 
+test("a taste check starts automatically only before the first attempt or successful free result", () => {
+  assert.equal(shouldStartAutomaticTasteCheck({}), true);
+  assert.equal(shouldStartAutomaticTasteCheck({
+    freeClassificationAutoAttemptedAt: new Date("2026-01-01T00:00:00Z"),
+  }), false);
+  assert.equal(shouldStartAutomaticTasteCheck({
+    freeClassificationUsedAt: new Date("2026-01-01T00:00:00Z"),
+  }), false);
+});
+
 test("suggestion save buttons name the concrete section list", () => {
   const musicAddButtons = keyboardButtons(aiSuggestionAddKeyboard("en", "music"));
   const booksAddedButtons = keyboardButtons(aiSuggestionAddedOptionsKeyboard("fa", "books"));
@@ -386,11 +397,11 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
   );
 });
 
-test("music add prompt invites either an audio track or typed title", () => {
+test("music add prompt accepts songs, albums, artists, bands, and titled audio", () => {
   assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicFavoritesAddPrompt);
   assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiBookFavoritesAddPrompt);
-  assert.match(messages.en.aiMusicListManageAddPrompt, /^👩‍🦳/);
-  assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ/);
+  assert.match(messages.en.aiMusicListManageAddPrompt, /song, album, artist, or band/);
+  assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ، آلبوم، خواننده یا گروه موسیقی/);
 });
 
 test("add prompt starts with Cancel and post-save prompt returns to list", () => {
@@ -1591,6 +1602,50 @@ test("Top Ten add flow shows completion with Back to list when the 10th item com
   assert.equal(replies.length, 1);
   assert.equal(labels.includes(messages.en.aiListManageAddBackToList), true);
   assert.equal(labels.includes(messages.en.aiListManageAdd), false);
+});
+
+test("repeat media completion returns directly to the refreshed Favorites list", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const initialItems = Array.from({ length: 9 }, (_, index) => ({ title: `Book ${index + 1}` }));
+  const ctx = {
+    userId: 88,
+    user: {
+      userId: 88,
+      lang: "en",
+      state: "ai_manage_books_top_ten_add_input",
+      aiLists: { books: { topTen: [...initialItems], watchlist: [] } },
+      aiTaste: { books: {
+        labelKey: "novel_reader",
+        classificationStatus: "confirmed",
+        freeClassificationUsedAt: new Date("2026-01-01T00:00:00Z"),
+      } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+  User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleAiText(ctx, "en", "Book 10", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const listReply = replies.at(-1);
+  const labels = keyboardButtons(listReply.extra).map((button) => button.text);
+  assert.equal(replies.length, 1);
+  assert.equal(ctx.user.state, "ai_manage_books_top_ten");
+  assert.match(listReply.text, /Saved "Book 10"/);
+  assert.match(listReply.text, /Book 1/);
+  assert.doesNotMatch(listReply.text, /Now we can find a label/);
+  assert.equal(labels.includes(messages.en.aiListManageAddBackToList), false);
+  assert.equal(labels.includes(messages.en.aiTasteReviewButton), true);
 });
 
 test("Top Ten add limit uses local bot-marked copy inside top-ten section", async () => {

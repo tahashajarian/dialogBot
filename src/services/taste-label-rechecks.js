@@ -29,7 +29,9 @@ async function createTasteLabelRecheckQuote(userId, section, { now = new Date() 
   const items = getAiListItemsFromUser(user, section, "topTen");
   if (items.length !== operationalLimits.aiTopTenItems) return { ok: false, reason: "incomplete_list" };
   const taste = getAiTasteFromUser(user, section);
-  if (!taste.labelKey || taste.classificationStatus !== "confirmed") {
+  const hasConfirmedLabel = Boolean(taste.labelKey) && taste.classificationStatus === "confirmed";
+  const hasConfirmedNoLabel = !taste.labelKey && taste.classificationStatus === "skipped" && taste.freeClassificationUsedAt;
+  if (!hasConfirmedLabel && !hasConfirmedNoLabel) {
     return { ok: false, reason: "missing_confirmed_label" };
   }
   const quote = await AiTasteRecheck.create({
@@ -40,6 +42,7 @@ async function createTasteLabelRecheckQuote(userId, section, { now = new Date() 
     quoteExpiresAt: new Date(now.getTime() + TASTE_RECHECK_QUOTE_TTL_MS),
     inputFingerprint: buildTasteInputFingerprint(section, items),
     previousLabelKey: taste.labelKey,
+    previousClassificationStatus: taste.classificationStatus,
     settingsSnapshot: { tasteLabelRecheckCost: starEconomy.tasteLabelRecheckCost },
   });
   return { ok: true, quote, balance: Number(user.starBalance) || 0 };
@@ -60,11 +63,13 @@ async function confirmTasteLabelRecheck(userId, publicCode, { now = new Date() }
   const user = await User.findOne({ userId: Number(userId) });
   const items = getAiListItemsFromUser(user, quote.section, "topTen");
   const taste = getAiTasteFromUser(user, quote.section);
+  const previousClassificationStatus = quote.previousClassificationStatus ||
+    (quote.previousLabelKey ? "confirmed" : "skipped");
   if (
     !user ||
     items.length !== operationalLimits.aiTopTenItems ||
     buildTasteInputFingerprint(quote.section, items) !== quote.inputFingerprint ||
-    taste.classificationStatus !== "confirmed" ||
+    taste.classificationStatus !== previousClassificationStatus ||
     taste.labelKey !== quote.previousLabelKey
   ) {
     await AiTasteRecheck.findByIdAndUpdate(quote._id, { $set: { status: "cancelled" } });

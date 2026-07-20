@@ -484,7 +484,10 @@ function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
 
 function aiTasteSuggestionKeyboard(lang, section, labelKeys = [], {
   selectedLabelKey = "",
+  selectedNoLabel = false,
   includeClose = false,
+  canRecheck = false,
+  recheckCost = 0,
 } = {}) {
   const ranks = ["🥇", "🥈", "🥉"];
   const visibleLabelKeys = labelKeys.slice(0, 4);
@@ -492,7 +495,16 @@ function aiTasteSuggestionKeyboard(lang, section, labelKeys = [], {
     text: `${labelKey === selectedLabelKey ? "✓" : (index === visibleLabelKeys.length - 1 ? "🧩" : ranks[index])} ${getTasteLabelEmoji(section, labelKey)} ${getTasteLabelTitle(messages, lang, section, labelKey)}`,
     callback_data: `${callBacks.aiTasteConfirm}${section}:${labelKey}`,
   }]));
-  rows.push([{ text: messages[lang].aiTasteSkipButton, callback_data: `${callBacks.aiTasteSkip}${section}` }]);
+  rows.push([{
+    text: `${selectedNoLabel ? "✓ " : ""}${messages[lang].aiTasteSkipButton}`,
+    callback_data: `${callBacks.aiTasteSkip}${section}`,
+  }]);
+  if (canRecheck) {
+    rows.push([{
+      text: messages[lang].aiTasteRecheckButton.replace("{cost}", String(recheckCost)),
+      callback_data: `${callBacks.aiTasteRecheck}${section}`,
+    }]);
+  }
   if (includeClose) {
     rows.push([{ text: messages[lang].discussionShareClose, callback_data: callBacks.aiTasteClose }]);
   }

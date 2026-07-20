@@ -456,6 +456,7 @@ function getAiTasteFromUser(user, section) {
     classifierVersion: Number(sectionTaste?.classifierVersion) || 0,
     inputFingerprint: String(sectionTaste?.inputFingerprint || "").trim(),
     classificationStatus: String(sectionTaste?.classificationStatus || "").trim(),
+    freeClassificationAutoAttemptedAt: sectionTaste?.freeClassificationAutoAttemptedAt || null,
     freeClassificationUsedAt: sectionTaste?.freeClassificationUsedAt || null,
   };
 }
@@ -476,7 +477,25 @@ function getTasteProgressStatus(section, currentCount) {
   };
 }
 
-async function syncAiTasteForSection(userId, section, { retryFailed = false } = {}) {
+async function markAiTasteAutomaticCheckAttempted(userId, section) {
+  if (!isMediaTasteSection(section)) return { ok: false, reason: "invalid_section" };
+  const attemptedAt = new Date();
+  const updated = await User.findOneAndUpdate(
+    {
+      userId: Number(userId),
+      [`aiTaste.${section}.freeClassificationAutoAttemptedAt`]: null,
+      [`aiTaste.${section}.freeClassificationUsedAt`]: null,
+    },
+    { $set: { [`aiTaste.${section}.freeClassificationAutoAttemptedAt`]: attemptedAt } },
+    { returnDocument: "after" },
+  );
+  return updated ? { ok: true, attemptedAt } : { ok: false, reason: "already_attempted" };
+}
+
+async function syncAiTasteForSection(userId, section, {
+  retryFailed = false,
+  allowClassification = false,
+} = {}) {
   const user = await User.findOne({ userId });
   if (!user) {
     return { ok: false, reason: "missing_user" };
@@ -549,6 +568,33 @@ async function syncAiTasteForSection(userId, section, { retryFailed = false } = 
     };
   }
 
+  const keepSavedTasteWhileIncomplete = (
+    existingTaste.freeClassificationUsedAt &&
+    ["suggested", "skipped"].includes(existingTaste.classificationStatus) &&
+    existingTaste.suggestedLabelKeys.length
+  ) || (
+    existingTaste.freeClassificationAutoAttemptedAt &&
+    !existingTaste.freeClassificationUsedAt &&
+    existingTaste.classificationStatus === "needs_choice"
+  );
+  if (!progress.labelReady && keepSavedTasteWhileIncomplete) {
+    if (existingTaste.sampleCount !== progress.count) {
+      await User.findOneAndUpdate(
+        { userId },
+        { $set: {
+          [`aiTaste.${section}.sampleCount`]: progress.count,
+          [`aiTaste.${section}.updatedAt`]: new Date(),
+        } },
+        { returnDocument: "after" },
+      );
+    }
+    return {
+      ok: true,
+      taste: { ...existingTaste, sampleCount: progress.count },
+      progress,
+    };
+  }
+
   if (!progress.labelReady) {
     const updates = {
       [`aiTaste.${section}.labelKey`]: "",
@@ -596,41 +642,22 @@ async function syncAiTasteForSection(userId, section, { retryFailed = false } = 
     }
 
     if (existingTaste.freeClassificationUsedAt) {
-      const suggestedLabelKeys = buildRankedTasteShortlist(section, []);
-      const updatedAt = new Date();
-      const updates = {
-        [`aiTaste.${section}.labelKey`]: "",
-        [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
-        [`aiTaste.${section}.suggestionInsight`]: "",
-        [`aiTaste.${section}.emoji`]: "",
-        [`aiTaste.${section}.confidence`]: 0,
-        [`aiTaste.${section}.sampleCount`]: progress.count,
-        [`aiTaste.${section}.source`]: "",
-        [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
-        [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
-        [`aiTaste.${section}.classificationStatus`]: "suggested",
-        [`aiTaste.${section}.updatedAt`]: updatedAt,
-      };
-      await User.findOneAndUpdate({ userId }, { $set: updates }, { returnDocument: "after" });
       return {
         ok: true,
-        taste: {
-          ...existingTaste,
-          labelKey: "",
-          suggestedLabelKeys,
-          suggestionInsight: "",
-          emoji: "",
-          confidence: 0,
-          sampleCount: progress.count,
-          source: "",
-          classifierVersion: TASTE_CLASSIFIER_VERSION,
-          inputFingerprint,
-          classificationStatus: "suggested",
-          updatedAt,
-        },
+        taste: existingTaste,
         progress,
-        needsConfirmation: true,
-        classificationReason: "free_check_used",
+        needsConfirmation: existingTaste.classificationStatus === "suggested",
+        classificationReason: "saved_result",
+      };
+    }
+
+    if (!allowClassification) {
+      return {
+        ok: true,
+        taste: existingTaste,
+        progress,
+        needsManualSelection: existingTaste.classificationStatus === "needs_choice",
+        classificationReason: "manual_check_required",
       };
     }
 
@@ -672,6 +699,7 @@ async function syncAiTasteForSection(userId, section, { retryFailed = false } = 
       classifierVersion: TASTE_CLASSIFIER_VERSION,
       inputFingerprint,
       classificationStatus,
+      freeClassificationAutoAttemptedAt: existingTaste.freeClassificationAutoAttemptedAt,
       freeClassificationUsedAt: freeClassificationUsedAt || existingTaste.freeClassificationUsedAt,
     };
     return {
@@ -696,9 +724,13 @@ async function confirmAiTasteLabel(userId, section, labelKey) {
   const progress = getTasteProgressStatus(section, items.length);
   const currentTaste = getAiTasteFromUser(user, section);
   const hasEarnedLabel = ["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus) && currentTaste.labelKey;
-  if (!progress.labelReady && !hasEarnedLabel) return { ok: false, reason: "incomplete_list" };
+  const hasSavedChoice = currentTaste.freeClassificationUsedAt &&
+    ["suggested", "skipped"].includes(currentTaste.classificationStatus) &&
+    currentTaste.suggestedLabelKeys.length;
+  if (!progress.labelReady && !hasEarnedLabel && !hasSavedChoice) return { ok: false, reason: "incomplete_list" };
   const inputFingerprint = buildTasteInputFingerprint(section, items);
-  const canUseSavedShortlist = ["confirmed", "skipped"].includes(currentTaste.classificationStatus);
+  const canUseSavedShortlist = ["confirmed", "skipped"].includes(currentTaste.classificationStatus) ||
+    (currentTaste.classificationStatus === "suggested" && currentTaste.freeClassificationUsedAt);
   if (
     !currentTaste.suggestedLabelKeys.includes(labelKey) ||
     !["suggested", "confirmed_review", "confirmed", "skipped"].includes(currentTaste.classificationStatus) ||
@@ -725,6 +757,7 @@ async function confirmAiTasteLabel(userId, section, labelKey) {
     classifierVersion: TASTE_CLASSIFIER_VERSION,
     inputFingerprint,
     classificationStatus: "confirmed",
+    freeClassificationAutoAttemptedAt: currentTaste.freeClassificationAutoAttemptedAt,
     freeClassificationUsedAt: currentTaste.freeClassificationUsedAt,
   };
   await User.findOneAndUpdate(
@@ -762,12 +795,19 @@ async function skipAiTasteLabel(userId, section) {
   const progress = getTasteProgressStatus(section, items.length);
   const currentTaste = getAiTasteFromUser(user, section);
   const hasEarnedLabel = ["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus) && currentTaste.labelKey;
-  if (!progress.labelReady && !hasEarnedLabel) return { ok: false, reason: "incomplete_list" };
+  const hasSavedChoice = currentTaste.freeClassificationUsedAt &&
+    ["suggested", "skipped"].includes(currentTaste.classificationStatus) &&
+    currentTaste.suggestedLabelKeys.length;
+  if (!progress.labelReady && !hasEarnedLabel && !hasSavedChoice) return { ok: false, reason: "incomplete_list" };
   if (!["suggested", "confirmed_review", "confirmed", "skipped"].includes(currentTaste.classificationStatus)) {
     return { ok: false, reason: "stale_suggestion" };
   }
   const inputFingerprint = buildTasteInputFingerprint(section, items);
-  if (currentTaste.classificationStatus === "suggested" && currentTaste.inputFingerprint !== inputFingerprint) {
+  if (
+    currentTaste.classificationStatus === "suggested" &&
+    !currentTaste.freeClassificationUsedAt &&
+    currentTaste.inputFingerprint !== inputFingerprint
+  ) {
     return { ok: false, reason: "stale_suggestion" };
   }
   const suggestedLabelKeys = (
@@ -801,7 +841,9 @@ async function recalculateAiTasteForSection(userId, section) {
   const progress = getTasteProgressStatus(section, items.length);
   if (items.length !== operationalLimits.aiTopTenItems) return { ok: false, reason: "incomplete_list" };
   const currentTaste = getAiTasteFromUser(user, section);
-  if (!currentTaste.labelKey || !["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus)) {
+  const hadActiveLabel = Boolean(currentTaste.labelKey) && ["confirmed", "confirmed_review"].includes(currentTaste.classificationStatus);
+  const hadNoLabel = !currentTaste.labelKey && currentTaste.classificationStatus === "skipped" && currentTaste.freeClassificationUsedAt;
+  if (!hadActiveLabel && !hadNoLabel) {
     return { ok: false, reason: "missing_confirmed_label" };
   }
   const classification = await classifyMediaTaste(section, items, { language: user.lang === "fa" ? "fa" : "en" });
@@ -809,18 +851,22 @@ async function recalculateAiTasteForSection(userId, section) {
   const suggestedLabelKeys = buildRankedTasteShortlist(section, classification.labelKeys);
   const suggestionInsight = String(classification.insight || "").trim().slice(0, 120);
   const inputFingerprint = buildTasteInputFingerprint(section, items);
-  const isSameLabel = suggestedLabelKeys[0] === currentTaste.labelKey;
+  const isSameLabel = hadActiveLabel && suggestedLabelKeys[0] === currentTaste.labelKey;
+  // A recheck only replaces the shortlist. Keep the user's current choice active
+  // until they explicitly select one of the new suggestions.
+  const nextStatus = hadActiveLabel ? "confirmed_review" : "skipped";
   const now = new Date();
   await User.findOneAndUpdate({ userId: Number(userId) }, { $set: {
     [`aiTaste.${section}.suggestedLabelKeys`]: suggestedLabelKeys,
     [`aiTaste.${section}.suggestionInsight`]: suggestionInsight,
     [`aiTaste.${section}.classifierVersion`]: TASTE_CLASSIFIER_VERSION,
     [`aiTaste.${section}.inputFingerprint`]: inputFingerprint,
-    [`aiTaste.${section}.classificationStatus`]: "confirmed_review",
+    [`aiTaste.${section}.classificationStatus`]: nextStatus,
     [`aiTaste.${section}.updatedAt`]: now,
   } }, { returnDocument: "after" });
   return {
     ok: true,
+    hadActiveLabel,
     sameLabel: isSameLabel,
     suggestedLabelKeys,
     suggestionInsight,
@@ -830,7 +876,7 @@ async function recalculateAiTasteForSection(userId, section) {
       suggestionInsight,
       classifierVersion: TASTE_CLASSIFIER_VERSION,
       inputFingerprint,
-      classificationStatus: "confirmed_review",
+      classificationStatus: nextStatus,
     },
     progress,
   };
@@ -1127,6 +1173,7 @@ module.exports = {
   getAiTasteFromUser,
   getTasteProgressStatus,
   syncAiTasteForSection,
+  markAiTasteAutomaticCheckAttempted,
   confirmAiTasteLabel,
   skipAiTasteLabel,
   recalculateAiTasteForSection,

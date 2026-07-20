@@ -395,7 +395,8 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
         ["movies", "music", "books"].includes(section) &&
         (
         getAiListItemsFromUser(user, section, "topTen").length >= operationalLimits.aiTopTenItems ||
-        (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey)
+        (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) ||
+        (taste.classificationStatus === "skipped" && Array.isArray(taste.suggestedLabelKeys) && taste.suggestedLabelKeys.length > 0)
         )
       ) {
         entries.push(["aiTasteReviewButton", `${callBacks.aiTasteReview}${section}`]);
@@ -410,6 +411,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   if (validAiListCompletionState) {
     entries.push(["aiListManageAddBackToList", `${callBacks.aiListManageCancelAdd}${aiListCompletionMatch[1]}:top_ten:back`]);
   }
+  // Persisted hub reply-keyboard actions come first. Inline cards carry callback
+  // payloads directly, so an identical visible Back label must not shadow the
+  // still-active bottom keyboard underneath them.
   for (const [key, callbackData] of entries) {
     if (key === "advancedSearchButton" && !advancedSearchEnabled) continue;
     const currentLang = messages[user?.lang] ? user.lang : "";

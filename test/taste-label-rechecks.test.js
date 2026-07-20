@@ -48,8 +48,47 @@ test("taste-label recheck quote costs 10 Stars and snapshots the completed list"
     assert.equal(result.balance, 24);
     assert.equal(created.quotedCost, 10);
     assert.equal(created.previousLabelKey, "novel_reader");
+    assert.equal(created.previousClassificationStatus, "confirmed");
     assert.ok(created.inputFingerprint);
     assert.deepEqual(created.settingsSnapshot, { tasteLabelRecheckCost: 10 });
+  } finally {
+    User.findOne = originalFindOne;
+    AiTasteRecheck.create = originalCreate;
+    Object.assign(starEconomy, originalSettings);
+  }
+});
+
+test("a completed No-label choice can request a paid recheck", async () => {
+  const originalFindOne = User.findOne;
+  const originalCreate = AiTasteRecheck.create;
+  const originalSettings = { ...starEconomy };
+  let created = null;
+  User.findOne = async () => ({
+    ...completedUser(),
+    aiTaste: {
+      books: {
+        labelKey: "",
+        classificationStatus: "skipped",
+        freeClassificationUsedAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    },
+  });
+  AiTasteRecheck.create = async (value) => {
+    created = value;
+    return { _id: "quote-no-label", ...value };
+  };
+  Object.assign(starEconomy, {
+    economyEnabled: true,
+    spendingEnabled: true,
+    tasteLabelRecheckEnabled: true,
+    tasteLabelRecheckCost: 10,
+  });
+
+  try {
+    const result = await createTasteLabelRecheckQuote(42, "books");
+    assert.equal(result.ok, true);
+    assert.equal(created.previousLabelKey, "");
+    assert.equal(created.previousClassificationStatus, "skipped");
   } finally {
     User.findOne = originalFindOne;
     AiTasteRecheck.create = originalCreate;

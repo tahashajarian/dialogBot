@@ -14,6 +14,7 @@ const AiTasteRecheckSchema = new mongoose.Schema({
   quoteExpiresAt: { type: Date, required: true, index: true },
   inputFingerprint: { type: String, required: true },
   previousLabelKey: { type: String, required: true },
+  previousClassificationStatus: { type: String, required: true, enum: ["confirmed", "skipped"] },
   suggestedLabelKeys: { type: [String], default: [] },
   suggestionInsight: { type: String, default: "", maxlength: 120 },
   spendTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },

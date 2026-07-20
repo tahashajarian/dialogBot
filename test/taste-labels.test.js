@@ -12,7 +12,12 @@ const {
   parseTasteClassification,
 } = require("../src/services/taste-label-classifier");
 const User = require("../src/models/user");
-const { confirmAiTasteLabel, skipAiTasteLabel, syncAiTasteForSection } = require("../src/services/users");
+const {
+  confirmAiTasteLabel,
+  markAiTasteAutomaticCheckAttempted,
+  skipAiTasteLabel,
+  syncAiTasteForSection,
+} = require("../src/services/users");
 const { buildTasteReviewPresentation } = require("../src/flows/ai-taste-labels");
 const { callBacks } = require("../src/constants");
 const { aiTasteSuggestionKeyboard } = require("../src/keyboards");
@@ -246,6 +251,31 @@ test("taste recheck is shown only when explicitly enabled for a completed confir
   assert.ok(buttons.some((button) => /۱۰/.test(button.text)));
 });
 
+test("an incomplete saved No-label choice stays manageable but cannot be rechecked", () => {
+  const review = buildTasteReviewPresentation("fa", "music", {
+    progress: { count: 7, goal: 10, completed: false },
+    taste: {
+      classificationStatus: "skipped",
+      suggestedLabelKeys: ["metalhead", "music_buff"],
+    },
+  }, { canRecheck: false, recheckCost: "۱۰" });
+  assert.match(review.text, /\(۷\/۱۰\)|\(7\/10\)/);
+  const buttons = review.extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.text === `✓ ${messages.fa.aiTasteSkipButton}`));
+  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.aiTasteRecheck}music`));
+
+  const completed = buildTasteReviewPresentation("en", "music", {
+    progress: { count: 10, goal: 10, completed: true },
+    taste: {
+      classificationStatus: "skipped",
+      suggestedLabelKeys: ["metalhead", "music_buff"],
+    },
+  }, { canRecheck: true, recheckCost: "10" });
+  assert.ok(completed.extra.reply_markup.inline_keyboard.flat().some(
+    (button) => button.callback_data === `${callBacks.aiTasteRecheck}music`,
+  ));
+});
+
 test("a paid recheck suggestion keeps the current label active until confirmation", () => {
   const review = buildTasteReviewPresentation("en", "books", {
     taste: {
@@ -320,9 +350,10 @@ test("editing the list after a successful free check does not trigger another fr
     const result = await syncAiTasteForSection(45, "books");
     assert.equal(result.ok, true);
     assert.equal(result.needsConfirmation, true);
-    assert.equal(result.classificationReason, "free_check_used");
+    assert.equal(result.classificationReason, "saved_result");
     assert.equal(result.taste.classificationStatus, "suggested");
-    assert.deepEqual(writtenUpdate.$set["aiTaste.books.suggestedLabelKeys"], ["book_buff"]);
+    assert.deepEqual(result.taste.suggestedLabelKeys, ["novel_reader", "book_buff"]);
+    assert.equal(writtenUpdate, null);
   } finally {
     User.findOne = originalFindOne;
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -367,9 +398,10 @@ test("taste confirmation accepts only the saved AI shortlist and keeps it for la
 
     storedFingerprint = "older-list";
     writtenUpdate = null;
-    const staleSkip = await skipAiTasteLabel(47, "books");
-    assert.deepEqual(staleSkip, { ok: false, reason: "stale_suggestion" });
-    assert.equal(writtenUpdate, null);
+    const savedSkip = await skipAiTasteLabel(47, "books");
+    assert.equal(savedSkip.ok, true);
+    assert.deepEqual(savedSkip.suggestedLabelKeys, ["novel_reader", "book_buff"]);
+    assert.equal(writtenUpdate.$set["aiTaste.books.classificationStatus"], "skipped");
   } finally {
     User.findOne = originalFindOne;
     User.findOneAndUpdate = originalFindOneAndUpdate;
@@ -406,6 +438,66 @@ test("a confirmed earned label remains after favorites drop below 10", async () 
     assert.equal(writtenUpdate.$set["aiTaste.books.labelKey"], undefined);
   } finally {
     User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("a saved No-label shortlist remains usable after favorites drop below 10", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let writtenUpdate = null;
+  User.findOne = async () => ({
+    userId: 48,
+    aiLists: { books: { topTen: Array.from({ length: 7 }, (_, index) => ({ title: `Book ${index + 1}` })) } },
+    aiTaste: { books: {
+      classificationStatus: "skipped",
+      suggestedLabelKeys: ["novel_reader", "book_buff"],
+      suggestionInsight: "Your choices mostly favor modern literary novels.",
+      freeClassificationUsedAt: new Date("2026-01-01T00:00:00Z"),
+      sampleCount: 10,
+    } },
+  });
+  User.findOneAndUpdate = async (_filter, update) => {
+    writtenUpdate = update;
+    return null;
+  };
+
+  try {
+    const synced = await syncAiTasteForSection(48, "books");
+    assert.equal(synced.ok, true);
+    assert.equal(synced.taste.classificationStatus, "skipped");
+    assert.deepEqual(synced.taste.suggestedLabelKeys, ["novel_reader", "book_buff"]);
+    assert.equal(synced.taste.sampleCount, 7);
+
+    writtenUpdate = null;
+    const selected = await confirmAiTasteLabel(48, "books", "book_buff");
+    assert.equal(selected.ok, true);
+    assert.equal(writtenUpdate.$set["aiTaste.books.labelKey"], "book_buff");
+    assert.deepEqual(writtenUpdate.$set["aiTaste.books.suggestedLabelKeys"], ["novel_reader", "book_buff"]);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("the first automatic taste check is claimed atomically", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const calls = [];
+  User.findOneAndUpdate = async (filter, update) => {
+    calls.push({ filter, update });
+    return calls.length === 1 ? { userId: 49 } : null;
+  };
+
+  try {
+    const claimed = await markAiTasteAutomaticCheckAttempted(49, "music");
+    const repeated = await markAiTasteAutomaticCheckAttempted(49, "music");
+    assert.equal(claimed.ok, true);
+    assert.ok(claimed.attemptedAt instanceof Date);
+    assert.deepEqual(repeated, { ok: false, reason: "already_attempted" });
+    assert.equal(calls[0].filter["aiTaste.music.freeClassificationAutoAttemptedAt"], null);
+    assert.equal(calls[0].filter["aiTaste.music.freeClassificationUsedAt"], null);
+    assert.ok(calls[0].update.$set["aiTaste.music.freeClassificationAutoAttemptedAt"] instanceof Date);
+  } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 });

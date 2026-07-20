@@ -37,6 +37,7 @@ const {
   promoteWatchlistItemToTopTen,
   getAiTasteFromUser,
   getTasteProgressStatus,
+  markAiTasteAutomaticCheckAttempted,
   syncAiTasteForSection,
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -172,6 +173,10 @@ function isAiSectionTopTenText(text) {
     ]),
   ].map(normalizeKeyboardText);
   return labels.includes(normalizedText);
+}
+
+function shouldStartAutomaticTasteCheck(taste = {}) {
+  return !taste.freeClassificationAutoAttemptedAt && !taste.freeClassificationUsedAt;
 }
 
 function isAiSectionSuggestText(text) {
@@ -506,9 +511,12 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
     hasItems: items.length > 0,
     itemCount: items.length,
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
-    hasTasteLabel: ["movies", "music", "books"].includes(section) && ["confirmed", "confirmed_review"].includes(
-      getAiTasteFromUser(ctx.user, section).classificationStatus,
-    ),
+    hasTasteLabel: (() => {
+      if (!["movies", "music", "books"].includes(section)) return false;
+      const taste = getAiTasteFromUser(ctx.user, section);
+      return (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) ||
+        (taste.classificationStatus === "skipped" && taste.suggestedLabelKeys.length > 0);
+    })(),
   });
   let listMessage;
   if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
@@ -772,6 +780,19 @@ async function handleAiText(ctx, lang, text, state) {
       }
 
       if (!isWatchlist) {
+        let automaticTasteAttempt = null;
+        const isCompletedMediaFavorites = listIsFull && ["movies", "music", "books"].includes(section);
+        if (isCompletedMediaFavorites) {
+          const taste = getAiTasteFromUser(ctx.user, section);
+          if (shouldStartAutomaticTasteCheck(taste)) {
+            automaticTasteAttempt = await markAiTasteAutomaticCheckAttempted(ctx.userId, section);
+            if (automaticTasteAttempt.ok && ctx.user) {
+              if (!ctx.user.aiTaste) ctx.user.aiTaste = {};
+              if (!ctx.user.aiTaste[section]) ctx.user.aiTaste[section] = {};
+              ctx.user.aiTaste[section].freeClassificationAutoAttemptedAt = automaticTasteAttempt.attemptedAt;
+            }
+          }
+        }
         const savedMessage = await buildTopTenSavedMessage({
           ctx,
           lang,
@@ -779,7 +800,13 @@ async function handleAiText(ctx, lang, text, state) {
           item,
           items: result.items,
           includeNextPrompt: false,
+          includeCompletionPrompt: !isCompletedMediaFavorites || Boolean(automaticTasteAttempt?.ok),
         });
+        if (isCompletedMediaFavorites && !automaticTasteAttempt?.ok) {
+          return openAiListManager(ctx, lang, section, listType, {
+            prefix: [savedMessage, starNotice].filter(Boolean).join("\n\n"),
+          });
+        }
         const saved = await ctx.reply(
           [
             savedMessage,
@@ -792,7 +819,7 @@ async function handleAiText(ctx, lang, text, state) {
         );
         if (listIsFull) {
           await rememberAiPendingInputPrompt(ctx, saved);
-          if (["movies", "music", "books"].includes(section)) {
+          if (automaticTasteAttempt?.ok) {
             await sendTasteLabelReview(ctx, lang, section, { withPlaceholder: true });
           }
           return saved;
@@ -1001,4 +1028,5 @@ module.exports = {
   isAiSectionSuggestText,
   isAiSectionTopTenText,
   isAiTextState,
+  shouldStartAutomaticTasteCheck,
 };

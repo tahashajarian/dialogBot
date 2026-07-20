@@ -24,6 +24,14 @@ function withTasteInsight(text, insight = "") {
   return paragraphs.join("\n\n");
 }
 
+function withIncompleteRecheckTip(text, lang, progress = {}) {
+  if (progress.completed || !Number(progress.goal)) return text;
+  const tip = messages[lang].aiTasteRecheckIncompleteTip
+    .replace("{count}", String(progress.count || 0))
+    .replace("{goal}", String(progress.goal));
+  return `${text}\n\n${tip}`;
+}
+
 function buildTasteReviewPresentation(lang, section, syncResult, {
   canRecheck = false,
   recheckCost = 0,
@@ -37,8 +45,12 @@ function buildTasteReviewPresentation(lang, section, syncResult, {
   }
   if (taste.classificationStatus === "confirmed" && taste.labelKey) {
     return {
-      text: messages[lang].aiTasteCurrentPrompt
-        .replace("{label}", formatTasteLabel(lang, section, taste.labelKey)),
+      text: withIncompleteRecheckTip(
+        messages[lang].aiTasteCurrentPrompt
+          .replace("{label}", formatTasteLabel(lang, section, taste.labelKey)),
+        lang,
+        syncResult.progress,
+      ),
       extra: aiTasteCurrentKeyboard(lang, section, { canRecheck, recheckCost }),
     };
   }
@@ -50,8 +62,17 @@ function buildTasteReviewPresentation(lang, section, syncResult, {
   }
   if (taste.classificationStatus === "skipped" && taste.suggestedLabelKeys?.length) {
     return {
-      text: withTasteInsight(messages[lang].aiTasteSavedSuggestionsPrompt, taste.suggestionInsight),
-      extra: aiTasteSuggestionKeyboard(lang, section, taste.suggestedLabelKeys, { includeClose: true }),
+      text: withIncompleteRecheckTip(
+        withTasteInsight(messages[lang].aiTasteSavedSuggestionsPrompt, taste.suggestionInsight),
+        lang,
+        syncResult.progress,
+      ),
+      extra: aiTasteSuggestionKeyboard(lang, section, taste.suggestedLabelKeys, {
+        selectedNoLabel: true,
+        includeClose: true,
+        canRecheck,
+        recheckCost,
+      }),
     };
   }
   const unavailable = syncResult?.needsManualSelection && syncResult?.classificationReason;
@@ -77,7 +98,10 @@ async function sendTasteLabelReview(ctx, lang, section, {
       messages[lang].aiTasteWaitingLonger,
     ], { placeholder: placeholderMessage })
     : null;
-  const syncResult = await syncAiTasteForSection(ctx.userId, section, { retryFailed });
+  const syncResult = await syncAiTasteForSection(ctx.userId, section, {
+    retryFailed,
+    allowClassification: true,
+  });
   const hasFullList = getAiListItemsFromUser(ctx.user, section, "topTen").length === operationalLimits.aiTopTenItems;
   const presentation = buildTasteReviewPresentation(lang, section, syncResult, {
     canRecheck: hasFullList && isTasteLabelRecheckAvailable(),
