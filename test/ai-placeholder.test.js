@@ -47,6 +47,28 @@ test("editPlaceholder preserves original message when edit response has no messa
   assert.equal(result, placeholder);
 });
 
+test("AI progress never deletes its placeholder when an edit fails", async () => {
+  const replies = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 80 + replies.length };
+    },
+    editMessageText: async () => false,
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Still thinking"], {
+    stepDelays: [5],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  await placeholder.finish("Final result");
+
+  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(replies, ["Thinking", "Final result"]);
+});
+
 test("AI placeholder always ends in a visible fallback when work never finishes", async () => {
   const edits = [];
   const ctx = {
@@ -95,26 +117,32 @@ test("final AI result is queued after an in-flight loading edit", async () => {
   assert.deepEqual(edits, ["Still thinking", "Final suggestion"]);
 });
 
-test("retained AI placeholders hide the keyboard and keep each step", async () => {
+test("AI placeholders hide the keyboard and edit one message through the final result", async () => {
   const replies = [];
+  const edits = [];
   const ctx = {
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
     },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
   };
 
   const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Still thinking"], {
-    retainSteps: true,
     initialExtra: { reply_markup: { remove_keyboard: true } },
     stepDelays: [5],
   });
   await new Promise((resolve) => setTimeout(resolve, 15));
   await placeholder.finish("Final result", { reply_markup: { keyboard: [[{ text: "Save" }]] } });
 
-  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking", "Still thinking", "Final result"]);
+  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking"]);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[2].extra.reply_markup.keyboard[0][0].text, "Save");
+  assert.deepEqual(edits.map((entry) => entry.text), ["Still thinking", "Final result"]);
+  assert.equal(edits.every((entry) => entry.messageId === 1), true);
+  assert.equal(edits[1].extra.reply_markup.keyboard[0][0].text, "Save");
 });
 
 test("AI placeholder runs refund work before showing a paid timeout", async () => {
@@ -127,7 +155,6 @@ test("AI placeholder runs refund work before showing a paid timeout", async () =
   };
 
   const placeholder = await startAiPlaceholder(ctx, ["Thinking"], {
-    retainSteps: true,
     fallbackText: "Refunded",
     timeoutMs: 10,
     onFallback: async () => events.push("refund"),

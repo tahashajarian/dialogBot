@@ -2,7 +2,10 @@ function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
-async function editPlaceholder(ctx, placeholder, text, extra) {
+async function editPlaceholder(ctx, placeholder, text, extra, {
+  deleteOnFallback = true,
+  fallbackToReply = true,
+} = {}) {
   const messageId = getMessageId(placeholder);
   if (messageId && ctx.editMessageText) {
     const edited = await ctx.editMessageText(messageId, text, extra);
@@ -11,11 +14,11 @@ async function editPlaceholder(ctx, placeholder, text, extra) {
     }
   }
 
-  if (messageId && ctx.deleteMessage) {
+  if (deleteOnFallback && messageId && ctx.deleteMessage) {
     await ctx.deleteMessage(messageId);
   }
 
-  return ctx.reply(text, extra);
+  return fallbackToReply ? ctx.reply(text, extra) : placeholder;
 }
 
 async function startAiPlaceholder(ctx, steps, options = {}) {
@@ -33,7 +36,9 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
     }
     placeholder = await ctx.reply(steps[0], options.initialExtra);
   } else if (initialPlaceholder) {
-    placeholder = await editPlaceholder(ctx, initialPlaceholder, steps[0], options.initialExtra);
+    placeholder = await editPlaceholder(ctx, initialPlaceholder, steps[0], options.initialExtra, {
+      deleteOnFallback: false,
+    });
   } else {
     placeholder = await ctx.reply(steps[0], options.initialExtra);
   }
@@ -42,10 +47,15 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
   let editQueue = Promise.resolve(placeholder);
 
   const queueEdit = (text, extra, { terminal = false } = {}) => {
-    editQueue = editQueue.then(() => {
+    editQueue = editQueue.then(async () => {
       if (settled && !terminal) return placeholder;
       if (retainSteps) return ctx.reply(text, extra);
-      return editPlaceholder(ctx, placeholder, text, extra);
+      const updated = await editPlaceholder(ctx, placeholder, text, extra, {
+        deleteOnFallback: false,
+        fallbackToReply: terminal,
+      });
+      if (getMessageId(updated)) placeholder = updated;
+      return updated;
     });
     return editQueue;
   };

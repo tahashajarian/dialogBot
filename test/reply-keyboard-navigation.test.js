@@ -512,6 +512,16 @@ test("suggestion context Cancel works only while that section awaits context", (
   assert.equal(resolveReplyKeyboardAction(messages.fa.cancelEdit, { mode: "ai_suggestion_context:movies", state: "ai_suggest_context_books", user: { lang: "fa" } }), null);
 });
 
+test("suggestion controls cannot resolve while generation is active", () => {
+  const context = {
+    mode: "ai_suggestion_loading:books",
+    state: "ai_suggest_generating_books",
+    user: { lang: "en" },
+  };
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestionFromTopTenButton, context), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, context), null);
+});
+
 test("filtered For Later rows keep commands bound to original list indexes", () => {
   const { formatAiItemsList } = require("../src/services/ai-list-ui");
   const text = formatAiItemsList("Seen", [{ title: "Arrival", watched: true, commandIndex: 3 }], "Empty", {

@@ -300,10 +300,16 @@ async function sendFollowupSuggestion({
     ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
     : "";
 
-  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
-  if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
-  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  const restoreSuggestionMode = async () => {
+    await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+    if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
+    await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  };
+  await updateUserState(ctx.userId, `ai_suggest_generating_${section}`);
+  if (ctx.user) ctx.user.state = `ai_suggest_generating_${section}`;
+  await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
 
   const placeholder = await startAiPlaceholder(ctx, [
     messages[lang].aiThinking,
@@ -312,21 +318,26 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingLonger,
   ], {
     placeholder: placeholderMessage,
-    retainSteps: true,
-    initialExtra: { reply_markup: { remove_keyboard: true } },
+    ...(placeholderMessage
+      ? { initialExtra: { reply_markup: { inline_keyboard: [] } } }
+      : {}),
     fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
-    onFallback: paidSuggestion
-      ? () => refundPaidSuggestion(
-        paidSuggestion.quote._id,
-        paidSuggestion.spend?.transaction?._id,
-        { reason: "ai_paid_suggestion_timeout" },
-      )
-      : undefined,
+    onFallback: async () => {
+      if (paidSuggestion) {
+        await refundPaidSuggestion(
+          paidSuggestion.quote._id,
+          paidSuggestion.spend?.transaction?._id,
+          { reason: "ai_paid_suggestion_timeout" },
+        );
+      }
+      await restoreSuggestionMode();
+    },
   });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
+    await restoreSuggestionMode();
     if (quota.reason === "limit") {
       const quoteResult = await createPaidSuggestionQuote(ctx.userId, section, { userText });
       if (quoteResult.ok) {
@@ -381,6 +392,7 @@ async function sendFollowupSuggestion({
   }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    await restoreSuggestionMode();
     if (paidSuggestion) {
       await refundPaidSuggestion(
         paidSuggestion.quote._id,
@@ -417,7 +429,11 @@ async function sendFollowupSuggestion({
     aiSuggestionCopyKeyboard(lang, suggestionResult.title),
   );
   if (resultMessage) {
-    await ctx.reply(messages[lang].aiSuggestionChooseAction, aiSuggestionAddKeyboard(lang, section));
+    const actionMessage = await ctx.reply(
+      messages[lang].aiSuggestionChooseAction,
+      aiSuggestionAddKeyboard(lang, section),
+    );
+    await rememberAiActionMessage(ctx, `suggest_result:${section}`, actionMessage);
   }
   return resultMessage;
 }

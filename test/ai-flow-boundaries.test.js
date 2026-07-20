@@ -226,6 +226,7 @@ test("AI text state predicate recognizes only AI-owned text states", () => {
   assert.equal(isAiTextState("ai_manage_music_top_ten_add_input"), true);
   assert.equal(isAiTextState("ai_manage_random_watchlist_comment_input"), true);
   assert.equal(isAiTextState("ai_suggest_context_books"), true);
+  assert.equal(isAiTextState("ai_suggest_generating_books"), true);
 
   assert.equal(isAiTextState("editing_name"), false);
   assert.equal(isAiTextState("discussion_create_title"), false);
@@ -961,6 +962,64 @@ test("suggestion mode prompt can return to the section Top Ten", async () => {
   const buttons = keyboardButtons(keyboard);
 
   assert.equal(buttons.at(-1).text, messages.en.aiBack);
+  assert.equal(keyboard.reply_markup.one_time_keyboard, true);
+});
+
+test("queued suggestion keyboard taps are ignored while generation is active", async () => {
+  const ctx = {
+    userId: 82,
+    user: { userId: 82, lang: "en", state: "ai_suggest_generating_books" },
+    reply: async () => {
+      throw new Error("generating taps must stay quiet");
+    },
+  };
+
+  assert.equal(await handleAiText(
+    ctx,
+    "en",
+    messages.en.aiSuggestionFromTopTenButton,
+    ctx.user.state,
+  ), null);
+  assert.equal(await handleAiText(ctx, "en", messages.en.aiBack, ctx.user.state), null);
+});
+
+test("typed text and stale Back preserve suggestion-result controls", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    userId: 83,
+    user: {
+      userId: 83,
+      lang: "en",
+      state: "ai_chat_books",
+      navigationMode: "ai_suggestion_result:books",
+      aiActionMessageId: 70,
+      aiActionContext: "suggest_result:books",
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 80 + replies.length };
+    },
+  };
+
+  try {
+    await handleAiText(ctx, "en", "unexpected text", ctx.user.state);
+    await handleAiText(ctx, "en", messages.en.aiBack, ctx.user.state);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 2);
+  for (const reply of replies) {
+    assert.equal(reply.text, messages.en.aiSuggestionUseButtons);
+    const buttons = keyboardButtons(reply.extra);
+    assert.equal(buttons.some((button) => button.text === messages.en.aiSuggestionRejectButton), true);
+    assert.equal(buttons.some((button) => button.text === messages.en.aiBack), false);
+  }
+  assert.equal(ctx.user.state, "ai_chat_books");
+  assert.equal(ctx.user.navigationMode, "ai_suggestion_result:books");
+  assert.equal(ctx.user.aiActionContext, "suggest_result:books");
 });
 
 test("suggestion mood prompt states and enforces the 80-character limit", async () => {
@@ -1634,7 +1693,7 @@ test("suggestion callbacks are valid only inside their matching AI state", () =>
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
 });
 
-test("suggestion callback retires the tapped card and retains the waiting message", async () => {
+test("suggestion callback edits the tapped card through waiting and final states", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const edits = [];
@@ -1689,11 +1748,15 @@ test("suggestion callback retires the tapped card and retains the waiting messag
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [55]);
-  assert.equal(edits.length, 0);
-  assert.equal(replies[0].text, messages.en.aiThinking);
-  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.match(replies.at(-1).text, /free suggestions/);
+  assert.deepEqual(deletedIds, []);
+  assert.equal(replies.length, 0);
+  assert.equal(edits[0].messageId, 55);
+  assert.equal(edits[0].text, messages.en.aiThinking);
+  assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard, []);
+  assert.equal(edits.every((entry) => entry.messageId === 55), true);
+  assert.match(edits.at(-1).text, /free suggestions/);
+  assert.equal(ctx.user.state, "ai_suggest_context_music");
+  assert.equal(ctx.user.navigationMode, "ai_suggestion_mode:music");
 });
 
 test("AI remembered-card cleanup leaves kept or missing cards alone", async () => {

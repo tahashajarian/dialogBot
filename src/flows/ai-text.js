@@ -115,6 +115,7 @@ const {
 
 const AI_MANAGE_STATE_PATTERN = /^ai_manage_(movies|music|books|random)_(watchlist|top_ten)(?:_(add_input|comment_input))?$/;
 const AI_SUGGEST_CONTEXT_STATE_PATTERN = /^ai_suggest_context_(movies|music|books|random)$/;
+const AI_SUGGEST_GENERATING_STATE_PATTERN = /^ai_suggest_generating_(movies|music|books|random)$/;
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -322,6 +323,7 @@ function isAiTextState(state = "") {
   return Boolean(
     parseAiManageState(state) ||
     parseAiSuggestContextState(state) ||
+    AI_SUGGEST_GENERATING_STATE_PATTERN.test(String(state)) ||
     getAiSectionFromState(state),
   );
 }
@@ -376,31 +378,39 @@ async function sendSingleSectionSuggestion({
     ...recentSuggestionItems,
     ...rejectedSuggestionItems,
   ].map((title) => ({ title }));
-  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
-  if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
-  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  const restoreSuggestionMode = async () => {
+    await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
+    if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
+    await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
+  };
+  await updateUserState(ctx.userId, `ai_suggest_generating_${section}`);
+  if (ctx.user) ctx.user.state = `ai_suggest_generating_${section}`;
+  await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
+  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
   const placeholder = await startAiPlaceholder(ctx, [
     messages[lang].aiThinking,
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingAlmost,
     messages[lang].aiThinkingLonger,
   ], {
-    retainSteps: true,
-    initialExtra: { reply_markup: { remove_keyboard: true } },
     fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
-    onFallback: paidSuggestion
-      ? () => refundPaidSuggestion(
-        paidSuggestion.quote._id,
-        paidSuggestion.spend?.transaction?._id,
-        { reason: "ai_paid_suggestion_timeout" },
-      )
-      : undefined,
+    onFallback: async () => {
+      if (paidSuggestion) {
+        await refundPaidSuggestion(
+          paidSuggestion.quote._id,
+          paidSuggestion.spend?.transaction?._id,
+          { reason: "ai_paid_suggestion_timeout" },
+        );
+      }
+      await restoreSuggestionMode();
+    },
   });
   const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
   if (!quota.ok) {
+    await restoreSuggestionMode();
     if (quota.reason === "limit") {
       const quoteResult = await createPaidSuggestionQuote(ctx.userId, section, { userText });
       if (quoteResult.ok) {
@@ -455,6 +465,7 @@ async function sendSingleSectionSuggestion({
   }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    await restoreSuggestionMode();
     if (paidSuggestion) {
       await refundPaidSuggestion(
         paidSuggestion.quote._id,
@@ -491,7 +502,11 @@ async function sendSingleSectionSuggestion({
     aiSuggestionCopyKeyboard(lang, suggestionResult.title),
   );
   if (resultMessage) {
-    await ctx.reply(messages[lang].aiSuggestionChooseAction, aiSuggestionAddKeyboard(lang, section));
+    const actionMessage = await ctx.reply(
+      messages[lang].aiSuggestionChooseAction,
+      aiSuggestionAddKeyboard(lang, section),
+    );
+    await rememberAiActionMessage(ctx, `suggest_result:${section}`, actionMessage);
   }
   return resultMessage;
 }
@@ -632,6 +647,8 @@ async function handleAiListActionCommand(ctx, lang, command) {
 }
 
 async function handleAiText(ctx, lang, text, state) {
+  if (AI_SUGGEST_GENERATING_STATE_PATTERN.test(String(state))) return null;
+
   const listActionCommand = parseAiListActionCommand(text);
   if (listActionCommand) {
     const handled = await handleAiListActionCommand(ctx, lang, listActionCommand);
@@ -904,10 +921,14 @@ async function handleAiText(ctx, lang, text, state) {
 
   const suggestContextSection = parseAiSuggestContextState(state);
   if (suggestContextSection) {
+    // Exact-mode reply buttons are resolved before AI text handling. If an old
+    // visible Back button reaches this branch, keep it as guidance rather than
+    // interpreting it as suggestion mood text or navigating on stale UI.
     if (isAiBackText(text)) {
-      await clearAiPendingInputPrompt(ctx);
-      await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
-      return ctx.reply(messages[lang].aiSectionUseButtonsOnly, aiSectionKeyboardForSection(lang, suggestContextSection));
+      return ctx.reply(
+        messages[lang].aiSuggestionUseButtons,
+        aiSuggestionModeKeyboard(lang, suggestContextSection),
+      );
     }
 
     const userText = String(text || "").trim().replace(/\s+/g, " ");
@@ -955,38 +976,6 @@ async function handleAiText(ctx, lang, text, state) {
 
   const section = getAiSectionFromState(state);
   if (section) {
-    if (isAiBackText(text)) {
-      await clearAiPendingInputPrompt(ctx);
-      await clearAiActionMessage(ctx);
-      await updateUserState(ctx.userId, "idle");
-      await clearRememberedAiListMessage(ctx);
-      await clearAiSectionEntryMessage(ctx);
-      return replyWithKeyboardRemovalNoticeThenInline(
-        ctx,
-        messages[lang].navigationFootprintTaste,
-        buildAiAssistantMenuMessage(lang),
-        aiAssistantKeyboard(lang),
-      );
-    }
-
-    if (isAiSectionListText(text, section)) {
-      return openAiListManager(ctx, lang, section, "watchlist");
-    }
-
-    if (isAiSectionTopTenText(text)) {
-      return openAiListManager(ctx, lang, section, "topTen");
-    }
-
-    const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
-
-    if (isAiSectionSuggestText(text)) {
-      if (topTenItems.length < 3) {
-        return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
-      }
-
-      return promptSuggestionMode(ctx, lang, section);
-    }
-
     const actionContext = String(ctx.user?.aiActionContext || "");
     if (actionContext === `suggest_mode:${section}`) {
       await clearAiPendingInputPrompt(ctx);

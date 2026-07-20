@@ -293,7 +293,7 @@ function aiSuggestionModeKeyboard(lang, _section) {
         text: messages[lang].aiBack,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: true, selective: true } };
 }
 
 function aiSuggestionNeedTopTenKeyboard(lang, section) {
