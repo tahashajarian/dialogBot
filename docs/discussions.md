@@ -152,6 +152,8 @@ Creation prompts that use mode-scoped bottom keyboards remain as harmless chat h
 
 Leaving a room likewise forgets tracked room headers, recent-message cards, member cards, and menu notices without deleting Telegram messages. Indexed discussion lists may have their inline markup disabled when retired, but ordinary room exit performs no Telegram delete or edit cleanup before showing the Discussions menu.
 
+After a user's first successful leave, append a one-time persisted tip beneath the leave confirmation explaining both destinations: rooms they created remain in My Discussions, while other rooms they joined are available from My Discussions → Recent Discussions. Do not repeat the tip on later leaves, including after a bot restart.
+
 Flow:
 
 1. Ask for title.

@@ -26,6 +26,10 @@ const {
   leaveDiscussionAndClearKeyboardForNavigation,
 } = require("./services/bot-navigation");
 const { sendNavigationFootprint } = require("./services/navigation-footprints");
+const {
+  buildDiscussionLeaveText,
+  markDiscussionLeaveTipShown,
+} = require("./services/discussion-leave-tip");
 const { sendBannerPhoto } = require("./services/banner-media");
 const { MODES, setNavigationMode } = require("./services/reply-keyboard-navigation");
 const {
@@ -845,10 +849,17 @@ async function handleCallback(ctx) {
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     await deleteCallbackMessageIfPossible(ctx);
     await setNavigationMode(ctx, MODES.DISCUSSIONS);
-    return ctx.reply(
-      `${formatDiscussionLeftMessage(lang, left?.discussion)}\n\n${messages[lang].discussionsMenu}`,
+    const notice = buildDiscussionLeaveText(
+      ctx,
+      lang,
+      formatDiscussionLeftMessage(lang, left?.discussion),
+    );
+    const sent = await ctx.reply(
+      `${notice.text}\n\n${messages[lang].discussionsMenu}`,
       discussionsMenuKeyboard(lang),
     );
+    await markDiscussionLeaveTipShown(ctx, notice.showTip).catch(() => null);
+    return sent;
   }
 
   if (

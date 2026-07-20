@@ -74,6 +74,10 @@ const {
 } = require("./discussions-callbacks");
 const { replyWithKeyboardRemovalNoticeThenInline } = require("../services/bot-navigation");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
+const {
+  buildDiscussionLeaveText,
+  markDiscussionLeaveTipShown,
+} = require("../services/discussion-leave-tip");
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -179,10 +183,18 @@ async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
     updateProfileField(ctx.userId, "navigationMode", "discussions"),
   ]);
   if (ctx.user) ctx.user.navigationMode = "discussions";
-  const notice = left?.ok && left.discussion
+  const baseNotice = left?.ok && left.discussion
     ? formatDiscussionLeftMessage(lang, left.discussion)
     : messages[lang].discussionReturnedToMenu;
-  return ctx.reply(`${notice}\n\n${messages[lang].discussionsMenu}`, discussionsMenuKeyboard(lang));
+  const notice = left?.ok && left.discussion
+    ? buildDiscussionLeaveText(ctx, lang, baseNotice)
+    : { text: baseNotice, showTip: false };
+  const sent = await ctx.reply(
+    `${notice.text}\n\n${messages[lang].discussionsMenu}`,
+    discussionsMenuKeyboard(lang),
+  );
+  await markDiscussionLeaveTipShown(ctx, notice.showTip).catch(() => null);
+  return sent;
 }
 
 function normalizeProfileCodeFromActionCommand(value) {
@@ -723,7 +735,10 @@ async function leaveDiscussionCommand(ctx, lang, code) {
   }
   await clearDiscussionMembersMessage(ctx);
   await clearRememberedDiscussionListMessage(ctx);
-  return replyWithDiscussionMenu(ctx, lang, formatDiscussionLeftMessage(lang, left.discussion));
+  const notice = buildDiscussionLeaveText(ctx, lang, formatDiscussionLeftMessage(lang, left.discussion));
+  const sent = await replyWithDiscussionMenu(ctx, lang, notice.text);
+  await markDiscussionLeaveTipShown(ctx, notice.showTip).catch(() => null);
+  return sent;
 }
 
 async function closeDiscussionCommand(ctx, lang, code) {

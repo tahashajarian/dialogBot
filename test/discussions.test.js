@@ -142,9 +142,19 @@ test("leaving a room atomically restores the Discussions menu keyboard", async (
     assert.equal(replies.length, 1);
     assert.equal(
       replies[0].text,
-      `${messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی فیلم")}\n\n${messages.fa.discussionsMenu}`,
+      `${messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی فیلم")}\n\n${messages.fa.discussionLeftRecentTip}\n\n${messages.fa.discussionsMenu}`,
     );
+    assert.ok(ctx.user.sectionTipsShownAt.discussionLeaveRecent instanceof Date);
     assert.ok(replies[0].keyboard.reply_markup.keyboard.length > 1);
+
+    await enterDiscussionsAfterRoomExit(ctx, "fa", {
+      ok: true,
+      discussion: { title: "گفت‌وگوی دوم" },
+    });
+    assert.equal(
+      replies[1].text,
+      `${messages.fa.discussionLeft.replace("{title}", "گفت‌وگوی دوم")}\n\n${messages.fa.discussionsMenu}`,
+    );
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

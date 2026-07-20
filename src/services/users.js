@@ -21,7 +21,7 @@ const {
 } = require("./taste-label-classifier");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
-const SECTION_TIP_KEYS = Object.freeze(["discussions", "favorites", "people"]);
+const SECTION_TIP_KEYS = Object.freeze(["discussions", "discussionLeaveRecent", "favorites", "people"]);
 const RECENT_JOINED_DISCUSSION_LIMIT = 3;
 
 function firstPresent(...values) {

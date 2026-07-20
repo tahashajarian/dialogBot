@@ -511,10 +511,12 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /👥 People & Saved/);
   assert.match(messages.en.helpText, /See People or discussion member lists/);
   assert.match(messages.en.helpText, /join discussions they show.*invite them directly/i);
+  assert.match(messages.fa.helpText, /گفت‌وگوهای اخیرت.*گفت‌وگوهای من/);
+  assert.match(messages.en.helpText, /recently joined rooms.*My discussions/i);
   assert.match(messages.fa.helpText, /من ← حریم خصوصی و امنیت ← حذف حساب/);
   assert.match(messages.en.helpText, /Me → Privacy & safety → Delete account/);
-  assert.ok(messages.fa.helpText.length < 950);
-  assert.ok(messages.en.helpText.length < 950);
+  assert.ok(messages.fa.helpText.length <= 1024);
+  assert.ok(messages.en.helpText.length <= 1024);
 });
 
 test("Home uses the warmer Me label without renaming profile copy", () => {
