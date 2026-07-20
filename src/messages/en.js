@@ -219,7 +219,7 @@ module.exports = {
     discussionOpened: "👩‍🦳 Discussion opened.",
     discussionLeft: "👩‍🦳 You left \"{title}\".",
     discussionClosed: "👩‍🦳 Discussion \"{title}\" closed.",
-    discussionNotMember: "You are not a member of this discussion.",
+    discussionNotMember: "👩‍🦳 You are not a member of this discussion.",
     discussionRoomHeader: "💬 {title}\n\n📄 {description}\n\n👥 {count}/{cap}",
     discussionRoomHeaderNoDescription: "💬 {title}\n\n👥 {count}/{cap}",
     discussionRecentMessagesTitle: "👩‍🦳 Recent messages:",

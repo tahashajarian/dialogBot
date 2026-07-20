@@ -89,6 +89,19 @@ test("global destination labels do not activate outside the global mode", () => 
   assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }).callbackData, callBacks.people);
 });
 
+test("legacy visible keyboards recover when the persisted mode is empty", () => {
+  const idle = { mode: "", state: "idle", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, idle).callbackData, callBacks.profile);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestBooks, idle).callbackData, callBacks.aiSuggestBooks);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionMyList, idle).callbackData, callBacks.discussionListMine);
+  assert.equal(resolveReplyKeyboardAction(messages.en.savedProfiles, idle).callbackData, callBacks.savedProfiles);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditName, idle).callbackData, callBacks.profileEditName);
+
+  assert.equal(resolveReplyKeyboardAction(messages.fa.mainMenuMe, idle), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, { ...idle, state: "editing_bio" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, { ...idle, activeDiscussionId: "room-id" }), null);
+});
+
 test("old-language labels cannot activate after language changes", () => {
   assert.equal(resolveReplyKeyboardAction(messages.fa.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }).callbackData, callBacks.people);

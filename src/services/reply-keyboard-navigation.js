@@ -69,6 +69,24 @@ const BY_MODE = {
   people_discovery_empty: [["peopleGoToLists", callBacks.aiAssistant], ["aiBack", callBacks.people]],
 };
 
+// Telegram can keep showing a reply keyboard that was sent before durable
+// navigation modes were introduced. Recover those stable destination controls
+// only while the stored mode is empty; the callback they open will persist the
+// exact current mode for subsequent taps.
+const EMPTY_MODE_RECOVERY = [
+  ...GLOBAL,
+  ...GUIDE_GLOBAL_RECOVERY,
+  ...BY_MODE[MODES.LANGUAGE],
+  ...BY_MODE[MODES.FAVORITES],
+  ...BY_MODE[MODES.DISCUSSIONS],
+  ...BY_MODE[MODES.PEOPLE],
+  ...BY_MODE[MODES.PROFILE],
+  ...BY_MODE[MODES.PROFILE_SETTINGS],
+  ...BY_MODE[MODES.PROFILE_PRIVACY],
+  ...BY_MODE[MODES.HELP],
+  ...BY_MODE[MODES.HELP_RULES],
+];
+
 function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDiscussionId = null, advancedSearchEnabled = true, user = null } = {}) {
   const normalized = normalizeReplyButtonText(text);
   const lang = messages[user?.lang] ? user.lang : "fa";
@@ -182,6 +200,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const entries = [
     ...(mode === MODES.GLOBAL ? GLOBAL : []),
     ...(mode === MODES.GLOBAL ? GUIDE_GLOBAL_RECOVERY : []),
+    ...(!mode && state === "idle" ? EMPTY_MODE_RECOVERY : []),
     ...(state === "idle" ? ONBOARDING_DESTINATION_RECOVERY : []),
     ...((keepsPeopleHubKeyboard && mode === "people_discovery_empty") ? [] : (BY_MODE[mode] || [])),
     ...(keepsDiscussionHubKeyboard ? BY_MODE[MODES.DISCUSSIONS] : []),

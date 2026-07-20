@@ -219,7 +219,7 @@ module.exports = {
     discussionOpened: "👩‍🦳 گفت‌وگو باز شد.",
     discussionLeft: "👩‍🦳 از گفت‌وگو «{title}» خارج شدی.",
     discussionClosed: "👩‍🦳 گفت‌وگو «{title}» بسته شد.",
-    discussionNotMember: "عضو این گفت‌وگو نیستی.",
+    discussionNotMember: "👩‍🦳 عضو این گفت‌وگو نیستی.",
     discussionRoomHeader: "💬 {title}\n\n📄 {description}\n\n👥 {count}/{cap}",
     discussionRoomHeaderNoDescription: "💬 {title}\n\n👥 {count}/{cap}",
     discussionRecentMessagesTitle: "👩‍🦳 آخرین پیام‌ها:",
