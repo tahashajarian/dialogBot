@@ -709,7 +709,7 @@ test("discussion-member profiles use Save/Saved status and a source-specific Clo
   assert.deepEqual(saved.map((button) => button.callback_data), [callBacks.profileCloseDiscussionMember]);
   assert.ok(!saved.some((button) => button.callback_data.startsWith(callBacks.profileUnsaveByCode)));
   const savedWithDiscussion = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: true, hasDiscussions: true }).reply_markup.inline_keyboard.flat();
-  assert.ok(!savedWithDiscussion.some((button) => button.callback_data.startsWith(callBacks.savedProfilesDiscussions)));
+  assert.ok(savedWithDiscussion.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}discussion_members:u_A1`));
 });
 
 test("People and Saved profile previews use source-aware inline actions", () => {
@@ -757,7 +757,8 @@ test("profile discussion view uses inline Back and Close while keeping the Peopl
 });
 
 test("saved-profile removal confirmation is exact-profile and source scoped", () => {
-  const { savedProfileRemoveConfirmKeyboard, parseProfileUnsaveConfirmMode, parsePublicProfileNavigationMode } = require("../src/flows/saved-profiles");
+  const { savedProfileRemoveConfirmKeyboard, parseProfileUnsaveConfirmMode } = require("../src/flows/saved-profiles");
+  const { parsePublicProfileNavigationMode } = require("../src/services/public-profile-navigation");
   const keyboard = savedProfileRemoveConfirmKeyboard("fa").reply_markup;
   assert.deepEqual(keyboard.inline_keyboard.flat().map((button) => button.callback_data), [
     callBacks.profileUnsaveConfirm,

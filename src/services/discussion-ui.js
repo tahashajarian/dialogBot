@@ -335,7 +335,10 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
     const actionsBlock = includeActions && actions ? `\n\n${actions}` : "";
     const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
-    const roomTitle = `${entry.isBoosted ? "🚀 " : ""}${getDiscussionDisplayTitle(messages, lang, entry)}`;
+    const currentPrefix = entry.isCurrentForViewer
+      ? `${messages[lang].profileDiscussionCurrentLabel} — `
+      : "";
+    const roomTitle = `${currentPrefix}${entry.isBoosted ? "🚀 " : ""}${getDiscussionDisplayTitle(messages, lang, entry)}`;
     const titleLine = lang === "fa"
       ? `${roomNumber} 💬 ${isolateText(lang, roomTitle)}`
       : `${roomNumber} 💬 ${roomTitle}`;

@@ -342,6 +342,59 @@ test("shared-link onboarding automatically shows the discussion preview after th
   assert.equal(user.navigationMode, "onboarding_complete:0:0");
 });
 
+test("shared-profile onboarding keeps the normal completion message then opens the profile", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const events = [];
+  const user = {
+    userId: 9,
+    lang: "en",
+    state: "onboarding_interests",
+    navigationMode: "onboarding_interests:0",
+    pendingProfileShareCode: "u_SHARED",
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "Movies", comment: "", watched: false },
+          { title: "Gaming", comment: "", watched: false },
+        ],
+      },
+    },
+  };
+  User.findOne = async () => user;
+  User.findOneAndUpdate = async () => user;
+
+  try {
+    await handleOnboardingText({
+      userId: 9,
+      user,
+      text: "Coffee",
+      reply: async (text, extra) => {
+        events.push({ type: "reply", text, extra });
+        return { message_id: 1 };
+      },
+    }, "en", {
+      showSharedProfile: async (code) => {
+        events.push({ type: "profile", code });
+        return { ok: true };
+      },
+      createStarterInvitation: async () => ({ count: 0 }),
+      preserveSharedInvitation: async () => ({ count: 0 }),
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(events[0].type, "reply");
+  assert.match(events[0].text, /^👩‍🦳 Great/);
+  assert.equal(events[1].type, "profile");
+  assert.equal(events[1].code, "u_SHARED");
+  assert.equal(user.pendingProfileShareCode, "");
+  assert.equal(user.onboardingVersion, 1);
+  assert.equal(user.state, "idle");
+});
+
 test("Muze welcome uses the portrait banner with its greeting as the caption", async () => {
   const replies = [];
   await sendMuzeWelcome({

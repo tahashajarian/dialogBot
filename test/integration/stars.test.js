@@ -7,6 +7,7 @@ const Discussion = require("../../src/models/discussion");
 const DiscussionBoost = require("../../src/models/discussion-boost");
 const StarTransaction = require("../../src/models/star-transaction");
 const StarReferralClaim = require("../../src/models/star-referral-claim");
+const StarReferralLink = require("../../src/models/star-referral-link");
 const AiTasteRecheck = require("../../src/models/ai-taste-recheck");
 const AccountDeletion = require("../../src/models/account-deletion");
 const { confirmBoost, createBoostQuote } = require("../../src/services/discussion-boosts");
@@ -29,6 +30,7 @@ const {
   setProfileEmojiWithStars,
 } = require("../../src/services/profile-emoji");
 const { addAiListItem } = require("../../src/services/users");
+const { createReferralLink, resolveReferralLink } = require("../../src/services/star-referrals");
 const {
   authorizePaidExtraDiscussion,
   refundPaidExtraDiscussionAuthorization,
@@ -45,7 +47,7 @@ const MONGODB_TEST_DB = `muze_stars_integration_${process.pid}_${Date.now()}`;
 process.env.ACCOUNT_DELETION_SECRET ||= "integration-account-deletion-secret";
 test.before(async () => {
   await mongoose.connect(MONGODB_TEST_URI, { dbName: MONGODB_TEST_DB });
-  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init(), StarReferralClaim.init(), AccountDeletion.init(), AiTasteRecheck.init()]);
+  await Promise.all([User.init(), Discussion.init(), DiscussionBoost.init(), StarTransaction.init(), StarReferralClaim.init(), StarReferralLink.init(), AccountDeletion.init(), AiTasteRecheck.init()]);
 }, { timeout: 120000 });
 
 test.after(async () => {
@@ -62,9 +64,25 @@ test.beforeEach(async () => {
     DiscussionBoost.deleteMany({}),
     StarTransaction.deleteMany({}),
     StarReferralClaim.deleteMany({}),
+    StarReferralLink.deleteMany({}),
     AccountDeletion.deleteMany({}),
     AiTasteRecheck.deleteMany({}),
   ]);
+});
+
+test("profile-share referrals persist an opaque public-profile destination", async () => {
+  const created = await createReferralLink({
+    inviterUserId: 500,
+    profilePublicCode: "u_SHARED1",
+    source: "profile_share",
+  });
+  assert.equal(created.ok, true);
+
+  const resolved = await resolveReferralLink(created.link.publicCode);
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.link.profilePublicCode, "u_SHARED1");
+  assert.equal(resolved.link.source, "profile_share");
+  assert.equal(resolved.link.discussionPublicCode, "");
 });
 
 test("Mongo wallet keeps concurrent reward idempotent", async () => {

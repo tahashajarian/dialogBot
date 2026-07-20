@@ -81,6 +81,34 @@ test("editMessageCaption updates photo cards with inline controls", async () => 
   assert.deepEqual(calls[0].payload.reply_markup, keyboard.reply_markup);
 });
 
+test("editMessageMedia restores a profile photo and caption in place", async () => {
+  const calls = [];
+  const ctx = {
+    chat: { id: 123 },
+    telegram: {
+      callApi: async (method, payload) => {
+        calls.push({ method, payload });
+        return true;
+      },
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 100 });
+  const keyboard = { reply_markup: { inline_keyboard: [[{ text: "Back", callback_data: "back" }]] } };
+
+  assert.equal(await appCtx.editMessageMedia(
+    99,
+    { type: "photo", media: "profile-file-id", caption: "My profile" },
+    keyboard,
+  ), true);
+  assert.equal(calls[0].method, "editMessageMedia");
+  assert.deepEqual(calls[0].payload.media, {
+    type: "photo",
+    media: "profile-file-id",
+    caption: "My profile",
+  });
+  assert.deepEqual(calls[0].payload.reply_markup, keyboard.reply_markup);
+});
+
 test("Persian app context localizes visible digits without changing machine tokens", async () => {
   const replies = [];
   const ctx = {

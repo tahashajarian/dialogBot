@@ -712,8 +712,9 @@ test("profile emoji keyboards use curated choices and explicit cost confirmation
   }
 
   const confirm = profileEmojiConfirmKeyboard("en", "abc", 3).reply_markup.inline_keyboard.flat();
-  assert.match(messages.en.profileEmojiConfirmText, /unlocks profile emojis permanently/);
-  assert.equal(confirm[0].text, "Unlock — 3 Stars");
+  assert.match(messages.en.profileEmojiConfirmText, /activates profile emojis/);
+  assert.doesNotMatch(messages.fa.profileEmojiPickerText, /هزینه|رایگان|پرداخت|دقیقاً|برای همیشه/);
+  assert.equal(confirm[0].text, "Confirm — 3 Stars");
   assert.equal(confirm[0].callback_data, "profile:emoji:confirm:abc");
   assert.equal(confirm[1].text, "🔙 Back");
   assert.equal(confirm[1].callback_data, "profile:emoji:cancel");

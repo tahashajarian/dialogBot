@@ -128,8 +128,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const paidCapacityQuoteMatch = String(mode).match(/^discussion_create_paid_capacity:(\d+):(\d+)$/);
   const paidCapacityErrorMode = mode === "discussion_create_paid_capacity_error";
   const savedProfilesMatch = String(mode).match(/^saved_profiles:(\d+):(\d+)$/);
-  const publicProfileMatch = String(mode).match(/^public_profile:(saved|people):(u_[A-Z0-9]+):(\d+):(saved|unsaved):(0|1)$/);
-  const profileDiscussionsMatch = String(mode).match(/^profile_discussions:(saved|people):(u_[A-Z0-9]+):(\d+)$/);
+  const publicProfileMatch = String(mode).match(/^public_profile:(saved|people|shared|direct|discussion_members|invitations|restrictions):(u_[A-Z0-9]+):(\d+):(saved|unsaved):(0|1)$/);
+  const profileDiscussionsMatch = String(mode).match(/^profile_discussions:(saved|people|shared|direct|discussion_members|invitations|restrictions):(u_[A-Z0-9]+):(\d+)$/);
+  const profileFavoritesMatch = String(mode).match(/^profile_favorites:(saved|people|discussion_members|invitations|restrictions|shared|direct):(\d+):(u_[A-Z0-9]+):(hub|movies|music|books)$/);
   const profileUnsaveConfirmMatch = String(mode).match(/^profile_unsave_confirm:(list|saved|people):(u_[A-Z0-9]+):(\d+)$/);
   const peopleResultsMatch = String(mode).match(/^people_discovery_results:(\d+):(\d+)$/);
   const profileRestrictionsMatch = String(mode).match(/^profile_invitation_restrictions:(\d+):(\d+)$/);
@@ -168,6 +169,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     || savedProfilesMatch
     || publicProfileMatch
     || profileDiscussionsMatch
+    || profileFavoritesMatch
     || profileUnsaveConfirmMatch
     || peopleResultsMatch
     || String(state).startsWith("discussion_create_");
@@ -176,7 +178,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     discussionListMatch || invitationListMatch || discussionLanguageMatch
   );
   const keepsPeopleHubKeyboard = state === "idle" && Boolean(
-    savedProfilesMatch || peopleResultsMatch || publicProfileMatch || profileDiscussionsMatch || mode === "people_discovery_empty"
+    savedProfilesMatch || peopleResultsMatch || (publicProfileMatch && ["saved", "people"].includes(publicProfileMatch[1])) || (profileDiscussionsMatch && ["saved", "people"].includes(profileDiscussionsMatch[1])) || (profileFavoritesMatch && ["saved", "people"].includes(profileFavoritesMatch[1])) || mode === "people_discovery_empty"
   );
   const keepsProfilePrivacyKeyboard = state === "idle" && Boolean(profileRestrictionsMatch || profileRestrictionViewMatch);
   const entries = [
@@ -224,7 +226,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (page > 0) entries.push([`🔙 ${messages[user?.lang || "fa"].discussionListPrevPage}`, `${callBacks.savedProfilesPage}${page - 1}`]);
     entries.push(["aiBack", callBacks.people]);
   }
-  if (publicProfileMatch && state === "idle") {
+  if (publicProfileMatch && ["saved", "people"].includes(publicProfileMatch[1]) && state === "idle") {
     const [, source, code, pageRaw, savedState, discussionsRaw] = publicProfileMatch;
     const page = Number(pageRaw);
     if (savedState === "saved" && discussionsRaw === "1") {
@@ -239,7 +241,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       source === "saved" ? `${callBacks.savedProfilesPage}${page}` : `${callBacks.peopleDiscoverPage}${page}`,
     ]);
   }
-  if (profileDiscussionsMatch && state === "idle") {
+  if (profileDiscussionsMatch && ["saved", "people"].includes(profileDiscussionsMatch[1]) && state === "idle") {
     entries.push(["aiBack", `${callBacks.profileViewByCode}${profileDiscussionsMatch[2]}`]);
   }
   if (profileUnsaveConfirmMatch && state === "idle") {

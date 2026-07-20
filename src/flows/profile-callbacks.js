@@ -38,6 +38,7 @@ const {
   buildProfileText,
   toPlainUser,
 } = require("../services/profile");
+const { hasCompletedMediaFavorites } = require("../services/profile-sharing");
 const {
   isValidProfileAge,
   isValidProfileAgeRangeStart,
@@ -82,6 +83,10 @@ const {
   sendProfilePrivacySafety,
   sendProfilePrivacyStatus,
 } = require("./profile-privacy");
+const {
+  createShareableProfileCard,
+  returnFromShareableProfile,
+} = require("./profile-sharing");
 
 function formatProfileInterestMessage(lang, key) {
   return messages[lang][key]
@@ -152,6 +157,8 @@ function isProfileSettingsOrEditCallback(data = "") {
     data === callBacks.profileEmojiInsufficientDone ||
     data === callBacks.profileStars ||
     data === callBacks.profileStarsBack ||
+    data === callBacks.profileShare ||
+    data === callBacks.profileShareBack ||
     data === callBacks.profileActiveDiscussionHelp ||
     data === callBacks.profileActiveDiscussionHelpDone ||
     data === callBacks.profileToggleActiveDiscussionVisible ||
@@ -210,7 +217,9 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     ctx,
     user,
     lang,
-    keyboard: profileQuickActionsKeyboard(lang),
+    keyboard: profileQuickActionsKeyboard(lang, {
+      canShareProfile: hasCompletedMediaFavorites(user),
+    }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,
@@ -245,7 +254,9 @@ async function restoreOwnProfileCard(ctx, lang, user = ctx.user, { footerText = 
     buildProfileText(user, lang, messages, { isOwnProfile: true }),
     String(footerText || "").trim(),
   ].filter(Boolean).join("\n\n");
-  const restored = await editProfileSurfaceCard(ctx, text, profileQuickActionsKeyboard(lang));
+  const restored = await editProfileSurfaceCard(ctx, text, profileQuickActionsKeyboard(lang, {
+    canShareProfile: hasCompletedMediaFavorites(user),
+  }));
   await clearProfileEditPrompt(ctx, [surfaceMessageId]);
   await setNavigationMode(ctx, MODES.PROFILE);
   return restored;
@@ -530,6 +541,16 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await retireCallbackMessageIfPossible?.(ctx);
     await setNavigationMode(ctx, MODES.HELP);
     return sendGuideHub(ctx, lang);
+  }
+
+  if (data === callBacks.profileShare) {
+    await ctx.answerCb?.();
+    return createShareableProfileCard(ctx, lang);
+  }
+
+  if (data === callBacks.profileShareBack) {
+    await ctx.answerCb?.();
+    return returnFromShareableProfile(ctx, lang, { sendOwnProfile });
   }
 
   if (data === callBacks.profileActiveDiscussionHelp) {

@@ -16,6 +16,10 @@ const {
   rankDiscussionsForDiscovery,
 } = require("../src/services/discussion-ui");
 const {
+  markCurrentProfileDiscussions,
+  profileDiscussionsInlineKeyboard,
+} = require("../src/flows/saved-profiles");
+const {
   discussionListNavigationKeyboard,
   discussionRecentListKeyboard,
   discussionLanguagePickerKeyboard,
@@ -104,6 +108,85 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
   assert.equal(ctx.user.discussionLastListMessageId, null);
   assert.equal(ctx.user.discussionLastListType, "");
   assert.equal(updates.length, 6);
+});
+
+test("a current profile discussion is labeled in text and has no action button", async () => {
+  const discussion = {
+    _id: "current-room",
+    publicDiscussionCode: "d_CURRENT",
+    creatorUserId: 2,
+    title: "Shared Room",
+    description: "A room we are already in",
+    memberUserIds: [1, 2],
+    maxMembers: 20,
+    joinRule: { type: "open" },
+  };
+  const [decorated] = markCurrentProfileDiscussions({
+    userId: 1,
+    activeDiscussionId: "current-room",
+  }, [discussion]);
+
+  assert.equal(decorated.listAction, "current");
+  assert.equal(decorated.isCurrentForViewer, true);
+  const text = buildDiscussionListText(messages, "en", "Discussions", [decorated], {
+    includeActions: false,
+  });
+  assert.match(text, /🟢 Current discussion — Shared Room/);
+
+  decorated.displayTitle = "Shared Room";
+  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1", [decorated])
+    .reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.deepEqual(callbacks, [
+    `${callBacks.profileDiscussionsBack}u_A1`,
+    callBacks.profileDiscussionsClose,
+  ]);
+});
+
+test("opening the current room from a member profile does not run join logic or redraw the room", async () => {
+  const originalFindById = Discussion.findById;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  let lookedUpDiscussion = false;
+  Discussion.findById = async () => {
+    lookedUpDiscussion = true;
+    throw new Error("current room must bypass join/open lookup");
+  };
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    callbackData: `${callBacks.discussionOpen}current-room`,
+    callbackMessageId: 77,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      activeDiscussionId: "current-room",
+      navigationMode: "profile_discussions:discussion_members:u_A1:0",
+      publicProfileReturnNavigationMode: "discussions",
+      discussionLastListMessageId: 77,
+      discussionLastListType: "discussion_members:u_A1",
+      publicProfileLastMessageId: 77,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async () => assert.fail("current room should not send a join/open acknowledgement or redraw"),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findById = originalFindById;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(lookedUpDiscussion, false);
+  assert.deepEqual(deleted, [77]);
+  assert.equal(ctx.user.navigationMode, "discussions");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "");
+  assert.equal(ctx.user.discussionLastListMessageId, null);
 });
 
 test("discussion callback error mapping returns specific copy", () => {

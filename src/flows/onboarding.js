@@ -212,6 +212,7 @@ async function prepareOnboardingCompletion(ctx, lang, {
 async function finishOnboardingSelection(ctx, lang, state, starNotices = [], helpers = {}) {
   const onboardingRewards = await completeOnboardingForState(ctx, state);
   const sharedDiscussionCode = String(ctx.user?.pendingDiscussionShareCode || "");
+  const sharedProfileCode = String(ctx.user?.pendingProfileShareCode || "");
   const sharedPreviewWillBeShown = Boolean(
     sharedDiscussionCode && typeof helpers.showSharedDiscussionPreview === "function",
   );
@@ -229,6 +230,13 @@ async function finishOnboardingSelection(ctx, lang, state, starNotices = [], hel
   if (sharedPreviewWillBeShown) {
     await sendOnboardingCompletion(ctx, text, completion.keyboard);
     return helpers.showSharedDiscussionPreview(sharedDiscussionCode);
+  }
+
+  if (sharedProfileCode && typeof helpers.showSharedProfile === "function") {
+    await updateProfileField(ctx.userId, "pendingProfileShareCode", "");
+    if (ctx.user) ctx.user.pendingProfileShareCode = "";
+    await sendOnboardingCompletion(ctx, text, completion.keyboard);
+    return helpers.showSharedProfile(sharedProfileCode);
   }
 
   return sendOnboardingCompletion(ctx, text, completion.keyboard);

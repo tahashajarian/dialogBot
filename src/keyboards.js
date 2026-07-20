@@ -844,6 +844,7 @@ function profileKeyboard(lang, hasPhoto = false) {
 
 function profileQuickActionsKeyboard(lang, {
   petPreferenceEnabled = starEconomy.profilePetPreferenceEnabled,
+  canShareProfile = false,
 } = {}) {
   const rows = [[
     { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
@@ -859,11 +860,26 @@ function profileQuickActionsKeyboard(lang, {
       callback_data: callBacks.profileEditPetPreference,
     }]);
   }
+  if (canShareProfile) {
+    rows.push([{
+      text: messages[lang].profileShareButton,
+      callback_data: callBacks.profileShare,
+    }]);
+  }
   rows.push([{
     text: messages[lang].profilePrivacySafetyButton,
     callback_data: callBacks.profilePrivacy,
   }]);
   return inlineKeyboard(rows);
+}
+
+function profileShareGuidanceKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].profileShareBackButton,
+      callback_data: callBacks.profileShareBack,
+    },
+  ]]);
 }
 
 function profilePrivacySafetyKeyboard(lang, {
@@ -908,10 +924,29 @@ function profileInvitationRestrictionsKeyboard(lang, _entries = [], { page = 0, 
   return inlineKeyboard(rows);
 }
 
-function profileRestrictionViewKeyboard(lang) {
-  return inlineKeyboard([[
+function profileRestrictionViewKeyboard(lang, {
+  profileCode = "",
+  hasFavorites = false,
+  hasDiscussions = false,
+  sourcePage = 0,
+} = {}) {
+  const rows = [];
+  if (hasFavorites && profileCode) {
+    rows.push([{
+      text: messages[lang].profileFavoritesButton,
+      callback_data: `${callBacks.profileFavoritesOpen}restrictions:${Number(sourcePage) || 0}:${profileCode}`,
+    }]);
+  }
+  if (hasDiscussions && profileCode) {
+    rows.push([{
+      text: messages[lang].savedProfileDiscussions,
+      callback_data: `${callBacks.savedProfilesDiscussions}restrictions:${profileCode}`,
+    }]);
+  }
+  rows.push([
     { text: messages[lang].discussionShareClose, callback_data: callBacks.profileCloseDiscussionMember },
-  ]]);
+  ]);
+  return inlineKeyboard(rows);
 }
 
 function accountDeleteWarningKeyboard(lang) {
@@ -1123,22 +1158,31 @@ function profilePeopleBackKeyboard(lang) {
 function profilePublicActionsKeyboard(lang, code, {
   isSaved = false,
   hasDiscussions = false,
+  hasFavorites = false,
   source = "people",
+  sourcePage = 0,
 } = {}) {
   const normalizedCode = String(code || "");
-  const discussionSource = source === "saved" ? "saved" : "browse";
   const actionSuffix = source === "discussion_members" ? ":members" : "";
+  const supportsSavedProfileActions = source === "saved" || source === "people";
   const rows = [];
 
-  if (source !== "discussion_members" && isSaved && hasDiscussions) {
+  if (hasFavorites) {
+    rows.push([{
+      text: messages[lang].profileFavoritesButton,
+      callback_data: `${callBacks.profileFavoritesOpen}${source}:${Number(sourcePage) || 0}:${normalizedCode}`,
+    }]);
+  }
+
+  if (hasDiscussions) {
     rows.push([{
       text: messages[lang].savedProfileDiscussions,
-      callback_data: `${callBacks.savedProfilesDiscussions}${discussionSource}:${normalizedCode}`,
+      callback_data: `${callBacks.savedProfilesDiscussions}${source === "people" ? "browse" : source}:${normalizedCode}`,
     }]);
   }
 
   if (isSaved) {
-    if (source !== "discussion_members") rows.push([{
+    if (supportsSavedProfileActions) rows.push([{
       text: messages[lang].savedProfileRemove,
       callback_data: `${callBacks.profileUnsaveByCode}${normalizedCode}${actionSuffix}`,
     }]);
@@ -1157,8 +1201,26 @@ function profilePublicActionsKeyboard(lang, code, {
   return inlineKeyboard(rows);
 }
 
-function profileInvitationBackKeyboard(lang, userId = "") {
-  const rows = [[{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]];
+function profileInvitationBackKeyboard(lang, userId = "", {
+  profileCode = "",
+  hasFavorites = false,
+  hasDiscussions = false,
+  sourcePage = 0,
+} = {}) {
+  const rows = [];
+  if (hasFavorites && profileCode) {
+    rows.push([{
+      text: messages[lang].profileFavoritesButton,
+      callback_data: `${callBacks.profileFavoritesOpen}invitations:${Number(sourcePage) || 0}:${profileCode}`,
+    }]);
+  }
+  if (hasDiscussions && profileCode) {
+    rows.push([{
+      text: messages[lang].savedProfileDiscussions,
+      callback_data: `${callBacks.savedProfilesDiscussions}invitations:${profileCode}`,
+    }]);
+  }
+  rows.push([{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]);
   const mutedUserId = Number(userId);
   if (Number.isInteger(mutedUserId) && mutedUserId > 0) {
     rows.unshift([{
@@ -1321,6 +1383,7 @@ module.exports = {
   aiListCancelCommentKeyboard,
   profileKeyboard,
   profileQuickActionsKeyboard,
+  profileShareGuidanceKeyboard,
   profilePrivacySafetyKeyboard,
   profileInvitationRestrictionsKeyboard,
   profileRestrictionViewKeyboard,

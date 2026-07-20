@@ -53,3 +53,14 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ on my discusson tips are diffent if list is empty or not @done (7/19/2026, 8:05:27 AM)
 
 ✔ replace weak temporary/hardcoded media taste labels with AI-selected broad labels, user confirmation, and a ledger-backed 10-Star recheck after the first free classification @done (7/19/2026)
+✔ 💡 قدم بعدی: ۲ بخش دیگر از پروفایلت را کامل کن. one tips on profile is this, could we not say things like this? what the hell this means? check for the rest please @done (7/20/2026, 11:02:22 AM)
+✔ hide pet for now, it's kind of irelevent to bot for now, just put it in admin dashboard to turn it of for now and not show it on proifle yet @done (7/20/2026, 11:02:19 AM)
+✔ hide location from porfile for now @done (7/20/2026, 11:13:57 AM)
+✔ also remove more setting i think, we don't need one extra step, put all in main menu of profile just security and privity is another secion, for this change we need to update all pathes tips guide and whatever ever needed and affected, please deepcheck and make sure not break anything and handle all cases and let's combine and put in one row reletive ones and make it not too long list of buttons and make sure all works fine, as we somwehre pointed that delecte acount is in profile more setting then privacy and ... so this tips and guide needed to be upated too @done (7/20/2026, 11:38:23 AM)
+✔ and lets put some of prfoile optins like an inline actions, those that no need to user input could be inline button for profile like gender and age and these things so the list of keyborad reply could be reduced, the inline button action just edit the card and after update edit back to profile card and it's inline button @done (7/20/2026, 11:38:26 AM)
+✔ chose emoji for profile should be paid only first time not every time @done (7/20/2026, 12:28:50 PM)
+✔ for pet chose chagne optin for none to دوست ندارم and ممه حیوانات to همه رو دوست دارم @done (7/20/2026, 12:28:52 PM)
+☐ shareable list link of muze shoulbe hbehave like invitioan to bot i mean maybe need to add user id to hte link so later  we can give them star for bringing people 
+☐ to speed up profile we need to save the proifle file id after first time upload so the next time it would be faster like the way we save banner file id to not upload them everytime
+☐ عضو این گفت‌وگو نیستی. this message should come with bot emoji as well as other bot messages
+☐ after bot restart or somthing like this the reply keyborad are not working and i have to press /start again, i wonder if later we restart the server all other user need to do the same while they don't know, how we can prevnet that? or this just had happen on development mood?

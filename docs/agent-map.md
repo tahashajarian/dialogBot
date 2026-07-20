@@ -107,6 +107,11 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People visibility mutation, and invitation-restriction management.
 - `src/services/profile-privacy-ui.js`: invitation-restriction list rendering.
 - `src/flows/profile-callbacks.js`: inline profile-picker routing, legacy settings-callback compatibility, own-profile card restoration, and profile completion redirect handling.
+- `src/flows/profile-sharing.js`: static shareable-profile banner delivery and in-place Back-to-own-profile restoration where Telegram supports it.
+- `src/services/profile-sharing.js`: first-person, caption-safe public taste teaser shaping and complete-media-Favorites eligibility.
+- `src/flows/profile-favorites.js`: source-aware public Favorites hub/section callbacks and Back-to-profile restoration.
+- `src/services/profile-favorites-ui.js`: public Movies/Music/Books Favorites and stored taste-label rendering; excludes every For Later list.
+- `src/services/public-profile-navigation.js`: public-profile mode parsing plus capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
@@ -119,6 +124,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/saved-profiles-ui.js`: saved-profile list shaping, pagination text, saved footer text.
 - People discovery is free, taste-first, and should not imply dating, friendship, private chat, online status, or compatibility scoring. Saved profiles are private one-way bookmarks. Do not notify the saved user.
 - Profile viewing gate requires only display name; after completion, users are redirected to the intended profile via `pendingProfileViewCode`.
+- Attributable profile-share starts persist `pendingProfileShareCode` through unchanged onboarding, then render the destination after the normal completion message and keyboard.
 
 ## Onboarding
 

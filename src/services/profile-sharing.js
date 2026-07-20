@@ -1,0 +1,89 @@
+const messages = require("../messages");
+const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const { getAiListItemsFromUser } = require("./users");
+const { getProfileInterestTitles } = require("./profile");
+const { operationalLimits } = require("./operational-limits");
+
+const SHARE_INTEREST_LIMIT = 5;
+const SHARE_VALUE_MAX_LENGTH = 52;
+const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
+const MEDIA_SECTIONS = Object.freeze(["movies", "music", "books"]);
+
+function compactShareValue(value, maxLength = SHARE_VALUE_MAX_LENGTH) {
+  const normalized = String(value || "").trim().replace(/\s+/g, " ");
+  if (Array.from(normalized).length <= maxLength) return normalized;
+  return `${Array.from(normalized).slice(0, Math.max(1, maxLength - 1)).join("")}…`;
+}
+
+function getShareTasteLines(user, lang) {
+  return MEDIA_SECTIONS.map((section) => {
+    const taste = user?.aiTaste?.[section] || {};
+    const labelKey = String(taste.labelKey || "").trim();
+    if (!labelKey) return "";
+    const sectionLabel = getSectionLabel(messages, lang, section);
+    const label = getTasteLabelTitle(messages, lang, section, labelKey);
+    const emoji = taste.emoji || getTasteLabelEmoji(section, labelKey);
+    return `${sectionLabel}: ${emoji} ${compactShareValue(label)}`;
+  }).filter(Boolean);
+}
+
+function getShareFavoriteLines(user, lang) {
+  return MEDIA_SECTIONS.map((section) => {
+    const favorite = getAiListItemsFromUser(user, section, "topTen")[0];
+    const title = compactShareValue(typeof favorite === "string" ? favorite : favorite?.title);
+    if (!title) return "";
+    return `${getSectionLabel(messages, lang, section)}: ${title}`;
+  }).filter(Boolean);
+}
+
+function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
+  const profileEmoji = String(user?.profileEmoji || "").trim();
+  const interests = getProfileInterestTitles(user, SHARE_INTEREST_LIMIT, lang)
+    .map((title) => compactShareValue(title, 36));
+  const tasteLines = getShareTasteLines(user, lang);
+  const favoriteLines = getShareFavoriteLines(user, lang);
+  const detailBlocks = [];
+
+  if (interests.length) {
+    detailBlocks.push(messages[lang].profileShareInterests.replace("{items}", interests.join(lang === "fa" ? "، " : ", ")));
+  }
+  if (tasteLines.length) {
+    detailBlocks.push([messages[lang].profileShareTasteTitle, ...tasteLines].join("\n"));
+  }
+  if (favoriteLines.length) {
+    detailBlocks.push([messages[lang].profileShareFavoritesTitle, ...favoriteLines].join("\n"));
+  }
+
+  const title = messages[lang].profileShareTitle.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : "");
+  const destination = [
+    messages[lang].profileShareCallToAction.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : ""),
+    String(link || "").trim(),
+  ].filter(Boolean).join("\n");
+  const footer = messages[lang].profileShareFooter;
+  const compose = () => [title, ...detailBlocks, destination, footer].filter(Boolean).join("\n\n");
+
+  while (detailBlocks.length && compose().length > TELEGRAM_CAPTION_MAX_LENGTH) {
+    detailBlocks.pop();
+  }
+  return compose().slice(0, TELEGRAM_CAPTION_MAX_LENGTH);
+}
+
+function hasPublicMediaFavorites(user) {
+  return MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length > 0);
+}
+
+function hasCompletedMediaFavorites(user) {
+  const goal = Math.max(1, Number(operationalLimits.aiTopTenItems) || 10);
+  return MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length >= goal);
+}
+
+module.exports = {
+  MEDIA_SECTIONS,
+  SHARE_INTEREST_LIMIT,
+  TELEGRAM_CAPTION_MAX_LENGTH,
+  buildShareableProfileCaption,
+  compactShareValue,
+  getShareFavoriteLines,
+  hasCompletedMediaFavorites,
+  hasPublicMediaFavorites,
+};

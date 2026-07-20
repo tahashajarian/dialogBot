@@ -152,6 +152,7 @@ An attributable invite record should resolve to:
 
 - inviter user ID
 - optional discussion ID/public code when the link targets a discussion
+- optional public-profile code when the link targets a shared profile
 - public opaque token
 - creation time and optional expiry
 - first recipient/claim state when applicable
@@ -169,6 +170,7 @@ Rules:
 - Each invitee can produce at most one new-user referral reward for one inviter.
 - Repeated discussion share links may keep opening the discussion preview or re-focus the room, but financial idempotency must come from the ledger/claim uniqueness rules, not from transient command handling.
 - If an outside discussion link belongs to an existing user, it may still open the discussion preview but does not create a new-user referral reward.
+- A profile-share link uses the same first-referrer claim and external new-user reward; it never creates a second reward identity. Existing-user, self, repeated, or expired links may still open a valid public-profile destination but never earn a referral reward.
 
 Stable reward identity:
 
@@ -859,3 +861,5 @@ This task is explicitly deferred and must not be bundled into the first Stars re
 The Guide's bilingual Invite action creates an opaque, expiring general referral with no discussion destination. Its user-facing share copy describes favorites, people with similar tastes, and live discussions; it never exposes the internal `TopTen` name or retired “Top 10” wording. A genuinely new user completes normal onboarding and reaches Home. The first valid referrer is locked and is rewarded only when the startup-loaded `firstTopTenMilestoneItems` threshold is reached; amount and lifetime use `rewardExternalReferral` and `externalReferralLinkExpiryDays`.
 
 An attributable shared-discussion link preserves its discussion code through onboarding and restarts, then automatically renders the original preview after onboarding without joining. Muze preserves an available joinable or join-condition-locked destination as a `shared_link` inbox entry, which is explicitly excluded from directed-pair rewards and bypasses no join rule. The shared link may qualify only for the external new-user reward. Directed-pair rewards are accepted only for successfully joined stored `saved_profile` invitations, so shared links cannot trigger both identities. All awards remain ledger-backed and idempotent.
+
+An attributable shared-profile link follows the same external claim, expiry, first-referrer, qualification, and ledger-idempotency rules. It stores only the public profile code as its destination. Existing onboarded users see the profile immediately; unfinished users complete unchanged onboarding, see the normal completion surface, and then see the profile. The user-facing share guidance does not mention the reward.

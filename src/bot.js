@@ -31,6 +31,7 @@ const {
   toPlainUser,
   ACTIVE_DISCUSSION_HELP_COMMAND,
 } = require("./services/profile");
+const { hasCompletedMediaFavorites } = require("./services/profile-sharing");
 const {
   getAiSectionFromState,
 } = require("./services/ai-section");
@@ -309,6 +310,7 @@ async function handleUpdate(ctx) {
   const state = ctx.user?.state || "idle";
   const startReferralCode = getStartReferralCode(text);
   let startInviteCode = getStartInviteCode(text);
+  let startProfileCode = "";
   let shareInviterUserId = null;
   if (startReferralCode) {
     const referral = await claimReferral({
@@ -319,6 +321,8 @@ async function handleUpdate(ctx) {
     if (referral.link?.discussionPublicCode) {
       startInviteCode = referral.link.discussionPublicCode;
       shareInviterUserId = Number(referral.link.inviterUserId) || null;
+    } else if (referral.link?.profilePublicCode) {
+      startProfileCode = normalizePublicProfileCode(referral.link.profilePublicCode);
     } else if (!referral.ok && !["existing_user", "already_claimed"].includes(referral.reason)) {
       await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
     }
@@ -393,6 +397,25 @@ async function handleUpdate(ctx) {
     await updateUserState(ctx.userId, "idle");
     await rememberStartInvite(ctx, startInviteCode);
     return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
+  }
+
+  if (startProfileCode) {
+    void trackEvent({
+      name: EVENT_NAMES.userStarted,
+      userId: ctx.userId,
+      source: "profile_share",
+    });
+    await clearViewedPublicProfileMessage(ctx);
+    await clearSavedProfilesListMessage(ctx);
+
+    if (ctx.wasUserCreated || shouldRunOnboardingForSharedDiscussion(ctx.user)) {
+      if (ctx.user) ctx.user.pendingProfileShareCode = startProfileCode;
+      await updateUserFields(ctx.userId, { pendingProfileShareCode: startProfileCode });
+      return startOnboardingLanguage(ctx, keyboardLang);
+    }
+
+    await updateUserState(ctx.userId, "idle");
+    return sendPublicProfileByCode(ctx, userLang || lang, startProfileCode, { fromSharedLink: true });
   }
 
   if (/^\/join_[a-z0-9]+$/i.test(text)) {
@@ -483,6 +506,12 @@ async function handleUpdate(ctx) {
           ctx,
           userLang || lang,
           code,
+        ),
+        showSharedProfile: (code) => sendPublicProfileByCode(
+          ctx,
+          userLang || lang,
+          code,
+          { fromSharedLink: true },
         ),
       });
     }
@@ -809,7 +838,9 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     ctx,
     user,
     lang,
-    keyboard: profileQuickActionsKeyboard(keyboardLang),
+    keyboard: profileQuickActionsKeyboard(keyboardLang, {
+      canShareProfile: hasCompletedMediaFavorites(user),
+    }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
     isOwnProfile: true,

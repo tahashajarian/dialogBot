@@ -6,6 +6,8 @@
 
 `src/services/reply-keyboard-navigation.js` owns reply-keyboard modes, localized text normalization, and text-to-action resolution. Flow modules set modes through `setNavigationMode`; `src/bot.js` and `src/callbacks.js` only dispatch the resolved action. The mode is persisted for real users because exact pages, filters, source profiles, wizard drafts, and quoted payments must survive restarts and two devices. Synthetic test contexts may keep it locally. Telegram's currently visible keyboard is never authority.
 
+Public-profile entry captures the underlying mode in `publicProfileReturnNavigationMode`. Profile, public Favorites, and profile-discussion child views preserve it; their Close actions consume it and restore the exact underlying reply-keyboard authority instead of merely deleting the inline card.
+
 Ordinary navigation is append-only chat history: converted destinations do not send footprint messages, track navigation-card IDs, or delete/edit earlier bot messages. Legacy navigation-card IDs are forgotten without Telegram cleanup. Inline cleanup is reserved for consumed indexed, identity-bound, destructive, or transactional cards whose stale payload could be unsafe.
 
 ## Project Overview
@@ -34,9 +36,12 @@ Keep the router files thin:
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
 - `src/flows/profile-text.js` owns typed profile edit states, profile edit cancellation, and reset-photo text commands.
 - `src/flows/profile-callbacks.js` owns inline profile-picker routing, legacy settings-callback compatibility, and own-profile card restoration.
+- `src/flows/profile-sharing.js` owns share-card delivery and Back-to-own-profile restoration; `src/services/profile-sharing.js` owns caption shaping and media-Favorites eligibility.
+- `src/flows/profile-favorites.js` owns inline browsing of another user's public Movies/Music/Books Favorites; `src/services/profile-favorites-ui.js` owns its caption-safe text shaping.
+- `src/services/public-profile-navigation.js` owns public-profile source-mode parsing and capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js` owns the people hub, its durable first-visit guidance, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
-- `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
+- `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics, including durable discussion/profile share destinations that render only after the normal completion surface; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
 - `src/flows/discussion-messages.js` owns active-room text/voice message validation, recent-message append orchestration, delivery, and runtime reply mapping.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
@@ -86,6 +91,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/discussion-room-ui.js` for room header/recent/member line rendering.
 - `src/services/discussion-invitations-ui.js` for stored invitation inbox and picker text shaping.
 - `src/services/profile-privacy-ui.js` for invitation-restriction list text shaping.
+- `src/services/profile-favorites-ui.js` for caption-safe public media Favorites and taste-label rendering.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
 - `src/services/banner-media.js` for global Telegram banner `file_id` lookup, first-upload persistence in `AppSetting`, invalid-cache recovery, and bundled-asset fallback.
@@ -93,7 +99,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
-Public profiles opened from People or Saved Profiles use profile-bound inline actions for Save/Remove, visible discussions, and delete-only Close, while the People hub bottom keyboard stays actionable. Discussion-member profiles remain transient identity-bound inline cards with Save/Saved status and Close; they do not inherit People-only actions.
+Every other-user public-profile source shares the same Favorites and visible-discussions actions. Save/Remove, restriction controls, and return behavior remain source-specific. Discussion-member profiles remain transient identity-bound inline cards, while People and Saved Profiles preserve their People-hub bottom keyboard beneath the card.
 
 Visible discussions opened from a public-profile card edit that same text or photo message and use inline Join/Back/Close controls. Back reconstructs the profile in place. The command entry point sends a new inline card because Telegram user messages cannot be edited by the bot.
 
@@ -116,6 +122,8 @@ Visible discussions opened from a public-profile card edit that same text or pho
 - transient invitation-restrictions list card id (`profileInvitationRestrictionsLastMessageId`)
 - transient discussion member-list card id (`discussionLastMembersMessageId`)
 - pending profile view code (`pendingProfileViewCode`)
+- pending attributable profile-share destination (`pendingProfileShareCode`)
+- reply-keyboard mode beneath a public profile (`publicProfileReturnNavigationMode`)
 
 Profiles are public inside bot social surfaces for now. See People visibility is only a discovery opt-out, not a private-profile switch. Discussion visibility controls whether the user's current and created open discussions may be shown on that profile. Both preferences default to on for new accounts; missing legacy values are treated as on and existing saved choices remain unchanged.
 Profile display should stay compact: omit unset optional fields instead of showing placeholder or missing-value rows. Profiles without a real uploaded photo should render as text instead of uploading a default placeholder image.

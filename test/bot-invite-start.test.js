@@ -5,6 +5,8 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
+const StarReferralClaim = require("../src/models/star-referral-claim");
+const StarReferralLink = require("../src/models/star-referral-link");
 const User = require("../src/models/user");
 const {
   formatDiscussionOutboundMessage,
@@ -193,6 +195,45 @@ test("general referral payload remains a start entry without a discussion code",
   const text = "/start ref_A1B2C3D4E5F6";
   assert.equal(Boolean(getStartReferralCode(text)), true);
   assert.equal(getStartInviteCode(text), "");
+});
+
+test("a new shared-profile recipient persists the destination and starts normal onboarding", async () => {
+  const originalReferralFindOne = StarReferralLink.findOne;
+  const originalClaimCreate = StarReferralClaim.create;
+  const originalUserFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  StarReferralLink.findOne = async () => ({
+    _id: "profile-link-id",
+    publicCode: "A1B2C3D4E5F6",
+    inviterUserId: 99,
+    profilePublicCode: "u_SHARED",
+    source: "profile_share",
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+  StarReferralClaim.create = async (value) => ({ _id: "claim-id", ...value });
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    text: "/start ref_A1B2C3D4E5F6",
+    userId: 10,
+    wasUserCreated: true,
+    user: { userId: 10, lang: "fa", state: "idle", onboardingVersion: 0 },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    StarReferralLink.findOne = originalReferralFindOne;
+    StarReferralClaim.create = originalClaimCreate;
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.pendingProfileShareCode, "u_SHARED");
+  assert.equal(ctx.user.state, "onboarding_language");
+  assert.equal(replies[0].text, messages.fa.chooseLanguage);
 });
 
 test("navigation command parser accepts advertised commands and bot mentions", () => {

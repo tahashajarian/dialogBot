@@ -5,7 +5,8 @@ const StarReferralLinkSchema = new mongoose.Schema({
   inviterUserId: { type: Number, required: true, index: true },
   discussionId: { type: mongoose.Schema.Types.ObjectId, ref: "Discussion", default: null },
   discussionPublicCode: { type: String, default: "" },
-  source: { type: String, enum: ["discussion_share", "general"], default: "general" },
+  profilePublicCode: { type: String, default: "" },
+  source: { type: String, enum: ["discussion_share", "profile_share", "general"], default: "general" },
   expiresAt: { type: Date, default: null, index: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 

@@ -21,6 +21,7 @@ async function createReferralLink({
   inviterUserId,
   discussionId = null,
   discussionPublicCode = "",
+  profilePublicCode = "",
   source = "general",
   now = new Date(),
 } = {}) {
@@ -36,7 +37,8 @@ async function createReferralLink({
         inviterUserId: normalizedInviter,
         discussionId,
         discussionPublicCode: String(discussionPublicCode || ""),
-        source: source === "discussion_share" ? "discussion_share" : "general",
+        profilePublicCode: String(profilePublicCode || ""),
+        source: ["discussion_share", "profile_share"].includes(source) ? source : "general",
         expiresAt: new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000),
       });
       return { ok: true, link };

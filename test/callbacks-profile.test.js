@@ -1047,6 +1047,115 @@ test("profile emoji insufficient Got it restores the same profile card", async (
   assert.match(edits[0].text, /Your profile/);
 });
 
+test("closing a shared profile restores the exact reply-keyboard mode that was open", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_SHARED",
+    profileName: "Shared User",
+    showActiveDiscussionOnProfile: false,
+    aiLists: { movies: { topTen: [{ title: "Movie" }] } },
+  });
+  User.findOneAndUpdate = async () => ({});
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileName: "Viewer",
+      navigationMode: "favorites",
+      savedProfileCodes: [],
+    },
+    reply: async (text, extra) => ({ message_id: 70, text, extra }),
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    answerCb: async () => true,
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_SHARED", { fromSharedLink: true });
+    assert.equal(ctx.user.publicProfileReturnNavigationMode, "favorites");
+    assert.match(ctx.user.navigationMode, /^public_profile:shared:/);
+
+    ctx.callbackData = callBacks.profileCloseDiscussionMember;
+    ctx.callbackMessageId = 70;
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, [70]);
+  assert.equal(ctx.user.navigationMode, "favorites");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "");
+});
+
+test("saving the post-onboarding shared profile updates its buttons without redrawing the card", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  const markups = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_SHARED",
+    profileName: "Shared User",
+    showActiveDiscussionOnProfile: false,
+    aiLists: { movies: { topTen: [{ title: "Movie" }] } },
+  });
+  User.findOneAndUpdate = (_query, update) => {
+    if (update?.$push?.savedProfileCodes) {
+      return { lean: async () => ({ userId: 1, savedProfileCodes: ["u_SHARED"] }) };
+    }
+    return { lean: async () => ({ userId: 1, savedProfileCodes: ["u_SHARED"] }) };
+  };
+  const ctx = {
+    callbackData: `${callBacks.profileSaveByCode}u_SHARED`,
+    callbackMessageId: 70,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileName: "Viewer",
+      navigationMode: "public_profile:shared:u_SHARED:0:unsaved:0",
+      publicProfileReturnNavigationMode: "onboarding_complete:0:0",
+      publicProfileLastMessageId: 70,
+      savedProfileCodes: [],
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    editMessageReplyMarkup: async (messageId, markup) => {
+      markups.push({ messageId, markup });
+      return true;
+    },
+    reply: async () => assert.fail("saving a shared profile should not resend it"),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, []);
+  assert.equal(markups.length, 1);
+  assert.equal(markups[0].messageId, 70);
+  const callbacks = markups[0].markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(!callbacks.some((callback) => callback.startsWith(callBacks.profileSaveByCode)));
+  assert.ok(callbacks.includes(`${callBacks.profileFavoritesOpen}shared:0:u_SHARED`));
+  assert.equal(ctx.user.navigationMode, "public_profile:shared:u_SHARED:0:saved:0");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "onboarding_complete:0:0");
+});
+
 test("public profile viewing asks for basic profile first", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -1803,6 +1912,52 @@ test("saved profile shows discussions action when user has an open discussion", 
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
+});
+
+test("shared profiles show visible discussions even when the viewer has not saved them", async () => {
+  const originalFindOneUser = User.findOne;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_SHARED",
+    firstName: "Shared User",
+    profileName: "Shared User",
+    showActiveDiscussionOnProfile: true,
+  });
+  Discussion.findOne = (query) => ({
+    select: () => ({
+      lean: async () => (Number(query.creatorUserId) === 2 ? { _id: "discussion-id" } : null),
+    }),
+  });
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      navigationMode: "global",
+      savedProfileCodes: [],
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_SHARED", { fromSharedLink: true });
+  } finally {
+    User.findOne = originalFindOneUser;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  const callbacks = keyboardButtons(replies.at(-1).extra).map((button) => button.callback_data);
+  assert.ok(callbacks.includes(`${callBacks.savedProfilesDiscussions}shared:u_SHARED`));
+  assert.ok(callbacks.includes(`${callBacks.profileSaveByCode}u_SHARED`));
 });
 
 test("opening saved profile retires old list text when delete fails", async () => {

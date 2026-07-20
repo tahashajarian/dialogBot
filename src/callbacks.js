@@ -138,12 +138,20 @@ const {
   sendSavedProfilesList,
 } = require("./flows/saved-profiles");
 const {
+  parsePublicProfileNavigationMode,
+  restorePublicProfileReturnNavigationMode,
+} = require("./services/public-profile-navigation");
+const {
   handleOnboardingCallback,
   isOnboardingCallback,
   sendMuzeWelcome,
   sendTasteSetupNudge,
   trackOnboardingCompletionDestination,
 } = require("./flows/onboarding");
+const {
+  handleProfileFavoritesCallback,
+  isProfileFavoritesCallback,
+} = require("./flows/profile-favorites");
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 
 function getDiscussionCloseReturnSource(ctx) {
@@ -285,7 +293,7 @@ function getStaleCallbackFields(data = "") {
     ];
   }
 
-  if (isSavedProfilesCallback(data) || data.startsWith(callBacks.profileSaveByCode) || data.startsWith(callBacks.profileUnsaveByCode)) {
+  if (isSavedProfilesCallback(data) || isProfileFavoritesCallback(data) || data.startsWith(callBacks.profileSaveByCode) || data.startsWith(callBacks.profileUnsaveByCode)) {
     return [
       "savedProfilesLastListMessageId",
       "peopleLastListMessageId",
@@ -460,6 +468,7 @@ async function handleCallback(ctx) {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
       showSharedDiscussionPreview: (code) => showDiscussionInvitePreviewCommand(ctx, lang, code),
+      showSharedProfile: (code) => sendPublicProfileByCode(ctx, lang, code, { fromSharedLink: true }),
     });
   }
 
@@ -637,6 +646,10 @@ async function handleCallback(ctx) {
     });
   }
 
+  if (isProfileFavoritesCallback(data)) {
+    return handleProfileFavoritesCallback(ctx, lang);
+  }
+
   if (isDiscussionListCallback(data)) {
     return handleDiscussionListCallback(ctx, lang, {
       deleteCallbackMessageIfPossible,
@@ -713,7 +726,25 @@ async function handleCallback(ctx) {
     await ctx.answerCb?.();
     const discussionId = data.replace(callBacks.discussionOpen, "");
     const profileDiscussionMatch = String(ctx.user?.navigationMode || "")
-      .match(/^profile_discussions:(?:saved|people):(u_[A-Z0-9]+):\d+$/);
+      .match(/^profile_discussions:(?:saved|people|shared|direct|discussion_members|invitations|restrictions):(u_[A-Z0-9]+):\d+$/);
+    if (
+      profileDiscussionMatch
+      && String(ctx.user?.activeDiscussionId || "") === String(discussionId)
+    ) {
+      if (!ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
+      if (ctx.user) {
+        ctx.user.publicProfileLastMessageId = null;
+        ctx.user.discussionLastListMessageId = null;
+        ctx.user.discussionLastListType = "";
+      }
+      await updateUserFields(ctx.userId, {
+        publicProfileLastMessageId: null,
+        discussionLastListMessageId: null,
+        discussionLastListType: "",
+      });
+      await restorePublicProfileReturnNavigationMode(ctx);
+      return true;
+    }
     const joinErrorDestination = profileDiscussionMatch ? `saved:${profileDiscussionMatch[1]}` : "active";
     const discussion = await Discussion.findById(discussionId);
     if (!discussion) {
@@ -949,10 +980,18 @@ async function handleCallback(ctx) {
     const raw = data.replace(callBacks.profileSaveByCode, "");
     const fromDiscussionMembers = raw.endsWith(":members");
     const code = raw.replace(/:members$/, "");
-    if (!fromDiscussionMembers && !ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
+    const publicProfileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
+    const preserveProfileCard = ["shared", "direct"].includes(publicProfileContext?.source);
+    if (!fromDiscussionMembers && !preserveProfileCard && !ctx.isReplyKeyboardAction) {
+      await deleteCallbackMessageIfPossible(ctx);
+    }
     await ctx.answerCb?.();
     const fromPeopleList = String(ctx.user?.navigationMode || "").startsWith("public_profile:people:");
-    return saveProfileByCode(ctx, lang, code, { fromDiscussionMembers, fromPeopleList });
+    return saveProfileByCode(ctx, lang, code, {
+      fromDiscussionMembers,
+      fromPeopleList,
+      preserveProfileCard,
+    });
   }
 
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
@@ -966,6 +1005,7 @@ async function handleCallback(ctx) {
     if (!ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
     if (ctx.user) ctx.user.publicProfileLastMessageId = null;
+    await restorePublicProfileReturnNavigationMode(ctx);
     return true;
   }
 
