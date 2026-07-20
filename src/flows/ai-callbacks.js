@@ -719,6 +719,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         hasItems,
         itemCount,
         filter,
+        watchlistItems: allWatchlistItems,
         hasWatchlistItems: allWatchlistItems.length > 0,
       }),
     );

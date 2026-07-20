@@ -365,11 +365,11 @@ function getSectionStatusLabels(lang, section) {
 }
 
 function aiListManageMenuKeyboard(lang, section, listType, {
-  hasItems = false,
   itemCount = 0,
   filter = "all",
   hasWatchlistItems = false,
   hasTasteLabel = false,
+  watchlistItems = [],
 } = {}) {
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
@@ -406,13 +406,6 @@ function aiListManageMenuKeyboard(lang, section, listType, {
       : section === "music"
         ? messages[lang].aiSectionListButtonMusic
         : messages[lang].aiSectionListButtonBooks;
-    if (hasWatchlistItems) {
-      rows.push([
-        {
-          text: listButtonText,
-        },
-      ]);
-    }
     if (itemCount >= 3) {
       rows.push([
         {
@@ -423,9 +416,19 @@ function aiListManageMenuKeyboard(lang, section, listType, {
     if (itemCount >= operationalLimits.aiTopTenItems || hasTasteLabel) {
       rows.push([{ text: messages[lang].aiTasteReviewButton }]);
     }
+    if (hasWatchlistItems) {
+      rows.push([
+        {
+          text: listButtonText,
+        },
+      ]);
+    }
   }
 
-  if (listType === "watchlist" && hasItems) {
+  const hasMixedWatchlistStatuses = isMediaSection
+    && watchlistItems.some((entry) => entry?.watched === true)
+    && watchlistItems.some((entry) => entry?.watched !== true);
+  if (listType === "watchlist" && hasMixedWatchlistStatuses) {
     const statusLabels = getSectionStatusLabels(lang, section);
     if (filter !== "all") rows.push([{ text: messages[lang].aiListManageShowAll }]);
     else rows.push([

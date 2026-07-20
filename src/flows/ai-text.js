@@ -510,6 +510,7 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
   const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
+    watchlistItems: listType === "watchlist" ? items : [],
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
     hasTasteLabel: (() => {
       if (!["movies", "music", "books"].includes(section)) return false;

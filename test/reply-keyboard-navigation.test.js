@@ -510,9 +510,16 @@ test("filtered For Later rows keep commands bound to original list indexes", () 
   assert.match(text, /\/rm_mv_l_3/);
 });
 
-test("filtered For Later mode exposes only Show all and restores the full-list action", () => {
+test("filtered mixed-status For Later mode exposes only Show all and restores the full-list action", () => {
   const { aiListManageMenuKeyboard } = require("../src/keyboards");
-  const filteredButtons = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true, itemCount: 3, filter: "watched" }).reply_markup.keyboard.flat().map((button) => button.text);
+  const filteredButtons = aiListManageMenuKeyboard("en", "movies", "watchlist", {
+    itemCount: 3,
+    filter: "watched",
+    watchlistItems: [
+      { title: "Arrival", watched: true },
+      { title: "Heat", watched: false },
+    ],
+  }).reply_markup.keyboard.flat().map((button) => button.text);
   assert.ok(filteredButtons.includes(messages.en.aiListManageShowAll));
   assert.ok(!filteredButtons.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(!filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));

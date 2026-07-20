@@ -60,7 +60,8 @@ Use `next-steps.todo` for the short launch queue. This file keeps product decisi
 ✔ and lets put some of prfoile optins like an inline actions, those that no need to user input could be inline button for profile like gender and age and these things so the list of keyborad reply could be reduced, the inline button action just edit the card and after update edit back to profile card and it's inline button @done (7/20/2026, 11:38:26 AM)
 ✔ chose emoji for profile should be paid only first time not every time @done (7/20/2026, 12:28:50 PM)
 ✔ for pet chose chagne optin for none to دوست ندارم and ممه حیوانات to همه رو دوست دارم @done (7/20/2026, 12:28:52 PM)
-☐ shareable list link of muze shoulbe hbehave like invitioan to bot i mean maybe need to add user id to hte link so later  we can give them star for bringing people 
-☐ to speed up profile we need to save the proifle file id after first time upload so the next time it would be faster like the way we save banner file id to not upload them everytime
+✔ shareable list link of muze shoulbe hbehave like invitioan to bot i mean maybe need to add user id to hte link so later  we can give them star for bringing people @done (7/20/2026, 4:46:38 PM) we decide to remove it entirly
+☐ to speed up profile we need to save the proifle file id after first time upload so the next time it would be faster like the way we save banner file id to not upload them everytime, maybe we find a way not even save the photo in db and just save the file id, is it possilbe?
 ☐ عضو این گفت‌وگو نیستی. this message should come with bot emoji as well as other bot messages
 ☐ after bot restart or somthing like this the reply keyborad are not working and i have to press /start again, i wonder if later we restart the server all other user need to do the same while they don't know, how we can prevnet that? or this just had happen on development mood?
+✔ make filters of for late list to inilie button @done (7/20/2026, 5:25:56 PM)

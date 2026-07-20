@@ -1839,7 +1839,13 @@ test("AI list manager keyboard shows list and filter controls without standalone
   const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
   const emptyButtons = keyboardButtons(emptyKeyboard);
   const emptyLabels = emptyButtons.map((button) => button.text);
-  const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", { hasItems: true });
+  const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", {
+    hasItems: true,
+    watchlistItems: [
+      { title: "Arrival", watched: true },
+      { title: "Heat", watched: false },
+    ],
+  });
   const buttons = keyboardButtons(keyboard);
   const labels = buttons.map((button) => button.text);
   assert.equal(emptyButtons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
@@ -1848,6 +1854,12 @@ test("AI list manager keyboard shows list and filter controls without standalone
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
   assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
   assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
+  const completedOnlyLabels = keyboardButtons(aiListManageMenuKeyboard("en", "movies", "watchlist", {
+    hasItems: true,
+    watchlistItems: [{ title: "Arrival", watched: true }],
+  })).map((button) => button.text);
+  assert.equal(completedOnlyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
+  assert.equal(completedOnlyLabels.includes(messages.en.aiListManageShowNotWatchedMovies), false);
   assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 6 }))
       .some((button) => /shareable message/i.test(button.text)),
@@ -1871,6 +1883,12 @@ test("AI list manager keyboard shows list and filter controls without standalone
       hasWatchlistItems: true,
     })).some((button) => button.text === messages.en.aiSectionListButtonMovies),
   );
+  const favoriteRows = aiListManageMenuKeyboard("en", "movies", "topTen", {
+    itemCount: 3,
+    hasWatchlistItems: true,
+  }).reply_markup.keyboard;
+  assert.equal(favoriteRows.at(-2)[0].text, messages.en.aiSectionListButtonMovies);
+  assert.equal(favoriteRows.at(-1)[0].text, messages.en.aiBack);
   assert.equal(
     keyboardButtons(aiListManageMenuKeyboard("en", "movies", "topTen", { hasItems: true, itemCount: 1 }))
       .some((button) => button.text === `🎬 ${messages.en.aiSectionSuggestButton}`),
