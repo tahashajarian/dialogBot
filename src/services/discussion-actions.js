@@ -17,6 +17,7 @@ const {
   removeOwnerJoinNoticeState,
 } = require("./discussion-owner-join-notifications");
 const { deleteInvitationsForDiscussion } = require("./discussion-invitations");
+const { updateProfileField } = require("./users");
 
 const notifyActiveMembersInDiscussion = createActiveDiscussionNotifier(getActiveMembersInDiscussion);
 const REMOVE_KEYBOARD = { reply_markup: { remove_keyboard: true, selective: false } };
@@ -77,7 +78,15 @@ async function joinDiscussionAndNotify({
 
 async function leaveDiscussionAndNotify({ ctx, messages, discussionId }) {
   const left = await leaveDiscussionAsMember(ctx.userId, discussionId);
-  if (!left.ok) return left;
+  if (!left.ok) {
+    const staleActiveRoom = ["missing_discussion", "not_member"].includes(left.reason)
+      && String(ctx.user?.activeDiscussionId || "") === String(discussionId);
+    if (staleActiveRoom) {
+      await updateProfileField(ctx.userId, "activeDiscussionId", null);
+      if (ctx.user) ctx.user.activeDiscussionId = null;
+    }
+    return left;
+  }
 
   if (left.leaverName && left.discussionId) {
     // Leaving should not wait on recipient lookups or Telegram delivery.
