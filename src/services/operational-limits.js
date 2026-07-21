@@ -16,6 +16,7 @@ const LIMIT_DEFINITIONS = Object.freeze({
   onboardingInterestMaxItems: { label: "Onboarding interest limit", description: "Maximum interests accepted by the onboarding picker.", group: "Onboarding", default: 3, min: 1, max: 100 },
   onboardingCustomInterestMaxLength: { label: "Onboarding custom interest length", description: "Maximum characters for one typed onboarding interest.", group: "Onboarding", default: 24, min: 3, max: 120 },
   activeOwnedDiscussions: { label: "Active discussions created", group: "Discussions", default: 3, min: 1, max: 1000 },
+  ownedDiscussionHardLimit: { label: "Overall open discussions owned", description: "Maximum concurrently open discussions one user can own, including Star-activated slots.", group: "Discussions", default: 10, min: 1, max: 1000 },
   discussionMessagesPerWindow: { label: "Discussion messages / window", group: "Discussions", default: 30, min: 1, max: 10000 },
   discussionMessageWindowMinutes: { label: "Discussion message window (minutes)", group: "Discussions", default: 10, min: 1, max: 10080 },
   discussionMessageBurstSeconds: { label: "Minimum seconds between messages", group: "Discussions", default: 1, min: 0, max: 3600 },
@@ -44,6 +45,10 @@ function normalizeLimits(values = {}) {
   normalized.onboardingInterestMinItems = Math.min(
     normalized.onboardingInterestMinItems,
     normalized.onboardingInterestMaxItems,
+  );
+  normalized.activeOwnedDiscussions = Math.min(
+    normalized.activeOwnedDiscussions,
+    normalized.ownedDiscussionHardLimit,
   );
   return normalized;
 }

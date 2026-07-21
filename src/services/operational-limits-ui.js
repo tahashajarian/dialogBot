@@ -1,6 +1,5 @@
 const { operationalLimits } = require("./operational-limits");
 const { starEconomy } = require("./star-settings");
-const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 
 function formatOperationalLimitsText(template, overrides = {}) {
   const values = {
@@ -10,12 +9,13 @@ function formatOperationalLimitsText(template, overrides = {}) {
     suggestionLimit: operationalLimits.aiSuggestionsPerWindow,
     suggestionWindowMinutes: operationalLimits.aiSuggestionWindowMinutes,
     activeDiscussionsLimit: operationalLimits.activeOwnedDiscussions,
+    ownedDiscussionHardLimit: operationalLimits.ownedDiscussionHardLimit,
     discussionMessageLimit: operationalLimits.discussionMessagesPerWindow,
     discussionMessageWindowMinutes: operationalLimits.discussionMessageWindowMinutes,
     invitationLimit: operationalLimits.directInvitationsPerWindow,
     invitationWindowHours: operationalLimits.directInvitationWindowHours,
     paidExtraDiscussionCost: starEconomy.paidExtraDiscussionCost,
-    ownedDiscussionHardLimit: DISCUSSION_OWNED_HARD_LIMIT,
+    referralQualificationGoal: starEconomy.firstTopTenMilestoneItems,
     ...overrides,
   };
   const formatted = Object.entries(values).reduce(

@@ -102,36 +102,28 @@ function mainMenuKeyboard(lang) {
   ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
 }
 
-function helpKeyboard(lang) {
-  return { reply_markup: { keyboard: [
+function helpInlineKeyboard(lang) {
+  return inlineKeyboard([
     [
-      {
-        text: messages[lang].profileStarsButton,
-      },
-      {
-        text: messages[lang].helpReferralButton,
-      },
+      { text: messages[lang].profileStarsButton, callback_data: callBacks.profileStars },
+      { text: messages[lang].helpReferralButton, callback_data: callBacks.helpReferral },
     ],
-    [{
-      text: messages[lang].helpRules,
-    }],
-    [{
-      text: messages[lang].helpBackToMain,
-    }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+    [{ text: messages[lang].helpRules, callback_data: callBacks.helpRules }],
+    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose }],
+  ]);
 }
 
 function helpReferralKeyboard(lang, shareUrl = "", copyUrl = "") {
   return inlineKeyboard([
     ...(shareUrl ? [[{ text: messages[lang].helpReferralShare, url: shareUrl }]] : []),
     ...(copyUrl ? [[{ text: messages[lang].helpReferralCopy, copy_text: { text: copyUrl } }]] : []),
-    [{ text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose }],
+    [{ text: messages[lang].helpBackToGuide, callback_data: callBacks.helpReferralBack }],
   ]);
 }
 
 function helpRulesKeyboard(lang) {
   return inlineKeyboard([[
-    { text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose },
+    { text: messages[lang].helpBackToGuide, callback_data: callBacks.helpReferralBack },
   ]]);
 }
 
@@ -582,7 +574,7 @@ function profileActiveDiscussionHelpKeyboard(lang) {
 
 function profileStarsKeyboard(lang) {
   return inlineKeyboard([[
-    { text: messages[lang].discussionShareClose, callback_data: callBacks.helpCardClose },
+    { text: messages[lang].helpBackToGuide, callback_data: callBacks.helpReferralBack },
   ]]);
 }
 
@@ -810,7 +802,7 @@ module.exports = {
   ONBOARDING_CHIPS_PER_PAGE,
   inlineKeyboard,
   mainMenuKeyboard,
-  helpKeyboard,
+  helpInlineKeyboard,
   helpRulesKeyboard,
   helpReferralKeyboard,
   aiAssistantKeyboard,

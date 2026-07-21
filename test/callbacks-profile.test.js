@@ -471,7 +471,6 @@ test("stale own-profile inline actions only delete their card outside Profile", 
     callBacks.profilePrivacy,
     callBacks.profileShare,
     callBacks.profileShareBack,
-    callBacks.profileStars,
   ];
 
   for (const [index, callbackData] of actions.entries()) {
@@ -600,6 +599,7 @@ test("help rules callback opens the rules card", async () => {
       userId: 999,
       lang: "en",
       state: "idle",
+      navigationMode: "global",
     },
     answerCb: async () => true,
     editMessageText: async (messageId, text, extra) => {
@@ -617,8 +617,9 @@ test("help rules callback opens the rules card", async () => {
   assert.equal(replies.length, 0);
   assert.equal(edits[0].text, formatOperationalLimitsText(messages.en.helpRulesText));
   const buttons = keyboardButtons(edits[0].extra);
-  assert.deepEqual(buttons.map((button) => button.text), [messages.en.discussionShareClose]);
-  assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.helpCardClose]);
+  assert.deepEqual(buttons.map((button) => button.text), [messages.en.helpBackToGuide]);
+  assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.helpReferralBack]);
+  assert.equal(ctx.user.navigationMode, "global");
 });
 
 test("Guide card Close deletes only the selected inline card", async () => {
@@ -627,7 +628,14 @@ test("Guide card Close deletes only the selected inline card", async () => {
     callbackData: callBacks.helpCardClose,
     callbackMessageId: 321,
     userId: 999,
-    user: { userId: 999, lang: "en", state: "idle", navigationMode: "help" },
+    user: {
+      userId: 999,
+      lang: "en",
+      state: "idle",
+      navigationMode: "global",
+      aiLastListMessageId: 77,
+      discussionLastListMessageId: 88,
+    },
     answerCb: async () => true,
     deleteMessage: async (messageId) => {
       deleted.push(messageId);
@@ -638,7 +646,39 @@ test("Guide card Close deletes only the selected inline card", async () => {
   await handleCallback(ctx);
 
   assert.deepEqual(deleted, [321]);
-  assert.equal(ctx.user.navigationMode, "help");
+  assert.equal(ctx.user.navigationMode, "global");
+  assert.equal(ctx.user.aiLastListMessageId, 77);
+  assert.equal(ctx.user.discussionLastListMessageId, 88);
+});
+
+test("Profile reply-keyboard Back restores Home after closing a Guide overlay", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({ userId: 999, state: "idle", navigationMode: "global" });
+  const ctx = {
+    callbackData: callBacks.profileBack,
+    isReplyKeyboardAction: true,
+    userId: 999,
+    user: { userId: 999, lang: "en", state: "idle", navigationMode: "profile" },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.navigationMode, "global");
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.mainMenu);
+  assert.deepEqual(
+    replies[0].extra.reply_markup.keyboard.flat().map((button) => button.text),
+    mainMenuKeyboard("en").reply_markup.keyboard.flat().map((button) => button.text),
+  );
 });
 
 test("legacy profile settings callback returns to the flattened profile", async () => {

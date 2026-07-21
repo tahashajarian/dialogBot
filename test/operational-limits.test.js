@@ -13,6 +13,7 @@ test("limit messages use the startup-loaded values", () => {
     aiSuggestionsPerWindow: 7,
     aiSuggestionWindowMinutes: 90,
     activeOwnedDiscussions: 4,
+    ownedDiscussionHardLimit: 13,
     discussionMessagesPerWindow: 45,
     discussionMessageWindowMinutes: 15,
     directInvitationsPerWindow: 5,
@@ -26,7 +27,8 @@ test("limit messages use the startup-loaded values", () => {
 
     const rules = formatOperationalLimitsText(messages.en.helpRulesText);
     assert.match(rules, /Favorites per section: 12; For Later list: 150; saved profiles: 75/);
-    assert.match(rules, /Active discussions created free: 4; each extra open discussion costs \d+ Stars, up to 10 total/);
+    assert.match(rules, /new user adds \d+ Interests/);
+    assert.match(rules, /You can create 4 open discussions; with \d+ Stars, each additional one can be unlocked, up to 13 total/);
     assert.match(rules, /Discussion messages: 45 per 15 minutes/);
     assert.match(rules, /in-bot saved-profile invitations: 5 per 48 hours/);
   } finally {
@@ -48,6 +50,16 @@ test("interest onboarding/profile limits normalize impossible admin values", () 
   assert.equal(normalized.onboardingInterestMinItems, 4);
   assert.equal(normalized.profileInterestCustomMaxLength, 3);
   assert.equal(normalized.onboardingCustomInterestMaxLength, 120);
+});
+
+test("the database-backed overall discussion cap also bounds the free allowance", () => {
+  const normalized = normalizeLimits({
+    activeOwnedDiscussions: 12,
+    ownedDiscussionHardLimit: 7,
+  });
+
+  assert.equal(normalized.activeOwnedDiscussions, 7);
+  assert.equal(normalized.ownedDiscussionHardLimit, 7);
 });
 
 test("People discovery minimum defaults to 2 and respects admin boundaries", () => {

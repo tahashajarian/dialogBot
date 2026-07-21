@@ -138,7 +138,6 @@ async function handleCallback(ctx) {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
       hasTemporaryReplyKeyboard,
-      retireCallbackMessageIfPossible,
       showBottomHub,
     });
   }

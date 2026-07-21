@@ -7,14 +7,14 @@ const {
 const { callBacks } = require("../constants");
 const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
-const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { MODES } = require("../services/reply-keyboard-navigation");
 const {
   hasSectionTipBeenShown,
   markSectionTipShownForContext,
 } = require("../services/users");
-const { buildGuideReferralCard } = require("./guide-referrals");
+const { buildGuideReferralCard, sendGuideReferralCard } = require("./guide-referrals");
 const { sendAiAssistantHub } = require("./ai-hub");
-const { sendGuideHub } = require("./guide-hub");
+const { restoreGuideHubCard, sendGuideHub } = require("./guide-hub");
 const { sendOwnProfile } = require("./profile-callbacks");
 const {
   buildDiscussionsMenuText,
@@ -56,7 +56,6 @@ async function handleHubCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
   editCallbackMessageOrReply,
   hasTemporaryReplyKeyboard,
-  retireCallbackMessageIfPossible,
   showBottomHub,
 }) {
   const data = ctx.callbackData || "";
@@ -78,15 +77,11 @@ async function handleHubCallback(ctx, lang, {
 
   if (data === callBacks.help) {
     await ctx.answerCb?.();
-    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx);
-    await prepareHubNavigation(ctx, { clearAi: true });
-    await sendNavigationFootprint(ctx, { lang, destination: "help", removeKeyboard: shouldClearKeyboard });
     return sendGuideHub(ctx, lang);
   }
 
   if (data === callBacks.helpRules) {
     await ctx.answerCb?.();
-    await setNavigationMode(ctx, MODES.HELP);
     return editCallbackMessageOrReply(
       ctx,
       formatOperationalLimitsText(messages[lang].helpRulesText),
@@ -115,14 +110,12 @@ async function handleHubCallback(ctx, lang, {
   if (data === callBacks.helpReferral || data === callBacks.helpReferralBack) {
     if (data === callBacks.helpReferralBack) {
       await ctx.answerCb?.();
-      await retireCallbackMessageIfPossible(ctx);
-      return sendGuideHub(ctx, lang);
+      return restoreGuideHubCard(ctx, lang);
     }
     const card = await buildGuideReferralCard(ctx.userId, lang);
     if (!card.ok) return ctx.answerCb?.(messages[lang].unknownAction, { show_alert: true });
     await ctx.answerCb?.();
-    await setNavigationMode(ctx, MODES.HELP);
-    return editCallbackMessageOrReply(ctx, card.text, card.keyboard);
+    return sendGuideReferralCard(ctx, card, editCallbackMessageOrReply);
   }
 
   if (data === callBacks.aiAssistant) {

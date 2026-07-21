@@ -7,8 +7,11 @@ const {
   buildStarsOverviewText,
   formatStarNumber,
 } = require("../src/services/stars-ui");
+const { operationalLimits } = require("../src/services/operational-limits");
 
-test("Stars overview uses live settings and private balance", () => {
+test("Stars overview uses live settings and a self-only balance", () => {
+  const previousHardLimit = operationalLimits.ownedDiscussionHardLimit;
+  operationalLimits.ownedDiscussionHardLimit = 11;
   const text = buildStarsOverviewText(messages, "en", { starBalance: 18 }, {
     firstTopTenMilestoneItems: 4,
     topTenCompletionItems: 9,
@@ -32,13 +35,14 @@ test("Stars overview uses live settings and private balance", () => {
   assert.match(text, /Watch Later, Listen Later, and Read Later lists do not award Stars/);
   assert.doesNotMatch(text, /Watchlists|playlists|reading lists are free/);
   assert.doesNotMatch(text, /Build the first/);
-  assert.match(text, /Unlock profile emojis once: 3 Stars; later changes are free/);
-  assert.match(text, /Extra suggestion after the free limit: 1 Star/);
-  assert.match(text, /Taste-label recheck after the first free check: 10 Stars/);
-  assert.match(text, /Boost one discussion: 12 Stars/);
-  assert.match(text, /Each extra concurrently open discussion after 3 free: 8 Stars \(up to 10 total\)/);
-  assert.match(text, /Add the first 4 favorites in each of Movies, Music, and Books: 3/);
-  assert.match(text, /Complete all 9 favorites in each of Movies, Music, and Books: 7/);
+  operationalLimits.ownedDiscussionHardLimit = previousHardLimit;
+  assert.match(text, /Profile emoji activation: 3 Stars; later changes need no Stars/);
+  assert.match(text, /Extra suggestion: 1 Star/);
+  assert.match(text, /Taste-label recheck: 10 Stars/);
+  assert.match(text, /Discussion boost: 12 Stars/);
+  assert.match(text, /Concurrently open discussions: the first 3 need no Stars; each additional one activates with 8 Stars \(up to 11 total\)/);
+  assert.match(text, /First 4 favorites in each of Movies, Music, and Books: 3/);
+  assert.match(text, /All 9 favorites in each of Movies, Music, and Books: 7/);
   assert.doesNotMatch(text, /Top 10/);
   assert.match(text, /2-person discussion: 6 Stars/);
   assert.match(text, /40-person discussion: 14 Stars/);

@@ -67,9 +67,21 @@ function isProfileCallbackActiveInMode(ctx, data = "") {
   if (!isProfileSettingsOrEditCallback(data)) return true;
   const mode = String(ctx.user?.navigationMode || "");
   if (data === callBacks.profileStars || data === callBacks.profileStarsBack) {
-    return !mode || [MODES.PROFILE, MODES.HELP, "help_stars"].includes(mode);
+    return true;
   }
   return isOwnProfileNavigationMode(mode);
+}
+
+function isGuideOverlayCallback(data = "") {
+  return [
+    callBacks.help,
+    callBacks.helpRules,
+    callBacks.helpCardClose,
+    callBacks.helpReferral,
+    callBacks.helpReferralBack,
+    callBacks.profileStars,
+    callBacks.profileStarsBack,
+  ].includes(data);
 }
 
 async function retireInactiveOwnProfileCardIfNeeded(ctx, data = "") {
@@ -182,6 +194,7 @@ async function retireObsoleteCallbackIfNeeded(ctx, data = "") {
 }
 
 async function prepareCallbackDispatch(ctx, data = "") {
+  if (isGuideOverlayCallback(data)) return;
   const isProfileReplyAction = Boolean(
     ctx.isReplyKeyboardAction && isProfileSettingsOrEditCallback(data),
   );

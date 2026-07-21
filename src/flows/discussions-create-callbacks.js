@@ -55,7 +55,6 @@ const {
   authorizePaidExtraDiscussion,
   refundPaidExtraDiscussionAuthorization,
 } = require("../services/discussion-paid-creation");
-const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 
 function isDiscussionCreateCallback(data = "") {
   return (
@@ -216,7 +215,7 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
 
   const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
   if (!activeLimit.ok) {
-    if (isPaidExtraDiscussionAvailable() && activeLimit.count < DISCUSSION_OWNED_HARD_LIMIT) {
+    if (isPaidExtraDiscussionAvailable() && activeLimit.count < operationalLimits.ownedDiscussionHardLimit) {
       const previousRefund = await refundPaidExtraDiscussionAuthorization(ctx.userId);
       if (ctx.user && previousRefund.refunded) {
         ctx.user.starBalance = previousRefund.balance;
@@ -389,7 +388,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
         rememberDiscussionMenuNotice,
       });
     }
-    if (!isPaidExtraDiscussionAvailable() || activeLimit.count >= DISCUSSION_OWNED_HARD_LIMIT) {
+    if (!isPaidExtraDiscussionAvailable() || activeLimit.count >= operationalLimits.ownedDiscussionHardLimit) {
       return editCallbackMessageOrReply(ctx, messages[lang].discussionExtraSlotUnavailable, discussionExtraSlotAckKeyboard(lang));
     }
     const currentCost = Number(starEconomy.paidExtraDiscussionCost) || 0;

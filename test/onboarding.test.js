@@ -7,7 +7,7 @@ const { localizeVisibleDigits } = require("../src/services/number-localization")
 const { callBacks } = require("../src/constants");
 const {
   getOnboardingInterestChipTitle,
-  helpKeyboard,
+  helpInlineKeyboard,
   helpReferralKeyboard,
   helpRulesKeyboard,
   mainMenuKeyboard,
@@ -522,41 +522,32 @@ test("help is available from Home and onboarding completion", () => {
   const mainLabels = mainMenuKeyboard("fa").reply_markup.keyboard
     .flat()
     .map((button) => button.text);
-  const helpLabels = helpKeyboard("fa").reply_markup.keyboard
-    .flat()
-    .map((button) => button.text);
-  const helpRows = helpKeyboard("fa").reply_markup.keyboard
+  const helpInlineRows = helpInlineKeyboard("fa").reply_markup.inline_keyboard
     .map((row) => row.map((button) => button.text));
   const rulesLabels = helpRulesKeyboard("fa").reply_markup.inline_keyboard
     .flat()
     .map((button) => button.text);
 
   assert.ok(mainLabels.includes(messages.fa.help));
-  assert.deepEqual(helpLabels, [
-    messages.fa.profileStarsButton,
-    messages.fa.helpReferralButton,
-    messages.fa.helpRules,
-    messages.fa.helpBackToMain,
-  ]);
-  assert.deepEqual(helpRows, [
+  assert.deepEqual(helpInlineRows, [
     [messages.fa.profileStarsButton, messages.fa.helpReferralButton],
     [messages.fa.helpRules],
-    [messages.fa.helpBackToMain],
+    [messages.fa.discussionShareClose],
   ]);
   assert.deepEqual(rulesLabels, [
-    messages.fa.discussionShareClose,
+    messages.fa.helpBackToGuide,
   ]);
-  assert.equal(helpRulesKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpCardClose);
-  assert.equal(profileStarsKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpCardClose);
-  assert.equal(helpReferralKeyboard("fa", "https://example.com", "copy").reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.helpCardClose);
+  assert.equal(helpRulesKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpReferralBack);
+  assert.equal(profileStarsKeyboard("fa").reply_markup.inline_keyboard[0][0].callback_data, callBacks.helpReferralBack);
+  assert.equal(helpReferralKeyboard("fa", "https://example.com", "copy").reply_markup.inline_keyboard.at(-1)[0].callback_data, callBacks.helpReferralBack);
   assert.match(messages.fa.helpRules, /^📜/);
   assert.match(messages.en.helpRules, /^📜/);
   assert.match(messages.fa.helpRulesText, /💡/);
   assert.match(messages.en.helpRulesText, /💡/);
   assert.match(faRulesText, /۳۰ پیام در هر ۱۰ دقیقه/);
   assert.match(enRulesText, /Discussion messages: 30 per 10 minutes/);
-  assert.match(faRulesText, /هر گفت‌وگوی باز اضافه ۵ ستاره تا سقف کلی ۱۰/);
-  assert.match(enRulesText, /each extra open discussion costs 5 Stars, up to 10 total/);
+  assert.match(faRulesText, /با ۵ ستاره هر گفت‌وگوی باز اضافه رو تا سقف کلی ۱۰ فعال کنی/);
+  assert.match(enRulesText, /with 5 Stars, each additional one can be unlocked, up to 10 total/);
   assert.match(faRulesText, /نشانک خصوصی/);
   assert.match(enRulesText, /private bookmarks/);
   assert.match(faRulesText, /گزارش‌ها فقط از کاربران متفاوت/);
@@ -573,14 +564,41 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /Watch Later/);
   assert.match(messages.fa.helpText, /۳ محبوب/);
   assert.match(messages.en.helpText, /Three favorites/);
+  assert.doesNotMatch(messages.fa.helpText, /خرج|پرداخت|هزینه/);
+  assert.doesNotMatch(messages.fa.helpText, /اتاق|زنده|هدف/);
+  assert.doesNotMatch(messages.en.helpText, /\brooms?\b|\blive\b|\bgoals?\b/i);
+  assert.doesNotMatch(messages.fa.helpRulesText, /خرج|پرداخت|هزینه/);
+  assert.doesNotMatch(messages.fa.helpRulesText, /واقعاً جدید|واقعا جدید/);
+  assert.doesNotMatch(messages.en.helpRulesText, /genuinely new/i);
+  assert.doesNotMatch(messages.en.helpRulesText, /\bcost(?:s|ing)?\b|\bpay(?:s|ing|ment)?\b/i);
+  const faGuideRulesAndStars = [
+    messages.fa.helpText,
+    messages.fa.helpReferralGuidance,
+    messages.fa.helpReferralShareText,
+    messages.fa.helpRulesText,
+    messages.fa.starsOverviewText,
+  ].join("\n");
+  const enGuideRulesAndStars = [
+    messages.en.helpText,
+    messages.en.helpReferralGuidance,
+    messages.en.helpReferralShareText,
+    messages.en.helpRulesText,
+    messages.en.starsOverviewText,
+  ].join("\n");
+  assert.doesNotMatch(faGuideRulesAndStars, /(?:^|[.!؟]\s)(?:برو|اضافه کن|ذخیره کن|مدیریت کن|بفرست)(?:[.!؟\s]|$)/m);
+  assert.doesNotMatch(faGuideRulesAndStars, /خرج|پرداخت|هزینه/);
+  assert.doesNotMatch(faGuideRulesAndStars, /هدف/);
+  assert.doesNotMatch(enGuideRulesAndStars, /(?:^|\n)(?:Go|Add|Save|Manage|Start|Send|Complete|Create|Join|Bring|Unlock|Boost|Keep)\b/m);
+  assert.doesNotMatch(enGuideRulesAndStars, /\bcost(?:s|ing)?\b|\bpay(?:s|ing|ment)?\b/i);
   assert.match(messages.fa.helpText, /👥 آدم‌ها و ذخیره‌شده‌ها/);
   assert.match(messages.fa.helpText, /دیدن آدم‌ها.*اعضای گفت‌وگو/);
-  assert.match(messages.fa.helpText, /از «ذخیره‌شده‌ها».*گفت‌وگوهایی.*بپیوندی.*دعوت کنی/);
+  assert.match(messages.fa.helpText, /از «ذخیره‌شده‌ها».*گفت‌وگوهای قابل نمایش.*بپیوندی.*دعوت کنی/);
   assert.match(messages.en.helpText, /👥 People & Saved profiles/);
   assert.match(messages.en.helpText, /See people or discussion member lists/);
-  assert.match(messages.en.helpText, /join discussions people choose to show.*invite them directly/i);
-  assert.match(messages.fa.helpText, /گفت‌وگوهای اخیرت.*گفت‌وگوهای من/);
-  assert.match(messages.en.helpText, /recently joined rooms.*My discussions/i);
+  assert.match(messages.en.helpText, /join a visible discussion.*invite someone to yours/i);
+  assert.match(messages.fa.helpText, /گفت‌وگوهای قبلی.*گفت‌وگوهای من.*هستن/);
+  assert.doesNotMatch(messages.fa.helpText, /قبلیت/);
+  assert.match(messages.en.helpText, /Previous discussions are under My discussions/i);
   assert.match(messages.fa.helpText, /من ← حریم خصوصی و امنیت ← حذف حساب/);
   assert.match(messages.en.helpText, /Me → Privacy & safety → Delete account/);
   assert.ok(messages.fa.helpText.length <= 1024);

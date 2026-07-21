@@ -1,5 +1,5 @@
 const messages = require("../messages");
-const { sendGuideHub } = require("./guide-hub");
+const { restoreGuideHubCard } = require("./guide-hub");
 const crypto = require("crypto");
 const { callBacks } = require("../constants");
 const {
@@ -529,14 +529,12 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     applyStarRewardsToContext(ctx, claimedRewards);
     const rewardNotice = buildStarRewardNotice(messages, lang, claimedRewards);
     const text = [rewardNotice, buildStarsOverviewText(messages, lang, ctx.user || {})].filter(Boolean).join("\n\n");
-    await setNavigationMode(ctx, MODES.HELP);
-    return ctx.reply(text, profileStarsKeyboard(lang));
+    return editProfileSurfaceCard(ctx, text, profileStarsKeyboard(lang));
   }
 
   if (data === callBacks.profileStarsBack) {
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
-    return sendGuideHub(ctx, lang);
+    return restoreGuideHubCard(ctx, lang);
   }
 
   if (data === callBacks.profileShare) {

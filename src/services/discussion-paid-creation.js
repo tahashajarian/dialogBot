@@ -1,7 +1,7 @@
 const User = require("../models/user");
 const { spendStars, refundStars } = require("./stars");
 const { starEconomy } = require("./star-settings");
-const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
+const { operationalLimits } = require("./operational-limits");
 
 function isPaidExtraDiscussionAvailable(settings = starEconomy) {
   return Boolean(
@@ -23,7 +23,7 @@ async function authorizePaidExtraDiscussion({
   if (Number(quotedCost) !== cost) return { ok: false, reason: "stale_price", cost };
 
   const paidOwnedSlotCap = Math.min(
-    DISCUSSION_OWNED_HARD_LIMIT,
+    operationalLimits.ownedDiscussionHardLimit,
     Math.max(1, Number(activeOwnedCount) + 1),
   );
   const spend = cost > 0

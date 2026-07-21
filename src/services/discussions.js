@@ -58,7 +58,6 @@ const {
   awardFirstDiscussionJoined,
 } = require("./star-milestones");
 const { decorateActiveBoosts, endBoostForDiscussion } = require("./discussion-boosts");
-const { DISCUSSION_OWNED_HARD_LIMIT } = require("../constants/limits");
 const { hasSensitiveName } = require("./sensitive-name-moderation");
 
 const DISCUSSION_MEMBER_CAP = 20;
@@ -159,7 +158,7 @@ async function checkActiveOwnedDiscussionsLimit(creatorUserId) {
     status: "open",
   });
 
-  const freeCap = Math.min(operationalLimits.activeOwnedDiscussions, DISCUSSION_OWNED_HARD_LIMIT);
+  const freeCap = Math.min(operationalLimits.activeOwnedDiscussions, operationalLimits.ownedDiscussionHardLimit);
   if (activeOwned >= freeCap) {
     return { ok: false, reason: "active_owned_limit", cap: freeCap, count: activeOwned };
   }
@@ -187,7 +186,7 @@ async function reserveOwnedDiscussionSlot(userId, discussionId, paidOwnedSlotCap
   await reconcileOwnedOpenDiscussionIds(userId);
 
   const reservationCap = Math.min(
-    DISCUSSION_OWNED_HARD_LIMIT,
+    operationalLimits.ownedDiscussionHardLimit,
     Math.max(
       operationalLimits.activeOwnedDiscussions,
       Number(paidOwnedSlotCap) || 0,

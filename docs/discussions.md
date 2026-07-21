@@ -1095,7 +1095,7 @@ Stored inside `recentMessages`, capped at 10:
 ### User Additions
 
 - `activeDiscussionId`
-- `ownedOpenDiscussionIds`, normally capped by the configured free limit and able to reach the overall 10-room membership cap only through one-charge-per-extra-room server authorizations; it remains the atomic reservation list
+- `ownedOpenDiscussionIds`, normally capped by the configured free limit and able to reach the database-configured overall owned-room cap only through one-charge-per-extra-room server authorizations; it remains the atomic reservation list
 - `discussionMembershipIds`, capped at 10 in MVP
 - optional muted discussion ids/preferences
 - optional discussion rate-limit metadata
@@ -1104,7 +1104,7 @@ Stored inside `recentMessages`, capped at 10:
 
 MVP should include basic limits:
 
-- Max 3 free active (open) discussions created per user by default; each additional concurrently open owned room requires a fresh paid authorization, up to the overall 10-room membership cap.
+- The free active-owned limit defaults to 3; each additional concurrently open owned room requires a fresh paid authorization, up to the database-configured overall owned-room cap (default 10).
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
@@ -1322,7 +1322,7 @@ Users can view discussions of people in their saved profiles list via `/ds_CODE`
 The discussions view shows:
 - Title with user's name: `💬 گفت‌وگوهای {name}`
 - Active discussion (if `showActiveDiscussionOnProfile` is enabled)
-- Created discussions (up to 10, open status only)
+- Created discussions (up to the configured overall owned-room cap, open status only)
 - Empty state with "Got it" button if no discussions
 - Back button to return to saved profiles list
 

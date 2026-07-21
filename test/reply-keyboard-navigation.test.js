@@ -232,8 +232,8 @@ test("own Profile keeps Back as the final bottom-keyboard row", () => {
   }
 });
 
-test("Guide, flattened Profile, and Privacy actions remain mode scoped", () => {
-  assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }).callbackData, callBacks.helpRules);
+test("Guide inline actions stay out of reply routing while Profile and Privacy actions remain mode scoped", () => {
+  assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.HELP }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.helpRules, { mode: MODES.PROFILE }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.profilePrivacySafetyButton, { mode: MODES.PROFILE }).callbackData, callBacks.profilePrivacy);
   assert.equal(resolveReplyKeyboardAction(messages.fa.profilePrivacySafetyButton, { mode: MODES.PROFILE_SETTINGS }).callbackData, callBacks.profilePrivacy);
@@ -621,7 +621,8 @@ test("filtered For Later navigation returns to Favorites instead of add guidance
 test("legacy Guide reply keyboards remain usable only in their existing modes", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: "help_stars", state: "idle", user: { lang: "en" } }).callbackData, callBacks.profileStarsBack);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileStarsBack, { mode: MODES.HELP, state: "idle", user: { lang: "en" } }), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.helpReferralButton, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.helpReferral);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpReferralButton, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.helpBackToMain, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.menuMain);
   assert.equal(resolveReplyKeyboardAction(messages.fa.helpBrowseDiscussions, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.helpGoToLists, { mode: MODES.HELP, state: "idle", user: { lang: "fa" } }), null);
 });

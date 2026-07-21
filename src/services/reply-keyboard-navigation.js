@@ -77,7 +77,7 @@ const BY_MODE = {
   // surviving controls into the flattened Profile destination.
   [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileEmojiButton", callBacks.profileEmoji], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["profileBackToProfile", callBacks.profileSettingsBack]],
   [MODES.PROFILE_PRIVACY]: [["profileHideFromPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}0`], ["profileShowInPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}1`], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileInvitationRestrictionsButton", callBacks.profileInvitationRestrictions], ["accountDeleteButton", callBacks.accountDelete], ["profilePrivacyBackToSettings", callBacks.profilePrivacyBack]],
-  [MODES.HELP]: [["profileStarsButton", callBacks.profileStars], ["helpReferralButton", callBacks.helpReferral], ["helpRules", callBacks.helpRules], ["helpBackToMain", callBacks.menuMain]],
+  [MODES.HELP]: [["helpBackToMain", callBacks.menuMain]],
   [MODES.HELP_RULES]: [["helpBackToGuide", callBacks.help], ["helpBackToMain", callBacks.menuMain]],
   help_stars: [["profileStarsBack", callBacks.profileStarsBack]],
   people_discovery_empty: [["peopleGoToLists", callBacks.aiAssistant], ["aiBack", callBacks.people]],
