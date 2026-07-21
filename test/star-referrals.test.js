@@ -17,21 +17,21 @@ test("outside referral codes are opaque fixed-length values", () => {
   assert.equal(normalizeReferralCode("123"), "");
 });
 
-test("referral link and first-referrer claim schemas validate", () => {
+test("referral link and first-referrer claim schemas validate", async () => {
   const link = new StarReferralLink({
     publicCode: "A1B2C3D4E5F6",
     inviterUserId: 10,
     discussionPublicCode: "d_ROOM12",
     source: "discussion_share",
   });
-  assert.equal(link.validateSync(), undefined);
+  await link.validate();
 
   const claim = new StarReferralClaim({
     referralLinkId: link._id,
     inviterUserId: 10,
     inviteeUserId: 20,
   });
-  assert.equal(claim.validateSync(), undefined);
+  await claim.validate();
 
   const profileLink = new StarReferralLink({
     publicCode: "F6E5D4C3B2A1",
@@ -39,7 +39,7 @@ test("referral link and first-referrer claim schemas validate", () => {
     profilePublicCode: "u_PROFILE1",
     source: "profile_share",
   });
-  assert.equal(profileLink.validateSync(), undefined);
+  await profileLink.validate();
 });
 
 test("non-rewarding profile referrals retain their public destination", async () => {

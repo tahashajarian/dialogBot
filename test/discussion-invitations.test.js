@@ -50,7 +50,7 @@ test("normalizes invitation codes", () => {
   assert.equal(normalizePublicInvitationCode("/i_ab12"), "i_AB12");
 });
 
-test("discussion invitation schema accepts pending invitation", () => {
+test("discussion invitation schema accepts pending invitation", async () => {
   const invitation = new DiscussionInvitation({
     publicInvitationCode: "i_TEST123",
     discussionId: new Discussion()._id,
@@ -60,7 +60,7 @@ test("discussion invitation schema accepts pending invitation", () => {
     inviteePublicProfileCode: "u_ABCD",
   });
 
-  assert.equal(invitation.validateSync(), undefined);
+  await invitation.validate();
   assert.equal(invitation.status, "pending");
   assert.equal(invitation.source, "room");
 });

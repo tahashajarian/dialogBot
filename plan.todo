@@ -34,7 +34,7 @@ so
 ✔ hide 'list for later' until it's not empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too @done (7/18/2026, 1:40:28 PM)
 ☐ think about seeing people can choose the lang, and maybe viewing proifle need spend star, think about it and maybe sort them with most common items, they can see gender and age and name if they want to see profile need spend one star for example
 ✔ test inivitaion with link it's broken @done (7/18/2026, 9:18:41 AM)
-☐ think about pin discussion title inside the discusion for all users inside the discussion and by leave remove the pin
+✔ think about pin discussion title inside the discusion for all users inside the discussion and by leave remove the pin @done (7/21/2026, 6:45:10 PM)
 ✔ add an inline button for members list in discussion too which just close the card nothing else @done (7/18/2026, 2:02:25 PM)
 ✔ think about change the name of منوی اصلی to somthing better @done (7/19/2026, 3:58:41 PM)j
 ✔ notif the owner on new joines to the their discussions @done (7/19/2026, 7:43:36 AM)
@@ -66,6 +66,7 @@ so
 ✔ after bot restart or somthing like this the reply keyborad are not working and i have to press /start again, i wonder if later we restart the server all other user need to do the same while they don't know, how we can prevnet that? or this just had happen on development mood? @done (7/20/2026, 10:59:07 PM)
 ✔ make filters of for late list to inilie button @done (7/20/2026, 5:25:56 PM)
 ✔ in gude mention that you can see the recent discusion on my discussion section @done (7/21/2026, 1:31:44 AM)
-☐ let's hanlde react to message in discussion 
-☐ how many shared item should be in commont to show up on see people should be configure able from admin panel
-☐ some times a user left message won't sent to all users and also make sure we send messages to all members saftlyso
+✔ let's hanlde react to message in discussion @done (7/21/2026, 1:44:52 AM)
+✔ how many shared item should be in commont to show up on see people should be configure able from admin panel @done (7/21/2026, 9:15:06 PM)
+✔ some times a user left message won't sent to all users and also make sure we send messages to all members saftlyso @done (7/21/2026, 1:47:41 AM)
+✔ move delte account to on inlibe button on privacy and secirurity card @done (7/21/2026, 9:15:03 PM)

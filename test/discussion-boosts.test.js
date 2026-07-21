@@ -15,7 +15,7 @@ const {
   rankDiscussionsForDiscovery,
 } = require("../src/services/discussion-ui");
 
-test("discussion boost codes and schema are stable", () => {
+test("discussion boost codes and schema are stable", async () => {
   assert.match(generateBoostCode(), /^[A-F0-9]{12}$/);
   const boost = new DiscussionBoost({
     publicCode: "A1B2C3D4E5F6",
@@ -24,7 +24,7 @@ test("discussion boost codes and schema are stable", () => {
     quotedCost: 10,
     quoteExpiresAt: new Date(Date.now() + 60000),
   });
-  assert.equal(boost.validateSync(), undefined);
+  await boost.validate();
   const indexNames = DiscussionBoost.schema.indexes().map(([, options]) => options.name).filter(Boolean);
   assert.ok(indexNames.includes("one_active_boost_per_discussion"));
   assert.equal(indexNames.includes("one_active_boost_per_creator"), false);

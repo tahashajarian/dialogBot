@@ -315,7 +315,7 @@ test("validateJoinRulePayload accepts open rule", () => {
   assert.deepEqual(result.joinRule, { type: "open" });
 });
 
-test("discussion schema accepts open join rule without section", () => {
+test("discussion schema accepts open join rule without section", async () => {
   const discussion = new Discussion({
     title: "Open room",
     description: "A public topic",
@@ -324,7 +324,7 @@ test("discussion schema accepts open join rule without section", () => {
     joinRule: { type: "open" },
   });
 
-  assert.equal(discussion.validateSync(), undefined);
+  await discussion.validate();
   assert.equal(discussion.replyCount, 0);
   assert.ok(discussion.lastActivityAt instanceof Date);
 });
