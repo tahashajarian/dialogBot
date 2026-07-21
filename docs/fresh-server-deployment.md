@@ -18,6 +18,8 @@ Use this checklist to deploy Muze on a new Linux server with a new, empty MongoD
 
 ☐ Record its token and username securely. Configure BotFather name, About, description, and commands to match `docs/product-roadmap.md`.
 
+☐ Complete and publish `docs/privacy-policy.md`, add its public URL and the support contact to the bot's public launch information, and assign the owners/placeholders in `docs/moderation-runbook.md`.
+
 ☐ Create a fresh MongoDB database and a least-privilege application user that can read/write that database and create indexes.
 
 ☐ If using MongoDB Atlas, allow the new server's outbound IP and require TLS. Prefer a replica set/Atlas deployment for native transaction support; Muze has a recoverable fallback for standalone MongoDB, but a replica set is the stronger production topology.
@@ -217,6 +219,8 @@ ExecStart=/usr/bin/npm run dashboard
 - dashboard heartbeat, AI health, and Star reconciliation.
 
 ☐ If private beta is intended, verify an unlisted username is blocked and an allowed username can use the bot before inviting testers.
+
+☐ Verify the published privacy/support contact works and the assigned moderator can follow the report, auto-ban, appeal, and incident procedures in `docs/moderation-runbook.md`.
 
 ## 9. Backups, monitoring, and updates
 

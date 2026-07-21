@@ -37,6 +37,10 @@ Goal: prove the current bot works on Telegram without changing the product.
 non-Telegram environment, do not share that database with Telegram because users
 and discussion members are currently keyed by numeric user ids without a
 platform namespace.
+- [ ] Complete and publish `docs/privacy-policy.md`, including operator contact,
+provider list, retention periods, and minimum-age position.
+- [ ] Assign the owners and approve the appeal/unban procedure in
+`docs/moderation-runbook.md`.
 
 Recommended Telegram launch environment:
 

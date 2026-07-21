@@ -100,6 +100,8 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Operations
 
+- The published privacy-policy URL and support contact are reachable from the bot's public launch information.
+- The moderation owner can identify a new report/auto-ban, document a case without exposing reporter identity, and follow the approved appeal path.
 - Translation validation passes after any copy change.
 - Unit tests pass for changed services/flows.
 - Integration tests pass when database mutations or Stars ledger behavior changed.

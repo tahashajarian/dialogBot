@@ -1,5 +1,11 @@
 # Muze
 
+## License
+
+Muze is proprietary software. No permission is granted to use, copy, modify,
+publish, distribute, host, or deploy this code without prior written permission.
+See [LICENSE](LICENSE).
+
 Muze is a bilingual Persian/English Telegram bot built with Node.js, Telegraf,
 MongoDB, and an OpenAI-compatible AI endpoint.
 
@@ -128,6 +134,8 @@ Read these before changing related behavior:
 - [Analytics dashboard](docs/analytics-dashboard.md)
 - [Fresh server and fresh MongoDB deployment](docs/fresh-server-deployment.md)
 - [Production smoke-test checklist](docs/production-smoke-test-checklist.md)
+- [Privacy policy launch template](docs/privacy-policy.md)
+- [Moderation and safety runbook](docs/moderation-runbook.md)
 - [Product roadmap](docs/product-roadmap.md)
 
 ## Validation

@@ -20,6 +20,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.
+- `docs/privacy-policy.md`: public-facing, product-accurate privacy template; operator placeholders must be completed before publication.
+- `docs/moderation-runbook.md`: internal report, ban, appeal, incident, and safety operations.
 - `docs/stars.md`: source of truth, rollout rules, and remaining tasks for the implemented Stars economy.
 
 ## Discussion Boundaries
