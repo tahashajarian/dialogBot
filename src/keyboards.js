@@ -882,23 +882,34 @@ function profilePrivacySafetyKeyboard(lang, {
   showsActiveDiscussion = true,
   showsInPeopleDiscovery = true,
 } = {}) {
-  return { reply_markup: { keyboard: [
+  return inlineKeyboard([
     [
       {
         text: showsInPeopleDiscovery
           ? messages[lang].profileHideFromPeopleDiscovery
           : messages[lang].profileShowInPeopleDiscovery,
+        callback_data: `${callBacks.profileSetPeopleDiscovery}${showsInPeopleDiscovery ? "0" : "1"}`,
       },
       {
         text: showsActiveDiscussion
           ? messages[lang].profileHideActiveDiscussion
           : messages[lang].profileShowActiveDiscussion,
+        callback_data: callBacks.profileToggleActiveDiscussionVisible,
       },
     ],
-    [{ text: messages[lang].profileInvitationRestrictionsButton }],
-    [{ text: messages[lang].accountDeleteButton }],
-    [{ text: messages[lang].profilePrivacyBackToSettings }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+    [{
+      text: messages[lang].profileInvitationRestrictionsButton,
+      callback_data: callBacks.profileInvitationRestrictions,
+    }],
+    [{
+      text: messages[lang].accountDeleteButton,
+      callback_data: callBacks.accountDelete,
+    }],
+    [{
+      text: messages[lang].profilePrivacyBackToSettings,
+      callback_data: callBacks.profilePrivacyBack,
+    }],
+  ]);
 }
 
 function profileInvitationRestrictionsKeyboard(lang, _entries = [], { page = 0, totalPages = 1 } = {}) {
@@ -914,7 +925,7 @@ function profileInvitationRestrictionsKeyboard(lang, _entries = [], { page = 0, 
   });
   if (navigation.length) rows.push(navigation);
   rows.push([{
-    text: messages[lang].discussionShareClose,
+    text: messages[lang].profileBackToSettings,
     callback_data: callBacks.profileInvitationRestrictionsClose,
   }]);
   return inlineKeyboard(rows);

@@ -39,15 +39,19 @@ async function rememberInvitationRestrictionsMessage(ctx, messageOrId) {
   }
 }
 
+async function forgetInvitationRestrictionsMessage(ctx) {
+  if (ctx.user) ctx.user.profileInvitationRestrictionsLastMessageId = null;
+  if (canPersistMessageState(ctx)) {
+    await updateProfileField(ctx.userId, "profileInvitationRestrictionsLastMessageId", null);
+  }
+}
+
 async function clearInvitationRestrictionsMessage(ctx, fallbackMessageId = null) {
   const rememberedMessageId = Number(ctx.user?.profileInvitationRestrictionsLastMessageId);
   const messageId = Number(fallbackMessageId || rememberedMessageId);
   const clearsRememberedMessage = !fallbackMessageId || messageId === rememberedMessageId;
   if (clearsRememberedMessage) {
-    if (ctx.user) ctx.user.profileInvitationRestrictionsLastMessageId = null;
-    if (canPersistMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "profileInvitationRestrictionsLastMessageId", null);
-    }
+    await forgetInvitationRestrictionsMessage(ctx);
   }
   if (!Number.isInteger(messageId) || messageId <= 0) return false;
   try {
@@ -58,25 +62,29 @@ async function clearInvitationRestrictionsMessage(ctx, fallbackMessageId = null)
   }
 }
 
-async function sendProfilePrivacySafety(ctx, lang, user = ctx.user, { footerText = "" } = {}) {
+async function sendProfilePrivacySafety(ctx, lang, user = ctx.user, {
+  footerText = "",
+  editCallbackMessageOrReply,
+} = {}) {
   const text = [messages[lang].profilePrivacySafetyTitle, messages[lang].profilePrivacySafetyText, footerText]
     .filter(Boolean)
     .join("\n\n");
-  const sent = await ctx.reply(text, profilePrivacySafetyKeyboard(lang, {
+  const keyboard = profilePrivacySafetyKeyboard(lang, {
     showsActiveDiscussion: user?.showActiveDiscussionOnProfile !== false,
     showsInPeopleDiscovery: user?.showProfileInPeopleDiscovery !== false,
-  }));
-  await setNavigationMode(ctx, MODES.PROFILE_PRIVACY);
+  });
+  const sent = editCallbackMessageOrReply
+    ? await editCallbackMessageOrReply(ctx, text, keyboard)
+    : await ctx.reply(text, keyboard);
+  await setNavigationMode(ctx, MODES.PROFILE);
   return sent;
 }
 
-async function sendProfilePrivacyStatus(ctx, lang, user, text) {
-  const sent = await ctx.reply(text, profilePrivacySafetyKeyboard(lang, {
-    showsActiveDiscussion: user?.showActiveDiscussionOnProfile !== false,
-    showsInPeopleDiscovery: user?.showProfileInPeopleDiscovery !== false,
-  }));
-  await setNavigationMode(ctx, MODES.PROFILE_PRIVACY);
-  return sent;
+async function sendProfilePrivacyStatus(ctx, lang, user, text, { editCallbackMessageOrReply } = {}) {
+  return sendProfilePrivacySafety(ctx, lang, user, {
+    footerText: text,
+    editCallbackMessageOrReply,
+  });
 }
 
 async function renderInvitationRestrictionsList(ctx, lang, page = 0, { editCallbackMessageOrReply } = {}) {
@@ -140,21 +148,21 @@ async function allowInvitationRestrictionCommand(ctx, lang, text) {
 
 async function handleProfilePrivacyCallback(ctx, lang, {
   editCallbackMessageOrReply,
-  retireCallbackMessageIfPossible,
-  sendOwnProfile,
+  editProfileSurfaceCard,
+  restoreOwnProfileCard,
 } = {}) {
   const data = ctx.callbackData || "";
 
   if (data === callBacks.profilePrivacy) {
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
-    return sendProfilePrivacySafety(ctx, lang, ctx.user || {});
+    return sendProfilePrivacySafety(ctx, lang, ctx.user || {}, {
+      editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply,
+    });
   }
 
   if (data === callBacks.profilePrivacyBack) {
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
-    return sendOwnProfile(ctx, lang, ctx.user || {});
+    return restoreOwnProfileCard(ctx, lang, ctx.user || {});
   }
 
   if (data.startsWith(callBacks.profileSetPeopleDiscovery)) {
@@ -164,7 +172,6 @@ async function handleProfilePrivacyCallback(ctx, lang, {
     const updatedUser = await updateProfileField(ctx.userId, "showProfileInPeopleDiscovery", nextValue);
     if (ctx.user) ctx.user.showProfileInPeopleDiscovery = nextValue;
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
     return sendProfilePrivacyStatus(
       ctx,
       lang,
@@ -172,27 +179,31 @@ async function handleProfilePrivacyCallback(ctx, lang, {
       nextValue
         ? messages[lang].profilePeopleDiscoveryVisibleOn
         : messages[lang].profilePeopleDiscoveryVisibleOff,
+      { editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply },
     );
   }
 
   if (data === callBacks.profileInvitationRestrictions) {
     await ctx.answerCb?.();
-    return renderInvitationRestrictionsList(ctx, lang, 0, { editCallbackMessageOrReply });
+    return renderInvitationRestrictionsList(ctx, lang, 0, {
+      editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply,
+    });
   }
 
   if (data.startsWith(callBacks.profileInvitationRestrictionsPage)) {
     await ctx.answerCb?.();
     const page = Number(data.replace(callBacks.profileInvitationRestrictionsPage, ""));
-    return renderInvitationRestrictionsList(ctx, lang, page, { editCallbackMessageOrReply });
+    return renderInvitationRestrictionsList(ctx, lang, page, {
+      editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply,
+    });
   }
 
   if (data === callBacks.profileInvitationRestrictionsClose) {
     await ctx.answerCb?.();
-    const rememberedMessageId = Number(ctx.user?.profileInvitationRestrictionsLastMessageId);
-    const closesCurrentList = !rememberedMessageId || rememberedMessageId === Number(ctx.callbackMessageId);
-    await clearInvitationRestrictionsMessage(ctx, ctx.callbackMessageId);
-    if (closesCurrentList) await setNavigationMode(ctx, MODES.PROFILE_PRIVACY);
-    return true;
+    await forgetInvitationRestrictionsMessage(ctx);
+    return sendProfilePrivacySafety(ctx, lang, ctx.user || {}, {
+      editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply,
+    });
   }
 
   return false;

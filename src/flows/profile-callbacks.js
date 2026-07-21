@@ -313,8 +313,8 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (isProfilePrivacyCallback(data)) {
     return handleProfilePrivacyCallback(ctx, lang, {
       editCallbackMessageOrReply,
-      retireCallbackMessageIfPossible,
-      sendOwnProfile,
+      editProfileSurfaceCard,
+      restoreOwnProfileCard,
     });
   }
 
@@ -340,9 +340,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const warningState = `account_delete_warning:${Date.now()}`;
     await updateUserState(ctx.userId, warningState);
     if (ctx.user) ctx.user.state = warningState;
-    const edited = ctx.callbackMessageId && ctx.editMessageText
-      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].accountDeleteWarning, accountDeleteWarningKeyboard(lang)) : false;
-    return edited || ctx.reply(messages[lang].accountDeleteWarning, accountDeleteWarningKeyboard(lang));
+    return editProfileSurfaceCard(ctx, messages[lang].accountDeleteWarning, accountDeleteWarningKeyboard(lang));
   }
 
   if (data === callBacks.accountDeleteContinue) {
@@ -355,9 +353,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     await updateUserState(ctx.userId, `account_delete_confirm:${nonce}:${expiresAt}`);
     if (ctx.user) ctx.user.state = `account_delete_confirm:${nonce}:${expiresAt}`;
     await ctx.answerCb?.();
-    const edited = ctx.callbackMessageId && ctx.editMessageText
-      ? await ctx.editMessageText(ctx.callbackMessageId, messages[lang].accountDeleteFinalWarning, accountDeleteConfirmKeyboard(lang, nonce)) : false;
-    return edited || ctx.reply(messages[lang].accountDeleteFinalWarning, accountDeleteConfirmKeyboard(lang, nonce));
+    return editProfileSurfaceCard(ctx, messages[lang].accountDeleteFinalWarning, accountDeleteConfirmKeyboard(lang, nonce));
   }
 
   if (data === callBacks.accountDeleteCancel) {
@@ -365,8 +361,9 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
     const pending = String(ctx.user?.state || "").startsWith("account_delete_");
     if (pending) await updateUserState(ctx.userId, "idle");
     if (ctx.user) ctx.user.state = "idle";
-    await retireCallbackMessageIfPossible?.(ctx);
-    return sendProfilePrivacySafety(ctx, lang, ctx.user || {});
+    return sendProfilePrivacySafety(ctx, lang, ctx.user || {}, {
+      editCallbackMessageOrReply: editProfileSurfaceCard,
+    });
   }
 
   if (data.startsWith(callBacks.accountDeleteConfirm)) {
@@ -573,7 +570,6 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileToggleActiveDiscussionVisible) {
     const nextValue = ctx.user?.showActiveDiscussionOnProfile === false;
     await ctx.answerCb?.();
-    await retireCallbackMessageIfPossible?.(ctx);
     const persistedUser = await updateProfileField(ctx.userId, "showActiveDiscussionOnProfile", nextValue);
     if (ctx.user) ctx.user.showActiveDiscussionOnProfile = nextValue;
     const updatedUser = toPlainUser(persistedUser || ctx.user);
@@ -585,6 +581,7 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
       nextValue
         ? messages[lang].profileActiveDiscussionVisibleOn
         : messages[lang].profileActiveDiscussionVisibleOff,
+      { editCallbackMessageOrReply: editProfileSurfaceCard },
     );
   }
 

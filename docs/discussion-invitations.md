@@ -789,7 +789,7 @@ Behavior:
 Management and recovery:
 
 - Privacy & Safety shows a paginated `Invitation restrictions` list, newest first, with hydrated names rather than raw Telegram ids.
-- The Privacy & Safety button has no count; the full count appears in the list title. Rows follow the People-list style with command links for profile viewing and identity-bound Allow again. The inline keyboard contains only pagination when needed and delete-only Close.
+- The Privacy & Safety button has no count; the full count appears in the list title. Rows follow the People-list style with command links for profile viewing and identity-bound Allow again. The list edits the existing Privacy & Safety card or photo caption in place; its inline keyboard contains pagination when needed and Back, which restores Privacy & Safety on that same card.
 - Missing/deleted profiles remain removable through a neutral unavailable row.
 - `Allow invitations again` deletes only the exact directional pair. It allows future invitations and future eligible joins, but does not restore removed invitations, recreate notifications, change saved profiles, or notify the other person.
 - Do not add a transient Undo button; recovery must remain available across restarts and devices through Privacy & Safety.

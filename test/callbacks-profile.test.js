@@ -17,10 +17,216 @@ const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 const { starEconomy } = require("../src/services/star-settings");
+const {
+  handleProfilePrivacyCallback,
+  sendProfilePrivacySafety,
+  sendProfilePrivacyStatus,
+} = require("../src/flows/profile-privacy");
+const { handleProfileSettingsOrEditCallback } = require("../src/flows/profile-callbacks");
 
 const keyboardButtons = (extra) => (
   extra?.reply_markup?.keyboard || extra?.reply_markup?.inline_keyboard || []
 ).flat();
+
+test("Privacy & Safety is one inline card that preserves Profile reply navigation", async () => {
+  const replies = [];
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      navigationMode: "profile",
+      showProfileInPeopleDiscovery: true,
+      showActiveDiscussionOnProfile: true,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  };
+
+  await sendProfilePrivacySafety(ctx, "en");
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
+  assert.deepEqual(
+    replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
+    [
+      `${callBacks.profileSetPeopleDiscovery}0`,
+      callBacks.profileToggleActiveDiscussionVisible,
+      callBacks.profileInvitationRestrictions,
+      callBacks.accountDelete,
+      callBacks.profilePrivacyBack,
+    ],
+  );
+  assert.equal(ctx.user.navigationMode, "profile");
+});
+
+test("opening Privacy & Safety edits the existing Profile card in place", async () => {
+  const edits = [];
+  const ctx = {
+    callbackData: callBacks.profilePrivacy,
+    callbackMessageId: 42,
+    userId: 1,
+    user: { userId: 1, navigationMode: "profile" },
+    answerCb: async () => true,
+    reply: async () => {
+      throw new Error("Privacy should edit the existing Profile card");
+    },
+  };
+
+  const handled = await handleProfilePrivacyCallback(ctx, "en", {
+    editProfileSurfaceCard: async (callbackCtx, text, extra) => {
+      edits.push({ messageId: callbackCtx.callbackMessageId, text, extra });
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 42);
+  assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
+  assert.equal(ctx.user.navigationMode, "profile");
+});
+
+test("Privacy Back restores the same Profile card without sending guidance", async () => {
+  const restored = [];
+  const ctx = {
+    callbackData: callBacks.profilePrivacyBack,
+    callbackMessageId: 42,
+    userId: 1,
+    user: { userId: 1, navigationMode: "profile", photoFileId: "photo-1" },
+    answerCb: async () => true,
+    reply: async () => {
+      throw new Error("Privacy Back should not send another message");
+    },
+  };
+
+  const handled = await handleProfilePrivacyCallback(ctx, "en", {
+    restoreOwnProfileCard: async (callbackCtx, lang, user) => {
+      restored.push({ messageId: callbackCtx.callbackMessageId, lang, user });
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0].messageId, 42);
+});
+
+test("privacy toggle feedback keeps the complete card and refreshes it in place", async () => {
+  const edits = [];
+  const ctx = {
+    callbackMessageId: 43,
+    userId: 1,
+    user: { userId: 1, navigationMode: "profile" },
+    reply: async () => {
+      throw new Error("Privacy status should edit the existing card");
+    },
+  };
+
+  const handled = await sendProfilePrivacyStatus(
+    ctx,
+    "en",
+    ctx.user,
+    messages.en.profilePeopleDiscoveryVisibleOff,
+    {
+      editCallbackMessageOrReply: async (callbackCtx, text, extra) => {
+        edits.push({ messageId: callbackCtx.callbackMessageId, text, extra });
+        return true;
+      },
+    },
+  );
+
+  assert.equal(handled, true);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 43);
+  assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
+  assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyText), true);
+  assert.equal(edits[0].text.includes(messages.en.profilePeopleDiscoveryVisibleOff), true);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard.flat().length, 5);
+});
+
+test("closing invitation restrictions restores Privacy on the same card", async () => {
+  const deleted = [];
+  const edits = [];
+  const ctx = {
+    callbackData: callBacks.profileInvitationRestrictionsClose,
+    callbackMessageId: 88,
+    userId: 1,
+    user: {
+      userId: 1,
+      navigationMode: "profile_invitation_restrictions:0:1",
+      profileInvitationRestrictionsLastMessageId: 88,
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+  };
+
+  const handled = await handleProfilePrivacyCallback(ctx, "en", {
+    editProfileSurfaceCard: async (callbackCtx, text, extra) => {
+      edits.push({ messageId: callbackCtx.callbackMessageId, text, extra });
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.deepEqual(deleted, []);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 88);
+  assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
+  assert.equal(ctx.user.profileInvitationRestrictionsLastMessageId, null);
+  assert.equal(ctx.user.navigationMode, "profile");
+});
+
+test("cancelling account deletion restores Privacy controls on the same card", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const edits = [];
+  let retired = false;
+  User.findOneAndUpdate = async () => null;
+  const ctx = {
+    callbackData: callBacks.accountDeleteCancel,
+    callbackMessageId: 77,
+    userId: 1,
+    user: {
+      userId: 1,
+      state: "account_delete_warning:123",
+      navigationMode: "profile",
+      showProfileInPeopleDiscovery: true,
+      showActiveDiscussionOnProfile: true,
+    },
+    answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+  };
+
+  try {
+    const handled = await handleProfileSettingsOrEditCallback(ctx, "en", {
+      retireCallbackMessageIfPossible: async () => {
+        retired = true;
+      },
+    });
+
+    assert.equal(handled, true);
+    assert.equal(retired, false);
+    assert.equal(edits.length, 1);
+    assert.equal(edits[0].messageId, 77);
+    assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
+    assert.equal(
+      edits[0].extra.reply_markup.inline_keyboard.flat()
+        .some((button) => button.callback_data === callBacks.accountDelete),
+      true,
+    );
+    assert.equal(ctx.user.state, "idle");
+    assert.equal(ctx.user.navigationMode, "profile");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
 
 test("saved-profile limit notice has a dismiss-only Got it action", async () => {
   const keyboard = savedProfilesLimitKeyboard("en");
@@ -343,6 +549,8 @@ test("opening a custom-photo profile sends compact controls, then the inline pho
   assert.equal(photos.length, 1);
   assert.equal(photos[0].photo, "profile-photo");
   assert.match(photos[0].extra.caption, /Your profile:/);
+  assert.equal(photos[0].extra.caption.includes(messages.en.profileOwnerTip), true);
+  assert.equal(photos[0].extra.reply_markup.inline_keyboard.length > 0, true);
 });
 
 test("help rules callback opens the rules card", async () => {

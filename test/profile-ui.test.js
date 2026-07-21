@@ -58,6 +58,7 @@ test("buildProfileText shows discussion visibility only for own profile", () => 
   const publicText = buildProfileText(user, "en", messages, { isOwnProfile: false });
 
   assert.match(ownText, /⭐ Stars: 18/);
+  assert.match(ownText, new RegExp(messages.en.profileOwnerTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(ownText, /Show discussions/);
   assert.match(ownText, /What is this\? \/ad_help/);
   assert.match(acknowledgedText, /Show discussions/);
@@ -65,6 +66,7 @@ test("buildProfileText shows discussion visibility only for own profile", () => 
   assert.doesNotMatch(publicText, /Show discussions/);
   assert.doesNotMatch(publicText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Stars:/);
+  assert.equal(publicText.includes(messages.en.profileOwnerTip), false);
 });
 
 test("buildProfileText shows one private growth hint only on own profile", () => {
@@ -541,20 +543,30 @@ test("profile quick actions stay inline and privacy controls stay isolated", () 
     showsActiveDiscussion: true,
     showsInPeopleDiscovery: true,
     restrictionCount: 2,
-  }).reply_markup.keyboard.flat().map((button) => button.text);
-  assert.ok(!privacy.includes(messages.en.profileEditLocation));
-  assert.ok(privacy.includes(messages.en.profileHideActiveDiscussion));
-  assert.ok(privacy.includes(messages.en.profileHideFromPeopleDiscovery));
-  assert.ok(privacy.includes(messages.en.profileInvitationRestrictionsButton));
-  assert.ok(privacy.includes(messages.en.accountDeleteButton));
-  assert.ok(privacy.includes(messages.en.profilePrivacyBackToSettings));
+  }).reply_markup.inline_keyboard.flat();
+  const privacyLabels = privacy.map((button) => button.text);
+  assert.ok(!privacyLabels.includes(messages.en.profileEditLocation));
+  assert.ok(privacyLabels.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(privacyLabels.includes(messages.en.profileHideFromPeopleDiscovery));
+  assert.ok(privacyLabels.includes(messages.en.profileInvitationRestrictionsButton));
+  assert.ok(privacyLabels.includes(messages.en.accountDeleteButton));
+  assert.ok(privacyLabels.includes(messages.en.profilePrivacyBackToSettings));
+  assert.equal(
+    privacy.find((button) => button.text === messages.en.accountDeleteButton).callback_data,
+    callBacks.accountDelete,
+  );
+  assert.equal(profilePrivacySafetyKeyboard("en").reply_markup.keyboard, undefined);
   const visibilityRow = profilePrivacySafetyKeyboard("en", {
     showsActiveDiscussion: true,
     showsInPeopleDiscovery: true,
-  }).reply_markup.keyboard[0];
+  }).reply_markup.inline_keyboard[0];
   assert.deepEqual(visibilityRow.map((button) => button.text), [
     messages.en.profileHideFromPeopleDiscovery,
     messages.en.profileHideActiveDiscussion,
+  ]);
+  assert.deepEqual(visibilityRow.map((button) => button.callback_data), [
+    `${callBacks.profileSetPeopleDiscovery}0`,
+    callBacks.profileToggleActiveDiscussionVisible,
   ]);
 });
 
@@ -587,13 +599,14 @@ test("Location stays hidden on profiles unless the dashboard switch is enabled",
   }
 });
 
-test("invitation restriction list keeps only pagination and Close inline", () => {
+test("invitation restriction list keeps only pagination and Back inline", () => {
   const keyboard = profileInvitationRestrictionsKeyboard("en", [
     { userId: 44, name: "Taylor" },
   ], { page: 1, totalPages: 3 }).reply_markup.inline_keyboard;
   assert.equal(keyboard[0][0].callback_data, `${callBacks.profileInvitationRestrictionsPage}0`);
   assert.equal(keyboard[0][1].callback_data, `${callBacks.profileInvitationRestrictionsPage}2`);
   assert.equal(keyboard.at(-1)[0].callback_data, callBacks.profileInvitationRestrictionsClose);
+  assert.equal(keyboard.at(-1)[0].text, messages.en.profileBackToSettings);
 });
 
 test("invitation restriction rows put count in the title and use command actions", () => {
@@ -605,6 +618,13 @@ test("invitation restriction rows put count in the title and use command actions
   assert.match(view.text, /6\. 👤 Taylor/);
   assert.match(view.text, /\/u_AB12/);
   assert.match(view.text, /\/allow_inv_AB12/);
+});
+
+test("empty invitation restrictions point to the option on inviter profiles", () => {
+  const enView = buildInvitationRestrictionsView(messages, "en", [], { totalCount: 0, start: 0 });
+  const faView = buildInvitationRestrictionsView(messages, "fa", [], { totalCount: 0, start: 0 });
+  assert.match(enView.text, /option appears on an inviter’s profile/);
+  assert.match(faView.text, /گزینهٔ «محدودکردن دعوت‌های این شخص» روی پروفایل دعوت‌کننده/);
 });
 
 test("canceling location sharing returns to Profile", async () => {
