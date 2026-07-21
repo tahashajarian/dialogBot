@@ -62,6 +62,7 @@ test("section-tip state defaults independently and rejects unknown keys", async 
   const user = new User({ userId: 321 });
   assert.deepEqual(user.sectionTipsShownAt.toObject(), {
     discussions: null,
+    activeDiscussions: null,
     discussionLeaveRecent: null,
     favorites: null,
     people: null,

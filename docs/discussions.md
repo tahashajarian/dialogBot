@@ -60,7 +60,8 @@ The Discussions hub uses a compact reply keyboard: Active Discussions with Invit
 - After joining a starter room, the room follow-up may include one short "say hi" style prompt tailored to that room. Avoid adding multiple quick replies or noisy onboarding controls.
 - Muze-created rooms have no fake members or messages and show only a `👩‍🦳` marker beside their title.
 - Muze-created rooms use the same join, full-room, and acknowledgment behavior as user-created rooms, while recognized language-specific starter rooms use the 100-member capacity exception above.
-- The first successful Active Discussions list response may include one compact explanation of live rooms, relevance, and join requirements. If the user saw the first-time Invitations explanation first, that consumes the same durable Discussions guidance state. List filters, pagination, Back actions, room views, and subsequent inbox opens do not repeat it.
+- The first successful Active Discussions list response includes one compact explanation of relevance ordering and join requirements. It uses its own `activeDiscussions` durable tip state, separate from invitation guidance, so existing users receive the new explanation once. Every populated Active Discussions page, including filters and pagination, also keeps a shorter permanent line explaining that the `/d_CODE` Join command enters the room directly and that an unmet condition produces exact guidance. This list command is not an invitation preview; shared links and invitations retain their separate explicit preview flow. The richer first-visit explanation does not repeat.
+- Do not label the general Free Discussion as “Start here”; its open join-rule row already communicates availability and ranking may place it anywhere. Bot starter hints appear only when they add personalized context: a profile Interest unlocked that room, or a locked room names the Interest the user is missing.
 - **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list or a `/d_CODE` command, show a standalone inline `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites`. Keep the current reply keyboard and its navigation mode unchanged; acknowledgment only deletes the notice and does not navigate or rebuild the list.
 
@@ -470,7 +471,7 @@ Rules:
 - A user who opens an invite for their currently active discussion should see the already-member message instead of a generic preview.
 - Existing members who use the invite while active elsewhere should be moved/re-focused to that discussion, matching normal `/d_CODE` behavior.
 - Removed users can open a public preview but must receive the same removed-user error if they try to join. Public previews never carry owner re-entry approval.
-- Closed, missing, or expired discussions should show a clean unavailable state.
+- Closed, missing, or expired discussions should show a clean unavailable state with one inline delete-only `Got it` action. Already-onboarded users keep their current reply keyboard, navigation mode, and in-progress flow state. New or unfinished users still complete normal onboarding first, then see the unavailable state while retaining the onboarding-completion keyboard.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to Home so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
 - Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it for an already-onboarded user does not create an inbox row; the post-onboarding `shared_link` preservation rule is the narrow exception. Close quietly deletes the temporary share card because the sender is already in the active room.
 
@@ -490,7 +491,7 @@ Opening an invite:
 - `/join_CODE` or a deep-link equivalent should run unfinished onboarding first and automatically show the original preview afterward; users with completed onboarding should see the invite preview immediately.
 - A displayed preview should not join automatically, even for open rooms.
 - The preview message should be safe for non-members.
-- If the discussion is closed/missing/unavailable, show the unavailable state and return to Home.
+- If the discussion is closed/missing/unavailable, show the unavailable state without changing the current reply keyboard or navigation destination. Its inline `Got it` action only deletes the notice.
 - If the discussion exists but is full, show the full-room state and return to the discussions menu.
 - If the viewer was removed by the owner, show the removed-user message and return to Home.
 - If the viewer does not satisfy a join rule, show the specific locked hint and return to Home.
@@ -619,7 +620,7 @@ Implementation test checklist:
   1. Show error message with "Got it" / "فهمیدم" button
   2. After user presses button, redirect to Home (for requirement/removed errors) or the discussions menu (for other errors)
 - Restricted invite join failure gives a specific hint about what's missing and where to update it.
-- Closed/missing discussion invite shows unavailable message.
+- Closed/missing discussion invite shows the unavailable message with one inline delete-only `Got it`; it does not replace the reply keyboard or redirect.
 - Full discussion invite shows capacity reached message.
 - Removed users cannot rejoin through public invites, ordinary member invitations, or invitations sent before removal.
 - A fresh stored owner invitation permits one re-entry and is consumed after acceptance.
@@ -738,6 +739,8 @@ Example:
 ```text
 👩‍🦳👥 اعضای این گفت‌وگو (۳)
 
+💡 می‌تونی با دستور «دیدن پروفایل» زیر اسم اعضای دیگه، پروفایلشون رو ببینی و اگر خواستی ذخیره‌شون کنی.
+
 1. 👤 علی — 🎙️ میزبان
 دیدن پروفایل 👈 /u_8K2P
 گزارش 👈 /report_8K2P
@@ -760,6 +763,7 @@ Rules:
 - Do not expose raw database ids, Telegram user ids, phone numbers, or location.
 - Use a stable short public profile code such as `publicProfileCode`.
 - Public profile codes reveal the matching profile.
+- When at least one other member has a profile command, show one permanent `💡` line beneath the member-list title explaining that the viewer can open and optionally save that profile. Omit the tip when no other member profile is viewable.
 - The member list shows all current members. User-created rooms normally cap at 20 unless an enabled paid capacity applies; recognized language-specific Muze starter rooms can contain up to 100.
 - The current user can be shown as `تو` without a profile link.
 - Mark the discussion host clearly with `🎙️ میزبان`. `⭐` is reserved for the Stars economy.

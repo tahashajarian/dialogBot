@@ -121,7 +121,13 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 
 function buildDiscussionMembersText(messages, lang, rows = []) {
   const count = formatListIndex(lang, rows.length);
-  return `👩‍🦳 ${messages[lang].discussionMembersTitle} (${count})\n\n${rows.join("\n")}`;
+  const title = `👩‍🦳 ${messages[lang].discussionMembersTitle} (${count})`;
+  const hasViewableMember = rows.some((row) => /\/u_[a-z0-9]+/i.test(String(row || "")));
+  const header = [
+    title,
+    hasViewableMember ? messages[lang].discussionMembersTip : "",
+  ].filter(Boolean).join("\n");
+  return `${header}\n\n${rows.join("\n")}`;
 }
 
 module.exports = {

@@ -242,11 +242,11 @@ async function editCallbackMessageOrReplyFallback(ctx, text, keyboard) {
 }
 
 function addDiscussionFirstVisitTip(lang, text, showTip) {
-  return showTip ? `${messages[lang].discussionFirstVisitTip}\n\n${text}` : text;
+  return showTip ? `${messages[lang].discussionActiveListFirstVisitTip}\n\n${text}` : text;
 }
 
 async function markDiscussionFirstVisitTip(ctx, shownAt = new Date()) {
-  return markSectionTipShownForContext(ctx, "discussions", shownAt).catch(() => null);
+  return markSectionTipShownForContext(ctx, "activeDiscussions", shownAt).catch(() => null);
 }
 
 async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = false, languageFilter = null, {
@@ -254,7 +254,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
   freshDestination = false,
 } = {}) {
   if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "activeDiscussions" });
-  const showFirstVisitTip = freshDestination && !hasSectionTipBeenShown(ctx.user, "discussions");
+  const showFirstVisitTip = freshDestination && !hasSectionTipBeenShown(ctx.user, "activeDiscussions");
   const effectiveLanguage = normalizeDiscussionLanguageFilter(languageFilter) || getEffectiveDiscussionLanguageFilter(ctx.user);
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
@@ -300,6 +300,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
       buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
         startIndex: paged.startIndex,
         totalCount: filtered.length,
+        headerTip: messages[lang].discussionActiveListTip,
       }),
       showFirstVisitTip,
     ),
@@ -411,6 +412,7 @@ function isDiscussionListCallback(data = "") {
     data.startsWith(callBacks.discussionListRecent) ||
     data.startsWith(callBacks.discussionListRecentBack) ||
     data === callBacks.discussionJoinLockedClose ||
+    data === callBacks.discussionUnavailableClose ||
     data.startsWith(callBacks.discussionJoinErrorAck);
 }
 
@@ -542,6 +544,12 @@ async function handleDiscussionListCallback(ctx, lang, {
     await deleteCallbackMessageIfPossible?.(ctx);
     await updateProfileField(ctx.userId, "discussionMenuNoticeMessageId", null);
     if (ctx.user) ctx.user.discussionMenuNoticeMessageId = null;
+    return true;
+  }
+
+  if (data === callBacks.discussionUnavailableClose) {
+    await ctx.answerCb?.();
+    await deleteCallbackMessageIfPossible?.(ctx);
     return true;
   }
 

@@ -3,13 +3,13 @@ const path = require("node:path");
 const { setLanguage, detectLanguage, normalizeLang } = require("./lang");
 const {
   mainMenuKeyboard,
-  helpKeyboard,
   helpRulesKeyboard,
   languageKeyboard,
   discussionsMenuKeyboard,
   discussionCloseConfirmKeyboard,
   discussionMembersCloseKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
+  discussionUnavailableAckKeyboard,
   onboardingWelcomeKeyboard,
 } = require("./keyboards");
 const { buildGuideReferralCard } = require("./flows/guide-referrals");
@@ -583,7 +583,13 @@ async function handleCallback(ctx) {
   if (data === callBacks.onboardingDiscussionContinue) {
     await ctx.answerCb?.();
     const code = String(ctx.user?.pendingDiscussionShareCode || "");
-    if (!code) return editCallbackMessageOrReply(ctx, messages[lang].discussionInviteUnavailable, helpKeyboard(lang));
+    if (!code) {
+      return editCallbackMessageOrReply(
+        ctx,
+        messages[lang].discussionInviteUnavailable,
+        discussionUnavailableAckKeyboard(lang),
+      );
+    }
     return showDiscussionInvitePreviewCommand(ctx, lang, code);
   }
 
@@ -703,7 +709,7 @@ async function handleCallback(ctx) {
       return editCallbackMessageOrReply(
         ctx,
         messages[lang].discussionInviteUnavailable,
-        { reply_markup: { inline_keyboard: [] } },
+        discussionUnavailableAckKeyboard(lang),
       );
     }
     void trackEvent({

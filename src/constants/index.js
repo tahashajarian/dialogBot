@@ -205,6 +205,7 @@ module.exports = {
     discussionBoostOptOut: "discussion:boost:opt-out",
     discussionJoinErrorAck: "discussion:join-error:ack:",
     discussionJoinLockedClose: "discussion:join-locked:close",
+    discussionUnavailableClose: "discussion:unavailable:close",
     discussionRemoveMemberConfirm: "discussion:remove:member:confirm:",
     discussionRemoveMemberCancel: "discussion:remove:member:cancel",
     discussionBack: "discussion:back",

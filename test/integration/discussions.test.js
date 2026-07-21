@@ -1022,14 +1022,20 @@ test("section-tip timestamps persist independently and only accept the first mar
   assert.ok(first);
   assert.equal(repeated, null);
   assert.equal(persisted.sectionTipsShownAt.discussions.toISOString(), discussionsAt.toISOString());
+  assert.equal(persisted.sectionTipsShownAt.activeDiscussions, null);
   assert.equal(persisted.sectionTipsShownAt.favorites, null);
   assert.equal(persisted.sectionTipsShownAt.people, null);
   assert.equal(hasSectionTipBeenShown(persisted, "discussions"), true);
   assert.equal(hasSectionTipBeenShown(persisted, "favorites"), false);
 });
 
-test("Active Discussions includes its first tip once and persists it after delivery", async () => {
-  const user = await createUser(491, { lang: "en", discussionLanguageFilter: "en" });
+test("Active Discussions shows its new browsing tip once to an older guided user", async () => {
+  const priorDiscussionTip = new Date("2026-07-17T12:00:00.000Z");
+  const user = await createUser(491, {
+    lang: "en",
+    discussionLanguageFilter: "en",
+    sectionTipsShownAt: { discussions: priorDiscussionTip },
+  });
   await createOpenDiscussion(492, {
     title: "A live room",
     language: "en",
@@ -1058,9 +1064,14 @@ test("Active Discussions includes its first tip once and persists it after deliv
     freshDestination: true,
   });
 
-  assert.match(rendered[0].text, new RegExp(`^${messages.en.discussionFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-  assert.doesNotMatch(rendered[1].text, /Rooms are live conversations/);
-  assert.ok(persisted.sectionTipsShownAt.discussions instanceof Date);
+  assert.match(rendered[0].text, new RegExp(`^${messages.en.discussionActiveListFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.doesNotMatch(rendered[1].text, /Active rooms are ranked/);
+  assert.match(rendered[0].text, /You can use the Join command below any room to enter it/);
+  assert.match(rendered[1].text, /You can use the Join command below any room to enter it/);
+  assert.doesNotMatch(rendered[0].text, /preview/i);
+  assert.doesNotMatch(rendered[1].text, /preview/i);
+  assert.equal(persisted.sectionTipsShownAt.discussions.toISOString(), priorDiscussionTip.toISOString());
+  assert.ok(persisted.sectionTipsShownAt.activeDiscussions instanceof Date);
   assert.equal(persisted.sectionTipsShownAt.favorites, null);
   assert.equal(persisted.sectionTipsShownAt.people, null);
 });

@@ -64,6 +64,7 @@ const AiSuggestionUsageSchema = new mongoose.Schema({
 
 const SectionTipsShownAtSchema = new mongoose.Schema({
   discussions: { type: Date, default: null },
+  activeDiscussions: { type: Date, default: null },
   discussionLeaveRecent: { type: Date, default: null },
   favorites: { type: Date, default: null },
   people: { type: Date, default: null },

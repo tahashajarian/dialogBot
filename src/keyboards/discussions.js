@@ -226,7 +226,7 @@ function normalizeDiscussionJoinErrorDestination(listType = "active") {
 
 function discussionJoinErrorAckKeyboard(lang, listType = "active") {
   const normalizedListType = normalizeDiscussionJoinErrorDestination(listType);
-  return replyKeyboard([
+  return inlineKeyboard([
     [{
       text: messages[lang].acknowledgeButton,
       callback_data: `${callBacks.discussionJoinErrorAck}${normalizedListType}`,
@@ -239,6 +239,15 @@ function discussionJoinLockedKeyboard(lang) {
     {
       text: messages[lang].acknowledgeButton,
       callback_data: callBacks.discussionJoinLockedClose,
+    },
+  ]]);
+}
+
+function discussionUnavailableAckKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].acknowledgeButton,
+      callback_data: callBacks.discussionUnavailableClose,
     },
   ]]);
 }
@@ -609,6 +618,7 @@ module.exports = {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionUnavailableAckKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
   normalizeDiscussionJoinErrorDestination,
   discussionBoostAckKeyboard,

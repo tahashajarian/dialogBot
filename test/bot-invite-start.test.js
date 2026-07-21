@@ -191,6 +191,90 @@ test("an older account with unfinished onboarding still starts onboarding from a
   assert.equal(ctx.user.state, "onboarding_invite_language:d_AB12");
 });
 
+test("an unavailable shared link does not reset an onboarded user's flow state", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const updates = [];
+  const replies = [];
+  User.findOneAndUpdate = async (...args) => {
+    updates.push(args);
+    return {};
+  };
+  Discussion.findOne = async () => null;
+  const ctx = {
+    text: "/start join_GONE",
+    userId: 2,
+    wasUserCreated: false,
+    user: {
+      userId: 2,
+      lang: "fa",
+      state: "editing_bio",
+      navigationMode: "profile",
+      onboardingVersion: 1,
+      profileName: "Sara",
+      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.discussionInviteUnavailable);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, undefined);
+  assert.equal(
+    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.discussionUnavailableClose,
+  );
+  assert.equal(ctx.user.state, "editing_bio");
+  assert.equal(ctx.user.navigationMode, "profile");
+  assert.equal(updates.some(([, update]) => update?.state === "idle"), false);
+});
+
+test("a new user with an unavailable shared link still starts onboarding", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+  User.findOneAndUpdate = async () => ({});
+  Discussion.findOne = async () => null;
+  const ctx = {
+    text: "/start join_GONE",
+    userId: 3,
+    wasUserCreated: true,
+    user: {
+      userId: 3,
+      lang: "fa",
+      state: "idle",
+      onboardingVersion: 0,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.chooseLanguage);
+  assert.equal(ctx.user.state, "onboarding_invite_language:d_GONE");
+  assert.equal(ctx.user.navigationMode, "onboarding_language");
+});
+
 test("general referral payload remains a start entry without a discussion code", () => {
   const text = "/start ref_A1B2C3D4E5F6";
   assert.equal(Boolean(getStartReferralCode(text)), true);

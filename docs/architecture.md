@@ -68,7 +68,7 @@ Keep the router files thin:
 ## Data Model Rules
 
 - Update `src/services/users.js` when adding or changing user fields or state helpers.
-- `User.sectionTipsShownAt` stores independent durable timestamps for Discussions, Favorites, and People guidance. `src/services/users.js` owns the whitelisted atomic first-write helpers; flows call the context-aware helper only after their containing Telegram response succeeds.
+- `User.sectionTipsShownAt` stores independent durable timestamps for invitation Discussions guidance, Active Discussions browsing guidance, Favorites, and People. `src/services/users.js` owns the whitelisted atomic first-write helpers; flows call the context-aware helper only after their containing Telegram response succeeds.
 - Keep AI list access centralized in `src/services/users.js` helpers:
   - `getAiListItemsFromUser`
   - `addAiListItem`

@@ -170,3 +170,19 @@ test("discussion member lists are visibly bot-authored", () => {
   assert.match(buildDiscussionMembersText(messages, "fa", []), /^👩‍🦳/);
   assert.match(buildDiscussionMembersText(messages, "fa", ["one", "two", "three"]), /اعضا \(۳\)/);
 });
+
+test("discussion member lists explain profile commands only when another profile is viewable", () => {
+  const english = buildDiscussionMembersText(messages, "en", [
+    "1.\n👤 You",
+    "2.\n👤 Sam\n👁 View profile 👈 /u_AB12",
+  ]);
+  const persian = buildDiscussionMembersText(messages, "fa", [
+    "۱.\n👤 تو",
+    "۲.\n👤 سارا\n👁 دیدن پروفایل 👈 /u_CD34",
+  ]);
+  const alone = buildDiscussionMembersText(messages, "en", ["1.\n👤 You"]);
+
+  assert.match(english, /💡 You can use View profile/);
+  assert.match(persian, /💡 می‌تونی با دستور «دیدن پروفایل»/);
+  assert.doesNotMatch(alone, /discussionMembersTip|View profile/);
+});

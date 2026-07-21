@@ -30,6 +30,8 @@ const {
   shouldOfferOnboarding,
   shouldOfferTasteSetupNudge,
 } = require("../src/flows/onboarding");
+const { showDiscussionInvitePreviewCommand } = require("../src/flows/discussions-text");
+const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
 
 test("onboarding is offered only to recent empty accounts", () => {
@@ -340,6 +342,69 @@ test("shared-link onboarding automatically shows the discussion preview after th
   assert.equal(user.onboardingVersion, 1);
   assert.equal(user.state, "idle");
   assert.equal(user.navigationMode, "onboarding_complete:0:0");
+});
+
+test("unavailable shared-link onboarding completes before showing a delete-only notice", async () => {
+  const originalUserFindOne = User.findOne;
+  const originalUserFindOneAndUpdate = User.findOneAndUpdate;
+  const originalDiscussionFindOne = Discussion.findOne;
+  const replies = [];
+  const user = {
+    userId: 18,
+    lang: "fa",
+    state: "onboarding_interests",
+    navigationMode: "onboarding_interests:0",
+    pendingDiscussionShareCode: "d_GONE",
+    aiLists: {
+      random: {
+        topTen: [
+          { title: "فیلم", comment: "", watched: false },
+          { title: "بازی", comment: "", watched: false },
+        ],
+      },
+    },
+  };
+  User.findOne = async () => user;
+  User.findOneAndUpdate = async () => user;
+  Discussion.findOne = async () => null;
+  const ctx = {
+    userId: 18,
+    user,
+    text: "قهوه",
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      replies.push({ photo, text: extra.caption, extra });
+      return { message_id: replies.length, photo, caption: extra.caption };
+    },
+  };
+
+  try {
+    await handleOnboardingText(ctx, "fa", {
+      showSharedDiscussionPreview: (code) => showDiscussionInvitePreviewCommand(ctx, "fa", code),
+      createStarterInvitation: async () => ({ count: 0 }),
+      preserveSharedInvitation: async () => ({ count: 0 }),
+    });
+  } finally {
+    User.findOne = originalUserFindOne;
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+    Discussion.findOne = originalDiscussionFindOne;
+  }
+
+  assert.equal(replies.length, 2);
+  assert.ok(replies[0].extra.reply_markup.keyboard);
+  assert.equal(replies[1].text, messages.fa.discussionInviteUnavailable);
+  assert.equal(replies[1].extra.reply_markup.keyboard, undefined);
+  assert.equal(replies[1].extra.reply_markup.remove_keyboard, undefined);
+  assert.equal(
+    replies[1].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.discussionUnavailableClose,
+  );
+  assert.equal(user.onboardingVersion, 1);
+  assert.equal(user.state, "idle");
+  assert.match(user.navigationMode, /^onboarding_complete:/);
 });
 
 test("shared-profile onboarding keeps the normal completion message then opens the profile", async () => {

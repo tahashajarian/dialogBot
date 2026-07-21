@@ -26,6 +26,7 @@ const {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionUnavailableAckKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
   discussionRoomKeyboard,
   discussionMembersCloseKeyboard,
@@ -358,7 +359,7 @@ test("metalhead starter discussion uses localized copy and metalhead badge rule"
   assert.match(persianListText, /🤘/);
 });
 
-test("starter discussion list makes the first social step obvious", () => {
+test("starter discussion hints add personalized context without a static Start here line", () => {
   const discussions = [
     {
       title: "Free Discussion",
@@ -403,8 +404,8 @@ test("starter discussion list makes the first social step obvious", () => {
   ];
   const text = buildDiscussionListText(messages, "en", "Active discussions", discussions);
 
-  assert.match(text, /✨ Start here: open to everyone\./);
-  assert.doesNotMatch(text, /Unlocked by your Interests/);
+  assert.doesNotMatch(text, /Start here|open to everyone/i);
+  assert.match(text, /💡 This room matches one of your Interests: 🎮 Gaming\./);
   assert.match(text, /💡 Add 🎬 Movies to your profile interests to unlock this room\./);
 });
 
@@ -675,7 +676,7 @@ test("closing the discussion members card only deletes it and clears tracking", 
 
 test("join-error acknowledgement copy remains available for discussion recovery", () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "discussions");
-  const [button] = keyboard.reply_markup.keyboard.flat();
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
 
   assert.doesNotMatch(messages.en.discussionListMineEmpty, /Active discussions/);
   assert.match(messages.en.discussionListMineEmpty, /have not created/);
@@ -683,6 +684,7 @@ test("join-error acknowledgement copy remains available for discussion recovery"
   assert.match(messages.en.discussionListMineEmptyAfterClose, /closed/);
   assert.match(messages.en.discussionListMineEmptyAfterClose, /created discussions/);
   assert.equal(button.text, messages.en.acknowledgeButton);
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
 });
 
 test("locked-room guidance uses an inline Got it that only closes the notice", async () => {
@@ -715,6 +717,38 @@ test("locked-room guidance uses an inline Got it that only closes the notice", a
   assert.deepEqual(deleted, [42]);
   assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:en");
   assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
+});
+
+test("unavailable-discussion Got it only deletes its notice", async () => {
+  const keyboard = discussionUnavailableAckKeyboard("fa");
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
+  assert.equal(button.text, messages.fa.acknowledgeButton);
+  assert.equal(button.callback_data, callBacks.discussionUnavailableClose);
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
+
+  const deleted = [];
+  const ctx = {
+    callbackData: callBacks.discussionUnavailableClose,
+    callbackMessageId: 52,
+    userId: 1,
+    user: {
+      userId: 1,
+      navigationMode: "discussion_list:active:0:1:all:fa",
+      discussionMenuNoticeMessageId: 41,
+    },
+    answerCb: async () => true,
+  };
+
+  await handleDiscussionListCallback(ctx, "fa", {
+    deleteCallbackMessageIfPossible: async () => {
+      deleted.push(52);
+      return true;
+    },
+  });
+
+  assert.deepEqual(deleted, [52]);
+  assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:fa");
+  assert.equal(ctx.user.discussionMenuNoticeMessageId, 41);
 });
 
 test("leave-current warning uses one inline Got it without a reply keyboard", () => {
@@ -790,9 +824,29 @@ test("discussion first-visit guidance is compact, bilingual, and part of the lis
     }]);
     const tipped = addDiscussionFirstVisitTip(lang, list, true);
 
-    assert.equal(tipped, `${messages[lang].discussionFirstVisitTip}\n\n${list}`);
+    assert.equal(tipped, `${messages[lang].discussionActiveListFirstVisitTip}\n\n${list}`);
     assert.equal(addDiscussionFirstVisitTip(lang, list, false), list);
-    assert.match(messages[lang].discussionFirstVisitTip, /^💡/);
+    assert.match(messages[lang].discussionActiveListFirstVisitTip, /^💡/);
+    assert.match(messages[lang].discussionActiveListFirstVisitTip, lang === "fa" ? /مرتب/ : /ranked/);
+  }
+});
+
+test("Active Discussions keeps an accurate direct-entry tip after first visit", () => {
+  for (const lang of ["fa", "en"]) {
+    const text = buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, [{
+      title: "Room",
+      description: "Test",
+      memberUserIds: [],
+      maxMembers: 20,
+      joinRule: { type: "open" },
+      isJoinable: true,
+    }], { headerTip: messages[lang].discussionActiveListTip });
+
+    assert.match(text, lang === "fa" ? /با دستور «ورود»/ : /Join command/);
+    assert.match(text, lang === "fa" ? /چی لازمه/ : /what is needed/);
+    assert.doesNotMatch(text, lang === "fa" ? /پیش‌نمایش/ : /preview/);
+    assert.match(messages[lang].discussionActiveListTip, /^💡/);
+    assert.match(messages[lang].discussionActiveListTip, lang === "fa" ? /می‌تونی/ : /You can/);
   }
 });
 
@@ -920,7 +974,7 @@ test("acknowledging an empty discussion list enters Discussions with a footprint
 
 test("discussion join error acknowledgement can return to saved profile discussions", async () => {
   const keyboard = discussionJoinErrorAckKeyboard("en", "saved:u_a1");
-  const button = keyboard.reply_markup.keyboard.flat()[0];
+  const button = keyboard.reply_markup.inline_keyboard.flat()[0];
   assert.equal(button.text, messages.en.acknowledgeButton);
 
   const deletedIds = [];
@@ -1639,6 +1693,41 @@ test("invite preview does not offer Join when an inactive user fails the room ru
   assert.equal(buttons[0].callback_data, `${callBacks.discussionInviteCancel}d_AB12`);
 });
 
+test("an unavailable invite preserves the current reply keyboard and navigation", async () => {
+  const originalFindOne = Discussion.findOne;
+  const replies = [];
+  Discussion.findOne = async () => null;
+  const ctx = {
+    userId: 7,
+    user: {
+      userId: 7,
+      navigationMode: "discussion_list:active:0:1:all:fa",
+    },
+    reply: async (text, keyboard) => {
+      replies.push({ text, keyboard });
+      return true;
+    },
+  };
+
+  try {
+    await showDiscussionInvitePreviewCommand(ctx, "fa", "d_GONE", {
+      onAvailable: async () => assert.fail("unavailable invites must not reset flow state"),
+    });
+  } finally {
+    Discussion.findOne = originalFindOne;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.discussionInviteUnavailable);
+  assert.equal(replies[0].keyboard.reply_markup.remove_keyboard, undefined);
+  assert.equal(replies[0].keyboard.reply_markup.keyboard, undefined);
+  assert.equal(
+    replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.discussionUnavailableClose,
+  );
+  assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:fa");
+});
+
 test("discussion invite Forward and Copy carry the same complete invitation", () => {
   const discussion = {
     title: "Movie night",
@@ -1677,9 +1766,10 @@ test("discussion invite locked hint names required update path", () => {
 
 test("full discussion guidance keeps the existing acknowledgement recovery", () => {
   const keyboard = discussionJoinErrorAckKeyboard("fa", "active");
-  const [button] = keyboard.reply_markup.keyboard.flat();
+  const [button] = keyboard.reply_markup.inline_keyboard.flat();
 
   assert.match(messages.fa.discussionErrFull, /گفت‌وگوی خودت رو بسازی/);
   assert.match(messages.en.discussionErrFull, /create your own/);
   assert.equal(button.text, messages.fa.acknowledgeButton);
+  assert.equal(keyboard.reply_markup.keyboard, undefined);
 });

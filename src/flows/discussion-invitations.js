@@ -12,6 +12,7 @@ const {
   discussionInvitationsBackKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionUnavailableAckKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
 } = require("../keyboards");
 const {
@@ -57,7 +58,7 @@ const {
   buildDiscussionInviteLockedText,
 } = require("../services/discussion-ui");
 const { joinDiscussionAndNotify } = require("../services/discussion-actions");
-const { markSectionTipShownForContext, updateProfileField } = require("../services/users");
+const { markSectionTipShownForContext, updateProfileField, updateUserState } = require("../services/users");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -171,7 +172,7 @@ async function showInviteSavedProfilePicker(ctx, lang, {
 } = {}) {
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
   if (expectedDiscussionId && expectedDiscussionId !== activeDiscussionId) {
-    return ctx.reply(messages[lang].discussionInviteUnavailable);
+    return ctx.reply(messages[lang].discussionInviteUnavailable, discussionUnavailableAckKeyboard(lang));
   }
   const invite = await getActiveDiscussionInviteForUser(ctx.userId, activeDiscussionId);
   if (!invite.ok) {
@@ -230,7 +231,14 @@ async function createInvitationAndAck(ctx, lang, {
   const keyboard = discussionInvitationAckKeyboard(lang, destination);
   const send = editCallbackMessageOrReply || ((roomCtx, text, extra) => roomCtx.reply(text, extra));
   if (!created.ok) {
-    return send(ctx, getInviteCreationFailureText(lang, created.reason, created), keyboard);
+    const failureText = getInviteCreationFailureText(lang, created.reason, created);
+    const isUnavailable = failureText === messages[lang].discussionInviteUnavailable
+      || failureText === messages[lang].discussionInvitationUnavailable;
+    return send(
+      ctx,
+      failureText,
+      isUnavailable ? discussionUnavailableAckKeyboard(lang) : keyboard,
+    );
   }
 
   await notifyInviteeOfInvitation(ctx, created);
@@ -348,14 +356,15 @@ async function acceptInvitationCommand(ctx, lang, text, {
   const code = normalizeInvitationCodeFromCommand(text, "accept_inv");
   const found = await getInvitationForUser(code, ctx.userId, { statuses: ["pending", "accepted"] });
   if (!found.ok) {
-    return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionJoinErrorAckKeyboard(lang, "invitations"));
+    return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
   }
   if (!await requireDiscussionProfileName(ctx, lang, { source: "accept", token: code })) {
     return { ok: false, reason: "requires_profile_name" };
   }
   if (!found.discussion || found.discussion.status !== "open") {
-    return ctx.reply(messages[lang].discussionInviteUnavailable, discussionJoinErrorAckKeyboard(lang, "invitations"));
+    return ctx.reply(messages[lang].discussionInviteUnavailable, discussionUnavailableAckKeyboard(lang));
   }
+  await updateUserState(ctx.userId, "idle");
 
   const allowOwnerReentry = isOwnerReentryInvitation(found.invitation, found.discussion, ctx.userId);
   const joined = await joinDiscussionAndNotify({
@@ -376,7 +385,9 @@ async function acceptInvitationCommand(ctx, lang, text, {
     }
     return ctx.reply(
       failureText,
-      joined.reason === "leave_current_first"
+      joined.reason === "discussion_unavailable"
+        ? discussionUnavailableAckKeyboard(lang)
+        : joined.reason === "leave_current_first"
         ? discussionLeaveCurrentNoticeKeyboard(lang)
         : isJoinRuleFailure
           ? discussionJoinLockedKeyboard(lang)
@@ -418,7 +429,7 @@ async function removeInvitationCommand(ctx, lang, text) {
   const code = normalizeInvitationCodeFromCommand(text, "remove_inv");
   const removed = await removeInvitationForUser(code, ctx.userId);
   if (!removed.ok) {
-    return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionInvitationAckKeyboard(lang, "invitations"));
+    return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
   }
   await ctx.reply(messages[lang].discussionInvitationRemoved);
   return renderInvitationsList(ctx, lang);
@@ -534,7 +545,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     });
     if (!allowed) {
       await deleteCallbackMessageIfPossible?.(ctx);
-      return ctx.reply(messages[lang].discussionInvitationUnavailable);
+      return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
     }
     return (editCallbackMessageOrReply || ((flowCtx, text, keyboard) => flowCtx.reply(text, keyboard)))(
       ctx,
@@ -552,7 +563,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     });
     if (!allowed) {
       await deleteCallbackMessageIfPossible?.(ctx);
-      return ctx.reply(messages[lang].discussionInvitationUnavailable);
+      return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
     }
     const muted = await muteInviterForUser({
       muterUserId: ctx.userId,
@@ -562,7 +573,12 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
       ? messages[lang].discussionInvitationMuted
       : messages[lang].discussionInvitationUnavailable;
     await deleteCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(text, discussionInvitationAckKeyboard(lang, "invitations"));
+    return ctx.reply(
+      text,
+      muted.ok
+        ? discussionInvitationAckKeyboard(lang, "invitations")
+        : discussionUnavailableAckKeyboard(lang),
+    );
   }
 
   if (data === callBacks.discussionInvitationMuteCancel) {

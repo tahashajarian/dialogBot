@@ -11,6 +11,7 @@ const {
   shouldShowDiscussionInvitationFirstTimeTip,
 } = require("../src/services/discussion-invitations-ui");
 const {
+  acceptInvitationCommand,
   buildSavedInviteTargets,
   handleDiscussionInvitationCallback,
   notifyInviteeOfInvitation,
@@ -76,6 +77,41 @@ test("invitation rule failure uses inline Got it without replacing the reply key
   assert.equal(keyboard.reply_markup.keyboard, undefined);
   assert.equal(keyboard.reply_markup.inline_keyboard[0][0].text, messages.fa.acknowledgeButton);
   assert.equal(keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionJoinLockedClose);
+});
+
+test("unavailable invitation uses inline delete-only Got it without replacing the reply keyboard", async () => {
+  const originalFindOne = DiscussionInvitation.findOne;
+  const replies = [];
+  DiscussionInvitation.findOne = async () => null;
+  const ctx = {
+    userId: 17,
+    user: {
+      userId: 17,
+      state: "editing_bio",
+      navigationMode: "profile",
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  try {
+    await acceptInvitationCommand(ctx, "fa", "/accept_inv_GONE");
+  } finally {
+    DiscussionInvitation.findOne = originalFindOne;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.fa.discussionInvitationUnavailable);
+  assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, undefined);
+  assert.equal(
+    replies[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
+    callBacks.discussionUnavailableClose,
+  );
+  assert.equal(ctx.user.state, "editing_bio");
+  assert.equal(ctx.user.navigationMode, "profile");
 });
 
 test("sent invitation confirmation is bot-authored without speculative Star copy", () => {

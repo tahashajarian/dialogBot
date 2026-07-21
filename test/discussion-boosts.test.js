@@ -403,7 +403,7 @@ test("my discussions boost insufficient balance returns to my discussions acknow
 
     assert.equal(edits[0].messageId, 43);
     assert.match(edits[0].text, /not have enough Stars/);
-    const button = edits[0].keyboard?.reply_markup?.keyboard?.flat()?.[0];
+    const button = edits[0].keyboard?.reply_markup?.inline_keyboard?.flat()?.[0];
     assert.equal(button?.text, messages.en.acknowledgeButton);
   } finally {
     boostService.confirmBoost = originalConfirmBoost;

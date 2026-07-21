@@ -11,6 +11,7 @@ const {
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
+  discussionUnavailableAckKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
   discussionRemoveMemberConfirmKeyboard,
 } = require("../keyboards");
@@ -378,6 +379,8 @@ async function sendRememberedDiscussionList(ctx, lang, preferredType = "active")
   const sent = await ctx.reply(
     buildDiscussionListText(messages, lang, messages[lang].discussionActiveList, paged.items, {
       startIndex: paged.startIndex,
+      totalCount: ranked.length,
+      headerTip: messages[lang].discussionActiveListTip,
     }),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
@@ -561,15 +564,17 @@ async function showDiscussionInvitePreviewCommand(ctx, lang, code, {
   editMessage = null,
   keyboard = null,
   openExistingMember = true,
+  onAvailable = null,
 } = {}) {
   const preview = await getDiscussionInvitePreviewByCode(code);
   if (!preview.ok) {
     const unavailableText = messages[lang].discussionInviteUnavailable;
-    await ctx.reply(unavailableText, { reply_markup: { remove_keyboard: true } });
-    await updateProfileField(ctx.userId, "navigationMode", "global");
-    if (ctx.user) ctx.user.navigationMode = "global";
-    return ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+    const unavailableKeyboard = discussionUnavailableAckKeyboard(lang);
+    if (editMessage) return editMessage(unavailableText, unavailableKeyboard);
+    return ctx.reply(unavailableText, unavailableKeyboard);
   }
+
+  await onAvailable?.();
 
   const publicCode = preview.code || preview.discussion.publicDiscussionCode;
   const activeDiscussionId = String(ctx.user?.activeDiscussionId || "");
@@ -626,13 +631,10 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
   const discussion = await findDiscussionByPublicCode(code);
   if (!discussion || discussion.status !== "open") {
     const text = messages[lang].discussionInviteUnavailable;
-    await updateProfileField(ctx.userId, "navigationMode", "global");
-    if (ctx.user) ctx.user.navigationMode = "global";
     if (editMessage) {
-      await editMessage(text, mainMenuKeyboard(lang));
+      await editMessage(text, discussionUnavailableAckKeyboard(lang));
     } else {
-      await ctx.reply(text, { reply_markup: { remove_keyboard: true } });
-      await ctx.reply(messages[lang].mainMenu, mainMenuKeyboard(lang));
+      await ctx.reply(text, discussionUnavailableAckKeyboard(lang));
     }
     return { ok: false, reason: "missing_discussion" };
   }

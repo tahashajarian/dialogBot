@@ -61,8 +61,8 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 ## Discussions
 
 - All eight language-specific Muze starter rooms have capacity 100 after restart; user-created capacity defaults and choices remain unchanged.
-- The first Active Discussions visit includes compact live-room/join-condition guidance and the second visit, filters, pagination, Back, restart, and another device do not repeat it.
-- If the Invitations explanation is seen first, Active Discussions does not repeat the equivalent first-time guidance.
+- The first Active Discussions visit includes compact relevance and join-condition guidance. Every populated visit, filter, and pagination page retains only the shorter direct-entry line; it must not call the `/d_CODE` list command a preview. The richer first-visit explanation does not repeat after restart or on another device.
+- Invitation guidance and Active Discussions browsing guidance each appear once because they explain different actions; existing users without the new Active Discussions marker receive its tip on their next visit.
 - Create a basic discussion and verify first-create reward appears once.
 - Join a discussion and verify first-join reward appears once.
 - Leave, rejoin, close, and remove member basics work without stale inline cards.

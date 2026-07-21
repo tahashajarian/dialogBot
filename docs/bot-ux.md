@@ -88,10 +88,10 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 ## First-Visit Section Guidance
 
 - Show compact guidance once for each of Active Discussions, My favorites, and People. Put it inside the section's existing first successful response instead of sending an extra message.
-- Active Discussions guidance explains live Interest-related rooms and join requirements. If the Invitations inbox is the user's first discussion surface, its existing explanation counts as the same Discussions guidance and suppresses the later list tip.
+- Invitations and Active Discussions have separate one-time guidance because they teach different actions. Active Discussions first-visit guidance explains relevance ordering and locked-room requirements. Its independent durable marker lets existing users receive the new explanation once even if they previously saw invitation guidance. Every populated Active Discussions page also keeps one compact permanent `💡` line explaining that users can use the room's Join command to enter directly and that Muze will explain an unmet condition; do not describe this direct `/d_CODE` path as a preview. Keep it shorter than the first-visit guidance and use invitational “you can” wording instead of commands.
 - My favorites guidance distinguishes genuine favorites from Watch/Listen/Read Later and explains that favorites improve suggestions and relevance. Keep the existing three-item suggestion threshold and ten-item taste-label explanation visible in the same hub response.
 - People guidance explains discovery through shared saved choices and says saved profiles are private bookmarks for finding or inviting someone later. Keep internal product-boundary language out of the user-facing tip.
-- Persist independent first-shown timestamps in `sectionTipsShownAt`. Mark a tip only after its containing Telegram response succeeds; failed delivery or failed persistence must not block navigation. Pagination, filters, Back actions, result pages, room views, profiles, and ordinary invitation refreshes must not repeat these tips.
+- Persist independent first-shown timestamps in `sectionTipsShownAt`, including separate `discussions` invitation guidance and `activeDiscussions` first-visit guidance. Mark a first-visit tip only after its containing Telegram response succeeds; failed delivery or failed persistence must not block navigation. Filters, pagination, and later visits retain only the compact permanent Active Discussions direct-entry line, not the richer first-visit explanation.
 
 Stars UX rules:
 
@@ -139,7 +139,7 @@ Stars UX rules:
 - When a command-link action fails from a list, remove or refresh the stale list and show the relevant list again after the bot explanation when practical.
 - For command-link action lines, make the pointer face the command link. English uses `Join 👉 /d_CODE`; Persian uses `ورود 👈 /d_CODE`, which displays with the command on the left in RTL chat.
 - Discussion lists should separate each discussion block with a simple line divider when multiple items are shown.
-- Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers.
+- Member lists inside a discussion use plain text command links, not inline buttons. Use the same pointer-link convention for profile, report, and owner-only remove actions, and separate member blocks with simple line dividers. When at least one other profile command is available, keep one permanent `💡` header line explaining that users can view and optionally save another member's profile; omit it when the viewer is alone.
 - Delivered discussion text should stay compact as `sender: message`; distinguish the sender with formatting only, currently bold sender names via escaped Telegram HTML.
 - Discussion message replies should use platform-native replies when the runtime delivery map can resolve the target message. Do not add visible "replying to..." text, persist reply metadata, or create thread cards/extra acknowledgements for simple replies.
 - Temporary keyboard-cleanup messages, such as leaving an active discussion and showing the discussions menu, should be removed when the user leaves the discussion menu.
@@ -165,6 +165,8 @@ Stars UX rules:
 - Shareable discussion invites should be one ready-to-share bot message/card. Stored saved-profile invitations and post-onboarding `shared_link` entries stay in the invitation inbox and show unseen state through the count/marker. Every invite path must use an explicit preview/join step, never auto-join recipients, and never bypass normal join checks. Old invite previews should be revalidated on tap and edited/removed when stale where possible.
 - If joining is blocked because the user is already in another discussion, preserve the existing bottom keyboard and show one compact warning with a single inline delete-only `Got it` action. Avoid `Close` wording because it can sound like closing the active discussion.
 - If accepting an invitation fails because a taste, favorite, or profile-Interest rule is unmet, keep the invitation retryable and preserve the current bottom keyboard. Show the exact completion path with one inline delete-only `Got it` action.
+- If an invitation or shared discussion link is missing, closed, or otherwise unavailable, an already-onboarded user keeps the current bottom keyboard, navigation mode, and in-progress flow state. A new or unfinished user still completes normal onboarding first; afterward, show the unavailable notice without replacing the normal onboarding-completion keyboard. Use one inline `Got it` action that only deletes the notice; do not redirect to Home or rebuild another menu.
+- A standalone `Got it` / `متوجه شدم` acknowledgement is always an inline action attached to its notice, never a bottom reply-keyboard button. Sending the notice must not replace or remove the user's current reply keyboard.
 
 ## Pinning
 

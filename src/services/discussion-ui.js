@@ -287,12 +287,14 @@ function getDiscussionDisplayDescription(messages, lang, discussion = {}) {
 function getStarterDiscussionHint(messages, lang, discussion = {}) {
   if (!discussion.isBotCreated) return "";
   if (String(discussion.botSeedKey || "").replace(/:(fa|en)$/, "") === "free-discussion") {
-    return messages[lang].discussionStarterHintOpen;
+    return "";
   }
   const joinRule = discussion.joinRule || {};
   if (joinRule.type !== "top_ten_item") return "";
-  if (discussion.isJoinable) return "";
   const item = getLocalizedJoinRuleItemTitle(lang, joinRule);
+  if (discussion.isJoinable) {
+    return messages[lang].discussionStarterHintUnlocked.replace("{item}", item);
+  }
   return messages[lang].discussionStarterHintLocked.replace("{item}", item);
 }
 

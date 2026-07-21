@@ -10,6 +10,7 @@ const {
   profileQuickActionsKeyboard,
   cancelEditKeyboard,
   profileActiveDiscussionHelpKeyboard,
+  discussionUnavailableAckKeyboard,
 } = require("./keyboards");
 const {
   updateProfileField,
@@ -324,7 +325,10 @@ async function handleUpdate(ctx) {
     } else if (referral.link?.profilePublicCode) {
       startProfileCode = normalizePublicProfileCode(referral.link.profilePublicCode);
     } else if (!referral.ok && !["existing_user", "already_claimed"].includes(referral.reason)) {
-      await ctx.reply(messages[keyboardLang].discussionInviteUnavailable);
+      await ctx.reply(
+        messages[keyboardLang].discussionInviteUnavailable,
+        discussionUnavailableAckKeyboard(keyboardLang),
+      );
     }
   }
 
@@ -394,9 +398,10 @@ async function handleUpdate(ctx) {
       return startOnboardingLanguage(ctx, keyboardLang, startInviteCode);
     }
 
-    await updateUserState(ctx.userId, "idle");
     await rememberStartInvite(ctx, startInviteCode);
-    return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode);
+    return showDiscussionInvitePreviewCommand(ctx, userLang || lang, startInviteCode, {
+      onAvailable: () => updateUserState(ctx.userId, "idle"),
+    });
   }
 
   if (startProfileCode) {
@@ -425,8 +430,9 @@ async function handleUpdate(ctx) {
     if (ctx.wasUserCreated || shouldRunOnboardingForSharedDiscussion(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, inviteCode);
     }
-    await updateUserState(ctx.userId, "idle");
-    return showDiscussionInvitePreviewCommand(ctx, lang, inviteCode);
+    return showDiscussionInvitePreviewCommand(ctx, lang, inviteCode, {
+      onAvailable: () => updateUserState(ctx.userId, "idle"),
+    });
   }
 
   if (/^\/(?:invite|iv)_[a-z0-9]+$/i.test(text)) {
@@ -439,7 +445,6 @@ async function handleUpdate(ctx) {
   if (/^\/accept_inv_[a-z0-9]+$/i.test(text)) {
     await clearViewedPublicProfileMessage(ctx);
     await forgetDiscussionListMessage(ctx);
-    await updateUserState(ctx.userId, "idle");
     return acceptInvitationCommand(ctx, lang, text, {
       sendRoom: sendDiscussionRoomFromText,
     });
