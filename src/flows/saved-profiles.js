@@ -45,11 +45,13 @@ const {
 const {
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
+  getPeopleDiscoveryMinSharedItems,
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
 const {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
+  formatPeopleDiscoveryRequirementText,
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
@@ -610,6 +612,7 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
 
 async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const result = await findPeopleBySharedTaste(ctx.user || {});
+  const minSharedItems = getPeopleDiscoveryMinSharedItems();
   const paged = paginatePeopleDiscovery(result.items || [], page);
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
   const isEmpty = !result.ok || pageItems.length === 0;
@@ -621,10 +624,18 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
         totalCount: result.items.length,
-        emptyText: messages[lang].peopleDiscoverNoMatches,
+        emptyText: formatPeopleDiscoveryRequirementText(
+          messages[lang].peopleDiscoverNoMatches,
+          lang,
+          minSharedItems,
+        ),
         showSharedSections: true,
       })
-      : messages[lang].peopleDiscoverNeedsLists,
+      : formatPeopleDiscoveryRequirementText(
+        messages[lang].peopleDiscoverNeedsLists,
+        lang,
+        minSharedItems,
+      ),
     keyboard: isEmpty
       ? peopleDiscoverEmptyKeyboard(lang)
       : peopleDiscoverListKeyboard(lang, {

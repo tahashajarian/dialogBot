@@ -22,7 +22,7 @@ This note captures the June 2026 performance, UX-safety, and maintainability aud
 - AI suggestion routing can be pinned with `AI_SUGGESTION_PROVIDER=chat` or `responses` to avoid sequential provider timeouts when one API shape is unsupported or too slow.
 - AI embedding, Chat Completions, and Responses requests receive an `AbortSignal`; the timeout wrapper aborts the underlying SDK request so timed-out work does not keep consuming local connections.
 - AI cache reads use lean/projection reads and share candidate loading between fuzzy and semantic matching.
-- A denormalized `user_taste_indexes` collection now stores normalized list titles and compact typo-match keys per user/section. Successful list add/remove/promote mutations refresh the affected section. People discovery retrieves exact or nearby-title candidates through those keys, then verifies matches conservatively in process; short titles remain strict and one candidate item cannot be counted twice.
+- A denormalized `user_taste_indexes` collection now stores normalized list titles and compact typo-match keys per user/section. Successful list add/remove/promote mutations refresh the affected section. People discovery retrieves exact, spacing-insensitive, or nearby-title candidates through those keys, then verifies matches conservatively in process; standard Persian/Arabic letter variants are normalized, short titles remain strict, and one candidate item cannot be counted twice. The indexed query and fallback verifier both use the admin-configured shared-item minimum.
 - Similar-people discovery and boost recipient selection prefer the taste index when it is populated, then hydrate only candidate user profiles and run the existing safety filters.
 
 ## Remaining Performance Risks

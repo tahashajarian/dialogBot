@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const User = require("../src/models/user");
 const messages = require("../src/messages");
+const { operationalLimits } = require("../src/services/operational-limits");
 const { callBacks } = require("../src/constants");
 const { peopleHubKeyboard, peopleDiscoverListKeyboard, peopleDiscoverEmptyKeyboard } = require("../src/keyboards");
 const {
@@ -14,7 +15,9 @@ const {
 const {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
+  formatPeopleDiscoveryRequirementText,
 } = require("../src/services/people-discovery-ui");
+const { areTasteItemsEquivalent } = require("../src/services/taste-item-matching");
 const { handleSavedProfilesCallback, sendPeopleHub } = require("../src/flows/saved-profiles");
 
 function userWithMusic(userId, items, extra = {}) {
@@ -33,7 +36,7 @@ function userWithMusic(userId, items, extra = {}) {
   };
 }
 
-test("people discovery requires at least 3 items in one viewer section", async () => {
+test("people discovery requires the default 2 items in one viewer section", async () => {
   const originalFind = User.find;
   let called = false;
   User.find = () => {
@@ -44,7 +47,7 @@ test("people discovery requires at least 3 items in one viewer section", async (
   };
 
   try {
-    const result = await findPeopleBySharedTaste(userWithMusic(1, ["one", "two"]));
+    const result = await findPeopleBySharedTaste(userWithMusic(1, ["one"]));
 
     assert.equal(result.ok, false);
     assert.equal(result.reason, "not_enough_data");
@@ -54,7 +57,7 @@ test("people discovery requires at least 3 items in one viewer section", async (
   }
 });
 
-test("people discovery returns users with at least 3 shared items and skips self, banned query, and weak matches", async () => {
+test("people discovery returns users with at least 2 shared items and skips self, banned query, and weak matches", async () => {
   const originalFind = User.find;
   let query;
   User.find = (value) => {
@@ -64,7 +67,7 @@ test("people discovery returns users with at least 3 shared items and skips self
         limit: () => ({
           lean: async () => [
             userWithMusic(2, ["metallica", "nirvana", "queen", "radiohead"]),
-            userWithMusic(3, ["metallica", "nirvana"]),
+            userWithMusic(3, ["metallica"]),
             userWithMusic(4, ["metallica", "nirvana", "queen"], { publicProfileCode: "u_SAVED" }),
           ],
         }),
@@ -86,6 +89,30 @@ test("people discovery returns users with at least 3 shared items and skips self
     assert.equal(result.items[0].sharedSections[0].count, 3);
     assert.equal(result.items[1].isSaved, true);
   } finally {
+    User.find = originalFind;
+  }
+});
+
+test("people discovery honors a changed admin minimum", async () => {
+  const originalMinimum = operationalLimits.peopleDiscoveryMinSharedItems;
+  const originalFind = User.find;
+  let called = false;
+  operationalLimits.peopleDiscoveryMinSharedItems = 3;
+  User.find = () => {
+    called = true;
+    return {
+      select: () => ({ limit: () => ({ lean: async () => [] }) }),
+    };
+  };
+
+  try {
+    const result = await findPeopleBySharedTaste(userWithMusic(1, ["one", "two"]));
+
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "not_enough_data");
+    assert.equal(called, false);
+  } finally {
+    operationalLimits.peopleDiscoveryMinSharedItems = originalMinimum;
     User.find = originalFind;
   }
 });
@@ -250,11 +277,16 @@ test("people discovery ends with delete-only Close", () => {
 });
 
 test("people discovery UI uses a distinct no-match message", () => {
+  const emptyText = formatPeopleDiscoveryRequirementText(
+    messages.fa.peopleDiscoverNoMatches,
+    "fa",
+    2,
+  );
   const text = buildPeopleDiscoveryText(messages, "fa", [], {
-    emptyText: messages.fa.peopleDiscoverNoMatches,
+    emptyText,
   });
 
-  assert.match(text, /کسی با حداقل ۳ انتخاب مشترک/);
+  assert.match(text, /کسی با حداقل ۲ انتخاب مشترک/);
   assert.match(text, /علاقه‌مندی‌های پروفایلت/);
   assert.doesNotMatch(text, /هم‌سلیقه|شانس/);
   assert.doesNotMatch(text, /برو به بخش لیست‌ها/);
@@ -303,13 +335,16 @@ test("people discovery pagination uses configured page size", () => {
   assert.equal(page.startIndex, 5);
 });
 
-test("shared sections require 3 overlaps in the same section", () => {
+test("shared sections use the default 2-overlap minimum in the same section", () => {
   const shared = getSharedSections(
     { music: ["a", "b", "c"], movies: ["x", "y"] },
     { music: ["a", "b", "c", "d"], movies: ["x", "y"] },
   );
 
-  assert.deepEqual(shared, [{ section: "music", count: 3 }]);
+  assert.deepEqual(shared, [
+    { section: "music", count: 3 },
+    { section: "movies", count: 2 },
+  ]);
 });
 
 test("shared sections tolerate conservative typos in long titles", () => {
@@ -328,4 +363,12 @@ test("shared sections keep short titles strict", () => {
   );
 
   assert.deepEqual(shared, []);
+});
+
+test("taste matching ignores spacing and conservatively accepts nearby spelling in both languages", () => {
+  assert.equal(areTasteItemsEquivalent("Enter Sandman", "Enter Sadman"), true);
+  assert.equal(areTasteItemsEquivalent("Enter Sandman", "Enter Sand Man"), true);
+  assert.equal(areTasteItemsEquivalent("شازده احتجاب", "شازده احتجلب"), true);
+  assert.equal(areTasteItemsEquivalent("شازده احتجاب", "شازده‌احتجاب"), true);
+  assert.equal(areTasteItemsEquivalent("علی", "علي"), true);
 });

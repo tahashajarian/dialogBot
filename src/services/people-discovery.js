@@ -12,10 +12,15 @@ const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { countSharedTasteItems } = require("./taste-item-matching");
 const { getProfileGenderEmoji } = require("./profile");
+const { operationalLimits } = require("./operational-limits");
 
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
-const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 3;
+const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 2;
 const PEOPLE_DISCOVERY_SCAN_LIMIT = 200;
+
+function getPeopleDiscoveryMinSharedItems() {
+  return Math.max(1, Number(operationalLimits.peopleDiscoveryMinSharedItems) || PEOPLE_DISCOVERY_MIN_SHARED_ITEMS);
+}
 
 function normalizeDiscoveryItem(value) {
   return normalizeAiInput(normalizeAiListItem(value));
@@ -40,20 +45,20 @@ function buildUserDiscoveryIndex(user) {
   return sections;
 }
 
-function hasEligibleDiscoverySection(index = {}) {
-  return Object.values(index).some((items) => Array.isArray(items) && items.length >= PEOPLE_DISCOVERY_MIN_SHARED_ITEMS);
+function hasEligibleDiscoverySection(index = {}, minSharedItems = getPeopleDiscoveryMinSharedItems()) {
+  return Object.values(index).some((items) => Array.isArray(items) && items.length >= minSharedItems);
 }
 
-function getSharedSections(viewerIndex = {}, candidateIndex = {}) {
+function getSharedSections(viewerIndex = {}, candidateIndex = {}, minSharedItems = getPeopleDiscoveryMinSharedItems()) {
   const sharedSections = [];
 
   for (const section of AI_SECTIONS) {
     const viewerItems = viewerIndex[section] || [];
     const candidateItems = candidateIndex[section] || [];
-    if (viewerItems.length < PEOPLE_DISCOVERY_MIN_SHARED_ITEMS || candidateItems.length < PEOPLE_DISCOVERY_MIN_SHARED_ITEMS) continue;
+    if (viewerItems.length < minSharedItems || candidateItems.length < minSharedItems) continue;
 
     const sharedCount = countSharedTasteItems(viewerItems, candidateItems);
-    if (sharedCount >= PEOPLE_DISCOVERY_MIN_SHARED_ITEMS) {
+    if (sharedCount >= minSharedItems) {
       sharedSections.push({
         section,
         count: sharedCount,
@@ -87,14 +92,15 @@ function trackPeopleDiscovery(viewer, { mode, resultCount, reason } = {}) {
 async function findPeopleBySharedTaste(viewer, {
   limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
 } = {}) {
+  const minSharedItems = getPeopleDiscoveryMinSharedItems();
   const viewerIndex = buildUserDiscoveryIndex(viewer);
-  if (!hasEligibleDiscoverySection(viewerIndex)) {
+  if (!hasEligibleDiscoverySection(viewerIndex, minSharedItems)) {
     trackPeopleDiscovery(viewer, { mode: "taste", resultCount: 0, reason: "not_enough_data" });
     return { ok: false, reason: "not_enough_data", items: [] };
   }
 
   const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
-  const indexedCandidates = await findIndexedSharedTasteCandidates(viewer, { limit });
+  const indexedCandidates = await findIndexedSharedTasteCandidates(viewer, { limit, minSharedItems });
   if (indexedCandidates) {
     const sharedByUserId = new Map(indexedCandidates.map((entry) => [Number(entry.userId), entry.sharedSections || []]));
     const candidateIds = indexedCandidates.map((entry) => Number(entry.userId)).filter((id) => Number.isInteger(id));
@@ -150,7 +156,7 @@ async function findPeopleBySharedTaste(viewer, {
     const name = [baseName, candidate.profileEmoji].filter(Boolean).join(" ");
 
     const candidateIndex = buildUserDiscoveryIndex(candidate);
-    const sharedSections = getSharedSections(viewerIndex, candidateIndex);
+    const sharedSections = getSharedSections(viewerIndex, candidateIndex, minSharedItems);
     if (!sharedSections.length) continue;
 
     const code = candidate.publicProfileCode;
@@ -192,6 +198,7 @@ module.exports = {
   buildUserDiscoveryIndex,
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
+  getPeopleDiscoveryMinSharedItems,
   getSharedSections,
   paginatePeopleDiscovery,
 };

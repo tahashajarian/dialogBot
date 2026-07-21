@@ -21,7 +21,7 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
     label: "Boost recommendations enabled", description: "Allow private delivery of relevant boosted discussions.", group: "Rollout", type: "boolean", default: false,
   },
   peopleTasteMatchesEnabled: {
-    label: "Closer-taste people unlock", description: "Allow users to spend Stars on time-limited people discovery with 3+ shared items.", group: "Rollout", type: "boolean", default: false,
+    label: "Closer-taste people unlock", description: "Allow users to spend Stars on time-limited people discovery using the configured shared-item minimum.", group: "Rollout", type: "boolean", default: false,
   },
   paidSuggestionsEnabled: {
     label: "Paid extra suggestions", description: "Allow users to spend Stars for one extra AI suggestion after the free limit.", group: "Rollout", type: "boolean", default: false,
@@ -128,7 +128,7 @@ const STAR_SETTING_DEFINITIONS = Object.freeze({
   },
 
   peopleTasteMatchesCost: {
-    label: "Closer-taste people cost", description: "Stars charged to unlock people with 3+ shared items.", group: "People discovery", type: "number", unit: "Stars", default: 5, min: 0, max: 1000000,
+    label: "Closer-taste people cost", description: "Stars charged by the legacy closer-taste people unlock.", group: "People discovery", type: "number", unit: "Stars", default: 5, min: 0, max: 1000000,
   },
   peopleTasteMatchesDurationHours: {
     label: "Closer-taste people duration", description: "How long the closer-taste people view stays unlocked after purchase.", group: "People discovery", type: "number", unit: "hours", default: 24, min: 1, max: 8760,

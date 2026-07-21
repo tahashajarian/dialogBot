@@ -19,6 +19,13 @@ function formatListIndex(lang, value) {
   return new Intl.NumberFormat("fa-IR").format(index);
 }
 
+function formatPeopleDiscoveryRequirementText(template, lang, minSharedItems) {
+  return String(template || "").replace(
+    "{minimumSharedItems}",
+    formatListIndex(lang, minSharedItems),
+  );
+}
+
 function sectionLabel(messages, lang, section) {
   const key = `aiSuggest${section === "random" ? "Random" : section.charAt(0).toUpperCase() + section.slice(1)}`;
   return messages[lang][key] || section;
@@ -97,5 +104,6 @@ function isPeopleCallback(data = "") {
 module.exports = {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
+  formatPeopleDiscoveryRequirementText,
   isPeopleCallback,
 };

@@ -9,6 +9,7 @@ const LIMIT_DEFINITIONS = Object.freeze({
   savedProfiles: { label: "Saved profiles", group: "Profiles", default: 50, min: 1, max: 10000 },
   aiSuggestionsPerWindow: { label: "Suggestions per section / window", group: "Lists and suggestions", default: 10, min: 1, max: 10000 },
   aiSuggestionWindowMinutes: { label: "Suggestion window (minutes)", group: "Lists and suggestions", default: 60, min: 1, max: 10080 },
+  peopleDiscoveryMinSharedItems: { label: "Minimum shared items", description: "Shared choices required in one section for a profile to appear in See People.", group: "People discovery", default: 2, min: 1, max: 100 },
   profileInterestItems: { label: "Profile interests", description: "Maximum interests a user can keep on their profile.", group: "Profile interests", default: 5, min: 1, max: 100 },
   profileInterestCustomMaxLength: { label: "Profile custom interest length", description: "Maximum characters for one typed profile interest.", group: "Profile interests", default: 24, min: 3, max: 120 },
   onboardingInterestMinItems: { label: "Onboarding target interests", description: "Onboarding completes after this many selected interests.", group: "Onboarding", default: 3, min: 1, max: 100 },

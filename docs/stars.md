@@ -379,8 +379,8 @@ English:
 Rules:
 
 - `👀 دیدن آدم‌ها` is a core free Muze feature and must not charge Stars.
-- It shows people with at least 3 normalized shared items in one section, based on public/social taste data the viewer has already entered.
-- If the viewer lacks enough taste data, explain that they need at least 3 choices in one media Top 10 or profile Interests and offer the lists entry.
+- It shows people with at least the admin-configured number of normalized shared items in one section (default: 2), based on public/social taste data the viewer has already entered.
+- If the viewer lacks enough taste data, show that configured minimum and offer the lists entry.
 - If the viewer has enough taste data but no eligible match exists, show a distinct no-match message.
 - Shared-section counts may be shown, but hidden profile data, private discussion membership, and Star balances must never be exposed.
 - Keep the language low-pressure. Do not call it dating, matching, friendship, private chat, or compatibility scoring.

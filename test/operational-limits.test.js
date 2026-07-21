@@ -49,3 +49,9 @@ test("interest onboarding/profile limits normalize impossible admin values", () 
   assert.equal(normalized.profileInterestCustomMaxLength, 3);
   assert.equal(normalized.onboardingCustomInterestMaxLength, 120);
 });
+
+test("People discovery minimum defaults to 2 and respects admin boundaries", () => {
+  assert.equal(normalizeLimits({}).peopleDiscoveryMinSharedItems, 2);
+  assert.equal(normalizeLimits({ peopleDiscoveryMinSharedItems: 0 }).peopleDiscoveryMinSharedItems, 1);
+  assert.equal(normalizeLimits({ peopleDiscoveryMinSharedItems: 999 }).peopleDiscoveryMinSharedItems, 100);
+});

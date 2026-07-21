@@ -222,11 +222,13 @@ async function hasTasteIndexData() {
 async function findIndexedSharedTasteCandidates(viewer, {
   limit = 200,
   excludeUserIds = [],
+  minSharedItems = AI_TASTE_INDEX_MIN_SHARED_ITEMS,
 } = {}) {
+  const minimum = Math.max(1, Number(minSharedItems) || AI_TASTE_INDEX_MIN_SHARED_ITEMS);
   if (!(await hasTasteIndexData())) return null;
   const viewerIndex = buildUserTasteIndexSections(viewer);
   const eligibleSections = Object.entries(viewerIndex)
-    .filter(([, items]) => items.length >= AI_TASTE_INDEX_MIN_SHARED_ITEMS);
+    .filter(([, items]) => items.length >= minimum);
   if (!eligibleSections.length) return [];
 
   const excluded = [...new Set([
@@ -240,7 +242,7 @@ async function findIndexedSharedTasteCandidates(viewer, {
 
   const reduced = await UserTasteIndex.find({
     userId: { $nin: excluded },
-    itemCount: { $gte: AI_TASTE_INDEX_MIN_SHARED_ITEMS },
+    itemCount: { $gte: minimum },
     $or: eligibleSections.flatMap(([section, items]) => [
       { section, items: { $in: items } },
       { section, matchKeys: { $in: viewerMatchKeys[section] } },
@@ -256,7 +258,7 @@ async function findIndexedSharedTasteCandidates(viewer, {
   for (const entry of reduced || []) {
     const viewerItems = viewerIndex[entry.section] || [];
     const count = countSharedTasteItems(viewerItems, entry.items || []);
-    if (count < AI_TASTE_INDEX_MIN_SHARED_ITEMS) continue;
+    if (count < minimum) continue;
     const current = byUser.get(Number(entry.userId)) || [];
     current.push({ section: entry.section, count });
     byUser.set(Number(entry.userId), current);

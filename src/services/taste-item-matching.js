@@ -2,7 +2,10 @@ const { getAiListDuplicateMatch, similarityScore } = require("./ai-list-duplicat
 const { tokenizeNormalizedInput } = require("./input-normalization");
 
 function compactTasteItem(value) {
-  return tokenizeNormalizedInput(value).join("");
+  return tokenizeNormalizedInput(value)
+    .join("")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک");
 }
 
 function buildTasteMatchKeys(value) {

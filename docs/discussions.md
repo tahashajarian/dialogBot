@@ -1211,8 +1211,9 @@ People hub:
 
 Discovery rules:
 
-- The viewer must have at least 3 items in one AI list section.
-- A candidate appears only when they share at least 3 normalized items with the viewer in the same section.
+- The viewer must have at least the admin-configured minimum number of items in one AI list section (default: 2).
+- A candidate appears only when they share at least that configured number of normalized items with the viewer in the same section.
+- Matching ignores spacing and common separators, recognizes standard Persian/Arabic letter variants, and conservatively tolerates small spelling mistakes in longer titles. Short titles remain strict to avoid false matches.
 - Matching uses movies, music, books, and broad interests list data.
 - Exclude the viewer, banned users, users without a display name, and users whose `showProfileInPeopleDiscovery` value is explicitly `false`. A missing value remains visible for backward compatibility.
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
@@ -1225,14 +1226,14 @@ Discovery rules:
 Empty-state behavior:
 
 - Empty discovery results use inline `My favorites 🎬🎵📚` and Close actions on the result card while leaving the People-hub bottom keyboard available.
-- If the user lacks enough taste data, explain that they need at least 3 choices in one media favorites list or profile Interests and offer a `My favorites 🎬🎵📚` button. Empty discovery states may mention profile Interests, but should not link directly to their editor until that flow can return to People discovery instead of Profile.
-- If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the first 3 choices again.
+- If the user lacks enough taste data, show the configured minimum in the localized message and offer a `My favorites 🎬🎵📚` button. Empty discovery states may mention profile Interests, but should not link directly to their editor until that flow can return to People discovery instead of Profile.
+- If the user already has enough taste data but no eligible match exists, use a separate no-match message and do not ask them to add the initial choices again.
 - The old `people:taste` callbacks may route to the free `👀 دیدن آدم‌ها` list so stale inline cards do not break.
 
 Insufficient-list-data state:
 
 ```text
-👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۳ انتخاب به یکی از بخش‌های فیلم، موسیقی و کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۲ انتخاب به یکی از بخش‌های فیلم، موسیقی و کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
 ```
 
 ### Advanced Search Preview
