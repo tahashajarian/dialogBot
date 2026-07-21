@@ -94,7 +94,7 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
 
   assert.equal(paged.page, 1);
   assert.equal(paged.totalPages, 2);
-  assert.match(text, /Saved people \(6\)/);
+  assert.match(text, /Saved profiles \(6\)/);
   assert.match(text, /6\.\n👤 User 6/);
 });
 

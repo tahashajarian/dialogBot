@@ -30,7 +30,7 @@ test("configurable marker applies to AI confirmation templates", () => {
   botAppearance.botEmoji = "🪷";
   try {
     assert.equal(formatBotText(messages.fa.aiWatchlistWatchedOnMusic), "🪷 به‌عنوان گوش‌داده‌شده ثبت شد.");
-    assert.equal(formatBotText(messages.fa.aiSuggestionAddedDoneMusic), "🪷 در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
+    assert.equal(formatBotText(messages.fa.aiSuggestionAddedDoneMusic), "🪷 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
     assert.equal(formatBotText(messages.en.aiWatchlistPromotedToTopTen), "🪷 Added to your favorites.");
   } finally {
     botAppearance.botEmoji = previous;

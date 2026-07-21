@@ -31,7 +31,7 @@ test("owner join notice copy renders single and summarized joins in both languag
     joinedCount: 4,
     discussion,
     memberCount: 9,
-  }), "👩‍🦳 4 نفر جدید به گفت‌وگوی شما پیوستند.\n\n💬 Best movie endings\n👥 9 عضو");
+  }), "👩‍🦳 4 نفر جدید به گفت‌وگوت پیوستن.\n\n💬 Best movie endings\n👥 9 عضو");
   assert.equal(buildOwnerJoinNoticeText(messages, "en", {
     joinedCount: 1,
     discussion,

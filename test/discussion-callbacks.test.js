@@ -549,7 +549,7 @@ test("non-empty My Discussions includes its width-friendly creator tip", () => {
   assert.match(messages.en.discussionMyListTipWithRecent, /button below/);
   assert.match(messages.fa.discussionMyListTipWithRecent, /دکمه‌ی پایین/);
   assert.match(messages.en.discussionRecentListTip, /recently joined/);
-  assert.match(messages.fa.discussionRecentListTip, /اخیراً/);
+  assert.match(messages.fa.discussionRecentListTip, /تازگی/);
 });
 
 test("My Discussions navigation is inline and ends with Close", () => {

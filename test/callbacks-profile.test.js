@@ -1280,7 +1280,7 @@ test("saved profiles clears bottom keyboard before rendering list when one is ac
   assert.equal(deletedIds[0], 456);
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, undefined);
   assert.equal(deletedIds.includes(1), false);
-  assert.match(replies[0].text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
+  assert.match(replies[0].text, /ذخیره‌شده‌ها|فعلا چیزی ذخیره نکردی/);
   assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.discussionShareClose);
 });
 
@@ -1318,7 +1318,7 @@ test("saved profiles sends footprint before a fresh list card", async () => {
 
   await handleCallback(ctx);
 
-  assert.match(replies[0].text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
+  assert.match(replies[0].text, /ذخیره‌شده‌ها|فعلا چیزی ذخیره نکردی/);
   assert.deepEqual(deletedIds, [456]);
   assert.deepEqual(edits, []);
   assert.equal(keyboardButtons(replies[0].extra).at(-1).text, messages.fa.discussionShareClose);
@@ -1810,7 +1810,7 @@ test("saved profile back deletes viewed profile card and renders fresh list", as
   await handleCallback(ctx);
 
   assert.deepEqual(deletedIds, [789]);
-  assert.match(replies.at(-1).text, /آدم‌های ذخیره‌شده|فعلاً پروفایل ذخیره‌شده‌ای نداری/);
+  assert.match(replies.at(-1).text, /ذخیره‌شده‌ها|فعلا چیزی ذخیره نکردی/);
 });
 
 test("opening saved profile clears old list and previous profile before rendering profile", async () => {

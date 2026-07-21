@@ -38,7 +38,7 @@ test("shareable profile caption uses first-person copy and the profile emoji", (
   };
   const caption = buildShareableProfileCaption({ user, lang: "fa", link: "https://t.me/muze_bot?start=ref_CODE" });
 
-  assert.match(caption, /^✨ پروفایل میوزِ من 🎶/);
+  assert.match(caption, /^✨ پروفایل من در میوز 🎶/);
   assert.match(caption, /پروفایل و محبوب‌های من 🎶 رو در میوز ببین:/);
   assert.doesNotMatch(caption, /طاها|Taha/);
   assert.match(caption, /https:\/\/t\.me\/muze_bot\?start=ref_CODE/);

@@ -40,7 +40,10 @@ const TASTE_SETUP_INTERESTS_STATE = "onboarding_taste_setup_interests";
 const ONBOARDING_CUSTOM_PREFIX = "onboarding_custom_interest:";
 const TASTE_SETUP_CUSTOM_PREFIX = "onboarding_taste_setup_custom_interest:";
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
-const MUZE_WELCOME_BANNER_PATH = path.join(__dirname, "../../assets/muze-welcome-banner.jpg");
+const MUZE_WELCOME_BANNER_PATH = path.join(
+  __dirname,
+  "../../assets/muze-welcome-banner-cinematic-v2.jpg",
+);
 
 function getOnboardingInterestGoal() {
   return Math.min(operationalLimits.onboardingInterestMinItems, operationalLimits.onboardingInterestMaxItems);
@@ -90,9 +93,9 @@ async function sendMuzeWelcome(ctx, text, keyboard) {
   const extra = { ...keyboard, caption: text };
   try {
     return await sendBannerPhoto(ctx, {
-      bannerKey: "muze_welcome_v2",
+      bannerKey: "muze_welcome_v3",
       localSource: MUZE_WELCOME_BANNER_PATH,
-      configuredFileId: process.env.MUZE_WELCOME_BANNER_FILE_ID,
+      configuredFileId: process.env.MUZE_WELCOME_BANNER_V3_FILE_ID,
       extra,
     });
   } catch {

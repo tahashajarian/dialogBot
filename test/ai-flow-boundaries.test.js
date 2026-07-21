@@ -263,14 +263,14 @@ test("suggestion save buttons name the concrete section list", () => {
   const rejectedButtons = keyboardButtons(aiSuggestionNextKeyboard("fa", "movies"));
 
   assert.equal(musicAddButtons[0].text, "➕ Save to 🎵📋 listen later list");
-  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعداً می‌خونم»");
+  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعدا می‌خونم»");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "👩‍🦳 Saved to 📚📋 read later list.");
-  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعداً گوش می‌دم»"), "👩‍🦳 در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد.");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعداً می‌بینم» ذخیره شد. (دیده‌شده)");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 لیست «بعداً گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
-  assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعداً می‌خونم» ذخیره شد. (خوانده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعدا گوش می‌دم»"), "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد.");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعدا می‌بینم» ذخیره شد. (دیده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعدا می‌خونم» ذخیره شد. (خوانده‌شده)");
 });
 
 test("AI-authored list promotion confirmation uses the Muze emoji", () => {
@@ -621,7 +621,7 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
 test("AI comment copy names the item instead of the list type", () => {
   assert.equal(
     formatAiCommentPrompt("fa", "topTen", "Dune"),
-    "👩‍🦳 کامنت برای «Dune» را بفرست (تا 120 کاراکتر).",
+    "👩‍🦳 کامنت برای «Dune» رو بفرست (تا 120 کاراکتر).",
   );
   assert.equal(
     formatAiCommentSaved("fa", "topTen", "Dune"),
@@ -1257,7 +1257,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   const labels = buttons.map((button) => button.text);
 
   assert.match(managerReply.text, /هنوز خالیه/);
-  assert.match(managerReply.text, /بعداً سراغشون بری/);
+  assert.match(managerReply.text, /بعدا سراغشون بری/);
   assert.match(managerReply.text, /اولین مورد/);
   assert.equal(labels.includes(messages.fa.aiListManageAddLaterMusic), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);
@@ -1865,7 +1865,7 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
     userId: 502,
     user: { aiLists: { books: { topTen: [{ title: "کتاب اول" }] } } },
   }, "fa", "books");
-  assert.match(persianBookEarly, /بعدش می‌تونی از میوز پیشنهاد کتاب بگیری/);
+  assert.match(persianBookEarly, /بعدش می‌تونی برای کتاب ازم پیشنهاد بگیری/);
 
   const emptyButtons = keyboardButtons(aiListManageMenuKeyboard("en", "books", "topTen", { itemCount: 0 }));
   const earlyButtons = keyboardButtons(aiListManageMenuKeyboard("fa", "music", "topTen", { hasItems: true, itemCount: 2 }));

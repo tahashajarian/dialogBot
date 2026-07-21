@@ -72,9 +72,9 @@ test("post-invite taste setup nudge is separate from fresh onboarding", () => {
 test("welcome copy stays general while onboarding welcome carries the starter tip", () => {
   for (const lang of ["fa", "en"]) {
     assert.match(messages[lang].welcome, /^👩‍🦳/);
-    assert.match(messages[lang].welcome, /🌿/);
-    assert.match(messages[lang].welcome, /🏷/);
-    assert.match(messages[lang].welcome, /💬/);
+    assert.match(messages[lang].welcome, /personal suggestions|پیشنهادهای شخصی/);
+    assert.match(messages[lang].welcome, /shared interests|هم‌سلیقه/);
+    assert.match(messages[lang].welcome, /conversations|گفت‌وگو/);
     assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
     assert.match(messages[lang].welcomeWithName, /^👩‍🦳/);
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
@@ -407,7 +407,10 @@ test("Muze welcome uses the portrait banner with its greeting as the caption", a
   }, messages.en.onboardingWelcome, onboardingWelcomeKeyboard("en"));
 
   assert.equal(replies.length, 1);
-  assert.match(replies[0].photo.source, /assets[\\/]muze-welcome-banner\.jpg$/);
+  assert.match(
+    replies[0].photo.source,
+    /assets[\\/]muze-welcome-banner-cinematic-v2\.jpg$/,
+  );
   assert.equal(replies[0].extra.caption, messages.en.onboardingWelcome);
   assert.equal(replies[0].extra.reply_markup.keyboard.flat()[0].text, messages.en.onboardingStartButton);
 });
@@ -501,16 +504,16 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /^👩‍🦳/);
   assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی و کتاب/);
   assert.match(messages.en.helpText, /🎬🎵📚 Movies, Music & Books/);
-  assert.match(messages.fa.helpText, /بعداً می‌بینم/);
+  assert.match(messages.fa.helpText, /بعدا می‌بینم/);
   assert.match(messages.en.helpText, /Watch Later/);
   assert.match(messages.fa.helpText, /۳ محبوب/);
   assert.match(messages.en.helpText, /Three favorites/);
   assert.match(messages.fa.helpText, /👥 آدم‌ها و ذخیره‌شده‌ها/);
   assert.match(messages.fa.helpText, /دیدن آدم‌ها.*اعضای گفت‌وگو/);
-  assert.match(messages.fa.helpText, /گفت‌وگوهاشون رو ببینی و بهشون بپیوندی.*دعوتشون کنی/);
-  assert.match(messages.en.helpText, /👥 People & Saved/);
-  assert.match(messages.en.helpText, /See People or discussion member lists/);
-  assert.match(messages.en.helpText, /join discussions they show.*invite them directly/i);
+  assert.match(messages.fa.helpText, /از «ذخیره‌شده‌ها».*گفت‌وگوهایی.*بپیوندی.*دعوت کنی/);
+  assert.match(messages.en.helpText, /👥 People & Saved profiles/);
+  assert.match(messages.en.helpText, /See people or discussion member lists/);
+  assert.match(messages.en.helpText, /join discussions people choose to show.*invite them directly/i);
   assert.match(messages.fa.helpText, /گفت‌وگوهای اخیرت.*گفت‌وگوهای من/);
   assert.match(messages.en.helpText, /recently joined rooms.*My discussions/i);
   assert.match(messages.fa.helpText, /من ← حریم خصوصی و امنیت ← حذف حساب/);
