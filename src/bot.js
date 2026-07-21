@@ -148,46 +148,17 @@ const {
   setStableNavigationState,
 } = require("./services/reply-keyboard-navigation");
 const { starEconomy } = require("./services/star-settings");
+const {
+  getNavigationCommand,
+  getStartInviteCode,
+  getStartReferralCode,
+  matchesMessageText,
+  normalizeIncomingText,
+  parseDiscussionCloseConfirmState,
+  shouldRejectDiscussionSlashCommand,
+} = require("./flows/bot-routing");
 
 const START_INVITE_HISTORY_LIMIT = 20;
-function normalizeKeyboardText(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(/\uFE0F/g, "")
-    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "");
-}
-
-function matchesMessageText(text, keys) {
-  const normalizedText = normalizeKeyboardText(text);
-  return keys
-    .flatMap((key) => [messages.fa[key], messages.en[key]])
-    .map(normalizeKeyboardText)
-    .includes(normalizedText);
-}
-
-function parseDiscussionCloseConfirmState(state = "") {
-  if (!state.startsWith("discussion_close_confirm")) return {};
-  const [, discussionId = "", messageIdRaw = "", source = "room"] = state.split(":");
-  const messageId = Number(messageIdRaw);
-  return {
-    discussionId,
-    messageId: Number.isInteger(messageId) && messageId > 0 ? messageId : null,
-    source: ["list", "active", "mine"].includes(source) ? source : "room",
-  };
-}
-
-function getStartInviteCode(text = "") {
-  const value = String(text || "").trim();
-  const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])(?:join_|d_)([a-z0-9]+)$/i);
-  return match ? `d_${match[1].toUpperCase()}` : "";
-}
-
-function getStartReferralCode(text = "") {
-  const value = String(text || "").trim();
-  const match = value.match(/^\/start(?:@\w+)?(?:\s+|[?=])ref_([a-f0-9]{12})$/i);
-  return match ? match[1].toUpperCase() : "";
-}
 
 function hasTemporaryReplyKeyboard(ctx, state = "") {
   return Boolean(
@@ -195,43 +166,6 @@ function hasTemporaryReplyKeyboard(ctx, state = "") {
     isAiTextState(state) ||
     state === "editing_location"
   );
-}
-
-function isAllowedDiscussionCommandLink(text = "") {
-  const value = String(text || "").trim();
-  return (
-    /^\/start(?:@\w+)?(?:$|[\s?=])/i.test(value) ||
-    /^\/join_[a-z0-9]+$/i.test(value) ||
-    /^\/(?:invite|iv)_[a-z0-9]+$/i.test(value) ||
-    /^\/accept_inv_[a-z0-9]+$/i.test(value) ||
-    /^\/remove_inv_[a-z0-9]+$/i.test(value) ||
-    /^\/d_[a-z0-9]+$/i.test(value) ||
-    /^\/leave_[a-z0-9]+$/i.test(value) ||
-    /^\/close_[a-z0-9]+$/i.test(value) ||
-    /^\/boost_[a-z0-9]+$/i.test(value) ||
-    /^\/remove_(u_)?[a-z0-9]+$/i.test(value) ||
-    /^\/report_(u_)?[a-z0-9]+$/i.test(value) ||
-    /^\/save_(u_)?[a-z0-9]+$/i.test(value) ||
-    /^\/allow_ir_[a-f0-9]{24}$/i.test(value) ||
-    /^\/allow_inv_[a-z0-9]+$/i.test(value) ||
-    /^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i.test(value) ||
-    /^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i.test(value) ||
-    /^\/u_[a-z0-9]+$/i.test(value)
-  );
-}
-
-function shouldRejectDiscussionSlashCommand(ctx, state = "", text = "") {
-  return Boolean(
-    state === "idle" &&
-    ctx.user?.activeDiscussionId &&
-    String(text || "").trim().startsWith("/") &&
-    !isAllowedDiscussionCommandLink(text)
-  );
-}
-
-function getNavigationCommand(text = "") {
-  const match = String(text || "").trim().match(/^\/(menu|profile|lang|taste|discussions|people|help)(?:@\w+)?$/i);
-  return match ? match[1].toLowerCase() : "";
 }
 
 async function prepareForCommandNavigation(ctx, state) {
@@ -286,10 +220,6 @@ async function rememberStartInvite(ctx, inviteCode, now = new Date()) {
     lastStartInviteAt: now,
     handledStartInviteCodes,
   });
-}
-
-function normalizeIncomingText(value = "") {
-  return String(value || "").replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "").trim();
 }
 
 async function handleUpdate(ctx) {

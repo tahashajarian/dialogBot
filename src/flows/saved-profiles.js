@@ -52,7 +52,6 @@ const {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
   formatPeopleDiscoveryRequirementText,
-  isPeopleCallback,
 } = require("../services/people-discovery-ui");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { setNavigationMode, setStableNavigationState } = require("../services/reply-keyboard-navigation");
@@ -63,13 +62,35 @@ const {
 } = require("../services/public-profile-navigation");
 const { hasPublicMediaFavorites } = require("../services/profile-sharing");
 const {
-  decorateDiscussionsForList,
   buildDiscussionListText,
   getDiscussionDisplayTitle,
 } = require("../services/discussion-ui");
+const {
+  clearPeopleListMessage,
+  clearSavedProfileDiscussionMessage,
+  clearSavedProfileSurfaceMessages,
+  clearSavedProfilesListMessage,
+  clearViewedPublicProfileMessage,
+  forgetPeopleListMessage,
+  forgetSavedProfilesListMessage,
+  rememberPeopleListMessage,
+  rememberSavedProfilesListMessage,
+  rememberViewedPublicProfileMessage,
+} = require("./saved-profile-message-state");
+const {
+  buildProfileDiscussionReturnType,
+  decorateProfileDiscussions,
+  markCurrentProfileDiscussions,
+  parseProfileDiscussionRequest,
+  profileDiscussionBackKeyboard,
+  profileDiscussionsInlineKeyboard,
+} = require("../services/saved-profile-discussions-ui");
+const { isSavedProfilesCallback } = require("./saved-profiles-routing");
 
-const defaultDiscussionFind = Discussion.find;
-const defaultDiscussionFindOne = Discussion.findOne;
+const {
+  findVisibleProfileDiscussionUserIds,
+  hasVisibleProfileDiscussions,
+} = require("../services/profile-discussions");
 
 function getProfileCompletionFieldLine(messages, lang, field) {
   if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
@@ -144,32 +165,6 @@ async function runLeanQuery(query, select = "") {
   }
   if (query.lean) return query.lean();
   return query;
-}
-
-async function hasVisibleProfileDiscussions(target) {
-  if (!target || !target.userId) return false;
-  if (!target.showActiveDiscussionOnProfile) return false;
-  const discussionQueryAvailable = Discussion.db?.readyState === 1 ||
-    Discussion.find !== defaultDiscussionFind ||
-    Discussion.findOne !== defaultDiscussionFindOne;
-  if (!discussionQueryAvailable) return false;
-
-  if (target.activeDiscussionId) {
-    const activeQuery = Discussion.findOne({
-      _id: target.activeDiscussionId,
-      status: "open",
-    });
-    const activeDiscussion = await runLeanQuery(activeQuery, "_id");
-    if (activeDiscussion) return true;
-  }
-
-  const createdQuery = Discussion.findOne({
-    creatorUserId: target.userId,
-    status: "open",
-    ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
-  });
-  const createdDiscussion = await runLeanQuery(createdQuery, "_id");
-  return Boolean(createdDiscussion);
 }
 
 async function getSavedProfileDisplayName(code) {
@@ -268,125 +263,6 @@ async function requestUnsaveProfileConfirmation(ctx, lang, code) {
   );
 }
 
-async function findVisibleProfileDiscussionUserIds(users = []) {
-  const normalizedUsers = (users || []).filter((user) => Number.isFinite(Number(user?.userId)));
-  if (!normalizedUsers.length) return new Set();
-  const discussionQueryAvailable = Discussion.db?.readyState === 1 ||
-    Discussion.find !== defaultDiscussionFind ||
-    Discussion.findOne !== defaultDiscussionFindOne;
-  if (!discussionQueryAvailable) return new Set();
-
-  const result = new Set();
-  const activeById = new Map();
-  for (const user of normalizedUsers) {
-    if (user.activeDiscussionId && user.showActiveDiscussionOnProfile) {
-      activeById.set(String(user.activeDiscussionId), Number(user.userId));
-    }
-  }
-
-  if (activeById.size) {
-    const activeQuery = Discussion.find({
-      _id: { $in: [...activeById.keys()] },
-      status: "open",
-    });
-    const activeDiscussions = await runLeanQuery(activeQuery, "_id") || [];
-    for (const discussion of activeDiscussions) {
-      const userId = activeById.get(String(discussion?._id));
-      if (userId) result.add(userId);
-    }
-  }
-
-  const userIds = normalizedUsers
-    .filter((user) => user.showActiveDiscussionOnProfile)
-    .map((user) => Number(user.userId));
-  if (!userIds.length) return result;
-  const createdQuery = Discussion.find({
-    creatorUserId: { $in: userIds },
-    status: "open",
-  });
-  const createdDiscussions = await runLeanQuery(createdQuery, "creatorUserId") || [];
-  for (const discussion of createdDiscussions) {
-    const userId = Number(discussion?.creatorUserId);
-    if (Number.isFinite(userId)) result.add(userId);
-  }
-
-  return result;
-}
-
-function parseProfileDiscussionRequest(raw = "", ctx = {}) {
-  const value = String(raw || "");
-  const parts = value.split(":");
-  const knownSources = new Set(["saved", "browse", "taste", "shared", "direct", "discussion_members", "invitations", "restrictions"]);
-  if (parts.length >= 2 && knownSources.has(parts[0])) {
-    return {
-      source: parts[0] === "browse" || parts[0] === "taste" ? "people" : parts[0],
-      peopleMode: parts[0] === "taste" ? "taste" : "browse",
-      code: normalizePublicProfileCode(parts.slice(1).join(":")),
-    };
-  }
-  const peopleMode = String(ctx.user?.peopleLastListMode || "") === "taste" ? "taste" : "browse";
-  return {
-    source: hasPeopleSurfaceContext(ctx) ? "people" : "saved",
-    peopleMode,
-    code: normalizePublicProfileCode(value),
-  };
-}
-
-function buildProfileDiscussionReturnType(profileCode, { source = "saved", peopleMode = "browse" } = {}) {
-  const code = normalizePublicProfileCode(profileCode);
-  if (!code) return "";
-  return source === "people" ? `people:${peopleMode === "taste" ? "taste" : "browse"}:${code}` : `${source}:${code}`;
-}
-
-function isProfileDiscussionListType(value = "") {
-  const type = String(value || "");
-  return /^(?:saved|people|shared|direct|discussion_members|invitations|restrictions):/.test(type);
-}
-
-function profileDiscussionBackKeyboard(lang, profileCode) {
-  return profileDiscussionsInlineKeyboard(lang, profileCode, []);
-}
-
-function profileDiscussionsInlineKeyboard(lang, profileCode, discussions = []) {
-  const rows = (discussions || [])
-    .filter((discussion) => discussion.listAction !== "current")
-    .map((discussion) => {
-      const actionLabel = discussion.listAction === "leave"
-        ? messages[lang].discussionOpenButton
-        : messages[lang].discussionInviteJoinButton;
-      return [{
-        text: `${actionLabel}: ${String(discussion.displayTitle || discussion.title || "-").slice(0, 40)}`,
-        callback_data: `${callBacks.discussionOpen}${discussion._id}`,
-      }];
-    });
-  rows.push([{
-    text: messages[lang].discussionBack,
-    callback_data: `${callBacks.profileDiscussionsBack}${profileCode}`,
-  }]);
-  rows.push([{
-    text: messages[lang].discussionShareClose,
-    callback_data: callBacks.profileDiscussionsClose,
-  }]);
-  return inlineKeyboard(rows);
-}
-
-function markCurrentProfileDiscussions(user, discussions = []) {
-  return (discussions || []).map((discussion) => {
-    if (String(user?.activeDiscussionId || "") === String(discussion?._id || "")) {
-      discussion.listAction = "current";
-      discussion.isCurrentForViewer = true;
-    }
-    return discussion;
-  });
-}
-
-async function decorateProfileDiscussions(user, discussions = []) {
-  return markCurrentProfileDiscussions(
-    user,
-    await decorateDiscussionsForList(user, discussions),
-  );
-}
-
 async function editProfileSurfaceCard(ctx, text, keyboard) {
   const messageId = Number(ctx.callbackMessageId);
   if (Number.isInteger(messageId) && messageId > 0) {
@@ -400,150 +276,6 @@ async function editProfileSurfaceCard(ctx, text, keyboard) {
     await ctx.deleteMessage?.(messageId);
   }
   return ctx.reply(text, keyboard);
-}
-
-async function rememberSavedProfilesListMessage(ctx, messageOrId) {
-  if (typeof messageOrId === "boolean") return;
-  const messageId = Number(getMessageId(messageOrId) || messageOrId);
-  if (!Number.isInteger(messageId) || messageId <= 0) return;
-  if (ctx.user) ctx.user.savedProfilesLastListMessageId = messageId;
-  if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", messageId);
-  }
-}
-
-async function clearSavedProfilesListMessage(ctx, exceptMessageIds = []) {
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const messageId = Number(ctx.user?.savedProfilesLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) return false;
-  if (ctx.user) ctx.user.savedProfilesLastListMessageId = null;
-  if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
-  }
-  return true;
-}
-
-async function forgetSavedProfilesListMessage(ctx) {
-  if (ctx.user?.savedProfilesLastListMessageId) {
-    if (ctx.user) ctx.user.savedProfilesLastListMessageId = null;
-    if (canPersistUserMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "savedProfilesLastListMessageId", null);
-    }
-  }
-}
-
-async function rememberPeopleListMessage(ctx, messageOrId, page = 0) {
-  if (typeof messageOrId === "boolean") return;
-  const messageId = Number(getMessageId(messageOrId) || messageOrId);
-  if (!Number.isInteger(messageId) || messageId <= 0) return;
-  const normalizedPage = Math.max(0, Number(page) || 0);
-  if (ctx.user) {
-    ctx.user.peopleLastListMessageId = messageId;
-    ctx.user.peopleLastListPage = normalizedPage;
-    ctx.user.peopleLastListMode = "browse";
-  }
-  if (canPersistUserMessageState(ctx)) {
-    await updateUserFields(ctx.userId, {
-      peopleLastListMessageId: messageId,
-      peopleLastListPage: normalizedPage,
-      peopleLastListMode: "browse",
-    });
-  }
-}
-
-async function clearPeopleListMessage(ctx, exceptMessageIds = []) {
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const messageId = Number(ctx.user?.peopleLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) return false;
-  if (ctx.user) {
-    ctx.user.peopleLastListMessageId = null;
-    ctx.user.peopleLastListMode = "";
-  }
-  if (canPersistUserMessageState(ctx)) {
-    await updateUserFields(ctx.userId, {
-      peopleLastListMessageId: null,
-      peopleLastListMode: "",
-    });
-  }
-  return true;
-}
-
-async function forgetPeopleListMessage(ctx) {
-  if (ctx.user?.peopleLastListMessageId || ctx.user?.peopleLastListMode) {
-    if (ctx.user) {
-      ctx.user.peopleLastListMessageId = null;
-      ctx.user.peopleLastListMode = "";
-    }
-    if (canPersistUserMessageState(ctx)) {
-      await updateUserFields(ctx.userId, {
-        peopleLastListMessageId: null,
-        peopleLastListMode: "",
-      });
-    }
-  }
-}
-
-async function clearViewedPublicProfileMessage(ctx, exceptMessageIds = []) {
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const messageId = Number(ctx.user?.publicProfileLastMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) return false;
-  const navigationMode = String(ctx.user?.navigationMode || "");
-  const canLeaveSafeProfileCard = /^(?:public_profile:|profile_discussions:|profile_unsave_confirm:)/.test(navigationMode);
-  if (canLeaveSafeProfileCard) {
-    if (ctx.user) ctx.user.publicProfileLastMessageId = null;
-    if (canPersistUserMessageState(ctx)) {
-      await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
-    }
-    return true;
-  }
-  if (!ctx.deleteMessage && !ctx.editMessageReplyMarkup) return false;
-  const deleted = ctx.deleteMessage ? await ctx.deleteMessage(messageId) : false;
-  const retired = deleted || (
-    ctx.editMessageReplyMarkup
-      ? await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] })
-      : false
-  );
-  if (ctx.user) ctx.user.publicProfileLastMessageId = null;
-  if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
-  }
-  return retired;
-}
-
-async function clearSavedProfileDiscussionMessage(ctx, exceptMessageIds = []) {
-  if (!isProfileDiscussionListType(ctx.user?.discussionLastListType)) return false;
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const messageId = Number(ctx.user?.discussionLastListMessageId);
-  if (!Number.isInteger(messageId) || messageId <= 0 || keep.has(messageId)) return false;
-  if (ctx.user) {
-    ctx.user.discussionLastListMessageId = null;
-    ctx.user.discussionLastListType = "";
-  }
-  if (canPersistUserMessageState(ctx)) {
-    await updateUserFields(ctx.userId, {
-      discussionLastListMessageId: null,
-      discussionLastListType: "",
-    });
-  }
-  return true;
-}
-
-async function clearSavedProfileSurfaceMessages(ctx, exceptMessageIds = []) {
-  await Promise.all([
-    clearSavedProfilesListMessage(ctx, exceptMessageIds),
-    clearPeopleListMessage(ctx, exceptMessageIds),
-    clearViewedPublicProfileMessage(ctx, exceptMessageIds),
-    clearSavedProfileDiscussionMessage(ctx, exceptMessageIds),
-  ]);
-}
-
-async function rememberViewedPublicProfileMessage(ctx, message) {
-  const messageId = getMessageId(message);
-  if (!messageId) return;
-  if (ctx.user) ctx.user.publicProfileLastMessageId = messageId;
-  if (canPersistUserMessageState(ctx)) {
-    await updateProfileField(ctx.userId, "publicProfileLastMessageId", messageId);
-  }
 }
 
 async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = null } = {}) {
@@ -980,21 +712,6 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
   const navigationMode = `profile_discussions:${source}:${profileCode}:${sourcePage}`;
   await setNavigationMode(ctx, navigationMode);
   return sent;
-}
-
-function isSavedProfilesCallback(data = "") {
-  return isPeopleCallback(data) ||
-    data === callBacks.savedProfiles ||
-    data === callBacks.profileUnsaveConfirm ||
-    data === callBacks.profileUnsaveCancel ||
-    data === callBacks.savedProfilesLimitClose ||
-    data === callBacks.profileDiscussionsClose ||
-    data === "saved:back" ||
-    data.startsWith(callBacks.savedProfilesPage) ||
-    data.startsWith(callBacks.savedProfilesOpen) ||
-    data.startsWith(callBacks.savedProfilesDiscussions) ||
-    data.startsWith(callBacks.savedProfilesRemove) ||
-    data.startsWith(callBacks.profileDiscussionsBack);
 }
 
 async function handleSavedProfilesCallback(ctx, lang, {

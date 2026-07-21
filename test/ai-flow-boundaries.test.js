@@ -1691,6 +1691,10 @@ test("suggestion callbacks are valid only inside their matching AI state", () =>
   assert.equal(isSuggestionCallbackValidForState(fromTopTen, "idle"), false);
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "ai_suggest_context_books"), true);
   assert.equal(isSuggestionCallbackValidForState(cancelContext, "idle"), false);
+  assert.equal(
+    isSuggestionCallbackValidForState(`${callBacks.aiSectionSuggestMenu}unknown`, "ai_chat_unknown"),
+    false,
+  );
 });
 
 test("suggestion callback edits the tapped card through waiting and final states", async () => {

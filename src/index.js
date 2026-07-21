@@ -21,6 +21,7 @@ const { formatBotExtra, formatBotText, refreshBotAppearance } = require("./servi
 const { localizeOutgoingExtra, localizeVisibleDigits } = require("./services/number-localization");
 const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owner-join-notifications");
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
+const { normalizeCallbackRouteLabel } = require("./services/callback-contracts");
 const {
   createRuntimeMetricsMonitor,
   createStageTimings,
@@ -36,20 +37,7 @@ const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
 const BACKGROUND_SEND_TIMEOUT_MS = 2500;
 
 function normalizeCallbackRoute(data = "") {
-  const value = String(data || "");
-  if (!value) return "callback:unknown";
-  if (value.startsWith("menu:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
-  if (value.startsWith("ai:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("discussion:create:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("discussion:list:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("discussion:invite:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("discussion:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
-  if (value.startsWith("profile:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("people:")) return `callback:${value.split(":").slice(0, 4).join(":")}`;
-  if (value.startsWith("saved:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
-  if (value.startsWith("onboarding:")) return `callback:${value.split(":").slice(0, 3).join(":")}`;
-  if (value.startsWith("lang:set:")) return "callback:lang:set";
-  return `callback:${value.split(":").slice(0, 2).join(":") || "unknown"}`;
+  return normalizeCallbackRouteLabel(data);
 }
 
 function getUpdateRouteLabel(ctx, user, rawText = "") {

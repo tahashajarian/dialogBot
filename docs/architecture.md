@@ -28,24 +28,43 @@ Keep the router files thin:
 
 - `src/bot.js` dispatches text messages.
 - `src/bot.js` also owns global Telegram command routing and the shared cleanup performed before command navigation.
+- `src/flows/bot-routing.js` owns pure text-command, deep-link, and persisted close-state parsing used by the text dispatcher.
 - `src/callbacks.js` dispatches callback queries.
+- `src/flows/callback-lifecycle.js` owns callback-card editing/deletion safety, stale-card retirement, remembered-card ownership policy, inactive own-profile protection, and cross-feature cleanup before dispatch.
+- `src/flows/hub-callbacks.js` owns Home, Guide, own-Profile entry, Favorites entry, and Discussions hub callback execution.
+- `src/flows/language-callbacks.js` owns language picker/open/close/set behavior, including onboarding-language continuation.
 - `src/flows/ai-text.js` owns AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-hub.js` owns delivery of the single Movies, Music & Books / Favorites hub banner card.
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
+- `src/flows/ai-callback-routing.js` owns AI callback recognition, list/filter token normalization, and state-scoped suggestion validation.
+- `src/flows/ai-suggestion-callbacks.js` owns suggestion quota consumption, paid fallback/refunds, provider retry and duplicate rejection, placeholder completion, and suggestion-result state transitions.
 - `src/flows/ai-cards.js` owns remembered AI list/section card IDs and stale AI card cleanup helpers.
 - `src/flows/profile-edit.js` owns profile edit prompt tracking and stale prompt cleanup.
 - `src/flows/profile-text.js` owns typed profile edit states, profile edit cancellation, and reset-photo text commands.
 - `src/flows/profile-callbacks.js` owns inline profile-picker routing, legacy settings-callback compatibility, and own-profile card restoration.
+- `src/flows/public-profile-callbacks.js` owns other-user profile view/save/unsave/close callbacks and their source-aware return navigation.
 - `src/flows/profile-sharing.js` owns share-card delivery and Back-to-own-profile restoration; `src/services/profile-sharing.js` owns caption shaping and media-Favorites eligibility.
 - `src/flows/profile-favorites.js` owns inline browsing of another user's public Movies/Music/Books Favorites; `src/services/profile-favorites-ui.js` owns its caption-safe text shaping.
 - `src/services/public-profile-navigation.js` owns public-profile source-mode parsing and capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js` owns the people hub, its durable first-visit guidance, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
+- `src/flows/saved-profile-message-state.js` owns remembered Saved Profiles, People, and public-profile message identifiers and their safe retirement rules.
+- `src/flows/saved-profiles-routing.js` owns Saved Profiles and People callback recognition.
+- `src/services/saved-profile-discussions-ui.js` owns source-aware profile-discussion request parsing, return types, list controls, and viewer-current-room decoration.
+- `src/services/profile-discussions.js` owns read-only queries that determine which public profiles have visible open discussions.
+- `src/services/user-core.js` owns core user lookup, generic field/state updates, and discussion-draft reset operations. `src/services/users.js` remains the stable facade.
+- `src/services/user-section-tips.js` owns allowlisted first-visit tip persistence and exposure analytics. `src/services/users.js` re-exports it for compatibility.
+- `src/services/callback-contracts.js` owns shared callback parsing, operational route labels, Telegram byte limits, and allowlisted callback fields.
+- `src/keyboards/people.js` owns Saved Profiles and People hub/discovery keyboards; `src/keyboards.js` remains the public keyboard facade.
+- `src/keyboards/ai.js` owns AI section, suggestion, list-management, taste-label, and AI input-control keyboards; `src/keyboards.js` re-exports them.
+- `src/services/discussion-member-profiles.js` owns member-profile reads needed by discussion member cards and removal callbacks.
+
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
 - `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics, including durable discussion/profile share destinations that render only after the normal completion surface; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
 - `src/flows/discussion-messages.js` owns active-room text/voice message validation, recent-message append orchestration, delivery, and runtime reply mapping.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
 - `src/flows/discussions-callbacks.js` owns discussion callback housekeeping, predicates, list/menu callbacks, join-error acknowledgements, and first Active Discussions guidance delivery.
+- `src/flows/discussion-room-callbacks.js` owns room lifecycle callback execution: open/join, invite dismissal, leave/close, member lists, and member removal. The central callback dispatcher delegates these actions and does not import discussion mutation or room-rendering services directly.
 - `src/flows/discussion-invitations.js` owns stored user-to-user discussion invitation commands/callbacks, inbox rendering flow, invite source return handling, and the shared first Discussions-guidance state when Invitations is visited first.
 - `src/services/discussion-actions.js` owns discussion side-effect orchestration such as notifications.
 - `src/services/discussion-owner-join-notifications.js` owns private owner join-card orchestration, unique-joiner batching, the durable due-summary scan, copy shaping, bounded delivery, and atomic claim/restore calls. `src/models/discussion-owner-join-notice.js` stores stable ids needed for per-window deduplication and minimal per-discussion throttle state; it never stores names, Telegram message ids, or notification text.
@@ -62,13 +81,17 @@ Keep the router files thin:
 - `src/services/people-taste-matches.js` contains legacy time-limited Stars entitlement helpers kept for old callback/data compatibility; current People discovery does not charge Stars.
 - `src/services/people-discovery-ui.js` owns people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js` owns saved-profile bookmark mutation rules and caps.
-- Public share-link discussion invite behavior should keep the same split: command/deep-link handling in `src/flows/discussions-text.js`, invite preview/callback handling in `src/flows/discussions-callbacks.js`, data lookups in `src/services/discussions.js`, and invite copy/rendering in `src/services/discussion-ui.js`.
+- Public share-link discussion invites keep command/deep-link and preview delivery in `src/flows/discussions-text.js`, list/menu housekeeping in `src/flows/discussions-callbacks.js`, join/switch/dismiss execution in `src/flows/discussion-room-callbacks.js`, data lookups in `src/services/discussions.js`, and copy/rendering in `src/services/discussion-ui.js`.
 - Stored saved-profile invitations should use `src/flows/discussion-invitations.js`, `src/services/discussion-invitations.js`, `src/services/discussion-invitation-mutes.js`, and `src/services/discussion-invitations-ui.js`.
+
+## Automated Architecture Boundaries
+
+`npm run architecture` runs `scripts/validate-architecture.js`. It rejects new direct model imports from flows and dispatchers, new model imports from UI services, Star ledger-model access outside designated services, execution dependencies inside pure routing-contract modules, and static callback prefixes that exceed Telegram's 64-byte `callback_data` limit. A documented allowlist records existing compatibility seams; it is not permission to expand those seams. `npm run check` runs this validation in CI.
 
 ## Data Model Rules
 
 - Update `src/services/users.js` when adding or changing user fields or state helpers.
-- `User.sectionTipsShownAt` stores independent durable timestamps for invitation Discussions guidance, Active Discussions browsing guidance, Favorites, and People. `src/services/users.js` owns the whitelisted atomic first-write helpers; flows call the context-aware helper only after their containing Telegram response succeeds.
+- `User.sectionTipsShownAt` stores independent durable timestamps for invitation Discussions guidance, Active Discussions browsing guidance, Favorites, and People. `src/services/user-section-tips.js` owns the whitelisted atomic first-write helpers; flows use its compatibility exports from `src/services/users.js` only after their containing Telegram response succeeds.
 - Keep AI list access centralized in `src/services/users.js` helpers:
   - `getAiListItemsFromUser`
   - `addAiListItem`

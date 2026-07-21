@@ -419,6 +419,16 @@ async function listRecentJoinedDiscussions(userId, { limit = 3 } = {}) {
   };
 }
 
+function findDiscussionById(discussionId) {
+  if (!discussionId) return null;
+  return Discussion.findById(discussionId);
+}
+
+function findDiscussionByIdLean(discussionId) {
+  if (!discussionId) return null;
+  return Discussion.findById(discussionId).lean();
+}
+
 async function joinOrOpenDiscussion(userId, discussionId, {
   allowActiveSwitch = false,
   allowOwnerReentry = false,
@@ -866,6 +876,8 @@ module.exports = {
   listActiveDiscussions,
   listMyDiscussions,
   listRecentJoinedDiscussions,
+  findDiscussionById,
+  findDiscussionByIdLean,
   joinOrOpenDiscussion,
   getActiveDiscussionInviteForUser,
   leaveDiscussionAsMember,

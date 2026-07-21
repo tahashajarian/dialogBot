@@ -9,6 +9,12 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/db.js`: MongoDB connection only.
 - `src/bot.js`: text-message dispatcher. Keep this thin; route to flow/service helpers.
 - `src/callbacks.js`: callback-query dispatcher. Keep this thin; route to flow/service helpers.
+- `src/flows/callback-lifecycle.js`: stale-card protection, safe callback-card cleanup, and pre-dispatch cross-feature lifecycle policy.
+- `src/flows/hub-callbacks.js`: Home/Guide/Profile/Favorites/Discussions hub callback execution.
+- `src/flows/language-callbacks.js`: language picker and onboarding-aware language selection callbacks.
+- `src/flows/public-profile-callbacks.js`: other-user profile view/save/unsave/close callback execution and return context.
+- `src/flows/bot-routing.js`: pure text command, start-payload, and close-confirmation state parsing for the text dispatcher.
+- `src/services/callback-contracts.js`: shared callback payload parsing, route labels, field allowlists, and Telegram byte-limit contract.
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
 - `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
@@ -28,6 +34,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - membership/message/create limits
   - recent message storage
 - `src/services/discussion-actions.js`: cross-user side effects around discussion mutations.
+- `src/flows/discussion-room-callbacks.js`: room open/join/leave/close and member-management callback execution.
   - join/leave/close/remove notifications
   - pre-close active-member lookup before active state is cleared
 - `src/services/discussion-owner-join-notifications.js` and `src/models/discussion-owner-join-notice.js`: private owner join-card delivery plus durable unique-user deduplication, scheduled summaries, atomic ten-minute throttling, and failure restoration.
@@ -93,6 +100,7 @@ Use this map before changing code. It explains where behavior belongs so future 
   - first inbox explanation shares the durable Discussions guidance state with Active Discussions
 - `src/services/discussion-ui.js`: discussion list/preview/error formatting.
 - `src/services/discussion-room-ui.js`: room header, recent messages, member list formatting.
+- `src/services/discussion-member-profiles.js`: focused user-profile reads for discussion member cards and removal actions.
 
 ## Profile, People, And Saved Profiles
 
@@ -101,7 +109,9 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `docs/account-deletion.md`: deletion, retention, retry, and recreation contract.
 
 - `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps for invitation guidance, Active Discussions browsing, Favorites, and People.
-- `src/services/users.js`: whitelisted, atomic section-tip first-write helpers and centralized AI-list access/mutations.
+- `src/services/users.js`: stable user-service facade and centralized AI-list access/mutations.
+- `src/services/user-core.js`: core user lookup and generic field/state updates, re-exported through `src/services/users.js`.
+- `src/services/user-section-tips.js`: whitelisted, atomic section-tip first-write helpers and exposure analytics, re-exported through `src/services/users.js`.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, edit-start helpers, and remembered inline-card refresh for typed Interests.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
 - `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People visibility mutation, and invitation-restriction management.
@@ -113,6 +123,10 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/profile-favorites-ui.js`: public Movies/Music/Books Favorites and stored taste-label rendering; excludes every For Later list.
 - `src/services/public-profile-navigation.js`: public-profile mode parsing plus capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
+- `src/flows/saved-profile-message-state.js`: remembered Saved Profiles, People, profile-discussion, and viewed-profile message state plus safe retirement.
+- `src/flows/saved-profiles-routing.js`: Saved Profiles and People callback recognition.
+- `src/services/saved-profile-discussions-ui.js`: source-aware profile-discussion parsing, return controls, and viewer-current-room decoration.
+- `src/services/profile-discussions.js`: read-only visible-open-discussion queries for public profile surfaces.
 - `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
@@ -144,6 +158,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-list-input.js`: list-add prompt selection plus typed/audio input extraction for AI lists.
 - `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
+- `src/flows/ai-callback-routing.js`: AI callback recognition plus state/list/filter token validation.
+- `src/flows/ai-suggestion-callbacks.js`: suggestion quota, paid fallback/refunds, AI retry, duplicate rejection, and result-state orchestration.
 - `src/flows/ai-taste-labels.js`: taste-label result/current/failure card presentation and progressive review delivery.
 - `src/flows/ai-cards.js`: remembered AI list/section card IDs and stale-card cleanup helpers shared by AI text/callback flows.
 - `src/services/users.js`: centralized AI list storage helpers and media taste-label state.
@@ -161,6 +177,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 
 - `src/messages.js`: translation/copy keys.
 - `src/keyboards.js`: inline and reply keyboard builders.
+- `src/keyboards/ai.js`: AI section, suggestion, list-management, taste-label, and input-control keyboard builders.
 - `src/services/reply-keyboard-navigation.js`: durable reply-keyboard modes, localized label normalization, exact-mode action resolution, and shared mode persistence. Keep label matching out of dispatchers and feature flows.
 - `docs/bot-ux.md`: bot UX rules, stale-card cleanup, low-noise behavior.
 
@@ -186,7 +203,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion delivery/reply runtime mapping: `src/services/discussion-delivery-memory.js`.
 - New discussion text command or bottom-button flow: `src/flows/discussions-text.js`.
 - New active-room text/voice delivery rule: `src/flows/discussion-messages.js`.
-- New discussion invite preview/callback flow: `src/flows/discussions-callbacks.js`.
+- New public discussion invite preview/deep-link flow: `src/flows/discussions-text.js`.
+- New public discussion invite join/switch/dismiss callback: `src/flows/discussion-room-callbacks.js`.
 - New stored discussion invitation behavior: `src/flows/discussion-invitations.js`, `src/services/discussion-invitations.js`, `src/services/discussion-invitation-mutes.js`, and `src/services/discussion-invitations-ui.js`.
 - New discussion list/menu callback action: `src/flows/discussions-callbacks.js`.
 - New discussion-create typed input step: `src/flows/discussions-create-text.js`.
@@ -198,7 +216,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New profile inline edit or legacy settings callback action: `src/flows/profile-callbacks.js`.
 - New profile edit prompt lifecycle rule: `src/flows/profile-edit.js`.
 - New saved-profile storage/mutation rule: `src/services/saved-profiles.js`.
-- New saved-profile action or public-profile card lifecycle rule: `src/flows/saved-profiles.js`.
+- New saved-profile action: `src/flows/saved-profiles.js`; message-id lifecycle: `src/flows/saved-profile-message-state.js`; other-user profile callbacks: `src/flows/public-profile-callbacks.js`.
 - New saved-profile list rendering rule: `src/services/saved-profiles-ui.js`.
 - New AI text state or section bottom-button behavior: `src/flows/ai-text.js`.
 - New first-session onboarding behavior: `src/flows/onboarding.js`.
@@ -207,7 +225,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New discussion boost rule: focused boost services plus small hooks in discussion list/room flows.
 - New People discovery rule: keep matching/ranking in `src/services/people-discovery.js`; do not add Star charging to `👀 دیدن آدم‌ها`.
 - New Advanced Search preview rule: keep it in the People flow/UI with no charging; any future entitlement/filter service must compose with `src/services/people-discovery.js`.
-- New AI callback action: `src/flows/ai-callbacks.js`.
+- New AI callback action: `src/flows/ai-callbacks.js`; suggestion-generation callback orchestration: `src/flows/ai-suggestion-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.
 - New paid extra suggestion rule: `src/services/ai-paid-suggestions.js`; AI flows should only offer it after free quota exhaustion and explicit confirmation.
 - New AI list mutation or taste helper: `src/services/users.js`.

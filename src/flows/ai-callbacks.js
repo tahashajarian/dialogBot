@@ -1,9 +1,7 @@
 const path = require("node:path");
 const messages = require("../messages");
-const { getAiConfig } = require("../config");
 const { logger } = require("../services/logger");
 
-const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
 const BOOKS_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/books-section-banner.jpg");
 const MUSIC_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/music-section-banner.jpg");
 const MOVIES_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/movies-section-banner.jpg");
@@ -27,11 +25,8 @@ const AI_SECTION_BANNERS = Object.freeze({
 const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
-  aiSuggestionCopyKeyboard,
   aiSuggestionNextKeyboard,
   aiSuggestionLimitKeyboard,
-  aiPaidSuggestionConfirmKeyboard,
-  aiSuggestionModeKeyboard,
   aiSuggestionNeedTopTenKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
@@ -51,18 +46,13 @@ const {
   updateUserState,
   removeAiListItem,
   addAiListItem,
-  addAiRecentSuggestion,
   addAiRejectedSuggestion,
-  consumeAiSuggestionQuota,
-  refundAiSuggestionQuota,
   getAiListItemsFromUser,
   getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
   syncAiTasteForSection,
   getAiListTitlesFromUser,
-  getAiRecentSuggestionTitlesFromUser,
-  getAiRejectedSuggestionTitlesFromUser,
   getAiTasteFromUser,
   confirmAiTasteLabel,
   recalculateAiTasteForSection,
@@ -70,29 +60,22 @@ const {
 } = require("../services/users");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
-const { getAiSingleSuggestion } = require("../services/ai");
 const { startAiPlaceholder, editPlaceholder } = require("../services/ai-placeholder");
 const {
   getSectionEmoji,
   getSectionLabel,
   getSectionListLabel,
   getSectionMessage,
-  getTasteLabelStyleHint,
 } = require("../services/ai-section");
 const { isAllowedTasteLabel } = require("../services/taste-label-classifier");
 const { sendTasteLabelReview, withTasteInsight } = require("./ai-taste-labels");
 const {
-  setPendingSuggestion,
   getPendingSuggestion,
   clearPendingSuggestion,
-  clearSuggestionMood,
   getSuggestionMood,
 } = require("../services/ai-suggestion-cache");
-const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
-  AI_SUGGESTION_MAX_ATTEMPTS,
-  AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
@@ -101,8 +84,6 @@ const {
   buildTopTenSavedMessage,
   formatAiItemsList,
   formatAiLimitMessage,
-  formatSuggestionLimitMessage,
-  formatSuggestionResultMessage,
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
@@ -137,12 +118,21 @@ const {
   notifyExternalReferralReward,
 } = require("../services/stars-ui");
 const {
-  createPaidSuggestionQuote,
   confirmPaidSuggestion,
-  completePaidSuggestion,
-  refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
 const { starEconomy } = require("../services/star-settings");
+const {
+  isAiCallback,
+  isSuggestionCallbackValidForState,
+  normalizeAiListTypeToken,
+  normalizeWatchlistFilter,
+  toAiManageStateListType,
+} = require("./ai-callback-routing");
+const {
+  promptSuggestionMode,
+  recoverExpiredSuggestion,
+  sendFollowupSuggestion,
+} = require("./ai-suggestion-callbacks");
 const {
   cancelTasteLabelRecheck,
   completeTasteLabelRecheck,
@@ -150,293 +140,6 @@ const {
   createTasteLabelRecheckQuote,
   refundTasteLabelRecheck,
 } = require("../services/taste-label-rechecks");
-
-function normalizeAiListTypeToken(value) {
-  if (value === "watchlist") return "watchlist";
-  if (value === "top_ten" || value === "topTen") return "topTen";
-  return "";
-}
-
-function toAiManageStateListType(value) {
-  return value === "topTen" ? "top_ten" : "watchlist";
-}
-
-function normalizeWatchlistFilter(value) {
-  if (value === "watched") return "watched";
-  if (value === "not_watched") return "not_watched";
-  return "all";
-}
-
-function isAiCallback(data = "") {
-  return (
-    data.startsWith(callBacks.aiSuggestMovies) ||
-    data.startsWith(callBacks.aiSuggestMusic) ||
-    data.startsWith(callBacks.aiSuggestBooks) ||
-    data.startsWith(callBacks.aiSuggestRandom) ||
-    data.startsWith(callBacks.aiListManageMenu) ||
-    data.startsWith(callBacks.aiListManageShow) ||
-    data.startsWith(callBacks.aiTopTenInsight) ||
-    data.startsWith(callBacks.aiTasteRecheckConfirm) ||
-    data.startsWith(callBacks.aiTasteRecheckCancel) ||
-    data.startsWith(callBacks.aiTasteRecheck) ||
-    data.startsWith(callBacks.aiTasteRetry) ||
-    data.startsWith(callBacks.aiTasteReview) ||
-    data.startsWith(callBacks.aiTasteConfirm) ||
-    data.startsWith(callBacks.aiTasteChoose) ||
-    data === callBacks.aiTasteClose ||
-    data.startsWith(callBacks.aiTasteSkip) ||
-    data.startsWith(callBacks.aiListManageTogglePicker) ||
-    data.startsWith(callBacks.aiListManageToggleItem) ||
-    data.startsWith(callBacks.aiListManageCommentPicker) ||
-    data.startsWith(callBacks.aiListManageCommentItem) ||
-    data.startsWith(callBacks.aiListManageCancelComment) ||
-    data.startsWith(callBacks.aiListManagePromotePicker) ||
-    data.startsWith(callBacks.aiListManagePromoteItem) ||
-    data.startsWith(callBacks.aiListManageAdd) ||
-    data.startsWith(callBacks.aiListManageCancelAdd) ||
-    data.startsWith(callBacks.aiListManageRemovePicker) ||
-    data.startsWith(callBacks.aiListManageRemoveItem) ||
-    data.startsWith(callBacks.aiListManageBack) ||
-    data.startsWith(callBacks.aiSectionAddSuggestion) ||
-    data.startsWith(callBacks.aiSectionAddSuggestionDone) ||
-    data.startsWith(callBacks.aiSectionRejectSuggestion) ||
-    data.startsWith(callBacks.aiSectionAnotherSuggestion) ||
-    data.startsWith(callBacks.aiSectionSuggestMenu) ||
-    data.startsWith(callBacks.aiSectionSuggestNeedTopTenAck) ||
-    data.startsWith(callBacks.aiSectionSuggestFromTopTen) ||
-    data.startsWith(callBacks.aiSectionSuggestContextCancel) ||
-    data.startsWith(callBacks.aiPaidSuggestionConfirm) ||
-    data.startsWith(callBacks.aiPaidSuggestionCancel) ||
-    data.startsWith(callBacks.aiInterestTopTenChip) ||
-    data.startsWith(callBacks.aiInterestTopTenMore) ||
-    data === callBacks.aiBack
-  );
-}
-
-async function promptSuggestionMode(ctx, lang, section) {
-  clearSuggestionMood(ctx.userId, section);
-  await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
-  await clearAiActionMessage(ctx);
-  await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-  if (ctx.user) {
-    ctx.user.state = `ai_suggest_context_${section}`;
-    ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
-  }
-  const prompt = await ctx.reply(
-    messages[lang].aiSuggestionModePrompt,
-    aiSuggestionModeKeyboard(lang, section),
-  );
-  await rememberAiPendingInputPrompt(ctx, prompt);
-  return prompt;
-}
-
-function getSuggestionCallbackSection(data = "") {
-  const prefixes = [
-    callBacks.aiSectionAnotherSuggestion,
-    callBacks.aiSectionSuggestMenu,
-    callBacks.aiSectionSuggestFromTopTen,
-    callBacks.aiSectionSuggestContextCancel,
-    callBacks.aiPaidSuggestionCancel,
-  ];
-  const prefix = prefixes.find((entry) => data.startsWith(entry));
-  return prefix ? data.slice(prefix.length).trim() : "";
-}
-
-function recoverExpiredSuggestion(ctx, lang, section) {
-  clearPendingSuggestion(ctx.userId, section);
-  return openAiListManager(ctx, lang, section, "topTen", {
-    prefix: messages[lang].aiSuggestionExpired || messages[lang].unknownAction,
-  });
-}
-
-function getSuggestionResetMinutes(resetAt) {
-  const resetTime = new Date(resetAt).getTime();
-  if (!Number.isFinite(resetTime)) return 1;
-  return Math.max(1, Math.ceil((resetTime - Date.now()) / 60000));
-}
-
-function buildPaidSuggestionOfferText(lang, quote, balance, resetAt) {
-  return messages[lang].aiSuggestionPaidOffer
-    .replace("{minutes}", formatStarNumber(getSuggestionResetMinutes(resetAt), lang))
-    .replace("{cost}", formatStarNumber(quote.quotedCost, lang))
-    .replace("{balance}", formatStarNumber(balance, lang));
-}
-
-function isSuggestionCallbackValidForState(data = "", state = "") {
-  const section = getSuggestionCallbackSection(data);
-  if (!section) return true;
-  if (data.startsWith(callBacks.aiSectionSuggestContextCancel)) {
-    return state === `ai_suggest_context_${section}`;
-  }
-  return state === `ai_chat_${section}`
-    || state === `ai_suggest_context_${section}`
-    || state.startsWith(`ai_manage_${section}_`);
-}
-
-function getPromptWatchlistItems(watchlistItems = []) {
-  return watchlistItems.slice(-AI_WATCHLIST_PROMPT_LIMIT);
-}
-
-async function sendFollowupSuggestion({
-  ctx,
-  lang,
-  section,
-  watchlistItems = [],
-  userText = "",
-  paidSuggestion = null,
-  placeholderMessage = null,
-}) {
-  const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
-  const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
-  const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
-  const blockedSuggestionItems = [
-    ...topTenItems,
-    ...watchlistItems,
-    ...recentSuggestionItems,
-    ...rejectedSuggestionItems,
-  ].map((title) => ({ title }));
-  const taste = getAiTasteFromUser(ctx.user, section);
-  const tasteStyleHint = taste?.labelKey
-    ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
-    : "";
-
-  const restoreSuggestionMode = async () => {
-    await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
-    if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
-    await setNavigationMode(ctx, `ai_suggestion_mode:${section}`);
-    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_mode:${section}`;
-  };
-  await updateUserState(ctx.userId, `ai_suggest_generating_${section}`);
-  if (ctx.user) ctx.user.state = `ai_suggest_generating_${section}`;
-  await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
-
-  const placeholder = await startAiPlaceholder(ctx, [
-    messages[lang].aiThinking,
-    messages[lang].aiThinkingStill,
-    messages[lang].aiThinkingAlmost,
-    messages[lang].aiThinkingLonger,
-  ], {
-    placeholder: placeholderMessage,
-    ...(placeholderMessage
-      ? { initialExtra: { reply_markup: { inline_keyboard: [] } } }
-      : {}),
-    fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
-    fallbackExtra: aiSuggestionModeKeyboard(lang, section),
-    timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
-    onFallback: async () => {
-      if (paidSuggestion) {
-        await refundPaidSuggestion(
-          paidSuggestion.quote._id,
-          paidSuggestion.spend?.transaction?._id,
-          { reason: "ai_paid_suggestion_timeout" },
-        );
-      }
-      await restoreSuggestionMode();
-    },
-  });
-  const quota = paidSuggestion ? { ok: true, paid: true } : await consumeAiSuggestionQuota(ctx.userId, section);
-  if (!quota.ok) {
-    await restoreSuggestionMode();
-    if (quota.reason === "limit") {
-      const quoteResult = await createPaidSuggestionQuote(ctx.userId, section, { userText });
-      if (quoteResult.ok) {
-        return placeholder.finish(
-          buildPaidSuggestionOfferText(lang, quoteResult.quote, ctx.user?.starBalance || 0, quota.resetAt),
-          aiPaidSuggestionConfirmKeyboard(lang, quoteResult.quote.publicCode, quoteResult.quote.quotedCost, section),
-        );
-      }
-    }
-    return placeholder.finish(
-      quota.reason === "limit"
-        ? formatSuggestionLimitMessage(lang, quota.resetAt)
-        : messages[lang].aiNoResponse,
-      quota.reason === "limit"
-        ? aiSuggestionLimitKeyboard(lang, section)
-        : aiSuggestionModeKeyboard(lang, section),
-    );
-  }
-
-  let suggestionResult = null;
-  for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
-    const retryInstruction = "Suggest a different item. The previous one was already known.";
-    suggestionResult = await getAiSingleSuggestion({
-      mode: section,
-      lang,
-      userText: attempt === 0
-        ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
-        : retryInstruction,
-      topTenItems,
-      watchlistItems: getPromptWatchlistItems(watchlistItems),
-      recentSuggestionItems,
-      rejectedSuggestionItems,
-      personalized: true,
-      tasteStyleHint,
-    });
-
-    if (!suggestionResult.ok || !suggestionResult.title) {
-      break;
-    }
-
-    const duplicateMatch = getAiListDuplicateMatch(suggestionResult.title, blockedSuggestionItems);
-    if (!duplicateMatch) {
-      break;
-    }
-
-    suggestionResult = { ok: false, reason: "duplicate_suggestion" };
-  }
-
-  if (placeholder.isSettled()) {
-    if (!paidSuggestion) await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
-    return null;
-  }
-
-  if (!suggestionResult.ok || !suggestionResult.title) {
-    await restoreSuggestionMode();
-    if (paidSuggestion) {
-      await refundPaidSuggestion(
-        paidSuggestion.quote._id,
-        paidSuggestion.spend?.transaction?._id,
-      );
-      return placeholder.finish(
-        messages[lang].aiSuggestionPaidRefunded,
-        aiSuggestionModeKeyboard(lang, section),
-      );
-    }
-    const fallbackMessage = await placeholder.finish(
-      messages[lang].aiNoResponse,
-      aiSuggestionModeKeyboard(lang, section),
-    );
-    try {
-      await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
-    } catch (error) {
-      logger.warn("Failed to refund free AI suggestion quota after fallback", error);
-    }
-    return fallbackMessage;
-  }
-
-  if (paidSuggestion) {
-    await completePaidSuggestion(paidSuggestion.quote._id, suggestionResult.title);
-  }
-  await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
-  setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
-  await updateUserState(ctx.userId, `ai_chat_${section}`);
-  if (ctx.user) ctx.user.state = `ai_chat_${section}`;
-  await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
-  if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
-  const resultMessage = await placeholder.finish(
-    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
-    aiSuggestionCopyKeyboard(lang, suggestionResult.title),
-  );
-  if (resultMessage) {
-    const actionMessage = await ctx.reply(
-      messages[lang].aiSuggestionChooseAction,
-      aiSuggestionAddKeyboard(lang, section),
-    );
-    await rememberAiActionMessage(ctx, `suggest_result:${section}`, actionMessage);
-  }
-  return resultMessage;
-}
 
 function getWatchStatusCopy(lang, section) {
   return {

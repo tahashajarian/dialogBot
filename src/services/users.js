@@ -7,10 +7,26 @@ const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { getTasteLabelEmoji } = require("./ai-section");
 const { isLowQualityAiListItem } = require("./ai-input-quality");
 const { canonicalizeInterestChipTitle } = require("./interest-chips");
-const { sanitizeProfileNameCandidate } = require("./profile");
 const { isCommandLikeText } = require("./command-like-text");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
 const { syncUserTasteIndex } = require("./user-taste-index");
+const {
+  SECTION_TIP_KEYS,
+  hasSectionTipBeenShown,
+  markSectionTipShown,
+  markSectionTipShownForContext,
+} = require("./user-section-tips");
+const {
+  getOrCreateUser,
+  normalizePlatformUserSource,
+  recordRecentJoinedDiscussion,
+  resetDiscussionDraft,
+  updateLanguage,
+  updateLocationCityForSharedAt,
+  updateProfileField,
+  updateUserFields,
+  updateUserState,
+} = require("./user-core");
 const {
   TASTE_CLASSIFIER_VERSION,
   buildRankedTasteShortlist,
@@ -19,199 +35,6 @@ const {
   isAllowedTasteLabel,
   isMediaTasteSection,
 } = require("./taste-label-classifier");
-
-const PROFILE_NAME_MAX_LENGTH = 30;
-const SECTION_TIP_KEYS = Object.freeze(["discussions", "activeDiscussions", "discussionLeaveRecent", "favorites", "people"]);
-const RECENT_JOINED_DISCUSSION_LIMIT = 3;
-
-function firstPresent(...values) {
-  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
-}
-
-function normalizePlatformUserSource(from = {}) {
-  const rawId = firstPresent(from.id, from.user_id, from.userId);
-  const userId = Number(rawId);
-  if (!Number.isInteger(userId) || userId <= 0) return null;
-
-  return {
-    id: userId,
-    username: firstPresent(from.username, from.user_name, from.userName) || "",
-    firstName: firstPresent(from.first_name, from.firstName, from.name, from.full_name, from.fullName) || "",
-    languageCode: firstPresent(from.language_code, from.languageCode, from.lang) || "",
-  };
-}
-
-async function getOrCreateUser(from) {
-  const source = normalizePlatformUserSource(from);
-  if (!source) return null;
-  const safeFirstName = sanitizeProfileNameCandidate(source.firstName, PROFILE_NAME_MAX_LENGTH);
-  const setFields = { username: source.username };
-  if (safeFirstName) setFields.firstName = safeFirstName;
-
-  return await User.findOneAndUpdate(
-    { userId: source.id },
-    {
-      $set: setFields,
-      $setOnInsert: {
-        userId: source.id,
-        profileName: "",
-        profileNameConfirmedAt: null,
-        age: null,
-        lang: "fa",
-      },
-    },
-    {
-      upsert: true,
-      returnDocument: "after",
-    },
-  );
-}
-
-async function updateLanguage(userId, newLang) {
-  return await User.findOneAndUpdate(
-    { userId },
-    { lang: newLang },
-    { returnDocument: "after" },
-  );
-}
-
-async function updateProfileField(userId, field, value) {
-  return await User.findOneAndUpdate(
-    { userId },
-    { [field]: value },
-    { returnDocument: "after" },
-  );
-}
-
-async function recordRecentJoinedDiscussion(userId, discussionId) {
-  if (!discussionId) return null;
-  return User.findOneAndUpdate(
-    { userId },
-    [{
-      $set: {
-        recentJoinedDiscussionIds: {
-          $slice: [
-            {
-              $concatArrays: [
-                [discussionId],
-                {
-                  $filter: {
-                    input: { $ifNull: ["$recentJoinedDiscussionIds", []] },
-                    as: "recentDiscussionId",
-                    cond: { $ne: ["$$recentDiscussionId", discussionId] },
-                  },
-                },
-              ],
-            },
-            RECENT_JOINED_DISCUSSION_LIMIT,
-          ],
-        },
-      },
-    }],
-    { returnDocument: "after", updatePipeline: true },
-  );
-}
-
-async function updateLocationCityForSharedAt(userId, sharedAt, city, attemptedAt = new Date()) {
-  return await User.findOneAndUpdate(
-    { userId, "location.sharedAt": sharedAt },
-    {
-      $set: {
-        "location.city": city,
-        "location.cityLookupAttemptedAt": attemptedAt,
-      },
-    },
-    { returnDocument: "after" },
-  );
-}
-
-async function updateUserFields(userId, fields = {}) {
-  const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
-  if (!entries.length) {
-    return User.findOne({ userId });
-  }
-
-  return await User.findOneAndUpdate(
-    { userId },
-    { $set: Object.fromEntries(entries) },
-    { returnDocument: "after" },
-  );
-}
-
-async function updateUserState(userId, state) {
-  return await User.findOneAndUpdate(
-    { userId },
-    { state },
-    { returnDocument: "after" },
-  );
-}
-
-function hasSectionTipBeenShown(user, key) {
-  if (!SECTION_TIP_KEYS.includes(key)) return false;
-  return Boolean(user?.sectionTipsShownAt?.[key]);
-}
-
-async function markSectionTipShown(userId, key, shownAt = new Date()) {
-  const normalizedUserId = Number(userId);
-  const normalizedDate = shownAt instanceof Date ? shownAt : new Date(shownAt);
-  if (
-    !Number.isInteger(normalizedUserId)
-    || normalizedUserId <= 0
-    || !SECTION_TIP_KEYS.includes(key)
-    || !Number.isFinite(normalizedDate.getTime())
-  ) {
-    return null;
-  }
-  return User.findOneAndUpdate(
-    {
-      userId: normalizedUserId,
-      [`sectionTipsShownAt.${key}`]: null,
-    },
-    { $set: { [`sectionTipsShownAt.${key}`]: normalizedDate } },
-    { returnDocument: "after" },
-  );
-}
-
-async function markSectionTipShownForContext(ctx, key, shownAt = new Date()) {
-  const normalizedDate = shownAt instanceof Date ? shownAt : new Date(shownAt);
-  if (!SECTION_TIP_KEYS.includes(key) || !Number.isFinite(normalizedDate.getTime())) return null;
-  if (!ctx?.user?._id && !ctx?.persistSectionTips) {
-    if (!ctx?.user) return null;
-    ctx.user.sectionTipsShownAt = ctx.user.sectionTipsShownAt || {};
-    ctx.user.sectionTipsShownAt[key] = normalizedDate;
-    return ctx.user;
-  }
-  const marked = await markSectionTipShown(ctx?.userId, key, normalizedDate);
-  if (marked && ctx?.user) {
-    ctx.user.sectionTipsShownAt = ctx.user.sectionTipsShownAt || {};
-    ctx.user.sectionTipsShownAt[key] = normalizedDate;
-  }
-  if (marked) {
-    void trackEvent({
-      name: EVENT_NAMES.sectionTipExposed,
-      userId: ctx?.userId,
-      source: "first_visit",
-      section: key,
-      metadata: { tipKey: key },
-    });
-  }
-  return marked;
-}
-
-async function resetDiscussionDraft(userId) {
-  return updateUserFields(userId, {
-    discussionDraftTitle: "",
-    discussionDraftDescription: "",
-    discussionDraftJoinRule: null,
-    discussionDraftMaxMembers: 20,
-    navigationMode: "discussions",
-    discussionDraftLanguage: "",
-    discussionDraftPaidOwnedSlotTransactionId: null,
-    discussionDraftPaidOwnedSlotAuthorized: false,
-    discussionDraftPaidOwnedSlotCap: 0,
-    discussionDraftPaidOwnedSlotCost: 0,
-  });
-}
 
 function normalizeAiListItem(value) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 80);

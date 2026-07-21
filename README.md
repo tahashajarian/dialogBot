@@ -98,6 +98,7 @@ npm.cmd test
 npm.cmd run test:integration
 npm.cmd run create:indexes
 npm.cmd run lint
+npm.cmd run architecture
 npm.cmd run validate:translations
 npm.cmd run clear:user-data:dry
 npm.cmd run clear:user-data

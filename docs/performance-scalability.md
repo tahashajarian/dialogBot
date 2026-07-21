@@ -110,20 +110,20 @@ Operational commands:
 ## UX Safety Review
 
 - Discussion, saved-profile, People, and AI flows already track transient bot message ids and generally delete or retire stale inline cards before rendering follow-up cards.
-- `src/callbacks.js` has centralized stale-callback retirement for AI, saved-profile/People, profile, and discussion surfaces. This protects old indexed buttons when a newer remembered card exists.
+- `src/flows/callback-lifecycle.js` centralizes stale-callback retirement for AI, saved-profile/People, profile, and discussion surfaces. This protects old indexed buttons when a newer remembered card exists while keeping `src/callbacks.js` as a dispatcher.
 - AI remove/toggle flows delete the consumed callback card before showing the refreshed manager, which avoids shifted-index actions lingering in chat.
 - Saved-profile and People list flows clear list/profile cards on navigation and preserve the correct Back destination for saved-list versus People-list profile opens.
-- Discussion close/remove/member flows still contain some inline orchestration in `src/callbacks.js`; future changes should move more of that into focused discussion flow helpers rather than adding branches.
+- Discussion open/join/leave/close/member callbacks delegate to `src/flows/discussion-room-callbacks.js`; cross-user side effects remain in `src/services/discussion-actions.js`.
 
 ## Maintainability Boundaries
 
 Largest files by size remain:
 
 - `src/messages.js`: keep as data for now; split only with translation validation support.
-- `src/flows/ai-callbacks.js`: safe next extraction is suggestion callbacks versus list-management callbacks.
-- `src/keyboards.js`: safe next extraction is feature-specific keyboard modules re-exported through `src/keyboards.js`.
-- `src/flows/saved-profiles.js`: safe next extraction is People discovery callbacks and Advanced Search preview callbacks.
-- `src/callbacks.js`: keep shrinking by moving discussion member/remove/close branches into discussion flow modules.
+- `src/flows/ai-callbacks.js`: suggestion-generation orchestration now lives in `src/flows/ai-suggestion-callbacks.js`; keep further list-action extraction demand-driven.
+- `src/keyboards.js`: AI and People builders live in feature modules and are re-exported through the stable facade; use the same pattern for future large keyboard domains.
+- `src/flows/saved-profiles.js`: routing, message state, and visible-discussion queries now have focused owners; keep future People action extraction demand-driven.
+- `src/callbacks.js`: keep as a thin ordered dispatcher; callback lifecycle and feature execution belong in focused flow modules.
 - `src/bot.js`: keep as a text dispatcher; new text behavior should go to focused flow modules.
 
 Prefer extraction only when touching the related behavior for a bug or feature. Mechanical splitting without behavior changes is lower priority than query-shape and stale-card safety work.
