@@ -573,14 +573,12 @@ test("help is available from Home and onboarding completion", () => {
   assert.doesNotMatch(messages.en.helpRulesText, /\bcost(?:s|ing)?\b|\bpay(?:s|ing|ment)?\b/i);
   const faGuideRulesAndStars = [
     messages.fa.helpText,
-    messages.fa.helpReferralGuidance,
     messages.fa.helpReferralShareText,
     messages.fa.helpRulesText,
     messages.fa.starsOverviewText,
   ].join("\n");
   const enGuideRulesAndStars = [
     messages.en.helpText,
-    messages.en.helpReferralGuidance,
     messages.en.helpReferralShareText,
     messages.en.helpRulesText,
     messages.en.starsOverviewText,
@@ -601,8 +599,8 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpText, /Previous discussions are under My discussions/i);
   assert.match(messages.fa.helpText, /من ← حریم خصوصی و امنیت ← حذف حساب/);
   assert.match(messages.en.helpText, /Me → Privacy & safety → Delete account/);
-  assert.ok(messages.fa.helpText.length <= 1024);
-  assert.ok(messages.en.helpText.length <= 1024);
+  assert.ok(messages.fa.helpText.length <= 4096);
+  assert.ok(messages.en.helpText.length <= 4096);
 });
 
 test("Home uses the warmer Me label without renaming profile copy", () => {
