@@ -2,7 +2,14 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
-const { MODES, isKnownProfileNavigationLabel, normalizeReplyButtonText, resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
+const User = require("../src/models/user");
+const {
+  MODES,
+  isKnownProfileNavigationLabel,
+  normalizeReplyButtonText,
+  resolveReplyKeyboardAction,
+  setStableNavigationState,
+} = require("../src/services/reply-keyboard-navigation");
 const { getDiscussionTasteLabelOptionText } = require("../src/services/ai-section");
 const { starEconomy } = require("../src/services/star-settings");
 
@@ -87,6 +94,45 @@ test("global destination labels do not activate outside the global mode", () => 
   assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.PROFILE, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.mainMenuMe, { mode: MODES.FAVORITES, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.people, { mode: MODES.GLOBAL, state: "idle", user: { lang: "en" } }).callbackData, callBacks.people);
+});
+
+test("stable navigation alignment persists idle state and mode in one write", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const writes = [];
+  User.findOneAndUpdate = async (query, update) => {
+    writes.push({ query, update });
+    return null;
+  };
+  const ctx = {
+    userId: 42,
+    user: {
+      _id: "user-42",
+      userId: 42,
+      state: "editing_bio",
+      navigationMode: "profile",
+    },
+  };
+
+  try {
+    await setStableNavigationState(ctx, MODES.GLOBAL);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.state, "idle");
+  assert.equal(ctx.user.navigationMode, MODES.GLOBAL);
+  assert.deepEqual(writes, [{
+    query: { userId: 42 },
+    update: { $set: { state: "idle", navigationMode: MODES.GLOBAL } },
+  }]);
+  assert.equal(
+    resolveReplyKeyboardAction(messages.fa.mainMenuMe, {
+      mode: ctx.user.navigationMode,
+      state: ctx.user.state,
+      user: ctx.user,
+    }).callbackData,
+    callBacks.profile,
+  );
 });
 
 test("legacy visible keyboards recover when the persisted mode is empty", () => {

@@ -24,7 +24,7 @@ const {
   startAgainKeyboard,
 } = require("../keyboards");
 const { deleteAccount } = require("../services/account-deletion");
-const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { MODES, setNavigationMode, setStableNavigationState } = require("../services/reply-keyboard-navigation");
 const { starEconomy } = require("../services/star-settings");
 const {
   addAiListItem,
@@ -208,6 +208,7 @@ function parseProfileEmojiState(state = "") {
 }
 
 async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
+  await setStableNavigationState(ctx, MODES.PROFILE);
   await sendNavigationFootprint(ctx, { lang, destination: "profile" });
   await ctx.reply(messages[lang].profileEditMenuText, profileKeyboard(
     lang,
@@ -225,7 +226,6 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
-  await setNavigationMode(ctx, MODES.PROFILE);
   return sentProfile;
 }
 
@@ -536,7 +536,6 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   if (data === callBacks.profileStarsBack) {
     await ctx.answerCb?.();
     await retireCallbackMessageIfPossible?.(ctx);
-    await setNavigationMode(ctx, MODES.HELP);
     return sendGuideHub(ctx, lang);
   }
 

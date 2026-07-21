@@ -31,7 +31,7 @@ const {
   markDiscussionLeaveTipShown,
 } = require("./services/discussion-leave-tip");
 const { sendBannerPhoto } = require("./services/banner-media");
-const { MODES, setNavigationMode } = require("./services/reply-keyboard-navigation");
+const { MODES, setNavigationMode, setStableNavigationState } = require("./services/reply-keyboard-navigation");
 const {
   getDiscussionErrorMessage,
   getDiscussionDisplayTitle,
@@ -400,6 +400,7 @@ function getActiveRoomCallbackDiscussionId(data = "") {
 }
 
 async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shouldClearKeyboard) {
+  await setStableNavigationState(ctx, mode);
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
   let sent;
   if (destination === "discussions") {
@@ -416,7 +417,6 @@ async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shoul
   } else {
     sent = await ctx.reply(text, keyboard);
   }
-  await setNavigationMode(ctx, mode);
   return sent;
 }
 
@@ -515,9 +515,7 @@ async function handleCallback(ctx) {
     await forgetSavedProfilesListMessage(ctx);
     await forgetPeopleListMessage(ctx);
     await sendNavigationFootprint(ctx, { lang, destination: "help", removeKeyboard: shouldClearKeyboard });
-    const sent = await sendGuideHub(ctx, lang);
-    await setNavigationMode(ctx, MODES.HELP);
-    return sent;
+    return sendGuideHub(ctx, lang);
   }
 
   if (data === callBacks.helpRules) {
@@ -570,7 +568,6 @@ async function handleCallback(ctx) {
     if (data === callBacks.helpReferralBack) {
       await ctx.answerCb?.();
       await retireCallbackMessageIfPossible(ctx);
-      await setNavigationMode(ctx, MODES.HELP);
       return sendGuideHub(ctx, lang);
     }
     const card = await buildGuideReferralCard(ctx.userId, lang);
@@ -613,7 +610,6 @@ async function handleCallback(ctx) {
     const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
     await sendNavigationFootprint(ctx, { lang, destination: "taste", removeKeyboard: shouldClearKeyboard });
     const sent = await sendAiAssistantHub(ctx, lang, { showFirstVisitTip });
-    await setNavigationMode(ctx, MODES.FAVORITES);
     if (showFirstVisitTip) {
       await markSectionTipShownForContext(ctx, "favorites", new Date()).catch(() => null);
     }

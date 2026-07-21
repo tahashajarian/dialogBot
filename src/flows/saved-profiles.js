@@ -55,7 +55,7 @@ const {
   isPeopleCallback,
 } = require("../services/people-discovery-ui");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
-const { setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { setNavigationMode, setStableNavigationState } = require("../services/reply-keyboard-navigation");
 const {
   parsePublicProfileNavigationMode,
   rememberPublicProfileReturnNavigationMode,
@@ -582,6 +582,7 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
 }
 
 async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } = {}) {
+  await setStableNavigationState(ctx, "people");
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
   await sendNavigationFootprint(ctx, { lang, destination: "people", removeKeyboard });
@@ -606,7 +607,6 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   if (showFirstVisitTip) {
     await markSectionTipShownForContext(ctx, "people", new Date()).catch(() => null);
   }
-  await setNavigationMode(ctx, "people");
   return sent;
 }
 

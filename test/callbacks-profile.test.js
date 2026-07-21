@@ -1455,6 +1455,45 @@ test("Home entries retain history and open their bottom-keyboard hubs", async ()
   }
 });
 
+test("Home aligns persisted state before sending its reply keyboard", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const operations = [];
+  User.findOneAndUpdate = async (_query, update) => {
+    if (update?.$set?.state === "idle" && update?.$set?.navigationMode === "global") {
+      operations.push("align");
+    }
+    return {};
+  };
+  const ctx = {
+    callbackData: callBacks.menuMain,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      _id: "user-1",
+      userId: 1,
+      lang: "fa",
+      state: "editing_bio",
+      navigationMode: "profile",
+    },
+    answerCb: async () => true,
+    deleteMessage: async () => true,
+    reply: async () => {
+      operations.push("send");
+      return { message_id: 1 };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(operations.slice(-2), ["align", "send"]);
+  assert.equal(ctx.user.state, "idle");
+  assert.equal(ctx.user.navigationMode, "global");
+});
+
 test("saved profiles clears bottom keyboard before rendering list when one is active", async () => {
   const deletedIds = [];
   const replies = [];

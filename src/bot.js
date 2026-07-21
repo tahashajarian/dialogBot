@@ -141,7 +141,12 @@ const {
 const { EVENT_NAMES, trackEvent } = require("./services/analytics-events");
 const { claimReferral } = require("./services/star-referrals");
 const { sendNavigationFootprint } = require("./services/navigation-footprints");
-const { MODES, resolveReplyKeyboardAction, setNavigationMode } = require("./services/reply-keyboard-navigation");
+const {
+  MODES,
+  resolveReplyKeyboardAction,
+  setNavigationMode,
+  setStableNavigationState,
+} = require("./services/reply-keyboard-navigation");
 const { starEconomy } = require("./services/star-settings");
 
 const START_INVITE_HISTORY_LIMIT = 20;
@@ -353,7 +358,6 @@ async function handleUpdate(ctx) {
       return ctx.reply(messages[keyboardLang].chooseLanguage, languageKeyboard(keyboardLang));
     }
     if (navigationCommand === "taste") {
-      await setNavigationMode(ctx, MODES.FAVORITES);
       const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "favorites");
       const sent = await sendAiAssistantHub(ctx, lang, { showFirstVisitTip });
       if (showFirstVisitTip) {
@@ -368,7 +372,6 @@ async function handleUpdate(ctx) {
     if (navigationCommand === "people") {
       return sendPeopleHub(ctx, lang);
     }
-    await setNavigationMode(ctx, MODES.HELP);
     return sendGuideHub(ctx, lang);
   }
 
@@ -834,6 +837,7 @@ async function clearOwnProfileMessage(ctx) {
 }
 
 async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
+  await setStableNavigationState(ctx, MODES.PROFILE);
   await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "profile" });
   await ctx.reply(messages[keyboardLang].profileEditMenuText, profileKeyboard(
     keyboardLang,
@@ -851,7 +855,6 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     isOwnProfile: true,
     footerText: options.footerText || "",
   });
-  await setNavigationMode(ctx, MODES.PROFILE);
   return sentProfile;
 }
 

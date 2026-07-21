@@ -1212,8 +1212,6 @@ async function handleAiCallback(ctx, lang, helpers) {
       await helpers.deleteCallbackMessageIfPossible?.(ctx);
     }
     await sendNavigationFootprint(ctx, { lang, destination: "taste", removeKeyboard: shouldClearKeyboard });
-    await setNavigationMode(ctx, MODES.FAVORITES);
-    if (ctx.user) ctx.user.navigationMode = MODES.FAVORITES;
     return sendAiAssistantHub(ctx, lang);
   }
 

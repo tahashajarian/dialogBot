@@ -6,7 +6,7 @@ const { getDiscussionTasteLabelOptionText, getSectionEmoji, getSectionListLabel 
 const { getSelectableDiscussionCapacities } = require("./discussion-capacities");
 const { formatCapacityOptionLabel } = require("./discussion-capacities");
 const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
-const { getAiListItemsFromUser, getAiTasteFromUser, updateProfileField } = require("./users");
+const { getAiListItemsFromUser, getAiTasteFromUser, updateProfileField, updateUserFields } = require("./users");
 const { operationalLimits } = require("./operational-limits");
 const { starEconomy } = require("./star-settings");
 
@@ -17,6 +17,20 @@ async function setNavigationMode(ctx, mode) {
   if (ctx?.user) ctx.user.navigationMode = normalizedMode;
   if (!ctx?.user?._id && !ctx?.persistNavigationMode) return normalizedMode;
   await updateProfileField(ctx.userId, "navigationMode", normalizedMode);
+  return normalizedMode;
+}
+
+async function setStableNavigationState(ctx, mode) {
+  const normalizedMode = String(mode || "");
+  if (ctx?.user) {
+    ctx.user.state = "idle";
+    ctx.user.navigationMode = normalizedMode;
+  }
+  if (!ctx?.user?._id && !ctx?.persistNavigationMode) return normalizedMode;
+  await updateUserFields(ctx.userId, {
+    state: "idle",
+    navigationMode: normalizedMode,
+  });
   return normalizedMode;
 }
 
@@ -458,4 +472,11 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   return null;
 }
 
-module.exports = { MODES, isKnownProfileNavigationLabel, normalizeReplyButtonText, resolveReplyKeyboardAction, setNavigationMode };
+module.exports = {
+  MODES,
+  isKnownProfileNavigationLabel,
+  normalizeReplyButtonText,
+  resolveReplyKeyboardAction,
+  setNavigationMode,
+  setStableNavigationState,
+};
