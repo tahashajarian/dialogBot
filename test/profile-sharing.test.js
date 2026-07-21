@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
+  buildProfileShareGuidance,
   buildShareableProfileCaption,
   hasCompletedMediaFavorites,
   hasPublicMediaFavorites,
@@ -24,6 +25,23 @@ function favorites(count, prefix) {
     comment: "A personal note that should stay compact on a Telegram photo card",
   }));
 }
+
+test("profile share guidance shows the configured referral reward", () => {
+  const settings = {
+    economyEnabled: true,
+    earningEnabled: true,
+    firstTopTenMilestoneItems: 3,
+    rewardExternalReferral: 12,
+  };
+
+  assert.match(buildProfileShareGuidance("en", settings), /earn 12 Stars for every new user/);
+  assert.match(buildProfileShareGuidance("fa", settings), /با اومدن هر کاربر جدید.+۱۲ ستاره می‌گیری/);
+  assert.doesNotMatch(buildProfileShareGuidance("fa", settings), /علاقه‌مندی/);
+  assert.equal(
+    buildProfileShareGuidance("en", { ...settings, earningEnabled: false }),
+    messages.en.profileShareGuidanceNoReward,
+  );
+});
 
 test("shareable profile caption uses first-person copy and the profile emoji", () => {
   const user = {
@@ -149,7 +167,8 @@ test("share creation falls back to text and never deletes the own-profile card",
 
   assert.equal(replies.length, 2);
   assert.match(replies[0].text, /https:\/\/example\.com\/muze\?start=ref_A1B2C3D4E5F6/);
-  assert.equal(replies[1].text, messages.en.profileShareGuidance);
+  assert.equal(replies[1].text.includes("{reward}"), false);
+  assert.match(replies[1].text, /You earn \d+ Stars/);
   assert.deepEqual(deletions, []);
   assert.equal(user.navigationMode, "profile");
 });

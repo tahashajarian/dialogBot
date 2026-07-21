@@ -278,7 +278,10 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     bird: messages[lang].petOptionBirdDisplay,
     small_pets: messages[lang].petOptionSmallPetsDisplay,
   };
-  const activeDiscussionStatus = user?.showActiveDiscussionOnProfile
+  const activeDiscussionStatus = user?.showActiveDiscussionOnProfile !== false
+    ? messages[lang].profileActiveDiscussionShown
+    : messages[lang].profileActiveDiscussionHidden;
+  const peopleDiscoveryStatus = user?.showProfileInPeopleDiscovery !== false
     ? messages[lang].profileActiveDiscussionShown
     : messages[lang].profileActiveDiscussionHidden;
 
@@ -330,6 +333,8 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     const starBalance = Math.max(0, Math.round(Number(user?.starBalance) || 0))
       .toLocaleString(lang === "fa" ? "fa-IR" : "en-US");
     lines.push(lineForLang(lang, `⭐ ${messages[lang].profileStarsLabel}: ${starBalance}`));
+    lines.push(messages[lang].profilePeopleDiscoveryVisibility
+      .replace("{status}", peopleDiscoveryStatus));
     const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
       .replace("{status}", activeDiscussionStatus);
     lines.push(user?.activeDiscussionHelpAcknowledgedAt

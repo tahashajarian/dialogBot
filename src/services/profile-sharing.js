@@ -3,6 +3,8 @@ const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./a
 const { getAiListItemsFromUser } = require("./users");
 const { getProfileInterestTitles } = require("./profile");
 const { operationalLimits } = require("./operational-limits");
+const { starEconomy } = require("./star-settings");
+const { formatStarNumber } = require("./stars-ui");
 
 const SHARE_INTEREST_LIMIT = 5;
 const SHARE_VALUE_MAX_LENGTH = 52;
@@ -68,6 +70,15 @@ function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
   return compose().slice(0, TELEGRAM_CAPTION_MAX_LENGTH);
 }
 
+function buildProfileShareGuidance(lang = "fa", settings = starEconomy) {
+  const reward = Math.max(0, Math.round(Number(settings?.rewardExternalReferral) || 0));
+  if (!settings?.economyEnabled || !settings?.earningEnabled || reward === 0) {
+    return messages[lang].profileShareGuidanceNoReward;
+  }
+  return messages[lang].profileShareGuidance
+    .replace("{reward}", formatStarNumber(reward, lang));
+}
+
 function hasPublicMediaFavorites(user) {
   return MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length > 0);
 }
@@ -81,6 +92,7 @@ module.exports = {
   MEDIA_SECTIONS,
   SHARE_INTEREST_LIMIT,
   TELEGRAM_CAPTION_MAX_LENGTH,
+  buildProfileShareGuidance,
   buildShareableProfileCaption,
   compactShareValue,
   getShareFavoriteLines,

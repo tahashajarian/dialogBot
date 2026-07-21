@@ -263,6 +263,31 @@ function isProfileCallbackMessage(ctx) {
   return Boolean(message.caption || message.photo || message.document);
 }
 
+function isOwnProfileNavigationMode(mode = "") {
+  const normalized = String(mode || "");
+  if (!normalized) return true;
+  if ([MODES.PROFILE, MODES.PROFILE_SETTINGS, MODES.PROFILE_PRIVACY].includes(normalized)) {
+    return true;
+  }
+  return /^profile_(?:age(?:_range:\d+)?|gender|pet|emoji|interests:\d+|invitation_restrictions:\d+:\d+)$/.test(normalized);
+}
+
+function isProfileCallbackActiveInMode(ctx, data = "") {
+  if (!isProfileSettingsOrEditCallback(data)) return true;
+  const mode = String(ctx.user?.navigationMode || "");
+  if (data === callBacks.profileStars || data === callBacks.profileStarsBack) {
+    return !mode || [MODES.PROFILE, MODES.HELP, "help_stars"].includes(mode);
+  }
+  return isOwnProfileNavigationMode(mode);
+}
+
+async function retireInactiveOwnProfileCardIfNeeded(ctx, data = "") {
+  if (ctx.isReplyKeyboardAction || isProfileCallbackActiveInMode(ctx, data)) return false;
+  await ctx.answerCb?.();
+  await retireCallbackMessageIfPossible(ctx);
+  return true;
+}
+
 function hasTemporaryReplyKeyboard(ctx) {
   const state = String(ctx.user?.state || "");
   return Boolean(
@@ -461,6 +486,10 @@ async function handleCallback(ctx) {
   if (!data) {
     await ctx.answerCb?.();
     return ctx.reply(messages[lang].unknownAction);
+  }
+
+  if (await retireInactiveOwnProfileCardIfNeeded(ctx, data)) {
+    return null;
   }
 
   if (!ctx.isReplyKeyboardAction && await retireStaleCallbackCardIfNeeded(ctx, data)) {

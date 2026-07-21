@@ -465,6 +465,42 @@ test("profile Back deletes a photo profile before sending Home", async () => {
   assert.deepEqual(replies, [messages.en.mainMenu]);
 });
 
+test("stale own-profile inline actions only delete their card outside Profile", async () => {
+  const actions = [
+    callBacks.profileEditAge,
+    callBacks.profilePrivacy,
+    callBacks.profileShare,
+    callBacks.profileShareBack,
+    callBacks.profileStars,
+  ];
+
+  for (const [index, callbackData] of actions.entries()) {
+    const deleted = [];
+    let answers = 0;
+    const ctx = {
+      callbackData,
+      callbackMessageId: 200 + index,
+      userId: 999,
+      user: { userId: 999, lang: "en", state: "idle", navigationMode: "global" },
+      answerCb: async () => { answers += 1; },
+      deleteMessage: async (messageId) => {
+        deleted.push(messageId);
+        return true;
+      },
+      reply: async () => {
+        throw new Error("A stale Profile card must not send or navigate");
+      },
+    };
+
+    await handleCallback(ctx);
+
+    assert.deepEqual(deleted, [200 + index]);
+    assert.equal(answers, 1);
+    assert.equal(ctx.user.navigationMode, "global");
+    assert.equal(ctx.user.state, "idle");
+  }
+});
+
 test("profile callback deletes current menu message before rendering profile", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];

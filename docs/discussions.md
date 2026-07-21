@@ -1383,6 +1383,7 @@ Active discussion visibility is a separate profile preference and defaults on.
 Setting:
 
 ```text
+نمایش در «دیدن آدم‌ها»: روشن/خاموش
 نمایش گفت‌وگوهای فعال: روشن/خاموش
 ```
 
@@ -1395,8 +1396,8 @@ Rules:
 - If the viewer does not qualify, show the lock reason.
 - Never reveal active discussion when this setting is explicitly off.
 - Store this as `showActiveDiscussionOnProfile`, default `true`.
-- The profile shows the current setting to its owner.
-- Show this setting only to the profile owner, not to other users viewing the profile.
+- The profile shows both the See People and active-discussion settings to its owner.
+- Show these settings only to the profile owner, not to other users viewing the profile.
 
 Example:
 

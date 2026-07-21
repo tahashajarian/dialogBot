@@ -48,8 +48,12 @@ test("new users show profile discussions by default", () => {
   assert.equal(new User({ userId: 123 }).showActiveDiscussionOnProfile, true);
 });
 
-test("buildProfileText shows discussion visibility only for own profile", () => {
-  const ownText = buildProfileText({ ...user, starBalance: 18 }, "en", messages, { isOwnProfile: true });
+test("buildProfileText shows profile visibility settings only for own profile", () => {
+  const ownText = buildProfileText({
+    ...user,
+    starBalance: 18,
+    showProfileInPeopleDiscovery: false,
+  }, "en", messages, { isOwnProfile: true });
   const acknowledgedText = buildProfileText({
     ...user,
     starBalance: 18,
@@ -59,14 +63,23 @@ test("buildProfileText shows discussion visibility only for own profile", () => 
 
   assert.match(ownText, /⭐ Stars: 18/);
   assert.match(ownText, new RegExp(messages.en.profileOwnerTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(ownText, /Show in See People: Off/);
   assert.match(ownText, /Show discussions/);
   assert.match(ownText, /What is this\? \/ad_help/);
   assert.match(acknowledgedText, /Show discussions/);
   assert.doesNotMatch(acknowledgedText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Show discussions/);
+  assert.doesNotMatch(publicText, /Show in See People/);
   assert.doesNotMatch(publicText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Stars:/);
   assert.equal(publicText.includes(messages.en.profileOwnerTip), false);
+});
+
+test("buildProfileText treats missing legacy visibility settings as on", () => {
+  const text = buildProfileText({ profileName: "Ali" }, "fa", messages, { isOwnProfile: true });
+
+  assert.match(text, /👀 نمایش در «دیدن آدم‌ها»: روشن/);
+  assert.match(text, /💬 نمایش گفت‌وگوها: روشن/);
 });
 
 test("buildProfileText shows one private growth hint only on own profile", () => {

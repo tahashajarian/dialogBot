@@ -4,7 +4,11 @@ const { profileQuickActionsKeyboard, profileShareGuidanceKeyboard } = require(".
 const { sendBannerPhoto } = require("../services/banner-media");
 const { buildBotStartLink } = require("../services/invite-links");
 const { ensurePublicProfileCode } = require("../services/public-codes");
-const { buildShareableProfileCaption, hasCompletedMediaFavorites } = require("../services/profile-sharing");
+const {
+  buildProfileShareGuidance,
+  buildShareableProfileCaption,
+  hasCompletedMediaFavorites,
+} = require("../services/profile-sharing");
 const { buildProfileText } = require("../services/profile");
 const { createReferralLink } = require("../services/star-referrals");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -41,7 +45,7 @@ async function createShareableProfileCard(ctx, lang) {
   }
 
   const guidance = await ctx.reply(
-    messages[lang].profileShareGuidance,
+    buildProfileShareGuidance(lang),
     profileShareGuidanceKeyboard(lang),
   );
   await setNavigationMode(ctx, MODES.PROFILE);
