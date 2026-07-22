@@ -101,6 +101,7 @@ module.exports = {
     profilePrivacy: "profile:privacy",
     profilePrivacyBack: "profile:privacy:back",
     profileSetPeopleDiscovery: "profile:privacy:people:",
+    profileSetFavoritesVisible: "profile:privacy:favorites:",
     profileInvitationRestrictions: "profile:privacy:restrictions",
     profileInvitationRestrictionsPage: "profile:privacy:restrictions:page:",
     profileInvitationRestrictionsClose: "profile:privacy:restrictions:close",

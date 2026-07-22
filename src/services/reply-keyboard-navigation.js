@@ -41,7 +41,7 @@ function normalizeReplyButtonText(value) {
 
 function isKnownProfileNavigationLabel(value) {
   const normalized = normalizeReplyButtonText(value);
-  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "profilePrivacySafetyButton", "profilePrivacyBackToSettings", "profileHideFromPeopleDiscovery", "profileShowInPeopleDiscovery", "profileShowActiveDiscussion", "profileHideActiveDiscussion", "profileInvitationRestrictionsButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
+  const keys = ["profileEditName", "profileEditAge", "profileAddPhoto", "profileEditPhoto", "profileResetPhoto", "profileEditCity", "profileEditGender", "profileEditInterests", "profileMoreSettings", "profileEditBio", "profileEditPetPreference", "profileEditLocation", "profileEmojiButton", "profilePrivacySafetyButton", "profilePrivacyBackToSettings", "profileHideFromPeopleDiscovery", "profileShowInPeopleDiscovery", "profileShowActiveDiscussion", "profileHideActiveDiscussion", "profileShowFavorites", "profileHideFavorites", "profileInvitationRestrictionsButton", "accountDeleteButton", "profileBackToProfile", "cancel", "cancelEdit"];
   return keys.some((key) => labels(key).includes(normalized));
 }
 
@@ -76,7 +76,7 @@ const BY_MODE = {
   // Keep the old persisted mode actionable across deployments, but route its
   // surviving controls into the flattened Profile destination.
   [MODES.PROFILE_SETTINGS]: [["profileEditBio", callBacks.profileEditBio], ["profileEditPetPreference", callBacks.profileEditPetPreference], ["profileEditLocation", callBacks.profileEditLocation], ["profileEmojiButton", callBacks.profileEmoji], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["profileBackToProfile", callBacks.profileSettingsBack]],
-  [MODES.PROFILE_PRIVACY]: [["profileHideFromPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}0`], ["profileShowInPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}1`], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileInvitationRestrictionsButton", callBacks.profileInvitationRestrictions], ["accountDeleteButton", callBacks.accountDelete], ["profilePrivacyBackToSettings", callBacks.profilePrivacyBack]],
+  [MODES.PROFILE_PRIVACY]: [["profileHideFromPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}0`], ["profileShowInPeopleDiscovery", `${callBacks.profileSetPeopleDiscovery}1`], ["profileShowActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileHideActiveDiscussion", callBacks.profileToggleActiveDiscussionVisible], ["profileShowFavorites", `${callBacks.profileSetFavoritesVisible}1`], ["profileHideFavorites", `${callBacks.profileSetFavoritesVisible}0`], ["profileInvitationRestrictionsButton", callBacks.profileInvitationRestrictions], ["accountDeleteButton", callBacks.accountDelete], ["profilePrivacyBackToSettings", callBacks.profilePrivacyBack]],
   [MODES.HELP]: [["helpBackToMain", callBacks.menuMain]],
   [MODES.HELP_RULES]: [["helpBackToGuide", callBacks.help], ["helpBackToMain", callBacks.menuMain]],
   help_stars: [["profileStarsBack", callBacks.profileStarsBack]],

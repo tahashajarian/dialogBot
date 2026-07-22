@@ -45,7 +45,9 @@ async function createShareableProfileCard(ctx, lang) {
   }
 
   const guidance = await ctx.reply(
-    buildProfileShareGuidance(lang),
+    buildProfileShareGuidance(lang, undefined, {
+      showsFavorites: user?.showFavoritesOnProfile !== false,
+    }),
     profileShareGuidanceKeyboard(lang),
   );
   await setNavigationMode(ctx, MODES.PROFILE);

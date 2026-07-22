@@ -279,6 +279,8 @@ test("Privacy buttons and restriction list are exact-mode actions", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.profileEditLocation, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileHideFromPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}0`);
   assert.equal(resolveReplyKeyboardAction(messages.en.profileShowInPeopleDiscovery, context).callbackData, `${callBacks.profileSetPeopleDiscovery}1`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileHideFavorites, context).callbackData, `${callBacks.profileSetFavoritesVisible}0`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileShowFavorites, context).callbackData, `${callBacks.profileSetFavoritesVisible}1`);
   const restrictions = messages.en.profileInvitationRestrictionsButton;
   assert.equal(resolveReplyKeyboardAction(restrictions, context).callbackData, callBacks.profileInvitationRestrictions);
   assert.equal(resolveReplyKeyboardAction(restrictions, { mode: MODES.PROFILE_SETTINGS, state: "idle", user: { lang: "en" } }), null);

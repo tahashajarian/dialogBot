@@ -95,6 +95,7 @@ const UserSchema = new mongoose.Schema({
   photoFileId: String,
   showProfileInPeopleDiscovery: { type: Boolean, default: true },
   showActiveDiscussionOnProfile: { type: Boolean, default: true },
+  showFavoritesOnProfile: { type: Boolean, default: true },
   activeDiscussionHelpAcknowledgedAt: { type: Date, default: null },
   starBalance: { type: Number, default: 0, min: 0 },
   starPendingTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },

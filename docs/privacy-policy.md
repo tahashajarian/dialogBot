@@ -72,10 +72,13 @@ a particular surface is described below as private.
 
 Other Muze users may see your public profile code and the profile fields you
 provide, including your taste lists and labels where the relevant profile view
-supports them. `Appear in See People` controls only whether you appear in new
-People discovery results; it does not make your profile private and does not
-hide you from saved profiles, discussions, invitations, or direct profile
-links.
+supports them. `Show Favorites on profile` controls whether other users can see
+your media Favorites and taste labels on your profile. Turning it off does not
+delete those lists, and Muze may still use them for your suggestions, matching,
+and discussion eligibility. `Appear in See People` controls only whether you
+appear in new People discovery results; it does not make your profile private
+and does not hide you from saved profiles, discussions, invitations, or direct
+profile links.
 
 `Show active discussions on profile` controls whether eligible open discussions
 appear on your profile. Discussion members can see room content and member

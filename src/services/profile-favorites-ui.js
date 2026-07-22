@@ -23,6 +23,7 @@ function normalizePublicFavorite(item) {
 }
 
 function getPublicFavoriteSections(user) {
+  if (user?.showFavoritesOnProfile === false) return [];
   return MEDIA_SECTIONS.map((section) => ({
     section,
     items: getAiListItemsFromUser(user, section, "topTen")

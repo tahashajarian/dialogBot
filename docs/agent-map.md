@@ -116,7 +116,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/user-section-tips.js`: whitelisted, atomic section-tip first-write helpers and exposure analytics, re-exported through `src/services/users.js`.
 - `src/flows/profile-edit.js`: profile edit prompt tracking, stale prompt cleanup, edit-start helpers, and remembered inline-card refresh for typed Interests.
 - `src/flows/profile-text.js`: typed profile edit states, `/cancel` during profile edits, and `/resetphoto`.
-- `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People visibility mutation, and invitation-restriction management.
+- `src/flows/profile-privacy.js`: Privacy & Safety navigation, See People and public-Favorites visibility mutations, and invitation-restriction management.
 - `src/services/profile-privacy-ui.js`: invitation-restriction list rendering.
 - `src/flows/profile-callbacks.js`: inline profile-picker routing, legacy settings-callback compatibility, own-profile card restoration, and profile completion redirect handling.
 - `src/flows/profile-sharing.js`: static shareable-profile banner delivery and in-place Back-to-own-profile restoration where Telegram supports it.

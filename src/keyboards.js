@@ -422,6 +422,7 @@ function profileShareGuidanceKeyboard(lang) {
 function profilePrivacySafetyKeyboard(lang, {
   showsActiveDiscussion = true,
   showsInPeopleDiscovery = true,
+  showsFavorites = true,
 } = {}) {
   return inlineKeyboard([
     [
@@ -438,6 +439,12 @@ function profilePrivacySafetyKeyboard(lang, {
         callback_data: callBacks.profileToggleActiveDiscussionVisible,
       },
     ],
+    [{
+      text: showsFavorites
+        ? messages[lang].profileHideFavorites
+        : messages[lang].profileShowFavorites,
+      callback_data: `${callBacks.profileSetFavoritesVisible}${showsFavorites ? "0" : "1"}`,
+    }],
     [{
       text: messages[lang].profileInvitationRestrictionsButton,
       callback_data: callBacks.profileInvitationRestrictions,

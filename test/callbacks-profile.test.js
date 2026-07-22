@@ -37,6 +37,7 @@ test("Privacy & Safety is one inline card that preserves Profile reply navigatio
       navigationMode: "profile",
       showProfileInPeopleDiscovery: true,
       showActiveDiscussionOnProfile: true,
+      showFavoritesOnProfile: true,
     },
     reply: async (text, extra) => {
       replies.push({ text, extra });
@@ -53,6 +54,7 @@ test("Privacy & Safety is one inline card that preserves Profile reply navigatio
     [
       `${callBacks.profileSetPeopleDiscovery}0`,
       callBacks.profileToggleActiveDiscussionVisible,
+      `${callBacks.profileSetFavoritesVisible}0`,
       callBacks.profileInvitationRestrictions,
       callBacks.accountDelete,
       callBacks.profilePrivacyBack,
@@ -143,7 +145,45 @@ test("privacy toggle feedback keeps the complete card and refreshes it in place"
   assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
   assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyText), true);
   assert.equal(edits[0].text.includes(messages.en.profilePeopleDiscoveryVisibleOff), true);
-  assert.equal(edits[0].extra.reply_markup.inline_keyboard.flat().length, 5);
+  assert.equal(edits[0].extra.reply_markup.inline_keyboard.flat().length, 6);
+});
+
+test("Favorites visibility toggle persists off and explains what remains private", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const writes = [];
+  const edits = [];
+  User.findOneAndUpdate = async (...args) => {
+    writes.push(args);
+    return { userId: 1, showFavoritesOnProfile: false };
+  };
+  const ctx = {
+    callbackData: `${callBacks.profileSetFavoritesVisible}0`,
+    callbackMessageId: 44,
+    userId: 1,
+    user: { userId: 1, navigationMode: "profile", showFavoritesOnProfile: true },
+    answerCb: async () => true,
+  };
+
+  try {
+    await handleProfilePrivacyCallback(ctx, "en", {
+      editProfileSurfaceCard: async (_callbackCtx, text, extra) => {
+        edits.push({ text, extra });
+        return true;
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(writes[0][1], { showFavoritesOnProfile: false });
+  assert.equal(ctx.user.showFavoritesOnProfile, false);
+  assert.match(edits[0].text, /hidden from other people on your profile/);
+  assert.match(edits[0].text, /lists are still saved/i);
+  assert.equal(
+    keyboardButtons(edits[0].extra)
+      .some((button) => button.callback_data === `${callBacks.profileSetFavoritesVisible}1`),
+    true,
+  );
 });
 
 test("closing invitation restrictions restores Privacy on the same card", async () => {

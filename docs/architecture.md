@@ -122,7 +122,7 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 
 When adding new discussion/profile UI flows, prefer extending these helpers or focused flow modules instead of growing inline formatting logic inside callbacks.
 
-Every other-user public-profile source shares the same Favorites and visible-discussions actions. Save/Remove, restriction controls, and return behavior remain source-specific. Discussion-member profiles remain transient identity-bound inline cards, while People and Saved Profiles preserve their People-hub bottom keyboard beneath the card.
+Every other-user public-profile source applies the same Favorites and visible-discussions preferences. Save/Remove, restriction controls, and return behavior remain source-specific. Discussion-member profiles remain transient identity-bound inline cards, while People and Saved Profiles preserve their People-hub bottom keyboard beneath the card.
 
 Visible discussions opened from a public-profile card edit that same text or photo message and use inline Join/Back/Close controls. Back reconstructs the profile in place. The command entry point sends a new inline card because Telegram user messages cannot be edited by the bot.
 
@@ -138,6 +138,7 @@ Visible discussions opened from a public-profile card edit that same text or pho
 - location
 - photo
 - active discussion profile visibility (`showActiveDiscussionOnProfile`)
+- public Favorites and taste-label visibility (`showFavoritesOnProfile`); missing values are treated as visible
 - See People discovery visibility (`showProfileInPeopleDiscovery`); missing values are treated as visible
 - owned open discussion reservations, capped at 3
 - saved profile references, capped at 50 per user

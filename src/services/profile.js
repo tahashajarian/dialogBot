@@ -284,6 +284,9 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const peopleDiscoveryStatus = user?.showProfileInPeopleDiscovery !== false
     ? messages[lang].profileActiveDiscussionShown
     : messages[lang].profileActiveDiscussionHidden;
+  const favoritesStatus = user?.showFavoritesOnProfile !== false
+    ? messages[lang].profileActiveDiscussionShown
+    : messages[lang].profileActiveDiscussionHidden;
 
   const titleIcon = "🪞";
   const title = isOwnProfile
@@ -335,6 +338,8 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
     lines.push(lineForLang(lang, `⭐ ${messages[lang].profileStarsLabel}: ${starBalance}`));
     lines.push(messages[lang].profilePeopleDiscoveryVisibility
       .replace("{status}", peopleDiscoveryStatus));
+    lines.push(messages[lang].profileFavoritesVisibility
+      .replace("{status}", favoritesStatus));
     const activeDiscussionLine = messages[lang].profileActiveDiscussionVisibility
       .replace("{status}", activeDiscussionStatus);
     lines.push(user?.activeDiscussionHelpAcknowledgedAt
@@ -345,7 +350,10 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const baseText = lines.join("\n");
   const privateGrowthFooter = growthHint ? `\n\n${lineForLang(lang, growthHint)}` : "";
 
-  return `${baseText}${interestsText}${tasteLabelsText}${privateGrowthFooter}`;
+  const visibleTasteLabelsText = isOwnProfile || user?.showFavoritesOnProfile !== false
+    ? tasteLabelsText
+    : "";
+  return `${baseText}${interestsText}${visibleTasteLabelsText}${privateGrowthFooter}`;
 }
 
 function buildLocationPayload(locationMessage) {

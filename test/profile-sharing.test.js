@@ -41,6 +41,10 @@ test("profile share guidance shows the configured referral reward", () => {
     buildProfileShareGuidance("en", { ...settings, earningEnabled: false }),
     messages.en.profileShareGuidanceNoReward,
   );
+  assert.equal(
+    buildProfileShareGuidance("en", { ...settings, earningEnabled: false }, { showsFavorites: false }),
+    messages.en.profileShareGuidanceNoRewardWithoutFavorites,
+  );
 });
 
 test("shareable profile caption uses first-person copy and the profile emoji", () => {
@@ -100,6 +104,25 @@ test("public Favorites expose only media favorites and fit photo captions", () =
     hasFavorites: true,
   }).reply_markup.inline_keyboard;
   assert.equal(rows[0][0].callback_data, `${callBacks.profileFavoritesOpen}shared:0:u_ABC`);
+});
+
+test("hidden Favorites stay stored but disappear from public profile surfaces", () => {
+  const user = {
+    profileName: "Taha",
+    showFavoritesOnProfile: false,
+    aiLists: {
+      random: { topTen: [{ title: "Cinema" }] },
+      movies: { topTen: favorites(10, "Movie") },
+    },
+    aiTaste: { movies: { labelKey: "movie_buff", emoji: "🎬" } },
+  };
+
+  assert.equal(hasCompletedMediaFavorites(user), true);
+  assert.equal(hasPublicMediaFavorites(user), false);
+  assert.deepEqual(getPublicFavoriteSections(user), []);
+  const caption = buildShareableProfileCaption({ user, lang: "en", link: "https://example.com/profile" });
+  assert.doesNotMatch(caption, /Taste labels|Favorites|Movie 1|Movie Buff/);
+  assert.match(caption, /Cinema/);
 });
 
 test("share guidance restores a photo profile in place without deleting the banner", async () => {

@@ -20,6 +20,7 @@ function isProfilePrivacyCallback(data = "") {
   return data === callBacks.profilePrivacy
     || data === callBacks.profilePrivacyBack
     || data.startsWith(callBacks.profileSetPeopleDiscovery)
+    || data.startsWith(callBacks.profileSetFavoritesVisible)
     || data === callBacks.profileInvitationRestrictions
     || data.startsWith(callBacks.profileInvitationRestrictionsPage)
     || data === callBacks.profileInvitationRestrictionsClose;
@@ -72,6 +73,7 @@ async function sendProfilePrivacySafety(ctx, lang, user = ctx.user, {
   const keyboard = profilePrivacySafetyKeyboard(lang, {
     showsActiveDiscussion: user?.showActiveDiscussionOnProfile !== false,
     showsInPeopleDiscovery: user?.showProfileInPeopleDiscovery !== false,
+    showsFavorites: user?.showFavoritesOnProfile !== false,
   });
   const sent = editCallbackMessageOrReply
     ? await editCallbackMessageOrReply(ctx, text, keyboard)
@@ -179,6 +181,24 @@ async function handleProfilePrivacyCallback(ctx, lang, {
       nextValue
         ? messages[lang].profilePeopleDiscoveryVisibleOn
         : messages[lang].profilePeopleDiscoveryVisibleOff,
+      { editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply },
+    );
+  }
+
+  if (data.startsWith(callBacks.profileSetFavoritesVisible)) {
+    const raw = data.replace(callBacks.profileSetFavoritesVisible, "");
+    if (!new Set(["0", "1"]).has(raw)) return false;
+    const nextValue = raw === "1";
+    const updatedUser = await updateProfileField(ctx.userId, "showFavoritesOnProfile", nextValue);
+    if (ctx.user) ctx.user.showFavoritesOnProfile = nextValue;
+    await ctx.answerCb?.();
+    return sendProfilePrivacyStatus(
+      ctx,
+      lang,
+      updatedUser || ctx.user || {},
+      nextValue
+        ? messages[lang].profileFavoritesVisibleOn
+        : messages[lang].profileFavoritesVisibleOff,
       { editCallbackMessageOrReply: editProfileSurfaceCard || editCallbackMessageOrReply },
     );
   }

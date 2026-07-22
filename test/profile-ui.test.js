@@ -44,8 +44,10 @@ const user = {
   showActiveDiscussionOnProfile: true,
 };
 
-test("new users show profile discussions by default", () => {
-  assert.equal(new User({ userId: 123 }).showActiveDiscussionOnProfile, true);
+test("new users show profile discussions and Favorites by default", () => {
+  const newUser = new User({ userId: 123 });
+  assert.equal(newUser.showActiveDiscussionOnProfile, true);
+  assert.equal(newUser.showFavoritesOnProfile, true);
 });
 
 test("buildProfileText shows profile visibility settings only for own profile", () => {
@@ -64,12 +66,14 @@ test("buildProfileText shows profile visibility settings only for own profile", 
   assert.match(ownText, /⭐ Stars: 18/);
   assert.match(ownText, new RegExp(messages.en.profileOwnerTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(ownText, /Show in See People: Off/);
+  assert.match(ownText, /Show Favorites: On/);
   assert.match(ownText, /Show discussions/);
   assert.match(ownText, /What is this\? \/ad_help/);
   assert.match(acknowledgedText, /Show discussions/);
   assert.doesNotMatch(acknowledgedText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Show discussions/);
   assert.doesNotMatch(publicText, /Show in See People/);
+  assert.doesNotMatch(publicText, /Show Favorites/);
   assert.doesNotMatch(publicText, /\/ad_help/);
   assert.doesNotMatch(publicText, /Stars:/);
   assert.equal(publicText.includes(messages.en.profileOwnerTip), false);
@@ -79,6 +83,7 @@ test("buildProfileText treats missing legacy visibility settings as on", () => {
   const text = buildProfileText({ profileName: "Ali" }, "fa", messages, { isOwnProfile: true });
 
   assert.match(text, /👀 نمایش در «دیدن آدم‌ها»: روشن/);
+  assert.match(text, /❤️ نمایش محبوب‌ها: روشن/);
   assert.match(text, /💬 نمایش گفت‌وگوها: روشن/);
 });
 
@@ -201,6 +206,20 @@ test("profile Interests never render a legacy Interests taste label", () => {
   assert.match(text, /🌿 Interests/);
   assert.match(text, /🎬 Movies: 🎭 Drama/);
   assert.doesNotMatch(text, /Gamer|🌿 Interests: 🎮/);
+});
+
+test("hidden Favorites keep taste labels visible to the owner but not public viewers", () => {
+  const profileUser = {
+    firstName: "Ali",
+    profileName: "Ali",
+    showFavoritesOnProfile: false,
+    aiTaste: { movies: { labelKey: "drama_lover", emoji: "🎭" } },
+  };
+
+  const ownText = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
+  const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
+  assert.match(ownText, /🎬 Movies: 🎭 Drama/);
+  assert.doesNotMatch(publicText, /🏷 Taste labels|🎬 Movies: 🎭 Drama/);
 });
 
 test("buildProfileText shows compact interests preview", () => {
@@ -517,6 +536,7 @@ test("new profiles appear in See People by default", () => {
   const user = new User({ userId: 1001 });
   assert.equal(user.showProfileInPeopleDiscovery, true);
   assert.equal(user.showActiveDiscussionOnProfile, true);
+  assert.equal(user.showFavoritesOnProfile, true);
 });
 
 test("profile quick actions stay inline and privacy controls stay isolated", () => {
@@ -560,6 +580,7 @@ test("profile quick actions stay inline and privacy controls stay isolated", () 
   const privacyLabels = privacy.map((button) => button.text);
   assert.ok(!privacyLabels.includes(messages.en.profileEditLocation));
   assert.ok(privacyLabels.includes(messages.en.profileHideActiveDiscussion));
+  assert.ok(privacyLabels.includes(messages.en.profileHideFavorites));
   assert.ok(privacyLabels.includes(messages.en.profileHideFromPeopleDiscovery));
   assert.ok(privacyLabels.includes(messages.en.profileInvitationRestrictionsButton));
   assert.ok(privacyLabels.includes(messages.en.accountDeleteButton));
@@ -581,6 +602,11 @@ test("profile quick actions stay inline and privacy controls stay isolated", () 
     `${callBacks.profileSetPeopleDiscovery}0`,
     callBacks.profileToggleActiveDiscussionVisible,
   ]);
+  const favoritesRow = profilePrivacySafetyKeyboard("en", {
+    showsFavorites: false,
+  }).reply_markup.inline_keyboard[1];
+  assert.deepEqual(favoritesRow.map((button) => button.text), [messages.en.profileShowFavorites]);
+  assert.deepEqual(favoritesRow.map((button) => button.callback_data), [`${callBacks.profileSetFavoritesVisible}1`]);
 });
 
 test("Pet stays hidden on profiles unless the dashboard switch is enabled", () => {

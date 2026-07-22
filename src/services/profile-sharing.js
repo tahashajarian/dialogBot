@@ -42,8 +42,9 @@ function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
   const profileEmoji = String(user?.profileEmoji || "").trim();
   const interests = getProfileInterestTitles(user, SHARE_INTEREST_LIMIT, lang)
     .map((title) => compactShareValue(title, 36));
-  const tasteLines = getShareTasteLines(user, lang);
-  const favoriteLines = getShareFavoriteLines(user, lang);
+  const showsFavorites = user?.showFavoritesOnProfile !== false;
+  const tasteLines = showsFavorites ? getShareTasteLines(user, lang) : [];
+  const favoriteLines = showsFavorites ? getShareFavoriteLines(user, lang) : [];
   const detailBlocks = [];
 
   if (interests.length) {
@@ -57,8 +58,11 @@ function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
   }
 
   const title = messages[lang].profileShareTitle.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : "");
+  const callToAction = showsFavorites
+    ? messages[lang].profileShareCallToAction
+    : messages[lang].profileShareCallToActionWithoutFavorites;
   const destination = [
-    messages[lang].profileShareCallToAction.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : ""),
+    callToAction.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : ""),
     String(link || "").trim(),
   ].filter(Boolean).join("\n");
   const footer = messages[lang].profileShareFooter;
@@ -70,17 +74,20 @@ function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
   return compose().slice(0, TELEGRAM_CAPTION_MAX_LENGTH);
 }
 
-function buildProfileShareGuidance(lang = "fa", settings = starEconomy) {
+function buildProfileShareGuidance(lang = "fa", settings = starEconomy, { showsFavorites = true } = {}) {
   const reward = Math.max(0, Math.round(Number(settings?.rewardExternalReferral) || 0));
   if (!settings?.economyEnabled || !settings?.earningEnabled || reward === 0) {
-    return messages[lang].profileShareGuidanceNoReward;
+    return showsFavorites
+      ? messages[lang].profileShareGuidanceNoReward
+      : messages[lang].profileShareGuidanceNoRewardWithoutFavorites;
   }
   return messages[lang].profileShareGuidance
     .replace("{reward}", formatStarNumber(reward, lang));
 }
 
 function hasPublicMediaFavorites(user) {
-  return MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length > 0);
+  return user?.showFavoritesOnProfile !== false
+    && MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length > 0);
 }
 
 function hasCompletedMediaFavorites(user) {
