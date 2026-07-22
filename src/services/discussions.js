@@ -107,6 +107,10 @@ function containsEmoji(value = "") {
  * Returns { valid: boolean, reason?: string }
  */
 function validateDiscussionTitle(title) {
+  if (hasLink(title)) {
+    return { valid: false, reason: "link" };
+  }
+
   if (containsEmoji(title)) {
     return { valid: false, reason: "emoji" };
   }
@@ -252,8 +256,13 @@ async function createDiscussion({
 
   const normalizedTitle = normalizeTitle(title);
   if (!normalizedTitle) return { ok: false, reason: "invalid_title" };
-  if (hasLink(normalizedTitle)) return { ok: false, reason: "invalid_title_link" };
-  if (!validateDiscussionTitle(normalizedTitle).valid) return { ok: false, reason: "invalid_title" };
+  const titleValidation = validateDiscussionTitle(normalizedTitle);
+  if (!titleValidation.valid) {
+    return {
+      ok: false,
+      reason: titleValidation.reason === "link" ? "invalid_title_link" : "invalid_title",
+    };
+  }
 
   const normalizedDescription = normalizeDescription(description);
   if (normalizedDescription && !validateDiscussionDescription(normalizedDescription).valid) {

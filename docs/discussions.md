@@ -38,6 +38,7 @@ Discussions are live rooms with short memory.
 The Discussions hub uses a compact reply keyboard: Active Discussions with Invitations, Create New Discussion with My Discussions, then Back on its own row.
 
 - A discussion normally has a user-created title; the four starter rooms are Muze-created.
+- User-created discussion titles cannot contain explicit links, email addresses, or bare/domain-like website addresses.
 - A discussion can have an optional short description.
 - Users can be inside one discussion at a time.
 - Discussion membership means current room presence. Leaving the room removes membership.

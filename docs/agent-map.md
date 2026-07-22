@@ -66,6 +66,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/discussion-text.js`: shared discussion text helpers.
   - normalize discussion text fields
   - detect links consistently for titles and room messages
+- `src/services/link-detection.js`: shared explicit-link, email-address, and bare-domain detection used by discussion text and profile-name validation.
 - `src/services/public-codes.js`: public profile/discussion code helpers.
   - normalize public profile and discussion codes
   - generate missing public codes safely

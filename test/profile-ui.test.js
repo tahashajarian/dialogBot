@@ -155,6 +155,9 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(validateProfileName("Ali 😀", 30).reason, "emoji");
   assert.equal(validateProfileName("Sara 🌸", 30).reason, "emoji");
   assert.equal(validateProfileName("/start", 30).reason, "command_like");
+  assert.equal(validateProfileName("https://taha-shajarian.ir", 30).reason, "link");
+  assert.equal(validateProfileName("taha-shajarian.ir", 30).reason, "link");
+  assert.equal(validateProfileName("taha@example.com", 30).reason, "link");
   assert.equal(validateProfileName("منشتسیبمنتشکمیبتشکسیبتشمکسیبت", 30).reason, "low_quality");
   assert.equal(validateProfileName("Sex Chat", 30).reason, "sensitive_content");
   assert.equal(validateProfileName("سکس چت", 30).reason, "sensitive_content");
@@ -174,6 +177,7 @@ test("validateProfileName rejects emoji and keeps normal names", () => {
   assert.equal(sanitizeProfileNameCandidate("منشتسیبمنتشکمیبتشکسیبتشمکسیبت", 30), "");
   assert.equal(sanitizeProfileNameCandidate("NSFW", 30), "");
   assert.equal(sanitizeProfileNameCandidate("Jendeh", 30), "");
+  assert.equal(sanitizeProfileNameCandidate("taha-shajarian.ir", 30), "");
 });
 
 test("buildProfileText hides empty badge section", () => {

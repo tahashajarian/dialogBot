@@ -1,5 +1,6 @@
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 const { localizeInterestChipTitle } = require("./interest-chips");
+const { hasLink } = require("./link-detection");
 const { operationalLimits } = require("./operational-limits");
 const { isCommandLikeText } = require("./command-like-text");
 const { getProfileStarCompletionStatus } = require("./star-milestones");
@@ -58,6 +59,7 @@ function normalizeProfileName(name) {
 function sanitizeProfileNameCandidate(name, maxLength) {
   const sanitized = normalizeProfileName(String(name || "").replace(/\p{Extended_Pictographic}/gu, ""));
   if (!isValidTextInput(sanitized, maxLength)) return "";
+  if (hasLink(sanitized)) return "";
   if (isLowQualityProfileName(sanitized)) return "";
   if (hasSensitiveName(sanitized)) return "";
   return sanitized;
@@ -70,6 +72,9 @@ function validateProfileName(name, maxLength) {
   }
   if (!isValidTextInput(name, maxLength)) {
     return { ok: false, reason: "invalid_text" };
+  }
+  if (hasLink(normalized)) {
+    return { ok: false, reason: "link" };
   }
   if (hasEmoji(name)) {
     return { ok: false, reason: "emoji" };

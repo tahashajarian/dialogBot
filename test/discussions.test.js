@@ -678,7 +678,18 @@ test("validateJoinRulePayload rejects invalid payloads", () => {
 test("discussion title link detector catches common links", () => {
   assert.equal(hasLink("watch this https://example.com"), true);
   assert.equal(hasLink("join t.me/example"), true);
+  assert.equal(hasLink("taha-shajarian.ir"), true);
+  assert.equal(hasLink("Visit example.com/about"), true);
+  assert.equal(hasLink("contact@example.com"), true);
+  assert.equal(hasLink("کافه.ایران"), true);
+  assert.equal(hasLink("example.com;"), true);
   assert.equal(hasLink("Best riffs ever"), false);
+  assert.equal(hasLink("Mr. Smith film club"), false);
+});
+
+test("discussion title validation rejects bare domains", () => {
+  assert.equal(validateDiscussionTitle("taha-shajarian.ir").reason, "link");
+  assert.equal(validateDiscussionTitle("A normal discussion title").valid, true);
 });
 
 test("discussion title and description reject command-like text", () => {

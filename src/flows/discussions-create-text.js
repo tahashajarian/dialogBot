@@ -10,7 +10,6 @@ const {
 const { updateProfileField, resetDiscussionDraft, updateUserState } = require("../services/users");
 const { toPlainUser } = require("../services/profile");
 const {
-  hasLink,
   normalizeDescription,
   normalizeTitle,
   validateDiscussionTitle,
@@ -98,17 +97,15 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
     return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitle, cancelKeyboard());
   }
 
-  if (hasLink(normalized)) {
-    return sendDiscussionCreatePrompt(ctx, messages[lang].discussionInvalidTitleLink, cancelKeyboard());
-  }
-
   const titleValidation = validateDiscussionTitle(normalized);
   if (!titleValidation.valid) {
-    const validationMessage = titleValidation.reason === "sensitive_content"
-      ? messages[lang].discussionSensitiveTitle
-      : titleValidation.reason === "emoji"
-        ? messages[lang].discussionTitleNoEmoji
-        : messages[lang].discussionInvalidTitle;
+    const validationMessage = titleValidation.reason === "link"
+      ? messages[lang].discussionInvalidTitleLink
+      : titleValidation.reason === "sensitive_content"
+        ? messages[lang].discussionSensitiveTitle
+        : titleValidation.reason === "emoji"
+          ? messages[lang].discussionTitleNoEmoji
+          : messages[lang].discussionInvalidTitle;
     return sendDiscussionCreatePrompt(ctx, validationMessage, cancelKeyboard());
   }
 
