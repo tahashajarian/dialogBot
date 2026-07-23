@@ -21,6 +21,7 @@ const {
   updateUserState,
 } = require("./services/users");
 const { refundPaidExtraDiscussionAuthorization } = require("./services/discussion-paid-creation");
+const { importPendingInlineListItems } = require("./services/pending-inline-lists");
 const {
   removeBottomKeyboard,
   replyWithKeyboardRemovalNoticeThenInline,
@@ -411,6 +412,7 @@ async function handleUpdate(ctx) {
       return startOnboardingLanguage(ctx, keyboardLang, "", { removeReplyKeyboard: isStartAgain });
     }
 
+    void importPendingInlineListItems(ctx.userId).catch(() => null);
     await updateUserState(ctx.userId, "idle");
     await setNavigationMode(ctx, MODES.GLOBAL);
     await sendMuzeWelcome(

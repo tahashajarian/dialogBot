@@ -118,6 +118,26 @@ Use `create:indexes` before starting a fresh deployment database or after
 adding schema indexes. It calls MongoDB `createIndexes()` for the declared
 Mongoose models, so it creates missing indexes without dropping existing ones.
 
+## Telegram inline capture
+
+After deploying the inline-capture code, enable inline mode explicitly in
+`@BotFather` with `/setinline`. A concise placeholder is:
+
+```text
+نام فیلم، آهنگ یا کتاب · Movie, song, or book
+```
+
+Also use `/setinlinefeedback` in `@BotFather` and select 100% so each chosen
+result reaches Muze's save handler.
+
+Users type an item such as `@MuzeBot Dune`, then select Watch Later, Listen
+Later, or Read Later. Selection saves the item and posts a small confirmation
+in that chat. Telegram supplies the bot attribution, and a compact localized
+text link beneath the confirmation can open Muze's private chat.
+
+People who have not started Muze may capture up to 10 items. These selections
+expire after 30 days and are imported silently when onboarding finishes.
+
 ## Architecture
 
 The runtime starts in `src/index.js`. Text and callback dispatchers live in

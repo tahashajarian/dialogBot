@@ -18,6 +18,9 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
 - `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
+- `src/flows/inline-list-capture.js`: isolated Telegram inline-query choices, bound selection validation, and direct-or-pending For Later capture.
+- `src/services/inline-list-users.js`: small short-lived account/language lookup cache used only by inline mode.
+- `src/services/pending-inline-lists.js` and `src/models/pending-inline-list.js`: bounded, expiring pre-onboarding selections and revision-safe silent import.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.
 - `docs/privacy-policy.md`: public-facing, product-accurate privacy template; operator placeholders must be completed before publication.
@@ -230,6 +233,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New Advanced Search preview rule: keep it in the People flow/UI with no charging; any future entitlement/filter service must compose with `src/services/people-discovery.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`; suggestion-generation callback orchestration: `src/flows/ai-suggestion-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.
+- New inline For Later capture behavior: `src/flows/inline-list-capture.js`; account/language caching: `src/services/inline-list-users.js`; pre-onboarding staging/import: `src/services/pending-inline-lists.js`.
 - New paid extra suggestion rule: `src/services/ai-paid-suggestions.js`; AI flows should only offer it after free quota exhaustion and explicit confirmation.
 - New AI list mutation or taste helper: `src/services/users.js`.
 

@@ -311,6 +311,21 @@ The Stars economy rewards list completion without charging for normal list use. 
 - Relevant Top 10 success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.
 - Basic suggestions and list management remain free. Paid extra suggestions are only offered after the free quota is exhausted and must follow the explicit confirmation/refund rules above.
 
+## Inline For Later Capture
+
+Telegram inline mode provides a narrow capture entry point for the three media For Later lists. It does not add Favorites/TopTen or Interests.
+
+- The user types the item directly after the bot username, for example `@MuzeBot Dune`.
+- A non-empty query returns exactly three choices: save to Watch Later, Listen Later, or Read Later. An empty query returns no hint or result.
+- Selecting a result sends a small visible confirmation into the current chat; it does not redirect the user away from the chat. Existing users save immediately through `addAiListItem`.
+- Keep confirmation copy minimal. Telegram provides native inline-bot attribution, and one localized text-link footer may explicitly open the bot for users who want their full lists. Build it from the validated runtime bot username, use message entities rather than parse mode, and disable link previews.
+- Inline answers are personal and uncached. Result identifiers are bound to the Telegram user, selected section, and normalized query; malformed, copied, or altered selections change nothing.
+- People who have not started Muze also receive results. Their explicit selections are kept in a separate pending record (maximum 10 items, 30-day TTL) rather than creating a partial User account. Onboarding completion silently imports them through the normal list mutation service; a later `/start` retries a transiently failed import without adding another user-facing message.
+- Known banned accounts receive no results, and chosen results always revalidate account state before saving or staging. A short-lived user cache prevents a database read for every typed character.
+- Inline-query rate limiting is isolated from ordinary bot interaction. The normal message/callback path performs no inline-capture work, and AI is never called.
+- Pending import deletes only the revision it read, so a selection made concurrently with onboarding cannot be lost. Duplicate selections are idempotent, account deletion and product-data cleanup remove pending records, and expired records are removed by MongoDB's TTL index.
+- Enable inline mode through `@BotFather` with `/setinline`, then enable `/setinlinefeedback` at 100% so every chosen result reaches the save handler.
+
 ## AI Cost Rules
 
 - Normalize user text before AI/cache work:

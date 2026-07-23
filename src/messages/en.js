@@ -913,5 +913,13 @@ module.exports = {
     accountDeleteFailed: "👩‍🦳 Account deletion could not finish. Your progress is safely resumable. Open Me → Privacy & safety and try Delete account again.",
     accountDeleteSuccess: "👩‍🦳 Your Muze account and personal data have been deleted.\n\nYou can create a fresh account whenever you want.",
     accountStartAgainButton: "🌱 Start again",
-    accountNoActiveAccount: "👩‍🦳 No active Muze account exists. Use /start or tap 🌱 Start again."
+    accountNoActiveAccount: "👩‍🦳 No active Muze account exists. Use /start or tap 🌱 Start again.",
+    inlineCaptureResult_movies: "🎬 Save “{item}” to Watch Later",
+    inlineCaptureResult_music: "🎵 Save “{item}” to Listen Later",
+    inlineCaptureResult_books: "📚 Save “{item}” to Read Later",
+    inlineCaptureResultDescription: "Tap to save and share the confirmation here.",
+    inlineCaptureConfirmation_movies: "✓ Added “{item}” to 🎬📋 Watch Later.",
+    inlineCaptureConfirmation_music: "✓ Added “{item}” to 🎵📋 Listen Later.",
+    inlineCaptureConfirmation_books: "✓ Added “{item}” to 📚📋 Read Later.",
+    inlineCaptureOpenBot: "Open Muze"
   };

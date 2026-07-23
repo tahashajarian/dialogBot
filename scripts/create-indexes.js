@@ -14,6 +14,7 @@ const DiscussionInvitationMute = require("../src/models/discussion-invitation-mu
 const DiscussionOwnerJoinNotice = require("../src/models/discussion-owner-join-notice");
 const OperationalEvent = require("../src/models/operational-event");
 const PeopleTasteUnlock = require("../src/models/people-taste-unlock");
+const PendingInlineList = require("../src/models/pending-inline-list");
 const StarReferralClaim = require("../src/models/star-referral-claim");
 const StarReferralLink = require("../src/models/star-referral-link");
 const StarTransaction = require("../src/models/star-transaction");
@@ -34,6 +35,7 @@ const MODELS = [
   ["DiscussionOwnerJoinNotice", DiscussionOwnerJoinNotice],
   ["OperationalEvent", OperationalEvent],
   ["PeopleTasteUnlock", PeopleTasteUnlock],
+  ["PendingInlineList", PendingInlineList],
   ["StarReferralClaim", StarReferralClaim],
   ["StarReferralLink", StarReferralLink],
   ["StarTransaction", StarTransaction],

@@ -9,6 +9,7 @@ const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const Discussion = require("../src/models/discussion");
 const PeopleTasteUnlock = require("../src/models/people-taste-unlock");
+const PendingInlineList = require("../src/models/pending-inline-list");
 const StarReferralClaim = require("../src/models/star-referral-claim");
 const StarReferralLink = require("../src/models/star-referral-link");
 const StarTransaction = require("../src/models/star-transaction");
@@ -28,6 +29,7 @@ const MODELS_TO_CLEAR = [
   ["discussionBoosts", DiscussionBoost],
   ["discussionBoostDeliveries", DiscussionBoostDelivery],
   ["peopleTasteUnlocks", PeopleTasteUnlock],
+  ["pendingInlineLists", PendingInlineList],
   ["aiPaidSuggestions", AiPaidSuggestion],
   ["starTransactions", StarTransaction],
   ["starReferralClaims", StarReferralClaim],

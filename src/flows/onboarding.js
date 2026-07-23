@@ -32,6 +32,7 @@ const {
   notifyExternalReferralReward,
 } = require("../services/stars-ui");
 const { sendBannerPhoto } = require("../services/banner-media");
+const { importPendingInlineListItems } = require("../services/pending-inline-lists");
 
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
@@ -330,6 +331,7 @@ async function completeOnboarding(ctx, skipped = false) {
     ctx.user.state = "idle";
   }
   await updateUserState(ctx.userId, "idle");
+  await importPendingInlineListItems(ctx.userId).catch(() => null);
   void trackEvent({
     name: skipped ? EVENT_NAMES.onboardingSkipped : EVENT_NAMES.onboardingCompleted,
     userId: ctx.userId,

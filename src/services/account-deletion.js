@@ -9,6 +9,7 @@ const DiscussionBoost = require("../models/discussion-boost");
 const DiscussionBoostDelivery = require("../models/discussion-boost-delivery");
 const AiPaidSuggestion = require("../models/ai-paid-suggestion");
 const PeopleTasteUnlock = require("../models/people-taste-unlock");
+const PendingInlineList = require("../models/pending-inline-list");
 const UserTasteIndex = require("../models/user-taste-index");
 const AnalyticsEvent = require("../models/analytics-event");
 const StarTransaction = require("../models/star-transaction");
@@ -132,6 +133,7 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
       DiscussionOwnerJoinNotice.deleteMany({ ownerUserId: normalized }),
       DiscussionBoostDelivery.deleteMany({ recipientUserId: normalized }),
       AiPaidSuggestion.deleteMany({ userId: normalized }), PeopleTasteUnlock.deleteMany({ userId: normalized }),
+      PendingInlineList.deleteMany({ userId: normalized }),
       UserTasteIndex.deleteMany({ userId: normalized }),
       AnalyticsEvent.updateMany({ userId: normalized }, { $set: { userId: null }, $unset: { metadata: 1 } }),
     ]);

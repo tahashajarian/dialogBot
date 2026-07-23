@@ -23,6 +23,10 @@ const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owne
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
 const { normalizeCallbackRouteLabel } = require("./services/callback-contracts");
 const {
+  handleChosenInlineListResult,
+  handleInlineListQuery,
+} = require("./flows/inline-list-capture");
+const {
   createRuntimeMetricsMonitor,
   createStageTimings,
   estimateDocumentBytes,
@@ -243,6 +247,38 @@ async function processUpdate(ctx) {
 
 bot.on("message", processUpdate);
 bot.on("callback_query", processUpdate);
+bot.on("inline_query", async (ctx) => {
+  if (!isAllowedUser(ctx.inlineQuery?.from || ctx.from)) {
+    await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+    return;
+  }
+  try {
+    await handleInlineListQuery(ctx);
+  } catch (error) {
+    logger.warn("Inline list query failed", {
+      userId: Number(ctx.inlineQuery?.from?.id || ctx.from?.id) || null,
+      error: error?.message || error,
+    });
+    await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+  }
+});
+bot.on("chosen_inline_result", async (ctx) => {
+  if (!isAllowedUser(ctx.chosenInlineResult?.from || ctx.from)) return;
+  try {
+    const result = await handleChosenInlineListResult(ctx);
+    if (!result.ok) {
+      logger.warn("Chosen inline list item was not saved", {
+        userId: Number(ctx.chosenInlineResult?.from?.id || ctx.from?.id) || null,
+        reason: result.reason || "unknown",
+      });
+    }
+  } catch (error) {
+    logger.warn("Chosen inline list save failed", {
+      userId: Number(ctx.chosenInlineResult?.from?.id || ctx.from?.id) || null,
+      error: error?.message || error,
+    });
+  }
+});
 
 let pollingStarted = false;
 let shuttingDown = false;

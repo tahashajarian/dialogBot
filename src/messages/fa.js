@@ -913,5 +913,13 @@ module.exports = {
     accountDeleteFailed: "👩‍🦳 حذف حساب کامل نشد. می‌تونی فرایند رو با خیال راحت ادامه بدی. دوباره از من ← حریم خصوصی و امنیت، حذف حساب رو انتخاب کن.",
     accountDeleteSuccess: "👩‍🦳 حساب میوزت و اطلاعات شخصیت حذف شد.\n\nهر وقت بخوای می‌تونی یک حساب جدید بسازی.",
     accountStartAgainButton: "🌱 شروع دوباره",
-    accountNoActiveAccount: "👩‍🦳 حساب فعال میوزی نداری. از /start استفاده کن یا «🌱 شروع دوباره» رو بزن."
+    accountNoActiveAccount: "👩‍🦳 حساب فعال میوزی نداری. از /start استفاده کن یا «🌱 شروع دوباره» رو بزن.",
+    inlineCaptureResult_movies: "🎬 ذخیرهٔ «{item}» در بعداً ببین",
+    inlineCaptureResult_music: "🎵 ذخیرهٔ «{item}» در بعداً گوش بده",
+    inlineCaptureResult_books: "📚 ذخیرهٔ «{item}» در بعداً بخون",
+    inlineCaptureResultDescription: "برای ذخیره و فرستادن تأیید در همین گفت‌وگو بزن.",
+    inlineCaptureConfirmation_movies: "✓ «{item}» به فهرست «🎬📋 بعداً ببین» اضافه شد.",
+    inlineCaptureConfirmation_music: "✓ «{item}» به فهرست «🎵📋 بعداً گوش بده» اضافه شد.",
+    inlineCaptureConfirmation_books: "✓ «{item}» به فهرست «📚📋 بعداً بخون» اضافه شد.",
+    inlineCaptureOpenBot: "باز کردن میوز"
   };
