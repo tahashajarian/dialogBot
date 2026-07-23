@@ -202,7 +202,9 @@ async function handleCallback(ctx) {
       deleteCallbackMessageIfPossible,
       editCallbackMessageOrReply,
       sendShareableInviteForActiveDiscussion,
+      sendRoom: sendDiscussionRoom,
       sendSavedProfilesList,
+      sendPublicProfileByCode,
     });
   }
 

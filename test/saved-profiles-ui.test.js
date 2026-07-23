@@ -119,7 +119,10 @@ test("buildSavedProfilesListText uses Persian digits in fa", () => {
 
 test("profile discussion sections clearly separate current and created rooms", () => {
   const text = buildProfileDiscussionSectionsText(
-    messages.en.savedProfileDiscussionsTitle.replace("{name}", "Ali"),
+    [
+      messages.en.savedProfileDiscussionsTitle.replace("{name}", "Ali"),
+      messages.en.savedProfileDiscussionsTip.replace("{name}", "Ali"),
+    ].join("\n\n"),
     [
       `${messages.en.savedProfileActiveDiscussionTitle}\n\n1. 💬 Open cafe`,
       `${messages.en.savedProfileCreatedDiscussionsTitle}\n\n1. 💬 Film club`,
@@ -127,6 +130,7 @@ test("profile discussion sections clearly separate current and created rooms", (
   );
 
   assert.match(text, /^👩‍🦳💬 Ali's discussions/);
+  assert.match(text, /These are discussions Ali is currently in or created/);
   assert.match(text, /🟢 Current active discussion/);
   assert.match(text, /🎙️ Discussions created by this user/);
   assert.match(text, /Open cafe[\s\S]*━━━━━━━━━━[\s\S]*Film club/);

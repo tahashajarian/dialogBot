@@ -45,7 +45,6 @@ const {
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   clearDiscussionMenuNotice,
-  clearRememberedDiscussionRoomCards,
   handleDiscussionListCallback,
   isDiscussionListCallback,
   renderActiveDiscussionList,
@@ -70,7 +69,7 @@ const { handleCallback } = require("../src/callbacks");
 const Discussion = require("../src/models/discussion");
 const User = require("../src/models/user");
 
-test("ordinary discussion cleanup forgets tracked cards without Telegram operations", async () => {
+test("ordinary discussion cleanup forgets tracked list cards without Telegram operations", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const updates = [];
   User.findOneAndUpdate = async (_query, update) => {
@@ -81,8 +80,6 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
   const ctx = {
     userId: 7,
     user: {
-      discussionLastRoomHeaderMessageId: 10,
-      discussionLastRoomRecentMessageId: 11,
       discussionLastMembersMessageId: 12,
       discussionMenuNoticeMessageId: 13,
       discussionLastListMessageId: 14,
@@ -93,7 +90,6 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
   };
 
   try {
-    await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionMembersMessage(ctx);
     await clearDiscussionMenuNotice(ctx);
     await clearDiscussionListMessage(ctx);
@@ -102,13 +98,11 @@ test("ordinary discussion cleanup forgets tracked cards without Telegram operati
   }
 
   assert.deepEqual(telegramOperations, []);
-  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, null);
-  assert.equal(ctx.user.discussionLastRoomRecentMessageId, null);
   assert.equal(ctx.user.discussionLastMembersMessageId, null);
   assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
   assert.equal(ctx.user.discussionLastListMessageId, null);
   assert.equal(ctx.user.discussionLastListType, "");
-  assert.equal(updates.length, 6);
+  assert.equal(updates.length, 4);
 });
 
 test("a current profile discussion is labeled in text and has no action button", async () => {
@@ -138,6 +132,29 @@ test("a current profile discussion is labeled in text and has no action button",
   const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1", [decorated])
     .reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
   assert.deepEqual(callbacks, [
+    `${callBacks.profileDiscussionsBack}u_A1`,
+    callBacks.profileDiscussionsClose,
+  ]);
+});
+
+test("profile discussions offer Join only for rooms whose rule the viewer satisfies", () => {
+  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1", [
+    {
+      _id: "locked-room",
+      title: "Locked room",
+      displayTitle: "Locked room",
+      isJoinable: false,
+    },
+    {
+      _id: "open-room",
+      title: "Open room",
+      displayTitle: "Open room",
+      isJoinable: true,
+    },
+  ]).reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+
+  assert.deepEqual(callbacks, [
+    `${callBacks.discussionOpen}open-room`,
     `${callBacks.profileDiscussionsBack}u_A1`,
     callBacks.profileDiscussionsClose,
   ]);
@@ -405,8 +422,8 @@ test("starter discussion hints add personalized context without a static Start h
   const text = buildDiscussionListText(messages, "en", "Active discussions", discussions);
 
   assert.doesNotMatch(text, /Start here|open to everyone/i);
-  assert.match(text, /💡 This room matches one of your Interests: 🎮 Gaming\./);
-  assert.match(text, /💡 Add 🎬 Movies to your profile interests to unlock this room\./);
+  assert.match(text, /💡 This discussion matches one of your Interests: 🎮 Gaming\./);
+  assert.match(text, /💡 Add 🎬 Movies to your profile interests to unlock this discussion\./);
 });
 
 test("starter discussion item rules use Persian aliases in Persian UI", () => {
@@ -687,13 +704,14 @@ test("join-error acknowledgement copy remains available for discussion recovery"
   assert.equal(keyboard.reply_markup.keyboard, undefined);
 });
 
-test("locked-room guidance uses an inline Got it that only closes the notice", async () => {
+test("locked-discussion Got it only closes the notice without redrawing its menu", async () => {
   const button = discussionJoinLockedKeyboard("en").reply_markup.inline_keyboard[0][0];
   assert.equal(button.text, messages.en.acknowledgeButton);
   assert.equal(button.callback_data, callBacks.discussionJoinLockedClose);
 
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deleted = [];
+  const replies = [];
   User.findOneAndUpdate = async () => ({});
   const ctx = {
     callbackData: callBacks.discussionJoinLockedClose,
@@ -701,6 +719,10 @@ test("locked-room guidance uses an inline Got it that only closes the notice", a
     userId: 1,
     user: { userId: 1, navigationMode: "discussion_list:active:0:1:all:en", discussionMenuNoticeMessageId: 42 },
     answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
   };
 
   try {
@@ -717,9 +739,10 @@ test("locked-room guidance uses an inline Got it that only closes the notice", a
   assert.deepEqual(deleted, [42]);
   assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:en");
   assert.equal(ctx.user.discussionMenuNoticeMessageId, null);
+  assert.deepEqual(replies, []);
 });
 
-test("unavailable-discussion Got it only deletes its notice", async () => {
+test("unavailable-discussion Got it closes the notice and restores its stable keyboard", async () => {
   const keyboard = discussionUnavailableAckKeyboard("fa");
   const [button] = keyboard.reply_markup.inline_keyboard.flat();
   assert.equal(button.text, messages.fa.acknowledgeButton);
@@ -727,6 +750,7 @@ test("unavailable-discussion Got it only deletes its notice", async () => {
   assert.equal(keyboard.reply_markup.keyboard, undefined);
 
   const deleted = [];
+  const replies = [];
   const ctx = {
     callbackData: callBacks.discussionUnavailableClose,
     callbackMessageId: 52,
@@ -737,6 +761,10 @@ test("unavailable-discussion Got it only deletes its notice", async () => {
       discussionMenuNoticeMessageId: 41,
     },
     answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
   };
 
   await handleDiscussionListCallback(ctx, "fa", {
@@ -749,6 +777,8 @@ test("unavailable-discussion Got it only deletes its notice", async () => {
   assert.deepEqual(deleted, [52]);
   assert.equal(ctx.user.navigationMode, "discussion_list:active:0:1:all:fa");
   assert.equal(ctx.user.discussionMenuNoticeMessageId, 41);
+  assert.equal(replies[0].text, messages.fa.discussionsMenu);
+  assert.equal(replies[0].extra.reply_markup.is_persistent, true);
 });
 
 test("leave-current warning uses one inline Got it without a reply keyboard", () => {
@@ -1629,6 +1659,48 @@ test("dismissing invite preview can offer optional taste setup when no room is a
   const buttons = replies[0].extra.reply_markup.keyboard.flat();
   assert.ok(buttons.find((button) => button.text === messages.en.onboardingTasteSetupStartButton));
   assert.ok(updates.some((entry) => entry.update.onboardingTasteSetupNudgedAt instanceof Date));
+});
+
+test("dismissing an invite from Home restores the persistent Home keyboard", async () => {
+  const originalFindOneDiscussion = Discussion.findOne;
+  const deleted = [];
+  const replies = [];
+  Discussion.findOne = () => Promise.resolve(null);
+
+  const ctx = {
+    callbackData: `${callBacks.discussionInviteCancel}d_AB12`,
+    callbackMessageId: 44,
+    userId: 7,
+    user: {
+      userId: 7,
+      lang: "en",
+      state: "idle",
+      navigationMode: "global",
+      onboardingVersion: 1,
+      activeDiscussionId: null,
+    },
+    answerCb: async () => {},
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  assert.deepEqual(deleted, [44]);
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.mainMenu);
+  assert.equal(replies[0].extra.reply_markup.is_persistent, true);
+  assert.equal(ctx.user.navigationMode, "global");
 });
 
 test("discussion invite share and preview text stay privacy-safe", () => {

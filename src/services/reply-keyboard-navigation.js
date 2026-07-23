@@ -50,6 +50,30 @@ function labels(key) {
   return localized.length ? localized : [normalizeReplyButtonText(key)];
 }
 
+function getPublicProfileOverlayReturnMode(mode = "", user = null) {
+  const normalizedMode = String(mode || "");
+  const source = normalizedMode.match(
+    /^(?:public_profile|profile_discussions):([^:]+):/,
+  )?.[1]
+    || normalizedMode.match(/^profile_favorites:([^:]+):/)?.[1]
+    || normalizedMode.match(/^profile_unsave_confirm:(list|saved|people):/)?.[1]
+    || "";
+  if (!source) return "";
+
+  const remembered = String(user?.publicProfileReturnNavigationMode || "");
+  if (
+    remembered
+    && remembered !== normalizedMode
+    && !/^(?:public_profile|profile_discussions|profile_favorites|profile_unsave_confirm):/.test(remembered)
+  ) {
+    return remembered;
+  }
+  if (["list", "saved", "people"].includes(source)) return MODES.PEOPLE;
+  if (["invitations", "discussion_members"].includes(source)) return MODES.DISCUSSIONS;
+  if (source === "restrictions") return MODES.PROFILE;
+  return MODES.GLOBAL;
+}
+
 const GLOBAL = [
   ["aiAssistant", callBacks.aiAssistant], ["discussions", callBacks.discussions],
   ["people", callBacks.people], ["mainMenuMe", callBacks.profile], ["help", callBacks.help], ["language", callBacks.language],
@@ -144,6 +168,17 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     for (const [key, callbackData] of actions) if (normalized === normalizeReplyButtonText(messages[lang][key])) return { callbackData, key };
     return null;
   }
+  const overlayReturnMode = getPublicProfileOverlayReturnMode(mode, user);
+  if (overlayReturnMode) {
+    const inheritedAction = resolveReplyKeyboardAction(text, {
+      mode: overlayReturnMode,
+      state,
+      activeDiscussionId,
+      advancedSearchEnabled,
+      user,
+    });
+    if (inheritedAction) return inheritedAction;
+  }
   const aiListMatch = String(mode).match(/^ai_list:(movies|music|books|random):(topTen|watchlist)$/);
   const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|music|books):topTen$/);
   const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/);
@@ -165,7 +200,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const profileUnsaveConfirmMatch = String(mode).match(/^profile_unsave_confirm:(list|saved|people):(u_[A-Z0-9]+):(\d+)$/);
   const peopleResultsMatch = String(mode).match(/^people_discovery_results:(\d+):(\d+)$/);
   const profileRestrictionsMatch = String(mode).match(/^profile_invitation_restrictions:(\d+):(\d+)$/);
-  const profileRestrictionViewMatch = String(mode).match(/^public_profile:restrictions:(\d+)$/);
   const expectedAiState = aiListMatch
     ? `ai_manage_${aiListMatch[1]}_${aiListMatch[2] === "topTen" ? "top_ten" : "watchlist"}`
     : "";
@@ -210,7 +244,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const keepsPeopleHubKeyboard = state === "idle" && Boolean(
     savedProfilesMatch || peopleResultsMatch || (publicProfileMatch && ["saved", "people"].includes(publicProfileMatch[1])) || (profileDiscussionsMatch && ["saved", "people"].includes(profileDiscussionsMatch[1])) || (profileFavoritesMatch && ["saved", "people"].includes(profileFavoritesMatch[1])) || mode === "people_discovery_empty"
   );
-  const keepsProfilePrivacyKeyboard = state === "idle" && Boolean(profileRestrictionsMatch || profileRestrictionViewMatch);
+  const keepsProfileKeyboard = state === "idle" && Boolean(profileRestrictionsMatch);
   const entries = [
     ...(mode === MODES.GLOBAL ? GLOBAL : []),
     ...(mode === MODES.GLOBAL ? GUIDE_GLOBAL_RECOVERY : []),
@@ -219,7 +253,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     ...((keepsPeopleHubKeyboard && mode === "people_discovery_empty") ? [] : (BY_MODE[mode] || [])),
     ...(keepsDiscussionHubKeyboard ? BY_MODE[MODES.DISCUSSIONS] : []),
     ...(keepsPeopleHubKeyboard ? BY_MODE[MODES.PEOPLE] : []),
-    ...(keepsProfilePrivacyKeyboard ? BY_MODE[MODES.PROFILE_PRIVACY] : []),
+    ...(keepsProfileKeyboard ? BY_MODE[MODES.PROFILE] : []),
   ];
   if (discussionListMatch && state === "idle") {
     const [, type, pageRaw, pagesRaw, filter, language] = discussionListMatch;

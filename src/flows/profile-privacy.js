@@ -23,7 +23,8 @@ function isProfilePrivacyCallback(data = "") {
     || data.startsWith(callBacks.profileSetFavoritesVisible)
     || data === callBacks.profileInvitationRestrictions
     || data.startsWith(callBacks.profileInvitationRestrictionsPage)
-    || data === callBacks.profileInvitationRestrictionsClose;
+    || data === callBacks.profileInvitationRestrictionsClose
+    || data.startsWith(callBacks.profileInvitationAllow);
 }
 
 function canPersistMessageState(ctx) {
@@ -61,6 +62,17 @@ async function clearInvitationRestrictionsMessage(ctx, fallbackMessageId = null)
   } catch {
     return false;
   }
+}
+
+function invitationRestrictionProfileKeyboardAfterAllow(ctx, profileCode) {
+  const rows = ctx.callbackMessage?.reply_markup?.inline_keyboard;
+  if (!Array.isArray(rows)) return null;
+  const allowCallback = `${callBacks.profileInvitationAllow}${profileCode}`;
+  return {
+    inline_keyboard: rows
+      .map((row) => row.filter((button) => button?.callback_data !== allowCallback))
+      .filter((row) => row.length > 0),
+  };
 }
 
 async function sendProfilePrivacySafety(ctx, lang, user = ctx.user, {
@@ -128,6 +140,21 @@ async function renderInvitationRestrictionsList(ctx, lang, page = 0, { editCallb
   return sent;
 }
 
+async function refreshInvitationRestrictionsList(ctx, lang, page = 0) {
+  const messageId = Number(ctx.user?.profileInvitationRestrictionsLastMessageId);
+  if (!Number.isInteger(messageId) || messageId <= 0 || !ctx.editMessageText) {
+    return renderInvitationRestrictionsList(ctx, lang, page);
+  }
+  return renderInvitationRestrictionsList(ctx, lang, page, {
+    editCallbackMessageOrReply: async (_callbackCtx, text, keyboard) => {
+      const edited = await ctx.editMessageText(messageId, text, keyboard);
+      if (edited) return { message_id: messageId };
+      await ctx.editMessageReplyMarkup?.(messageId, { inline_keyboard: [] });
+      return ctx.reply(text, keyboard);
+    },
+  });
+}
+
 async function allowInvitationRestrictionCommand(ctx, lang, text) {
   const value = String(text || "").trim();
   const idMatch = value.match(/^\/allow_ir_([a-f0-9]{24})$/i);
@@ -144,8 +171,7 @@ async function allowInvitationRestrictionCommand(ctx, lang, text) {
       publicProfileCode: `u_${profileMatch[1]}`,
     });
   if (!result.ok) return ctx.reply(messages[lang].profileInvitationRestrictionFailed);
-  await clearInvitationRestrictionsMessage(ctx);
-  return renderInvitationRestrictionsList(ctx, lang, page);
+  return refreshInvitationRestrictionsList(ctx, lang, page);
 }
 
 async function handleProfilePrivacyCallback(ctx, lang, {
@@ -210,6 +236,31 @@ async function handleProfilePrivacyCallback(ctx, lang, {
     });
   }
 
+  if (data.startsWith(callBacks.profileInvitationAllow)) {
+    const profileCode = data.replace(callBacks.profileInvitationAllow, "");
+    const profileMode = String(ctx.user?.navigationMode || "")
+      .match(/^public_profile:restrictions:(u_[A-Z0-9]+):(\d+):/);
+    if (!profileMode || profileMode[1] !== profileCode) {
+      await ctx.answerCb?.(messages[lang].profileInvitationRestrictionFailed);
+      return false;
+    }
+    const page = Number(profileMode[2]) || 0;
+    const result = await unmuteInvitationRestrictionByProfileCode({
+      muterUserId: ctx.userId,
+      publicProfileCode: profileCode,
+    });
+    if (!result.ok || !result.removed) {
+      await ctx.answerCb?.(messages[lang].profileInvitationRestrictionFailed);
+      return false;
+    }
+    await ctx.answerCb?.();
+    const profileKeyboard = invitationRestrictionProfileKeyboardAfterAllow(ctx, profileCode);
+    if (profileKeyboard) {
+      await ctx.editMessageReplyMarkup?.(ctx.callbackMessageId, profileKeyboard);
+    }
+    return refreshInvitationRestrictionsList(ctx, lang, page);
+  }
+
   if (data.startsWith(callBacks.profileInvitationRestrictionsPage)) {
     await ctx.answerCb?.();
     const page = Number(data.replace(callBacks.profileInvitationRestrictionsPage, ""));
@@ -234,6 +285,7 @@ module.exports = {
   clearInvitationRestrictionsMessage,
   handleProfilePrivacyCallback,
   isProfilePrivacyCallback,
+  refreshInvitationRestrictionsList,
   renderInvitationRestrictionsList,
   sendProfilePrivacySafety,
   sendProfilePrivacyStatus,

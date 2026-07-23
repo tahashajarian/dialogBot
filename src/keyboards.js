@@ -30,6 +30,8 @@ const {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
+  discussionInvitationNoticeKeyboard,
+  discussionInvitationPreviewKeyboard,
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
@@ -99,7 +101,7 @@ function mainMenuKeyboard(lang) {
     [{ text: messages[lang].aiAssistant }, { text: messages[lang].discussions }],
     [{ text: messages[lang].people }, { text: messages[lang].mainMenuMe }],
     [{ text: messages[lang].help }, { text: messages[lang].language }],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function helpInlineKeyboard(lang) {
@@ -270,6 +272,7 @@ function replyKeyboardFromActions(rows, { oneTime = false } = {}) {
       keyboard: rows.map((row) => row.map(({ text }) => ({ text }))),
       resize_keyboard: true,
       one_time_keyboard: oneTime,
+      ...(oneTime ? {} : { is_persistent: true }),
       selective: true,
     },
   };
@@ -376,7 +379,7 @@ function profileKeyboard(lang, hasPhoto = false) {
     ],
   ];
 
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function profileQuickActionsKeyboard(lang, {
@@ -484,6 +487,7 @@ function profileRestrictionViewKeyboard(lang, {
   hasFavorites = false,
   hasDiscussions = false,
   sourcePage = 0,
+  canAllowInvitations = false,
 } = {}) {
   const rows = [];
   if (hasFavorites && profileCode) {
@@ -498,9 +502,16 @@ function profileRestrictionViewKeyboard(lang, {
       callback_data: `${callBacks.savedProfilesDiscussions}restrictions:${profileCode}`,
     }]);
   }
-  rows.push([
-    { text: messages[lang].discussionShareClose, callback_data: callBacks.profileCloseDiscussionMember },
-  ]);
+  if (canAllowInvitations && profileCode) {
+    rows.push([{
+      text: messages[lang].profileInvitationRestrictionAllow,
+      callback_data: `${callBacks.profileInvitationAllow}${profileCode}`,
+    }]);
+  }
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.profileCloseDiscussionMember,
+  }]);
   return inlineKeyboard(rows);
 }
 
@@ -519,7 +530,7 @@ function accountDeleteConfirmKeyboard(lang, nonce) {
 }
 
 function startAgainKeyboard(lang) {
-  return { reply_markup: { keyboard: [[{ text: messages[lang].accountStartAgainButton }]], resize_keyboard: true } };
+  return { reply_markup: { keyboard: [[{ text: messages[lang].accountStartAgainButton }]], resize_keyboard: true, is_persistent: true } };
 }
 
 const PROFILE_EMOJI_PAGE_SIZE = 20;
@@ -586,7 +597,7 @@ function profileStarsKeyboard(lang) {
 }
 
 function cancelEditKeyboard(lang) {
-  return { reply_markup: { keyboard: [[{ text: messages[lang].cancelEdit }]], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return { reply_markup: { keyboard: [[{ text: messages[lang].cancelEdit }]], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function ltrText(value) {
@@ -756,11 +767,12 @@ function profilePublicActionsKeyboard(lang, code, {
   return inlineKeyboard(rows);
 }
 
-function profileInvitationBackKeyboard(lang, userId = "", {
+function profileInvitationViewKeyboard(lang, userId = "", {
   profileCode = "",
   hasFavorites = false,
   hasDiscussions = false,
   sourcePage = 0,
+  canRestrictInviter = false,
 } = {}) {
   const rows = [];
   if (hasFavorites && profileCode) {
@@ -775,28 +787,18 @@ function profileInvitationBackKeyboard(lang, userId = "", {
       callback_data: `${callBacks.savedProfilesDiscussions}invitations:${profileCode}`,
     }]);
   }
-  rows.push([{ text: messages[lang].profileBackToInvitations, callback_data: callBacks.discussionInvitations }]);
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.profileCloseDiscussionMember,
+  }]);
   const mutedUserId = Number(userId);
-  if (Number.isInteger(mutedUserId) && mutedUserId > 0) {
+  if (canRestrictInviter && Number.isInteger(mutedUserId) && mutedUserId > 0) {
     rows.unshift([{
       text: messages[lang].discussionInvitationRestrictInviter,
       callback_data: `${callBacks.discussionInvitationMute}${mutedUserId}`,
     }]);
   }
   return inlineKeyboard(rows);
-}
-
-function discussionInvitationRestrictionConfirmKeyboard(lang, mutedUserId) {
-  return inlineKeyboard([
-    [{
-      text: messages[lang].discussionInvitationRestrictConfirmButton,
-      callback_data: `${callBacks.discussionInvitationMuteConfirm}${Number(mutedUserId)}`,
-    }],
-    [{
-      text: messages[lang].discussionInvitationRestrictCancelButton,
-      callback_data: callBacks.discussionInvitationMuteCancel,
-    }],
-  ]);
 }
 
 function formatKeyboardNumber(lang, value) {
@@ -857,7 +859,6 @@ module.exports = {
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
-  discussionInvitationRestrictionConfirmKeyboard,
   profileStarsKeyboard,
   cancelEditKeyboard,
   ageKeyboard,
@@ -880,6 +881,8 @@ module.exports = {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
+  discussionInvitationNoticeKeyboard,
+  discussionInvitationPreviewKeyboard,
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,
@@ -906,7 +909,7 @@ module.exports = {
   profileViewBackKeyboard,
   profilePeopleBackKeyboard,
   profilePublicActionsKeyboard,
-  profileInvitationBackKeyboard,
+  profileInvitationViewKeyboard,
   savedProfilesListKeyboard,
   peopleHubKeyboard,
   advancedSearchPreviewKeyboard,

@@ -12,7 +12,6 @@ const { isProfileSettingsOrEditCallback } = require("./profile-callbacks");
 const { isProfileFavoritesCallback } = require("./profile-favorites");
 const { isSavedProfilesCallback } = require("./saved-profiles");
 const {
-  clearRememberedDiscussionRoomCards,
   clearDiscussionMenuNotice,
   isDiscussionCreateFlowCallback,
   isDiscussionListCallback,
@@ -66,6 +65,15 @@ function isOwnProfileNavigationMode(mode = "") {
 function isProfileCallbackActiveInMode(ctx, data = "") {
   if (!isProfileSettingsOrEditCallback(data)) return true;
   const mode = String(ctx.user?.navigationMode || "");
+  if (
+    mode.startsWith("public_profile:restrictions:")
+    && (
+      data === callBacks.profileInvitationRestrictions
+      || data.startsWith(callBacks.profileInvitationAllow)
+    )
+  ) {
+    return true;
+  }
   if (data === callBacks.profileStars || data === callBacks.profileStarsBack) {
     return true;
   }
@@ -143,8 +151,6 @@ function getStaleCallbackFields(data = "") {
       "discussionLastListMessageId",
       "discussionMenuNoticeMessageId",
       "discussionLastMembersMessageId",
-      "discussionLastRoomHeaderMessageId",
-      "discussionLastRoomRecentMessageId",
     ];
   }
   if (
@@ -162,6 +168,10 @@ function isHistorySafeListCallback(data = "") {
   return isDiscussionListCallback(data)
     || data === callBacks.discussionInvitations
     || data.startsWith(callBacks.discussionInvitationsPage)
+    || data.startsWith(callBacks.discussionInvitationPreview)
+    || data.startsWith(callBacks.discussionInvitationPreviewAccept)
+    || data.startsWith(callBacks.discussionInvitationPreviewProfile)
+    || data.startsWith(callBacks.discussionInvitationPreviewRemove)
     || data === callBacks.peopleDiscover
     || data.startsWith(callBacks.peopleDiscoverPage)
     || data.startsWith(callBacks.peopleTasteMatchesPage)
@@ -209,7 +219,6 @@ async function prepareCallbackDispatch(ctx, data = "") {
 
   const keepDiscussionCards = shouldKeepDiscussionRoomCardsForCallback(data);
   if (!isProfileReplyAction && !keepDiscussionCards) {
-    await clearRememberedDiscussionRoomCards(ctx, [ctx.callbackMessageId]);
     await clearDiscussionMenuNotice(ctx, [ctx.callbackMessageId]);
   }
 }

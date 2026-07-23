@@ -241,7 +241,7 @@ Scenario: user is currently inside a discussion and wants to invite someone they
 7. Bot excludes saved profiles who are already current members, then shows the remaining eligible profiles as selectable invite targets, five per page, with Previous/Next navigation and Close. If all saved profiles are already members, show that specific empty state with only Close. Page and target callbacks are bound to the original active room; after leaving or switching rooms, stale buttons retire without creating an invitation or querying an invalid discussion id.
 8. User selects a saved profile.
 9. Bot creates or reuses a pending invitation.
-10. If a new invitation was created, bot sends the invitee a short notification pointing to `Discussions → Invitations`.
+10. If a new invitation was created, bot sends the invitee a short notification with `Open invitations` and `Close`. Close deletes only that notification and does not remove, accept, or otherwise change the invitation.
 11. Bot shows `Invitation sent to {name}.`
 12. User taps `Got it`.
 13. Bot returns to the current discussion room.
@@ -388,6 +388,8 @@ Join failures should match the existing discussion join-error UX:
 
 Do not strand the user in a dead state after a failed join. The invitation should remain visible when the failure is recoverable, such as a missing TopTen item or taste label requirement.
 
+A new-invitation notification is different from the normal inbox. Its identity-bound Open button edits only that notification into a preview of the newly received invitation. Join/Open, inviter profile, Remove, and Close are inline buttons on that preview, with no visible command links. Opening it preserves the current destination and reply keyboard, including an active discussion, so a tap cannot be delivered as room text. The inviter profile is a separate temporary card with only the server-revalidated `Restrict invitations from this person` action and delete-only Close, leaving the preview untouched underneath; after restriction, refresh the profile in place with only Close. It does not expose discussion or Back actions. Deliberately opening the full Invitations inbox keeps the existing paginated list behavior below.
+
 Example:
 
 ```text
@@ -397,8 +399,8 @@ Example:
 From: Sara
 🌍 Open | 4/20 members
 Join 👉 /accept_inv_ABC123
-Inviter profile 👉 /u_SARA12
-Remove 👉 /remove_inv_ABC123
+Inviter profile 👉 /inviter_u_SARA12
+Remove from list 👉 /remove_inv_ABC123
 
 -----
 
@@ -413,8 +415,8 @@ Persian pointer convention:
 
 ```text
 ورود 👈 /accept_inv_ABC123
-پروفایل دعوت‌کننده 👈 /u_SARA12
-حذف دعوت 👈 /remove_inv_ABC123
+پروفایل دعوت‌کننده 👈 /inviter_u_SARA12
+حذف از فهرست 👈 /remove_inv_ABC123
 ```
 
 Use stable invitation public codes, not array indexes.
@@ -667,7 +669,7 @@ Show the exact missing requirement:
 Actions:
 
 - Go to the relevant list/section if practical.
-- Remove invitation.
+- Remove from list.
 
 Keep invite pending so the user can complete the requirement and return.
 
@@ -772,13 +774,15 @@ Invitation restrictions let an invitee stop future invitations from one inviter.
 
 Entry point:
 
-- Only show the restriction action on an inviter profile opened from the invitations list, and require a confirmation step.
-- Do not show it on normal saved-profile or discussion-member profile views. Validate the source relationship again when confirming so a forged user-id callback cannot create an arbitrary restriction.
+- Invitation-list profile commands carry an explicit invitation source, so opening an inviter profile still shows the restriction action while the invitee is active in a discussion or another navigation context. The retained invitation list stays untouched underneath, so the separate profile card uses delete-only Close instead of a Back-to-list action.
+- Only show the restriction action on an inviter profile when the server revalidates an existing pending or accepted invitation from that person. The action applies immediately without a confirmation card.
+- Do not show it on normal saved-profile or discussion-member profile views. Validate the source relationship again when applying the action so a forged user-id callback cannot create an arbitrary restriction.
 
 Behavior:
 
-- The invitee taps `Don't receive invites from this user` and confirms the exact effect.
+- The invitee taps `Don't receive invites from this user`.
 - The bot creates a mute pair: `muterUserId` and `mutedUserId`.
+- The inviter profile is edited in place so the restriction action disappears; do not delete it and send a separate confirmation card.
 - Existing pending invitations from that inviter to that invitee are marked removed.
 - Future stored invitation attempts from that inviter to that invitee fail.
 - Sender-facing copy stays vague: `This profile can't receive invitations from you.`
@@ -789,7 +793,8 @@ Behavior:
 Management and recovery:
 
 - Privacy & Safety shows a paginated `Invitation restrictions` list, newest first, with hydrated names rather than raw Telegram ids.
-- The Privacy & Safety button has no count; the full count appears in the list title. Rows follow the People-list style with command links for profile viewing and identity-bound Allow again. The list edits the existing Privacy & Safety card or photo caption in place; its inline keyboard contains pagination when needed and Back, which restores Privacy & Safety on that same card.
+- The Privacy & Safety button has no count; the full count appears in the list title. Available rows expose only an identity-bound View profile command. Opening it retains the restrictions list and sends a separate profile card with `Allow invitations again` and delete-only Close. Close removes only the profile card. Allow applies immediately, removes the now-invalid Allow action from that profile card, and refreshes the retained restriction list in place. If that list can no longer be edited, retire its stale inline controls and send one refreshed list without deleting unrelated messages. Missing/deleted profiles keep a direct identity-bound Allow command because no profile can be opened.
+- The restrictions list edits the existing Privacy & Safety card or photo caption in place; its inline keyboard contains pagination when needed and Back, which restores Privacy & Safety on that same card.
 - Missing/deleted profiles remain removable through a neutral unavailable row.
 - `Allow invitations again` deletes only the exact directional pair. It allows future invitations and future eligible joins, but does not restore removed invitations, recreate notifications, change saved profiles, or notify the other person.
 - Do not add a transient Undo button; recovery must remain available across restarts and devices through Privacy & Safety.

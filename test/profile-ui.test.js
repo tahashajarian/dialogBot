@@ -652,22 +652,22 @@ test("invitation restriction list keeps only pagination and Back inline", () => 
   assert.equal(keyboard.at(-1)[0].text, messages.en.profileBackToSettings);
 });
 
-test("invitation restriction rows put count in the title and use command actions", () => {
+test("invitation restriction rows open a profile before allowing invitations again", () => {
   const view = buildInvitationRestrictionsView(messages, "en", [{
     restriction: { _id: "64f000000000000000000001", mutedUserId: 44 },
     user: { profileName: "Taylor", publicProfileCode: "u_AB12" },
   }], { totalCount: 6, start: 5 });
   assert.match(view.text, /Invitation restrictions \(6\)/);
   assert.match(view.text, /6\. 👤 Taylor/);
-  assert.match(view.text, /\/u_AB12/);
-  assert.match(view.text, /\/allow_inv_AB12/);
+  assert.match(view.text, /\/restricted_u_AB12/);
+  assert.doesNotMatch(view.text, /\/allow_inv_AB12/);
 });
 
 test("empty invitation restrictions point to the option on inviter profiles", () => {
   const enView = buildInvitationRestrictionsView(messages, "en", [], { totalCount: 0, start: 0 });
   const faView = buildInvitationRestrictionsView(messages, "fa", [], { totalCount: 0, start: 0 });
-  assert.match(enView.text, /option appears on an inviter’s profile/);
-  assert.match(faView.text, /گزینهٔ «محدودکردن دعوت‌های این شخص» روی پروفایل دعوت‌کننده/);
+  assert.match(enView.text, /Open an inviter’s profile from Invitations/);
+  assert.match(faView.text, /پروفایل دعوت‌کننده رو از بخش دعوت‌ها باز کن/);
 });
 
 test("canceling location sharing returns to Profile", async () => {

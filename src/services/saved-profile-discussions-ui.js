@@ -46,7 +46,7 @@ function buildProfileDiscussionReturnType(profileCode, { source = "saved", peopl
 
 function profileDiscussionsInlineKeyboard(lang, profileCode, discussions = []) {
   const rows = discussions
-    .filter((discussion) => discussion.listAction !== "current")
+    .filter((discussion) => discussion.listAction !== "current" && discussion.isJoinable === true)
     .map((discussion) => {
       const actionLabel = discussion.listAction === "leave"
         ? messages[lang].discussionOpenButton

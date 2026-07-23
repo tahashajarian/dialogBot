@@ -504,6 +504,7 @@ test("onboarding completion shows invitation copy and action only when one exist
     assert.equal(sharedWithStarterText.includes(messages[lang].onboardingSharedDiscussionReady), true);
     assert.equal(sharedWithStarterText.includes(messages[lang].onboardingInvitationReadyFree), true);
     assert.equal(freeText.includes(messages[lang].onboardingInvitationReadyMatch), false);
+    assert.doesNotMatch(`${matchText}\n${freeText}`, lang === "fa" ? /اتاق/ : /\brooms?\b/i);
     assert.deepEqual(plainButtons.map((button) => button.text), [
       messages[lang].discussionActiveList,
       messages[lang].onboardingFavoritesButton,

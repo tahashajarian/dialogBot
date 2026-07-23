@@ -15,6 +15,7 @@ const {
 const User = require("../src/models/user");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
+const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const { formatOperationalLimitsText } = require("../src/services/operational-limits-ui");
 const { starEconomy } = require("../src/services/star-settings");
 const {
@@ -219,6 +220,128 @@ test("closing invitation restrictions restores Privacy on the same card", async 
   assert.equal(edits[0].text.includes(messages.en.profilePrivacySafetyTitle), true);
   assert.equal(ctx.user.profileInvitationRestrictionsLastMessageId, null);
   assert.equal(ctx.user.navigationMode, "profile");
+});
+
+test("allowing an inviter keeps the profile card and refreshes the retained restrictions list", async () => {
+  const originalFindOne = User.findOne;
+  const originalDeleteOne = DiscussionInvitationMute.deleteOne;
+  const originalCountDocuments = DiscussionInvitationMute.countDocuments;
+  const originalFind = DiscussionInvitationMute.find;
+  const answers = [];
+  const deleted = [];
+  const replies = [];
+  const textEdits = [];
+  const markupEdits = [];
+  let deleteQuery;
+
+  User.findOne = () => ({
+    select: () => ({ lean: async () => ({ userId: 9 }) }),
+  });
+  DiscussionInvitationMute.deleteOne = async (query) => {
+    deleteQuery = query;
+    return { deletedCount: 1 };
+  };
+  DiscussionInvitationMute.countDocuments = async () => 0;
+  DiscussionInvitationMute.find = () => ({
+    sort: () => ({
+      skip: () => ({
+        limit: () => ({ lean: async () => [] }),
+      }),
+    }),
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.profileInvitationAllow}u_AB12`,
+    callbackMessageId: 88,
+    callbackMessage: {
+      reply_markup: {
+        inline_keyboard: [
+          [{
+            text: messages.en.profileInvitationRestrictionAllow,
+            callback_data: `${callBacks.profileInvitationAllow}u_AB12`,
+          }],
+          [{
+            text: messages.en.discussionShareClose,
+            callback_data: callBacks.profileCloseDiscussionMember,
+          }],
+        ],
+      },
+    },
+    userId: 2,
+    user: {
+      userId: 2,
+      navigationMode: "public_profile:restrictions:u_AB12:0:unsaved:0",
+      publicProfileLastMessageId: 88,
+      profileInvitationRestrictionsLastMessageId: 77,
+    },
+    answerCb: async (text) => {
+      answers.push(text);
+      return true;
+    },
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    editMessageText: async (messageId, text, extra) => {
+      textEdits.push({ messageId, text, extra });
+      return true;
+    },
+    editMessageReplyMarkup: async (messageId, replyMarkup) => {
+      markupEdits.push({ messageId, replyMarkup });
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 };
+    },
+  };
+
+  try {
+    await handleProfilePrivacyCallback(ctx, "en");
+  } finally {
+    User.findOne = originalFindOne;
+    DiscussionInvitationMute.deleteOne = originalDeleteOne;
+    DiscussionInvitationMute.countDocuments = originalCountDocuments;
+    DiscussionInvitationMute.find = originalFind;
+  }
+
+  assert.deepEqual(deleteQuery, { muterUserId: 2, mutedUserId: 9 });
+  assert.deepEqual(answers, [undefined]);
+  assert.deepEqual(deleted, []);
+  assert.equal(replies.length, 0);
+  assert.deepEqual(markupEdits, [{
+    messageId: 88,
+    replyMarkup: {
+      inline_keyboard: [[{
+        text: messages.en.discussionShareClose,
+        callback_data: callBacks.profileCloseDiscussionMember,
+      }]],
+    },
+  }]);
+  assert.equal(textEdits.length, 1);
+  assert.equal(textEdits[0].messageId, 77);
+  assert.match(textEdits[0].text, /Invitation restrictions \(0\)/);
+  assert.equal(ctx.user.publicProfileLastMessageId, 88);
+  assert.equal(ctx.user.profileInvitationRestrictionsLastMessageId, 77);
+  assert.equal(ctx.user.navigationMode, "profile_invitation_restrictions:0:1");
+});
+
+test("allow invitations rejects a callback for a different displayed restriction profile", async () => {
+  const answers = [];
+  const handled = await handleProfilePrivacyCallback({
+    callbackData: `${callBacks.profileInvitationAllow}u_OTHER`,
+    userId: 2,
+    user: {
+      navigationMode: "public_profile:restrictions:u_AB12:0:unsaved:0",
+    },
+    answerCb: async (text) => {
+      answers.push(text);
+      return true;
+    },
+  }, "en");
+
+  assert.equal(handled, false);
+  assert.deepEqual(answers, [messages.en.profileInvitationRestrictionFailed]);
 });
 
 test("cancelling account deletion restores Privacy controls on the same card", async () => {
@@ -1204,8 +1327,6 @@ test("profile reply buttons do not retire unrelated remembered cards", async () 
       aiLastListMessageId: 111,
       aiLastListSection: "movie",
       aiLastListType: "topTen",
-      discussionLastRoomHeaderMessageId: 222,
-      discussionLastRoomRecentMessageId: 223,
     },
     answerCb: async () => true,
     deleteMessage: async (messageId) => {
@@ -1226,8 +1347,6 @@ test("profile reply buttons do not retire unrelated remembered cards", async () 
 
   assert.deepEqual(deletedIds, []);
   assert.equal(ctx.user.aiLastListMessageId, 111);
-  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, 222);
-  assert.equal(ctx.user.discussionLastRoomRecentMessageId, 223);
   assert.equal(ctx.user.state, "idle");
   assert.ok(updates.some((update) => update.state === "editing_bio"));
   assert.equal(replies.at(-1).text, messages.en.profileAskBio);
@@ -1247,8 +1366,6 @@ test("main Profile reply buttons also preserve remembered cards", async () => {
       lang: "en",
       state: "idle",
       navigationMode: "profile",
-      discussionLastRoomHeaderMessageId: 301,
-      discussionLastRoomRecentMessageId: 302,
       discussionMenuNoticeMessageId: 303,
     },
     answerCb: async () => true,
@@ -1266,8 +1383,6 @@ test("main Profile reply buttons also preserve remembered cards", async () => {
   }
 
   assert.deepEqual(deletedIds, []);
-  assert.equal(ctx.user.discussionLastRoomHeaderMessageId, 301);
-  assert.equal(ctx.user.discussionLastRoomRecentMessageId, 302);
   assert.equal(ctx.user.discussionMenuNoticeMessageId, 303);
 });
 
@@ -2226,6 +2341,61 @@ test("opening saved profile clears old list and previous profile before renderin
   assert.ok(!buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
   assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
+});
+
+test("inviter profile from a single notification has only Restrict and Close", async () => {
+  const originalFindOne = User.findOne;
+  const originalInvitationExists = DiscussionInvitation.exists;
+  const originalMuteFindOne = DiscussionInvitationMute.findOne;
+  const replies = [];
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_A1",
+    firstName: "Inviter",
+    profileName: "Inviter",
+    showActiveDiscussionOnProfile: true,
+  });
+  DiscussionInvitation.exists = async () => ({ _id: "invite" });
+  DiscussionInvitationMute.findOne = () => ({ lean: async () => null });
+  const ctx = {
+    callbackMessageId: 44,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      navigationMode: "discussion_room:active-room",
+      activeDiscussionId: "active-room",
+      savedProfileCodes: [],
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_A1", {
+      fromInvitationPreview: true,
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    DiscussionInvitation.exists = originalInvitationExists;
+    DiscussionInvitationMute.findOne = originalMuteFindOne;
+  }
+
+  const buttons = keyboardButtons(replies.at(-1).extra);
+  assert.deepEqual(buttons.map((button) => button.callback_data), [
+    `${callBacks.discussionInvitationMute}2`,
+    callBacks.profileCloseDiscussionMember,
+  ]);
+  assert.equal(ctx.user.navigationMode, "public_profile:invitation_preview:u_A1:0:unsaved:0");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "discussion_room:active-room");
+  assert.equal(ctx.user.activeDiscussionId, "active-room");
 });
 
 test("saved profile shows discussions action when user has an open discussion", async () => {

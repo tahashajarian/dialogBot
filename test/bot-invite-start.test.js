@@ -5,6 +5,7 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
+const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const StarReferralClaim = require("../src/models/star-referral-claim");
 const StarReferralLink = require("../src/models/star-referral-link");
 const User = require("../src/models/user");
@@ -951,6 +952,120 @@ test("discussion profile command does not use saved-profile back button for save
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
 });
 
+test("inviter profile command keeps its restriction action while the invitee is in a discussion", async () => {
+  const originalFindOne = User.findOne;
+  const originalInvitationExists = DiscussionInvitation.exists;
+  const originalMuteFindOne = DiscussionInvitationMute.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Inviter",
+    profileName: "Inviter",
+    showActiveDiscussionOnProfile: false,
+  });
+  DiscussionInvitation.exists = async () => ({ _id: "invite" });
+  DiscussionInvitationMute.findOne = () => ({ lean: async () => null });
+
+  const ctx = {
+    text: "/inviter_u_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      state: "idle",
+      navigationMode: "discussion_room:active-room",
+      activeDiscussionId: "active-room",
+      savedProfileCodes: [],
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    DiscussionInvitation.exists = originalInvitationExists;
+    DiscussionInvitationMute.findOne = originalMuteFindOne;
+  }
+
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some(
+    (button) => button.callback_data === `${callBacks.discussionInvitationMute}2`,
+  ));
+  assert.equal(ctx.user.activeDiscussionId, "active-room");
+  assert.match(ctx.user.navigationMode, /^public_profile:invitations:/);
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "discussion_room:active-room");
+});
+
+test("restricted-profile command retains the restrictions list and sends a closable profile card", async () => {
+  const originalFindOne = User.findOne;
+  const originalMuteFindOne = DiscussionInvitationMute.findOne;
+  const deleteAttempts = [];
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_3HNU",
+    firstName: "Restricted",
+    profileName: "Restricted",
+    showActiveDiscussionOnProfile: false,
+  });
+  DiscussionInvitationMute.findOne = () => ({
+    lean: async () => ({ muterUserId: 1, mutedUserId: 2 }),
+  });
+
+  const ctx = {
+    text: "/restricted_u_3HNU",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      state: "idle",
+      navigationMode: "profile_invitation_restrictions:0:1",
+      profileInvitationRestrictionsLastMessageId: 44,
+      savedProfileCodes: [],
+    },
+    deleteMessage: async (messageId) => {
+      deleteAttempts.push(messageId);
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    DiscussionInvitationMute.findOne = originalMuteFindOne;
+  }
+
+  assert.deepEqual(deleteAttempts, []);
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some(
+    (button) => button.callback_data === `${callBacks.profileInvitationAllow}u_3HNU`,
+  ));
+  assert.equal(buttons.at(-1).callback_data, callBacks.profileCloseDiscussionMember);
+  assert.equal(ctx.user.profileInvitationRestrictionsLastMessageId, 44);
+});
+
 test("discussion member profile wins over stale People list context", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -1110,11 +1225,21 @@ test("saved profile discussions include visible active discussion without duplic
     status: "open",
     joinRule: { type: "open" },
   };
+  const otherCreatedDiscussion = {
+    _id: "disc_other",
+    title: "Other room",
+    publicDiscussionCode: "d_OTHER",
+    creatorUserId: 2,
+    memberUserIds: [],
+    maxMembers: 20,
+    status: "open",
+    joinRule: { type: "open" },
+  };
 
   Discussion.findOne = () => ({ lean: async () => activeDiscussion });
   Discussion.find = (query) => {
-    assert.deepEqual(query._id, { $ne: "disc_active" });
-    return { limit: () => ({ lean: async () => [] }) };
+    assert.equal(query._id, undefined);
+    return { limit: () => ({ lean: async () => [activeDiscussion, otherCreatedDiscussion] }) };
   };
   User.findOneAndUpdate = async () => ({});
   User.findOne = async () => ({
@@ -1150,11 +1275,14 @@ test("saved profile discussions include visible active discussion without duplic
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.match(replies[0].text, /Current active discussion/);
-  assert.match(replies[0].text, /Active room/);
-  assert.doesNotMatch(replies[0].text, /Created discussions/);
+  assert.match(replies[0].text, /Current active discussion \(1\)/);
+  assert.match(replies[0].text, /Discussions created by this user \(2\)/);
+  assert.match(replies[0].text, /Current discussion — Active room/);
+  assert.match(replies[0].text, /Other room/);
+  assert.equal(replies[0].text.match(/Active room/g)?.length, 2);
   const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
-  assert.ok(callbacks.includes(`${callBacks.discussionOpen}disc_active`));
+  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_active`).length, 1);
+  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_other`).length, 1);
   assert.ok(callbacks.includes(`${callBacks.profileDiscussionsBack}u_3HNU`));
   assert.equal(callbacks.at(-1), callBacks.profileDiscussionsClose);
   assert.equal(replies[0].extra.reply_markup.keyboard, undefined);

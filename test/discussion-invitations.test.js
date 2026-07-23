@@ -6,6 +6,7 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
   buildInvitationSentText,
+  buildInvitationPreviewText,
   buildReceivedInvitationsText,
   filterSavedInviteTargets,
   shouldShowDiscussionInvitationFirstTimeTip,
@@ -31,6 +32,7 @@ const User = require("../src/models/user");
 const {
   discussionJoinLockedKeyboard,
   discussionLeaveCurrentNoticeKeyboard,
+  discussionInvitationPreviewKeyboard,
 } = require("../src/keyboards");
 const {
   listInvitationRestrictions,
@@ -401,6 +403,7 @@ test("received invitations localize bot-created discussion title and description
 
   assert.match(text, /👩‍🦳 گفت‌وگوی آزاد/);
   assert.match(text, /یه جای ساده برای شروع گپ با بقیه/);
+  assert.match(text, /\/inviter_u_SARA1/);
   assert.doesNotMatch(text, /Free Discussion/);
   assert.doesNotMatch(text, /A simple place to start chatting/);
 });
@@ -456,6 +459,41 @@ test("locked shared-link invitations stay in the inbox without an inviter profil
   assert.doesNotMatch(text, /Join 👉/);
   assert.doesNotMatch(text, /Inviter profile/);
   assert.ok(text.includes(`${messages.en.discussionInvitationRemove} 👉 /remove_inv_SHARED1`));
+});
+
+test("single invitation previews keep every action out of message links", () => {
+  const entry = {
+    invitation: {
+      publicInvitationCode: "i_ONLY123",
+      status: "pending",
+      source: "saved_profile",
+    },
+    discussion: {
+      title: "Movie night",
+      description: "A room for films",
+      memberUserIds: [1],
+      maxMembers: 20,
+      joinRule: { type: "open" },
+    },
+    inviter: {
+      profileName: "Sara",
+      publicProfileCode: "u_SARA1",
+    },
+    state: { state: "joinable" },
+  };
+  const text = buildInvitationPreviewText(messages, "en", entry);
+  const buttons = discussionInvitationPreviewKeyboard("en", entry)
+    .reply_markup.inline_keyboard.flat();
+
+  assert.match(text, /Discussion invitation/);
+  assert.match(text, /Movie night/);
+  assert.doesNotMatch(text, /\/accept_inv_|\/inviter_|\/remove_inv_/);
+  assert.deepEqual(buttons.map((button) => button.callback_data), [
+    `${callBacks.discussionInvitationPreviewAccept}ONLY123`,
+    `${callBacks.discussionInvitationPreviewProfile}ONLY123:u_SARA1`,
+    `${callBacks.discussionInvitationPreviewRemove}ONLY123`,
+    callBacks.discussionInvitationNoticeClose,
+  ]);
 });
 
 test("invitation guidance shares the durable Discussions tip state", () => {
@@ -560,7 +598,7 @@ test("received invitations keep accepted invites in the unified newest-first lis
   assert.match(text, /Newest invitations appear first/);
   assert.match(text, /6\. ✅ Movie Chat/);
   assert.match(text, /Join 👉 \/accept_inv_DONE123/);
-  assert.match(text, /Remove invitation 👉 \/remove_inv_DONE123/);
+  assert.match(text, /Remove from list 👉 \/remove_inv_DONE123/);
   assert.doesNotMatch(text, /Inviter profile/);
 });
 
@@ -572,7 +610,7 @@ test("empty invitations text includes a useful next-step tip", async () => {
   assert.match(text, /newest first/);
 });
 
-test("new invitation notification points invitee to invitations inbox", async () => {
+test("new invitation notification opens only its identity-bound preview", async () => {
   const sent = [];
   const notified = await notifyInviteeOfInvitation({
     sendToUser: async (userId, text, extra) => {
@@ -581,6 +619,7 @@ test("new invitation notification points invitee to invitations inbox", async ()
     },
   }, {
     invitee: { userId: 2, lang: "en" },
+    invitation: { publicInvitationCode: "i_ONLY123" },
   });
 
   assert.equal(notified, true);
@@ -588,7 +627,11 @@ test("new invitation notification points invitee to invitations inbox", async ()
   assert.equal(sent[0].text, messages.en.discussionInvitationReceivedNotice);
   assert.equal(
     sent[0].extra.reply_markup.inline_keyboard[0][0].callback_data,
-    callBacks.discussionInvitations,
+    `${callBacks.discussionInvitationPreview}ONLY123`,
+  );
+  assert.equal(
+    sent[0].extra.reply_markup.inline_keyboard[0][1].callback_data,
+    callBacks.discussionInvitationNoticeClose,
   );
 });
 
@@ -604,64 +647,240 @@ test("new invitation notification fails open", async () => {
   assert.equal(notified, false);
 });
 
-test("restrict inviter requires confirmation and removes the card only after confirmation", async () => {
+test("invitation notification Close deletes only that notification", async () => {
+  const deletedIds = [];
+  const handled = await handleDiscussionInvitationCallback({
+    callbackData: callBacks.discussionInvitationNoticeClose,
+    callbackMessageId: 54,
+    answerCb: async () => true,
+  }, "en", {
+    deleteCallbackMessageIfPossible: async (ctx) => {
+      deletedIds.push(ctx.callbackMessageId);
+      return true;
+    },
+  });
+
+  assert.equal(handled, true);
+  assert.deepEqual(deletedIds, [54]);
+});
+
+test("opening a notification inside a discussion edits it into one inline-only invitation", async () => {
+  const originalInvitationFindOne = DiscussionInvitation.findOne;
+  const originalInvitationUpdateMany = DiscussionInvitation.updateMany;
+  const originalDiscussionFindById = Discussion.findById;
+  const originalUserFindOne = User.findOne;
+  const edits = [];
+  const answers = [];
+  const invitation = {
+    _id: "invite-1",
+    publicInvitationCode: "i_ONLY123",
+    inviteeUserId: 2,
+    inviterUserId: 1,
+    status: "pending",
+    source: "saved_profile",
+    discussionId: "room-2",
+    save: async () => true,
+  };
+  DiscussionInvitation.findOne = async () => invitation;
+  DiscussionInvitation.updateMany = async () => ({ modifiedCount: 1 });
+  Discussion.findById = async () => ({
+    _id: "room-2",
+    title: "Movie night",
+    description: "A room for films",
+    status: "open",
+    creatorUserId: 1,
+    memberUserIds: [1],
+    removedUserIds: [],
+    maxMembers: 20,
+    joinRule: { type: "open" },
+  });
+  User.findOne = () => ({
+    select: () => ({
+      lean: async () => ({
+        userId: 1,
+        profileName: "Sara",
+        publicProfileCode: "u_SARA1",
+      }),
+    }),
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.discussionInvitationPreview}ONLY123`,
+    callbackMessageId: 44,
+    userId: 2,
+    user: {
+      userId: 2,
+      activeDiscussionId: "room-1",
+      navigationMode: "discussion_room:room-1",
+    },
+    answerCb: async (text) => {
+      answers.push(text);
+      return true;
+    },
+    reply: async () => assert.fail("the notification should edit in place"),
+  };
+
+  try {
+    await handleDiscussionInvitationCallback(ctx, "en", {
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        edits.push({ text, keyboard });
+        return { message_id: 44 };
+      },
+    });
+  } finally {
+    DiscussionInvitation.findOne = originalInvitationFindOne;
+    DiscussionInvitation.updateMany = originalInvitationUpdateMany;
+    Discussion.findById = originalDiscussionFindById;
+    User.findOne = originalUserFindOne;
+  }
+
+  assert.deepEqual(answers, [undefined]);
+  assert.equal(edits.length, 1);
+  assert.doesNotMatch(edits[0].text, /\/accept_inv_|\/inviter_|\/remove_inv_/);
+  assert.equal(ctx.user.navigationMode, "discussion_room:room-1");
+  assert.equal(ctx.user.activeDiscussionId, "room-1");
+  assert.deepEqual(
+    edits[0].keyboard.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
+    [
+      `${callBacks.discussionInvitationPreviewAccept}ONLY123`,
+      `${callBacks.discussionInvitationPreviewProfile}ONLY123:u_SARA1`,
+      `${callBacks.discussionInvitationPreviewRemove}ONLY123`,
+      callBacks.discussionInvitationNoticeClose,
+    ],
+  );
+});
+
+test("restrict inviter is one tap and refreshes the inviter profile in place", async () => {
   const originalExists = DiscussionInvitation.exists;
   const originalFindOneAndUpdate = DiscussionInvitationMute.findOneAndUpdate;
   const originalUpdateMany = DiscussionInvitation.updateMany;
+  const originalUserFindOne = User.findOne;
   const deletedIds = [];
-  const replies = [];
-  const edits = [];
+  const answers = [];
+  const refreshed = [];
 
   DiscussionInvitation.exists = async () => ({ _id: "invite" });
   DiscussionInvitationMute.findOneAndUpdate = async () => ({ muterUserId: 2, mutedUserId: 1 });
   DiscussionInvitation.updateMany = async () => ({ modifiedCount: 1 });
+  User.findOne = () => ({
+    select: () => ({ lean: async () => ({ userId: 1 }) }),
+  });
 
   try {
     const ctx = {
       callbackData: `${callBacks.discussionInvitationMute}1`,
       callbackMessageId: 55,
       userId: 2,
-      user: { userId: 2 },
-      answerCb: async () => true,
+      user: {
+        userId: 2,
+        navigationMode: "public_profile:invitations:u_INVITER:0:unsaved:0",
+      },
+      answerCb: async (text) => {
+        answers.push(text);
+        return true;
+      },
       deleteMessage: async (messageId) => {
         deletedIds.push(messageId);
         return true;
       },
-      reply: async (text, keyboard) => {
-        replies.push({ text, keyboard });
-        return { message_id: 56 };
-      },
     };
     const dependencies = {
       deleteCallbackMessageIfPossible: (ctx) => ctx.deleteMessage(ctx.callbackMessageId),
-      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
-        edits.push({ text, keyboard });
-        return true;
+      sendPublicProfileByCode: async (_ctx, lang, code, options) => {
+        refreshed.push({ lang, code, options });
+        return { message_id: 55 };
       },
     };
 
-    const prompted = await handleDiscussionInvitationCallback(ctx, "en", dependencies);
-    assert.ok(prompted);
+    const restricted = await handleDiscussionInvitationCallback(ctx, "en", dependencies);
+    assert.ok(restricted);
     assert.deepEqual(deletedIds, []);
-    assert.equal(edits[0].text, messages.en.discussionInvitationRestrictConfirmText);
-    assert.equal(
-      edits[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
-      `${callBacks.discussionInvitationMuteConfirm}1`,
-    );
-
-    ctx.callbackData = `${callBacks.discussionInvitationMuteConfirm}1`;
-    const confirmed = await handleDiscussionInvitationCallback(ctx, "en", dependencies);
-    assert.ok(confirmed);
-    assert.deepEqual(deletedIds, [55]);
-    assert.equal(replies[0].text, messages.en.discussionInvitationMuted);
-    assert.equal(
-      replies[0].keyboard.reply_markup.inline_keyboard[0][0].callback_data,
-      `${callBacks.discussionInvitationAck}invitations`,
-    );
+    assert.deepEqual(answers, [messages.en.discussionInvitationMuted]);
+    assert.deepEqual(refreshed, [{
+      lang: "en",
+      code: "u_INVITER",
+      options: { fromInvitationList: true, editCurrent: true },
+    }]);
   } finally {
     DiscussionInvitation.exists = originalExists;
     DiscussionInvitationMute.findOneAndUpdate = originalFindOneAndUpdate;
     DiscussionInvitation.updateMany = originalUpdateMany;
+    User.findOne = originalUserFindOne;
+  }
+});
+
+test("restricting from a notification profile refreshes that temporary card in place", async () => {
+  const originalExists = DiscussionInvitation.exists;
+  const originalFindOneAndUpdate = DiscussionInvitationMute.findOneAndUpdate;
+  const originalUpdateMany = DiscussionInvitation.updateMany;
+  const originalUserFindOne = User.findOne;
+  const refreshed = [];
+
+  DiscussionInvitation.exists = async () => ({ _id: "invite" });
+  DiscussionInvitationMute.findOneAndUpdate = async () => ({ muterUserId: 2, mutedUserId: 1 });
+  DiscussionInvitation.updateMany = async () => ({ modifiedCount: 1 });
+  User.findOne = () => ({
+    select: () => ({ lean: async () => ({ userId: 1 }) }),
+  });
+
+  try {
+    const handled = await handleDiscussionInvitationCallback({
+      callbackData: `${callBacks.discussionInvitationMute}1`,
+      callbackMessageId: 55,
+      userId: 2,
+      user: {
+        userId: 2,
+        navigationMode: "public_profile:invitation_preview:u_INVITER:0:unsaved:0",
+      },
+      answerCb: async () => true,
+    }, "en", {
+      sendPublicProfileByCode: async (_ctx, lang, code, options) => {
+        refreshed.push({ lang, code, options });
+        return { message_id: 55 };
+      },
+    });
+
+    assert.ok(handled);
+    assert.deepEqual(refreshed, [{
+      lang: "en",
+      code: "u_INVITER",
+      options: {
+        fromInvitationPreview: true,
+        editCurrent: true,
+      },
+    }]);
+  } finally {
+    DiscussionInvitation.exists = originalExists;
+    DiscussionInvitationMute.findOneAndUpdate = originalFindOneAndUpdate;
+    DiscussionInvitation.updateMany = originalUpdateMany;
+    User.findOne = originalUserFindOne;
+  }
+});
+
+test("restrict inviter rejects a callback that does not match the displayed profile", async () => {
+  const originalFindOne = User.findOne;
+  const answers = [];
+  User.findOne = () => ({
+    select: () => ({ lean: async () => ({ userId: 99 }) }),
+  });
+
+  try {
+    const handled = await handleDiscussionInvitationCallback({
+      callbackData: `${callBacks.discussionInvitationMute}1`,
+      userId: 2,
+      user: {
+        navigationMode: "public_profile:invitations:u_OTHER:0:unsaved:0",
+      },
+      answerCb: async (text) => {
+        answers.push(text);
+        return true;
+      },
+    }, "en");
+
+    assert.equal(handled, false);
+    assert.deepEqual(answers, [messages.en.discussionInvitationUnavailable]);
+  } finally {
+    User.findOne = originalFindOne;
   }
 });
 

@@ -6,12 +6,17 @@ const {
   deleteCallbackMessageIfPossible,
   getStaleCallbackFields,
   isHistorySafeListCallback,
+  retireObsoleteCallbackIfNeeded,
   retireStaleCallbackCardIfNeeded,
 } = require("../src/flows/callback-lifecycle");
 
 test("callback lifecycle maps feature actions to their remembered card fields", () => {
   assert.deepEqual(getStaleCallbackFields(callBacks.profilePrivacy), ["publicProfileLastMessageId"]);
-  assert.ok(getStaleCallbackFields(`${callBacks.discussionClose}room-1`).includes("discussionLastRoomRecentMessageId"));
+  assert.deepEqual(getStaleCallbackFields(`${callBacks.discussionClose}room-1`), [
+    "discussionLastListMessageId",
+    "discussionMenuNoticeMessageId",
+    "discussionLastMembersMessageId",
+  ]);
   assert.ok(getStaleCallbackFields(`${callBacks.profileSaveByCode}u_ABC123`).includes("publicProfileLastMessageId"));
   assert.deepEqual(getStaleCallbackFields(callBacks.menuMain), []);
 });
@@ -60,4 +65,23 @@ test("callback cleanup never deletes a reply-keyboard user message", async () =>
   });
   assert.equal(result, false);
   assert.equal(deleted, false);
+});
+
+test("restriction profile Back and Allow actions remain active on that public profile card", async () => {
+  const ctx = {
+    callbackMessageId: 20,
+    user: {
+      navigationMode: "public_profile:restrictions:u_AB12:0:unsaved:0",
+      publicProfileLastMessageId: 20,
+    },
+  };
+
+  assert.equal(
+    await retireObsoleteCallbackIfNeeded(ctx, callBacks.profileInvitationRestrictions),
+    false,
+  );
+  assert.equal(
+    await retireObsoleteCallbackIfNeeded(ctx, `${callBacks.profileInvitationAllow}u_AB12`),
+    false,
+  );
 });

@@ -472,7 +472,7 @@ Rules:
 - A user who opens an invite for their currently active discussion should see the already-member message instead of a generic preview.
 - Existing members who use the invite while active elsewhere should be moved/re-focused to that discussion, matching normal `/d_CODE` behavior.
 - Removed users can open a public preview but must receive the same removed-user error if they try to join. Public previews never carry owner re-entry approval.
-- Closed, missing, or expired discussions should show a clean unavailable state with one inline delete-only `Got it` action. Already-onboarded users keep their current reply keyboard, navigation mode, and in-progress flow state. New or unfinished users still complete normal onboarding first, then see the unavailable state while retaining the onboarding-completion keyboard.
+- Closed, missing, or expired discussions should show a clean unavailable state with one inline `Got it` action. Already-onboarded users keep their current reply keyboard, navigation mode, and in-progress flow state. Stable reply keyboards request Telegram's persistent behavior for mobile clients; after Got it, Muze resends the unchanged stable destination keyboard when it can be reconstructed, without changing the navigation mode. New or unfinished users still complete normal onboarding first, then see the unavailable state while retaining the onboarding-completion keyboard.
 - If a recipient does not satisfy a restricted join rule, show a specific hint that names what is missing and where to update it, then return them to Home so they can update their profile/list data. Tell them they can retry the same invite/command after updating.
 - Invite generation should be low-noise: send one ready-to-share card, not a chain of explanation messages. The card includes localized native Share, Copy invitation, and Close actions. Forward and Copy carry the same localized payload and attributable shared-discussion link. Keep the common payload within the platform copy-text limit by omitting an oversized description first and truncating only as a final fallback. Opening it for an already-onboarded user does not create an inbox row; the post-onboarding `shared_link` preservation rule is the narrow exception. Close quietly deletes the temporary share card because the sender is already in the active room.
 
@@ -492,7 +492,7 @@ Opening an invite:
 - `/join_CODE` or a deep-link equivalent should run unfinished onboarding first and automatically show the original preview afterward; users with completed onboarding should see the invite preview immediately.
 - A displayed preview should not join automatically, even for open rooms.
 - The preview message should be safe for non-members.
-- If the discussion is closed/missing/unavailable, show the unavailable state without changing the current reply keyboard or navigation destination. Its inline `Got it` action only deletes the notice.
+- If the discussion is closed/missing/unavailable, show the unavailable state without changing the current reply keyboard or navigation destination. Its inline `Got it` action deletes the notice and may resend the same stable destination keyboard—or the user's active-room controls—to recover mobile clients that collapsed it.
 - If the discussion exists but is full, show the full-room state and return to the discussions menu.
 - If the viewer was removed by the owner, show the removed-user message and return to Home.
 - If the viewer does not satisfy a join rule, show the specific locked hint and return to Home.
@@ -605,6 +605,8 @@ Invite abuse and rate limits:
 
 - The Discussions-menu badge counts only unseen pending invitations, including unseen bot starter invitations. The inbox itself combines pending and accepted invitations newest first, keeps at most 20 visible records, and paginates five per page. Opening the inbox clears the badge; acceptance does not remove or reorder a record. Only the recipient's Remove command hides it, except that exceeding the cap expires the oldest visible record and successful discussion closure hard-deletes all invitations targeting that permanently closed room. Other unavailable destinations remain visible with a safe state and Remove action.
 - Apply the existing repeated-tap guard to the `📨 دعوت` bottom button.
+- A new stored-invitation notification has identity-bound `Open invitation` and delete-only `Close`. Open edits that notification into a preview for only the new invitation, with inline Join/Open, inviter-profile, Remove, and Close actions; it does not open the full inbox or change the current navigation/reply keyboard. This keeps notification use safe inside a live room because no action submits command text. Closing it changes no invitation or navigation state.
+- Restricting future invitations is a one-tap, server-revalidated action shown only on the inviter profile reached through an invitation-bound profile command. It remains available when that command is opened while the invitee is active in a discussion. Re-enabling invitations lives on the restricted person's profile under Profile → Privacy & Safety and returns to the refreshed restriction list after the action.
 - Public share-link generation can add a lightweight per-user cooldown later, for example one invite message per discussion per minute.
 - Do not notify the discussion owner when someone generates or uses an invite.
 - Do not broadcast invite generation inside the room.
@@ -886,6 +888,7 @@ Response:
 ```
 
 After this response, remove the room bottom keyboard and show the discussions menu.
+Leaving does not delete or edit any earlier room, member-list, discussion-list, or profile message. Room header/recent-message ids are not persisted for later cleanup; only still-actionable temporary list/card state is tracked for its own Close and stale-action safety.
 
 Owners can leave their own active/open discussion. This removes them from current members and clears their `activeDiscussionId`, but does not close the discussion or change `creatorUserId`.
 
@@ -1350,7 +1353,6 @@ Discussions list example:
 1. آلبوم‌های متال برای شروع
    توضیحات: دوست دارم...
    🏷 متال‌هد 🔒 | 3 نفر
-   ورود 👈 /d_AB3C
 
 [🔙 برگشت به ذخیره‌شده‌ها] (inline button)
 ```
@@ -1359,6 +1361,7 @@ Technical notes:
 - Query discussions by `creatorUserId` field (not `ownerId`)
 - Active discussion only shows if `showActiveDiscussionOnProfile: true`
 - Discussions are formatted using `buildDiscussionListText` for consistency
+- Start the view with a short line explaining that it contains the profile user's current or created discussions. Keep locked rooms visible for context, but render no Join action unless the viewer currently satisfies the room's join rule.
 - Empty and non-empty lists use a profile Back button (`profile:view:code:` callback) so Back returns to the profile card first.
 - If joining one of these discussions fails, the "Got it" acknowledgment must return to this saved user's discussions, not the generic active-discussions list.
 

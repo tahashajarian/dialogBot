@@ -15,6 +15,7 @@ const {
 } = require("../services/users");
 const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter } = require("../services/discussion-language");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
+const { restoreStableReplyKeyboard } = require("./reply-keyboard-recovery");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const {
   buildDiscussionJoinLockedText,
@@ -31,36 +32,6 @@ const {
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
-}
-
-async function clearRememberedDiscussionRoomCards(ctx, exceptMessageIds = []) {
-  const keep = new Set((exceptMessageIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0));
-  const headerId = Number(ctx.user?.discussionLastRoomHeaderMessageId);
-  const recentId = Number(ctx.user?.discussionLastRoomRecentMessageId);
-  const hasTrackedCards = (Number.isInteger(headerId) && headerId > 0) || (Number.isInteger(recentId) && recentId > 0);
-  if (!hasTrackedCards) {
-    return;
-  }
-
-  const ids = [headerId, recentId].filter((id) => Number.isInteger(id) && id > 0 && !keep.has(id));
-  if (!ids.length) return;
-
-  if (ctx.user) {
-    ctx.user.discussionLastRoomHeaderMessageId = null;
-    ctx.user.discussionLastRoomRecentMessageId = null;
-  }
-
-  await Promise.all([
-    updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", null),
-    updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", null),
-  ]);
-}
-
-async function rememberDiscussionRoomCards(ctx, headerMessage, recentMessage) {
-  await Promise.all([
-    updateProfileField(ctx.userId, "discussionLastRoomHeaderMessageId", getMessageId(headerMessage) || null),
-    updateProfileField(ctx.userId, "discussionLastRoomRecentMessageId", getMessageId(recentMessage) || null),
-  ]);
 }
 
 async function rememberDiscussionListMessage(ctx, listType, messageOrId) {
@@ -550,16 +521,14 @@ async function handleDiscussionListCallback(ctx, lang, {
   if (data === callBacks.discussionUnavailableClose) {
     await ctx.answerCb?.();
     await deleteCallbackMessageIfPossible?.(ctx);
-    return true;
+    return (await restoreStableReplyKeyboard(ctx, lang)) || true;
   }
 
   return false;
 }
 
 module.exports = {
-  clearRememberedDiscussionRoomCards,
   addDiscussionFirstVisitTip,
-  rememberDiscussionRoomCards,
   rememberDiscussionListMessage,
   rememberDiscussionMembersMessage,
   clearDiscussionMembersMessage,

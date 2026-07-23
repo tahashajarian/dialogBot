@@ -168,8 +168,6 @@ const UserSchema = new mongoose.Schema({
   discussionDraftPaidOwnedSlotCap: { type: Number, default: 0, min: 0, max: 10 },
   discussionDraftPaidOwnedSlotCost: { type: Number, default: 0, min: 0 },
   discussionLanguageFilter: { type: String, enum: ["", "fa", "en", "all"], default: "" },
-  discussionLastRoomHeaderMessageId: { type: Number, default: null },
-  discussionLastRoomRecentMessageId: { type: Number, default: null },
   discussionLastListMessageId: { type: Number, default: null },
   discussionLastListType: { type: String, default: "" },
   discussionLastMembersMessageId: { type: Number, default: null },

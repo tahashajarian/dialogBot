@@ -39,7 +39,7 @@ function aiAssistantKeyboard(lang) {
         text: messages[lang].aiBack,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiChatBackKeyboard(lang) {
@@ -54,6 +54,7 @@ function aiChatBackKeyboard(lang) {
       ],
       resize_keyboard: true,
       one_time_keyboard: false,
+      is_persistent: true,
       selective: true,
     },
   };
@@ -104,6 +105,7 @@ function aiSectionKeyboardForSection(lang, section) {
       ],
       resize_keyboard: true,
       one_time_keyboard: false,
+      is_persistent: true,
       selective: true,
     },
   };
@@ -135,7 +137,7 @@ function aiSuggestionAddKeyboard(lang, section) {
         text: messages[lang].aiSuggestionRejectButton,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiSuggestionCopyKeyboard(lang, title) {
@@ -159,7 +161,7 @@ function aiSuggestionNextKeyboard(lang, _section) {
         text: messages[lang].aiSuggestionGoToFavoritesButton,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiSuggestionLimitKeyboard(lang, section) {
@@ -221,7 +223,7 @@ function aiSuggestionContextCancelKeyboard(lang, _section) {
         text: messages[lang].cancelEdit,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiSuggestionAddedOptionsKeyboard(lang, section) {
@@ -242,7 +244,7 @@ function aiSuggestionAddedOptionsKeyboard(lang, section) {
         text: messages[lang].aiSuggestionGoToFavoritesButton,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function getSectionStatusLabels(lang, section) {
@@ -364,7 +366,7 @@ function aiListManageMenuKeyboard(lang, section, listType, {
     },
   ]);
 
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
@@ -456,7 +458,7 @@ function aiListCancelAddKeyboard(lang, _section, _listType, { backToList = false
         text: backToList ? messages[lang].aiListManageAddBackToList : messages[lang].cancelEdit,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function aiListActionItemsKeyboard(lang, section, listType, action, items = []) {
@@ -491,7 +493,7 @@ function aiListCancelCommentKeyboard(lang, _section, _listType) {
         text: messages[lang].cancelEdit,
       },
     ],
-  ], resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 module.exports = {

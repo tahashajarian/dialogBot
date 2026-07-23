@@ -11,6 +11,7 @@ const { applyStarRewardsToContext, buildStarRewardNotice } = require("../service
 const { getMessageId } = require("../services/bot-navigation");
 const { buildDiscussionLeaveText, markDiscussionLeaveTipShown } = require("../services/discussion-leave-tip");
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
+const { restoreStableReplyKeyboard } = require("./reply-keyboard-recovery");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getDiscussionErrorMessage, getDiscussionDisplayTitle } = require("../services/discussion-ui");
 const {
@@ -40,8 +41,6 @@ const {
   removeDiscussionMemberAndNotify,
 } = require("../services/discussion-actions");
 const {
-  clearRememberedDiscussionRoomCards,
-  rememberDiscussionRoomCards,
   rememberDiscussionMembersMessage,
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
@@ -115,17 +114,11 @@ async function clearDiscussionCardsAfterVisibleReply(ctx, exceptMessageIds = [])
 
 async function sendDiscussionRoom(ctx, lang, discussion) {
   await sendNavigationFootprint(ctx, { lang, destination: "discussion", discussion });
-  const headerMessage = await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
+  await ctx.reply(formatDiscussionRoom(messages, lang, discussion));
   const recentMessage = await ctx.reply(
     formatDiscussionRoomFollowup(messages, lang, discussion),
     await buildDiscussionRoomKeyboard(lang, discussion, ctx.userId),
   );
-  await clearRememberedDiscussionRoomCards(ctx, [
-    ctx.callbackMessageId,
-    getMessageId(headerMessage),
-    getMessageId(recentMessage),
-  ]);
-  await rememberDiscussionRoomCards(ctx, headerMessage, recentMessage);
   return recentMessage;
 }
 
@@ -284,7 +277,9 @@ async function handleDiscussionRoomCallback(ctx, lang, {
       data.replace(callBacks.discussionInviteCancel, ""),
     );
     if (restored || ctx.user?.activeDiscussionId) return restored;
-    return sendTasteSetupNudge(ctx, lang).catch(() => null);
+    const nudge = await sendTasteSetupNudge(ctx, lang).catch(() => null);
+    if (nudge) return nudge;
+    return restoreStableReplyKeyboard(ctx, lang);
   }
 
   if (data.startsWith(callBacks.discussionLeave)) {
@@ -296,7 +291,6 @@ async function handleDiscussionRoomCallback(ctx, lang, {
     if (!left.ok) return ctx.reply(messages[lang].discussionNotMember);
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
-    await deleteCallbackMessageIfPossible(ctx);
     await setNavigationMode(ctx, MODES.DISCUSSIONS);
     const notice = buildDiscussionLeaveText(
       ctx,
@@ -329,7 +323,6 @@ async function handleDiscussionRoomCallback(ctx, lang, {
     await ctx.answerCb?.();
     await clearDiscussionMenuNotice(ctx);
     await clearDiscussionMembersMessage(ctx, [ctx.callbackMessageId]);
-    await clearRememberedDiscussionRoomCards(ctx);
     await clearDiscussionListMessage(ctx, [ctx.callbackMessageId]);
     const { discussionId, source } = parseDiscussionClosePayload(
       data.replace(callBacks.discussionCloseConfirm, ""),

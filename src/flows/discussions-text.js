@@ -69,7 +69,6 @@ const {
 } = require("./discussion-name-gate");
 const { isDiscussionBoostText, showBoostQuote } = require("./discussion-boosts");
 const {
-  clearRememberedDiscussionRoomCards,
   clearDiscussionMembersMessage,
   rememberDiscussionMembersMessage,
 } = require("./discussions-callbacks");
@@ -174,7 +173,6 @@ async function replyWithDiscussionMenu(ctx, lang, text) {
 
 async function enterDiscussionsAfterRoomExit(ctx, lang, left = null) {
   await Promise.all([
-    clearRememberedDiscussionRoomCards(ctx),
     clearDiscussionMembersMessage(ctx),
     sendNavigationFootprint(ctx, {
       lang,

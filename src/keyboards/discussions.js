@@ -24,6 +24,7 @@ function replyKeyboard(rows) {
       keyboard: rows.map((row) => row.map((button) => ({ text: button.text }))),
       resize_keyboard: true,
       one_time_keyboard: false,
+      is_persistent: true,
       selective: true,
     },
   };
@@ -45,7 +46,7 @@ function discussionsMenuKeyboard(lang, { invitationCount: _invitationCount = 0 }
     ],
   ];
   rows.push([{ text: messages[lang].aiBack }]);
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function discussionListNavigationKeyboard(lang, {
@@ -164,6 +165,7 @@ function discussionRoomKeyboard(lang, isOwner = false, { canBoost = true } = {})
       keyboard: rows,
       resize_keyboard: true,
       one_time_keyboard: false,
+      is_persistent: true,
       selective: true,
     },
   };
@@ -350,6 +352,67 @@ function discussionInvitationAckKeyboard(lang, destination = "invitations") {
       callback_data: `${callBacks.discussionInvitationAck}${destination}`,
     },
   ]]);
+}
+
+function discussionInvitationNoticeKeyboard(lang, invitationCode = "") {
+  const cleanCode = String(invitationCode || "").replace(/^i_/i, "").replace(/[^a-z0-9]/gi, "");
+  return inlineKeyboard([[
+    {
+      text: cleanCode
+        ? messages[lang].discussionInvitationOpenPreview
+        : messages[lang].discussionInvitationOpenInbox,
+      callback_data: cleanCode
+        ? `${callBacks.discussionInvitationPreview}${cleanCode}`
+        : callBacks.discussionInvitations,
+    },
+    {
+      text: messages[lang].discussionShareClose,
+      callback_data: callBacks.discussionInvitationNoticeClose,
+    },
+  ]]);
+}
+
+function discussionInvitationPreviewKeyboard(lang, entry = {}) {
+  const invitation = entry.invitation || {};
+  const state = entry.state || {};
+  const inviter = entry.inviter || {};
+  const invitationCode = String(invitation.publicInvitationCode || "")
+    .replace(/^i_/i, "")
+    .replace(/[^a-z0-9]/gi, "");
+  const inviterSuffix = String(inviter.publicProfileCode || "")
+    .replace(/^u_/i, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
+  const inviterCode = inviterSuffix ? `u_${inviterSuffix}` : "";
+  const accepted = invitation.status === "accepted";
+  const rows = [];
+  if (invitationCode && ["joinable", "already_member"].includes(state.state)) {
+    rows.push([{
+      text: state.state === "already_member"
+        ? messages[lang].discussionOpenButton
+        : messages[lang].discussionInvitationAccept,
+      callback_data: `${callBacks.discussionInvitationPreviewAccept}${invitationCode}`,
+    }]);
+  }
+  const secondary = [];
+  if (invitationCode && inviterCode && !accepted) {
+    secondary.push({
+      text: messages[lang].discussionInvitationInviterProfile,
+      callback_data: `${callBacks.discussionInvitationPreviewProfile}${invitationCode}:${inviterCode}`,
+    });
+  }
+  if (invitationCode) {
+    secondary.push({
+      text: messages[lang].discussionInvitationRemove,
+      callback_data: `${callBacks.discussionInvitationPreviewRemove}${invitationCode}`,
+    });
+  }
+  if (secondary.length) rows.push(secondary);
+  rows.push([{
+    text: messages[lang].discussionShareClose,
+    callback_data: callBacks.discussionInvitationNoticeClose,
+  }]);
+  return inlineKeyboard(rows);
 }
 
 function discussionInvitationsBackKeyboard(lang, {
@@ -614,6 +677,8 @@ module.exports = {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
+  discussionInvitationNoticeKeyboard,
+  discussionInvitationPreviewKeyboard,
   discussionInvitationsBackKeyboard,
   discussionInvitePreviewKeyboard,
   discussionJoinErrorAckKeyboard,

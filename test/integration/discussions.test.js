@@ -1065,9 +1065,9 @@ test("Active Discussions shows its new browsing tip once to an older guided user
   });
 
   assert.match(rendered[0].text, new RegExp(`^${messages.en.discussionActiveListFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-  assert.doesNotMatch(rendered[1].text, /Active rooms are ranked/);
-  assert.match(rendered[0].text, /You can use the Join command below any room to enter it/);
-  assert.match(rendered[1].text, /You can use the Join command below any room to enter it/);
+  assert.doesNotMatch(rendered[1].text, /Active discussions are ranked/);
+  assert.match(rendered[0].text, /You can use the Join command below any discussion to enter it/);
+  assert.match(rendered[1].text, /You can use the Join command below any discussion to enter it/);
   assert.doesNotMatch(rendered[0].text, /preview/i);
   assert.doesNotMatch(rendered[1].text, /preview/i);
   assert.equal(persisted.sectionTipsShownAt.discussions.toISOString(), priorDiscussionTip.toISOString());

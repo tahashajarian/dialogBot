@@ -42,7 +42,7 @@ function peopleHubKeyboard(lang) {
     rows.push([{ text: messages[lang].advancedSearchButton }]);
   }
   rows.push([{ text: messages[lang].aiBack }]);
-  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, selective: true } };
+  return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
 function advancedSearchPreviewKeyboard(lang) {

@@ -4,7 +4,8 @@ const assert = require("node:assert/strict");
 const {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInvitationsBackKeyboard,
-  profileInvitationBackKeyboard,
+  profileInvitationViewKeyboard,
+  profileRestrictionViewKeyboard,
   savedProfilesListKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
@@ -60,19 +61,30 @@ test("empty saved-profile invite state offers shareable invite", () => {
   assert.equal(rows[1][0].callback_data, `${callBacks.discussionInvitationAck}room`);
 });
 
-test("inviter profile opened from invitations returns to invitations", () => {
-  const keyboard = profileInvitationBackKeyboard("en");
+test("inviter profile opened from invitations closes without recreating the list", () => {
+  const keyboard = profileInvitationViewKeyboard("en");
   const rows = keyboard?.reply_markup?.inline_keyboard || [];
 
   assert.equal(rows.length, 1);
-  assert.equal(rows[0][0].callback_data, callBacks.discussionInvitations);
+  assert.equal(rows[0][0].callback_data, callBacks.profileCloseDiscussionMember);
 });
 
 test("inviter profile can offer invite mute action", () => {
-  const keyboard = profileInvitationBackKeyboard("en", 42);
+  const keyboard = profileInvitationViewKeyboard("en", 42, { canRestrictInviter: true });
   const rows = keyboard?.reply_markup?.inline_keyboard || [];
 
   assert.equal(rows.length, 2);
   assert.equal(rows[0][0].callback_data, `${callBacks.discussionInvitationMute}42`);
-  assert.equal(rows[1][0].callback_data, callBacks.discussionInvitations);
+  assert.equal(rows[1][0].callback_data, callBacks.profileCloseDiscussionMember);
+});
+
+test("restricted inviter profile offers one-tap allow and delete-only Close", () => {
+  const keyboard = profileRestrictionViewKeyboard("en", {
+    profileCode: "u_AB12",
+    canAllowInvitations: true,
+  });
+  const rows = keyboard.reply_markup.inline_keyboard;
+
+  assert.equal(rows[0][0].callback_data, `${callBacks.profileInvitationAllow}u_AB12`);
+  assert.equal(rows[1][0].callback_data, callBacks.profileCloseDiscussionMember);
 });

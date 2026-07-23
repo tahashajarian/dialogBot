@@ -56,6 +56,8 @@ function isAllowedDiscussionCommandLink(text = "") {
     /^\/allow_inv_[a-z0-9]+$/i,
     /^\/(?:unsave|rm)_(u_)?[a-z0-9]+$/i,
     /^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i,
+    /^\/inviter_u_[a-z0-9]+$/i,
+    /^\/restricted_u_[a-z0-9]+$/i,
     /^\/u_[a-z0-9]+$/i,
   ].some((pattern) => pattern.test(value));
 }

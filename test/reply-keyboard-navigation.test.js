@@ -814,6 +814,131 @@ test("People and Saved profile previews use source-aware inline actions", () => 
   assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, savedMode), null);
 });
 
+test("public profile overlays keep only the exact reply keyboard underneath actionable", () => {
+  const profileList = {
+    mode: "profile_invitation_restrictions:0:1",
+    state: "idle",
+    user: { lang: "en" },
+  };
+  assert.equal(
+    resolveReplyKeyboardAction(messages.en.profileEditName, profileList).callbackData,
+    callBacks.profileEditName,
+  );
+  assert.equal(
+    resolveReplyKeyboardAction(messages.en.profileHideFromPeopleDiscovery, profileList),
+    null,
+  );
+
+  const overlays = [
+    {
+      mode: "public_profile:restrictions:u_A1:0:unsaved:0",
+      returnMode: "profile_invitation_restrictions:0:1",
+      label: messages.en.profileEditName,
+      callbackData: callBacks.profileEditName,
+      rejectedLabel: messages.en.peopleDiscover,
+    },
+    {
+      mode: "public_profile:invitations:u_A1:0:unsaved:0",
+      returnMode: "discussion_invitations:0:1",
+      label: messages.en.discussionActiveList,
+      callbackData: callBacks.discussionListActive,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "public_profile:discussion_members:u_A1:0:unsaved:0",
+      returnMode: "discussions",
+      label: messages.en.discussionInvitations,
+      callbackData: callBacks.discussionInvitations,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "public_profile:people:u_A1:0:unsaved:0",
+      returnMode: "people",
+      label: messages.en.peopleDiscover,
+      callbackData: callBacks.peopleDiscover,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "public_profile:saved:u_A1:0:saved:0",
+      returnMode: "people",
+      label: messages.en.savedProfiles,
+      callbackData: callBacks.savedProfiles,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "public_profile:shared:u_A1:0:unsaved:0",
+      returnMode: "favorites",
+      label: messages.en.aiSuggestMovies,
+      callbackData: callBacks.aiSuggestMovies,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "public_profile:direct:u_A1:0:unsaved:0",
+      returnMode: "profile",
+      label: messages.en.profileEditBio,
+      callbackData: callBacks.profileEditBio,
+      rejectedLabel: messages.en.peopleDiscover,
+    },
+    {
+      mode: "profile_favorites:restrictions:0:u_A1:hub",
+      returnMode: "profile",
+      label: messages.en.profileEditCity,
+      callbackData: callBacks.profileEditCity,
+      rejectedLabel: messages.en.peopleDiscover,
+    },
+    {
+      mode: "profile_discussions:invitations:u_A1:0",
+      returnMode: "discussions",
+      label: messages.en.discussionMyList,
+      callbackData: callBacks.discussionListMine,
+      rejectedLabel: messages.en.profileEditName,
+    },
+    {
+      mode: "profile_unsave_confirm:saved:u_A1:0",
+      returnMode: "people",
+      label: messages.en.savedProfiles,
+      callbackData: callBacks.savedProfiles,
+      rejectedLabel: messages.en.profileEditName,
+    },
+  ];
+
+  for (const overlay of overlays) {
+    const context = {
+      mode: overlay.mode,
+      state: "idle",
+      user: {
+        lang: "en",
+        publicProfileReturnNavigationMode: overlay.returnMode,
+      },
+    };
+    assert.equal(
+      resolveReplyKeyboardAction(overlay.label, context)?.callbackData,
+      overlay.callbackData,
+      overlay.mode,
+    );
+    assert.equal(
+      resolveReplyKeyboardAction(overlay.rejectedLabel, context),
+      null,
+      overlay.mode,
+    );
+  }
+});
+
+test("public profile overlays do not expose a remembered non-room keyboard inside an active discussion", () => {
+  const context = {
+    mode: "public_profile:invitations:u_A1:0:unsaved:0",
+    state: "idle",
+    activeDiscussionId: "room-1",
+    user: {
+      lang: "en",
+      publicProfileReturnNavigationMode: "profile",
+    },
+  };
+
+  assert.equal(resolveReplyKeyboardAction(messages.en.profileEditName, context), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.peopleDiscover, context), null);
+});
+
 test("profile discussion view uses inline Back and Close while keeping the People hub available", () => {
   const { profileDiscussionBackKeyboard } = require("../src/flows/saved-profiles");
   const keyboard = profileDiscussionBackKeyboard("fa", "u_A1").reply_markup;

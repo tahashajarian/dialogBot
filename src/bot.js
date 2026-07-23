@@ -66,7 +66,6 @@ const {
   showDiscussionPickerForSavedProfile,
 } = require("./flows/discussion-invitations");
 const {
-  clearRememberedDiscussionRoomCards,
   clearDiscussionMembersMessage,
   clearDiscussionListMessage,
   forgetDiscussionListMessage,
@@ -180,7 +179,6 @@ async function prepareForCommandNavigation(ctx, state) {
     clearRememberedAiListMessage(ctx),
     clearAiSectionEntryMessage(ctx),
     clearProfileEditPrompt(ctx),
-    clearRememberedDiscussionRoomCards(ctx),
     clearDiscussionMembersMessage(ctx),
     clearDiscussionListMessage(ctx),
     clearDiscussionMenuNotice(ctx),
@@ -685,7 +683,6 @@ async function handleUpdate(ctx) {
   }
 
   if (/^\/leave_[a-z0-9]+$/i.test(text)) {
-    await clearViewedPublicProfileMessage(ctx);
     return leaveDiscussionCommand(ctx, lang, `d_${text.replace(/^\/leave_/i, "")}`);
   }
 
@@ -725,6 +722,19 @@ async function handleUpdate(ctx) {
     const raw = text.replace(/^\/(?:discussions|ds)_/i, "");
     const code = normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
     return renderSavedProfileDiscussions(ctx, lang, code);
+  }
+
+  if (/^\/inviter_u_[a-z0-9]+$/i.test(text)) {
+    const code = normalizePublicProfileCode(text.replace(/^\/inviter_/i, ""));
+    if (ctx.user?.discussionLastListType === "invitations") {
+      await clearDiscussionListMessage(ctx);
+    }
+    return sendPublicProfileByCode(ctx, lang, code, { fromInvitationList: true });
+  }
+
+  if (/^\/restricted_u_[a-z0-9]+$/i.test(text)) {
+    const code = normalizePublicProfileCode(text.replace(/^\/restricted_/i, ""));
+    return sendPublicProfileByCode(ctx, lang, code, { fromRestrictionList: true });
   }
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {

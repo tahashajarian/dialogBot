@@ -1,7 +1,7 @@
 const { MODES, setNavigationMode } = require("./reply-keyboard-navigation");
 const { updateProfileField } = require("./users");
 
-const PUBLIC_PROFILE_SOURCES = "saved|people|shared|direct|discussion_members|invitations|restrictions";
+const PUBLIC_PROFILE_SOURCES = "saved|people|shared|direct|discussion_members|invitations|invitation_preview|restrictions";
 const PUBLIC_PROFILE_MODE_PATTERN = new RegExp(
   `^public_profile:(${PUBLIC_PROFILE_SOURCES}):(u_[A-Z0-9]+):(\\d+):(saved|unsaved):(0|1)$`,
 );

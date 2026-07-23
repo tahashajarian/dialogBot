@@ -337,7 +337,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
     const actionsBlock = includeActions && actions ? `\n\n${actions}` : "";
     const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
-    const currentPrefix = entry.isCurrentForViewer
+    const currentPrefix = entry.isCurrentForViewer || entry.isCurrentForProfileOwner
       ? `${messages[lang].profileDiscussionCurrentLabel} — `
       : "";
     const roomTitle = `${currentPrefix}${entry.isBoosted ? "🚀 " : ""}${getDiscussionDisplayTitle(messages, lang, entry)}`;

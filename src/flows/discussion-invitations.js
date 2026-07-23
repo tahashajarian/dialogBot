@@ -8,7 +8,8 @@ const {
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
   discussionInvitationAckKeyboard,
-  discussionInvitationRestrictionConfirmKeyboard,
+  discussionInvitationNoticeKeyboard,
+  discussionInvitationPreviewKeyboard,
   discussionInvitationsBackKeyboard,
   discussionJoinErrorAckKeyboard,
   discussionJoinLockedKeyboard,
@@ -21,6 +22,7 @@ const {
   buildInviteSavedProfilesText,
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,
+  buildInvitationPreviewText,
   buildReceivedInvitationsText,
   shouldShowDiscussionInvitationFirstTimeTip,
 } = require("../services/discussion-invitations-ui");
@@ -69,6 +71,7 @@ const {
 const { requireDiscussionProfileName } = require("./discussion-name-gate");
 const { PAGINATION } = require("../constants/pagination");
 const { paginateItems } = require("../services/pagination");
+const { parsePublicProfileNavigationMode } = require("../services/public-profile-navigation");
 
 const INVITATIONS_PAGE_SIZE = 5;
 
@@ -85,17 +88,6 @@ function normalizeInvitationCodeFromCommand(value, prefix) {
   return String(value || "").trim().replace(new RegExp(`^/?${prefix}_`, "i"), "");
 }
 
-function discussionInvitationInboxKeyboard(lang) {
-  return {
-    reply_markup: {
-      inline_keyboard: [[{
-        text: messages[lang].discussionInvitationOpenInbox,
-        callback_data: callBacks.discussionInvitations,
-      }]],
-    },
-  };
-}
-
 async function notifyInviteeOfInvitation(ctx, invitationResult) {
   const invitee = invitationResult?.invitee;
   const inviteeUserId = Number(invitee?.userId);
@@ -107,7 +99,10 @@ async function notifyInviteeOfInvitation(ctx, invitationResult) {
     await ctx.sendToUser(
       inviteeUserId,
       messages[targetLang].discussionInvitationReceivedNotice,
-      discussionInvitationInboxKeyboard(targetLang),
+      discussionInvitationNoticeKeyboard(
+        targetLang,
+        invitationResult?.invitation?.publicInvitationCode,
+      ),
       targetLang,
     );
     return true;
@@ -438,12 +433,17 @@ async function removeInvitationCommand(ctx, lang, text) {
 function isDiscussionInvitationCallback(data = "") {
   return data === callBacks.discussionInvitations ||
     data.startsWith(callBacks.discussionInvitationsPage) ||
+    data.startsWith(callBacks.discussionInvitationPreview) ||
+    data.startsWith(callBacks.discussionInvitationPreviewAccept) ||
+    data.startsWith(callBacks.discussionInvitationPreviewProfile) ||
+    data.startsWith(callBacks.discussionInvitationPreviewRemove) ||
     data === callBacks.discussionInviteModeSaved ||
     data === callBacks.discussionInviteModeShare ||
     data === callBacks.discussionInvitePickerClose ||
     data.startsWith(callBacks.discussionInviteSavedPage) ||
     data.startsWith(callBacks.discussionInviteSavedTarget) ||
     data.startsWith(callBacks.discussionInviteDiscussionTarget) ||
+    data === callBacks.discussionInvitationNoticeClose ||
     data.startsWith(callBacks.discussionInvitationMute) ||
     data.startsWith(callBacks.discussionInvitationMuteConfirm) ||
     data === callBacks.discussionInvitationMuteCancel ||
@@ -453,8 +453,10 @@ function isDiscussionInvitationCallback(data = "") {
 async function handleDiscussionInvitationCallback(ctx, lang, {
   deleteCallbackMessageIfPossible,
   editCallbackMessageOrReply,
+  sendRoom,
   sendShareableInviteForActiveDiscussion,
   sendSavedProfilesList,
+  sendPublicProfileByCode,
 } = {}) {
   const data = ctx.callbackData || "";
 
@@ -464,6 +466,97 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
       await deleteCallbackMessageIfPossible?.(ctx);
     }
     return renderInvitationsList(ctx, lang, 0, { editCallbackMessageOrReply });
+  }
+
+  if (data === callBacks.discussionInvitationNoticeClose) {
+    await ctx.answerCb?.();
+    return deleteCallbackMessageIfPossible?.(ctx);
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationPreview)) {
+    const code = data.replace(callBacks.discussionInvitationPreview, "");
+    const found = await getInvitationForUser(code, ctx.userId, {
+      statuses: ["pending", "accepted"],
+    });
+    if (!found.ok || !found.discussion) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return (editCallbackMessageOrReply || ((_ctx, text, keyboard) => _ctx.reply(text, keyboard)))(
+        ctx,
+        messages[lang].discussionInvitationUnavailable,
+        discussionInvitationPreviewKeyboard(lang),
+      );
+    }
+    const isUserInvitation = !["bot_onboarding", "onboarding_match", "shared_link"]
+      .includes(found.invitation?.source);
+    const inviter = isUserInvitation
+      ? await User.findOne({ userId: found.invitation.inviterUserId })
+        .select("userId profileName firstName publicProfileCode")
+        .lean()
+      : null;
+    const entry = {
+      invitation: found.invitation,
+      discussion: found.discussion,
+      inviter,
+      state: await getInvitationDisplayState(ctx.user, found.discussion, found.invitation),
+    };
+    await ctx.answerCb?.();
+    const sent = await (editCallbackMessageOrReply || ((_ctx, text, keyboard) => _ctx.reply(text, keyboard)))(
+      ctx,
+      buildInvitationPreviewText(messages, lang, entry),
+      discussionInvitationPreviewKeyboard(lang, entry),
+    );
+    await markInvitationsSeen([found.invitation._id]);
+    return sent;
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationPreviewAccept)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.discussionInvitationPreviewAccept, "");
+    return acceptInvitationCommand(ctx, lang, `/accept_inv_${code}`, { sendRoom });
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationPreviewProfile)) {
+    const payload = data.replace(callBacks.discussionInvitationPreviewProfile, "");
+    const separatorIndex = payload.indexOf(":");
+    const code = separatorIndex >= 0 ? payload.slice(0, separatorIndex) : "";
+    const profileCode = normalizePublicProfileCode(
+      separatorIndex >= 0 ? payload.slice(separatorIndex + 1) : "",
+    );
+    const found = await getInvitationForUser(code, ctx.userId, {
+      statuses: ["pending", "accepted"],
+    });
+    const inviter = found.ok && found.invitation?.status === "pending"
+      ? await User.findOne({ userId: found.invitation.inviterUserId })
+        .select("publicProfileCode")
+        .lean()
+      : null;
+    if (
+      !profileCode
+      || normalizePublicProfileCode(inviter?.publicProfileCode) !== profileCode
+      || !sendPublicProfileByCode
+    ) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
+    }
+    await ctx.answerCb?.();
+    return sendPublicProfileByCode(ctx, lang, profileCode, {
+      fromInvitationPreview: true,
+    });
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationPreviewRemove)) {
+    const code = data.replace(callBacks.discussionInvitationPreviewRemove, "");
+    const removed = await removeInvitationForUser(code, ctx.userId);
+    if (!removed.ok) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
+    }
+    await ctx.answerCb?.(messages[lang].discussionInvitationRemoved);
+    return (editCallbackMessageOrReply || ((_ctx, text, keyboard) => _ctx.reply(text, keyboard)))(
+      ctx,
+      messages[lang].discussionInvitationRemoved,
+      discussionInvitationPreviewKeyboard(lang),
+    );
   }
 
   if (data.startsWith(callBacks.discussionInvitationsPage)) {
@@ -536,49 +629,52 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     });
   }
 
-  if (data.startsWith(callBacks.discussionInvitationMute)) {
-    await ctx.answerCb?.();
-    const mutedUserId = Number(data.replace(callBacks.discussionInvitationMute, ""));
-    const allowed = await canRestrictInviterForUser({
-      muterUserId: ctx.userId,
-      mutedUserId,
-    });
-    if (!allowed) {
-      await deleteCallbackMessageIfPossible?.(ctx);
-      return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
+  if (
+    data.startsWith(callBacks.discussionInvitationMute)
+    || data.startsWith(callBacks.discussionInvitationMuteConfirm)
+  ) {
+    const prefix = data.startsWith(callBacks.discussionInvitationMuteConfirm)
+      ? callBacks.discussionInvitationMuteConfirm
+      : callBacks.discussionInvitationMute;
+    const mutedUserId = Number(data.replace(prefix, ""));
+    const profileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
+    if (["invitations", "invitation_preview"].includes(profileContext?.source)) {
+      const displayedProfile = await User.findOne({
+        publicProfileCode: profileContext.code,
+      }).select("userId").lean();
+      if (Number(displayedProfile?.userId) !== mutedUserId) {
+        await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+        return false;
+      }
     }
-    return (editCallbackMessageOrReply || ((flowCtx, text, keyboard) => flowCtx.reply(text, keyboard)))(
-      ctx,
-      messages[lang].discussionInvitationRestrictConfirmText,
-      discussionInvitationRestrictionConfirmKeyboard(lang, mutedUserId),
-    );
-  }
-
-  if (data.startsWith(callBacks.discussionInvitationMuteConfirm)) {
-    await ctx.answerCb?.();
-    const mutedUserId = Number(data.replace(callBacks.discussionInvitationMuteConfirm, ""));
     const allowed = await canRestrictInviterForUser({
       muterUserId: ctx.userId,
       mutedUserId,
     });
     if (!allowed) {
-      await deleteCallbackMessageIfPossible?.(ctx);
-      return ctx.reply(messages[lang].discussionInvitationUnavailable, discussionUnavailableAckKeyboard(lang));
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
     }
     const muted = await muteInviterForUser({
       muterUserId: ctx.userId,
       mutedUserId,
     });
-    const text = muted.ok
-      ? messages[lang].discussionInvitationMuted
-      : messages[lang].discussionInvitationUnavailable;
+    if (!muted.ok) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
+    }
+    await ctx.answerCb?.(messages[lang].discussionInvitationMuted);
+    if (["invitations", "invitation_preview"].includes(profileContext?.source) && sendPublicProfileByCode) {
+      const sourceOptions = profileContext.source === "invitations"
+        ? { fromInvitationList: true }
+        : { fromInvitationPreview: true };
+      return sendPublicProfileByCode(ctx, lang, profileContext.code, {
+        ...sourceOptions,
+        editCurrent: true,
+      });
+    }
     await deleteCallbackMessageIfPossible?.(ctx);
-    return ctx.reply(
-      text,
-      muted.ok
-        ? discussionInvitationAckKeyboard(lang, "invitations")
-        : discussionUnavailableAckKeyboard(lang),
-    );
+    return renderInvitationsList(ctx, lang);
   }
 
   if (data === callBacks.discussionInvitationMuteCancel) {

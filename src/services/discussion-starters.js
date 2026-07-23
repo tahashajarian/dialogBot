@@ -11,7 +11,7 @@ const BOT_STARTER_DEFINITIONS = [
   {
     botSeedKey: "whats-up",
     title: "Gaming Hangout",
-    description: "A room for players, favorite games, and what everyone is playing.",
+    description: "A discussion for players, favorite games, and what everyone is playing.",
     joinRule: {
       type: "top_ten_item",
       section: "random",

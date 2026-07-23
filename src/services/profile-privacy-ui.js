@@ -23,11 +23,11 @@ function buildInvitationRestrictionsView(messages, lang, entries = [], { start =
         .replace("{index}", localizeNumber(entry.index))
         .replace("{name}", entry.name),
       entry.publicProfileCode
-        ? `👁 ${messages[lang].profileInvitationRestrictionView} ${pointer} /${entry.publicProfileCode}`
+        ? `👁 ${messages[lang].profileInvitationRestrictionView} ${pointer} /restricted_${entry.publicProfileCode}`
         : "",
-      `✅ ${messages[lang].profileInvitationRestrictionAllow} ${pointer} ${entry.publicProfileCode
-        ? `/allow_inv_${entry.publicProfileCode.replace(/^u_/i, "")}`
-        : `/allow_ir_${entry.restrictionId}`}`,
+      !entry.publicProfileCode
+        ? `✅ ${messages[lang].profileInvitationRestrictionAllow} ${pointer} /allow_ir_${entry.restrictionId}`
+        : "",
     ].filter(Boolean).join("\n")).join("\n\n-----\n\n")
     : messages[lang].profileInvitationRestrictionsEmpty;
   return {

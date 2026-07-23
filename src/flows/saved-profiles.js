@@ -10,7 +10,7 @@ const {
   peopleDiscoverEmptyKeyboard,
   peopleHubKeyboard,
   profilePublicActionsKeyboard,
-  profileInvitationBackKeyboard,
+  profileInvitationViewKeyboard,
   profileRestrictionViewKeyboard,
   savedProfilesListKeyboard,
 } = require("../keyboards");
@@ -61,6 +61,10 @@ const {
   restorePublicProfileReturnNavigationMode,
 } = require("../services/public-profile-navigation");
 const { hasPublicMediaFavorites } = require("../services/profile-sharing");
+const {
+  canRestrictInviterForUser,
+  hasInvitationMute,
+} = require("../services/discussion-invitation-mutes");
 const {
   buildDiscussionListText,
   getDiscussionDisplayTitle,
@@ -504,11 +508,11 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
   return sendSavedProfilesList(ctx, lang, removed.items || []);
 }
 
-async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromPeopleList = false, fromDiscussionMembers = false, fromRestrictionList = false, fromSharedLink = false, editCurrent = false } = {}) {
+async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = false, fromInvitationList = false, fromInvitationPreview = false, fromPeopleList = false, fromDiscussionMembers = false, fromRestrictionList = false, fromSharedLink = false, editCurrent = false } = {}) {
   const code = normalizePublicProfileCode(rawCode);
   if (!code) return ctx.reply(messages[lang].profileCodeNotFound);
   const peopleReturnMode = ctx.user?.peopleLastListMode === "taste" ? "taste" : "browse";
-  const fromPeopleSurface = !fromSharedLink && !fromSavedList && !fromInvitationList && !fromDiscussionMembers && !fromRestrictionList && (
+  const fromPeopleSurface = !fromSharedLink && !fromSavedList && !fromInvitationList && !fromInvitationPreview && !fromDiscussionMembers && !fromRestrictionList && (
     fromPeopleList || ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""))
   );
   const previousNavigationMode = String(ctx.user?.navigationMode || "");
@@ -567,10 +571,11 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const currentSavedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const isSavedProfile = isCodeSaved(currentSavedCodes, code);
-  const hasDiscussions = await hasVisibleProfileDiscussions(target);
-  const hasFavorites = hasPublicMediaFavorites(target);
+  const hasDiscussions = fromInvitationPreview ? false : await hasVisibleProfileDiscussions(target);
+  const hasFavorites = fromInvitationPreview ? false : hasPublicMediaFavorites(target);
   const source = fromRestrictionList ? "restrictions"
-    : fromInvitationList ? "invitations"
+    : fromInvitationPreview ? "invitation_preview"
+      : fromInvitationList ? "invitations"
       : fromDiscussionMembers ? "discussion_members"
         : fromSavedList ? "saved"
           : fromSharedLink ? "shared"
@@ -580,10 +585,45 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     : source === "people" ? peoplePage
       : source === "restrictions" ? restrictionPage
         : 0;
-  const keyboard = fromRestrictionList
-    ? profileRestrictionViewKeyboard(lang, { profileCode: code, hasFavorites, hasDiscussions, sourcePage })
+  const hasRestriction = !isOwnProfile && (fromInvitationList || fromInvitationPreview || fromRestrictionList)
+    ? await hasInvitationMute({
+      muterUserId: ctx.userId,
+      mutedUserId: target.userId,
+    })
+    : false;
+  const canRestrictInviter = !isOwnProfile && (fromInvitationList || fromInvitationPreview) && !hasRestriction
+    ? await canRestrictInviterForUser({
+      muterUserId: ctx.userId,
+      mutedUserId: target.userId,
+    })
+    : false;
+  const keyboard = fromInvitationPreview
+    ? inlineKeyboard([
+      ...(canRestrictInviter ? [[{
+        text: messages[lang].discussionInvitationRestrictInviter,
+        callback_data: `${callBacks.discussionInvitationMute}${target.userId}`,
+      }]] : []),
+      [{
+        text: messages[lang].discussionShareClose,
+        callback_data: callBacks.profileCloseDiscussionMember,
+      }],
+    ])
+    : fromRestrictionList
+    ? profileRestrictionViewKeyboard(lang, {
+      profileCode: code,
+      hasFavorites,
+      hasDiscussions,
+      sourcePage,
+      canAllowInvitations: hasRestriction,
+    })
     : fromInvitationList
-    ? profileInvitationBackKeyboard(lang, target.userId, { profileCode: code, hasFavorites, hasDiscussions, sourcePage })
+    ? profileInvitationViewKeyboard(lang, target.userId, {
+      profileCode: code,
+      hasFavorites,
+      hasDiscussions,
+      sourcePage,
+      canRestrictInviter,
+    })
     : getPublicProfileActionKeyboard(lang, code, {
       fromSavedList,
       peopleReturnMode,
@@ -595,11 +635,13 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
       sourcePage,
     });
 
-  await sendNavigationFootprint(ctx, {
-    lang,
-    destination: "publicProfile",
-    title: target.profileName || target.firstName || "-",
-  });
+  if (!fromInvitationPreview) {
+    await sendNavigationFootprint(ctx, {
+      lang,
+      destination: "publicProfile",
+      title: target.profileName || target.firstName || "-",
+    });
+  }
 
   const footerText = fromDiscussionMembers && isSavedProfile ? messages[lang].profileSavedButton : "";
   const result = editCurrent
@@ -644,7 +686,10 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
   if (!target) return ctx.reply(messages[lang].profileCodeNotFound);
 
   const name = target.profileName || target.firstName || "کاربر";
-  const titleText = messages[lang].savedProfileDiscussionsTitle.replace("{name}", name);
+  const titleText = [
+    messages[lang].savedProfileDiscussionsTitle.replace("{name}", name),
+    messages[lang].savedProfileDiscussionsTip.replace("{name}", name),
+  ].join("\n\n");
 
   const discussionSections = [];
   const visibleDiscussions = [];
@@ -673,14 +718,20 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
     ? await Discussion.find({
       creatorUserId: target.userId,
       status: "open",
-      ...(target.activeDiscussionId ? { _id: { $ne: target.activeDiscussionId } } : {}),
     }).limit(10).lean()
     : [];
 
   if (createdDiscussions.length > 0) {
     hasAny = true;
     const decorated = await decorateProfileDiscussions(ctx.user, createdDiscussions);
-    visibleDiscussions.push(...decorated);
+    for (const discussion of decorated) {
+      if (String(discussion._id || "") === String(target.activeDiscussionId || "")) {
+        discussion.isCurrentForProfileOwner = true;
+      }
+      if (!visibleDiscussions.some((visible) => String(visible._id || "") === String(discussion._id || ""))) {
+        visibleDiscussions.push(discussion);
+      }
+    }
     discussionSections.push(buildDiscussionListText(
       messages,
       lang,

@@ -52,6 +52,13 @@ test("discussion caps match MVP defaults", () => {
   assert.equal(DISCUSSION_MESSAGE_BURST_WINDOW_MS, 1000);
 });
 
+test("user-facing copy consistently calls the feature discussions", () => {
+  const persianCopy = Object.values(messages.fa).filter((value) => typeof value === "string").join("\n");
+  const englishCopy = Object.values(messages.en).filter((value) => typeof value === "string").join("\n");
+  assert.doesNotMatch(persianCopy, /اتاق/);
+  assert.doesNotMatch(englishCopy, /\brooms?\b/i);
+});
+
 test("typed room-control words remain discussion messages", () => {
   assert.equal(isDiscussionBottomControlText(messages.fa.discussionInvite), true);
   assert.equal(isDiscussionBottomControlText(messages.en.discussionInvite), true);

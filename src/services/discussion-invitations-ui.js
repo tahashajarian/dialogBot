@@ -72,7 +72,10 @@ function buildInvitationJoinRuleText(rule, state = {}) {
   return state.state === "joinable" ? `${rule} ✅` : rule;
 }
 
-function buildInvitationEntryText(messages, lang, entry, index) {
+function buildInvitationEntryText(messages, lang, entry, index, {
+  includeActions = true,
+  includeIndex = true,
+} = {}) {
   const { invitation, discussion, inviter, state } = entry;
   const accepted = invitation?.status === "accepted";
   const code = commandCode(invitation.publicInvitationCode);
@@ -92,7 +95,7 @@ function buildInvitationEntryText(messages, lang, entry, index) {
   const memberCount = discussion?.memberUserIds?.length || 0;
   const rule = discussion ? getJoinRulePreviewText(messages, lang, discussion.joinRule) : "";
   const lines = [
-    `${index + 1}. ${statusEmoji} ${title}`,
+    `${includeIndex ? `${index + 1}. ` : ""}${statusEmoji} ${title}`,
     messages[lang].discussionInvitationFrom.replace("{name}", inviterName),
   ];
 
@@ -108,14 +111,30 @@ function buildInvitationEntryText(messages, lang, entry, index) {
     lines.push(buildInvitationStateText(messages, lang, state));
   }
 
-  if (state.state === "joinable" || state.state === "already_member") {
+  if (includeActions && (state.state === "joinable" || state.state === "already_member")) {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationAccept, `/accept_inv_${code}`));
   }
-  if (inviterCode && !accepted) {
-    lines.push(pointerLine(lang, messages[lang].discussionInvitationInviterProfile, `/u_${inviterCode}`));
+  if (includeActions && inviterCode && !accepted) {
+    lines.push(pointerLine(
+      lang,
+      messages[lang].discussionInvitationInviterProfile,
+      `/inviter_u_${inviterCode}`,
+    ));
   }
-  lines.push(pointerLine(lang, messages[lang].discussionInvitationRemove, `/remove_inv_${code}`));
+  if (includeActions) {
+    lines.push(pointerLine(lang, messages[lang].discussionInvitationRemove, `/remove_inv_${code}`));
+  }
   return lines.join("\n");
+}
+
+function buildInvitationPreviewText(messages, lang, entry) {
+  return [
+    messages[lang].discussionInvitationPreviewTitle,
+    buildInvitationEntryText(messages, lang, entry, 0, {
+      includeActions: false,
+      includeIndex: false,
+    }),
+  ].join("\n\n");
 }
 
 function shouldShowDiscussionInvitationFirstTimeTip(user, entries = []) {
@@ -169,6 +188,7 @@ module.exports = {
   buildInviteSavedProfilesText,
   buildInviteDiscussionPickerText,
   buildInviteDiscussionPickerList,
+  buildInvitationPreviewText,
   buildReceivedInvitationsText,
   shouldShowDiscussionInvitationFirstTimeTip,
 };
