@@ -781,11 +781,11 @@ test("unavailable-discussion Got it closes the notice and restores its stable ke
   assert.equal(replies[0].extra.reply_markup.is_persistent, true);
 });
 
-test("leave-current warning uses one inline Got it without a reply keyboard", () => {
-  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa");
+test("leave-current warning uses one inline leave-and-join action without a reply keyboard", () => {
+  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa", "d_ROOM1");
   const [button] = keyboard.reply_markup.inline_keyboard.flat();
-  assert.equal(button.text, messages.fa.acknowledgeButton);
-  assert.equal(button.callback_data, callBacks.discussionJoinLockedClose);
+  assert.equal(button.text, messages.fa.discussionInviteSwitchJoinButton);
+  assert.equal(button.callback_data, `${callBacks.discussionInviteSwitchJoin}d_ROOM1`);
   assert.equal(keyboard.reply_markup.keyboard, undefined);
   assert.match(messages.fa.discussionErrLeaveCurrentFirst, /برای ورود به یه گفت‌وگوی جدید/);
 });
@@ -826,7 +826,10 @@ test("owner join notification shows leave-current warning instead of an invitati
   assert.doesNotMatch(edits[0].text, /Invitation preview/i);
   const buttons = edits[0].keyboard.reply_markup.inline_keyboard.flat();
   assert.equal(buttons.length, 1);
-  assert.equal(buttons[0].callback_data, callBacks.discussionJoinLockedClose);
+  assert.equal(
+    buttons[0].callback_data,
+    `${callBacks.discussionInviteSwitchJoin}d_NOTICE1`,
+  );
 });
 
 test("discussion list title shows the full filtered count", () => {

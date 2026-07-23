@@ -1595,6 +1595,206 @@ test("saving the post-onboarding shared profile updates its buttons without redr
   assert.equal(ctx.user.publicProfileReturnNavigationMode, "onboarding_complete:0:0");
 });
 
+test("saving an inviter profile refreshes the same card with remove-saved and restriction actions", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalInvitationExists = DiscussionInvitation.exists;
+  const originalMuteFindOne = DiscussionInvitationMute.findOne;
+  const deleted = [];
+  const markups = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_INVITER",
+    profileName: "Inviter",
+    showActiveDiscussionOnProfile: false,
+  });
+  User.findOneAndUpdate = () => ({
+    lean: async () => ({ userId: 1, savedProfileCodes: ["u_INVITER"] }),
+  });
+  DiscussionInvitation.exists = async () => ({ _id: "invitation" });
+  DiscussionInvitationMute.findOne = () => ({ lean: async () => null });
+
+  const ctx = {
+    callbackData: `${callBacks.profileSaveByCode}u_INVITER`,
+    callbackMessageId: 70,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileName: "Viewer",
+      navigationMode: "public_profile:invitations:u_INVITER:0:unsaved:0",
+      publicProfileReturnNavigationMode: "discussions",
+      publicProfileLastMessageId: 70,
+      savedProfileCodes: [],
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    editMessageReplyMarkup: async (messageId, markup) => {
+      markups.push({ messageId, markup });
+      return true;
+    },
+    reply: async () => assert.fail("saving an inviter should not redraw its profile"),
+  };
+
+  try {
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    DiscussionInvitation.exists = originalInvitationExists;
+    DiscussionInvitationMute.findOne = originalMuteFindOne;
+  }
+
+  assert.deepEqual(deleted, []);
+  assert.equal(markups.length, 1);
+  const callbacks = markups[0].markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(callbacks.includes(`${callBacks.profileUnsaveByCode}u_INVITER`));
+  assert.ok(callbacks.includes(`${callBacks.discussionInvitationMute}2`));
+  assert.equal(callbacks.at(-1), callBacks.profileCloseDiscussionMember);
+  assert.equal(ctx.user.navigationMode, "public_profile:invitations:u_INVITER:0:saved:0");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "discussions");
+});
+
+test("saving a discussion member refreshes the same card without a confirmation message", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const deleted = [];
+  const markups = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_MEMBER",
+    profileName: "Member",
+    showActiveDiscussionOnProfile: false,
+  });
+  User.findOneAndUpdate = (_query, update) => ({
+    lean: async () => ({
+      userId: 1,
+      savedProfileCodes: update?.$pull ? [] : ["u_MEMBER"],
+    }),
+  });
+
+  const ctx = {
+    callbackData: `${callBacks.profileSaveByCode}u_MEMBER:members`,
+    callbackMessageId: 70,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileName: "Viewer",
+      navigationMode: "public_profile:discussion_members:u_MEMBER:0:unsaved:0",
+      publicProfileReturnNavigationMode: "discussion_room:active-room",
+      publicProfileLastMessageId: 70,
+      savedProfileCodes: [],
+    },
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
+    },
+    editMessageReplyMarkup: async (messageId, markup) => {
+      markups.push({ messageId, markup });
+      return true;
+    },
+    reply: async () => assert.fail("saving a discussion member should not send confirmation"),
+  };
+
+  try {
+    await handleCallback(ctx);
+
+    ctx.callbackData = `${callBacks.profileUnsaveByCode}u_MEMBER:members`;
+    ctx.user.navigationMode = "public_profile:discussion_members:u_MEMBER:0:saved:0";
+    await handleCallback(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(deleted, []);
+  assert.equal(markups.length, 2);
+  const savedCallbacks = markups[0].markup.inline_keyboard.flat().map((button) => button.callback_data);
+  const removedCallbacks = markups[1].markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(savedCallbacks.includes(`${callBacks.profileUnsaveByCode}u_MEMBER:members`));
+  assert.ok(removedCallbacks.includes(`${callBacks.profileSaveByCode}u_MEMBER:members`));
+  assert.equal(removedCallbacks.at(-1), callBacks.profileCloseDiscussionMember);
+  assert.deepEqual(ctx.user.savedProfileCodes, []);
+  assert.equal(ctx.user.navigationMode, "public_profile:discussion_members:u_MEMBER:0:unsaved:0");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "discussion_room:active-room");
+});
+
+test("removing a saved inviter refreshes the same card without deleting it or the inbox", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalInvitationExists = DiscussionInvitation.exists;
+  const originalMuteFindOne = DiscussionInvitationMute.findOne;
+  const deleted = [];
+  const markups = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_INVITER",
+    profileName: "Inviter",
+    showActiveDiscussionOnProfile: false,
+  });
+  User.findOneAndUpdate = () => ({
+    lean: async () => ({ userId: 1, savedProfileCodes: [] }),
+  });
+  DiscussionInvitation.exists = async () => ({ _id: "invitation" });
+  DiscussionInvitationMute.findOne = () => ({ lean: async () => null });
+
+  const ctx = {
+    callbackData: callBacks.profileUnsaveConfirm,
+    callbackMessageId: 70,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      state: "idle",
+      profileName: "Viewer",
+      navigationMode: "profile_unsave_confirm:invitations:u_INVITER:0",
+      publicProfileReturnNavigationMode: "discussions",
+      publicProfileLastMessageId: 70,
+      savedProfileCodes: ["u_INVITER"],
+    },
+    answerCb: async () => true,
+    editMessageReplyMarkup: async (messageId, markup) => {
+      markups.push({ messageId, markup });
+      return true;
+    },
+    reply: async () => assert.fail("removing a saved inviter should not redraw its profile"),
+  };
+
+  try {
+    await handleSavedProfilesCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        deleted.push(70);
+        return true;
+      },
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    DiscussionInvitation.exists = originalInvitationExists;
+    DiscussionInvitationMute.findOne = originalMuteFindOne;
+  }
+
+  assert.deepEqual(deleted, []);
+  assert.equal(markups.length, 1);
+  const callbacks = markups[0].markup.inline_keyboard.flat().map((button) => button.callback_data);
+  assert.ok(callbacks.includes(`${callBacks.profileSaveByCode}u_INVITER`));
+  assert.ok(callbacks.includes(`${callBacks.discussionInvitationMute}2`));
+  assert.equal(callbacks.at(-1), callBacks.profileCloseDiscussionMember);
+  assert.deepEqual(ctx.user.savedProfileCodes, []);
+  assert.equal(ctx.user.navigationMode, "public_profile:invitations:u_INVITER:0:unsaved:0");
+  assert.equal(ctx.user.publicProfileReturnNavigationMode, "discussions");
+});
+
 test("public profile viewing asks for basic profile first", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
@@ -2445,6 +2645,54 @@ test("saved profile shows discussions action when user has an open discussion", 
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
+});
+
+test("discussion member profiles hide discussion discovery even when the profile has visible rooms", async () => {
+  const originalFindOneUser = User.findOne;
+  const originalFindOneDiscussion = Discussion.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 2,
+    publicProfileCode: "u_MEMBER",
+    firstName: "Member",
+    profileName: "Member",
+    showActiveDiscussionOnProfile: true,
+    activeDiscussionId: "shared-room",
+  });
+  Discussion.findOne = () => {
+    throw new Error("member profiles must not query visible discussions");
+  };
+
+  const ctx = {
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      activeDiscussionId: "shared-room",
+      savedProfileCodes: [],
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await sendPublicProfileByCode(ctx, "en", "u_MEMBER", { fromDiscussionMembers: true });
+  } finally {
+    User.findOne = originalFindOneUser;
+    Discussion.findOne = originalFindOneDiscussion;
+  }
+
+  const buttons = keyboardButtons(replies.at(-1).extra);
+  assert.ok(!buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
+  assert.ok(buttons.some((button) => button.text === messages.en.profileSaveButton));
 });
 
 test("shared profiles show visible discussions even when the viewer has not saved them", async () => {

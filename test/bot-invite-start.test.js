@@ -946,7 +946,9 @@ test("discussion profile command does not use saved-profile back button for save
   assert.match(replies.at(-1).text, /User profile:/);
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
   assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}browse:u_3HNU`));
-  assert.ok(!buttons.some((button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU`));
+  assert.ok(buttons.some(
+    (button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_3HNU:members`,
+  ));
   assert.ok(buttons.some((button) => button.callback_data === callBacks.profileCloseDiscussionMember));
   assert.notEqual(buttons.at(-1).callback_data, callBacks.savedProfiles);
   assert.equal(ctx.user.savedProfilesLastListMessageId, null);
@@ -1257,6 +1259,7 @@ test("saved profile discussions include visible active discussion without duplic
     user: {
       userId: 1,
       lang: "en",
+      activeDiscussionId: "disc_active",
       savedProfileCodes: ["u_3HNU"],
       savedProfilesLastListMessageId: null,
     },
@@ -1275,13 +1278,14 @@ test("saved profile discussions include visible active discussion without duplic
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.match(replies[0].text, /Current active discussion \(1\)/);
+  assert.match(replies[0].text, /Active discussion \(1\)/);
   assert.match(replies[0].text, /Discussions created by this user \(2\)/);
-  assert.match(replies[0].text, /Current discussion — Active room/);
+  assert.match(replies[0].text, /🟢 Active room/);
+  assert.doesNotMatch(replies[0].text, /Current discussion — Active room/);
   assert.match(replies[0].text, /Other room/);
   assert.equal(replies[0].text.match(/Active room/g)?.length, 2);
   const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
-  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_active`).length, 1);
+  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_active`).length, 0);
   assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_other`).length, 1);
   assert.ok(callbacks.includes(`${callBacks.profileDiscussionsBack}u_3HNU`));
   assert.equal(callbacks.at(-1), callBacks.profileDiscussionsClose);

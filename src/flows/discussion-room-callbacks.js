@@ -187,7 +187,7 @@ async function handleDiscussionRoomCallback(ctx, lang, {
     return editCallbackMessageOrReply(
       ctx,
       messages[lang].discussionErrLeaveCurrentFirst,
-      discussionLeaveCurrentNoticeKeyboard(lang),
+      discussionLeaveCurrentNoticeKeyboard(lang, code),
     );
   }
 

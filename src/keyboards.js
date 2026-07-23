@@ -730,7 +730,7 @@ function profilePublicActionsKeyboard(lang, code, {
 } = {}) {
   const normalizedCode = String(code || "");
   const actionSuffix = source === "discussion_members" ? ":members" : "";
-  const supportsSavedProfileActions = source === "saved" || source === "people";
+  const supportsSavedProfileActions = ["saved", "people", "discussion_members"].includes(source);
   const rows = [];
 
   if (hasFavorites) {
@@ -769,6 +769,7 @@ function profilePublicActionsKeyboard(lang, code, {
 
 function profileInvitationViewKeyboard(lang, userId = "", {
   profileCode = "",
+  isSaved = false,
   hasFavorites = false,
   hasDiscussions = false,
   sourcePage = 0,
@@ -785,6 +786,16 @@ function profileInvitationViewKeyboard(lang, userId = "", {
     rows.push([{
       text: messages[lang].savedProfileDiscussions,
       callback_data: `${callBacks.savedProfilesDiscussions}invitations:${profileCode}`,
+    }]);
+  }
+  if (profileCode) {
+    rows.push([{
+      text: isSaved
+        ? messages[lang].savedProfileRemove
+        : messages[lang].profileSaveButton,
+      callback_data: `${isSaved
+        ? callBacks.profileUnsaveByCode
+        : callBacks.profileSaveByCode}${profileCode}`,
     }]);
   }
   rows.push([{

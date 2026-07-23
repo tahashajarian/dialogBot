@@ -201,33 +201,60 @@ function savedProfileRemoveConfirmKeyboard(lang) {
 }
 
 function parseProfileUnsaveConfirmMode(mode = "") {
-  const match = String(mode).match(/^profile_unsave_confirm:(list|saved|people):(u_[A-Z0-9]+):(\d+)$/);
+  const match = String(mode).match(/^profile_unsave_confirm:(list|saved|people|discussion_members|invitations):(u_[A-Z0-9]+):(\d+)$/);
   return match ? { origin: match[1], code: match[2], page: Number(match[3]) || 0 } : null;
 }
 
-async function refreshSavedPublicProfileCard(ctx, lang, code, profileContext) {
-  if (!profileContext || !["shared", "direct"].includes(profileContext.source)) return false;
+async function refreshSavedPublicProfileCard(ctx, lang, code, profileContext, {
+  isSaved = true,
+} = {}) {
+  if (!profileContext || !["shared", "direct", "discussion_members", "invitations"].includes(profileContext.source)) {
+    return false;
+  }
   const target = await User.findOne({ publicProfileCode: normalizePublicProfileCode(code) });
   if (!target) return false;
-  const keyboard = getPublicProfileActionKeyboard(lang, code, {
-    isSaved: true,
-    hasDiscussions: profileContext.hasDiscussions,
-    hasFavorites: hasPublicMediaFavorites(target),
-    source: profileContext.source,
-    sourcePage: profileContext.page,
-  });
+  const isInvitationProfile = profileContext.source === "invitations";
+  const hasRestriction = isInvitationProfile
+    ? await hasInvitationMute({
+      muterUserId: ctx.userId,
+      mutedUserId: target.userId,
+    })
+    : false;
+  const canRestrictInviter = isInvitationProfile && !hasRestriction
+    ? await canRestrictInviterForUser({
+      muterUserId: ctx.userId,
+      mutedUserId: target.userId,
+    })
+    : false;
+  const keyboard = isInvitationProfile
+    ? profileInvitationViewKeyboard(lang, target.userId, {
+      profileCode: code,
+      isSaved,
+      hasFavorites: hasPublicMediaFavorites(target),
+      sourcePage: profileContext.page,
+      canRestrictInviter,
+    })
+    : getPublicProfileActionKeyboard(lang, code, {
+      isSaved,
+      hasDiscussions: profileContext.hasDiscussions,
+      hasFavorites: hasPublicMediaFavorites(target),
+      source: profileContext.source,
+      sourcePage: profileContext.page,
+    });
   if (ctx.callbackMessageId && ctx.editMessageReplyMarkup) {
     const edited = await ctx.editMessageReplyMarkup(ctx.callbackMessageId, keyboard.reply_markup);
     if (edited) {
       await setNavigationMode(
         ctx,
-        `public_profile:${profileContext.source}:${profileContext.code}:${profileContext.page}:saved:${profileContext.hasDiscussions ? 1 : 0}`,
+        `public_profile:${profileContext.source}:${profileContext.code}:${profileContext.page}:${isSaved ? "saved" : "unsaved"}:${profileContext.hasDiscussions ? 1 : 0}`,
       );
       return edited;
     }
   }
   return sendPublicProfileByCode(ctx, lang, code, {
     fromSharedLink: profileContext.source === "shared",
+    fromDiscussionMembers: profileContext.source === "discussion_members",
+    fromInvitationList: isInvitationProfile,
     editCurrent: true,
   });
 }
@@ -427,7 +454,6 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
   const saved = await addSavedProfileCode(ctx.userId, code);
   if (!saved.ok) {
     if (saved.reason === "exists") {
-      if (fromDiscussionMembers) return ctx.reply(messages[lang].savedProfileAlreadySaved);
       if (shouldReturnToPeopleList) {
         await ctx.reply(messages[lang].savedProfileAlreadySaved);
         return sendPeopleDiscoveryList(ctx, lang, peopleSourcePage);
@@ -435,6 +461,7 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
       if (publicProfileContext) {
         return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext);
       }
+      if (fromDiscussionMembers) return ctx.reply(messages[lang].savedProfileAlreadySaved);
       if (shouldRefreshProfileAfterSave(ctx)) {
         return sendPublicProfileByCode(ctx, lang, code, { fromPeopleList: fromPeopleList || hasPeopleSurfaceContext(ctx), fromDiscussionMembers });
       }
@@ -449,6 +476,9 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
   }
   await updateProfileField(ctx.userId, "savedProfileCodes", saved.items || []);
   if (ctx.user) ctx.user.savedProfileCodes = saved.items || [];
+  if (publicProfileContext) {
+    return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext);
+  }
   if (fromDiscussionMembers) {
     const target = await User.findOne({ publicProfileCode: normalizePublicProfileCode(code) });
     const keyboard = getPublicProfileActionKeyboard(lang, code, {
@@ -460,9 +490,6 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
       await ctx.editMessageReplyMarkup(ctx.callbackMessageId, keyboard.reply_markup);
     }
     return ctx.reply(formatSavedProfileSavedMessage(lang, savedProfileName));
-  }
-  if (publicProfileContext) {
-    return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext);
   }
   if (shouldReturnToPeopleList) {
     await clearViewedPublicProfileMessage(ctx);
@@ -482,7 +509,18 @@ async function unsaveProfileCommand(ctx, lang, text) {
   return requestUnsaveProfileConfirmation(ctx, lang, code);
 }
 
-async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refreshProfile = false, notify = true, fromDiscussionMembers = false, fromPeopleList = false, fromSavedList = false } = {}) {
+async function unsaveProfileByCode(ctx, lang, code, {
+  returnToList = false,
+  refreshProfile = false,
+  notify = true,
+  fromDiscussionMembers = false,
+  fromPeopleList = false,
+  fromSavedList = false,
+  preserveProfileCard = false,
+} = {}) {
+  const publicProfileContext = preserveProfileCard
+    ? parsePublicProfileNavigationMode(ctx.user?.navigationMode)
+    : null;
   const removedProfileName = notify ? await getSavedProfileDisplayName(code) : "";
   const removed = await removeSavedProfileCode(ctx.userId, code);
   if (!removed.ok) {
@@ -494,6 +532,11 @@ async function unsaveProfileByCode(ctx, lang, code, { returnToList = false, refr
   await clearViewedPublicProfileMessage(ctx);
   if (notify) {
     await ctx.reply(formatSavedProfileRemovedMessage(lang, removedProfileName));
+  }
+  if (publicProfileContext) {
+    return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext, {
+      isSaved: false,
+    });
   }
   if (refreshProfile) {
     return sendPublicProfileByCode(ctx, lang, code, {
@@ -571,7 +614,13 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const currentSavedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
   const isSavedProfile = isCodeSaved(currentSavedCodes, code);
-  const hasDiscussions = fromInvitationPreview ? false : await hasVisibleProfileDiscussions(target);
+  const canShowDiscussions = !fromDiscussionMembers
+    && !fromInvitationList
+    && !fromInvitationPreview
+    && !fromRestrictionList;
+  const hasDiscussions = canShowDiscussions
+    ? await hasVisibleProfileDiscussions(target)
+    : false;
   const hasFavorites = fromInvitationPreview ? false : hasPublicMediaFavorites(target);
   const source = fromRestrictionList ? "restrictions"
     : fromInvitationPreview ? "invitation_preview"
@@ -619,6 +668,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     : fromInvitationList
     ? profileInvitationViewKeyboard(lang, target.userId, {
       profileCode: code,
+      isSaved: isSavedProfile,
       hasFavorites,
       hasDiscussions,
       sourcePage,
@@ -635,7 +685,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
       sourcePage,
     });
 
-  if (!fromInvitationPreview) {
+  if (!fromInvitationPreview && !editCurrent) {
     await sendNavigationFootprint(ctx, {
       lang,
       destination: "publicProfile",
@@ -703,6 +753,9 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
     if (activeDiscussion) {
       hasAny = true;
       const decorated = await decorateProfileDiscussions(ctx.user, [activeDiscussion]);
+      for (const discussion of decorated) {
+        discussion.isCurrentForProfileOwner = true;
+      }
       visibleDiscussions.push(...decorated);
       discussionSections.push(buildDiscussionListText(
         messages,
@@ -844,6 +897,14 @@ async function handleSavedProfilesCallback(ctx, lang, {
         const codes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
         return sendSavedProfilesList(ctx, lang, codes, confirmation.page);
       }
+      if (["discussion_members", "invitations"].includes(confirmation.origin)) {
+        return refreshSavedPublicProfileCard(ctx, lang, confirmation.code, {
+          source: confirmation.origin,
+          code: confirmation.code,
+          page: confirmation.page,
+          hasDiscussions: false,
+        });
+      }
       const target = await User.findOne({ publicProfileCode: confirmation.code });
       if (target && ctx.callbackMessageId && ctx.editMessageReplyMarkup) {
         const hasDiscussions = await hasVisibleProfileDiscussions(target);
@@ -868,6 +929,20 @@ async function handleSavedProfilesCallback(ctx, lang, {
       return sendPublicProfileByCode(ctx, lang, confirmation.code, {
         fromSavedList: confirmation.origin === "saved",
         fromPeopleList: confirmation.origin === "people",
+      });
+    }
+    if (["discussion_members", "invitations"].includes(confirmation.origin)) {
+      const removed = await unsaveProfileByCode(ctx, lang, confirmation.code, {
+        notify: false,
+      });
+      if (removed !== true) return removed;
+      return refreshSavedPublicProfileCard(ctx, lang, confirmation.code, {
+        source: confirmation.origin,
+        code: confirmation.code,
+        page: confirmation.page,
+        hasDiscussions: false,
+      }, {
+        isSaved: false,
       });
     }
     await deleteInlineCallbackMessage();

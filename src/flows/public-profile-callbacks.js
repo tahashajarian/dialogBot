@@ -9,6 +9,7 @@ const {
   requestUnsaveProfileConfirmation,
   saveProfileByCode,
   sendPublicProfileByCode,
+  unsaveProfileByCode,
 } = require("./saved-profiles");
 
 function isPublicProfileCallback(data = "") {
@@ -59,7 +60,8 @@ async function handlePublicProfileCallback(ctx, lang, { deleteCallbackMessageIfP
     const fromDiscussionMembers = raw.endsWith(":members");
     const code = raw.replace(/:members$/, "");
     const publicProfileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
-    const preserveProfileCard = ["shared", "direct"].includes(publicProfileContext?.source);
+    const preserveProfileCard = ["shared", "direct", "discussion_members", "invitations"]
+      .includes(publicProfileContext?.source);
     if (!fromDiscussionMembers && !preserveProfileCard && !ctx.isReplyKeyboardAction) {
       await deleteCallbackMessageIfPossible(ctx);
     }
@@ -74,7 +76,16 @@ async function handlePublicProfileCallback(ctx, lang, { deleteCallbackMessageIfP
 
   if (data.startsWith(callBacks.profileUnsaveByCode)) {
     await ctx.answerCb?.();
-    const code = data.replace(callBacks.profileUnsaveByCode, "");
+    const raw = data.replace(callBacks.profileUnsaveByCode, "");
+    const fromDiscussionMembers = raw.endsWith(":members");
+    const code = raw.replace(/:members$/, "");
+    if (fromDiscussionMembers) {
+      return unsaveProfileByCode(ctx, lang, code, {
+        notify: false,
+        fromDiscussionMembers: true,
+        preserveProfileCard: true,
+      });
+    }
     return requestUnsaveProfileConfirmation(ctx, lang, code);
   }
 

@@ -13,6 +13,7 @@ test("public profile routing owns view, save, unsave, and member-card close acti
     `${callBacks.profileSaveByCode}u_ABC123`,
     `${callBacks.profileSaveByCode}u_ABC123:members`,
     `${callBacks.profileUnsaveByCode}u_ABC123`,
+    `${callBacks.profileUnsaveByCode}u_ABC123:members`,
     callBacks.profileCloseDiscussionMember,
   ];
   for (const callback of callbacks) assert.equal(isPublicProfileCallback(callback), true, callback);

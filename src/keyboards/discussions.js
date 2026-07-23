@@ -254,11 +254,21 @@ function discussionUnavailableAckKeyboard(lang) {
   ]]);
 }
 
-function discussionLeaveCurrentNoticeKeyboard(lang) {
+function discussionLeaveCurrentNoticeKeyboard(lang, code = "", { invitation = false } = {}) {
+  const cleanCode = String(code || "")
+    .replace(invitation ? /^i_/i : /^d_/i, "")
+    .replace(/[^a-z0-9]/gi, "");
+  const callbackData = cleanCode
+    ? invitation
+      ? `${callBacks.discussionInvitationSwitchJoin}${cleanCode}`
+      : `${callBacks.discussionInviteSwitchJoin}d_${cleanCode}`
+    : callBacks.discussionJoinLockedClose;
   return inlineKeyboard([[
     {
-      text: messages[lang].acknowledgeButton,
-      callback_data: callBacks.discussionJoinLockedClose,
+      text: cleanCode
+        ? messages[lang].discussionInviteSwitchJoinButton
+        : messages[lang].acknowledgeButton,
+      callback_data: callbackData,
     },
   ]]);
 }

@@ -654,7 +654,7 @@ async function joinDiscussionFromInvite(ctx, lang, code, {
     let returnToMainMenu = false;
 
     if (joined.reason === "leave_current_first") {
-      const keyboard = discussionLeaveCurrentNoticeKeyboard(lang);
+      const keyboard = discussionLeaveCurrentNoticeKeyboard(lang, code);
       if (editMessage) {
         await editMessage(text, keyboard);
         return joined;

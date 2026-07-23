@@ -96,8 +96,15 @@ function buildInvitationEntryText(messages, lang, entry, index, {
   const rule = discussion ? getJoinRulePreviewText(messages, lang, discussion.joinRule) : "";
   const lines = [
     `${includeIndex ? `${index + 1}. ` : ""}${statusEmoji} ${title}`,
-    messages[lang].discussionInvitationFrom.replace("{name}", inviterName),
   ];
+  const inviterLine = messages[lang].discussionInvitationFrom.replace("{name}", inviterName);
+  lines.push(includeActions && inviterCode
+    ? `${inviterLine} — ${pointerLine(
+      lang,
+      messages[lang].discussionInvitationInviterProfile,
+      `/inviter_u_${inviterCode}`,
+    )}`
+    : inviterLine);
 
   const description = discussion ? getDiscussionDisplayDescription(messages, lang, discussion) : "";
   if (description) {
@@ -113,13 +120,6 @@ function buildInvitationEntryText(messages, lang, entry, index, {
 
   if (includeActions && (state.state === "joinable" || state.state === "already_member")) {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationAccept, `/accept_inv_${code}`));
-  }
-  if (includeActions && inviterCode && !accepted) {
-    lines.push(pointerLine(
-      lang,
-      messages[lang].discussionInvitationInviterProfile,
-      `/inviter_u_${inviterCode}`,
-    ));
   }
   if (includeActions) {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationRemove, `/remove_inv_${code}`));

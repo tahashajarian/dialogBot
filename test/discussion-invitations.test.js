@@ -13,8 +13,10 @@ const {
 } = require("../src/services/discussion-invitations-ui");
 const {
   acceptInvitationCommand,
+  buildInvitationAcceptStatusText,
   buildSavedInviteTargets,
   handleDiscussionInvitationCallback,
+  isDiscussionInvitationCallback,
   notifyInviteeOfInvitation,
 } = require("../src/flows/discussion-invitations");
 const {
@@ -67,11 +69,46 @@ test("discussion invitation schema accepts pending invitation", async () => {
   assert.equal(invitation.source, "room");
 });
 
-test("invitation join conflict uses inline Got it without replacing the room keyboard", () => {
-  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa");
+test("invitation join conflict offers an identity-bound leave-and-join action", () => {
+  const keyboard = discussionLeaveCurrentNoticeKeyboard("fa", "i_INV1", {
+    invitation: true,
+  });
   assert.equal(keyboard.reply_markup.keyboard, undefined);
-  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].text, messages.fa.acknowledgeButton);
-  assert.equal(keyboard.reply_markup.inline_keyboard[0][0].callback_data, callBacks.discussionJoinLockedClose);
+  assert.equal(
+    keyboard.reply_markup.inline_keyboard[0][0].text,
+    messages.fa.discussionInviteSwitchJoinButton,
+  );
+  assert.equal(
+    keyboard.reply_markup.inline_keyboard[0][0].callback_data,
+    `${callBacks.discussionInvitationSwitchJoin}INV1`,
+  );
+  assert.equal(
+    isDiscussionInvitationCallback(`${callBacks.discussionInvitationSwitchJoin}INV1`),
+    true,
+  );
+});
+
+test("invitation room entry never follows Joined with a redundant Opened status", () => {
+  assert.equal(
+    buildInvitationAcceptStatusText("fa", { joined: true, opensRoom: true }),
+    messages.fa.discussionJoined,
+  );
+  assert.equal(
+    buildInvitationAcceptStatusText("fa", { joined: false, opensRoom: true }),
+    "",
+  );
+  assert.equal(
+    buildInvitationAcceptStatusText("en", {
+      joined: false,
+      opensRoom: true,
+      starNotice: "Star reward",
+    }),
+    "Star reward",
+  );
+  assert.equal(
+    buildInvitationAcceptStatusText("en", { joined: false, opensRoom: false }),
+    messages.en.discussionOpened,
+  );
 });
 
 test("invitation rule failure uses inline Got it without replacing the reply keyboard", () => {
@@ -403,7 +440,7 @@ test("received invitations localize bot-created discussion title and description
 
   assert.match(text, /👩‍🦳 گفت‌وگوی آزاد/);
   assert.match(text, /یه جای ساده برای شروع گپ با بقیه/);
-  assert.match(text, /\/inviter_u_SARA1/);
+  assert.match(text, /^از طرف: Sara — دیدن پروفایل 👈 \/inviter_u_SARA1$/m);
   assert.doesNotMatch(text, /Free Discussion/);
   assert.doesNotMatch(text, /A simple place to start chatting/);
 });
@@ -597,9 +634,9 @@ test("received invitations keep accepted invites in the unified newest-first lis
   assert.match(text, /✉️ Invitations \(1\)/);
   assert.match(text, /Newest invitations appear first/);
   assert.match(text, /6\. ✅ Movie Chat/);
+  assert.match(text, /^From: Sara — View profile 👉 \/inviter_u_SARA1$/m);
   assert.match(text, /Join 👉 \/accept_inv_DONE123/);
   assert.match(text, /Remove from list 👉 \/remove_inv_DONE123/);
-  assert.doesNotMatch(text, /Inviter profile/);
 });
 
 test("empty invitations text includes a useful next-step tip", async () => {

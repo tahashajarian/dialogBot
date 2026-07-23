@@ -170,6 +170,7 @@ function isHistorySafeListCallback(data = "") {
     || data.startsWith(callBacks.discussionInvitationsPage)
     || data.startsWith(callBacks.discussionInvitationPreview)
     || data.startsWith(callBacks.discussionInvitationPreviewAccept)
+    || data.startsWith(callBacks.discussionInvitationSwitchJoin)
     || data.startsWith(callBacks.discussionInvitationPreviewProfile)
     || data.startsWith(callBacks.discussionInvitationPreviewRemove)
     || data === callBacks.peopleDiscover

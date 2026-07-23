@@ -78,6 +78,25 @@ test("inviter profile can offer invite mute action", () => {
   assert.equal(rows[1][0].callback_data, callBacks.profileCloseDiscussionMember);
 });
 
+test("inviter profile offers the source-aware save or remove-saved action", () => {
+  const unsaved = profileInvitationViewKeyboard("en", 42, {
+    profileCode: "u_AB12",
+  }).reply_markup.inline_keyboard.flat();
+  const saved = profileInvitationViewKeyboard("en", 42, {
+    profileCode: "u_AB12",
+    isSaved: true,
+  }).reply_markup.inline_keyboard.flat();
+
+  assert.ok(unsaved.some(
+    (button) => button.callback_data === `${callBacks.profileSaveByCode}u_AB12`,
+  ));
+  assert.ok(saved.some(
+    (button) => button.callback_data === `${callBacks.profileUnsaveByCode}u_AB12`,
+  ));
+  assert.equal(unsaved.at(-1).callback_data, callBacks.profileCloseDiscussionMember);
+  assert.equal(saved.at(-1).callback_data, callBacks.profileCloseDiscussionMember);
+});
+
 test("restricted inviter profile offers one-tap allow and delete-only Close", () => {
   const keyboard = profileRestrictionViewKeyboard("en", {
     profileCode: "u_AB12",

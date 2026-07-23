@@ -88,6 +88,21 @@ function normalizeInvitationCodeFromCommand(value, prefix) {
   return String(value || "").trim().replace(new RegExp(`^/?${prefix}_`, "i"), "");
 }
 
+function buildInvitationAcceptStatusText(lang, {
+  joined = false,
+  starNotice = "",
+  opensRoom = false,
+} = {}) {
+  return [
+    joined
+      ? messages[lang].discussionJoined
+      : opensRoom
+        ? ""
+        : messages[lang].discussionOpened,
+    starNotice,
+  ].filter(Boolean).join("\n\n");
+}
+
 async function notifyInviteeOfInvitation(ctx, invitationResult) {
   const invitee = invitationResult?.invitee;
   const inviteeUserId = Number(invitee?.userId);
@@ -347,6 +362,7 @@ async function renderInvitationsList(ctx, lang, page = 0, {
 
 async function acceptInvitationCommand(ctx, lang, text, {
   sendRoom,
+  allowActiveSwitch = false,
 } = {}) {
   const code = normalizeInvitationCodeFromCommand(text, "accept_inv");
   const found = await getInvitationForUser(code, ctx.userId, { statuses: ["pending", "accepted"] });
@@ -367,6 +383,7 @@ async function acceptInvitationCommand(ctx, lang, text, {
     messages,
     discussionId: found.discussion._id,
     allowOwnerReentry,
+    allowActiveSwitch,
   });
   if (!joined.ok) {
     let failureText = getDiscussionErrorMessage(messages, lang, joined.reason);
@@ -383,7 +400,7 @@ async function acceptInvitationCommand(ctx, lang, text, {
       joined.reason === "discussion_unavailable"
         ? discussionUnavailableAckKeyboard(lang)
         : joined.reason === "leave_current_first"
-        ? discussionLeaveCurrentNoticeKeyboard(lang)
+        ? discussionLeaveCurrentNoticeKeyboard(lang, code, { invitation: true })
         : isJoinRuleFailure
           ? discussionJoinLockedKeyboard(lang)
         : discussionJoinErrorAckKeyboard(lang, "invitations"),
@@ -409,12 +426,13 @@ async function acceptInvitationCommand(ctx, lang, text, {
   }
   applyStarRewardsToContext(ctx, joined.starRewards);
   const starNotice = buildStarRewardNotice(messages, lang, joined.starRewards);
-  const statusText = [
-    joined.joined ? messages[lang].discussionJoined : messages[lang].discussionOpened,
+  const statusText = buildInvitationAcceptStatusText(lang, {
+    joined: joined.joined,
     starNotice,
-  ].filter(Boolean).join("\n\n");
+    opensRoom: Boolean(sendRoom),
+  });
   if (sendRoom) {
-    await ctx.reply(statusText);
+    if (statusText) await ctx.reply(statusText);
     return sendRoom(ctx, lang, joined.discussion);
   }
   return ctx.reply(statusText, await buildDiscussionRoomKeyboard(lang, joined.discussion, ctx.userId));
@@ -435,6 +453,7 @@ function isDiscussionInvitationCallback(data = "") {
     data.startsWith(callBacks.discussionInvitationsPage) ||
     data.startsWith(callBacks.discussionInvitationPreview) ||
     data.startsWith(callBacks.discussionInvitationPreviewAccept) ||
+    data.startsWith(callBacks.discussionInvitationSwitchJoin) ||
     data.startsWith(callBacks.discussionInvitationPreviewProfile) ||
     data.startsWith(callBacks.discussionInvitationPreviewRemove) ||
     data === callBacks.discussionInviteModeSaved ||
@@ -513,6 +532,15 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
     await ctx.answerCb?.();
     const code = data.replace(callBacks.discussionInvitationPreviewAccept, "");
     return acceptInvitationCommand(ctx, lang, `/accept_inv_${code}`, { sendRoom });
+  }
+
+  if (data.startsWith(callBacks.discussionInvitationSwitchJoin)) {
+    await ctx.answerCb?.();
+    const code = data.replace(callBacks.discussionInvitationSwitchJoin, "");
+    return acceptInvitationCommand(ctx, lang, `/accept_inv_${code}`, {
+      sendRoom,
+      allowActiveSwitch: true,
+    });
   }
 
   if (data.startsWith(callBacks.discussionInvitationPreviewProfile)) {
@@ -712,6 +740,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
 module.exports = {
   acceptInvitationCommand,
+  buildInvitationAcceptStatusText,
   buildSavedInviteTargets,
   buildDiscussionsMenuText,
   getInvitationCount,

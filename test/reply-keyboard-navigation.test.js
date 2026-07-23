@@ -773,14 +773,16 @@ test("saved-profile invitation picker paginates with room-bound callbacks", () =
   );
 });
 
-test("discussion-member profiles use Save/Saved status and a source-specific Close", () => {
+test("discussion-member profiles use one-tap Save/Remove and a source-specific Close", () => {
   const { profilePublicActionsKeyboard } = require("../src/keyboards");
   const unsaved = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: false }).reply_markup.inline_keyboard.flat();
   assert.ok(unsaved.some((button) => button.callback_data === `${callBacks.profileSaveByCode}u_A1:members`));
   assert.ok(unsaved.some((button) => button.callback_data === callBacks.profileCloseDiscussionMember));
   const saved = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: true }).reply_markup.inline_keyboard.flat();
-  assert.deepEqual(saved.map((button) => button.callback_data), [callBacks.profileCloseDiscussionMember]);
-  assert.ok(!saved.some((button) => button.callback_data.startsWith(callBacks.profileUnsaveByCode)));
+  assert.deepEqual(saved.map((button) => button.callback_data), [
+    `${callBacks.profileUnsaveByCode}u_A1:members`,
+    callBacks.profileCloseDiscussionMember,
+  ]);
   const savedWithDiscussion = profilePublicActionsKeyboard("en", "u_A1", { source: "discussion_members", isSaved: true, hasDiscussions: true }).reply_markup.inline_keyboard.flat();
   assert.ok(savedWithDiscussion.some((button) => button.callback_data === `${callBacks.savedProfilesDiscussions}discussion_members:u_A1`));
 });

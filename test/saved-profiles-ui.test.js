@@ -131,7 +131,7 @@ test("profile discussion sections clearly separate current and created rooms", (
 
   assert.match(text, /^👩‍🦳💬 Ali's discussions/);
   assert.match(text, /These are discussions Ali is currently in or created/);
-  assert.match(text, /🟢 Current active discussion/);
+  assert.match(text, /Active discussion/);
   assert.match(text, /🎙️ Discussions created by this user/);
   assert.match(text, /Open cafe[\s\S]*━━━━━━━━━━[\s\S]*Film club/);
   assert.match(messages.en.savedProfileNoDiscussions, /no visible discussions/);

@@ -157,6 +157,7 @@ module.exports = {
     discussionInvitationNoticeClose: "discussion:invitation:notice-close",
     discussionInvitationPreview: "discussion:invitation:preview:",
     discussionInvitationPreviewAccept: "discussion:invitation:accept:",
+    discussionInvitationSwitchJoin: "discussion:invitation:switch-join:",
     discussionInvitationPreviewProfile: "discussion:invitation:profile:",
     discussionInvitationPreviewRemove: "discussion:invitation:remove:",
     discussionInvitationMute: "discussion:invitation:mute:",

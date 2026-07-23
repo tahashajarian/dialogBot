@@ -371,7 +371,7 @@ Do not reveal sensitive moderation details unless the inviter already has permis
    - current availability state
    - join/open action if allowed
    - remove/dismiss action
-   - optional inviter profile link
+   - inviter profile command beside the inviter name for real user invitations
 4. Invitee taps join.
 5. Bot revalidates current state.
 6. If join succeeds, bot opens the discussion room.
@@ -396,10 +396,9 @@ Example:
 📨 Invitations
 
 1. Movie Night
-From: Sara
+From: Sara — View profile 👉 /inviter_u_SARA12
 🌍 Open | 4/20 members
 Join 👉 /accept_inv_ABC123
-Inviter profile 👉 /inviter_u_SARA12
 Remove from list 👉 /remove_inv_ABC123
 
 -----
@@ -414,14 +413,14 @@ Remove 👉 /remove_inv_DEF456
 Persian pointer convention:
 
 ```text
+از طرف: سارا — دیدن پروفایل 👈 /inviter_u_SARA12
 ورود 👈 /accept_inv_ABC123
-پروفایل دعوت‌کننده 👈 /inviter_u_SARA12
 حذف از فهرست 👈 /remove_inv_ABC123
 ```
 
 Use stable invitation public codes, not array indexes.
 
-Accepted invitations use a `✅` marker in the same list and keep their normal Join/Open and Remove commands. There is no separate recent-invitations section; Recent discussions is an independent My Discussions feature.
+Accepted invitations use a `✅` marker in the same list and keep their inviter-profile, normal Join/Open, and Remove commands. There is no separate recent-invitations section; Recent discussions is an independent My Discussions feature.
 
 ## Invitation Count And Seen State
 
@@ -596,13 +595,14 @@ Follow existing one-active-room behavior.
 
 If current behavior requires leaving first:
 
-- Show a join-error acknowledgement.
+- Show one identity-bound `Leave current and join` action on the compact join-error notice.
 - Keep invitation pending.
-- Return destination should be invitations list after `Got it`.
+- Revalidate the stored invitation and target room when the action is tapped.
 
 If current behavior switches rooms:
 
 - Mark invitation accepted only after successful switch/join.
+- Keep the current discussion unchanged if the target is stale, closed, full, restricted, or otherwise cannot be joined.
 
 ### Discussion Closed Or Missing
 
@@ -774,7 +774,7 @@ Invitation restrictions let an invitee stop future invitations from one inviter.
 
 Entry point:
 
-- Invitation-list profile commands carry an explicit invitation source, so opening an inviter profile still shows the restriction action while the invitee is active in a discussion or another navigation context. The retained invitation list stays untouched underneath, so the separate profile card uses delete-only Close instead of a Back-to-list action.
+- Invitation-list profile commands carry an explicit invitation source, so opening an inviter profile still shows the restriction action while the invitee is active in a discussion or another navigation context. The profile card also offers the normal Save or Remove-saved action; either action refreshes that same card without recreating the inbox. The retained invitation list stays untouched underneath, so the separate profile card uses delete-only Close instead of a Back-to-list action.
 - Only show the restriction action on an inviter profile when the server revalidates an existing pending or accepted invitation from that person. The action applies immediately without a confirmation card.
 - Do not show it on normal saved-profile or discussion-member profile views. Validate the source relationship again when applying the action so a forged user-id callback cannot create an arbitrary restriction.
 
