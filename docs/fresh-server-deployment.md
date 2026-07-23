@@ -22,7 +22,28 @@ Use this checklist to deploy Muze on a new Linux server with a new, empty MongoD
 
 ☐ Create a fresh MongoDB database and a least-privilege application user that can read/write that database and create indexes.
 
-☐ If using MongoDB Atlas, allow the new server's outbound IP and require TLS. Prefer a replica set/Atlas deployment for native transaction support; Muze has a recoverable fallback for standalone MongoDB, but a replica set is the stronger production topology.
+☐ If using MongoDB Atlas, add only the new server's public outbound IP as a
+`/32` entry in Atlas **Network Access**, remove `0.0.0.0/0` if present, and use
+the TLS-enabled `mongodb+srv://` connection string. Prefer a replica set/Atlas
+deployment for native transaction support; Muze has a recoverable fallback for
+standalone MongoDB, but a replica set is the stronger production topology.
+
+☐ If MongoDB runs on the same VPS, keep it local-only in
+`/etc/mongod.conf`, then restart MongoDB:
+
+```yaml
+net:
+  port: 27017
+  bindIp: 127.0.0.1
+```
+
+```bash
+sudo systemctl restart mongod
+sudo ss -lntp | grep 27017
+```
+
+The listener must show `127.0.0.1:27017`, not `0.0.0.0:27017` or
+`[::]:27017`. In this setup, use `MONGO_URI=mongodb://127.0.0.1:27017`.
 
 ☐ Choose a unique production database name, for example `muze_telegram_production`. Do not share a database with staging, tests, or an older non-Telegram deployment.
 
@@ -55,7 +76,22 @@ application:  /opt/muze
 environment:  /etc/muze/muze.env
 ```
 
-☐ Restrict SSH, enable the host firewall, and expose no inbound application port for the polling bot. Keep the dashboard bound to localhost unless it is intentionally protected behind a private network or authenticated reverse proxy.
+☐ Restrict SSH, enable the host firewall, and expose no inbound application
+port for the polling bot. On an Ubuntu host using UFW, allow SSH before enabling
+the firewall so the current connection is not locked out:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw deny 8787/tcp
+sudo ufw deny 27017/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+☐ In the VPS provider's firewall/security-group panel, allow the required SSH
+port and add no inbound rule for dashboard port `8787` or MongoDB port `27017`.
 
 ☐ Confirm the server can reach:
 - `api.telegram.org` over HTTPS, or configure a tested HTTP(S) `TELEGRAM_PROXY_URL`;
@@ -193,7 +229,26 @@ Expected startup milestones include MongoDB connected, Telegram `getMe()` succes
 ExecStart=/usr/bin/npm run dashboard
 ```
 
-☐ Bind it to `127.0.0.1`. Access it through an SSH tunnel or a properly authenticated private reverse proxy. Do not expose an unauthenticated dashboard publicly.
+☐ Set a strong `ADMIN_DASHBOARD_TOKEN` and bind the dashboard to `127.0.0.1`.
+After starting it, verify the listener:
+
+```bash
+sudo ss -lntp | grep 8787
+```
+
+It must show `127.0.0.1:8787`, not `0.0.0.0:8787` or `[::]:8787`.
+
+☐ To access the dashboard privately, run this from the administrator's own
+computer and keep the SSH session open:
+
+```bash
+ssh -L 8787:127.0.0.1:8787 your_user@your_server_ip
+```
+
+Then open `http://127.0.0.1:8787` locally. Do not put the dashboard token in
+the URL; send it through the supported authorization header. A properly
+authenticated private reverse proxy is an alternative for a later deployment,
+but port `8787` must remain closed to public inbound traffic.
 
 ☐ Confirm the dashboard shows MongoDB connected, a fresh bot heartbeat, starter-room counts, and zero Star reconciliation mismatches.
 
