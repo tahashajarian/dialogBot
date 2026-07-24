@@ -8,6 +8,7 @@ const {
   advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
   peopleDiscoverEmptyKeyboard,
+  peopleDiscoverLanguageKeyboard,
   peopleHubKeyboard,
   profilePublicActionsKeyboard,
   profileInvitationViewKeyboard,
@@ -45,6 +46,7 @@ const {
 const {
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
+  getEffectivePeopleLanguageFilter,
   getPeopleDiscoveryMinSharedItems,
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
@@ -374,7 +376,8 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
 }
 
 async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
-  const result = await findPeopleBySharedTaste(ctx.user || {});
+  const languageFilter = getEffectivePeopleLanguageFilter(ctx.user);
+  const result = await findPeopleBySharedTaste(ctx.user || {}, { languageFilter });
   const minSharedItems = getPeopleDiscoveryMinSharedItems();
   const paged = paginatePeopleDiscovery(result.items || [], page);
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
@@ -393,6 +396,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
           minSharedItems,
         ),
         showSharedSections: true,
+        showLanguage: languageFilter === "all",
       })
       : formatPeopleDiscoveryRequirementText(
         messages[lang].peopleDiscoverNeedsLists,
@@ -400,11 +404,12 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
         minSharedItems,
       ),
     keyboard: isEmpty
-      ? peopleDiscoverEmptyKeyboard(lang)
+      ? peopleDiscoverEmptyKeyboard(lang, { languageFilter })
       : peopleDiscoverListKeyboard(lang, {
         page: paged.page,
         totalPages: paged.totalPages,
         showLists: false,
+        languageFilter,
       }),
   };
 }
@@ -1047,6 +1052,41 @@ async function handleSavedProfilesCallback(ctx, lang, {
       return sendPeopleDiscoveryList(ctx, lang, page);
     }
     const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
+    const listMessage = await editCallbackMessageOrReply(
+      ctx,
+      discoveryPage.text,
+      discoveryPage.keyboard,
+    );
+    const navigationMode = discoveryPage.isEmpty
+      ? "people_discovery_empty"
+      : `people_discovery_results:${discoveryPage.page}:${discoveryPage.totalPages}`;
+    await setNavigationMode(ctx, navigationMode);
+    await rememberPeopleListMessage(ctx, ctx.callbackMessageId || listMessage, discoveryPage.page);
+    return listMessage;
+  }
+
+  if (data.startsWith(callBacks.peopleDiscoverLanguageOpen)) {
+    await ctx.answerCb?.();
+    const requested = data.replace(callBacks.peopleDiscoverLanguageOpen, "");
+    const current = ["fa", "en", "all"].includes(requested)
+      ? requested
+      : getEffectivePeopleLanguageFilter(ctx.user);
+    return editCallbackMessageOrReply(
+      ctx,
+      messages[lang].peopleDiscoverLanguagePicker,
+      peopleDiscoverLanguageKeyboard(lang, current),
+    );
+  }
+
+  if (data.startsWith(callBacks.peopleDiscoverLanguageSet)) {
+    await ctx.answerCb?.();
+    const languageFilter = data.replace(callBacks.peopleDiscoverLanguageSet, "");
+    if (!["fa", "en", "all"].includes(languageFilter)) {
+      return buildPeopleDiscoveryPage(ctx, lang, 0);
+    }
+    await updateProfileField(ctx.userId, "peopleLanguageFilter", languageFilter);
+    if (ctx.user) ctx.user.peopleLanguageFilter = languageFilter;
+    const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, 0);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
       discoveryPage.text,

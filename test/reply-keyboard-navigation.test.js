@@ -643,7 +643,7 @@ test("discussion list and invitation navigation is bound to its exact server pag
   const active = { mode: "discussion_list:active:0:2:all:fa", state: "idle", activeDiscussionId: "room", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, active).callbackData, `${callBacks.discussionListActivePage}1:all:fa`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.menuMain);
-  assert.equal(resolveReplyKeyboardAction("🌐 زبان گفت‌وگوها (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
+  assert.equal(resolveReplyKeyboardAction("🌐 زبان (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, { ...active, mode: "discussions" }), null);
   const invitations = { mode: "discussion_invitations:1:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`⬅️ ${messages.en.discussionListPrevPage}`, invitations).callbackData, `${callBacks.discussionInvitationsPage}0`);

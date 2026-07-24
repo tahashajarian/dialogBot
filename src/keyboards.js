@@ -59,6 +59,7 @@ const {
 const {
   advancedSearchPreviewKeyboard,
   peopleDiscoverEmptyKeyboard,
+  peopleDiscoverLanguageKeyboard,
   peopleDiscoverListKeyboard,
   peopleHubKeyboard,
   savedProfilesListKeyboard,
@@ -926,4 +927,5 @@ module.exports = {
   advancedSearchPreviewKeyboard,
   peopleDiscoverListKeyboard,
   peopleDiscoverEmptyKeyboard,
+  peopleDiscoverLanguageKeyboard,
 };

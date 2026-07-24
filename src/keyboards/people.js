@@ -52,6 +52,19 @@ function advancedSearchPreviewKeyboard(lang) {
   }]]);
 }
 
+function getPeopleLanguageButton(lang, languageFilter) {
+  const language = ["en", "all"].includes(languageFilter) ? languageFilter : "fa";
+  const languageLabel = language === "all"
+    ? messages[lang].discussionLanguageBoth
+    : language === "en"
+      ? messages[lang].discussionLanguageEnglish
+      : messages[lang].discussionLanguagePersian;
+  return {
+    text: messages[lang].peopleDiscoverLanguageFilterButton.replace("{language}", languageLabel),
+    callback_data: `${callBacks.peopleDiscoverLanguageOpen}${language}`,
+  };
+}
+
 function peopleDiscoverListKeyboard(lang, options = {}) {
   const rows = [];
   const normalizedPage = Math.max(0, Number(options.page) || 0);
@@ -71,6 +84,7 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
     });
   }
   if (pageRows.length) rows.push(pageRows);
+  rows.push([getPeopleLanguageButton(lang, options.languageFilter)]);
   if (options.showLists) {
     rows.push([{
       text: messages[lang].peopleGoToLists,
@@ -84,16 +98,32 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
   return inlineKeyboard(rows);
 }
 
-function peopleDiscoverEmptyKeyboard(lang) {
+function peopleDiscoverEmptyKeyboard(lang, options = {}) {
   return inlineKeyboard([
+    [getPeopleLanguageButton(lang, options.languageFilter)],
     [{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }],
     [{ text: messages[lang].discussionShareClose, callback_data: callBacks.peopleListClose }],
   ]);
 }
 
+function peopleDiscoverLanguageKeyboard(lang, currentLanguage) {
+  const current = ["fa", "en", "all"].includes(currentLanguage) ? currentLanguage : "fa";
+  const rows = [["fa", "🇮🇷", "discussionLanguagePersian"], ["en", "🇬🇧", "discussionLanguageEnglish"], ["all", "🌐", "discussionLanguageBoth"]]
+    .map(([value, flag, key]) => [{
+      text: `${value === current ? "✓ " : ""}${flag} ${messages[lang][key]}`,
+      callback_data: `${callBacks.peopleDiscoverLanguageSet}${value}`,
+    }]);
+  rows.push([{
+    text: messages[lang].discussionBack,
+    callback_data: `${callBacks.peopleDiscoverPage}0`,
+  }]);
+  return inlineKeyboard(rows);
+}
+
 module.exports = {
   advancedSearchPreviewKeyboard,
   peopleDiscoverEmptyKeyboard,
+  peopleDiscoverLanguageKeyboard,
   peopleDiscoverListKeyboard,
   peopleHubKeyboard,
   savedProfilesListKeyboard,

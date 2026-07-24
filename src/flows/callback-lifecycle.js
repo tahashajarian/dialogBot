@@ -175,6 +175,8 @@ function isHistorySafeListCallback(data = "") {
     || data.startsWith(callBacks.discussionInvitationPreviewRemove)
     || data === callBacks.peopleDiscover
     || data.startsWith(callBacks.peopleDiscoverPage)
+    || data.startsWith(callBacks.peopleDiscoverLanguageOpen)
+    || data.startsWith(callBacks.peopleDiscoverLanguageSet)
     || data.startsWith(callBacks.peopleTasteMatchesPage)
     || data === callBacks.savedProfiles
     || data.startsWith(callBacks.savedProfilesPage)

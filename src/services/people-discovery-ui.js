@@ -52,6 +52,7 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
   intro = messages[lang].peopleDiscoverIntro,
   emptyText = messages[lang].peopleDiscoverNoProfiles,
   showSharedSections = false,
+  showLanguage = false,
   totalCount = items.length,
 } = {}) {
   if (!items.length) return emptyText;
@@ -80,9 +81,12 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
     const ageSuffix = Number.isInteger(age) && age > 0
       ? ` — 🎂 ${formatListIndex(lang, age)}`
       : "";
+    const languageSuffix = showLanguage
+      ? ` — ${entry.language === "en" ? "🇬🇧" : "🇮🇷"}`
+      : "";
     const nameLine = lang === "fa"
-      ? `${RTL_MARK}${personEmoji} ${FSI}${entry.name}${PDI}${ageSuffix}`
-      : `${personEmoji} ${entry.name}${ageSuffix}`;
+      ? `${RTL_MARK}${personEmoji} ${FSI}${entry.name}${PDI}${ageSuffix}${languageSuffix}`
+      : `${personEmoji} ${entry.name}${ageSuffix}${languageSuffix}`;
 
     return [
       `${formatListIndex(lang, baseIndex + index + 1)}.`,
@@ -101,6 +105,8 @@ function isPeopleCallback(data = "") {
   return data === callBacks.people ||
     data === callBacks.peopleListClose ||
     data === callBacks.peopleDiscover ||
+    data.startsWith(callBacks.peopleDiscoverLanguageOpen) ||
+    data.startsWith(callBacks.peopleDiscoverLanguageSet) ||
     data === callBacks.peopleTasteMatches ||
     data === callBacks.peopleTasteMatchesUnlock ||
     data === callBacks.peopleTasteMatchesCancel ||

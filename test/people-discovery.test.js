@@ -5,10 +5,16 @@ const User = require("../src/models/user");
 const messages = require("../src/messages");
 const { operationalLimits } = require("../src/services/operational-limits");
 const { callBacks } = require("../src/constants");
-const { peopleHubKeyboard, peopleDiscoverListKeyboard, peopleDiscoverEmptyKeyboard } = require("../src/keyboards");
+const {
+  peopleHubKeyboard,
+  peopleDiscoverListKeyboard,
+  peopleDiscoverEmptyKeyboard,
+  peopleDiscoverLanguageKeyboard,
+} = require("../src/keyboards");
 const {
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
+  getEffectivePeopleLanguageFilter,
   getSharedSections,
   paginatePeopleDiscovery,
   sortPeopleDiscoveryItems,
@@ -86,9 +92,42 @@ test("people discovery returns users with at least 2 shared items and skips self
     assert.equal(query.userId.$ne, 1);
     assert.equal(query.bannedAt, null);
     assert.deepEqual(query.showProfileInPeopleDiscovery, { $ne: false });
+    assert.equal(query.lang, "fa");
     assert.deepEqual(result.items.map((item) => item.userId), [2, 4]);
     assert.equal(result.items[0].sharedSections[0].count, 3);
     assert.equal(result.items[1].isSaved, true);
+  } finally {
+    User.find = originalFind;
+  }
+});
+
+test("people language filter follows interface language until explicitly changed", () => {
+  assert.equal(getEffectivePeopleLanguageFilter({ lang: "en", peopleLanguageFilter: "" }), "en");
+  assert.equal(getEffectivePeopleLanguageFilter({ lang: "en", peopleLanguageFilter: "fa" }), "fa");
+  assert.equal(getEffectivePeopleLanguageFilter({ lang: "fa", peopleLanguageFilter: "all" }), "all");
+});
+
+test("people discovery applies an explicit language filter and All removes it", async () => {
+  const originalFind = User.find;
+  const queries = [];
+  User.find = (query) => {
+    queries.push(query);
+    return {
+      select: () => ({
+        limit: () => ({
+          lean: async () => [],
+        }),
+      }),
+    };
+  };
+
+  try {
+    const viewer = userWithMusic(1, ["metallica", "nirvana"]);
+    await findPeopleBySharedTaste(viewer, { languageFilter: "en" });
+    await findPeopleBySharedTaste(viewer, { languageFilter: "all" });
+
+    assert.equal(queries[0].lang, "en");
+    assert.equal(Object.hasOwn(queries[1], "lang"), false);
   } finally {
     User.find = originalFind;
   }
@@ -248,6 +287,24 @@ test("people discovery shows localized age only when set", () => {
   assert.doesNotMatch(withoutAge, /🎂/);
 });
 
+test("people discovery shows profile language flags only when requested for All results", () => {
+  const items = [{
+    code: "u_A1",
+    name: "Sara",
+    language: "en",
+  }, {
+    code: "u_A2",
+    name: "علی",
+    language: "fa",
+  }];
+  const mixed = buildPeopleDiscoveryText(messages, "fa", items, { showLanguage: true });
+  const filtered = buildPeopleDiscoveryText(messages, "fa", items, { showLanguage: false });
+
+  assert.match(mixed, /🇬🇧/);
+  assert.match(mixed, /🇮🇷/);
+  assert.doesNotMatch(filtered, /🇬🇧|🇮🇷/);
+});
+
 test("people discovery intro invites viewing and saving without privacy wording", () => {
   assert.match(messages.fa.peopleDiscoverIntro, /پروفایلشون رو ببینی/);
   assert.match(messages.en.peopleDiscoverIntro, /view their profile/);
@@ -304,12 +361,29 @@ test("failed People hub delivery does not mark its first-visit tip", async () =>
 });
 
 test("people pagination uses canonical discover callbacks", () => {
-  const replyMarkup = peopleDiscoverListKeyboard("en", { mode: "taste", page: 0, totalPages: 2 }).reply_markup;
+  const replyMarkup = peopleDiscoverListKeyboard("en", {
+    mode: "taste",
+    page: 0,
+    totalPages: 2,
+    languageFilter: "en",
+  }).reply_markup;
   const buttons = replyMarkup.inline_keyboard.flat();
 
   assert.ok(buttons.some((button) => button.text === `${messages.en.discussionListMorePage} ➡️`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverLanguageOpen}en`));
   assert.equal(replyMarkup.keyboard, undefined);
+});
+
+test("people language picker marks the current choice and returns to results", () => {
+  const buttons = peopleDiscoverLanguageKeyboard("en", "all").reply_markup.inline_keyboard.flat();
+
+  assert.match(messages.fa.peopleDiscoverLanguagePicker, /زبانیه که هر نفر برای میوز انتخاب کرده/);
+  assert.match(messages.en.peopleDiscoverLanguagePicker, /language each person selected for Muze/);
+  assert.ok(buttons.some((button) => button.text === `✓ 🌐 ${messages.en.discussionLanguageBoth}`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverLanguageSet}fa`));
+  assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverLanguageSet}en`));
+  assert.equal(buttons.at(-1).callback_data, `${callBacks.peopleDiscoverPage}0`);
 });
 
 test("people discovery orders every unsaved profile before saved profiles", () => {
@@ -379,7 +453,11 @@ test("people discovery empty state uses inline action and Close", () => {
   const buttons = keyboard.inline_keyboard.flat();
 
   assert.equal(keyboard.keyboard, undefined);
-  assert.deepEqual(buttons.map((button) => button.text), [messages.fa.peopleGoToLists, messages.fa.discussionShareClose]);
+  assert.deepEqual(buttons.map((button) => button.text), [
+    messages.fa.peopleDiscoverLanguageFilterButton.replace("{language}", messages.fa.discussionLanguagePersian),
+    messages.fa.peopleGoToLists,
+    messages.fa.discussionShareClose,
+  ]);
 });
 
 test("People list Close only deletes the tapped card", async () => {

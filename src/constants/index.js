@@ -9,6 +9,8 @@ module.exports = {
     savedProfiles: "menu:saved-profiles",
     peopleDiscover: "people:discover",
     peopleDiscoverPage: "people:discover:page:",
+    peopleDiscoverLanguageOpen: "people:discover:language:open:",
+    peopleDiscoverLanguageSet: "people:discover:language:set:",
     peopleListClose: "people:list:close",
     peopleTasteMatches: "people:taste",
     peopleTasteMatchesPage: "people:taste:page:",

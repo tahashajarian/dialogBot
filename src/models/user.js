@@ -149,6 +149,7 @@ const UserSchema = new mongoose.Schema({
   peopleLastListMessageId: { type: Number, default: null },
   peopleLastListPage: { type: Number, default: 0 },
   peopleLastListMode: { type: String, default: "" },
+  peopleLanguageFilter: { type: String, enum: ["", "fa", "en", "all"], default: "" },
   savedProfilesLastListMessageId: { type: Number, default: null },
   publicProfileLastMessageId: { type: Number, default: null },
   profileInvitationRestrictionsLastMessageId: { type: Number, default: null },
