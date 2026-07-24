@@ -12,6 +12,7 @@ const {
   isAiSectionSuggestText,
   isAiSectionTopTenText,
   isAiTextState,
+  openAiListManager,
   shouldStartAutomaticTasteCheck,
 } = require("../src/flows/ai-text");
 const User = require("../src/models/user");
@@ -109,6 +110,60 @@ test("Favorites entry shows its tip once and failed hub delivery does not mark i
     },
   };
   await assert.rejects(handleCallback(failedCtx), /delivery failed/);
+  assert.equal(failedCtx.user.sectionTipsShownAt, undefined);
+});
+
+test("For Later shows its inline-capture tip once and marks it only after delivery", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const ctx = {
+    botInfo: { username: "hey_muze_test_bot" },
+    userId: 14,
+    user: {
+      userId: 14,
+      lang: "fa",
+      aiLists: { movies: { topTen: [], watchlist: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length, text, extra };
+    },
+  };
+  User.findOneAndUpdate = async () => ctx.user;
+
+  try {
+    await openAiListManager(ctx, "fa", "movies", "watchlist");
+    await openAiListManager(ctx, "fa", "movies", "watchlist");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.match(replies[0].text, /@hey_muze_test_bot/);
+  assert.match(replies[0].text, /برای بعد ذخیره کنی/);
+  assert.doesNotMatch(replies[1].text, /@hey_muze_test_bot/);
+  assert.ok(ctx.user.sectionTipsShownAt.forLaterInline instanceof Date);
+
+  const failedCtx = {
+    botInfo: { username: "hey_muze_test_bot" },
+    userId: 15,
+    user: {
+      userId: 15,
+      lang: "en",
+      aiLists: { books: { topTen: [], watchlist: [] } },
+    },
+    reply: async () => {
+      throw new Error("delivery failed");
+    },
+  };
+  User.findOneAndUpdate = async () => failedCtx.user;
+  try {
+    await assert.rejects(
+      openAiListManager(failedCtx, "en", "books", "watchlist"),
+      /delivery failed/,
+    );
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
   assert.equal(failedCtx.user.sectionTipsShownAt, undefined);
 });
 

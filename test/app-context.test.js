@@ -4,6 +4,13 @@ const assert = require("node:assert/strict");
 const { createAppContext } = require("../src/services/app-context");
 const { logger } = require("../src/services/logger");
 
+test("app context carries the startup bot identity for dynamic user-facing links", () => {
+  const botInfo = { id: 99, username: "hey_muze_test_bot" };
+  const appCtx = createAppContext({}, { userId: 1 }, { botInfo });
+
+  assert.equal(appCtx.botInfo, botInfo);
+});
+
 test("editMessageText treats missing edit targets as stale without warning", async () => {
   const originalWarn = logger.warn;
   const warnings = [];

@@ -33,7 +33,7 @@ const {
   toPlainUser,
   ACTIVE_DISCUSSION_HELP_COMMAND,
 } = require("./services/profile");
-const { hasCompletedMediaFavorites } = require("./services/profile-sharing");
+const { hasShareableMediaFavorites } = require("./services/profile-sharing");
 const {
   getAiSectionFromState,
 } = require("./services/ai-section");
@@ -739,9 +739,16 @@ async function handleUpdate(ctx) {
 
   if (/^\/u_[a-z0-9]+$/i.test(text)) {
     const code = normalizePublicProfileCode(text);
-    const fromRestrictionList = /^profile_invitation_restrictions:\d+:\d+$/.test(String(ctx.user?.navigationMode || ""));
+    const navigationMode = String(ctx.user?.navigationMode || "");
+    const publicProfileReturnMode = String(ctx.user?.publicProfileReturnNavigationMode || "");
+    const fromRestrictionList = /^profile_invitation_restrictions:\d+:\d+$/.test(navigationMode);
     const fromDiscussionMembers = !fromRestrictionList && Number(ctx.user?.discussionLastMembersMessageId) > 0;
-    const hasSavedProfilesListContext = !fromDiscussionMembers && Number(ctx.user?.savedProfilesLastListMessageId) > 0;
+    const hasSavedProfilesListContext = !fromDiscussionMembers && (
+      Number(ctx.user?.savedProfilesLastListMessageId) > 0
+      || /^saved_profiles:\d+:\d+$/.test(navigationMode)
+      || /^public_profile:saved:/.test(navigationMode)
+      || /^saved_profiles:\d+:\d+$/.test(publicProfileReturnMode)
+    );
     const hasPeopleListContext = !fromDiscussionMembers && (
       Number(ctx.user?.peopleLastListMessageId) > 0 ||
       ["browse", "taste"].includes(String(ctx.user?.peopleLastListMode || ""))
@@ -790,7 +797,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     user,
     lang,
     keyboard: profileQuickActionsKeyboard(keyboardLang, {
-      canShareProfile: hasCompletedMediaFavorites(user),
+      canShareProfile: hasShareableMediaFavorites(user),
     }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",

@@ -6,7 +6,7 @@ const { callBacks } = require("../src/constants");
 const {
   buildProfileShareGuidance,
   buildShareableProfileCaption,
-  hasCompletedMediaFavorites,
+  hasShareableMediaFavorites,
   hasPublicMediaFavorites,
 } = require("../src/services/profile-sharing");
 const {
@@ -67,13 +67,19 @@ test("shareable profile caption uses first-person copy and the profile emoji", (
   assert.ok(caption.length <= 1024);
 });
 
-test("share button requires one complete media Favorites list", () => {
-  const incomplete = { aiLists: { movies: { topTen: favorites(9, "Movie") } } };
-  const complete = { aiLists: { music: { topTen: favorites(10, "Song") } } };
+test("share button requires at least three items in one media Favorites list", () => {
+  const insufficient = {
+    aiLists: {
+      movies: { topTen: favorites(2, "Movie") },
+      music: { topTen: favorites(2, "Song") },
+      books: { topTen: favorites(2, "Book"), watchlist: favorites(10, "Later") },
+    },
+  };
+  const eligible = { aiLists: { music: { topTen: favorites(3, "Song") } } };
 
-  assert.equal(hasPublicMediaFavorites(incomplete), true);
-  assert.equal(hasCompletedMediaFavorites(incomplete), false);
-  assert.equal(hasCompletedMediaFavorites(complete), true);
+  assert.equal(hasPublicMediaFavorites(insufficient), true);
+  assert.equal(hasShareableMediaFavorites(insufficient), false);
+  assert.equal(hasShareableMediaFavorites(eligible), true);
   assert.equal(
     profileQuickActionsKeyboard("en").reply_markup.inline_keyboard.flat()
       .some((button) => button.callback_data === callBacks.profileShare),
@@ -106,6 +112,18 @@ test("public Favorites expose only media favorites and fit photo captions", () =
   assert.equal(rows[0][0].callback_data, `${callBacks.profileFavoritesOpen}shared:0:u_ABC`);
 });
 
+test("public Favorites sections use the same wider visible divider as profiles", () => {
+  const user = {
+    profileName: "Ali",
+    aiLists: { movies: { topTen: [{ title: "Up" }] } },
+  };
+
+  assert.match(
+    buildPublicFavoritesSectionText(user, "en", "movies"),
+    /favorite Movies\n━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
+  );
+});
+
 test("hidden Favorites stay stored but disappear from public profile surfaces", () => {
   const user = {
     profileName: "Taha",
@@ -117,7 +135,7 @@ test("hidden Favorites stay stored but disappear from public profile surfaces", 
     aiTaste: { movies: { labelKey: "movie_buff", emoji: "🎬" } },
   };
 
-  assert.equal(hasCompletedMediaFavorites(user), true);
+  assert.equal(hasShareableMediaFavorites(user), true);
   assert.equal(hasPublicMediaFavorites(user), false);
   assert.deepEqual(getPublicFavoriteSections(user), []);
   const caption = buildShareableProfileCaption({ user, lang: "en", link: "https://example.com/profile" });

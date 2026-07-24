@@ -38,7 +38,7 @@ const {
   buildProfileText,
   toPlainUser,
 } = require("../services/profile");
-const { hasCompletedMediaFavorites } = require("../services/profile-sharing");
+const { hasShareableMediaFavorites } = require("../services/profile-sharing");
 const {
   isValidProfileAge,
   isValidProfileAgeRangeStart,
@@ -219,7 +219,7 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     user,
     lang,
     keyboard: profileQuickActionsKeyboard(lang, {
-      canShareProfile: hasCompletedMediaFavorites(user),
+      canShareProfile: hasShareableMediaFavorites(user),
     }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
@@ -255,7 +255,7 @@ async function restoreOwnProfileCard(ctx, lang, user = ctx.user, { footerText = 
     String(footerText || "").trim(),
   ].filter(Boolean).join("\n\n");
   const restored = await editProfileSurfaceCard(ctx, text, profileQuickActionsKeyboard(lang, {
-    canShareProfile: hasCompletedMediaFavorites(user),
+    canShareProfile: hasShareableMediaFavorites(user),
   }));
   await clearProfileEditPrompt(ctx, [surfaceMessageId]);
   await setNavigationMode(ctx, MODES.PROFILE);

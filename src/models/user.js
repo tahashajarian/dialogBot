@@ -67,6 +67,7 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
   activeDiscussions: { type: Date, default: null },
   discussionLeaveRecent: { type: Date, default: null },
   favorites: { type: Date, default: null },
+  forLaterInline: { type: Date, default: null },
   people: { type: Date, default: null },
 }, { _id: false });
 

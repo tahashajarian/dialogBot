@@ -10,6 +10,7 @@ const { formatUserDisplayName } = require("./profile");
 const { MEDIA_SECTIONS } = require("./profile-sharing");
 
 const MEDIA_CAPTION_LIMIT = 1024;
+const PROFILE_CARD_DIVIDER = "━━━━━━━━━━━━━━━━━━";
 
 function compactPublicValue(value, maxLength) {
   const chars = Array.from(String(value || "").trim().replace(/\s+/g, " "));
@@ -59,6 +60,7 @@ function buildPublicFavoritesSectionText(user, lang, section) {
       .replace("{name}", displayName)
       .replace("{emoji}", getSectionEmoji(section))
       .replace("{section}", getSectionLabel(messages, lang, section)),
+    PROFILE_CARD_DIVIDER,
     "",
     ...entry.items.map((item, index) => `${index + 1}. ${item.title}${item.comment ? ` — ${item.comment}` : ""}`),
   ];
@@ -73,6 +75,7 @@ function buildPublicFavoritesSectionText(user, lang, section) {
 
   const compactLines = [
     lines[0],
+    PROFILE_CARD_DIVIDER,
     "",
     ...entry.items.map((item, index) => `${index + 1}. ${compactPublicValue(item.title, 60)}`),
   ];

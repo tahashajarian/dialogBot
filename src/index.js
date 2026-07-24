@@ -98,6 +98,7 @@ const bot = new Telegraf(
   config.botToken,
   buildTelegramOptions(config),
 );
+let botInfo = null;
 
 async function sendBackgroundMessage(userId, text, extra = {}, lang = "fa") {
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
@@ -183,6 +184,7 @@ async function processUpdate(ctx) {
       wasUserCreated: !existingUser,
       canRestartAfterDeletion: Boolean(restartClaim),
       apiMetrics,
+      botInfo,
     });
     const updateRoute = getUpdateRouteLabel(ctx, user, rawText);
     const interaction = beginInteraction({
@@ -373,7 +375,7 @@ async function retry(fn, {
       logger.warn("Failed to load bot appearance settings; using defaults", appearanceError);
     }
     logger.info("Checking bot token/API via getMe");
-    const botInfo = await retry(
+    botInfo = await retry(
       () => bot.telegram.getMe(),
       {
         attempts: 5,

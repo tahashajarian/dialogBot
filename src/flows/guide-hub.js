@@ -1,14 +1,23 @@
 const messages = require("../messages");
 const { helpInlineKeyboard } = require("../keyboards");
+const { formatInlineListCaptureGuide } = require("../services/inline-list-capture-ui");
+
+function buildGuideText(ctx, lang) {
+  const inlineCaptureGuide = formatInlineListCaptureGuide(ctx, lang);
+  return messages[lang].helpText.replace(
+    "\n\n{inlineCaptureGuide}",
+    inlineCaptureGuide ? `\n\n${inlineCaptureGuide}` : "",
+  );
+}
 
 async function sendGuideHub(ctx, lang) {
-  const text = messages[lang].helpText;
+  const text = buildGuideText(ctx, lang);
   const keyboard = helpInlineKeyboard(lang);
   return ctx.reply(text, keyboard);
 }
 
 async function restoreGuideHubCard(ctx, lang) {
-  const text = messages[lang].helpText;
+  const text = buildGuideText(ctx, lang);
   const keyboard = helpInlineKeyboard(lang);
   const messageId = Number(ctx.callbackMessageId);
   if (Number.isInteger(messageId) && messageId > 0 && ctx.editMessageText) {
@@ -19,6 +28,7 @@ async function restoreGuideHubCard(ctx, lang) {
 }
 
 module.exports = {
+  buildGuideText,
   restoreGuideHubCard,
   sendGuideHub,
 };

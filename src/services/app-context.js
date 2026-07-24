@@ -141,6 +141,7 @@ function createAppContext(ctx, user, options = {}) {
   return {
     user,
     userId: user?.userId,
+    botInfo: options.botInfo || ctx.botInfo || null,
     languageCode: ctx.from?.language_code,
     message: ctx.message,
     text: ctx.message?.text,

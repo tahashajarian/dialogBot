@@ -7,7 +7,7 @@ const { ensurePublicProfileCode } = require("../services/public-codes");
 const {
   buildProfileShareGuidance,
   buildShareableProfileCaption,
-  hasCompletedMediaFavorites,
+  hasShareableMediaFavorites,
 } = require("../services/profile-sharing");
 const { buildProfileText } = require("../services/profile");
 const { createReferralLink } = require("../services/star-referrals");
@@ -19,8 +19,8 @@ async function createShareableProfileCard(ctx, lang) {
   const codeResult = await ensurePublicProfileCode(ctx.userId);
   if (!codeResult.ok) return ctx.reply(messages[lang].profileShareUnavailable);
   const user = codeResult.user || ctx.user;
-  if (!hasCompletedMediaFavorites(user)) {
-    return ctx.reply(messages[lang].profileShareNeedsCompletedFavorites);
+  if (!hasShareableMediaFavorites(user)) {
+    return ctx.reply(messages[lang].profileShareNeedsFavorites);
   }
   const referral = await createReferralLink({
     inviterUserId: ctx.userId,
@@ -57,7 +57,7 @@ async function createShareableProfileCard(ctx, lang) {
 async function returnFromShareableProfile(ctx, lang, { sendOwnProfile } = {}) {
   const text = buildProfileText(ctx.user, lang, messages, { isOwnProfile: true });
   const keyboard = profileQuickActionsKeyboard(lang, {
-    canShareProfile: hasCompletedMediaFavorites(ctx.user),
+    canShareProfile: hasShareableMediaFavorites(ctx.user),
   });
   if (ctx.user?.photoFileId && ctx.editMessageMedia && ctx.callbackMessageId) {
     try {

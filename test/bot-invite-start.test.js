@@ -894,6 +894,52 @@ test("saved profile command keeps retained list history before opening profile",
   assert.equal(buttons.at(-1).text, messages.en.discussionShareClose);
 });
 
+test("a second retained saved-profile link keeps Remove after the first profile is closed", async () => {
+  const originalFindOne = User.findOne;
+  const replies = [];
+
+  User.findOne = async () => ({
+    userId: 3,
+    publicProfileCode: "u_SECOND",
+    firstName: "Second Saved User",
+    profileName: "Second Saved User",
+  });
+
+  const ctx = {
+    text: "/u_SECOND",
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "en",
+      firstName: "Viewer",
+      profileName: "Viewer",
+      savedProfileCodes: ["u_FIRST", "u_SECOND"],
+      savedProfilesLastListMessageId: null,
+      publicProfileLastMessageId: null,
+      publicProfileReturnNavigationMode: "",
+      navigationMode: "saved_profiles:0:1",
+      showActiveDiscussionOnProfile: false,
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 101 };
+    },
+    replyWithPhoto: async () => {
+      throw new Error("default profile should render as text");
+    },
+  };
+
+  try {
+    await handleUpdate(ctx);
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
+  assert.equal(ctx.user.navigationMode, "public_profile:saved:u_SECOND:0:saved:0");
+});
+
 test("discussion profile command does not use saved-profile back button for saved users", async () => {
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;

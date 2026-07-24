@@ -2,11 +2,11 @@ const messages = require("../messages");
 const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 const { getAiListItemsFromUser } = require("./users");
 const { getProfileInterestTitles } = require("./profile");
-const { operationalLimits } = require("./operational-limits");
 const { starEconomy } = require("./star-settings");
 const { formatStarNumber } = require("./stars-ui");
 
 const SHARE_INTEREST_LIMIT = 5;
+const SHARE_PROFILE_MIN_FAVORITES = 3;
 const SHARE_VALUE_MAX_LENGTH = 52;
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
 const MEDIA_SECTIONS = Object.freeze(["movies", "music", "books"]);
@@ -90,19 +90,21 @@ function hasPublicMediaFavorites(user) {
     && MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length > 0);
 }
 
-function hasCompletedMediaFavorites(user) {
-  const goal = Math.max(1, Number(operationalLimits.aiTopTenItems) || 10);
-  return MEDIA_SECTIONS.some((section) => getAiListItemsFromUser(user, section, "topTen").length >= goal);
+function hasShareableMediaFavorites(user) {
+  return MEDIA_SECTIONS.some(
+    (section) => getAiListItemsFromUser(user, section, "topTen").length >= SHARE_PROFILE_MIN_FAVORITES,
+  );
 }
 
 module.exports = {
   MEDIA_SECTIONS,
   SHARE_INTEREST_LIMIT,
+  SHARE_PROFILE_MIN_FAVORITES,
   TELEGRAM_CAPTION_MAX_LENGTH,
   buildProfileShareGuidance,
   buildShareableProfileCaption,
   compactShareValue,
   getShareFavoriteLines,
-  hasCompletedMediaFavorites,
+  hasShareableMediaFavorites,
   hasPublicMediaFavorites,
 };

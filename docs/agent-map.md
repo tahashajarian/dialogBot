@@ -114,7 +114,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/models/account-deletion.js`: deletion progress, unique tombstone identity, and keyed anti-abuse fingerprint.
 - `docs/account-deletion.md`: deletion, retention, retry, and recreation contract.
 
-- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps for invitation guidance, Active Discussions browsing, Favorites, and People.
+- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps for invitation guidance, Active Discussions browsing, Favorites, the For Later inline-capture tip, and People.
 - `src/services/users.js`: stable user-service facade and centralized AI-list access/mutations.
 - `src/services/user-core.js`: core user lookup and generic field/state updates, re-exported through `src/services/users.js`.
 - `src/services/user-section-tips.js`: whitelisted, atomic section-tip first-write helpers and exposure analytics, re-exported through `src/services/users.js`.

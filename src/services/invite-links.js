@@ -11,6 +11,14 @@ function normalizePublicUrl(value = "") {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
+function resolveBotUsername(ctx = null, env = process.env) {
+  return normalizeBotUsername(
+    ctx?.botInfo?.username
+    || getInviteConfig(env).username
+    || "",
+  );
+}
+
 function getConfiguredBotBaseUrl(env = process.env) {
   const inviteConfig = getInviteConfig(env);
   const configuredUrl = normalizePublicUrl(
@@ -52,6 +60,7 @@ function buildBotBaseLink(env = process.env) {
 
 module.exports = {
   normalizeBotUsername,
+  resolveBotUsername,
   buildBotBaseLink,
   buildBotStartLink,
 };

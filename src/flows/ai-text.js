@@ -38,6 +38,7 @@ const {
   getAiTasteFromUser,
   getTasteProgressStatus,
   markAiTasteAutomaticCheckAttempted,
+  markSectionTipShownForContext,
   syncAiTasteForSection,
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
@@ -87,6 +88,7 @@ const {
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
+const { formatInlineListCaptureTip } = require("../services/inline-list-capture-ui");
 const {
   buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
@@ -521,7 +523,16 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
   await setNavigationMode(ctx, nextMode);
   if (ctx.user) ctx.user.navigationMode = nextMode;
   const items = getAiListItemsFromUser(ctx.user, section, listType);
-  const text = await buildAiListManagerMessage({ ctx, lang, section, listType, prefix });
+  const listText = await buildAiListManagerMessage({ ctx, lang, section, listType, prefix });
+  const showInlineCaptureTip = (
+    listType === "watchlist"
+    && ["movies", "music", "books"].includes(section)
+    && !ctx.user?.sectionTipsShownAt?.forLaterInline
+  );
+  const inlineCaptureTip = showInlineCaptureTip
+    ? formatInlineListCaptureTip(ctx, lang)
+    : "";
+  const text = [listText, inlineCaptureTip].filter(Boolean).join("\n\n");
   const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
@@ -548,6 +559,9 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
     listMessage = await ctx.reply(text, keyboard);
   }
   await rememberAiListMessage(ctx, section, listType, listMessage);
+  if (inlineCaptureTip) {
+    await markSectionTipShownForContext(ctx, "forLaterInline", new Date()).catch(() => null);
+  }
   return listMessage;
 }
 

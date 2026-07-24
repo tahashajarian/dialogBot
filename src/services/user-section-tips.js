@@ -6,6 +6,7 @@ const SECTION_TIP_KEYS = Object.freeze([
   "activeDiscussions",
   "discussionLeaveRecent",
   "favorites",
+  "forLaterInline",
   "people",
 ]);
 

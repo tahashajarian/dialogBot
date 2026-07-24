@@ -65,6 +65,7 @@ test("section-tip state defaults independently and rejects unknown keys", async 
     activeDiscussions: null,
     discussionLeaveRecent: null,
     favorites: null,
+    forLaterInline: null,
     people: null,
   });
   assert.equal(hasSectionTipBeenShown(user, "discussions"), false);

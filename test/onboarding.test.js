@@ -76,7 +76,7 @@ test("welcome copy stays general while onboarding welcome carries the starter ti
     assert.match(messages[lang].welcome, /^👩‍🦳/);
     assert.match(messages[lang].welcome, /personal suggestions|پیشنهادهای شخصی/);
     assert.match(messages[lang].welcome, /shared interests|هم‌سلیقه/);
-    assert.match(messages[lang].welcome, /conversations|گفت‌وگو/);
+    assert.match(messages[lang].welcome, /conversations|discussions|گفت‌وگو/);
     assert.doesNotMatch(messages[lang].welcome, /3 interests|۳ علاقه/);
     assert.match(messages[lang].welcomeWithName, /^👩‍🦳/);
     assert.doesNotMatch(messages[lang].welcomeWithName, /3 interests|۳ علاقه/);
@@ -144,6 +144,13 @@ test("post-invite taste setup callbacks start or dismiss without completing onbo
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
+});
+
+test("Persian user-facing copy does not use Arabic tanwin forms", () => {
+  const persianCopy = Object.values(messages.fa)
+    .filter((value) => typeof value === "string")
+    .join("\n");
+  assert.doesNotMatch(persianCopy, /اً|ً/);
 });
 
 test("bot-authored picker prompts start with the bot marker", () => {

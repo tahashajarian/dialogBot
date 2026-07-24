@@ -184,7 +184,7 @@ Title prompt:
 ```text
 👩‍🦳 عنوان گفت‌وگو رو بنویس.
 
-مثلاً:
+مثلا:
 بهترین ریف تاریخ؟
 فیلمی که همه اشتباه فهمیدن؟
 کتابی که ذهنت رو عوض کرد؟
@@ -258,7 +258,7 @@ The skip button is only valid while creating a restricted discussion. Open discu
 If an open discussion has no description:
 
 ```text
-برای گفت‌وگوهای عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقاً چیه.
+برای گفت‌وگوهای عمومی، یه توضیح کوتاه لازمه تا بقیه بدونن موضوع دقیقا چیه.
 ```
 
 For open topics, selecting `🌍 آزاد` moves to the required description step. Restricted topics move to the optional description step after the restriction is fully selected.
@@ -825,8 +825,8 @@ Rules:
 - Removed users will not see the discussion in their "My Discussions" list anymore.
 - **Removed users see discussions but can't join**: Discussions where a user has been removed appear in the regular "Active Discussions" list, but are filtered out when "Show only joinable discussions" is enabled.
 - If a removed user somehow attempts to join (e.g., via a saved link or command), they get both:
-  - A toast notification at the top: `میزبان گفت‌وگو قبلاً تو رو از این گفت‌وگو حذف کرده.`
-  - A regular message: `👩‍🦳 میزبان گفت‌وگو قبلاً تو رو از این گفت‌وگو حذف کرده.`
+  - A toast notification at the top: `میزبان گفت‌وگو قبلا تو رو از این گفت‌وگو حذف کرده.`
+  - A regular message: `👩‍🦳 میزبان گفت‌وگو قبلا تو رو از این گفت‌وگو حذف کرده.`
 - If the removed member's `activeDiscussionId` is this discussion, clear it, remove their room bottom keyboard, send a bot-message explaining they were removed, and show the discussions menu.
 - If the removed member is not currently in this discussion, remove membership quietly without notifying them.
 - Do not expose raw ids in remove links; use the same safe public/member code style.

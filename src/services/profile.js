@@ -305,7 +305,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const lines = [
     ...(isOwnProfile ? [lineForLang(lang, messages[lang].profileOwnerTip), ""] : []),
     lineForLang(lang, `${titleIcon} ${title}`),
-    lineForLang(lang, `━━━━━━━━━━━━━━`),
+    lineForLang(lang, "━━━━━━━━━━━━━━━━━━"),
     lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayNameWithEmoji)}` : `👤 ${messages[lang].profileName}: ${displayNameWithEmoji}`),
   ];
 

@@ -1,10 +1,23 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildBotBaseLink, buildBotStartLink, normalizeBotUsername } = require("../src/services/invite-links");
+const {
+  buildBotBaseLink,
+  buildBotStartLink,
+  normalizeBotUsername,
+  resolveBotUsername,
+} = require("../src/services/invite-links");
 
 test("normalizes bot username for public invite links", () => {
   assert.equal(normalizeBotUsername("@Likely_Bot!"), "Likely_Bot");
+});
+
+test("resolves the runtime bot username before the configured fallback", () => {
+  assert.equal(
+    resolveBotUsername({ botInfo: { username: "@Runtime_Bot" } }, { BOT_USERNAME: "Config_Bot" }),
+    "Runtime_Bot",
+  );
+  assert.equal(resolveBotUsername(null, { BOT_USERNAME: "@Config_Bot" }), "Config_Bot");
 });
 
 test("buildBotStartLink uses explicit public URL", () => {
