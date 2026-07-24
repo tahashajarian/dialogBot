@@ -58,11 +58,13 @@ may use `Authorization: Bearer <token>`.
   required SSH access through the host firewall.
 - [ ] Never expose MongoDB publicly. Use a least-privilege database account,
   TLS, and server/IP restrictions.
-- [ ] Keep independent strong secrets for `BOT_TOKEN`, `API_KEY`,
-  `ADMIN_DASHBOARD_TOKEN`, and `ACCOUNT_DELETION_SECRET`.
-- [ ] Make `ACCOUNT_DELETION_SECRET` mandatory in production instead of falling
+- [x] Validate that `ACCOUNT_DELETION_SECRET` is strong and independent from
+  `BOT_TOKEN` and the AI API key in production.
+- [x] Require a dashboard token of at least 32 characters whenever the
+  dashboard starts with `NODE_ENV=production`.
+- [x] Make `ACCOUNT_DELETION_SECRET` mandatory in production instead of falling
   back to `BOT_TOKEN`.
-- [ ] Reject plain-HTTP remote AI/API endpoints; allow HTTP only for explicit
+- [x] Reject plain-HTTP remote AI/API endpoints; allow HTTP only for explicit
   localhost development.
 - [ ] Run the bot and dashboard as a dedicated non-root service account.
 - [ ] Add compatible systemd sandboxing such as `ProtectSystem=strict`,

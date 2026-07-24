@@ -87,6 +87,11 @@ For normal Telegram deployment, leave it empty so Telegraf uses Telegram's
 default API. `API_BASE_URL` belongs to the AI provider. They must never point
 to the same endpoint.
 
+With `NODE_ENV=production`, remote `API_ROOT` and `API_BASE_URL` values must use
+HTTPS. `ACCOUNT_DELETION_SECRET` is required, must be at least 32 characters,
+and must be independent from the bot token and AI API key. Startup errors name
+the invalid setting without printing its value.
+
 `AI_SUGGESTION_PROVIDER` controls which OpenAI-compatible API is used for
 one-item suggestions. Use `auto` to try chat completions and then responses,
 `chat` for chat-completions-only providers, or `responses` for providers where

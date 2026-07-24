@@ -223,7 +223,7 @@ Age is optional and not enforced by the profile viewing gate.
 - `DISCUSSION_OWNER_JOIN_NOTICES_ENABLED` enables private, throttled discussion-owner join cards. It defaults off; create the `DiscussionOwnerJoinNotice` indexes before rollout.
 - Never reuse or swap `API_ROOT` and `API_BASE_URL`.
 - Keep bot-platform and AI endpoint configuration separate to avoid launch failures.
-- Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`.
+- Startup validates required runtime variables and common `API_ROOT`/`API_BASE_URL` mix-ups through `src/config.js`. In production it also requires an independent 32-character account-deletion secret and rejects remote plain-HTTP bot/AI API endpoints.
 
 ## Referral And Shared-Link Continuation
 

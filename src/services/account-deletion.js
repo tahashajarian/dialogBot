@@ -15,9 +15,10 @@ const AnalyticsEvent = require("../models/analytics-event");
 const StarTransaction = require("../models/star-transaction");
 const StarReferralLink = require("../models/star-referral-link");
 const StarReferralClaim = require("../models/star-referral-claim");
+const { resolveAccountDeletionSecret } = require("../config");
 
 function identityFingerprint(userId) {
-  const secret = process.env.ACCOUNT_DELETION_SECRET || process.env.BOT_TOKEN;
+  const secret = resolveAccountDeletionSecret(process.env);
   if (!secret) throw Object.assign(new Error("ACCOUNT_DELETION_SECRET is required"), { code: "missing_secret" });
   return crypto.createHmac("sha256", secret).update(String(Number(userId))).digest("hex");
 }

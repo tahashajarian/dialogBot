@@ -7,6 +7,7 @@ const {
   getRuntimeConfig,
   getAiConfig,
   getModerationConfig,
+  resolveAccountDeletionSecret,
   normalizeUsername,
 } = require("../src/config");
 
@@ -38,6 +39,92 @@ test("config rejects identical API_ROOT and API_BASE_URL", () => {
   }), { requireRuntime: true });
 
   assert.ok(issues.some((issue) => issue.includes("must not point to the same URL")));
+});
+
+test("config rejects equivalent API roots with superficial URL differences", () => {
+  const issues = getConfigIssues(buildConfig({
+    BOT_TOKEN: "token",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    API_ROOT: "https://tapi.bale.ai/",
+    API_BASE_URL: "https://tapi.bale.ai",
+  }), { requireRuntime: true });
+
+  assert.ok(issues.some((issue) => issue.includes("must not point to the same URL")));
+});
+
+test("production requires a strong independent account-deletion secret", () => {
+  const base = {
+    NODE_ENV: "production",
+    BOT_TOKEN: "telegram-bot-token-value",
+    MONGO_URI: "mongodb://localhost:27017/test",
+  };
+  assert.throws(
+    () => getRuntimeConfig(base),
+    /ACCOUNT_DELETION_SECRET is required in production/,
+  );
+  assert.throws(
+    () => getRuntimeConfig({ ...base, ACCOUNT_DELETION_SECRET: "too-short" }),
+    /at least 32 characters/,
+  );
+  assert.throws(
+    () => getRuntimeConfig({
+      ...base,
+      BOT_TOKEN: "x".repeat(40),
+      ACCOUNT_DELETION_SECRET: "x".repeat(40),
+    }),
+    /independent from BOT_TOKEN/,
+  );
+});
+
+test("production configuration errors never include secret values", () => {
+  const botToken = "shared-secret-value-that-must-not-be-logged";
+  let error;
+  try {
+    getRuntimeConfig({
+      NODE_ENV: "production",
+      BOT_TOKEN: botToken,
+      MONGO_URI: "mongodb://localhost:27017/test",
+      ACCOUNT_DELETION_SECRET: botToken,
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error);
+  assert.equal(error.message.includes(botToken), false);
+});
+
+test("production rejects remote HTTP API endpoints but allows loopback development services", () => {
+  const base = {
+    NODE_ENV: "production",
+    BOT_TOKEN: "telegram-bot-token-value",
+    MONGO_URI: "mongodb://localhost:27017/test",
+    ACCOUNT_DELETION_SECRET: "d".repeat(40),
+  };
+  assert.throws(
+    () => getRuntimeConfig({ ...base, API_BASE_URL: "http://api.openai.example/v1" }),
+    /API_BASE_URL must use HTTPS/,
+  );
+  assert.throws(
+    () => getRuntimeConfig({ ...base, API_ROOT: "http://telegram.example/api" }),
+    /API_ROOT must use HTTPS/,
+  );
+  assert.equal(
+    getRuntimeConfig({ ...base, API_BASE_URL: "http://127.0.0.1:8080/v1" }).aiBaseUrl,
+    "http://127.0.0.1:8080/v1",
+  );
+});
+
+test("account deletion keeps the bot-token fallback outside production only", () => {
+  assert.equal(resolveAccountDeletionSecret({ BOT_TOKEN: "development-token" }), "development-token");
+  assert.equal(resolveAccountDeletionSecret({
+    NODE_ENV: "production",
+    BOT_TOKEN: "production-token",
+  }), "");
+  assert.equal(resolveAccountDeletionSecret({
+    NODE_ENV: "production",
+    ACCOUNT_DELETION_SECRET: "independent-secret",
+    BOT_TOKEN: "production-token",
+  }), "independent-secret");
 });
 
 test("config normalizes defaults and allowlist usernames", () => {

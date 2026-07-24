@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const SESSION_COOKIE = "muze_admin_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const MIN_DASHBOARD_TOKEN_LENGTH = 32;
 
 function sign(value, token, purpose) {
   return crypto.createHmac("sha256", String(token))
@@ -102,8 +103,23 @@ function createLoginAttemptLimiter({ limit = 8, windowMs = 15 * 60 * 1000, now =
   };
 }
 
+function validateDashboardRuntimeSecurity({ token, host, nodeEnv } = {}) {
+  const normalizedToken = String(token || "").trim();
+  const production = String(nodeEnv || "").trim().toLowerCase() === "production";
+  if (production && normalizedToken.length < MIN_DASHBOARD_TOKEN_LENGTH) {
+    throw new Error(
+      `ADMIN_DASHBOARD_TOKEN must be at least ${MIN_DASHBOARD_TOKEN_LENGTH} characters in production.`,
+    );
+  }
+  if (!normalizedToken && !["127.0.0.1", "localhost", "::1"].includes(String(host || "").trim())) {
+    throw new Error("ADMIN_DASHBOARD_TOKEN is required when dashboard host is not localhost.");
+  }
+  return true;
+}
+
 module.exports = {
   SESSION_TTL_SECONDS,
+  MIN_DASHBOARD_TOKEN_LENGTH,
   buildSessionCookie,
   createCsrfToken,
   createLoginAttemptLimiter,
@@ -113,6 +129,7 @@ module.exports = {
   isSecureRequest,
   parseCookies,
   timingSafeMatch,
+  validateDashboardRuntimeSecurity,
   verifyCsrfToken,
   verifySession,
 };

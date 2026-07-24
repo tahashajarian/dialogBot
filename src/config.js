@@ -1,9 +1,12 @@
+const { URL } = require("url");
+
 const DEFAULT_ALLOWED_USERNAMES = [];
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_AI_TIMEOUT_MS = 20000;
 const DEFAULT_AI_SUGGESTION_PROVIDER = "auto";
 const DEFAULT_REPORT_BAN_THRESHOLD = 5;
+const MIN_PRODUCTION_SECRET_LENGTH = 32;
 
 function clean(value) {
   return String(value || "").trim();
@@ -56,6 +59,47 @@ function looksLikeAiApiBaseUrl(value) {
   );
 }
 
+function isProductionEnvironment(value) {
+  return clean(value).toLowerCase() === "production";
+}
+
+function isSecureOrLoopbackUrl(value) {
+  const normalized = clean(value);
+  if (!normalized) return true;
+  try {
+    const url = new URL(normalized);
+    if (url.protocol === "https:") return true;
+    if (url.protocol !== "http:") return false;
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "localhost"
+      || hostname === "127.0.0.1"
+      || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function normalizeComparableUrl(value) {
+  const normalized = clean(value);
+  if (!normalized) return "";
+  try {
+    const url = new URL(normalized);
+    url.hash = "";
+    url.search = "";
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString().replace(/\/$/, "").toLowerCase();
+  } catch {
+    return normalized.replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function resolveAccountDeletionSecret(env = process.env) {
+  const explicitSecret = clean(env.ACCOUNT_DELETION_SECRET);
+  if (explicitSecret) return explicitSecret;
+  if (!isProductionEnvironment(env.NODE_ENV)) return clean(env.BOT_TOKEN);
+  return "";
+}
+
 function getConfigIssues(config, options = {}) {
   const issues = [];
   const requireRuntime = Boolean(options.requireRuntime);
@@ -65,6 +109,25 @@ function getConfigIssues(config, options = {}) {
   }
   if (requireRuntime && !config.mongoUri) {
     issues.push("MONGO_URI is required.");
+  }
+  if (requireRuntime && config.production) {
+    if (!config.accountDeletionSecret) {
+      issues.push("ACCOUNT_DELETION_SECRET is required in production and must not fall back to BOT_TOKEN.");
+    } else if (config.accountDeletionSecret.length < MIN_PRODUCTION_SECRET_LENGTH) {
+      issues.push(`ACCOUNT_DELETION_SECRET must be at least ${MIN_PRODUCTION_SECRET_LENGTH} characters in production.`);
+    }
+    if (config.accountDeletionSecret && config.accountDeletionSecret === config.botToken) {
+      issues.push("ACCOUNT_DELETION_SECRET must be independent from BOT_TOKEN in production.");
+    }
+    if (config.aiApiKey && config.accountDeletionSecret === config.aiApiKey) {
+      issues.push("ACCOUNT_DELETION_SECRET must be independent from the AI API key in production.");
+    }
+    if (config.botApiRoot && !isSecureOrLoopbackUrl(config.botApiRoot)) {
+      issues.push("API_ROOT must use HTTPS in production unless it points to localhost.");
+    }
+    if (config.aiBaseUrl && !isSecureOrLoopbackUrl(config.aiBaseUrl)) {
+      issues.push("API_BASE_URL must use HTTPS in production unless it points to localhost.");
+    }
   }
   if (config.botApiRoot && !/^https?:\/\//i.test(config.botApiRoot)) {
     issues.push("API_ROOT must be an http(s) bot platform API root URL.");
@@ -81,7 +144,11 @@ function getConfigIssues(config, options = {}) {
   if (config.aiBaseUrl && !looksLikeAiApiBaseUrl(config.aiBaseUrl)) {
     issues.push("API_BASE_URL appears not to be an AI endpoint. Use API_ROOT only for a bot platform API root.");
   }
-  if (config.botApiRoot && config.aiBaseUrl && config.botApiRoot === config.aiBaseUrl) {
+  if (
+    config.botApiRoot
+    && config.aiBaseUrl
+    && normalizeComparableUrl(config.botApiRoot) === normalizeComparableUrl(config.aiBaseUrl)
+  ) {
     issues.push("API_ROOT and API_BASE_URL must not point to the same URL.");
   }
   if (!Number.isFinite(config.aiTimeoutMs) || config.aiTimeoutMs <= 0) {
@@ -105,6 +172,7 @@ function buildConfig(env = process.env) {
     : Number(env.REPORT_BAN_THRESHOLD);
 
   return {
+    production: isProductionEnvironment(env.NODE_ENV),
     botToken: clean(env.BOT_TOKEN),
     mongoUri: clean(env.MONGO_URI),
     dbName: clean(env.MONGO_DB_NAME) || "bot",
@@ -117,6 +185,7 @@ function buildConfig(env = process.env) {
     embeddingModel: clean(env.EMBEDDING_MODEL) || DEFAULT_EMBEDDING_MODEL,
     aiSuggestionProvider: normalizeAiSuggestionProvider(env.AI_SUGGESTION_PROVIDER),
     aiTimeoutMs,
+    accountDeletionSecret: clean(env.ACCOUNT_DELETION_SECRET),
     moderation: {
       reportBanThreshold,
     },
@@ -176,6 +245,7 @@ module.exports = {
   DEFAULT_AI_TIMEOUT_MS,
   DEFAULT_AI_SUGGESTION_PROVIDER,
   DEFAULT_REPORT_BAN_THRESHOLD,
+  MIN_PRODUCTION_SECRET_LENGTH,
   buildConfig,
   validateConfig,
   getConfigIssues,
@@ -185,5 +255,9 @@ module.exports = {
   getModerationConfig,
   getDiscussionOwnerJoinNoticeConfig,
   normalizeUsername,
+  isProductionEnvironment,
+  isSecureOrLoopbackUrl,
+  normalizeComparableUrl,
+  resolveAccountDeletionSecret,
   resolveAllowedUsernames,
 };

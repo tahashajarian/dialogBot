@@ -12,6 +12,7 @@ const {
   timingSafeMatch,
   verifyCsrfToken,
   verifySession,
+  validateDashboardRuntimeSecurity,
 } = require("../src/services/dashboard-security");
 
 const TOKEN = "a-long-test-only-dashboard-token";
@@ -57,6 +58,22 @@ test("dashboard bearer authorization does not accept query or custom-header toke
 test("timing-safe token comparison handles unequal lengths without throwing", () => {
   assert.equal(timingSafeMatch(TOKEN, TOKEN), true);
   assert.equal(timingSafeMatch("short", TOKEN), false);
+});
+
+test("production dashboard requires a strong token without exposing its value", () => {
+  assert.throws(
+    () => validateDashboardRuntimeSecurity({
+      token: "too-short",
+      host: "127.0.0.1",
+      nodeEnv: "production",
+    }),
+    /at least 32 characters/,
+  );
+  assert.equal(validateDashboardRuntimeSecurity({
+    token: "d".repeat(40),
+    host: "127.0.0.1",
+    nodeEnv: "production",
+  }), true);
 });
 
 test("dashboard login limiter blocks repeated attempts and resets after its window", () => {

@@ -21,6 +21,7 @@ const {
   isSecureRequest,
   timingSafeMatch,
   verifyCsrfToken,
+  validateDashboardRuntimeSecurity,
 } = require("../src/services/dashboard-security");
 const {
   LIMIT_DEFINITIONS,
@@ -892,9 +893,7 @@ async function main() {
   const sessionSecret = token || crypto.randomBytes(32).toString("base64url");
   const loginLimiter = createLoginAttemptLimiter();
 
-  if (!token && !LOCAL_HOSTS.has(host)) {
-    throw new Error("ADMIN_DASHBOARD_TOKEN is required when dashboard host is not localhost.");
-  }
+  validateDashboardRuntimeSecurity({ token, host, nodeEnv: process.env.NODE_ENV });
 
   if (!token) {
     logger.warn("ADMIN_DASHBOARD_TOKEN is not set; dashboard is local-only.");

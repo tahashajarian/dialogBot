@@ -143,6 +143,7 @@ BOT_USERNAME=replace_without_at_sign
 BOT_DEEP_LINK_BASE_URL=https://t.me/replace_with_bot_username
 BOT_PUBLIC_URL=https://t.me/replace_with_bot_username
 
+# Required in production: at least 32 characters and independent from every token.
 ACCOUNT_DELETION_SECRET=replace_with_long_stable_random_secret
 
 ADMIN_DASHBOARD_HOST=127.0.0.1
@@ -153,6 +154,10 @@ ADMIN_DASHBOARD_TOKEN=replace_with_strong_random_token
 ☐ Compare against `.env.example` before every deployment so newly required variables are not missed.
 
 ☐ Verify `API_ROOT` and `API_BASE_URL` are not swapped and do not point to the same endpoint.
+
+☐ Start once with the production environment and confirm configuration
+validation succeeds. Remote `API_ROOT` and `API_BASE_URL` values must use
+HTTPS; HTTP is accepted only for loopback services.
 
 ## 5. Initialize the fresh MongoDB
 

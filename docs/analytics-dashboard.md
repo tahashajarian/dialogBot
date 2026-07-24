@@ -34,6 +34,9 @@ Without `ADMIN_DASHBOARD_TOKEN`, the dashboard can only bind to localhost. If
 you want to bind it to a public or private network interface, set a strong
 token first.
 
+When `NODE_ENV=production`, the dashboard requires
+`ADMIN_DASHBOARD_TOKEN` to contain at least 32 characters even on localhost.
+
 When a token is configured, open the dashboard normally:
 
 ```text
