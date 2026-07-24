@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
+const { mainMenuKeyboard } = require("../src/keyboards");
 const Discussion = require("../src/models/discussion");
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
@@ -16,6 +17,7 @@ const {
   getStartInviteCode,
   getStartReferralCode,
   handleUpdate,
+  isPlainStartCommand,
   isUnsupportedDiscussionMessage,
   normalizeIncomingText,
   replyToUnsupportedDiscussionMessage,
@@ -126,6 +128,13 @@ test("repeated same start invite payload still opens invite preview", async () =
   assert.equal(replies.length, 1);
   assert.match(replies.at(-1).text, /Invite preview/);
   assert.match(replies.at(-1).text, /Movie Chat/);
+});
+
+test("plain start recognizes bot mentions without accepting payload starts", () => {
+  assert.equal(isPlainStartCommand("/start"), true);
+  assert.equal(isPlainStartCommand("/start@MuzeBot"), true);
+  assert.equal(isPlainStartCommand("/start join_AB12"), false);
+  assert.equal(isPlainStartCommand("/start?ref_A1B2C3D4E5F6"), false);
 });
 
 test("a newly created invite recipient always starts onboarding before the preview", async () => {
@@ -694,6 +703,7 @@ test("start command still recovers from active discussion state", async () => {
   const originalDiscussionFindOneAndUpdate = Discussion.findOneAndUpdate;
   const originalDiscussionFindById = Discussion.findById;
   const replies = [];
+  const photos = [];
   const deletes = [];
   const updates = [];
   User.findOne = async () => ({ userId: 1 });
@@ -721,9 +731,14 @@ test("start command still recovers from active discussion state", async () => {
       firstName: "A",
       activeDiscussionId: "discussion-id",
     },
+    persistBannerFileIds: false,
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      photos.push({ photo, extra });
+      return { message_id: 78 };
     },
     deleteMessage: async (messageId) => {
       deletes.push(messageId);
@@ -742,9 +757,11 @@ test("start command still recovers from active discussion state", async () => {
 
   assert.equal(ctx.user.activeDiscussionId, null);
   assert.equal(ctx.user.navigationMode, "global");
-  assert.equal(replies[0].text, messages.en.welcomeWithName.replace("{name}", "A"));
-  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[1].text, messages.en.mainMenu);
+  assert.equal(replies.length, 0);
+  assert.equal(photos.length, 1);
+  assert.match(photos[0].photo.source, /assets[\\/]muze-welcome-banner-cinematic-v2\.jpg$/);
+  assert.equal(photos[0].extra.caption, messages.en.mainMenu);
+  assert.deepEqual(photos[0].extra.reply_markup, mainMenuKeyboard("en").reply_markup);
   assert.equal(updates.some((entry) => entry.update?.activeDiscussionId === null), true);
   assert.equal(updates.some((entry) => entry.update?.navigationMode === "global"), true);
   assert.deepEqual(deletes, []);

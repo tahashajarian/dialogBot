@@ -37,6 +37,10 @@ function getStartReferralCode(text = "") {
   return match ? match[1].toUpperCase() : "";
 }
 
+function isPlainStartCommand(text = "") {
+  return /^\/start(?:@\w+)?$/i.test(String(text || "").trim());
+}
+
 function isAllowedDiscussionCommandLink(text = "") {
   const value = String(text || "").trim();
   return [
@@ -84,6 +88,7 @@ module.exports = {
   getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
+  isPlainStartCommand,
   isAllowedDiscussionCommandLink,
   matchesMessageText,
   normalizeIncomingText,

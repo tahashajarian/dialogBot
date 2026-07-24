@@ -152,6 +152,7 @@ const {
   getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
+  isPlainStartCommand,
   matchesMessageText,
   normalizeIncomingText,
   parseDiscussionCloseConfirmState,
@@ -389,7 +390,7 @@ async function handleUpdate(ctx) {
     return removeInvitationCommand(ctx, lang, text);
   }
 
-  if (text === "/start" || startReferralCode) {
+  if (isPlainStartCommand(text) || startReferralCode) {
     void trackEvent({
       name: EVENT_NAMES.userStarted,
       userId: ctx.userId,
@@ -397,12 +398,6 @@ async function handleUpdate(ctx) {
     });
     await clearViewedPublicProfileMessage(ctx);
     await clearSavedProfilesListMessage(ctx);
-    const shouldClearKeyboard = hasTemporaryReplyKeyboard(ctx, state);
-    const rawUserName = ctx.user?.profileName || ctx.user?.firstName || "";
-    const userName = rawUserName.trim().replace(/\s+/g, " ");
-    const welcomeMessage = userName
-      ? messages[lang].welcomeWithName.replace("{name}", userName)
-      : messages[lang].welcome;
 
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
 
@@ -413,13 +408,12 @@ async function handleUpdate(ctx) {
     void importPendingInlineListItems(ctx.userId).catch(() => null);
     await updateUserState(ctx.userId, "idle");
     await setNavigationMode(ctx, MODES.GLOBAL);
-    await sendMuzeWelcome(
-      ctx,
-      welcomeMessage,
-      shouldClearKeyboard ? { reply_markup: { remove_keyboard: true } } : undefined,
-    );
     await sendNavigationFootprint(ctx, { lang: keyboardLang, destination: "menu" });
-    return ctx.reply(messages[keyboardLang].mainMenu, mainMenuKeyboard(keyboardLang));
+    return sendMuzeWelcome(
+      ctx,
+      messages[keyboardLang].mainMenu,
+      mainMenuKeyboard(keyboardLang),
+    );
   }
 
   if (state.startsWith("onboarding_")) {
@@ -812,6 +806,7 @@ module.exports = {
   getNavigationCommand,
   getStartInviteCode,
   getStartReferralCode,
+  isPlainStartCommand,
   normalizeIncomingText,
   formatDiscussionOutboundMessage,
   getReplyMessageId,
