@@ -93,13 +93,16 @@ the normal CI workflow still runs ESLint and the full project validation.
 
 ☐ Update the operating system and install security updates.
 
-☐ Install Git and Node.js 20 or newer. Confirm:
+☐ Install Git and Node.js 24 LTS. Do not deploy on an end-of-life Node.js
+release. Confirm:
 
 ```bash
 node --version
 npm --version
 git --version
 ```
+
+The Node.js version must report `v24.x`.
 
 ☐ Create a dedicated non-root service account and application directory. Example names used below:
 

@@ -4,6 +4,9 @@
   "private": true,
   "description": "A bilingual Telegram social bot for profiles, AI taste lists, and live discussions.",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "start": "node --no-deprecation ./src/index.js",
     "dashboard": "node --no-deprecation ./scripts/analytics-dashboard.js",

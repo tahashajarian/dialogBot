@@ -20,7 +20,7 @@ The bot combines:
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 24 LTS or newer
 - MongoDB
 - a Telegram bot token from BotFather
 - an OpenAI-compatible API key for AI features
