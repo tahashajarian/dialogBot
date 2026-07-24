@@ -43,6 +43,7 @@ async function getOrCreateUser(from) {
     {
       upsert: true,
       returnDocument: "after",
+      maxTimeMS: 2500,
     },
   );
 }

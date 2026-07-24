@@ -79,6 +79,9 @@ ADMIN_DASHBOARD_PORT=8787
 ADMIN_DASHBOARD_TOKEN=
 ```
 
+With a token configured, open the normal dashboard URL and sign in; do not put
+the token in the URL. Keep remote access behind HTTPS or an SSH tunnel.
+
 `API_ROOT` is only for the bot platform API root when a custom root is needed.
 For normal Telegram deployment, leave it empty so Telegraf uses Telegram's
 default API. `API_BASE_URL` belongs to the AI provider. They must never point

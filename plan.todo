@@ -1,79 +1,9 @@
-# Muze Plan / Backlog
-
-Use `next-steps.todo` for the short launch queue. This file keeps product decisions, later ideas, and things we explicitly do not want to implement right now.
-
-## Later Product Decisions / Not In Current Next Steps
-
-✔ decide if we want to show top 10s on profile or not and how we are gonna do it @done (7/21/2026, 12:07:39 AM)
-    Current leaning: do not implement before launch. Evaluate compact taste preview vs exact Top 10 items.
-
-✔ find out a way to make a filled up account feel stronger and make users feel growth over time @done (7/21/2026, 12:07:43 AM)
-    Current launch version: private own-profile growth hint is done. Do not add public scores/leaderboards/status.
 
 ☐ after fill up any top 10 if there is a relative discussion bot should send a invitation to the user
     Not for launch. Needs frequency cap, active-room handling, join-rule safety, and no invitation Star reward.
 
-☐ add inline mode chat to save item to lists
-    Not for launch. Decide supported sections, Top 10 vs watchlist/list only, and duplicate behavior first.
-
-✔ later: add another label if all items in a Top 10 relate to one person, band, or creator and call it "X fan" @done (7/21/2026, 12:07:52 AM)
-    Not for launch. Define exact criteria first, avoid false claims, and keep it fun rather than ranking/status.
-
 ☐ later: find a way to send message to users that are not active for a while and encourage them to come back
     Not for launch. Decide frequency, content, and reward first.
-so 
 
-✔ find a way to make long textes more readable @done (7/21/2026, 12:08:01 AM)
-
-✔ 👱‍♀️ سلام Taha، من میوزم 🌱 we show this mesage at two place one when user press /start where ever and one when user start and at the begingin of onboarding i think istead of showing that image after finish onboarding we can show on when we say hello i'm muze @done (7/18/2026, 8:30:41 AM)
-✔ before create invite check discussion has capacity, @done (7/18/2026, 9:03:58 AM)
-✔ share my profile, a message combine intersts and favorits and maybe photo as banner which is based on perfoile interst and favorites and let think how we can encureage peopole to join and do the same to have thier profile like the one they saw, need to be so intersting and eye catching, let think... and maybe compare it with ourself or think abuout comparing too, so the profile for the user should be like somehow encurage user to fill it up like say in fornt of missing labels wating to do it and this kind of things @done (7/20/2026, 10:59:44 PM)
-
-✔ prevent disscussion name in persian and eng for sensetive words like sex sexchat سکس سکسچت سکس چت  and these things @done (7/18/2026, 1:25:30 PM)
-✔ 👱‍♀️ این پیام دعوت به گفت‌وگوه؛ می‌تونی برای هر کسی خواستی بفرستیش 👇 this message is worng we don't have this word in persin گفت‌وگوه؛ need to be fixed @done (7/18/2026, 1:33:50 PM)
-✔ hide 'list for later' until it's not empty, so after first one added we will show the button, so when it's emty we don't see it, that will make the ux simper and better, after they get a suggestion and add it to the list they can go and see it and after that the buton will be shown form favorites too @done (7/18/2026, 1:40:28 PM)
 ☐ think about seeing people can choose the lang, and maybe viewing proifle need spend star, think about it and maybe sort them with most common items, they can see gender and age and name if they want to see profile need spend one star for example
-✔ test inivitaion with link it's broken @done (7/18/2026, 9:18:41 AM)
-✔ think about pin discussion title inside the discusion for all users inside the discussion and by leave remove the pin @done (7/21/2026, 6:45:10 PM)
-✔ add an inline button for members list in discussion too which just close the card nothing else @done (7/18/2026, 2:02:25 PM)
-✔ think about change the name of منوی اصلی to somthing better @done (7/19/2026, 3:58:41 PM)j
-✔ notif the owner on new joines to the their discussions @done (7/19/2026, 7:43:36 AM)
-✔ on list for later when i try to use reply keyborad to get back to favoirts thinks i'm going to add and tell me you need to frist press + @done (7/19/2026, 12:23:19 AM)
-✔ in discussion if soemone send دعوت word by type the invitaion will open for all users @done (7/19/2026, 12:16:33 AM)
-✔ aftr boost remove the boost botton @done (7/19/2026, 12:16:07 AM)
-✔ add a tip to my discussion make it a bit longer like say you can see recent join useing that boottm @done (7/19/2026, 6:56:51 AM)
-✔ remove a user from discusion is working fine, just need a confirm i think, which could be inline butotn confirm then remove the user @done (7/19/2026, 7:17:49 AM)
-✔ close discussion is not working fine after confirm we should leave and back to prev menu @done (7/19/2026, 6:16:34 AM)
-✔ if we are active in a discussion and see a notif that someone joined by press on open discusion it open another card that the title is preview of invitaion which is wrong @done (7/19/2026, 6:45:53 AM)
-✔ in discussion after see someone profle and save it, somthing werid happaend, it shows me the list of peopls, kind of thinks i'm in see people list, which should be fix @done (7/19/2026, 7:43:30 AM)
-✔ lets manage invitation list too, the legnth maybe pagination, i think we should keep all and no recetn joined we only keep all max 20 for example and remove olds after 20, with pagination and user only can delete them if they want, new one come first alwyas @done (7/19/2026, 7:32:17 AM)
-✔ after first tiem open my discussion and hit close that button is not working amymore i have to for example open acitve then that button works again not only that most of them not work, not always, let think aboout this situation to find out a way when we don't recoginize what user entered, somthing llike recent the reply keyboard that they are in it or atleast bot thinks user is there @done (7/19/2026, 7:44:01 AM)
-✔ reject emoji in discussion titles/descriptions; show 🚀 beside boosted titles; hide Boost only for that room; allow multiple boosted rooms per owner; keep Boost hidden after rejoin; closing cancels boost without refund @done (7/19/2026, 8:30:11 AM)
-✔ 👱‍♀️ این دعوت دیگه در دسترس نیست. after we remove a user as owner from the discussion and i want to invite them, it say this message, i think here we should send them the inivitaion i think this way we let them join agian, so we need to remove the removal form the discussion and let them join again as we inivte them or not sure let's think abou it @done (7/19/2026, 8:17:02 AM)
-✔ on my discusson tips are diffent if list is empty or not @done (7/19/2026, 8:05:27 AM)
 
-✔ replace weak temporary/hardcoded media taste labels with AI-selected broad labels, user confirmation, and a ledger-backed 10-Star recheck after the first free classification @done (7/19/2026)
-✔ 💡 قدم بعدی: ۲ بخش دیگر از پروفایلت را کامل کن. one tips on profile is this, could we not say things like this? what the hell this means? check for the rest please @done (7/20/2026, 11:02:22 AM)
-✔ hide pet for now, it's kind of irelevent to bot for now, just put it in admin dashboard to turn it of for now and not show it on proifle yet @done (7/20/2026, 11:02:19 AM)
-✔ hide location from porfile for now @done (7/20/2026, 11:13:57 AM)
-✔ also remove more setting i think, we don't need one extra step, put all in main menu of profile just security and privity is another secion, for this change we need to update all pathes tips guide and whatever ever needed and affected, please deepcheck and make sure not break anything and handle all cases and let's combine and put in one row reletive ones and make it not too long list of buttons and make sure all works fine, as we somwehre pointed that delecte acount is in profile more setting then privacy and ... so this tips and guide needed to be upated too @done (7/20/2026, 11:38:23 AM)
-✔ and lets put some of prfoile optins like an inline actions, those that no need to user input could be inline button for profile like gender and age and these things so the list of keyborad reply could be reduced, the inline button action just edit the card and after update edit back to profile card and it's inline button @done (7/20/2026, 11:38:26 AM)
-✔ chose emoji for profile should be paid only first time not every time @done (7/20/2026, 12:28:50 PM)
-✔ for pet chose chagne optin for none to دوست ندارم and ممه حیوانات to همه رو دوست دارم @done (7/20/2026, 12:28:52 PM)
-✔ shareable list link of muze shoulbe hbehave like invitioan to bot i mean maybe need to add user id to hte link so later  we can give them star for bringing people @done (7/20/2026, 4:46:38 PM) we decide to remove it entirly
-✔ to speed up profile we need to save the proifle file id after first time upload so the next time it would be faster like the way we save banner file id to not upload them everytime, maybe we find a way not even save the photo in db and just save the file id, is it possilbe? @done (7/20/2026, 10:56:09 PM)
-✔ عضو این گفت‌وگو نیستی. this message should come with bot emoji as well as other bot messages @done (7/20/2026, 10:59:16 PM)
-✔ after bot restart or somthing like this the reply keyborad are not working and i have to press /start again, i wonder if later we restart the server all other user need to do the same while they don't know, how we can prevnet that? or this just had happen on development mood? @done (7/20/2026, 10:59:07 PM)
-✔ make filters of for late list to inilie button @done (7/20/2026, 5:25:56 PM)
-✔ in gude mention that you can see the recent discusion on my discussion section @done (7/21/2026, 1:31:44 AM)
-✔ let's hanlde react to message in discussion @done (7/21/2026, 1:44:52 AM)
-✔ how many shared item should be in commont to show up on see people should be configure able from admin panel @done (7/21/2026, 9:15:06 PM)
-✔ some times a user left message won't sent to all users and also make sure we send messages to all members saftlyso @done (7/21/2026, 1:47:41 AM)
-✔ move delte account to on inlibe button on privacy and secirurity card @done (7/21/2026, 9:15:03 PM)
-✔ remove the word of اتاق or room, we don't have it we just have گفتگو @done (7/23/2026, 1:47:55 PM)
-✔ if i'm in main menu and i start a conversian i mean if i click on link of inivitaion and it's not availabel all reply keyboard are gone, we need to fix it, because after that user can't do anything also make sure this not happeing every where else even link is availbable or user can't join or whatever @done (7/23/2026, 2:21:55 PM)
-☐ and bottom button on main menu and their emoji are not align the emoji is a bit downer in persian is a bit more obivouse, how we can fix it if it's possible
-☐ if we say we nned to first exit then join instead of okay we hsould have close it or okay leave and join to it
-☐ and on
-
-if user made discussion is the current as well so on the list of user made no need to say curernt again, just put the green circle on it and instead of 🟢 گفت‌وگوی فعلی (۱) say گفتگوی فعال

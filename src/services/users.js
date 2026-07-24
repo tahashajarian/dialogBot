@@ -484,7 +484,10 @@ async function syncAiTasteForSection(userId, section, {
       };
     }
 
-    const classification = await classifyMediaTaste(section, topTenItems, { language: user.lang === "fa" ? "fa" : "en" });
+    const classification = await classifyMediaTaste(section, topTenItems, {
+      language: user.lang === "fa" ? "fa" : "en",
+      userId: user.userId,
+    });
     const hasReliableSuggestion = classification.ok;
     const suggestedLabelKeys = hasReliableSuggestion
       ? buildRankedTasteShortlist(section, classification.labelKeys)
@@ -669,7 +672,10 @@ async function recalculateAiTasteForSection(userId, section) {
   if (!hadActiveLabel && !hadNoLabel) {
     return { ok: false, reason: "missing_confirmed_label" };
   }
-  const classification = await classifyMediaTaste(section, items, { language: user.lang === "fa" ? "fa" : "en" });
+  const classification = await classifyMediaTaste(section, items, {
+    language: user.lang === "fa" ? "fa" : "en",
+    userId: user.userId,
+  });
   if (!classification.ok) return classification;
   const suggestedLabelKeys = buildRankedTasteShortlist(section, classification.labelKeys);
   const suggestionInsight = String(classification.insight || "").trim().slice(0, 120);

@@ -1,7 +1,9 @@
 const OpenAI = require("openai");
 const { getAiConfig } = require("../config");
 const { logger } = require("./logger");
-const { recordAiApiEvent } = require("./operational-health");
+const { recordAiApiEvent, recordCapacityEvent } = require("./operational-health");
+const { CapacityError } = require("./capacity-guard");
+const { aiCapacity } = require("./runtime-capacity");
 
 const DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS = 60;
 
@@ -143,7 +145,7 @@ async function getEmbedding(openai, input, {
   }
 }
 
-async function requestSuggestionText(openai, {
+async function requestSuggestionTextWithoutCapacity(openai, {
   instructions,
   input,
   config = getAiConfig(),
@@ -259,6 +261,23 @@ async function requestSuggestionText(openai, {
   return { text: "", api: "", errors };
 }
 
+async function requestSuggestionText(openai, options = {}) {
+  const key = options.userId ? `user:${options.userId}` : "";
+  try {
+    return await aiCapacity.run(key, () => requestSuggestionTextWithoutCapacity(openai, options));
+  } catch (error) {
+    if (!(error instanceof CapacityError)) throw error;
+    const state = aiCapacity.getState();
+    void recordCapacityEvent({ resource: "ai", reason: error.reason, state });
+    return {
+      text: "",
+      api: "",
+      errors: [error.reason],
+      capacityRejected: true,
+    };
+  }
+}
+
 module.exports = {
   DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
   classifyAiProviderError,
@@ -267,5 +286,6 @@ module.exports = {
   getClient,
   getEmbedding,
   requestSuggestionText,
+  requestSuggestionTextWithoutCapacity,
   withAiTimeout,
 };

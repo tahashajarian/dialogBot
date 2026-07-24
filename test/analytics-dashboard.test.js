@@ -2,9 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildUserDashboardAggregation,
   buildGuidedJourneyFunnel,
   buildOperationalAlerts,
   buildUserListMetrics,
+  createAnalyticsSnapshotCache,
+  normalizeUserDashboardMetrics,
 } = require("../src/services/analytics-dashboard");
 const { EVENT_NAMES } = require("../src/services/analytics-events");
 
@@ -104,17 +107,104 @@ test("operational alerts identify actionable backend health failures", () => {
     health: {
       aiApi: { lastHour: { total: 20, timeouts: 3, timeoutRate: 0.15 } },
       performance: { routes: [{ route: "callback:people:list", p95DurationMs: 3200 }] },
+      capacity: { rejectedLast24h: 4 },
     },
     tasteIndex: { ok: true, healthy: false, checkedUsers: 100, missingRows: 2, mismatchedRows: 1 },
     stars: { reconciliationChecked: 100, reconciliationMismatches: 1 },
   });
 
   assert.deepEqual(alerts.map((alert) => [alert.key, alert.ok]), [
+    ["capacity_rejections", false],
     ["slow_routes", false],
     ["taste_index", false],
     ["ai_timeouts", false],
     ["star_reconciliation", false],
   ]);
-  assert.equal(alerts[0].detail.includes("callback:people:list"), true);
-  assert.equal(alerts[1].detail.includes("2 missing"), true);
+  assert.equal(alerts[0].detail.includes("4 bounded-work rejections"), true);
+  assert.equal(alerts[1].detail.includes("callback:people:list"), true);
+  assert.equal(alerts[2].detail.includes("2 missing"), true);
+});
+
+test("dashboard user aggregation returns only compact facets", () => {
+  const pipeline = buildUserDashboardAggregation({
+    since24h: new Date("2026-01-02T00:00:00Z"),
+    since7d: new Date("2025-12-27T00:00:00Z"),
+    fullListSize: 10,
+  });
+
+  assert.deepEqual(Object.keys(pipeline[1].$facet), ["summary", "lists"]);
+  assert.equal(JSON.stringify(pipeline).includes("$aiLists.movies.topTen"), true);
+  assert.equal(JSON.stringify(pipeline).includes("$aiTopTenMovies"), true);
+});
+
+test("dashboard user aggregation normalization preserves metric shape", () => {
+  const result = normalizeUserDashboardMetrics([{
+    summary: [{ total: 2, namedProfiles: 1, outstandingStars: 7 }],
+    lists: [{
+      moviesTopTenItems: 10,
+      moviesWatchlistItems: 2,
+      moviesUsersWithTopTenItem: 1,
+      moviesUsersWithThreeTopTen: 1,
+      moviesUsersWithFullTopTen: 1,
+      moviesUsersWithTasteLabel: 1,
+    }],
+  }]);
+
+  assert.equal(result.users.total, 2);
+  assert.equal(result.users.namedProfiles, 1);
+  assert.equal(result.outstandingStars, 7);
+  assert.deepEqual(section(result.lists, "movies"), {
+    section: "movies",
+    label: "Movies",
+    topTenItems: 10,
+    watchlistItems: 2,
+    usersWithTopTenItem: 1,
+    usersWithThreeTopTen: 1,
+    usersWithFullTopTen: 1,
+    usersWithTasteLabel: 1,
+  });
+  assert.equal(section(result.lists, "music").topTenItems, 0);
+});
+
+test("dashboard snapshot cache shares concurrent builds and expires predictably", async () => {
+  let now = 1000;
+  let builds = 0;
+  let release;
+  const cache = createAnalyticsSnapshotCache({
+    ttlMs: 100,
+    clock: () => now,
+    load: async () => {
+      builds += 1;
+      await new Promise((resolve) => { release = resolve; });
+      return { generatedAt: `build-${builds}` };
+    },
+  });
+
+  const first = cache.get();
+  const concurrent = cache.get();
+  assert.equal(builds, 0);
+  await Promise.resolve();
+  assert.equal(builds, 1);
+  release();
+  assert.equal(await first, await concurrent);
+  assert.equal((await cache.get()).generatedAt, "build-1");
+  assert.equal(builds, 1);
+
+  now += 101;
+  const expired = cache.get();
+  await Promise.resolve();
+  release();
+  assert.equal((await expired).generatedAt, "build-2");
+  assert.equal(builds, 2);
+});
+
+test("dashboard snapshot cache invalidation forces a fresh build", async () => {
+  let builds = 0;
+  const cache = createAnalyticsSnapshotCache({
+    load: async () => ({ build: ++builds }),
+  });
+
+  assert.equal((await cache.get()).build, 1);
+  cache.invalidate();
+  assert.equal((await cache.get()).build, 2);
 });

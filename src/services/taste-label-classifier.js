@@ -156,6 +156,7 @@ async function classifyMediaTaste(section, items, {
   openai = null,
   requestText = requestSuggestionText,
   language = "en",
+  userId,
 } = {}) {
   if (!isMediaTasteSection(section)) return { ok: false, reason: "unsupported_section" };
   const cleanItems = items
@@ -177,6 +178,7 @@ async function classifyMediaTaste(section, items, {
     .map((entry, index) => `${index + 1}. ${entry.title}${entry.comment ? ` — ${entry.comment}` : ""}`)
     .join("\n");
   const request = await requestText(client, {
+    userId,
     config,
     maxOutputTokens: 180,
     operation: "taste_classification",

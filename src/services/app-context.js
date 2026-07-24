@@ -4,6 +4,9 @@ const PIN_RETRY_DELAY_MS = 400;
 const { logger } = require("./logger");
 const { formatBotText, formatBotExtra } = require("./bot-appearance");
 const { localizeOutgoingExtra, localizeVisibleDigits } = require("./number-localization");
+const { CapacityError } = require("./capacity-guard");
+const { notificationCapacity: defaultNotificationCapacity } = require("./runtime-capacity");
+const { recordCapacityEvent } = require("./operational-health");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -126,6 +129,8 @@ async function withTelegramTiming(label, fn, metrics) {
 function createAppContext(ctx, user, options = {}) {
   const operationTimeoutMs = Number(options.operationTimeoutMs) || DEFAULT_API_OPERATION_TIMEOUT_MS;
   const apiMetrics = options.apiMetrics || null;
+  const notificationCapacity = options.notificationCapacity || defaultNotificationCapacity;
+  const recordCapacity = options.recordCapacityEvent || recordCapacityEvent;
   const userLang = user?.lang === "fa" ? "fa" : "en";
   const formatText = (text, lang = userLang) => localizeVisibleDigits(formatBotText(text), lang);
   const formatExtra = (extra, lang = userLang) => localizeOutgoingExtra(formatBotExtra(extra), lang);
@@ -204,12 +209,19 @@ function createAppContext(ctx, user, options = {}) {
         return false;
       }
       try {
-        return await sendApi("sendMessage", {
+        return await notificationCapacity.run("", () => sendApi("sendMessage", {
           chat_id: targetUserId,
           text: formatText(text, recipientLang || userLang),
           ...formatExtra(extra, recipientLang || userLang),
-        });
-      } catch {
+        }));
+      } catch (error) {
+        if (error instanceof CapacityError) {
+          void recordCapacity({
+            resource: "telegram_notification",
+            reason: error.reason,
+            state: notificationCapacity.getState(),
+          });
+        }
         return false;
       }
     },

@@ -1,12 +1,27 @@
 require("dotenv").config();
 
 const http = require("http");
+const crypto = require("crypto");
 const { URL, URLSearchParams } = require("url");
 const connectDB = require("../src/db");
 const { disconnectDB } = require("../src/db");
 const { getRuntimeConfig } = require("../src/config");
-const { getAnalyticsSnapshot } = require("../src/services/analytics-dashboard");
+const {
+  getCachedAnalyticsSnapshot,
+  invalidateAnalyticsSnapshotCache,
+} = require("../src/services/analytics-dashboard");
 const { logger } = require("../src/services/logger");
+const {
+  buildSessionCookie,
+  createCsrfToken,
+  createLoginAttemptLimiter,
+  createSession,
+  getSessionFromRequest,
+  isApiAuthorized,
+  isSecureRequest,
+  timingSafeMatch,
+  verifyCsrfToken,
+} = require("../src/services/dashboard-security");
 const {
   LIMIT_DEFINITIONS,
   updateOperationalLimits,
@@ -33,17 +48,6 @@ function escapeHtml(value) {
 
 function formatNumber(value) {
   return new Intl.NumberFormat("en-US").format(Number(value) || 0);
-}
-
-function getAuthTokenFromRequest(req, url) {
-  const auth = String(req.headers.authorization || "");
-  if (auth.toLowerCase().startsWith("bearer ")) return auth.slice(7).trim();
-  return String(req.headers["x-dashboard-token"] || url.searchParams.get("token") || "").trim();
-}
-
-function isAuthorized(req, url, expectedToken) {
-  if (!expectedToken) return true;
-  return getAuthTokenFromRequest(req, url) === expectedToken;
 }
 
 function card(title, value, note = "") {
@@ -161,7 +165,15 @@ function collapsibleSection(title, body, { open = false, note = "", view = "insi
   </details>`;
 }
 
-function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, saved = false } = {}) {
+function csrfField(csrfToken = "") {
+  return csrfToken ? `<input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />` : "";
+}
+
+function renderLimitsForm(values = {}, action = "/limits", {
+  updatedAt = null,
+  saved = false,
+  csrfToken = "",
+} = {}) {
   const groups = {};
   for (const [key, definition] of Object.entries(LIMIT_DEFINITIONS)) {
     if (!groups[definition.group]) groups[definition.group] = [];
@@ -169,6 +181,7 @@ function renderLimitsForm(values = {}, action = "/limits", { updatedAt = null, s
   }
   return `${saved ? `<div class="notice success">Limits saved. Restart the bot to activate them.</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form">
+    ${csrfField(csrfToken)}
     ${Object.entries(groups).map(([group, fields], index) => `<details class="setting-group" ${index === 0 ? "open" : ""}>
       <summary><span>${escapeHtml(group)}</span><small>${formatNumber(fields.length)} settings</small></summary>
       <div class="limit-grid">${fields.map((field) => `<label class="setting-field">
@@ -188,6 +201,7 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
   updatedAt = null,
   saved = false,
   activationRequiresRestart = true,
+  csrfToken = "",
 } = {}) {
   const groups = {};
   for (const [key, definition] of Object.entries(STAR_SETTING_DEFINITIONS)) {
@@ -196,6 +210,7 @@ function renderStarSettingsForm(values = {}, action = "/star-settings", {
   }
   return `${saved ? `<div class="notice success">Star economy settings saved.${activationRequiresRestart ? " Restart the bot to activate them." : ""}</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form star-settings-form">
+    ${csrfField(csrfToken)}
     ${Object.entries(groups).map(([group, fields], index) => `<details class="setting-group" ${index === 0 ? "open" : ""}>
       <summary><span>${escapeHtml(group)}</span><small>${formatNumber(fields.length)} settings</small></summary>
       <div class="limit-grid">${fields.map((field) => {
@@ -225,9 +240,11 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
   updatedAt = null,
   saved = false,
   cacheTtlSeconds = 60,
+  csrfToken = "",
 } = {}) {
   return `${saved ? `<div class="notice success">Bot appearance saved. Bot processes refresh it within about ${formatNumber(cacheTtlSeconds)} seconds.</div>` : ""}
   <form method="post" action="${escapeHtml(action)}" class="limits-form">
+    ${csrfField(csrfToken)}
     <fieldset>
       <legend>Bot messages</legend>
       <div class="limit-grid">
@@ -243,7 +260,7 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
   </form>`;
 }
 
-function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
+function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = false } = {}) {
   const { users, discussions, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
@@ -447,8 +464,15 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
         <h1>Muze Analytics</h1>
         <div class="muted">Generated ${escapeHtml(new Date(snapshot.generatedAt).toLocaleString())}. Auto-refreshes every 60 seconds while forms are unchanged.</div>
       </div>
-      <div class="top-actions"><a class="button-link" href="/api/snapshot">Export JSON</a></div>
+      <div class="top-actions">
+        <a class="button-link" href="/api/snapshot">Export JSON</a>
+        ${showLogout ? `<form method="post" action="/logout">${csrfField(csrfToken)}<button type="submit">Log out</button></form>` : ""}
+      </div>
     </header>
+
+    ${snapshot.dashboardSnapshot?.partial ? `<div class="notice">
+      Some dashboard sections are temporarily unavailable. Available metrics are still shown; retry after the next refresh.
+    </div>` : ""}
 
     <nav class="view-nav" aria-label="Dashboard views">
       <button type="button" class="view-button active" data-view-button="overview">Overview</button>
@@ -476,19 +500,22 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
     </div>
 
     <div class="stack">
-      ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, `/limits${actionSuffix}`, {
+      ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, "/limits", {
     updatedAt: snapshot.limitsUpdatedAt,
-    saved: new URLSearchParams(actionSuffix).get("saved") === "1",
+    saved: saved === "1",
+    csrfToken,
   }), { note: "editable product quotas", view: "manage" })}
-      ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, `/bot-appearance${actionSuffix}`, {
+      ${collapsibleSection("Bot Appearance", renderBotAppearanceForm(snapshot.botAppearance, "/bot-appearance", {
     updatedAt: snapshot.botAppearanceUpdatedAt,
-    saved: new URLSearchParams(actionSuffix).get("saved") === "appearance",
+    saved: saved === "appearance",
     cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
+    csrfToken,
   }), { note: "bot-authored message marker", view: "manage" })}
-      ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, `/star-settings${actionSuffix}`, {
+      ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, "/star-settings", {
     updatedAt: snapshot.starSettingsUpdatedAt,
-    saved: new URLSearchParams(actionSuffix).get("saved") === "stars",
+    saved: saved === "stars",
     activationRequiresRestart: snapshot.starSettingsActivationRequiresRestart,
+    csrfToken,
   }), { note: "rewards, costs, safeguards, rollout", view: "manage" })}
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
@@ -549,7 +576,7 @@ function renderDashboard(snapshot, { actionSuffix = "" } = {}) {
   )}</div>`, { note: "last 24h", view: "system" })}
 
       ${collapsibleSection("Slow Update Performance", `<div class="grid compact-grid">
-      ${card("Slow samples", health?.performance?.sampledEvents || 0, `Updates at or above ${formatNumber(health?.performance?.slowThresholdMs || 1500)} ms`)}
+      ${card("Performance samples", health?.performance?.sampledEvents || 0, `All slow updates plus ${percent(health?.performance?.baselineSampleRate || 0.05)} deterministic baseline`)}
       ${statusCard("Sample completeness", !health?.performance?.truncated, health?.performance?.truncated ? "Latest 5,000 samples shown" : "All retained 24h samples included")}
     </div><div class="panel">${renderPerformanceTable(health?.performance?.routes || [])}</div>`, { note: "p50/p95 by route, last 24h", view: "system" })}
 
@@ -675,61 +702,181 @@ async function writeResponse(res, statusCode, contentType, body) {
   res.writeHead(statusCode, {
     "content-type": contentType,
     "cache-control": "no-store",
+    "content-security-policy": "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
   });
   res.end(body);
 }
 
 async function readFormBody(req) {
+  if (!String(req.headers["content-type"] || "").toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+    const error = new Error("Unsupported content type");
+    error.statusCode = 415;
+    throw error;
+  }
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 100000) throw new Error("Request body too large");
+    if (Buffer.byteLength(body, "utf8") > 100000) {
+      const error = new Error("Request body too large");
+      error.statusCode = 413;
+      throw error;
+    }
   }
   return Object.fromEntries(new URLSearchParams(body));
 }
 
-async function handleRequest(req, res, { token }) {
+function renderLogin({ invalid = false } = {}) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · Muze Analytics</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101418; color: #edf2f7; }
+    main { width: min(420px, calc(100vw - 32px)); padding: 28px; border: 1px solid #2a3542; border-radius: 16px; background: #171d23; }
+    h1 { margin-top: 0; }
+    label, input, button { display: block; width: 100%; box-sizing: border-box; }
+    input { margin: 8px 0 18px; padding: 12px; border: 1px solid #526170; border-radius: 8px; }
+    button { padding: 12px; border: 0; border-radius: 8px; background: #3fc49f; color: #07130f; font-weight: 700; cursor: pointer; }
+    .error { color: #ffb4ab; }
+  </style>
+</head>
+<body><main>
+  <h1>Muze Analytics</h1>
+  <p>Enter the admin dashboard token to continue.</p>
+  ${invalid ? `<p class="error" role="alert">The token was not accepted.</p>` : ""}
+  <form method="post" action="/login">
+    <label for="token">Dashboard token</label>
+    <input id="token" name="token" type="password" autocomplete="current-password" required autofocus />
+    <button type="submit">Sign in</button>
+  </form>
+</main></body></html>`;
+}
+
+function redirect(res, location, headers = {}) {
+  res.writeHead(303, {
+    location,
+    "cache-control": "no-store",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
+    ...headers,
+  });
+  res.end();
+}
+
+async function handleRequest(req, res, {
+  token,
+  sessionSecret = token,
+  localMode = false,
+  requireSecure = false,
+  loginLimiter,
+}) {
   const url = new URL(req.url || "/", "http://localhost");
-  if (!isAuthorized(req, url, token)) {
-    return writeResponse(res, 401, "text/plain; charset=utf-8", "Unauthorized");
-  }
 
   if (url.pathname === "/health") {
     return writeResponse(res, 200, "application/json; charset=utf-8", JSON.stringify({ ok: true }));
   }
 
+  if (requireSecure && !isSecureRequest(req)) {
+    return writeResponse(res, 426, "text/plain; charset=utf-8", "HTTPS is required.");
+  }
+
+  if (url.pathname === "/login") {
+    if (localMode) return redirect(res, "/");
+    if (req.method === "GET") {
+      return writeResponse(res, 200, "text/html; charset=utf-8", renderLogin());
+    }
+    if (req.method !== "POST") {
+      res.setHeader("allow", "GET, POST");
+      return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
+    }
+    const key = req.socket?.remoteAddress || "unknown";
+    const attempt = loginLimiter.check(key);
+    if (!attempt.allowed) {
+      res.setHeader("retry-after", String(attempt.retryAfterSeconds));
+      return writeResponse(res, 429, "text/plain; charset=utf-8", "Too many sign-in attempts. Try again later.");
+    }
+    const form = await readFormBody(req);
+    if (!timingSafeMatch(form.token, token)) {
+      return writeResponse(res, 401, "text/html; charset=utf-8", renderLogin({ invalid: true }));
+    }
+    loginLimiter.clear(key);
+    return redirect(res, "/", {
+      "set-cookie": buildSessionCookie(createSession(sessionSecret), { secure: isSecureRequest(req) }),
+    });
+  }
+
+  let session = getSessionFromRequest(req, sessionSecret);
+  if (localMode && !session) {
+    const value = createSession(sessionSecret);
+    session = getSessionFromRequest({ headers: { cookie: `muze_admin_session=${value}` } }, sessionSecret);
+    res.setHeader("set-cookie", buildSessionCookie(value, { secure: isSecureRequest(req) }));
+  }
+  const apiAuthorized = isApiAuthorized(req, token);
+  if (!session && !apiAuthorized) {
+    if (url.pathname === "/" && req.method === "GET") return redirect(res, "/login");
+    return writeResponse(res, 401, "text/plain; charset=utf-8", "Unauthorized");
+  }
+
   if (url.pathname === "/api/snapshot") {
-    const snapshot = await getAnalyticsSnapshot();
+    if (req.method !== "GET") {
+      res.setHeader("allow", "GET");
+      return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
+    }
+    const snapshot = await getCachedAnalyticsSnapshot();
     return writeResponse(res, 200, "application/json; charset=utf-8", JSON.stringify(snapshot, null, 2));
   }
 
-  if (url.pathname === "/limits" && req.method === "POST") {
-    await updateOperationalLimits(await readFormBody(req));
-    const redirectParams = new URLSearchParams(url.searchParams);
-    redirectParams.set("saved", "1");
-    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
-    return res.end();
-  }
-
-  if (url.pathname === "/star-settings" && req.method === "POST") {
-    await updateStarSettings(await readFormBody(req), { actor: "analytics-dashboard" });
-    const redirectParams = new URLSearchParams(url.searchParams);
-    redirectParams.set("saved", "stars");
-    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
-    return res.end();
-  }
-
-  if (url.pathname === "/bot-appearance" && req.method === "POST") {
-    await updateBotAppearance(await readFormBody(req), { actor: "analytics-dashboard" });
-    const redirectParams = new URLSearchParams(url.searchParams);
-    redirectParams.set("saved", "appearance");
-    res.writeHead(303, { location: `/?${redirectParams.toString()}`, "cache-control": "no-store" });
-    return res.end();
+  const mutationRoutes = new Set(["/limits", "/star-settings", "/bot-appearance", "/logout"]);
+  if (mutationRoutes.has(url.pathname)) {
+    if (req.method !== "POST") {
+      res.setHeader("allow", "POST");
+      return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
+    }
+    if (apiAuthorized && !session) {
+      return writeResponse(res, 403, "text/plain; charset=utf-8", "Browser session and CSRF token required.");
+    }
+    const form = await readFormBody(req);
+    if (!verifyCsrfToken(form._csrf, session, sessionSecret)) {
+      return writeResponse(res, 403, "text/plain; charset=utf-8", "Invalid CSRF token.");
+    }
+    delete form._csrf;
+    if (url.pathname === "/logout") {
+      return redirect(res, "/login", {
+        "set-cookie": buildSessionCookie("", { secure: isSecureRequest(req), maxAge: 0 }),
+      });
+    }
+    if (url.pathname === "/limits") {
+      await updateOperationalLimits(form);
+      invalidateAnalyticsSnapshotCache();
+      return redirect(res, "/?saved=1");
+    }
+    if (url.pathname === "/star-settings") {
+      await updateStarSettings(form, { actor: "analytics-dashboard" });
+      invalidateAnalyticsSnapshotCache();
+      return redirect(res, "/?saved=stars");
+    }
+    await updateBotAppearance(form, { actor: "analytics-dashboard" });
+    invalidateAnalyticsSnapshotCache();
+    return redirect(res, "/?saved=appearance");
   }
 
   if (url.pathname === "/") {
-    const snapshot = await getAnalyticsSnapshot();
-    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard(snapshot, { actionSuffix: url.search }));
+    if (req.method !== "GET") {
+      res.setHeader("allow", "GET");
+      return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
+    }
+    const snapshot = await getCachedAnalyticsSnapshot();
+    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard(snapshot, {
+      saved: url.searchParams.get("saved") || "",
+      csrfToken: createCsrfToken(session, sessionSecret),
+      showLogout: !localMode,
+    }));
   }
 
   return writeResponse(res, 404, "text/plain; charset=utf-8", "Not found");
@@ -740,6 +887,10 @@ async function main() {
   const host = process.env.ADMIN_DASHBOARD_HOST || DEFAULT_HOST;
   const port = Number(process.env.ADMIN_DASHBOARD_PORT || DEFAULT_PORT);
   const token = String(process.env.ADMIN_DASHBOARD_TOKEN || "").trim();
+  const localMode = !token;
+  const requireSecure = !LOCAL_HOSTS.has(host);
+  const sessionSecret = token || crypto.randomBytes(32).toString("base64url");
+  const loginLimiter = createLoginAttemptLimiter();
 
   if (!token && !LOCAL_HOSTS.has(host)) {
     throw new Error("ADMIN_DASHBOARD_TOKEN is required when dashboard host is not localhost.");
@@ -751,9 +902,20 @@ async function main() {
 
   await connectDB(config);
   const server = http.createServer((req, res) => {
-    handleRequest(req, res, { token }).catch((error) => {
+    handleRequest(req, res, {
+      token,
+      sessionSecret,
+      localMode,
+      requireSecure,
+      loginLimiter,
+    }).catch((error) => {
       logger.error("Analytics dashboard request failed", error);
-      void writeResponse(res, 500, "text/plain; charset=utf-8", "Internal server error");
+      void writeResponse(
+        res,
+        Number(error?.statusCode) || 500,
+        "text/plain; charset=utf-8",
+        Number(error?.statusCode) < 500 ? error.message : "Internal server error",
+      );
     });
   });
 
@@ -781,7 +943,17 @@ async function main() {
   });
 }
 
-main().catch((error) => {
-  logger.error("Analytics dashboard failed to start", error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    logger.error("Analytics dashboard failed to start", error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  handleRequest,
+  readFormBody,
+  renderDashboard,
+  renderLogin,
+  writeResponse,
+};

@@ -180,6 +180,7 @@ test("getOrCreateUser creates users from alternate name fields", async () => {
   assert.equal(call.update.$setOnInsert.profileName, "");
   assert.equal(call.update.$setOnInsert.profileNameConfirmedAt, null);
   assert.equal(call.options.upsert, true);
+  assert.equal(call.options.maxTimeMS, 2500);
 });
 
 test("getOrCreateUser still upserts when platform name sanitizes to empty", async () => {

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { createAppContext } = require("../src/services/app-context");
+const { CapacityError } = require("../src/services/capacity-guard");
 const { logger } = require("../src/services/logger");
 
 test("app context carries the startup bot identity for dynamic user-facing links", () => {
@@ -9,6 +10,38 @@ test("app context carries the startup bot identity for dynamic user-facing links
   const appCtx = createAppContext({}, { userId: 1 }, { botInfo });
 
   assert.equal(appCtx.botInfo, botInfo);
+});
+
+test("sendToUser drops excess notification work without changing UI state", async () => {
+  let apiCalls = 0;
+  const recorded = [];
+  const notificationCapacity = {
+    run: async () => {
+      throw new CapacityError("queue_full");
+    },
+    getState: () => ({ active: 32, queued: 128, concurrency: 32, maxQueue: 128 }),
+  };
+  const ctx = {
+    telegram: {
+      callApi: async () => {
+        apiCalls += 1;
+        return true;
+      },
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1 }, {
+    notificationCapacity,
+    recordCapacityEvent: (event) => recorded.push(event),
+  });
+
+  assert.equal(await appCtx.sendToUser(2, "private content"), false);
+  assert.equal(apiCalls, 0);
+  assert.deepEqual(recorded, [{
+    resource: "telegram_notification",
+    reason: "queue_full",
+    state: { active: 32, queued: 128, concurrency: 32, maxQueue: 128 },
+  }]);
+  assert.equal(JSON.stringify(recorded).includes("private content"), false);
 });
 
 test("editMessageText treats missing edit targets as stale without warning", async () => {

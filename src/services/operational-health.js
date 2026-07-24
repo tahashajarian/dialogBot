@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 const OperationalEvent = require("../models/operational-event");
 const { logger } = require("./logger");
+const { getDatabaseHealth } = require("./database-health");
 
 const BOT_HEARTBEAT_KIND = "bot_heartbeat";
 const AI_API_KIND = "ai_api";
 const UPDATE_PERFORMANCE_KIND = "update_performance";
+const CAPACITY_KIND = "capacity";
 const HEARTBEAT_STALE_MS = 2 * 60 * 1000;
 
 function sanitizeReason(reason) {
@@ -73,6 +75,22 @@ function recordUpdatePerformanceEvent({ route, durationMs, metadata = {} }) {
       telegramApiMaxMs: Math.max(0, Number(metadata.telegramApiMaxMs) || 0),
       userDocumentBytes: Math.max(0, Number(metadata.userDocumentBytes) || 0),
       stages: metadata.stages && typeof metadata.stages === "object" ? metadata.stages : {},
+      sampleReason: metadata.sampleReason === "baseline" ? "baseline" : "slow",
+    },
+  });
+}
+
+function recordCapacityEvent({ resource, reason, state = {} }) {
+  return recordOperationalEvent({
+    kind: CAPACITY_KIND,
+    ok: false,
+    operation: String(resource || "unknown").slice(0, 80),
+    reason,
+    metadata: {
+      active: Math.max(0, Number(state.active) || 0),
+      queued: Math.max(0, Number(state.queued) || 0),
+      concurrency: Math.max(0, Number(state.concurrency) || 0),
+      maxQueue: Math.max(0, Number(state.maxQueue) || 0),
     },
   });
 }
@@ -139,7 +157,7 @@ async function summarizeEvents({ kind, since }) {
 async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
   const since1h = new Date(now.getTime() - 60 * 60 * 1000);
   const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const [latestHeartbeat, aiLastHour, aiLast24h, aiTimeoutsLastHour, recentFailures, slowUpdates] = await Promise.all([
+  const [latestHeartbeat, aiLastHour, aiLast24h, aiTimeoutsLastHour, recentFailures, slowUpdates, capacityRows] = await Promise.all([
     OperationalEvent.findOne({ kind: BOT_HEARTBEAT_KIND }).sort({ createdAt: -1 }).lean(),
     summarizeEvents({ kind: AI_API_KIND, since: since1h }),
     summarizeEvents({ kind: AI_API_KIND, since: since24h }),
@@ -159,18 +177,24 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
       .limit(5000)
       .select("operation durationMs metadata createdAt")
       .lean(),
+    OperationalEvent.aggregate([
+      { $match: { kind: CAPACITY_KIND, createdAt: { $gte: since24h } } },
+      {
+        $group: {
+          _id: { resource: "$operation", reason: "$reason" },
+          count: { $sum: 1 },
+          lastAt: { $max: "$createdAt" },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]),
   ]);
 
   const heartbeatAt = latestHeartbeat?.createdAt || null;
   const heartbeatAgeMs = heartbeatAt ? now.getTime() - heartbeatAt.getTime() : null;
 
   return {
-    database: {
-      connected: mongoose.connection.readyState === 1,
-      readyState: mongoose.connection.readyState,
-      name: mongoose.connection.name || "",
-      host: mongoose.connection.host || "",
-    },
+    database: getDatabaseHealth(),
     bot: {
       recentlySeen: heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_STALE_MS,
       lastHeartbeatAt: heartbeatAt ? heartbeatAt.toISOString() : null,
@@ -201,9 +225,19 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
     },
     performance: {
       slowThresholdMs: 1500,
+      baselineSampleRate: 0.05,
       sampledEvents: slowUpdates.length,
       truncated: slowUpdates.length >= 5000,
       routes: summarizeUpdatePerformanceEvents(slowUpdates),
+    },
+    capacity: {
+      rejectedLast24h: capacityRows.reduce((sum, row) => sum + (row.count || 0), 0),
+      byReason: capacityRows.map((row) => ({
+        resource: row._id?.resource || "unknown",
+        reason: row._id?.reason || "unknown",
+        count: row.count || 0,
+        lastAt: row.lastAt?.toISOString?.() || null,
+      })),
     },
   };
 }
@@ -211,11 +245,13 @@ async function getOperationalHealthSnapshot({ now = new Date() } = {}) {
 module.exports = {
   AI_API_KIND,
   BOT_HEARTBEAT_KIND,
+  CAPACITY_KIND,
   HEARTBEAT_STALE_MS,
   UPDATE_PERFORMANCE_KIND,
   getOperationalHealthSnapshot,
   recordAiApiEvent,
   recordBotHeartbeat,
+  recordCapacityEvent,
   recordOperationalEvent,
   recordUpdatePerformanceEvent,
   summarizeUpdatePerformanceEvents,

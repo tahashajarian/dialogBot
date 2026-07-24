@@ -34,24 +34,44 @@ Without `ADMIN_DASHBOARD_TOKEN`, the dashboard can only bind to localhost. If
 you want to bind it to a public or private network interface, set a strong
 token first.
 
-Token access works with any of these:
+When a token is configured, open the dashboard normally:
 
 ```text
-Authorization: Bearer your_token
-x-dashboard-token: your_token
-http://127.0.0.1:8787/?token=your_token
+http://127.0.0.1:8787
 ```
+
+The dashboard shows a sign-in page and creates an HTTP-only, same-site session
+cookie after the token is accepted. The session expires after eight hours and
+can be ended earlier with **Log out**. Tokens in URL query strings and
+`x-dashboard-token` headers are deliberately not accepted, so the secret does
+not enter browser history or copied dashboard links.
+
+For scripted read-only snapshot access, send
+`Authorization: Bearer your_token` to `/api/snapshot`. Configuration-changing
+routes require the browser session and their per-session CSRF token.
+
+For access from another machine, keep the dashboard bound to `127.0.0.1` and
+place it behind a trusted HTTPS reverse proxy or an SSH tunnel. Do not expose
+the dashboard over plain HTTP. The reverse proxy must forward
+`X-Forwarded-Proto: https` so the dashboard marks its session cookie `Secure`.
+
+When no token is configured, localhost keeps its direct-open workflow. The
+dashboard silently creates a temporary local session so mutation forms still
+receive CSRF protection; that session is invalidated when the dashboard
+process restarts.
 
 ## Current Metrics
 
 - dashboard server uptime
-- MongoDB connection state
+- MongoDB connection/readiness state, including connected, connecting,
+  disconnecting, and disconnected lifecycle information
 - bot heartbeat freshness, when the bot process is running
 - AI API calls, failures, failure rate, average latency, recent failure reasons,
   and a billing/access alert when the provider explicitly reports exhausted quota,
   payment, authentication, or access errors
-- slow bot updates by route with p50/p95 latency, Telegram API time, and loaded
-  user-document size for the last 24 hours
+- update performance by route with p50/p95 latency, Telegram API time, and
+  loaded user-document size for the last 24 hours; this includes every slow
+  update plus a stable five-percent baseline sample
 - total, new, onboarded, named, active, saved-profile, and banned users
 - Top 10 and watchlist activity per section
 - users with 3+ items and full Top 10s, plus unlocked taste labels for Movies, Music, and Books only
@@ -105,6 +125,14 @@ The dashboard also reports aggregate Star ledger totals, outstanding balances, e
 
 The dashboard page auto-refreshes every 60 seconds so admin-visible metrics stay current while being watched. It skips the automatic reload after a settings form has been edited, so unsaved admin input is not lost.
 
+Dashboard snapshots are cached for 30 seconds, and concurrent page/JSON
+requests share the same in-progress snapshot build. User and list totals are
+calculated inside MongoDB rather than loading complete user documents into the
+dashboard process. Dashboard query groups have a ten-second execution limit;
+if a non-critical group fails, the page keeps the available metrics and shows
+a partial-data warning. Saving any dashboard setting invalidates the cache
+immediately.
+
 The interface is split into four focused views:
 
 - **Overview** shows the few numbers and health signals needed for a quick check.
@@ -132,11 +160,20 @@ Operational health data is intentionally lightweight:
 
 - bot heartbeat is recorded about once per minute
 - AI provider attempts are recorded without message text
+- overload rejections are grouped by resource and reason without user ids,
+  message text, prompts, profile data, or notification payloads
 - discussion-list open events are throttled per user/source
 - health events expire automatically after seven days
 - failures in health logging do not block bot behavior
-- only updates taking at least 1.5 seconds create performance events; they contain
-  route and numeric timing/size metadata, never message text or user/profile content
+- every update taking at least 1.5 seconds and a deterministic five-percent
+  baseline create performance events; they contain route and numeric
+  timing/size metadata, never message text or user/profile content
+
+The **Overload protection** system alert reports rejected AI and cross-user
+notification work from the last 24 hours. These records use the same seven-day
+TTL as other operational events. A nonzero value means the bounded queue
+protected the process; use the resource/reason breakdown to distinguish
+duplicate user requests, full queues, and queue wait timeouts.
 
 Product analytics events are also fire-and-forget. They should never block the
 bot response path, and metadata is restricted to small safe fields such as

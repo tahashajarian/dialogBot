@@ -1,3 +1,12 @@
+const UPDATE_BASELINE_SAMPLE_DENOMINATOR = 20;
+
+function shouldSampleUpdatePerformance(userId, durationMs, slowThresholdMs = 1500) {
+  if (Number(durationMs) >= slowThresholdMs) return true;
+  const normalizedUserId = Math.abs(Math.trunc(Number(userId)));
+  return Number.isFinite(normalizedUserId) && normalizedUserId > 0
+    && normalizedUserId % UPDATE_BASELINE_SAMPLE_DENOMINATOR === 0;
+}
+
 function createStageTimings(now = Date.now) {
   const stages = {};
 
@@ -56,7 +65,9 @@ function createRuntimeMetricsMonitor({
 }
 
 module.exports = {
+  UPDATE_BASELINE_SAMPLE_DENOMINATOR,
   createRuntimeMetricsMonitor,
   createStageTimings,
   estimateDocumentBytes,
+  shouldSampleUpdatePerformance,
 };

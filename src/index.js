@@ -23,6 +23,13 @@ const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owne
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
 const { normalizeCallbackRouteLabel } = require("./services/callback-contracts");
 const {
+  isDatabaseReady,
+  isTransientDatabaseError,
+  retryWithJitter,
+  sendTemporaryUnavailableNotice,
+  withTimeout,
+} = require("./services/runtime-resilience");
+const {
   handleChosenInlineListResult,
   handleInlineListQuery,
 } = require("./flows/inline-list-capture");
@@ -30,7 +37,9 @@ const {
   createRuntimeMetricsMonitor,
   createStageTimings,
   estimateDocumentBytes,
+  shouldSampleUpdatePerformance,
 } = require("./services/performance-metrics");
+const { createPeriodicRefresh } = require("./services/periodic-refresh");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -39,6 +48,8 @@ const ALLOWED_USERNAMES = config.allowedUsernames;
 const SLOW_UPDATE_MS = 1500;
 const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
 const BACKGROUND_SEND_TIMEOUT_MS = 2500;
+const HOT_PATH_QUERY_TIMEOUT_MS = 2500;
+const SETTINGS_REFRESH_INTERVAL_MS = 60 * 1000;
 
 function normalizeCallbackRoute(data = "") {
   return normalizeCallbackRouteLabel(data);
@@ -99,6 +110,9 @@ const bot = new Telegraf(
   buildTelegramOptions(config),
 );
 let botInfo = null;
+let shuttingDown = false;
+let activeUpdateCount = 0;
+const activeUpdateWaiters = new Set();
 
 async function sendBackgroundMessage(userId, text, extra = {}, lang = "fa") {
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
@@ -132,11 +146,6 @@ async function processUpdate(ctx) {
   const from = resolveUpdateUserSource(ctx);
   let user = null;
   try {
-    try {
-      await stageTimings.measure("appearanceRefreshMs", () => refreshBotAppearance());
-    } catch (appearanceError) {
-      logger.warn("Failed to refresh bot appearance settings; using cached/default values", appearanceError);
-    }
     if (!isAllowedUser(from)) {
       const lang = String(from?.language_code || from?.languageCode || "").toLowerCase().startsWith("en") ? "en" : "fa";
       const text = formatBotText(messages[lang].betaAccessOnly);
@@ -146,11 +155,19 @@ async function processUpdate(ctx) {
       await ctx.reply(text).catch(() => {});
       return;
     }
-
+    if (!isDatabaseReady()) {
+      await sendTemporaryUnavailableNotice(ctx, {
+        messages,
+        formatText: (text, lang) => localizeVisibleDigits(formatBotText(text), lang),
+      }).catch(() => {});
+      return;
+    }
     const normalizedSource = normalizePlatformUserSource(from);
     const rawText = String(ctx.message?.text || "").trim();
     let existingUser = normalizedSource
-      ? await stageTimings.measure("userExistenceLookupMs", () => User.findOne({ userId: normalizedSource.id }))
+      ? await stageTimings.measure("userExistenceLookupMs", () => (
+        User.findOne({ userId: normalizedSource.id }).maxTimeMS(HOT_PATH_QUERY_TIMEOUT_MS)
+      ))
       : null;
     const isStartAgain = rawText === messages.fa.accountStartAgainButton
       || rawText === messages.en.accountStartAgainButton;
@@ -204,14 +221,16 @@ async function processUpdate(ctx) {
     try {
       const result = await stageTimings.measure("handlerMs", () => handleUpdate(appCtx));
       const durationMs = Date.now() - startedAt;
+      const shouldRecordPerformance = shouldSampleUpdatePerformance(user?.userId, durationMs, SLOW_UPDATE_MS);
+      const performanceMetadata = shouldRecordPerformance ? {
+        telegramApiCalls: apiMetrics.count,
+        telegramApiTotalMs: apiMetrics.totalMs,
+        telegramApiMaxMs: apiMetrics.maxMs,
+        userDocumentBytes: estimateDocumentBytes(user),
+        stages: stageTimings.snapshot(),
+        sampleReason: durationMs >= SLOW_UPDATE_MS ? "slow" : "baseline",
+      } : null;
       if (durationMs >= SLOW_UPDATE_MS) {
-        const performanceMetadata = {
-          telegramApiCalls: apiMetrics.count,
-          telegramApiTotalMs: apiMetrics.totalMs,
-          telegramApiMaxMs: apiMetrics.maxMs,
-          userDocumentBytes: estimateDocumentBytes(user),
-          stages: stageTimings.snapshot(),
-        };
         logger.warn("Slow update processed", {
           durationMs,
           hasCallback: Boolean(ctx.callbackQuery),
@@ -225,6 +244,8 @@ async function processUpdate(ctx) {
           userDocumentBytes: performanceMetadata.userDocumentBytes,
           stages: performanceMetadata.stages,
         });
+      }
+      if (shouldRecordPerformance) {
         void recordUpdatePerformanceEvent({
           route: updateRoute,
           durationMs,
@@ -243,52 +264,105 @@ async function processUpdate(ctx) {
       stages: stageTimings.snapshot(),
       error,
     }));
+    if (isTransientDatabaseError(error) || !isDatabaseReady()) {
+      await sendTemporaryUnavailableNotice(ctx, {
+        user,
+        messages,
+        formatText: (text, lang) => localizeVisibleDigits(formatBotText(text), lang),
+      }).catch(() => {});
+      return;
+    }
     throw error;
   }
 }
 
-bot.on("message", processUpdate);
-bot.on("callback_query", processUpdate);
-bot.on("inline_query", async (ctx) => {
-  if (!isAllowedUser(ctx.inlineQuery?.from || ctx.from)) {
-    await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+function finishTrackedUpdate() {
+  activeUpdateCount = Math.max(0, activeUpdateCount - 1);
+  if (activeUpdateCount === 0) {
+    for (const resolve of activeUpdateWaiters) resolve();
+    activeUpdateWaiters.clear();
+  }
+}
+
+function waitForActiveUpdates() {
+  if (activeUpdateCount === 0) return Promise.resolve();
+  return new Promise((resolve) => activeUpdateWaiters.add(resolve));
+}
+
+async function trackedProcessUpdate(ctx) {
+  if (shuttingDown) {
+    await sendTemporaryUnavailableNotice(ctx, {
+      messages,
+      formatText: (text, lang) => localizeVisibleDigits(formatBotText(text), lang),
+    }).catch(() => {});
     return;
   }
+  activeUpdateCount += 1;
   try {
-    await handleInlineListQuery(ctx);
-  } catch (error) {
-    logger.warn("Inline list query failed", {
-      userId: Number(ctx.inlineQuery?.from?.id || ctx.from?.id) || null,
-      error: error?.message || error,
-    });
-    await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+    return await processUpdate(ctx);
+  } finally {
+    finishTrackedUpdate();
+  }
+}
+
+bot.on("message", trackedProcessUpdate);
+bot.on("callback_query", trackedProcessUpdate);
+bot.on("inline_query", async (ctx) => {
+  if (shuttingDown) return ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+  activeUpdateCount += 1;
+  try {
+    if (!isAllowedUser(ctx.inlineQuery?.from || ctx.from)) {
+      await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+      return;
+    }
+    try {
+      await handleInlineListQuery(ctx);
+    } catch (error) {
+      logger.warn("Inline list query failed", {
+        userId: Number(ctx.inlineQuery?.from?.id || ctx.from?.id) || null,
+        error: error?.message || error,
+      });
+      await ctx.answerInlineQuery([], { cache_time: 1, is_personal: true }).catch(() => {});
+    }
+  } finally {
+    finishTrackedUpdate();
   }
 });
 bot.on("chosen_inline_result", async (ctx) => {
-  if (!isAllowedUser(ctx.chosenInlineResult?.from || ctx.from)) return;
+  if (shuttingDown) return;
+  activeUpdateCount += 1;
   try {
-    const result = await handleChosenInlineListResult(ctx);
-    if (!result.ok) {
-      logger.warn("Chosen inline list item was not saved", {
+    if (!isAllowedUser(ctx.chosenInlineResult?.from || ctx.from)) return;
+    try {
+      const result = await handleChosenInlineListResult(ctx);
+      if (!result.ok) {
+        logger.warn("Chosen inline list item was not saved", {
+          userId: Number(ctx.chosenInlineResult?.from?.id || ctx.from?.id) || null,
+          reason: result.reason || "unknown",
+        });
+      }
+    } catch (error) {
+      logger.warn("Chosen inline list save failed", {
         userId: Number(ctx.chosenInlineResult?.from?.id || ctx.from?.id) || null,
-        reason: result.reason || "unknown",
+        error: error?.message || error,
       });
     }
-  } catch (error) {
-    logger.warn("Chosen inline list save failed", {
-      userId: Number(ctx.chosenInlineResult?.from?.id || ctx.from?.id) || null,
-      error: error?.message || error,
-    });
+  } finally {
+    finishTrackedUpdate();
   }
 });
 
 let pollingStarted = false;
-let shuttingDown = false;
 let heartbeatTimer = null;
 let ownerJoinSummaryTimer = null;
 let ownerJoinSummaryRunning = false;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const runtimeMetrics = createRuntimeMetricsMonitor({ intervalMs: HEARTBEAT_INTERVAL_MS });
+const appearanceRefreshLoop = createPeriodicRefresh({
+  name: "bot appearance settings",
+  refresh: () => refreshBotAppearance({ force: true }),
+  intervalMs: SETTINGS_REFRESH_INTERVAL_MS,
+});
 
 async function shutdown(reason, exitCode = 0) {
   if (shuttingDown) return;
@@ -310,9 +384,19 @@ async function shutdown(reason, exitCode = 0) {
     clearInterval(ownerJoinSummaryTimer);
     ownerJoinSummaryTimer = null;
   }
+  appearanceRefreshLoop.stop();
 
   try {
-    await disconnectDB();
+    await withTimeout(waitForActiveUpdates(), 5000, "active update drain");
+  } catch (error) {
+    logger.warn("Timed out waiting for active updates during shutdown", {
+      activeUpdateCount,
+      error: error?.message || error,
+    });
+  }
+
+  try {
+    await withTimeout(disconnectDB(), 5000, "database disconnect");
   } catch (error) {
     logger.error("Failed to disconnect database", error);
     exitCode = 1;
@@ -328,29 +412,6 @@ process.once("SIGTERM", () => {
   void shutdown("SIGTERM");
 });
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function retry(fn, {
-  attempts = 4,
-  delayMs = 1500,
-  onRetry = () => {},
-} = {}) {
-  let lastError = null;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (attempt >= attempts) break;
-      onRetry(error, attempt, attempts);
-      await sleep(delayMs * attempt);
-    }
-  }
-  throw lastError;
-}
-
 (async () => {
   try {
     logger.info("Connecting database");
@@ -359,31 +420,29 @@ async function retry(fn, {
     if (removedLegacyBoostIndex) {
       logger.info("Removed legacy one-boost-per-owner database index");
     }
-    try {
-      await refreshOperationalLimits({ force: true });
-    } catch (limitsError) {
-      logger.warn("Failed to load operational limits; using defaults", limitsError);
-    }
-    try {
-      await refreshStarSettings({ force: true });
-    } catch (starSettingsError) {
-      logger.warn("Failed to load Star economy settings; using defaults", starSettingsError);
-    }
-    try {
-      await refreshBotAppearance({ force: true });
-    } catch (appearanceError) {
-      logger.warn("Failed to load bot appearance settings; using defaults", appearanceError);
-    }
+    const settingsLoads = await Promise.allSettled([
+      refreshOperationalLimits({ force: true }),
+      refreshStarSettings({ force: true }),
+      refreshBotAppearance({ force: true }),
+    ]);
+    const settingNames = ["operational limits", "Star economy settings", "bot appearance settings"];
+    settingsLoads.forEach((result, index) => {
+      if (result.status === "rejected") {
+        logger.warn(`Failed to load ${settingNames[index]}; using defaults`, result.reason);
+      }
+    });
+    appearanceRefreshLoop.start();
     logger.info("Checking bot token/API via getMe");
-    botInfo = await retry(
+    botInfo = await retryWithJitter(
       () => bot.telegram.getMe(),
       {
         attempts: 5,
         delayMs: 2000,
-        onRetry: (error, attempt, attempts) => {
+        onRetry: (error, attempt, attempts, nextDelayMs) => {
           logger.warn("getMe failed; retrying", {
             attempt,
             maxRetries: attempts - 1,
+            nextDelayMs,
             error,
           });
         },

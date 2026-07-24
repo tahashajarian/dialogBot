@@ -101,6 +101,7 @@ function buildInterestSuggestionFallback({ lang, topTenItems = [] }) {
 }
 
 async function getAiSingleSuggestion({
+  userId,
   mode,
   lang,
   userText,
@@ -138,6 +139,7 @@ async function getAiSingleSuggestion({
       getModeInstruction(mode, lang),
     ].join(" ");
     const request = await requestSuggestionText(openai, {
+      userId,
       config: aiConfig,
       maxOutputTokens: DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
       instructions,
@@ -151,6 +153,9 @@ async function getAiSingleSuggestion({
     });
     const rawText = request.text;
     if (!rawText) {
+      if (request.capacityRejected) {
+        return { ok: false, reason: "capacity_busy" };
+      }
       if (mode === "random" && topTenItems.length) {
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }

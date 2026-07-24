@@ -24,19 +24,24 @@ One way to generate a token on the server is:
 openssl rand -hex 32
 ```
 
-After changing the environment, restart the dashboard service. The token is
-accepted through the `Authorization: Bearer <token>` or `X-Dashboard-Token`
-request header. Avoid the supported query-string token because URLs can remain
-in browser history and logs.
+After changing the environment, restart the dashboard service and open its
+normal URL. Sign in through the dashboard login page. Query-string and
+`X-Dashboard-Token` authentication are not accepted. Read-only snapshot scripts
+may use `Authorization: Bearer <token>`.
 
 ## High priority: application protections
 
+- [x] Require a signed dashboard session for settings-changing requests when a
+  token is configured, while retaining an automatically protected local session
+  for tokenless localhost development.
+- [x] Remove dashboard query-string token authentication and add CSRF
+  validation.
+- [x] Add dashboard security headers: Content Security Policy,
+  `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy`.
+- [ ] Add explicit trusted-proxy configuration if the dashboard is ever bound
+  directly to a non-loopback interface behind a reverse proxy.
 - [ ] Require dashboard authentication even on localhost for settings-changing
   requests.
-- [ ] Remove dashboard query-string token authentication and add CSRF and
-  `Origin` validation.
-- [ ] Add dashboard security headers: Content Security Policy,
-  `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy`.
 - [ ] Increase newly generated public profile codes from four characters to at
   least 10–12 cryptographically random characters. Continue accepting existing
   short codes for compatibility.
@@ -92,4 +97,3 @@ in browser history and logs.
 - User inputs have length and quality validation.
 - Update-error logging avoids full message text and full callback payloads.
 - `npm audit` reported zero known dependency vulnerabilities on 2026-07-23.
-

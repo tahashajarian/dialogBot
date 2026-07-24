@@ -13,6 +13,8 @@ module.exports = {
   navigationFootprintPeopleDiscovery: "👀 Discover people",
   navigationFootprintActiveDiscussions: "🟢 Active discussions",
   navigationFootprintMyDiscussions: "🗂 My discussions",
+  serviceTemporarilyUnavailable: "👩‍🦳 Muze is temporarily unavailable. Please try again shortly.",
+  serviceBusy: "👩‍🦳 Muze is busy right now. Please try again in a moment.",
     welcome: "👩‍🦳 Hi, I’m Muze.\n\nWe begin with the things you love—movies, music, books, and everything that feels like part of your world.\n\nHere you can shape your taste, get personal suggestions, discover people with shared interests, and join discussions related to your interests.\n\nStart from the menu below.",
     welcomeWithName: "👩‍🦳 Hi {name}, I’m Muze.\n\nWe begin with the things you love—movies, music, books, and everything that feels like part of your world.\n\nHere you can shape your taste, get personal suggestions, discover people with shared interests, and join discussions related to your interests.\n\nStart from the menu below.",
     onboardingWelcome: "👩‍🦳 Hi, I’m Muze.\n\nEverything you love becomes part of your taste.\n\nFrom movies, music, and books to anything that feels like part of your world.\n\nFirst, choose a few interests. Then you can get personal suggestions, discover people with shared interests, and join relevant conversations.\n\nUse the buttons below to navigate. Send text only when I ask you to type.",

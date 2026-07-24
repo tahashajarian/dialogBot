@@ -221,6 +221,12 @@ sudo journalctl -u muze-bot -n 200 --no-pager
 
 Expected startup milestones include MongoDB connected, Telegram `getMe()` successful, starter discussions ready, webhook deletion attempted, and polling started. Treat repeated startup failures, authentication errors, or polling conflicts as blockers.
 
+MongoDB selection is bounded to five seconds, pool queue waits to 2.5 seconds,
+and sockets to 20 seconds. Temporary database loss marks the bot unready and
+produces a throttled bilingual retry notice without replacing the user's
+keyboard or changing their flow state. Telegram startup retries include jitter
+so multiple instances do not retry in lockstep.
+
 ## 7. Optional dashboard service
 
 ☐ Keep the dashboard separate from the bot process. Create a second systemd service using the same working directory and environment, with:
@@ -246,9 +252,9 @@ ssh -L 8787:127.0.0.1:8787 your_user@your_server_ip
 ```
 
 Then open `http://127.0.0.1:8787` locally. Do not put the dashboard token in
-the URL; send it through the supported authorization header. A properly
-authenticated private reverse proxy is an alternative for a later deployment,
-but port `8787` must remain closed to public inbound traffic.
+the URL; enter it on the dashboard sign-in page. A properly authenticated
+HTTPS reverse proxy is an alternative for a later deployment, but port `8787`
+must remain closed to public inbound traffic.
 
 ☐ Confirm the dashboard shows MongoDB connected, a fresh bot heartbeat, starter-room counts, and zero Star reconciliation mismatches.
 

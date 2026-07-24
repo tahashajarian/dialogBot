@@ -167,6 +167,7 @@ async function sendFollowupSuggestion({
   let suggestionResult = null;
   for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
     suggestionResult = await getAiSingleSuggestion({
+      userId: ctx.userId,
       mode: section,
       lang,
       userText: attempt === 0
@@ -195,7 +196,10 @@ async function sendFollowupSuggestion({
       await refundPaidSuggestion(paidSuggestion.quote._id, paidSuggestion.spend?.transaction?._id);
       return placeholder.finish(messages[lang].aiSuggestionPaidRefunded, aiSuggestionModeKeyboard(lang, section));
     }
-    const fallbackMessage = await placeholder.finish(messages[lang].aiNoResponse, aiSuggestionModeKeyboard(lang, section));
+    const fallbackMessage = await placeholder.finish(
+      suggestionResult.reason === "capacity_busy" ? messages[lang].serviceBusy : messages[lang].aiNoResponse,
+      aiSuggestionModeKeyboard(lang, section),
+    );
     try {
       await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
     } catch (error) {

@@ -14,6 +14,20 @@ Ordinary navigation is append-only chat history: converted destinations do not s
 
 - This repo contains a Telegram bot using Telegraf.
 - Runtime stack: Node.js and MongoDB.
+- MongoDB connections use bounded selection, connection, socket, pool-queue, and
+  pool-size settings. Runtime readiness follows the live Mongoose connection
+  state rather than process liveness alone.
+- During a transient database outage, the outer update boundary sends at most
+  one compact notice per user per 30 seconds. It does not change state,
+  navigation, cards, or reply keyboards, and it never retries a mutation.
+- Shutdown stops polling first, allows active message/callback updates up to
+  five seconds to finish, and bounds database disconnect to five seconds.
+- Bot appearance is read synchronously from memory while processing updates.
+  One non-overlapping background refresh checks MongoDB every minute, so normal
+  messages and callbacks never await the settings cache.
+- The indexed outer user lookup has a 2.5-second server-side execution limit.
+  Full user documents remain intentional because downstream flows maintain
+  coherent in-memory state after focused atomic mutations.
 - Main entry point: `src/index.js`.
 - Runtime environment parsing and validation lives in `src/config.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
@@ -72,6 +86,12 @@ Keep the router files thin:
 - `src/services/discussion-invitation-mutes.js` owns directional invitation-restriction pairs, list/count/unrestrict operations, and the cross-feature "restricted user cannot join the restricting user's created discussions" predicate. The historical filename/model remain for compatibility.
 - `src/services/discussion-join-rules.js` owns discussion join-rule payload validation and user eligibility checks.
 - `src/services/discussion-notifications.js` owns low-level discussion notification payload normalization and best-effort member delivery helpers.
+- `src/services/capacity-guard.js` owns reusable in-process concurrency,
+  bounded-queue, wait-timeout, and same-user admission rules.
+- `src/services/runtime-capacity.js` owns the shared AI and cross-user Telegram
+  delivery capacities. AI calls enter through `ai-client`; notification fan-out
+  enters through `app-context.sendToUser`, so ordinary replies and reply
+  keyboards are not changed by overload handling.
 - `src/services/discussion-messages.js` owns discussion message quota checks and recent-message append rules.
 - `src/services/discussion-starters.js` owns bot-created starter room seed definitions, idempotent startup seeding, the fixed 100-member recognized-starter capacity, and starter-room sort order.
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.

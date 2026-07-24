@@ -2,9 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  UPDATE_BASELINE_SAMPLE_DENOMINATOR,
   createRuntimeMetricsMonitor,
   createStageTimings,
   estimateDocumentBytes,
+  shouldSampleUpdatePerformance,
 } = require("../src/services/performance-metrics");
 
 test("stage timings accumulate durations without changing operation results", async () => {
@@ -48,4 +50,13 @@ test("runtime monitor reports event-loop lag and memory in megabytes", () => {
     heapUsedMb: 25,
     heapTotalMb: 40,
   });
+});
+
+test("performance sampling records every slow update and a stable five-percent baseline", () => {
+  assert.equal(UPDATE_BASELINE_SAMPLE_DENOMINATOR, 20);
+  assert.equal(shouldSampleUpdatePerformance(101, 1500), true);
+  assert.equal(shouldSampleUpdatePerformance(100, 20), true);
+  assert.equal(shouldSampleUpdatePerformance(101, 20), false);
+  assert.equal(shouldSampleUpdatePerformance(-100, 20), true);
+  assert.equal(shouldSampleUpdatePerformance(null, 20), false);
 });

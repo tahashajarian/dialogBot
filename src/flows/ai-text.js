@@ -436,6 +436,7 @@ async function sendSingleSectionSuggestion({
   for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
     const retryInstruction = "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
+      userId: ctx.userId,
       mode: section,
       lang,
       userText: attempt === 0
@@ -479,7 +480,7 @@ async function sendSingleSectionSuggestion({
       );
     }
     const fallbackMessage = await placeholder.finish(
-      messages[lang].aiNoResponse,
+      suggestionResult.reason === "capacity_busy" ? messages[lang].serviceBusy : messages[lang].aiNoResponse,
       aiSuggestionModeKeyboard(lang, section),
     );
     try {
