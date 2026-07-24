@@ -72,12 +72,13 @@ may use `Authorization: Bearer <token>`.
 
 ## Maintenance and supply chain
 
-- [ ] Enable Dependabot or Renovate for reviewed dependency updates.
+- [x] Configure Dependabot for reviewed npm and GitHub Actions updates.
 - [ ] Run `npm audit` and the full test suite before production deployments.
-- [ ] Enable repository secret scanning and run a full-history `gitleaks` scan.
-- [ ] Pin GitHub Actions to reviewed commit SHAs rather than mutable version
+- [x] Configure Gitleaks CI scanning with the full Git history available.
+- [ ] Review the first full-history Gitleaks result after pushing these workflows.
+- [x] Pin GitHub Actions to reviewed commit SHAs rather than mutable version
   tags.
-- [ ] Add CodeQL or equivalent static analysis to CI.
+- [x] Add CodeQL static analysis for JavaScript to CI.
 - [ ] Deploy reviewed commits/tags with `npm ci --omit=dev`.
 
 ## Recovery and operations
