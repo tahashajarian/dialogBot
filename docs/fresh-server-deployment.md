@@ -159,6 +159,18 @@ ADMIN_DASHBOARD_TOKEN=replace_with_strong_random_token
 validation succeeds. Remote `API_ROOT` and `API_BASE_URL` values must use
 HTTPS; HTTP is accepted only for loopback services.
 
+Validate the bot environment without starting it or printing secret values:
+
+```bash
+npm run validate:production-config
+```
+
+If the dashboard will run on this host, validate its token as well:
+
+```bash
+npm run validate:production-dashboard
+```
+
 ## 5. Initialize the fresh MongoDB
 
 ☐ From the application directory, load the production environment into the deployment shell using the host's secure mechanism, then create declared indexes:
