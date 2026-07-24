@@ -96,7 +96,6 @@ function withTimeout(promise, timeoutMs, label = "operation") {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
-    timeoutId.unref?.();
   });
   return Promise.race([Promise.resolve(promise), timeout])
     .finally(() => clearTimeout(timeoutId));
