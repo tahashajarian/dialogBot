@@ -126,7 +126,9 @@ sudo ufw status
 port and add no inbound rule for dashboard port `8787` or MongoDB port `27017`.
 
 ☐ Confirm the server can reach:
-- `api.telegram.org` over HTTPS, or configure a tested HTTP(S) `TELEGRAM_PROXY_URL`;
+- `api.telegram.org` directly over HTTPS. When direct access works, keep
+  `TELEGRAM_PROXY_URL` empty so production Telegram traffic does not take the
+  slower local-development proxy path;
 - the MongoDB endpoint;
 - the configured AI API endpoint.
 
@@ -177,7 +179,7 @@ BOT_TOKEN=replace_with_production_token
 MONGO_URI=replace_with_production_mongo_uri
 MONGO_DB_NAME=muze_telegram_production
 
-# Normal Telegram Bot API: leave empty.
+# Normal Telegram Bot API with direct VPS access: leave both empty.
 API_ROOT=
 TELEGRAM_PROXY_URL=
 
