@@ -18,6 +18,8 @@ const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 2;
 const PEOPLE_DISCOVERY_SCAN_LIMIT = 200;
 const PEOPLE_DISCOVERY_TASTE_LABEL_SECTIONS = Object.freeze(["movies", "music", "books"]);
+const PEOPLE_DISCOVERY_SCORE_BAND_SIZE = 5;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getPeopleDiscoveryMinSharedItems() {
   return Math.max(1, Number(operationalLimits.peopleDiscoveryMinSharedItems) || PEOPLE_DISCOVERY_MIN_SHARED_ITEMS);
@@ -94,6 +96,52 @@ function getPeopleDiscoveryScore(entry) {
   const tasteLabelScore = (entry.sharedTasteLabels || []).length * 15;
   const profileScore = entry.hasProfileName ? 3 : 0;
   return sharedScore + sectionScore + tasteLabelScore + profileScore;
+}
+
+function getStableProfileIdentity(entry = {}) {
+  const userId = Number(entry.userId);
+  if (Number.isInteger(userId)) return `id:${userId}`;
+  return `profile:${String(entry.code || entry.name || "")}`;
+}
+
+function hashDiscoveryRotationSeed(value) {
+  let hash = 2166136261;
+  for (const character of String(value || "")) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function sortPeopleDiscoveryItems(items = [], viewer = {}, now = new Date()) {
+  const dayNumber = Math.floor(new Date(now).getTime() / MILLISECONDS_PER_DAY);
+  const viewerId = Number(viewer?.userId) || 0;
+  const prepared = [...(items || [])].sort((a, b) => {
+    const savedOrder = Number(Boolean(a.isSaved)) - Number(Boolean(b.isSaved));
+    if (savedOrder !== 0) return savedOrder;
+    const bandA = Math.floor((Number(a.score) || 0) / PEOPLE_DISCOVERY_SCORE_BAND_SIZE);
+    const bandB = Math.floor((Number(b.score) || 0) / PEOPLE_DISCOVERY_SCORE_BAND_SIZE);
+    if (bandA !== bandB) return bandB - bandA;
+    const scoreOrder = (Number(b.score) || 0) - (Number(a.score) || 0);
+    if (scoreOrder !== 0) return scoreOrder;
+    return getStableProfileIdentity(a).localeCompare(getStableProfileIdentity(b));
+  });
+
+  const groups = [];
+  for (const entry of prepared) {
+    const band = Math.floor((Number(entry.score) || 0) / PEOPLE_DISCOVERY_SCORE_BAND_SIZE);
+    const groupKey = `${Number(Boolean(entry.isSaved))}:${band}`;
+    const current = groups.at(-1);
+    if (current?.key === groupKey) current.items.push(entry);
+    else groups.push({ key: groupKey, items: [entry] });
+  }
+
+  return groups.flatMap((group) => {
+    if (group.items.length < 2) return group.items;
+    const baseOffset = hashDiscoveryRotationSeed(`${viewerId}:${group.key}`) % group.items.length;
+    const offset = (baseOffset + dayNumber) % group.items.length;
+    return [...group.items.slice(offset), ...group.items.slice(0, offset)];
+  });
 }
 
 async function findTasteLabelCandidates(viewer, viewerTasteLabels, { limit }) {
@@ -200,8 +248,7 @@ async function findPeopleBySharedTaste(viewer, {
       entry.score = getPeopleDiscoveryScore(entry);
       items.push(entry);
     }
-    items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
-    const limitedItems = items.slice(0, resultLimit);
+    const limitedItems = sortPeopleDiscoveryItems(items, viewer).slice(0, resultLimit);
     trackPeopleDiscovery(viewer, { mode: "taste", resultCount: limitedItems.length });
     return { ok: true, items: limitedItems };
   }
@@ -245,9 +292,9 @@ async function findPeopleBySharedTaste(viewer, {
     items.push(entry);
   }
 
-  items.sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name)));
-  trackPeopleDiscovery(viewer, { mode: "taste", resultCount: items.length });
-  return { ok: true, items };
+  const sortedItems = sortPeopleDiscoveryItems(items, viewer);
+  trackPeopleDiscovery(viewer, { mode: "taste", resultCount: sortedItems.length });
+  return { ok: true, items: sortedItems };
 }
 
 async function ensurePeopleDiscoveryCodes(items = []) {
@@ -266,6 +313,7 @@ function paginatePeopleDiscovery(items = [], page = 0) {
 
 module.exports = {
   PEOPLE_DISCOVERY_MIN_SHARED_ITEMS,
+  PEOPLE_DISCOVERY_SCORE_BAND_SIZE,
   PEOPLE_DISCOVERY_TASTE_LABEL_SECTIONS,
   buildUserDiscoveryIndex,
   buildUserTasteLabelIndex,
@@ -275,4 +323,5 @@ module.exports = {
   getSharedSections,
   getSharedTasteLabels,
   paginatePeopleDiscovery,
+  sortPeopleDiscoveryItems,
 };

@@ -11,6 +11,7 @@ const {
   findPeopleBySharedTaste,
   getSharedSections,
   paginatePeopleDiscovery,
+  sortPeopleDiscoveryItems,
 } = require("../src/services/people-discovery");
 const {
   buildPeopleHubText,
@@ -309,6 +310,36 @@ test("people pagination uses canonical discover callbacks", () => {
   assert.ok(buttons.some((button) => button.text === `${messages.en.discussionListMorePage} ➡️`));
   assert.ok(buttons.some((button) => button.callback_data === `${callBacks.peopleDiscoverPage}1`));
   assert.equal(replyMarkup.keyboard, undefined);
+});
+
+test("people discovery orders every unsaved profile before saved profiles", () => {
+  const items = sortPeopleDiscoveryItems([
+    { userId: 2, name: "Saved strong match", score: 100, isSaved: true },
+    { userId: 3, name: "Unsaved weaker match", score: 10, isSaved: false },
+    { userId: 4, name: "Saved weaker match", score: 5, isSaved: true },
+    { userId: 5, name: "Unsaved strong match", score: 50, isSaved: false },
+  ], { userId: 1 }, new Date("2026-07-24T12:00:00.000Z"));
+
+  assert.deepEqual(items.map((entry) => entry.isSaved), [false, false, true, true]);
+});
+
+test("similar People scores rotate daily but stay stable throughout one UTC day", () => {
+  const candidates = [
+    { userId: 2, name: "A", score: 18, isSaved: false },
+    { userId: 3, name: "B", score: 17, isSaved: false },
+    { userId: 4, name: "C", score: 16, isSaved: false },
+  ];
+  const viewer = { userId: 1 };
+  const morning = sortPeopleDiscoveryItems(candidates, viewer, new Date("2026-07-24T01:00:00.000Z"));
+  const evening = sortPeopleDiscoveryItems(candidates, viewer, new Date("2026-07-24T22:00:00.000Z"));
+  const nextDay = sortPeopleDiscoveryItems(candidates, viewer, new Date("2026-07-25T01:00:00.000Z"));
+
+  assert.deepEqual(morning.map((entry) => entry.userId), evening.map((entry) => entry.userId));
+  assert.notDeepEqual(morning.map((entry) => entry.userId), nextDay.map((entry) => entry.userId));
+  assert.deepEqual(
+    new Set(morning.map((entry) => entry.userId)),
+    new Set(nextDay.map((entry) => entry.userId)),
+  );
 });
 
 test("people discovery ends with delete-only Close", () => {

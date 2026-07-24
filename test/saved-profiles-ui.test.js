@@ -75,6 +75,7 @@ test("buildSavedProfilesListText separates rows and hides discussions without vi
   ]);
 
   assert.match(text, new RegExp(messages.en.savedProfilesTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(text, /Saved profiles \(2\)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\./);
   assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n🗑 Remove from saved 👉 \/rm_A1/);
   assert.doesNotMatch(text, /\/ds_B2/);
   assert.doesNotMatch(text, /Invite this user/);
