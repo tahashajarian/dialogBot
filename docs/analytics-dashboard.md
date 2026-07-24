@@ -83,7 +83,7 @@ process restarts.
 - invitation status counts
 - AI response cache size and hit counts
 - product events for the last 24 hours and seven days
-- simple seven-day funnel with unique users
+- visual seven-day product journey with unique users, backed by the exact event table
 - guided seven-day journey rows for onboarding start/completion, starter-invitation preparation/opening, onboarding destination choices, discussion-list opening/joining, and first Favorites/People guidance exposure
 - Top 10 adds and suggestion requests by section
 
@@ -138,12 +138,22 @@ immediately.
 
 The interface is split into four focused views:
 
-- **Overview** shows the few numbers and health signals needed for a quick check.
+- **Overview** shows the few numbers and health signals needed for a quick check,
+  plus compact progress visuals for onboarding, discussion availability, and AI
+  reliability.
 - **Manage** contains bot limits, appearance, and Star settings. Only one editor
   opens at a time, larger editors are split into collapsible setting groups, and
   search opens the relevant group directly.
-- **Insights** contains user, funnel, discussion, list, invitation, and cache analytics.
-- **System** contains service health, AI failures, and Star ledger checks.
+- **Insights** contains user, product-journey, discussion, list, invitation, and
+  cache analytics. Accessible horizontal bars make relative activity easier to
+  scan while the adjacent tables preserve exact values.
+- **System** contains service health, AI failures, Star ledger checks, and a
+  p95 route-latency comparison beside the detailed performance table.
+
+The visualizations are rendered from the existing server snapshot with HTML and
+CSS. They add no browser analytics, third-party chart library, CDN dependency,
+or additional MongoDB query. Busy event and performance charts show the ten most
+important rows while their detailed tables continue to show every returned row.
 
 The selected view and expanded sections are remembered in the browser. Settings
 stay collapsed until needed to keep routine monitoring uncluttered.

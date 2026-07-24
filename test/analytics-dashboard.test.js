@@ -10,6 +10,7 @@ const {
   normalizeUserDashboardMetrics,
 } = require("../src/services/analytics-dashboard");
 const { EVENT_NAMES } = require("../src/services/analytics-events");
+const { renderDashboard } = require("../scripts/analytics-dashboard");
 
 function section(rows, name) {
   return rows.find((row) => row.section === name);
@@ -207,4 +208,80 @@ test("dashboard snapshot cache invalidation forces a fresh build", async () => {
   assert.equal((await cache.get()).build, 1);
   cache.invalidate();
   assert.equal((await cache.get()).build, 2);
+});
+
+test("dashboard renders accessible visual summaries alongside exact tables", () => {
+  const html = renderDashboard({
+    generatedAt: "2026-07-24T12:00:00.000Z",
+    users: {
+      total: 10,
+      new24h: 1,
+      new7d: 3,
+      onboardingCompleted: 7,
+      onboardingSkipped: 1,
+      namedProfiles: 6,
+      activeDiscussionUsers: 2,
+      savedProfileUsers: 4,
+      banned: 0,
+    },
+    discussions: {
+      total: 4,
+      open: 3,
+      closed: 1,
+      botCreated: 1,
+      created24h: 1,
+      created7d: 2,
+      active7d: 2,
+      totalMembers: 8,
+      totalMessages: 20,
+      totalReports: 0,
+    },
+    lists: [{
+      label: "Movies <script>",
+      topTenItems: 12,
+      watchlistItems: 3,
+      usersWithTopTenItem: 4,
+      usersWithThreeTopTen: 3,
+      usersWithFullTopTen: 1,
+      usersWithTasteLabel: 1,
+    }],
+    invitations: [],
+    events: {
+      funnel7d: [{ key: "Started", count: 8, users: 6 }],
+      last24h: [],
+      last7d: [],
+      topTenBySection7d: [],
+      suggestionsBySection7d: [],
+    },
+    stars: { transactions: [] },
+    health: {
+      bot: { recentlySeen: true },
+      aiApi: {
+        lastHour: { total: 2, failures: 0, failureRate: 0 },
+        last24h: { total: 10, failures: 2, failureRate: 0.2 },
+      },
+      performance: {
+        routes: [{
+          route: "text:fallback",
+          count: 5,
+          p50DurationMs: 500,
+          p95DurationMs: 1800,
+          p95TelegramMs: 1500,
+          p95UserDocumentBytes: 12000,
+        }],
+      },
+      alerts: [],
+    },
+    limits: {},
+    starSettings: {},
+    botAppearance: {},
+  });
+
+  assert.match(html, /class="bar-chart" role="img"/);
+  assert.match(html, /role="progressbar"/);
+  assert.match(html, /Product Journey/);
+  assert.match(html, /Route p95 latency comparison/);
+  assert.match(html, /Movies &lt;script&gt;/);
+  assert.doesNotMatch(html, /Movies <script>/);
+  assert.match(html, /<table>/);
 });

@@ -71,6 +71,86 @@ function percent(value) {
   return `${Math.round((Number(value) || 0) * 100)}%`;
 }
 
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Number(value) || 0));
+}
+
+function renderHorizontalBars(rows = [], {
+  emptyText = "No data yet",
+  ariaLabel = "Metric comparison",
+} = {}) {
+  const prepared = (rows || [])
+    .map((row) => ({
+      label: String(row.label || row.key || ""),
+      value: Math.max(0, Number(row.value) || 0),
+      note: String(row.note || ""),
+      displayValue: row.displayValue === undefined ? formatNumber(row.value) : String(row.displayValue),
+    }))
+    .filter((row) => row.label);
+  if (!prepared.length) return `<p class="muted">${escapeHtml(emptyText)}</p>`;
+  const maximum = Math.max(1, ...prepared.map((row) => row.value));
+  return `<div class="bar-chart" role="img" aria-label="${escapeHtml(ariaLabel)}">
+    ${prepared.map((row) => {
+      const width = clampPercent((row.value / maximum) * 100);
+      return `<div class="bar-row">
+        <div class="bar-meta">
+          <span class="bar-label">${escapeHtml(row.label)}</span>
+          <strong>${escapeHtml(row.displayValue)}</strong>
+        </div>
+        <div class="bar-track" aria-hidden="true"><span style="width:${width.toFixed(2)}%"></span></div>
+        ${row.note ? `<div class="bar-note">${escapeHtml(row.note)}</div>` : ""}
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+function renderProgressMetric(title, value, total, note = "") {
+  const safeValue = Math.max(0, Number(value) || 0);
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const ratio = safeTotal > 0 ? safeValue / safeTotal : 0;
+  return `<div class="progress-metric">
+    <div class="bar-meta">
+      <span class="bar-label">${escapeHtml(title)}</span>
+      <strong>${percent(ratio)}</strong>
+    </div>
+    <div class="bar-track" role="progressbar" aria-label="${escapeHtml(title)}" aria-valuemin="0" aria-valuemax="${safeTotal}" aria-valuenow="${Math.min(safeValue, safeTotal)}">
+      <span style="width:${clampPercent(ratio * 100).toFixed(2)}%"></span>
+    </div>
+    <div class="bar-note">${formatNumber(safeValue)} of ${formatNumber(safeTotal)}${note ? ` · ${escapeHtml(note)}` : ""}</div>
+  </div>`;
+}
+
+function renderFunnelChart(rows = []) {
+  const prepared = (rows || []).map((row) => {
+    const users = Math.max(0, Number(row.users) || 0);
+    return {
+      label: row.key,
+      value: users,
+      displayValue: `${formatNumber(users)} users`,
+      note: `${formatNumber(row.count)} events`,
+    };
+  });
+  return renderHorizontalBars(prepared, {
+    emptyText: "No funnel events yet",
+    ariaLabel: "Seven-day product journey activity by unique users",
+  });
+}
+
+function renderEventBars(rows = [], ariaLabel = "Event comparison") {
+  const mostFrequent = [...(rows || [])]
+    .sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
+    .slice(0, 10)
+    .map((row) => ({
+      label: row.key,
+      value: row.count,
+      note: `${formatNumber(row.users)} unique users`,
+    }));
+  return renderHorizontalBars(mostFrequent, {
+    emptyText: "No events yet",
+    ariaLabel,
+  });
+}
+
 function renderSectionTable(rows = []) {
   return `<table>
     <thead>
@@ -265,6 +345,21 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
   const { users, discussions, health } = snapshot;
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
+  const listActivityRows = (snapshot.lists || []).map((row) => ({
+    label: row.label,
+    value: (Number(row.topTenItems) || 0) + (Number(row.watchlistItems) || 0),
+    note: `${formatNumber(row.topTenItems)} Favorites · ${formatNumber(row.watchlistItems)} For Later`,
+  }));
+  const performanceRows = [...(health?.performance?.routes || [])]
+    .sort((a, b) => (Number(b.p95DurationMs) || 0) - (Number(a.p95DurationMs) || 0))
+    .slice(0, 10)
+    .map((row) => ({
+      label: row.route,
+      value: row.p95DurationMs,
+      displayValue: `${formatNumber(row.p95DurationMs)} ms`,
+      note: `p50 ${formatNumber(row.p50DurationMs)} ms · Telegram p95 ${formatNumber(row.p95TelegramMs)} ms`,
+    }));
+  const aiSuccesses = Math.max(0, (Number(aiDay.total) || 0) - (Number(aiDay.failures) || 0));
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -436,6 +531,18 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     .view-button { white-space: nowrap; background: transparent; color: var(--muted); padding: 8px 13px; }
     .view-button.active { background: var(--accent); color: white; }
     .overview-grid { margin-bottom: 18px; }
+    .overview-visuals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .visual-card { background: var(--panel); border: 1px solid var(--soft-line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+    .visual-title { margin: 0 0 12px; font-size: 14px; }
+    .bar-chart { display: grid; gap: 14px; padding: 14px 16px; }
+    .bar-row, .progress-metric { display: grid; gap: 6px; min-width: 0; }
+    .bar-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; font-size: 13px; }
+    .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .bar-meta strong { flex: 0 0 auto; font-size: 12px; }
+    .bar-track { height: 9px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--line) 55%, var(--panel)); }
+    .bar-track > span { display: block; min-width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, #69d7ba)); }
+    .bar-note { color: var(--muted); font-size: 11px; }
+    .chart-table-grid { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(440px, 1.4fr); gap: 12px; align-items: start; }
     .overview-grid .card:first-child { background: var(--accent); color: white; border-color: transparent; }
     .overview-grid .card:first-child .card-title, .overview-grid .card:first-child .card-note { color: rgba(255,255,255,.75); }
     .view-heading { margin: 6px 0 2px; }
@@ -454,6 +561,7 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       th, td { padding: 9px; }
       .panel { overflow-x: auto; }
       .manage-guide { grid-template-columns: 1fr; }
+      .overview-visuals, .chart-table-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 420px) { .grid, .compact-grid { grid-template-columns: 1fr; } }
   </style>
@@ -482,11 +590,27 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       <button type="button" class="view-button" data-view-button="system">System</button>
     </nav>
 
-    <section class="grid overview-grid" data-overview>
-      ${card("Total users", users.total, `+${formatNumber(users.new7d)} this week`)}
-      ${card("Open discussions", discussions.open, `${formatNumber(discussions.active7d)} active this week`)}
-      ${card("AI calls today", aiDay.total || 0, `${percent(aiDay.failureRate)} failure rate`)}
-      ${statusCard("Bot status", Boolean(health?.bot?.recentlySeen), health?.bot?.recentlySeen ? "Heartbeat is current" : "Heartbeat needs attention")}
+    <section data-overview>
+      <div class="grid overview-grid">
+        ${card("Total users", users.total, `+${formatNumber(users.new7d)} this week`)}
+        ${card("Open discussions", discussions.open, `${formatNumber(discussions.active7d)} active this week`)}
+        ${card("AI calls today", aiDay.total || 0, `${percent(aiDay.failureRate)} failure rate`)}
+        ${statusCard("Bot status", Boolean(health?.bot?.recentlySeen), health?.bot?.recentlySeen ? "Heartbeat is current" : "Heartbeat needs attention")}
+      </div>
+      <div class="overview-visuals">
+        <div class="visual-card">
+          <h2 class="visual-title">Onboarding completion</h2>
+          ${renderProgressMetric("Completed", users.onboardingCompleted, users.total)}
+        </div>
+        <div class="visual-card">
+          <h2 class="visual-title">Discussion availability</h2>
+          ${renderProgressMetric("Open rooms", discussions.open, discussions.total)}
+        </div>
+        <div class="visual-card">
+          <h2 class="visual-title">AI reliability, 24h</h2>
+          ${renderProgressMetric("Successful calls", aiSuccesses, aiDay.total || 0, `${formatNumber(aiDay.failures || 0)} failed`)}
+        </div>
+      </div>
     </section>
 
     <div class="settings-tools" data-settings-tools hidden>
@@ -579,9 +703,16 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       ${collapsibleSection("Slow Update Performance", `<div class="grid compact-grid">
       ${card("Performance samples", health?.performance?.sampledEvents || 0, `All slow updates plus ${percent(health?.performance?.baselineSampleRate || 0.05)} deterministic baseline`)}
       ${statusCard("Sample completeness", !health?.performance?.truncated, health?.performance?.truncated ? "Latest 5,000 samples shown" : "All retained 24h samples included")}
-    </div><div class="panel">${renderPerformanceTable(health?.performance?.routes || [])}</div>`, { note: "p50/p95 by route, last 24h", view: "system" })}
+    </div><div class="chart-table-grid">
+      <div class="panel">${renderHorizontalBars(performanceRows, { emptyText: "No performance samples yet", ariaLabel: "Route p95 latency comparison" })}</div>
+      <div class="panel">${renderPerformanceTable(health?.performance?.routes || [])}</div>
+    </div>`, { note: "p50/p95 by route, last 24h", view: "system" })}
 
-      ${collapsibleSection("Users", `<div class="grid compact-grid">
+      ${collapsibleSection("Users", `<div class="overview-visuals">
+      <div class="visual-card">${renderProgressMetric("Onboarding complete", users.onboardingCompleted, users.total)}</div>
+      <div class="visual-card">${renderProgressMetric("Named profiles", users.namedProfiles, users.total)}</div>
+      <div class="visual-card">${renderProgressMetric("Use Saved Profiles", users.savedProfileUsers, users.total)}</div>
+    </div><div class="grid compact-grid">
       ${card("Total Users", users.total)}
       ${card("New 24h", users.new24h)}
       ${card("New 7d", users.new7d)}
@@ -593,19 +724,41 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       ${card("Banned", users.banned)}
     </div>`, { open: true, note: "growth and profile state" })}
 
-      ${collapsibleSection("Product Funnel", `<div class="panel">${renderEventTable(snapshot.events?.funnel7d || [], "No funnel events yet")}</div>`, { open: true, note: "last 7 days" })}
+      ${collapsibleSection("Product Journey", `<div class="chart-table-grid">
+      <div class="panel">${renderFunnelChart(snapshot.events?.funnel7d || [])}</div>
+      <div class="panel">${renderEventTable(snapshot.events?.funnel7d || [], "No journey events yet")}</div>
+    </div>`, { open: true, note: "unique users and events, last 7 days" })}
 
-      ${collapsibleSection("Events, Last 24 Hours", `<div class="panel">${renderEventTable(snapshot.events?.last24h || [])}</div>`, { note: "detailed" })}
+      ${collapsibleSection("Events, Last 24 Hours", `<div class="chart-table-grid">
+      <div class="panel">${renderEventBars(snapshot.events?.last24h || [], "Events in the last 24 hours")}</div>
+      <div class="panel">${renderEventTable(snapshot.events?.last24h || [])}</div>
+    </div>`, { note: "visual comparison and exact totals" })}
 
-      ${collapsibleSection("Events, Last 7 Days", `<div class="panel">${renderEventTable(snapshot.events?.last7d || [])}</div>`, { note: "detailed" })}
+      ${collapsibleSection("Events, Last 7 Days", `<div class="chart-table-grid">
+      <div class="panel">${renderEventBars(snapshot.events?.last7d || [], "Events in the last seven days")}</div>
+      <div class="panel">${renderEventTable(snapshot.events?.last7d || [])}</div>
+    </div>`, { note: "visual comparison and exact totals" })}
 
-      ${collapsibleSection("Top 10 Adds By Section", `<div class="panel">${renderEventTable(snapshot.events?.topTenBySection7d || [])}</div>`, { note: "last 7 days" })}
+      ${collapsibleSection("Top 10 Adds By Section", `<div class="chart-table-grid">
+      <div class="panel">${renderEventBars(snapshot.events?.topTenBySection7d || [], "Top 10 additions by section")}</div>
+      <div class="panel">${renderEventTable(snapshot.events?.topTenBySection7d || [])}</div>
+    </div>`, { note: "last 7 days" })}
 
-      ${collapsibleSection("Suggestion Requests By Section", `<div class="panel">${renderEventTable(snapshot.events?.suggestionsBySection7d || [])}</div>`, { note: "last 7 days" })}
+      ${collapsibleSection("Suggestion Requests By Section", `<div class="chart-table-grid">
+      <div class="panel">${renderEventBars(snapshot.events?.suggestionsBySection7d || [], "Suggestion requests by section")}</div>
+      <div class="panel">${renderEventTable(snapshot.events?.suggestionsBySection7d || [])}</div>
+    </div>`, { note: "last 7 days" })}
 
-      ${collapsibleSection("Lists And Taste", `<div class="panel">${renderSectionTable(snapshot.lists)}</div>`, { note: "all sections" })}
+      ${collapsibleSection("Lists And Taste", `<div class="chart-table-grid">
+      <div class="panel">${renderHorizontalBars(listActivityRows, { emptyText: "No list activity yet", ariaLabel: "List items by section" })}</div>
+      <div class="panel">${renderSectionTable(snapshot.lists)}</div>
+    </div>`, { note: "section comparison and exact totals" })}
 
-      ${collapsibleSection("Discussions", `<div class="grid compact-grid">
+      ${collapsibleSection("Discussions", `<div class="overview-visuals">
+      <div class="visual-card">${renderProgressMetric("Open rooms", discussions.open, discussions.total)}</div>
+      <div class="visual-card">${renderProgressMetric("Active this week", discussions.active7d, discussions.total, "of all rooms")}</div>
+      <div class="visual-card">${renderProgressMetric("Bot starter rooms", discussions.botCreated, discussions.total)}</div>
+    </div><div class="grid compact-grid">
       ${card("Total Discussions", discussions.total)}
       ${card("Open", discussions.open)}
       ${card("Closed", discussions.closed)}
@@ -663,7 +816,7 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       settingsTools.hidden = view !== "manage";
       manageGuide.hidden = view !== "manage";
       sections.forEach((section) => {
-        section.hidden = view === "overview" ? !["health", "users", "product-funnel", "discussions"].includes(section.dataset.section) : section.dataset.view !== view;
+        section.hidden = view === "overview" ? !["health", "users", "product-journey", "discussions"].includes(section.dataset.section) : section.dataset.view !== view;
       });
     };
     viewButtons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewButton)));
