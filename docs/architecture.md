@@ -92,6 +92,11 @@ Keep the router files thin:
   delivery capacities. AI calls enter through `ai-client`; notification fan-out
   enters through `app-context.sendToUser`, so ordinary replies and reply
   keyboards are not changed by overload handling.
+- `src/services/update-rate-limit.js` protects the pre-database update boundary
+  with a generous general burst limit and a stricter direct `/u_CODE` lookup
+  limit. Internal profile buttons and callbacks are not treated as code scans.
+  `src/services/rate-limit-notice.js` sends a callback alert or a plain message
+  without editing cards, changing state, or replacing reply keyboards.
 - `src/services/discussion-messages.js` owns discussion message quota checks and recent-message append rules.
 - `src/services/discussion-starters.js` owns bot-created starter room seed definitions, idempotent startup seeding, the fixed 100-member recognized-starter capacity, and starter-room sort order.
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.

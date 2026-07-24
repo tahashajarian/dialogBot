@@ -13,7 +13,11 @@ const { createAppContext } = require("./services/app-context");
 const { getRuntimeConfig, normalizeUsername } = require("./config");
 const { seedBotDiscussions } = require("./services/discussion-starters");
 const { logger } = require("./services/logger");
-const { recordBotHeartbeat, recordUpdatePerformanceEvent } = require("./services/operational-health");
+const {
+  recordBotHeartbeat,
+  recordCapacityEvent,
+  recordUpdatePerformanceEvent,
+} = require("./services/operational-health");
 const { refreshOperationalLimits } = require("./services/operational-limits");
 const { refreshStarSettings } = require("./services/star-settings");
 const { removeLegacyOwnerBoostIndex } = require("./services/discussion-boosts");
@@ -40,6 +44,8 @@ const {
   shouldSampleUpdatePerformance,
 } = require("./services/performance-metrics");
 const { createPeriodicRefresh } = require("./services/periodic-refresh");
+const { createUpdateRateLimits } = require("./services/update-rate-limit");
+const { sendRateLimitNotice } = require("./services/rate-limit-notice");
 const messages = require("./messages");
 const User = require("./models/user");
 
@@ -50,6 +56,7 @@ const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
 const BACKGROUND_SEND_TIMEOUT_MS = 2500;
 const HOT_PATH_QUERY_TIMEOUT_MS = 2500;
 const SETTINGS_REFRESH_INTERVAL_MS = 60 * 1000;
+const updateRateLimits = createUpdateRateLimits();
 
 function normalizeCallbackRoute(data = "") {
   return normalizeCallbackRouteLabel(data);
@@ -155,6 +162,25 @@ async function processUpdate(ctx) {
       await ctx.reply(text).catch(() => {});
       return;
     }
+    const normalizedSource = normalizePlatformUserSource(from);
+    const rawText = String(ctx.message?.text || "").trim();
+    const rateLimit = updateRateLimits.check({
+      userId: normalizedSource?.id,
+      text: rawText,
+    });
+    if (!rateLimit.allowed) {
+      void recordCapacityEvent({
+        resource: rateLimit.reason === "profile_lookup_rate_limit" ? "profile_lookup" : "update",
+        reason: "rate_limited",
+        state: {},
+      });
+      await sendRateLimitNotice(ctx, {
+        userId: normalizedSource?.id,
+        messages,
+        formatText: (text, lang) => localizeVisibleDigits(formatBotText(text), lang),
+      }).catch(() => {});
+      return;
+    }
     if (!isDatabaseReady()) {
       await sendTemporaryUnavailableNotice(ctx, {
         messages,
@@ -162,8 +188,6 @@ async function processUpdate(ctx) {
       }).catch(() => {});
       return;
     }
-    const normalizedSource = normalizePlatformUserSource(from);
-    const rawText = String(ctx.message?.text || "").trim();
     let existingUser = normalizedSource
       ? await stageTimings.measure("userExistenceLookupMs", () => (
         User.findOne({ userId: normalizedSource.id }).maxTimeMS(HOT_PATH_QUERY_TIMEOUT_MS)

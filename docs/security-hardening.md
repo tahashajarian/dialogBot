@@ -45,10 +45,10 @@ may use `Authorization: Bearer <token>`.
 - [ ] Increase newly generated public profile codes from four characters to at
   least 10–12 cryptographically random characters. Continue accepting existing
   short codes for compatibility.
-- [ ] Rate-limit repeated direct profile-code lookups and record suspicious
-  invalid-code scanning without logging submitted profile data.
-- [ ] Add a general per-Telegram-user update rate limit in addition to the
-  existing duplicate-tap and feature-specific limits.
+- [x] Rate-limit repeated direct profile-code lookups and record aggregate
+  blocked scanning attempts without logging submitted profile codes or data.
+- [x] Add a general per-Telegram-user update rate limit before database access,
+  in addition to duplicate-tap and feature-specific limits.
 - [ ] If beta access restrictions are used, authorize immutable numeric
   Telegram user IDs rather than usernames, which can change ownership.
 

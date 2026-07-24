@@ -10,6 +10,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/database-health.js`: MongoDB connection lifecycle monitoring and readiness snapshot.
 - `src/services/runtime-resilience.js`: transient database failure classification, throttled non-destructive outage notices, jittered retries, and bounded shutdown helpers.
 - `src/services/periodic-refresh.js`: non-overlapping background refresh lifecycle for cached runtime settings.
+- `src/services/update-rate-limit.js` and `src/services/rate-limit-notice.js`:
+  in-process per-user update/profile-lookup limits and non-destructive retry UX.
 - `src/bot.js`: text-message dispatcher. Keep this thin; route to flow/service helpers.
 - `src/callbacks.js`: callback-query dispatcher. Keep this thin; route to flow/service helpers.
 - `src/flows/callback-lifecycle.js`: stale-card protection, safe callback-card cleanup, and pre-dispatch cross-feature lifecycle policy.
