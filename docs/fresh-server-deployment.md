@@ -115,6 +115,30 @@ For pre-deployment validation, run the full checks in CI or in a separate build/
 
 ☐ Create `/etc/muze/muze.env` with permissions readable only by the service account/root. Do not place shell `export` statements in a systemd `EnvironmentFile`.
 
+If the two application secrets do not exist yet, generate them directly on
+the VPS without displaying them or placing their values in shell history:
+
+```bash
+sudo sh -c '
+set -eu
+umask 077
+ENV_FILE=/etc/muze/muze.env
+test -f "$ENV_FILE"
+
+grep -q "^ACCOUNT_DELETION_SECRET=.\+" "$ENV_FILE" ||
+  printf "\nACCOUNT_DELETION_SECRET=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
+
+grep -q "^ADMIN_DASHBOARD_TOKEN=.\+" "$ENV_FILE" ||
+  printf "ADMIN_DASHBOARD_TOKEN=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
+
+chmod 600 "$ENV_FILE"
+'
+```
+
+This intentionally does not replace a non-empty existing value. Never rotate
+`ACCOUNT_DELETION_SECRET` during an ordinary deployment: changing it breaks
+account-deletion/recreation identity continuity.
+
 ```dotenv
 NODE_ENV=production
 BOT_TOKEN=replace_with_production_token
@@ -208,6 +232,7 @@ User=muze
 Group=muze
 WorkingDirectory=/opt/muze
 EnvironmentFile=/etc/muze/muze.env
+ExecStartPre=/usr/bin/npm run validate:production-config
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5
@@ -249,6 +274,7 @@ so multiple instances do not retry in lockstep.
 ☐ Keep the dashboard separate from the bot process. Create a second systemd service using the same working directory and environment, with:
 
 ```ini
+ExecStartPre=/usr/bin/npm run validate:production-dashboard
 ExecStart=/usr/bin/npm run dashboard
 ```
 
@@ -302,7 +328,150 @@ must remain closed to public inbound traffic.
 
 ## 9. Backups, monitoring, and updates
 
-☐ Enable automated MongoDB backups before real users arrive. Test restoration into a separate database; never test restore over production.
+### Encrypted MongoDB backup setup
+
+The following pattern uses MongoDB Database Tools archive/gzip output and
+encrypts it immediately with an `age` public recipient. Keep the corresponding
+private identity offline and outside the VPS. A backup stored only on the same
+VPS is not sufficient; copy each encrypted result to separately controlled
+off-host storage.
+
+☐ Install compatible MongoDB Database Tools and `age`, then verify:
+
+```bash
+mongodump --version
+mongorestore --version
+age --version
+```
+
+☐ On a trusted administrator machine—not the VPS—create the encryption
+identity, store it in the password manager/offline recovery location, and copy
+only the public recipient line to the VPS:
+
+```bash
+age-keygen -o muze-backup-identity.txt
+age-keygen -y muze-backup-identity.txt > muze-backup-recipients.txt
+```
+
+Install only `muze-backup-recipients.txt` at
+`/etc/muze/backup-recipients.txt`. The `AGE-SECRET-KEY-...` identity must not
+exist on the production VPS.
+
+☐ Create root-only `/etc/muze/backup.env`. Shell-quote values so special URI
+characters remain literal:
+
+```bash
+MONGO_BACKUP_URI='mongodb://backup_user:replace_password@127.0.0.1:27017/?authSource=admin'
+MONGO_BACKUP_DB='muze_telegram_production'
+BACKUP_RETENTION_DAYS='14'
+```
+
+Use a dedicated least-privilege MongoDB backup user. Protect both backup files:
+
+```bash
+sudo chown root:root /etc/muze/backup.env /etc/muze/backup-recipients.txt
+sudo chmod 600 /etc/muze/backup.env
+sudo chmod 644 /etc/muze/backup-recipients.txt
+sudo install -d -o root -g root -m 700 /var/backups/muze
+```
+
+☐ Create `/usr/local/sbin/muze-mongodb-backup`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+source /etc/muze/backup.env
+BACKUP_DIR=/var/backups/muze
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+FINAL="$BACKUP_DIR/muze-$STAMP.archive.gz.age"
+TEMP="$FINAL.tmp"
+
+cleanup() { rm -f -- "$TEMP"; }
+trap cleanup EXIT
+
+mongodump \
+  --uri="$MONGO_BACKUP_URI" \
+  --db="$MONGO_BACKUP_DB" \
+  --archive \
+  --gzip |
+  age -R /etc/muze/backup-recipients.txt -o "$TEMP"
+
+test -s "$TEMP"
+mv -- "$TEMP" "$FINAL"
+chmod 600 "$FINAL"
+find "$BACKUP_DIR" -type f -name 'muze-*.archive.gz.age' \
+  -mtime "+$BACKUP_RETENTION_DAYS" -delete
+```
+
+```bash
+sudo chown root:root /usr/local/sbin/muze-mongodb-backup
+sudo chmod 700 /usr/local/sbin/muze-mongodb-backup
+sudo /usr/local/sbin/muze-mongodb-backup
+sudo find /var/backups/muze -maxdepth 1 -type f -name '*.age' -ls
+```
+
+The command must finish successfully and create one non-empty encrypted file.
+Configure the chosen off-host storage client to upload only `*.age` files.
+Verify the remote object exists before relying on retention cleanup.
+
+☐ Schedule the backup with `/etc/systemd/system/muze-backup.service`:
+
+```ini
+[Unit]
+Description=Encrypted Muze MongoDB backup
+After=mongod.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/muze-mongodb-backup
+User=root
+```
+
+Create `/etc/systemd/system/muze-backup.timer`:
+
+```ini
+[Unit]
+Description=Daily encrypted Muze MongoDB backup
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+Persistent=true
+RandomizedDelaySec=20m
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now muze-backup.timer
+sudo systemctl list-timers muze-backup.timer
+```
+
+### Mandatory restore test
+
+☐ Copy one encrypted backup to a separate non-production restore host with the
+offline `age` identity. Restore into a new database name, never production:
+
+```bash
+export RESTORE_URI='mongodb://restore_user:replace_password@127.0.0.1:27017/?authSource=admin'
+export SOURCE_DB='muze_telegram_production'
+export RESTORE_DB='muze_restore_test'
+
+age --decrypt -i ./muze-backup-identity.txt ./muze-YYYYMMDDTHHMMSSZ.archive.gz.age |
+  mongorestore \
+    --uri="$RESTORE_URI" \
+    --archive \
+    --gzip \
+    --drop \
+    --nsFrom="${SOURCE_DB}.*" \
+    --nsTo="${RESTORE_DB}.*"
+```
+
+Confirm expected collections and representative counts, then delete only the
+separate restore-test database. Record the test date, backup filename,
+operator, result, and tool versions without recording credentials.
 
 ☐ Monitor service restarts, disk space, MongoDB availability, Telegram/AI failures, slow updates, reports, and Star reconciliation.
 
