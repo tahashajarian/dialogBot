@@ -244,5 +244,16 @@ UserSchema.index(
   { bannedAt: 1, profileName: 1, firstName: 1, userId: 1 },
   { name: "people_browse_candidates" },
 );
+for (const section of ["movies", "music", "books"]) {
+  UserSchema.index(
+    {
+      [`aiTaste.${section}.labelKey`]: 1,
+      bannedAt: 1,
+      showProfileInPeopleDiscovery: 1,
+      userId: 1,
+    },
+    { name: `people_${section}_taste_label_candidates` },
+  );
+}
 
 module.exports = mongoose.model("User", UserSchema);

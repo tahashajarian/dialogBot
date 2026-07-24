@@ -319,7 +319,7 @@ test("buildProfileText omits unset optional profile rows", () => {
   assert.doesNotMatch(text, /Location:/);
   assert.doesNotMatch(text, /Bio:/);
   assert.doesNotMatch(text, /—/);
-  assert.match(text, /━━━━━━━━━━━━━━━━━━/);
+  assert.match(text, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
 });
 
 test("buildProfileText uses the wider visible divider for stable card width", () => {
@@ -327,7 +327,7 @@ test("buildProfileText uses the wider visible divider for stable card width", ()
     profileName: "Ali",
   }, "en", messages, { isOwnProfile: false });
 
-  assert.match(text, /User profile:\n━━━━━━━━━━━━━━━━━━\n👤 Name: Ali/);
+  assert.match(text, /User profile:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 Name: Ali/);
 });
 
 test("saveLocationProfile returns before background city lookup resolves", async () => {

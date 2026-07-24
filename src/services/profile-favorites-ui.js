@@ -6,11 +6,10 @@ const {
   getTasteLabelTitle,
 } = require("./ai-section");
 const { getAiListItemsFromUser } = require("./users");
-const { formatUserDisplayName } = require("./profile");
+const { formatUserDisplayName, PROFILE_CARD_DIVIDER } = require("./profile");
 const { MEDIA_SECTIONS } = require("./profile-sharing");
 
 const MEDIA_CAPTION_LIMIT = 1024;
-const PROFILE_CARD_DIVIDER = "━━━━━━━━━━━━━━━━━━";
 
 function compactPublicValue(value, maxLength) {
   const chars = Array.from(String(value || "").trim().replace(/\s+/g, " "));
@@ -40,6 +39,7 @@ function buildPublicFavoritesHubText(user, lang) {
   const locale = lang === "fa" ? "fa-IR" : "en-US";
   const lines = [
     messages[lang].profileFavoritesHubTitle.replace("{name}", displayName),
+    PROFILE_CARD_DIVIDER,
     "",
     ...sections.map(({ section, items }) => messages[lang].profileFavoritesSectionCount
       .replace("{emoji}", getSectionEmoji(section))

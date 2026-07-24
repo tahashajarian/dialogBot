@@ -11,6 +11,7 @@ const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
 const ACTIVE_DISCUSSION_HELP_COMMAND = "/ad_help";
+const PROFILE_CARD_DIVIDER = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
 
 function lineForLang(lang, text) {
   return lang === "fa" ? `${RTL_MARK}${text}` : text;
@@ -305,7 +306,7 @@ function buildProfileText(user, lang, messages, { isOwnProfile = false } = {}) {
   const lines = [
     ...(isOwnProfile ? [lineForLang(lang, messages[lang].profileOwnerTip), ""] : []),
     lineForLang(lang, `${titleIcon} ${title}`),
-    lineForLang(lang, "━━━━━━━━━━━━━━━━━━"),
+    lineForLang(lang, PROFILE_CARD_DIVIDER),
     lineForLang(lang, lang === "fa" ? `👤 نام: ${isolateText(lang, displayNameWithEmoji)}` : `👤 ${messages[lang].profileName}: ${displayNameWithEmoji}`),
   ];
 
@@ -449,6 +450,7 @@ async function sendProfileMessage({
 }
 
 module.exports = {
+  PROFILE_CARD_DIVIDER,
   ACTIVE_DISCUSSION_HELP_COMMAND,
   buildProfileText,
   buildProfileInterestsText,

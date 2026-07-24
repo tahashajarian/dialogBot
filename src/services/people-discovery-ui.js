@@ -1,5 +1,6 @@
 const { PAGINATION } = require("../constants/pagination");
 const { callBacks } = require("../constants");
+const { getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 
 function buildPeopleHubText(messages, lang, { showFirstVisitTip = false } = {}) {
   return [
@@ -37,6 +38,14 @@ function formatSharedLine(messages, lang, sharedSection) {
     .replace("{count}", formatListIndex(lang, sharedSection.count));
 }
 
+function formatTasteLabelMatchLine(messages, lang, sharedTasteLabel) {
+  const { section, labelKey } = sharedTasteLabel;
+  return messages[lang].peopleDiscoverTasteLabelLine
+    .replace("{section}", sectionLabel(messages, lang, section))
+    .replace("{emoji}", getTasteLabelEmoji(section, labelKey))
+    .replace("{label}", getTasteLabelTitle(messages, lang, section, labelKey));
+}
+
 function buildPeopleDiscoveryText(messages, lang, items = [], {
   startIndex = 0,
   title = messages[lang].peopleDiscoverTitle,
@@ -60,10 +69,12 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
       : lang === "fa"
         ? `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👈 ${saveCommand}`
         : `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👉 ${saveCommand}`;
-    const sharedLines = showSharedSections ? (entry.sharedSections || [])
-      .slice(0, 2)
-      .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`)
-      .join("\n") : "";
+    const sharedLines = showSharedSections ? [
+      ...(entry.sharedTasteLabels || [])
+        .map((shared) => `🏷 ${formatTasteLabelMatchLine(messages, lang, shared)}`),
+      ...(entry.sharedSections || [])
+        .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`),
+    ].slice(0, 2).join("\n") : "";
     const personEmoji = entry.genderEmoji || "👤";
     const age = Number(entry.age);
     const ageSuffix = Number.isInteger(age) && age > 0

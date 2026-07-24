@@ -1,8 +1,9 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const mongoose = require("mongoose");
 const User = require("../src/models/user");
 const UserTasteIndex = require("../src/models/user-taste-index");
+const { getTasteLabelEmoji } = require("../src/services/ai-section");
 const { syncUserTasteIndex } = require("../src/services/user-taste-index");
 const { getStarSettingsState, updateStarSettings } = require("../src/services/star-settings");
 
@@ -16,6 +17,7 @@ const clusters = [
     music: ["Radiohead", "Daft Punk", "Hans Zimmer"],
     books: ["Dune", "Foundation", "1984"],
     random: ["science fiction", "space", "philosophy", "cinema"],
+    tasteLabels: { movies: "sci_fi_fan", music: "electronic_fan", books: "sci_fi_explorer" },
   },
   {
     name: "Indie mood",
@@ -23,6 +25,7 @@ const clusters = [
     music: ["Lana Del Rey", "Arctic Monkeys", "The Smiths", "Tame Impala"],
     books: ["Norwegian Wood", "The Little Prince", "Normal People"],
     random: ["coffee", "walking", "photography", "slow movies"],
+    tasteLabels: { movies: "romance_fan", music: "indie_spirit", books: "novel_reader" },
   },
   {
     name: "Fantasy readers",
@@ -30,6 +33,7 @@ const clusters = [
     music: ["Florence and the Machine", "Aurora", "Hozier"],
     books: ["The Hobbit", "Harry Potter", "The Name of the Wind", "Mistborn"],
     random: ["fantasy", "mythology", "storytelling", "board games"],
+    tasteLabels: { movies: "fantasy_fan", music: "indie_spirit", books: "fantasy_dreamer" },
   },
   {
     name: "Crime and classics",
@@ -37,6 +41,7 @@ const clusters = [
     music: ["Nirvana", "Pink Floyd", "The Beatles"],
     books: ["Crime and Punishment", "The Stranger", "Animal Farm", "The Trial"],
     random: ["classic cinema", "psychology", "history", "late night talks"],
+    tasteLabels: { movies: "cinephile", music: "rocker", books: "old_soul" },
   },
   {
     name: "Anime and games",
@@ -44,6 +49,7 @@ const clusters = [
     music: ["Kendrick Lamar", "Joji", "Nujabes", "Linkin Park"],
     books: ["Berserk", "One Piece", "The Alchemist"],
     random: ["anime", "gaming", "manga", "digital art"],
+    tasteLabels: { movies: "animation_lover", music: "hiphop_head", books: "fantasy_dreamer" },
   },
 ];
 
@@ -87,6 +93,22 @@ function rotate(values, index) {
   return [...values.slice(offset), ...values.slice(0, offset)];
 }
 
+function buildSeedTaste(cluster, itemCounts, now = new Date()) {
+  return Object.fromEntries(Object.entries(cluster.tasteLabels).map(([section, labelKey]) => [
+    section,
+    {
+      labelKey,
+      emoji: getTasteLabelEmoji(section, labelKey),
+      confidence: 1,
+      sampleCount: itemCounts[section],
+      source: "seed",
+      classificationStatus: "confirmed",
+      confirmedAt: now,
+      updatedAt: now,
+    },
+  ]));
+}
+
 function buildSeedUser(index) {
   const cluster = clusters[index % clusters.length];
   const secondary = clusters[(index + 1) % clusters.length];
@@ -96,6 +118,11 @@ function buildSeedUser(index) {
   const music = rotate([...cluster.music, ...secondary.music.slice(0, 2)], index).slice(0, 6);
   const books = rotate([...cluster.books, ...secondary.books.slice(0, 2)], index).slice(0, 6);
   const random = rotate([...cluster.random, ...secondary.random.slice(0, 2)], index).slice(0, 6);
+  const aiTaste = buildSeedTaste(cluster, {
+    movies: Math.min(5, movies.length),
+    music: Math.min(4, music.length),
+    books: Math.min(4, books.length),
+  });
 
   return {
     userId: SEED_USER_ID_START - index,
@@ -120,6 +147,7 @@ function buildSeedUser(index) {
       books: { topTen: asItems(books.slice(0, 4)), watchlist: asItems(books.slice(4)) },
       random: { topTen: asItems(random.slice(0, 4)), watchlist: asItems(random.slice(4)) },
     },
+    aiTaste,
     aiTopTenMovies: movies.slice(0, 5),
     aiWatchlistMovies: movies.slice(5),
     aiTopTenMusic: music.slice(0, 4),
@@ -211,10 +239,19 @@ async function run() {
   await mongoose.disconnect();
 }
 
-run().catch(async (error) => {
-  console.error("People test data seed failed:", error?.message || error);
-  try {
-    await mongoose.disconnect();
-  } catch {}
-  process.exit(1);
-});
+if (require.main === module) {
+  run().catch(async (error) => {
+    console.error("People test data seed failed:", error?.message || error);
+    try {
+      await mongoose.disconnect();
+    } catch {}
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  SEED_USER_ID_START,
+  buildSeedUser,
+  clusters,
+  parseArgs,
+};

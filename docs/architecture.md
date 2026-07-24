@@ -77,7 +77,7 @@ Keep the router files thin:
 - `src/services/discussion-text.js` owns shared discussion text normalization and link detection.
 - `src/services/discussion-delivery-memory.js` owns runtime-only delivered-message id mapping for platform-native discussion replies. Reply metadata and delivered ids should not be persisted.
 - `src/services/public-codes.js` owns public profile/discussion code normalization, generation, and lookup helpers.
-- `src/services/people-discovery.js` owns shared-item filtering, `showProfileInPeopleDiscovery` enforcement, ranking, and pagination for the free `👀 دیدن آدم‌ها` People entry.
+- `src/services/people-discovery.js` owns shared-item and exact same-section taste-label filtering, `showProfileInPeopleDiscovery` enforcement, ranking, and pagination for the free `👀 دیدن آدم‌ها` People entry.
 - `src/services/people-taste-matches.js` contains legacy time-limited Stars entitlement helpers kept for old callback/data compatibility; current People discovery does not charge Stars.
 - `src/services/people-discovery-ui.js` owns people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js` owns saved-profile bookmark mutation rules and caps.

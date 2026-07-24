@@ -10,6 +10,7 @@ const {
   hasPublicMediaFavorites,
 } = require("../src/services/profile-sharing");
 const {
+  buildPublicFavoritesHubText,
   buildPublicFavoritesSectionText,
   getPublicFavoriteSections,
 } = require("../src/services/profile-favorites-ui");
@@ -119,8 +120,12 @@ test("public Favorites sections use the same wider visible divider as profiles",
   };
 
   assert.match(
+    buildPublicFavoritesHubText(user, "en"),
+    /Ali's favorites\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎬 Movies — 1/,
+  );
+  assert.match(
     buildPublicFavoritesSectionText(user, "en", "movies"),
-    /favorite Movies\n━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
+    /favorite Movies\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
   );
 });
 

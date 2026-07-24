@@ -133,7 +133,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/saved-profiles-routing.js`: Saved Profiles and People callback recognition.
 - `src/services/saved-profile-discussions-ui.js`: source-aware profile-discussion parsing, return controls, and viewer-current-room decoration.
 - `src/services/profile-discussions.js`: read-only visible-open-discussion queries for public profile surfaces.
-- `src/services/people-discovery.js`: free shared-item matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
+- `src/services/people-discovery.js`: free shared-item and same-taste-label matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.

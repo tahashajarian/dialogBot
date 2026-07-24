@@ -93,6 +93,37 @@ test("people discovery returns users with at least 2 shared items and skips self
   }
 });
 
+test("people discovery also returns an exact same-section taste-label match", async () => {
+  const originalFind = User.find;
+  User.find = () => ({
+    select: () => ({
+      limit: () => ({
+        lean: async () => [
+          userWithMusic(2, ["jazz one"], {
+            aiTaste: { music: { labelKey: "rocker" } },
+          }),
+          userWithMusic(3, ["classical one"], {
+            aiTaste: { music: { labelKey: "classical_listener" } },
+          }),
+        ],
+      }),
+    }),
+  });
+
+  try {
+    const result = await findPeopleBySharedTaste(userWithMusic(1, ["metal one"], {
+      aiTaste: { music: { labelKey: "rocker" } },
+    }));
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.items.map((item) => item.userId), [2]);
+    assert.deepEqual(result.items[0].sharedSections, []);
+    assert.deepEqual(result.items[0].sharedTasteLabels, [{ section: "music", labelKey: "rocker" }]);
+  } finally {
+    User.find = originalFind;
+  }
+});
+
 test("people discovery honors a changed admin minimum", async () => {
   const originalMinimum = operationalLimits.peopleDiscoveryMinSharedItems;
   const originalFind = User.find;
@@ -158,6 +189,18 @@ test("people discovery UI renders shared sections and save/view commands", () =>
   assert.match(text, /۴ مورد مشترک/);
   assert.match(text, /\/u_AB12/);
   assert.match(text, /\/save_AB12/);
+});
+
+test("people discovery UI shows the localized shared taste label", () => {
+  const text = buildPeopleDiscoveryText(messages, "fa", [{
+    code: "u_AB12",
+    name: "طاها",
+    isSaved: false,
+    sharedTasteLabels: [{ section: "movies", labelKey: "sci_fi_fan" }],
+  }], { showSharedSections: true });
+
+  assert.match(text, /فیلم‌ها: 🚀 علمی‌تخیلی‌باز/);
+  assert.doesNotMatch(text, /sci_fi_fan/);
 });
 
 test("people discovery UI can hide shared sections for legacy plain rendering", () => {
@@ -371,4 +414,12 @@ test("taste matching ignores spacing and conservatively accepts nearby spelling 
   assert.equal(areTasteItemsEquivalent("شازده احتجاب", "شازده احتجلب"), true);
   assert.equal(areTasteItemsEquivalent("شازده احتجاب", "شازده‌احتجاب"), true);
   assert.equal(areTasteItemsEquivalent("علی", "علي"), true);
+});
+
+test("user schema indexes all three taste-label discovery lookups", () => {
+  const indexNames = User.schema.indexes().map(([, options]) => options.name);
+
+  assert.ok(indexNames.includes("people_movies_taste_label_candidates"));
+  assert.ok(indexNames.includes("people_music_taste_label_candidates"));
+  assert.ok(indexNames.includes("people_books_taste_label_candidates"));
 });
