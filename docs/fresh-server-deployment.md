@@ -65,11 +65,6 @@ repository. A successful local test run does not replace them.
 ☐ Push the exact release commit and confirm the normal **CI** workflow passes.
 Do not deploy a commit with failing or cancelled checks.
 
-☐ Confirm the **CodeQL** workflow completes successfully and review every new
-security finding. If GitHub reports that code scanning is unavailable, enable
-GitHub code scanning/Advanced Security for the repository or record and run an
-equivalent reviewed static-analysis check before deployment.
-
 ☐ Run the **Secret scanning** workflow manually once and review the first
 full-history Gitleaks result. The checkout used by this workflow includes the
 complete Git history, so old removed secrets can still be detected.
@@ -79,14 +74,20 @@ before production. Removing it from the current file or marking the workflow
 green does not make an exposed credential safe. Add a narrow reviewed
 allowlist only for a confirmed false positive.
 
-☐ Confirm Dependabot recognizes both the `npm` and `github-actions`
-configurations. Review its pull requests normally; never auto-deploy an
-unreviewed dependency or workflow update.
+☐ Confirm the dependency graph, Dependabot alerts, malware alerts, security
+updates, and grouped security updates remain enabled. Confirm Dependabot
+recognizes both the `npm` and `github-actions` configurations. Review its pull
+requests normally; never auto-deploy an unreviewed dependency or workflow
+update.
 
 ☐ In the GitHub branch protection/ruleset for the production branch, require
-the available CI, CodeQL, and secret-scanning checks before merge. Record any
-check that cannot be required under the repository's current GitHub plan and
-verify it manually before each deployment.
+the available CI and secret-scanning checks before merge. Record any check that
+cannot be required under the repository's current GitHub plan and verify it
+manually before each deployment.
+
+GitHub CodeQL/code scanning is not available for this private repository under
+its current GitHub plan. The unsupported workflow is intentionally omitted;
+the normal CI workflow still runs ESLint and the full project validation.
 
 ## 2. Prepare the Linux host
 
@@ -513,7 +514,7 @@ operator, result, and tool versions without recording credentials.
 
 ☐ For each later release:
 1. review and validate the exact commit;
-2. push it and confirm required CI, CodeQL, and Gitleaks checks pass;
+2. push it and confirm required CI and Gitleaks checks pass;
 3. review pending Dependabot security updates and resolve applicable alerts;
 4. back up MongoDB;
 5. install with `npm ci --omit=dev`;
@@ -532,6 +533,6 @@ Application rollback must never assume database changes can be destructively rev
 - The bot connects to the intended fresh production database and Telegram bot.
 - Indexes and language-specific starter rooms exist.
 - Persian and English smoke tests pass.
-- GitHub CI, CodeQL, and full-history Gitleaks checks have been reviewed.
+- GitHub CI and full-history Gitleaks checks have been reviewed.
 - Dashboard/health and Star reconciliation are clean.
 - Backups and monitoring are active.

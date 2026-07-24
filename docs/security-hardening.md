@@ -73,12 +73,16 @@ may use `Authorization: Bearer <token>`.
 ## Maintenance and supply chain
 
 - [x] Configure Dependabot for reviewed npm and GitHub Actions updates.
+- [x] Enable the dependency graph, Dependabot vulnerability and malware alerts,
+  security updates, and grouped security updates in repository settings.
 - [ ] Run `npm audit` and the full test suite before production deployments.
 - [x] Configure Gitleaks CI scanning with the full Git history available.
 - [ ] Review the first full-history Gitleaks result after pushing these workflows.
 - [x] Pin GitHub Actions to reviewed commit SHAs rather than mutable version
   tags.
-- [x] Add CodeQL static analysis for JavaScript to CI.
+- [x] Run ESLint as part of the normal CI validation.
+- GitHub CodeQL/code scanning is unavailable for this private repository under
+  its current GitHub plan, so it is intentionally not a required check.
 - [ ] Deploy reviewed commits/tags with `npm ci --omit=dev`.
 
 ## Recovery and operations
