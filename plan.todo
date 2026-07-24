@@ -7,3 +7,19 @@
 
 ☐ think about seeing people can choose the lang, and maybe viewing proifle need spend star, think about it and maybe sort them with most common items, they can see gender and age and name if they want to see profile need spend one star for example
 
+☐ visualise dashboard data
+☐ on /start if it's not onboarding just show the main menu with the banner of welcome message, only on start, i mean if they press start no need to explain the bot again
+
+cd /opt/muze
+
+# Back up MongoDB first
+git fetch origin
+git checkout <reviewed-commit-sha>
+
+npm ci --omit=dev
+npm run validate:production-config
+npm run create:indexes
+
+sudo systemctl restart muze
+sudo systemctl status muze --no-pager
+sudo journalctl -u muze -n 100 --no-pager
