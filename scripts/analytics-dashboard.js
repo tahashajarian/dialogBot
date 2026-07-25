@@ -2,6 +2,10 @@ require("dotenv").config();
 
 const http = require("http");
 const crypto = require("crypto");
+const os = require("os");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+const { readFile } = require("fs/promises");
 const { URL, URLSearchParams } = require("url");
 const connectDB = require("../src/db");
 const { disconnectDB } = require("../src/db");
@@ -38,6 +42,129 @@ const {
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+const execFileAsync = promisify(execFile);
+const SYSTEM_HEALTH_CACHE_TTL_MS = 30000;
+let systemHealthCache = { expiresAt: 0, value: null };
+
+async function runReadOnlyCommand(command, args = [], timeout = 3000) {
+  try {
+    const { stdout } = await execFileAsync(command, args, {
+      timeout,
+      maxBuffer: 64 * 1024,
+      windowsHide: true,
+    });
+    return { ok: true, output: String(stdout || "").trim() };
+  } catch (error) {
+    return {
+      ok: false,
+      output: String(error?.stdout || "").trim(),
+      error: error?.code === "ETIMEDOUT" ? "timed out" : String(error?.message || "command failed"),
+    };
+  }
+}
+
+function parseDiskUsage(output = "") {
+  const lines = String(output).trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return null;
+  const columns = lines[lines.length - 1].trim().split(/\s+/);
+  if (columns.length < 6) return null;
+  const totalBytes = Number(columns[1]) * 1024;
+  const usedBytes = Number(columns[2]) * 1024;
+  const availableBytes = Number(columns[3]) * 1024;
+  return {
+    filesystem: columns[0],
+    totalBytes,
+    usedBytes,
+    availableBytes,
+    usedRatio: totalBytes > 0 ? usedBytes / totalBytes : 0,
+    mountPoint: columns.slice(5).join(" "),
+  };
+}
+
+
+async function readLinuxMemory() {
+  try {
+    const contents = await readFile("/proc/meminfo", "utf8");
+    const values = {};
+    for (const line of contents.split(/\r?\n/)) {
+      const match = line.match(/^([A-Za-z_()]+):\s+(\d+)\s+kB$/);
+      if (match) values[match[1]] = Number(match[2]) * 1024;
+    }
+    const totalBytes = values.MemTotal || os.totalmem();
+    const availableBytes = values.MemAvailable ?? values.MemFree ?? os.freemem();
+    return {
+      totalBytes,
+      usedBytes: Math.max(0, totalBytes - availableBytes),
+      availableBytes,
+    };
+  } catch {
+    const totalBytes = os.totalmem();
+    const availableBytes = os.freemem();
+    return {
+      totalBytes,
+      usedBytes: Math.max(0, totalBytes - availableBytes),
+      availableBytes,
+    };
+  }
+}
+
+async function readServiceState(serviceName) {
+  const result = await runReadOnlyCommand("/usr/bin/systemctl", ["is-active", serviceName]);
+  const state = result.output.split(/\r?\n/)[0] || "unknown";
+  return {
+    state,
+    active: state === "active",
+    available: result.ok || Boolean(result.output),
+  };
+}
+
+async function getSystemHealth() {
+  const now = Date.now();
+  if (systemHealthCache.value && systemHealthCache.expiresAt > now) {
+    return systemHealthCache.value;
+  }
+
+  const [diskResult, botService, dashboardService, memory] = await Promise.all([
+    runReadOnlyCommand("/usr/bin/df", ["-Pk", "/"]),
+    readServiceState("muze-bot.service"),
+    readServiceState("muze-dashboard.service"),
+    readLinuxMemory(),
+  ]);
+
+  const totalMemoryBytes = memory.totalBytes;
+  const availableMemoryBytes = memory.availableBytes;
+  const usedMemoryBytes = memory.usedBytes;
+  const cpuCount = Math.max(1, os.cpus().length);
+  const loadAverage = os.loadavg();
+
+  const value = {
+    generatedAt: new Date().toISOString(),
+    hostname: os.hostname(),
+    platform: `${os.type()} ${os.release()}`,
+    uptimeSeconds: os.uptime(),
+    cpuCount,
+    loadAverage,
+    loadRatio1m: loadAverage[0] / cpuCount,
+    memory: {
+      totalBytes: totalMemoryBytes,
+      usedBytes: usedMemoryBytes,
+      availableBytes: availableMemoryBytes,
+      usedRatio: totalMemoryBytes > 0 ? usedMemoryBytes / totalMemoryBytes : 0,
+    },
+    disk: parseDiskUsage(diskResult.output),
+    services: {
+      bot: botService,
+      dashboard: dashboardService,
+    },
+    partial: !diskResult.ok || !botService.available || !dashboardService.available,
+  };
+
+  systemHealthCache = {
+    value,
+    expiresAt: now + SYSTEM_HEALTH_CACHE_TTL_MS,
+  };
+  return value;
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -51,10 +178,37 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-US").format(Number(value) || 0);
 }
 
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const amount = bytes / (1024 ** index);
+  return `${amount >= 10 || index === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`;
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 function card(title, value, note = "") {
   return `<section class="card">
     <div class="card-title">${escapeHtml(title)}</div>
     <div class="card-value">${formatNumber(value)}</div>
+    ${note ? `<div class="card-note">${escapeHtml(note)}</div>` : ""}
+  </section>`;
+}
+
+function textCard(title, value, note = "") {
+  return `<section class="card">
+    <div class="card-title">${escapeHtml(title)}</div>
+    <div class="card-value">${escapeHtml(value)}</div>
     ${note ? `<div class="card-note">${escapeHtml(note)}</div>` : ""}
   </section>`;
 }
@@ -117,6 +271,22 @@ function renderProgressMetric(title, value, total, note = "") {
       <span style="width:${clampPercent(ratio * 100).toFixed(2)}%"></span>
     </div>
     <div class="bar-note">${formatNumber(safeValue)} of ${formatNumber(safeTotal)}${note ? ` · ${escapeHtml(note)}` : ""}</div>
+  </div>`;
+}
+
+function renderByteProgressMetric(title, value, total, note = "") {
+  const safeValue = Math.max(0, Number(value) || 0);
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const ratio = safeTotal > 0 ? safeValue / safeTotal : 0;
+  return `<div class="progress-metric">
+    <div class="bar-meta">
+      <span class="bar-label">${escapeHtml(title)}</span>
+      <strong>${percent(ratio)}</strong>
+    </div>
+    <div class="bar-track" role="progressbar" aria-label="${escapeHtml(title)}" aria-valuemin="0" aria-valuemax="${safeTotal}" aria-valuenow="${Math.min(safeValue, safeTotal)}">
+      <span style="width:${clampPercent(ratio * 100).toFixed(2)}%"></span>
+    </div>
+    <div class="bar-note">${formatBytes(safeValue)} of ${formatBytes(safeTotal)}${note ? ` · ${escapeHtml(note)}` : ""}</div>
   </div>`;
 }
 
@@ -343,6 +513,7 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
 
 function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = false } = {}) {
   const { users, discussions, health } = snapshot;
+  const systemHealth = snapshot.systemHealth || {};
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
   const listActivityRows = (snapshot.lists || []).map((row) => ({
@@ -532,6 +703,7 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     .view-button.active { background: var(--accent); color: white; }
     .overview-grid { margin-bottom: 18px; }
     .overview-visuals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .vps-health-visuals { margin-top: 12px; }
     .visual-card { background: var(--panel); border: 1px solid var(--soft-line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
     .visual-title { margin: 0 0 12px; font-size: 14px; }
     .bar-chart { display: grid; gap: 14px; padding: 14px 16px; }
@@ -642,6 +814,67 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     activationRequiresRestart: snapshot.starSettingsActivationRequiresRestart,
     csrfToken,
   }), { note: "rewards, costs, safeguards, rollout", view: "manage" })}
+      ${collapsibleSection("VPS Health", `<div class="grid compact-grid">
+      ${statusCard(
+        "Bot Service",
+        Boolean(systemHealth?.services?.bot?.active),
+        systemHealth?.services?.bot?.available
+          ? `systemd: ${systemHealth.services.bot.state}`
+          : "Service state unavailable",
+      )}
+      ${statusCard(
+        "Dashboard Service",
+        Boolean(systemHealth?.services?.dashboard?.active),
+        systemHealth?.services?.dashboard?.available
+          ? `systemd: ${systemHealth.services.dashboard.state}`
+          : "Service state unavailable",
+      )}
+      ${statusCard(
+        "CPU Load",
+        (systemHealth?.loadRatio1m || 0) < 0.8,
+        `${Number(systemHealth?.loadAverage?.[0] || 0).toFixed(2)} load across ${formatNumber(systemHealth?.cpuCount || 0)} CPU(s)`,
+      )}
+      ${textCard(
+        "Memory Used",
+        `${Math.round((systemHealth?.memory?.usedRatio || 0) * 100)}%`,
+        `${formatBytes(systemHealth?.memory?.usedBytes)} of ${formatBytes(systemHealth?.memory?.totalBytes)}`,
+      )}
+      ${textCard(
+        "Disk Used",
+        `${Math.round((systemHealth?.disk?.usedRatio || 0) * 100)}%`,
+        systemHealth?.disk
+          ? `${formatBytes(systemHealth.disk.usedBytes)} of ${formatBytes(systemHealth.disk.totalBytes)} on ${systemHealth.disk.mountPoint}`
+          : "Disk metrics unavailable",
+      )}
+      ${textCard("VPS Uptime", formatDuration(systemHealth?.uptimeSeconds), systemHealth?.hostname || "Host")}
+    </div>
+    <div class="overview-visuals vps-health-visuals">
+      <div class="visual-card">
+        <h2 class="visual-title">Memory utilization</h2>
+        ${renderByteProgressMetric(
+          "Used memory",
+          systemHealth?.memory?.usedBytes || 0,
+          systemHealth?.memory?.totalBytes || 0,
+          `${formatBytes(systemHealth?.memory?.availableBytes)} available`,
+        )}
+      </div>
+      <div class="visual-card">
+        <h2 class="visual-title">Disk utilization</h2>
+        ${renderByteProgressMetric(
+          "Used disk",
+          systemHealth?.disk?.usedBytes || 0,
+          systemHealth?.disk?.totalBytes || 0,
+          `${formatBytes(systemHealth?.disk?.availableBytes)} available`,
+        )}
+      </div>
+      <div class="visual-card">
+        <h2 class="visual-title">Host</h2>
+        <div class="bar-note">${escapeHtml(systemHealth?.platform || "Platform unavailable")}</div>
+        <div class="bar-note">Metrics refresh at most every 30 seconds.</div>
+        ${systemHealth?.partial ? `<div class="bar-note">Some OS metrics are unavailable to the dashboard service user.</div>` : ""}
+      </div>
+    </div>`, { open: true, note: "CPU, memory, disk, uptime, services", view: "system" })}
+
       ${collapsibleSection("Stars Health", `<div class="grid compact-grid">
       ${card("Outstanding Stars", snapshot.stars?.outstanding || 0)}
       ${card("Unique Earners", snapshot.stars?.earners || 0)}
@@ -982,8 +1215,16 @@ async function handleRequest(req, res, {
       res.setHeader("allow", "GET");
       return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
     }
-    const snapshot = await getCachedAnalyticsSnapshot();
-    return writeResponse(res, 200, "application/json; charset=utf-8", JSON.stringify(snapshot, null, 2));
+    const [snapshot, systemHealth] = await Promise.all([
+      getCachedAnalyticsSnapshot(),
+      getSystemHealth(),
+    ]);
+    return writeResponse(
+      res,
+      200,
+      "application/json; charset=utf-8",
+      JSON.stringify({ ...snapshot, systemHealth }, null, 2),
+    );
   }
 
   const mutationRoutes = new Set(["/limits", "/star-settings", "/bot-appearance", "/logout"]);
@@ -1025,8 +1266,14 @@ async function handleRequest(req, res, {
       res.setHeader("allow", "GET");
       return writeResponse(res, 405, "text/plain; charset=utf-8", "Method not allowed");
     }
-    const snapshot = await getCachedAnalyticsSnapshot();
-    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard(snapshot, {
+    const [snapshot, systemHealth] = await Promise.all([
+      getCachedAnalyticsSnapshot(),
+      getSystemHealth(),
+    ]);
+    return writeResponse(res, 200, "text/html; charset=utf-8", renderDashboard({
+      ...snapshot,
+      systemHealth,
+    }, {
       saved: url.searchParams.get("saved") || "",
       csrfToken: createCsrfToken(session, sessionSecret),
       showLogout: !localMode,
