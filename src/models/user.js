@@ -69,6 +69,12 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
   favorites: { type: Date, default: null },
   forLaterInline: { type: Date, default: null },
   people: { type: Date, default: null },
+  favoritesBanner: { type: Date, default: null },
+  peopleBanner: { type: Date, default: null },
+  discussionsBanner: { type: Date, default: null },
+  moviesBanner: { type: Date, default: null },
+  musicBanner: { type: Date, default: null },
+  booksBanner: { type: Date, default: null },
 }, { _id: false });
 
 const UserSchema = new mongoose.Schema({

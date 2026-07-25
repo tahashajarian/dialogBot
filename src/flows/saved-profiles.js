@@ -354,9 +354,10 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "people");
   const text = buildPeopleHubText(messages, lang, { showFirstVisitTip });
   const keyboard = peopleHubKeyboard(lang);
+  const shouldShowBanner = !hasSectionTipBeenShown(ctx.user, "peopleBanner");
   let sent;
-  if (send) {
-    sent = await send(text, keyboard);
+  if (send || !shouldShowBanner) {
+    sent = send ? await send(text, keyboard) : await ctx.reply(text, keyboard);
   } else {
     try {
       sent = await sendBannerPhoto(ctx, {
@@ -365,6 +366,7 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
         configuredFileId: process.env.PEOPLE_SECTION_BANNER_FILE_ID,
         extra: { ...keyboard, caption: text },
       });
+      await markSectionTipShownForContext(ctx, "peopleBanner", new Date()).catch(() => null);
     } catch {
       sent = await ctx.reply(text, keyboard);
     }

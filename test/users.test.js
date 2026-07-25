@@ -14,29 +14,35 @@ const {
 const { awardListMilestones } = require("../src/services/star-milestones");
 
 test("normalizePlatformUserSource accepts Telegram and Bale-style user fields", () => {
-  assert.deepEqual(normalizePlatformUserSource({
-    id: 123,
-    username: "alice",
-    first_name: "Alice",
-    language_code: "en",
-  }), {
-    id: 123,
-    username: "alice",
-    firstName: "Alice",
-    languageCode: "en",
-  });
+  assert.deepEqual(
+    normalizePlatformUserSource({
+      id: 123,
+      username: "alice",
+      first_name: "Alice",
+      language_code: "en",
+    }),
+    {
+      id: 123,
+      username: "alice",
+      firstName: "Alice",
+      languageCode: "en",
+    },
+  );
 
-  assert.deepEqual(normalizePlatformUserSource({
-    userId: "456",
-    userName: "taha",
-    firstName: "Taha",
-    languageCode: "fa",
-  }), {
-    id: 456,
-    username: "taha",
-    firstName: "Taha",
-    languageCode: "fa",
-  });
+  assert.deepEqual(
+    normalizePlatformUserSource({
+      userId: "456",
+      userName: "taha",
+      firstName: "Taha",
+      languageCode: "fa",
+    }),
+    {
+      id: 456,
+      username: "taha",
+      firstName: "Taha",
+      languageCode: "fa",
+    },
+  );
 });
 
 test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
@@ -53,7 +59,9 @@ test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
   };
 
   assert.deepEqual(
-    getAiListItemsFromUser(user, "random", "topTen").map((entry) => entry.title),
+    getAiListItemsFromUser(user, "random", "topTen").map(
+      (entry) => entry.title,
+    ),
     ["Movies", "Languages", "Custom typed thing"],
   );
 });
@@ -67,6 +75,12 @@ test("section-tip state defaults independently and rejects unknown keys", async 
     favorites: null,
     forLaterInline: null,
     people: null,
+    favoritesBanner: null,
+    peopleBanner: null,
+    discussionsBanner: null,
+    moviesBanner: null,
+    musicBanner: null,
+    booksBanner: null,
   });
   assert.equal(hasSectionTipBeenShown(user, "discussions"), false);
   user.sectionTipsShownAt.discussions = new Date("2026-07-17T10:00:00.000Z");
@@ -120,13 +134,20 @@ test("section-tip context helper keeps synthetic contexts local", async () => {
   };
 
   try {
-    await markSectionTipShownForContext(ctx, "favorites", new Date("2026-07-17T14:00:00.000Z"));
+    await markSectionTipShownForContext(
+      ctx,
+      "favorites",
+      new Date("2026-07-17T14:00:00.000Z"),
+    );
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
   assert.equal(called, false);
-  assert.equal(ctx.user.sectionTipsShownAt.favorites.toISOString(), "2026-07-17T14:00:00.000Z");
+  assert.equal(
+    ctx.user.sectionTipsShownAt.favorites.toISOString(),
+    "2026-07-17T14:00:00.000Z",
+  );
 });
 
 test("addAiListItem rejects command-like titles before persistence", async () => {
@@ -169,7 +190,11 @@ test("getOrCreateUser creates users from alternate name fields", async () => {
   };
 
   try {
-    await getOrCreateUser({ userId: "456", userName: "taha", firstName: "Taha" });
+    await getOrCreateUser({
+      userId: "456",
+      userName: "taha",
+      firstName: "Taha",
+    });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
@@ -193,7 +218,11 @@ test("getOrCreateUser still upserts when platform name sanitizes to empty", asyn
   };
 
   try {
-    await getOrCreateUser({ id: 789, username: "emoji_user", first_name: "😀" });
+    await getOrCreateUser({
+      id: 789,
+      username: "emoji_user",
+      first_name: "😀",
+    });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

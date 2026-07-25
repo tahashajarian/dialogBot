@@ -4,17 +4,18 @@
 
 ☐ later: find a way to send message to users that are not active for a while and encourage them to come back
     Not for launch. Decide frequency, content, and reward first.
-
-cd /opt/muze
-
-# Back up MongoDB first
-git fetch origin
-git checkout <reviewed-commit-sha>
-
-npm ci --omit=dev
-npm run validate:production-config
-npm run create:indexes
-
-sudo systemctl restart muze
-sudo systemctl status muze --no-pager
-sudo journalctl -u muze -n 100 --no-pager
+☐ 👩‍🦳 انتخاب ایموجی پروفایل فعلا در دسترس نیست. after saying that the close button of the card is not working if it's not availabel we shouldn't show the butotn to choose emoji
+☐ lets not use green tick, and حالا میتونی ازم پیشنهاد بگیری is too firendly need to fix
+☐ as images will stay on chats i think we should not send them always or find a way to handle it better, propbably we won't sent them, just first time would be nice, and by hit start we send them again on any section just for one time
+☐ how can i see logs, and do we need to save all? i wonder about storage usage, or memory usage,
+✔ chagne the ai provider api to real open ai, @done (7/25/2026, 7:45:19 PM)
+☐ inline mode on mobile there is queesion icon beside options, need to figure out what are they
+☐ ⚡️ ذخیره سریع در لیست
+در هر چت تلگرام، نام کاربری میوز و بعد اسم فیلم، موسیقی یا کتاب رو بنویس؛ سپس فهرست دلخواهت رو انتخاب کن.
+مثال: @HeyMuzeBot Dune fro persiona language chagne the example to somthing persian
+☐ [03/05/1405 08:28 ب.ظ] Muze support: 🗂 گفت‌وگوهای من
+[03/05/1405 08:28 ب.ظ] Muze support: 🔙 برگشت
+[03/05/1405 08:28 ب.ظ] Muze support: 🗂 گفت‌وگوهای من
+[03/05/1405 08:28 ب.ظ] Muze support: ✉️ دعوت‌ها
+[03/05/1405 08:28 ب.ظ] Muze support: ➕ ساخت گفت‌وگوی جدید
+still we stuck here after opening my discussin and recent discussion and hit close

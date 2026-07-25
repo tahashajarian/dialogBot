@@ -8,6 +8,12 @@ const SECTION_TIP_KEYS = Object.freeze([
   "favorites",
   "forLaterInline",
   "people",
+  "favoritesBanner",
+  "peopleBanner",
+  "discussionsBanner",
+  "moviesBanner",
+  "musicBanner",
+  "booksBanner",
 ]);
 
 function hasSectionTipBeenShown(user, key) {

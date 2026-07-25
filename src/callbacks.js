@@ -14,6 +14,10 @@ const { sendNavigationFootprint } = require("./services/navigation-footprints");
 const { sendBannerPhoto } = require("./services/banner-media");
 const { setStableNavigationState } = require("./services/reply-keyboard-navigation");
 const {
+  hasSectionTipBeenShown,
+  markSectionTipShownForContext,
+} = require("./services/users");
+const {
   clearDiscussionMenuNotice,
   rememberDiscussionMenuNotice,
   handleDiscussionListCallback,
@@ -93,7 +97,7 @@ async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shoul
   await setStableNavigationState(ctx, mode);
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
   let sent;
-  if (destination === "discussions") {
+  if (destination === "discussions" && !hasSectionTipBeenShown(ctx.user, "discussionsBanner")) {
     try {
       sent = await sendBannerPhoto(ctx, {
         bannerKey: "discussions_section_v2",
@@ -101,6 +105,7 @@ async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shoul
         configuredFileId: process.env.DISCUSSIONS_SECTION_BANNER_FILE_ID,
         extra: { ...keyboard, caption: text },
       });
+      await markSectionTipShownForContext(ctx, "discussionsBanner", new Date()).catch(() => null);
     } catch {
       sent = await ctx.reply(text, keyboard);
     }

@@ -1,6 +1,7 @@
 const path = require("node:path");
 const messages = require("../messages");
 const { logger } = require("../services/logger");
+const { hasSectionTipBeenShown } = require("../services/users");
 
 const BOOKS_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/books-section-banner.jpg");
 const MUSIC_SECTION_BANNER_PATH = path.join(__dirname, "../../assets/music-section-banner.jpg");
@@ -172,12 +173,18 @@ async function enterAiSection(ctx, lang, section, helpers) {
   await helpers.deleteCallbackMessageIfPossible?.(ctx);
   await rememberAiSectionEntryMessage(ctx, null);
   const titleText = `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}`;
-  const banner = AI_SECTION_BANNERS[section] || null;
+  const bannerSeenKey = ["movies", "music", "books"].includes(section)
+    ? `${section}Banner`
+    : "";
+  const banner = bannerSeenKey && !hasSectionTipBeenShown(ctx.user, bannerSeenKey)
+    ? AI_SECTION_BANNERS[section] || null
+    : null;
   if (!banner) {
     await sendNavigationFootprint(ctx, { lang, destination: "aiSection", title: titleText });
   }
   return openAiListManager(ctx, lang, section, "topTen", {
     banner,
+    bannerSeenKey,
   });
 }
 

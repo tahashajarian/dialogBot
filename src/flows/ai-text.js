@@ -514,7 +514,11 @@ async function sendSingleSectionSuggestion({
   return resultMessage;
 }
 
-async function openAiListManager(ctx, lang, section, listType, { prefix = "", banner = null } = {}) {
+async function openAiListManager(ctx, lang, section, listType, {
+  prefix = "",
+  banner = null,
+  bannerSeenKey = "",
+} = {}) {
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   const nextMode = `ai_list:${section}:${listType}`;
   await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
@@ -553,6 +557,9 @@ async function openAiListManager(ctx, lang, section, listType, { prefix = "", ba
         ...banner,
         extra: { ...keyboard, caption: text },
       });
+      if (bannerSeenKey) {
+        await markSectionTipShownForContext(ctx, bannerSeenKey, new Date()).catch(() => null);
+      }
     } catch {
       listMessage = await ctx.reply(text, keyboard);
     }
