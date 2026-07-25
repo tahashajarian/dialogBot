@@ -1,6 +1,16 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const originalBotDeepLinkBaseUrl = process.env.BOT_DEEP_LINK_BASE_URL;
+const originalBotPublicUrl = process.env.BOT_PUBLIC_URL;
+const originalPublicBotUrl = process.env.PUBLIC_BOT_URL;
+const originalBotUsername = process.env.BOT_USERNAME;
+
+delete process.env.BOT_DEEP_LINK_BASE_URL;
+delete process.env.PUBLIC_BOT_URL;
+delete process.env.BOT_USERNAME;
+process.env.BOT_PUBLIC_URL = "https://example.com/muze";
+
 const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
@@ -178,23 +188,30 @@ test("share guidance restores a photo profile in place without deleting the bann
 test("share creation falls back to text and never deletes the own-profile card", async () => {
   const originalUserFindOne = User.findOne;
   const originalReferralCreate = StarReferralLink.create;
-  const originalPublicUrl = process.env.BOT_PUBLIC_URL;
+
   const user = {
     userId: 1,
     publicProfileCode: "u_OWNER",
     profileEmoji: "🎶",
     aiLists: { movies: { topTen: favorites(10, "Movie") } },
   };
+
   const replies = [];
   const deletions = [];
+
   User.findOne = async () => user;
-  StarReferralLink.create = async (value) => ({ ...value, publicCode: "A1B2C3D4E5F6" });
-  process.env.BOT_PUBLIC_URL = "https://example.com/muze";
+  StarReferralLink.create = async (value) => ({
+    ...value,
+    publicCode: "A1B2C3D4E5F6",
+  });
+
   const ctx = {
     userId: 1,
     user,
     callbackMessageId: 50,
-    replyWithPhoto: async () => { throw new Error("media unavailable"); },
+    replyWithPhoto: async () => {
+      throw new Error("media unavailable");
+    },
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: replies.length + 50 };
@@ -207,12 +224,13 @@ test("share creation falls back to text and never deletes the own-profile card",
   } finally {
     User.findOne = originalUserFindOne;
     StarReferralLink.create = originalReferralCreate;
-    if (originalPublicUrl === undefined) delete process.env.BOT_PUBLIC_URL;
-    else process.env.BOT_PUBLIC_URL = originalPublicUrl;
   }
 
   assert.equal(replies.length, 2);
-  assert.match(replies[0].text, /https:\/\/example\.com\/muze\?start=ref_A1B2C3D4E5F6/);
+  assert.match(
+    replies[0].text,
+    /https:\/\/example\.com\/muze\?start=ref_A1B2C3D4E5F6/,
+  );
   assert.equal(replies[1].text.includes("{reward}"), false);
   assert.match(replies[1].text, /You earn \d+ Stars/);
   assert.deepEqual(deletions, []);
@@ -239,4 +257,30 @@ test("closing public Favorites restores the reply-keyboard mode beneath it", asy
   assert.deepEqual(deleted, [88]);
   assert.equal(ctx.user.navigationMode, "help");
   assert.equal(ctx.user.publicProfileReturnNavigationMode, "");
+});
+
+test.after(() => {
+  if (originalBotDeepLinkBaseUrl === undefined) {
+    delete process.env.BOT_DEEP_LINK_BASE_URL;
+  } else {
+    process.env.BOT_DEEP_LINK_BASE_URL = originalBotDeepLinkBaseUrl;
+  }
+
+  if (originalBotPublicUrl === undefined) {
+    delete process.env.BOT_PUBLIC_URL;
+  } else {
+    process.env.BOT_PUBLIC_URL = originalBotPublicUrl;
+  }
+
+  if (originalPublicBotUrl === undefined) {
+    delete process.env.PUBLIC_BOT_URL;
+  } else {
+    process.env.PUBLIC_BOT_URL = originalPublicBotUrl;
+  }
+
+  if (originalBotUsername === undefined) {
+    delete process.env.BOT_USERNAME;
+  } else {
+    process.env.BOT_USERNAME = originalBotUsername;
+  }
 });

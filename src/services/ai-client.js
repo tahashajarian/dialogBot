@@ -1,7 +1,10 @@
 const OpenAI = require("openai");
 const { getAiConfig } = require("../config");
 const { logger } = require("./logger");
-const { recordAiApiEvent, recordCapacityEvent } = require("./operational-health");
+const {
+  recordAiApiEvent,
+  recordCapacityEvent,
+} = require("./operational-health");
 const { CapacityError } = require("./capacity-guard");
 const { aiCapacity } = require("./runtime-capacity");
 
@@ -11,14 +14,26 @@ let client = null;
 
 function classifyAiProviderError(error) {
   const status = Number(error?.status || error?.response?.status) || 0;
-  const code = String(error?.code || error?.error?.code || error?.type || "").toLowerCase();
+  const code = String(
+    error?.code || error?.error?.code || error?.type || "",
+  ).toLowerCase();
   const message = String(error?.message || "").toLowerCase();
   const signal = `${code} ${message}`;
   let category = "provider_error";
   if (signal.includes("timeout")) category = "timeout";
-  else if (status === 401 || signal.includes("invalid_api_key") || signal.includes("authentication")) category = "authentication_failed";
+  else if (
+    status === 401 ||
+    signal.includes("invalid_api_key") ||
+    signal.includes("authentication")
+  )
+    category = "authentication_failed";
   else if (status === 402) category = "payment_required";
-  else if (/insufficient[_ -]?quota|credit|balance|billing|hard[_ -]?limit/.test(signal)) category = "quota_exhausted";
+  else if (
+    /insufficient[_ -]?quota|credit|balance|billing|hard[_ -]?limit/.test(
+      signal,
+    )
+  )
+    category = "quota_exhausted";
   else if (status === 429) category = "rate_limited";
   else if (status === 403) category = "access_forbidden";
   else if (status >= 500) category = "provider_unavailable";
@@ -46,10 +61,12 @@ function getClient(config = getAiConfig()) {
 }
 
 async function withAiTimeout(request, timeoutLabel, timeoutMs) {
-  const abortController = typeof AbortController === "undefined" ? null : new AbortController();
-  const promise = typeof request === "function"
-    ? Promise.resolve().then(() => request(abortController?.signal))
-    : request;
+  const abortController =
+    typeof AbortController === "undefined" ? null : new AbortController();
+  const promise =
+    typeof request === "function"
+      ? Promise.resolve().then(() => request(abortController?.signal))
+      : request;
   let timeoutId;
   try {
     return await Promise.race([
@@ -84,7 +101,7 @@ function extractAiResponseText(response) {
 
   const responseOutput = Array.isArray(response?.output) ? response.output : [];
   return responseOutput
-    .flatMap((entry) => Array.isArray(entry?.content) ? entry.content : [])
+    .flatMap((entry) => (Array.isArray(entry?.content) ? entry.content : []))
     .map((part) => String(part?.text || "").trim())
     .filter(Boolean)
     .join("\n")
@@ -97,17 +114,20 @@ function extractAiTokenUsage(response) {
   const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens);
   const totalTokens = Number(usage.total_tokens);
   const metadata = {};
-  if (Number.isFinite(inputTokens)) metadata.inputTokens = Math.max(0, inputTokens);
-  if (Number.isFinite(outputTokens)) metadata.outputTokens = Math.max(0, outputTokens);
-  if (Number.isFinite(totalTokens)) metadata.totalTokens = Math.max(0, totalTokens);
+  if (Number.isFinite(inputTokens))
+    metadata.inputTokens = Math.max(0, inputTokens);
+  if (Number.isFinite(outputTokens))
+    metadata.outputTokens = Math.max(0, outputTokens);
+  if (Number.isFinite(totalTokens))
+    metadata.totalTokens = Math.max(0, totalTokens);
   return Object.keys(metadata).length ? metadata : undefined;
 }
 
-async function getEmbedding(openai, input, {
-  config = getAiConfig(),
-  log = logger,
-  recordEvent = recordAiApiEvent,
-} = {}) {
+async function getEmbedding(
+  openai,
+  input,
+  { config = getAiConfig(), log = logger, recordEvent = recordAiApiEvent } = {},
+) {
   if (!openai?.embeddings?.create || !input) {
     return null;
   }
@@ -115,13 +135,14 @@ async function getEmbedding(openai, input, {
   try {
     const startedAt = Date.now();
     const response = await withAiTimeout(
-      (signal) => openai.embeddings.create(
-        {
-          model: config.embeddingModel,
-          input,
-        },
-        { signal },
-      ),
+      (signal) =>
+        openai.embeddings.create(
+          {
+            model: config.embeddingModel,
+            input,
+          },
+          { signal },
+        ),
       "ai_embedding_timeout",
       config.timeoutMs,
     );
@@ -145,14 +166,17 @@ async function getEmbedding(openai, input, {
   }
 }
 
-async function requestSuggestionTextWithoutCapacity(openai, {
-  instructions,
-  input,
-  config = getAiConfig(),
-  maxOutputTokens = DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
-  recordEvent = recordAiApiEvent,
-  operation = "suggestion",
-}) {
+async function requestSuggestionTextWithoutCapacity(
+  openai,
+  {
+    instructions,
+    input,
+    config = getAiConfig(),
+    maxOutputTokens = DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
+    recordEvent = recordAiApiEvent,
+    operation = "suggestion",
+  },
+) {
   const errors = [];
   const provider = config.suggestionProvider || "auto";
   const useChatCompletions = provider !== "responses";
@@ -162,17 +186,18 @@ async function requestSuggestionTextWithoutCapacity(openai, {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(
-        (signal) => openai.chat.completions.create(
-          {
-            model: config.model,
-            max_tokens: maxOutputTokens,
-            messages: [
-              { role: "system", content: instructions },
-              { role: "user", content: input },
-            ],
-          },
-          { signal },
-        ),
+        (signal) =>
+          openai.chat.completions.create(
+            {
+              model: config.model,
+              max_completion_tokens: maxOutputTokens,
+              messages: [
+                { role: "system", content: instructions },
+                { role: "user", content: input },
+              ],
+            },
+            { signal },
+          ),
         "ai_chat_completion_timeout",
         config.timeoutMs,
       );
@@ -213,15 +238,16 @@ async function requestSuggestionTextWithoutCapacity(openai, {
     const startedAt = Date.now();
     try {
       const response = await withAiTimeout(
-        (signal) => openai.responses.create(
-          {
-            model: config.model,
-            max_output_tokens: maxOutputTokens,
-            instructions,
-            input,
-          },
-          { signal },
-        ),
+        (signal) =>
+          openai.responses.create(
+            {
+              model: config.model,
+              max_output_tokens: maxOutputTokens,
+              instructions,
+              input,
+            },
+            { signal },
+          ),
         "ai_responses_timeout",
         config.timeoutMs,
       );
@@ -264,7 +290,9 @@ async function requestSuggestionTextWithoutCapacity(openai, {
 async function requestSuggestionText(openai, options = {}) {
   const key = options.userId ? `user:${options.userId}` : "";
   try {
-    return await aiCapacity.run(key, () => requestSuggestionTextWithoutCapacity(openai, options));
+    return await aiCapacity.run(key, () =>
+      requestSuggestionTextWithoutCapacity(openai, options),
+    );
   } catch (error) {
     if (!(error instanceof CapacityError)) throw error;
     const state = aiCapacity.getState();
