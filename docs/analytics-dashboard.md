@@ -65,6 +65,10 @@ process restarts.
 
 ## Current Metrics
 
+- VPS health with CPU load, available/used memory, root-disk usage, host uptime,
+  platform, and the systemd state of the bot and dashboard services; these
+  read-only OS metrics are cached for 30 seconds and remain behind the same
+  dashboard authentication
 - dashboard server uptime
 - MongoDB connection/readiness state, including connected, connecting,
   disconnecting, and disconnected lifecycle information

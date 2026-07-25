@@ -1886,6 +1886,50 @@ test("Home entries retain history and open their bottom-keyboard hubs", async ()
   }
 });
 
+test("Discussions hub sends its banner once and keeps later entries text-only", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalCountDocuments = DiscussionInvitation.countDocuments;
+  const sent = [];
+  const ctx = {
+    callbackData: callBacks.discussions,
+    callbackMessageId: 456,
+    userId: 2,
+    user: {
+      userId: 2,
+      lang: "en",
+      firstName: "A",
+      profileName: "A",
+      savedProfileCodes: [],
+      showActiveDiscussionOnProfile: false,
+    },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      sent.push({ text, extra });
+      return { message_id: sent.length, text, extra };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      sent.push({ photo, extra });
+      return { message_id: sent.length, photo, extra };
+    },
+  };
+  User.findOneAndUpdate = async () => ({});
+  DiscussionInvitation.countDocuments = async () => 0;
+
+  try {
+    await handleCallback(ctx);
+    await handleCallback(ctx);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    DiscussionInvitation.countDocuments = originalCountDocuments;
+  }
+
+  assert.equal(sent.length, 2);
+  assert.match(sent[0].photo.source, /assets[\\/]discussions-section-banner\.jpg$/);
+  assert.equal(sent[1].photo, undefined);
+  assert.match(sent[1].text, new RegExp(messages.en.discussionsMenu));
+  assert.ok(ctx.user.sectionTipsShownAt.discussionsBanner instanceof Date);
+});
+
 test("Home aligns persisted state before sending its reply keyboard", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const operations = [];

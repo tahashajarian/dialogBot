@@ -60,21 +60,45 @@ test("Favorites first-visit guidance stays inside the existing bilingual hub", (
   }
 });
 
-test("Favorites hub uses one banner card with its copy and controls", async () => {
+test("Favorites hub sends its banner once and keeps later entries text-only", async () => {
   const sent = [];
-  await sendAiAssistantHub({
+  const ctx = {
     user: { userId: 11 },
-    reply: async (text, extra) => sent.push({ text, extra }),
+    reply: async (text, extra) => {
+      sent.push({ text, extra });
+      return { message_id: sent.length, text, extra };
+    },
     replyWithPhoto: async (photo, extra) => {
       sent.push({ photo, extra });
-      return { message_id: 1, photo, caption: extra.caption };
+      return { message_id: sent.length, photo, caption: extra.caption };
     },
-  }, "en");
+  };
 
-  assert.equal(sent.length, 1);
+  await sendAiAssistantHub(ctx, "en");
+  await sendAiAssistantHub(ctx, "en");
+
+  assert.equal(sent.length, 2);
   assert.match(sent[0].photo.source, /assets[\\/]favorites-hub-banner\.jpg$/);
   assert.match(sent[0].extra.caption, new RegExp(messages.en.aiAssistantTitle));
   assert.ok(sent[0].extra.reply_markup.keyboard.length > 0);
+  assert.equal(sent[1].photo, undefined);
+  assert.match(sent[1].text, new RegExp(messages.en.aiAssistantTitle));
+  assert.ok(ctx.user.sectionTipsShownAt.favoritesBanner instanceof Date);
+});
+
+test("failed Favorites banner delivery falls back to text without marking the banner shown", async () => {
+  const ctx = {
+    user: { userId: 16 },
+    reply: async (text, extra) => ({ message_id: 1, text, extra }),
+    replyWithPhoto: async () => {
+      throw new Error("photo delivery failed");
+    },
+  };
+
+  const sent = await sendAiAssistantHub(ctx, "en");
+
+  assert.match(sent.text, new RegExp(messages.en.aiAssistantTitle));
+  assert.equal(ctx.user.sectionTipsShownAt, undefined);
 });
 
 test("Favorites entry shows its tip once and failed hub delivery does not mark it", async () => {
@@ -820,7 +844,7 @@ test("entering AI list manager shows item rows without an all-items button", asy
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
 });
 
-test("entering Books uses its banner on the existing Top Ten manager card", async () => {
+test("entering Books uses its banner once and keeps later manager cards text-only", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
   const replies = [];
@@ -874,18 +898,29 @@ test("entering Books uses its banner on the existing Top Ten manager card", asyn
         callbackCtx.editMessageText(callbackCtx.callbackMessageId, text, extra)
       ),
     });
+
+    ctx.callbackMessageId = 61;
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => ctx.deleteMessage(ctx.callbackMessageId),
+      editCallbackMessageOrReply: async (callbackCtx, text, extra) => (
+        callbackCtx.editMessageText(callbackCtx.callbackMessageId, text, extra)
+      ),
+    });
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(deletedIds, [60]);
+  assert.deepEqual(deletedIds, [60, 61]);
   assert.deepEqual(edits, []);
-  assert.equal(replies.length, 1);
+  assert.equal(replies.length, 2);
   assert.match(replies[0].photo.source, /assets[\\/]books-section-banner\.jpg$/);
   assert.match(replies[0].extra.caption, /📚 Books/);
   assert.match(replies[0].extra.caption, /Dune/);
+  assert.equal(replies[1].photo, undefined);
+  assert.match(replies[1].text, /📚 Books/);
+  assert.match(replies[1].text, /Dune/);
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
-  assert.equal(ctx.user.aiLastListMessageId, 101);
+  assert.equal(ctx.user.aiLastListMessageId, 102);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten");
 });
 

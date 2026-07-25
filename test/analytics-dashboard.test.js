@@ -272,6 +272,32 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
       },
       alerts: [],
     },
+    systemHealth: {
+      hostname: "muze-vps<script>",
+      platform: "Linux 6.8.0",
+      uptimeSeconds: 90061,
+      cpuCount: 2,
+      loadAverage: [0.5, 0.4, 0.3],
+      loadRatio1m: 0.25,
+      memory: {
+        totalBytes: 4 * 1024 ** 3,
+        usedBytes: 1024 ** 3,
+        availableBytes: 3 * 1024 ** 3,
+        usedRatio: 0.25,
+      },
+      disk: {
+        totalBytes: 60 * 1024 ** 3,
+        usedBytes: 6 * 1024 ** 3,
+        availableBytes: 54 * 1024 ** 3,
+        usedRatio: 0.1,
+        mountPoint: "/",
+      },
+      services: {
+        bot: { active: true, available: true, state: "active" },
+        dashboard: { active: true, available: true, state: "active" },
+      },
+      partial: false,
+    },
     limits: {},
     starSettings: {},
     botAppearance: {},
@@ -281,6 +307,11 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
   assert.match(html, /role="progressbar"/);
   assert.match(html, /Product Journey/);
   assert.match(html, /Route p95 latency comparison/);
+  assert.match(html, /VPS Health/);
+  assert.match(html, /Memory utilization/);
+  assert.match(html, /Disk utilization/);
+  assert.match(html, /muze-vps&lt;script&gt;/);
+  assert.doesNotMatch(html, /muze-vps<script>/);
   assert.match(html, /Movies &lt;script&gt;/);
   assert.doesNotMatch(html, /Movies <script>/);
   assert.match(html, /<table>/);

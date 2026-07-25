@@ -342,6 +342,47 @@ test("People first-visit guidance stays inside the bilingual hub only when reque
   }
 });
 
+test("People hub sends its banner once and keeps later entries text-only", async () => {
+  const sent = [];
+  const ctx = {
+    userId: 6,
+    user: { userId: 6 },
+    reply: async (text, extra) => {
+      sent.push({ text, extra });
+      return { message_id: sent.length, text, extra };
+    },
+    replyWithPhoto: async (photo, extra) => {
+      sent.push({ photo, extra });
+      return { message_id: sent.length, photo, extra };
+    },
+  };
+
+  await sendPeopleHub(ctx, "en");
+  await sendPeopleHub(ctx, "en");
+
+  assert.equal(sent.length, 2);
+  assert.match(sent[0].photo.source, /assets[\\/]people-section-banner\.jpg$/);
+  assert.equal(sent[1].photo, undefined);
+  assert.equal(sent[1].text, messages.en.peopleMenu);
+  assert.ok(ctx.user.sectionTipsShownAt.peopleBanner instanceof Date);
+});
+
+test("failed People banner delivery falls back to text without marking the banner shown", async () => {
+  const ctx = {
+    userId: 7,
+    user: { userId: 7 },
+    reply: async (text, extra) => ({ message_id: 1, text, extra }),
+    replyWithPhoto: async () => {
+      throw new Error("photo delivery failed");
+    },
+  };
+
+  const sent = await sendPeopleHub(ctx, "en");
+
+  assert.match(sent.text, new RegExp(messages.en.peopleMenu));
+  assert.equal(ctx.user.sectionTipsShownAt.peopleBanner, undefined);
+});
+
 test("failed People hub delivery does not mark its first-visit tip", async () => {
   const ctx = {
     userId: 5,
