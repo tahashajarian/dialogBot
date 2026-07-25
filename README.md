@@ -162,6 +162,7 @@ Read these before changing related behavior:
 - [Discussions](docs/discussions.md)
 - [Analytics dashboard](docs/analytics-dashboard.md)
 - [Fresh server and fresh MongoDB deployment](docs/fresh-server-deployment.md)
+- [Production operations status](docs/production-operations-status.md)
 - [Production smoke-test checklist](docs/production-smoke-test-checklist.md)
 - [Privacy policy launch template](docs/privacy-policy.md)
 - [Moderation and safety runbook](docs/moderation-runbook.md)
