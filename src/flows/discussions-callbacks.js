@@ -397,6 +397,7 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListClose) {
     await ctx.answerCb?.();
+    await setNavigationMode(ctx, "discussions");
     return deleteCallbackMessageIfPossible?.(ctx);
   }
 

@@ -636,22 +636,32 @@ test("active discussion language picker is inline and disappears into the refres
   ));
 });
 
-test("closing the active discussion list only removes its card", async () => {
+test("closing a discussion list card restores the Discussions reply keyboard mode", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
   const events = [];
   const ctx = {
+    userId: 7,
+    user: { navigationMode: "discussion_list:recent:0" },
+    persistNavigationMode: true,
     callbackData: callBacks.discussionListClose,
     callbackMessageId: 42,
     answerCb: async () => events.push("answer"),
   };
+  User.findOneAndUpdate = async () => ({});
 
-  await handleDiscussionListCallback(ctx, "en", {
-    deleteCallbackMessageIfPossible: async (callbackCtx) => {
-      events.push(`delete:${callbackCtx.callbackMessageId}`);
-      return true;
-    },
-  });
+  try {
+    await handleDiscussionListCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        events.push(`delete:${callbackCtx.callbackMessageId}`);
+        return true;
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 
   assert.deepEqual(events, ["answer", "delete:42"]);
+  assert.equal(ctx.user.navigationMode, "discussions");
 });
 
 test("discussion members card has a Close-only inline action", () => {
