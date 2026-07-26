@@ -8,7 +8,7 @@ const {
 } = require("./services/interest-chips");
 const messages = require("./messages");
 const { starEconomy } = require("./services/star-settings");
-const { getProfileEmojiOptions } = require("./services/profile-emoji");
+const { getProfileEmojiOptions, isProfileEmojiAvailable } = require("./services/profile-emoji");
 const {
   AGE_RANGES,
   getProfileAgeRange,
@@ -386,15 +386,19 @@ function profileKeyboard(lang, hasPhoto = false) {
 function profileQuickActionsKeyboard(lang, {
   petPreferenceEnabled = starEconomy.profilePetPreferenceEnabled,
   canShareProfile = false,
+  user = {},
 } = {}) {
   const rows = [[
     { text: messages[lang].profileEditAge, callback_data: callBacks.profileEditAge },
     { text: messages[lang].profileEditGender, callback_data: callBacks.profileEditGender },
   ]];
-  rows.push([
+  const interestsRow = [
     { text: messages[lang].profileEditInterests, callback_data: callBacks.profileEditInterests },
-    { text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji },
-  ]);
+  ];
+  if (isProfileEmojiAvailable(user)) {
+    interestsRow.push({ text: messages[lang].profileEmojiButton, callback_data: callBacks.profileEmoji });
+  }
+  rows.push(interestsRow);
   if (petPreferenceEnabled) {
     rows.push([{
       text: messages[lang].profileEditPetPreference,

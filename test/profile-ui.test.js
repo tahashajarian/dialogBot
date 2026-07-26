@@ -553,20 +553,40 @@ test("new profiles appear in See People by default", () => {
 });
 
 test("profile quick actions stay inline and privacy controls stay isolated", () => {
-  const quick = profileQuickActionsKeyboard("en").reply_markup.inline_keyboard.flat();
-  assert.deepEqual(quick.map((button) => button.callback_data), [
-    callBacks.profileEditAge,
-    callBacks.profileEditGender,
-    callBacks.profileEditInterests,
-    callBacks.profileEmoji,
-    callBacks.profilePrivacy,
-  ]);
+  const originalEconomyEnabled = starEconomy.economyEnabled;
+  const originalSpendingEnabled = starEconomy.spendingEnabled;
+  try {
+    starEconomy.economyEnabled = true;
+    starEconomy.spendingEnabled = true;
+    const quick = profileQuickActionsKeyboard("en").reply_markup.inline_keyboard.flat();
+    assert.deepEqual(quick.map((button) => button.callback_data), [
+      callBacks.profileEditAge,
+      callBacks.profileEditGender,
+      callBacks.profileEditInterests,
+      callBacks.profileEmoji,
+      callBacks.profilePrivacy,
+    ]);
 
-  const enabledQuick = profileQuickActionsKeyboard("en", { petPreferenceEnabled: true })
-    .reply_markup.inline_keyboard;
-  assert.ok(enabledQuick.every((row) => row.length <= 2));
-  assert.ok(enabledQuick.flat().some((button) => button.callback_data === callBacks.profileEditPetPreference));
-  assert.deepEqual(enabledQuick.at(-1).map((button) => button.callback_data), [callBacks.profilePrivacy]);
+    const enabledQuick = profileQuickActionsKeyboard("en", { petPreferenceEnabled: true })
+      .reply_markup.inline_keyboard;
+    assert.ok(enabledQuick.every((row) => row.length <= 2));
+    assert.ok(enabledQuick.flat().some((button) => button.callback_data === callBacks.profileEditPetPreference));
+    assert.deepEqual(enabledQuick.at(-1).map((button) => button.callback_data), [callBacks.profilePrivacy]);
+
+    starEconomy.spendingEnabled = false;
+    const disabledCallbacks = profileQuickActionsKeyboard("en").reply_markup.inline_keyboard
+      .flat()
+      .map((button) => button.callback_data);
+    assert.equal(disabledCallbacks.includes(callBacks.profileEmoji), false);
+
+    const unlockedCallbacks = profileQuickActionsKeyboard("en", {
+      user: { profileEmojiUnlockedAt: new Date() },
+    }).reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+    assert.equal(unlockedCallbacks.includes(callBacks.profileEmoji), true);
+  } finally {
+    starEconomy.economyEnabled = originalEconomyEnabled;
+    starEconomy.spendingEnabled = originalSpendingEnabled;
+  }
 
   const previousLocation = starEconomy.profileLocationEnabled;
   try {

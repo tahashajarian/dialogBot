@@ -34,6 +34,11 @@ function isProfileEmojiUnlocked(user = {}) {
   return Boolean(user?.profileEmojiUnlockedAt || String(user?.profileEmoji || "").trim());
 }
 
+function isProfileEmojiAvailable(user = {}, settings = starEconomy) {
+  return isProfileEmojiUnlocked(user)
+    || Boolean(settings.economyEnabled && settings.spendingEnabled);
+}
+
 function getProfileEmojiSelectionCost(user = {}) {
   return isProfileEmojiUnlocked(user) ? 0 : getProfileEmojiCost();
 }
@@ -178,6 +183,7 @@ module.exports = {
   getProfileEmojiSelectionCost,
   getProfileEmojiIndex,
   getProfileEmojiOption,
+  isProfileEmojiAvailable,
   isProfileEmojiUnlocked,
   setProfileEmojiWithStars,
 };

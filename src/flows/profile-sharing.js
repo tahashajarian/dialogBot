@@ -58,6 +58,7 @@ async function returnFromShareableProfile(ctx, lang, { sendOwnProfile } = {}) {
   const text = buildProfileText(ctx.user, lang, messages, { isOwnProfile: true });
   const keyboard = profileQuickActionsKeyboard(lang, {
     canShareProfile: hasShareableMediaFavorites(ctx.user),
+    user: ctx.user,
   });
   if (ctx.user?.photoFileId && ctx.editMessageMedia && ctx.callbackMessageId) {
     try {

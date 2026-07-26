@@ -257,6 +257,8 @@ Recommended launch default:
 - one-time permanent unlock cost: 3 Stars; all later emoji changes are free
 - paged curated inline picker; exact typed emoji is allowed only when it is in the same allowed set
 - the first confirmation shows selected emoji, unlock cost, and balance; unlocked users see a free save confirmation
+- hide the Profile emoji action from users who have not unlocked it while the economy or spending rollout switch is off; users with an existing permanent unlock may continue changing their emoji for free
+- callbacks retained from an older Profile card must restore the current Profile card when a locked user's first unlock is unavailable, rather than opening an unusable picker
 - spend reason: `profile_emoji`
 - users who already had a profile emoji before the unlock field was introduced are treated as unlocked, with no retroactive charge
 - the unlock is durable and has no refund when the user changes emoji or stops using the profile

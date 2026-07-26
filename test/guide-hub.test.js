@@ -20,7 +20,7 @@ test("Guide preserves the current reply keyboard and sends one closable inline t
   assert.equal(replies.length, 1);
   assert.equal(replies[0].text, buildGuideText(ctx, "fa"));
   assert.match(replies[0].text, /⚡ ذخیره سریع در لیست/);
-  assert.match(replies[0].text, /@hey_muze_test_bot Dune/);
+  assert.match(replies[0].text, /@hey_muze_test_bot شازده کوچولو/);
   assert.deepEqual(
     replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data),
     [callBacks.profileStars, callBacks.helpReferral, callBacks.helpRules, callBacks.helpCardClose],

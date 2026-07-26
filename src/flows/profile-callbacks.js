@@ -74,6 +74,7 @@ const {
   getProfileEmojiCost,
   getProfileEmojiOption,
   getProfileEmojiSelectionCost,
+  isProfileEmojiAvailable,
   isProfileEmojiUnlocked,
   setProfileEmojiWithStars,
 } = require("../services/profile-emoji");
@@ -220,6 +221,7 @@ async function sendOwnProfile(ctx, lang, user = ctx.user, options = {}) {
     lang,
     keyboard: profileQuickActionsKeyboard(lang, {
       canShareProfile: hasShareableMediaFavorites(user),
+      user,
     }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",
@@ -256,6 +258,7 @@ async function restoreOwnProfileCard(ctx, lang, user = ctx.user, { footerText = 
   ].filter(Boolean).join("\n\n");
   const restored = await editProfileSurfaceCard(ctx, text, profileQuickActionsKeyboard(lang, {
     canShareProfile: hasShareableMediaFavorites(user),
+    user,
   }));
   await clearProfileEditPrompt(ctx, [surfaceMessageId]);
   await setNavigationMode(ctx, MODES.PROFILE);
@@ -400,6 +403,10 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
   }
 
   if (data === callBacks.profileEmoji) {
+    if (!isProfileEmojiAvailable(ctx.user)) {
+      await ctx.answerCb?.(messages[lang].profileEmojiUnavailable);
+      return restoreOwnProfileCard(ctx, lang, ctx.user || {});
+    }
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "editing_profile_emoji");
     if (ctx.user) ctx.user.state = "editing_profile_emoji";
@@ -478,7 +485,11 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
         );
       }
       await ctx.answerCb?.();
-      return ctx.reply(messages[lang].profileEmojiUnavailable, profileEmojiKeyboard(lang, ctx.user?.profileEmoji || ""));
+      await updateUserState(ctx.userId, "idle");
+      if (ctx.user) ctx.user.state = "idle";
+      return restoreOwnProfileCard(ctx, lang, ctx.user || {}, {
+        footerText: messages[lang].profileEmojiUnavailable,
+      });
     }
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "idle");

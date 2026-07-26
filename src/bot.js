@@ -792,6 +792,7 @@ async function sendProfile(ctx, user, lang, keyboardLang, options = {}) {
     lang,
     keyboard: profileQuickActionsKeyboard(keyboardLang, {
       canShareProfile: hasShareableMediaFavorites(user),
+      user,
     }),
     messages,
     loadingText: options.loading ? messages[lang].profileLoading : "",

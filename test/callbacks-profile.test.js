@@ -1036,6 +1036,52 @@ test("profile emoji insufficient Stars edits the profile card to acknowledgement
   assert.deepEqual(buttons.map((button) => button.callback_data), [callBacks.profileEmojiInsufficientDone]);
 });
 
+test("disabled first profile-emoji spending hides stale entry and restores Profile", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalSettings = {
+    economyEnabled: starEconomy.economyEnabled,
+    spendingEnabled: starEconomy.spendingEnabled,
+  };
+  const answers = [];
+  const edits = [];
+
+  Object.assign(starEconomy, { economyEnabled: true, spendingEnabled: false });
+  User.findOneAndUpdate = async () => ({ userId: 999 });
+  const ctx = {
+    callbackData: callBacks.profileEmoji,
+    callbackMessageId: 332,
+    userId: 999,
+    user: {
+      userId: 999,
+      lang: "fa",
+      state: "idle",
+      profileEmoji: "",
+      profileEmojiUnlockedAt: null,
+    },
+    answerCb: async (text) => answers.push(text),
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+    reply: async () => {
+      throw new Error("restoring the existing Profile card should not send a new message");
+    },
+  };
+
+  try {
+    await handleProfileSettingsOrEditCallback(ctx, "fa");
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Object.assign(starEconomy, originalSettings);
+  }
+
+  assert.deepEqual(answers, [messages.fa.profileEmojiUnavailable]);
+  assert.equal(edits.length, 1);
+  assert.match(edits[0].text, /پروفایل تو/);
+  const callbacks = keyboardButtons(edits[0].extra).map((button) => button.callback_data);
+  assert.equal(callbacks.includes(callBacks.profileEmoji), false);
+});
+
 test("profile emoji confirm Back edits the same card to the emoji picker", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];
