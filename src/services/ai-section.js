@@ -108,7 +108,7 @@ const TASTE_LABEL_EMOJIS = {
     music_buff: "🎧",
   },
   movies: {
-    sci_fi_fan: "🚀",
+    sci_fi_fan: "🛸",
     action_junkie: "💥",
     drama_lover: "🎭",
     mystery_fan: "🔎",
@@ -125,7 +125,7 @@ const TASTE_LABEL_EMOJIS = {
     novel_reader: "📖",
     old_soul: "📜",
     fantasy_dreamer: "🐉",
-    sci_fi_explorer: "🚀",
+    sci_fi_explorer: "🪐",
     born_detective: "🔎",
     hopeless_romantic: "💌",
     midnight_philosopher: "🧠",
