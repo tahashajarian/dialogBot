@@ -12,6 +12,7 @@ const {
   peopleDiscoverLanguageKeyboard,
 } = require("../src/keyboards");
 const {
+  applyPeopleLanguageFilter,
   ensurePeopleDiscoveryCodes,
   findPeopleBySharedTaste,
   getEffectivePeopleLanguageFilter,
@@ -92,7 +93,7 @@ test("people discovery returns users with at least 2 shared items and skips self
     assert.equal(query.userId.$ne, 1);
     assert.equal(query.bannedAt, null);
     assert.deepEqual(query.showProfileInPeopleDiscovery, { $ne: false });
-    assert.equal(query.lang, "fa");
+    assert.equal(Object.hasOwn(query, "lang"), false);
     assert.deepEqual(result.items.map((item) => item.userId), [2, 4]);
     assert.equal(result.items[0].sharedSections[0].count, 3);
     assert.equal(result.items[1].isSaved, true);
@@ -107,30 +108,40 @@ test("people language filter follows interface language until explicitly changed
   assert.equal(getEffectivePeopleLanguageFilter({ lang: "fa", peopleLanguageFilter: "all" }), "all");
 });
 
-test("people discovery applies an explicit language filter and All removes it", async () => {
+test("people discovery applies language filtering only when candidates are multilingual", async () => {
   const originalFind = User.find;
-  const queries = [];
-  User.find = (query) => {
-    queries.push(query);
-    return {
-      select: () => ({
-        limit: () => ({
-          lean: async () => [],
-        }),
+  User.find = () => ({
+    select: () => ({
+      limit: () => ({
+        lean: async () => [
+          userWithMusic(2, ["metallica", "nirvana"], { lang: "fa" }),
+          userWithMusic(3, ["metallica", "nirvana"], { lang: "en" }),
+        ],
       }),
-    };
-  };
+    }),
+  });
 
   try {
     const viewer = userWithMusic(1, ["metallica", "nirvana"]);
-    await findPeopleBySharedTaste(viewer, { languageFilter: "en" });
-    await findPeopleBySharedTaste(viewer, { languageFilter: "all" });
+    const english = await findPeopleBySharedTaste(viewer, { languageFilter: "en" });
+    const all = await findPeopleBySharedTaste(viewer, { languageFilter: "all" });
 
-    assert.equal(queries[0].lang, "en");
-    assert.equal(Object.hasOwn(queries[1], "lang"), false);
+    assert.deepEqual(english.items.map((entry) => entry.userId), [3]);
+    assert.deepEqual(all.items.map((entry) => entry.userId).sort(), [2, 3]);
+    assert.deepEqual(new Set(all.availableLanguages), new Set(["fa", "en"]));
   } finally {
     User.find = originalFind;
   }
+});
+
+test("single-language discovery ignores a mismatched filter because the filter is hidden", () => {
+  const result = applyPeopleLanguageFilter([
+    { userId: 2, language: "en" },
+    { userId: 3, language: "en" },
+  ], "fa");
+
+  assert.deepEqual(result.items.map((entry) => entry.userId), [2, 3]);
+  assert.deepEqual(result.availableLanguages, ["en"]);
 });
 
 test("people discovery also returns an exact same-section taste-label match", async () => {
@@ -407,6 +418,7 @@ test("people pagination uses canonical discover callbacks", () => {
     page: 0,
     totalPages: 2,
     languageFilter: "en",
+    showLanguageFilter: true,
   }).reply_markup;
   const buttons = replyMarkup.inline_keyboard.flat();
 
@@ -419,6 +431,7 @@ test("people pagination uses canonical discover callbacks", () => {
 test("people language picker marks the current choice and returns to results", () => {
   const buttons = peopleDiscoverLanguageKeyboard("en", "all").reply_markup.inline_keyboard.flat();
 
+  assert.match(messages.fa.peopleDiscoverLanguagePicker, /زبان افرادی که می‌خوای ببینی رو انتخاب کن/);
   assert.match(messages.fa.peopleDiscoverLanguagePicker, /زبانیه که هر نفر برای میوز انتخاب کرده/);
   assert.match(messages.en.peopleDiscoverLanguagePicker, /language each person selected for Muze/);
   assert.ok(buttons.some((button) => button.text === `✓ 🌐 ${messages.en.discussionLanguageBoth}`));
@@ -495,10 +508,36 @@ test("people discovery empty state uses inline action and Close", () => {
 
   assert.equal(keyboard.keyboard, undefined);
   assert.deepEqual(buttons.map((button) => button.text), [
-    messages.fa.peopleDiscoverLanguageFilterButton.replace("{language}", messages.fa.discussionLanguagePersian),
     messages.fa.peopleGoToLists,
     messages.fa.discussionShareClose,
   ]);
+});
+
+test("people discovery shows language filtering only for multilingual candidates", () => {
+  const hiddenButtons = peopleDiscoverListKeyboard("fa", {
+    languageFilter: "fa",
+    showLanguageFilter: false,
+  }).reply_markup.inline_keyboard.flat();
+  const visibleButtons = peopleDiscoverListKeyboard("fa", {
+    languageFilter: "all",
+    showLanguageFilter: true,
+  }).reply_markup.inline_keyboard.flat();
+
+  assert.equal(hiddenButtons.some((button) => button.callback_data?.startsWith(callBacks.peopleDiscoverLanguageOpen)), false);
+  assert.equal(visibleButtons.some((button) => button.callback_data === `${callBacks.peopleDiscoverLanguageOpen}all`), true);
+});
+
+test("saved profiles are visibly separated at the end of People results", () => {
+  const text = buildPeopleDiscoveryText(messages, "fa", [
+    { code: "u_NEW", name: "New person", isSaved: false },
+    { code: "u_SAVED", name: "Saved person", isSaved: true },
+  ], {
+    showSharedSections: true,
+  });
+
+  assert.match(text, new RegExp(messages.fa.peopleDiscoverSavedSection));
+  assert.ok(text.indexOf("New person") < text.indexOf(messages.fa.peopleDiscoverSavedSection));
+  assert.ok(text.indexOf(messages.fa.peopleDiscoverSavedSection) < text.indexOf("Saved person"));
 });
 
 test("People list Close only deletes the tapped card", async () => {

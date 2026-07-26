@@ -2315,6 +2315,7 @@ test("typed people profile code keeps inline people actions when only mode conte
 });
 
 test("saving from people profile refreshes profile with saved actions", async () => {
+  const originalFind = User.find;
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
@@ -2341,6 +2342,19 @@ test("saving from people profile refreshes profile with saved actions", async ()
     }
     return { userId: 1, savedProfileCodes: ["u_A1"] };
   };
+  User.find = () => ({
+    select: () => ({
+      lean: async () => [{
+        userId: 2,
+        publicProfileCode: "u_A1",
+        profileName: "Taste Match",
+        firstName: "Taste",
+      }],
+      limit: () => ({
+        lean: async () => [],
+      }),
+    }),
+  });
 
   const ctx = {
     userId: 1,
@@ -2368,6 +2382,7 @@ test("saving from people profile refreshes profile with saved actions", async ()
   try {
     await saveProfileCommand(ctx, "en", "/save_A1");
   } finally {
+    User.find = originalFind;
     User.findOne = originalFindOne;
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }

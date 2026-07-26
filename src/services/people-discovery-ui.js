@@ -81,20 +81,25 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
     const ageSuffix = Number.isInteger(age) && age > 0
       ? ` — 🎂 ${formatListIndex(lang, age)}`
       : "";
-    const languageSuffix = showLanguage
+    const languageSuffix = showLanguage && entry.language
       ? ` — ${entry.language === "en" ? "🇬🇧" : "🇮🇷"}`
       : "";
     const nameLine = lang === "fa"
       ? `${RTL_MARK}${personEmoji} ${FSI}${entry.name}${PDI}${ageSuffix}${languageSuffix}`
       : `${personEmoji} ${entry.name}${ageSuffix}${languageSuffix}`;
 
-    return [
+    const row = [
       `${formatListIndex(lang, baseIndex + index + 1)}.`,
       nameLine,
       sharedLines,
       viewAction,
       saveAction,
     ].filter(Boolean).join("\n");
+    const previous = items[index - 1];
+    const startsSavedSection = entry.isSaved && !previous?.isSaved;
+    return startsSavedSection
+      ? `${messages[lang].peopleDiscoverSavedSection}\n\n${row}`
+      : row;
   });
 
   const countedTitle = `${title} (${formatListIndex(lang, totalCount)})`;

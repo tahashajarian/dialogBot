@@ -379,39 +379,67 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
 
 async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const languageFilter = getEffectivePeopleLanguageFilter(ctx.user);
-  const result = await findPeopleBySharedTaste(ctx.user || {}, { languageFilter });
   const minSharedItems = getPeopleDiscoveryMinSharedItems();
-  const paged = paginatePeopleDiscovery(result.items || [], page);
+  const [result, savedItems] = await Promise.all([
+    findPeopleBySharedTaste(ctx.user || {}, { languageFilter }),
+    buildSavedProfileListItems({
+      codes: ctx.user?.savedProfileCodes || [],
+      normalizePublicProfileCode,
+      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
+        .select("userId publicProfileCode profileName firstName profileEmoji gender age")
+        .lean(),
+    }),
+  ]);
+  const discoveryItems = (result.items || []).filter((entry) => !entry.isSaved);
+  const savedDiscoveryItems = savedItems.map((entry) => ({
+    ...entry,
+    isSaved: true,
+    sharedSections: [],
+    sharedTasteLabels: [],
+  }));
+  const combinedItems = [...discoveryItems, ...savedDiscoveryItems];
+  const paged = paginatePeopleDiscovery(combinedItems, page);
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
-  const isEmpty = !result.ok || pageItems.length === 0;
+  const isEmpty = pageItems.length === 0;
+  const showLanguageFilter = (result.availableLanguages || []).length > 1;
   return {
     page: paged.page,
     totalPages: paged.totalPages,
     isEmpty,
-    text: result.ok
+    text: combinedItems.length
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
-        totalCount: result.items.length,
+        totalCount: combinedItems.length,
+        intro: discoveryItems.length
+          ? messages[lang].peopleDiscoverIntro
+          : messages[lang].peopleDiscoverNoMoreNew,
         emptyText: formatPeopleDiscoveryRequirementText(
           messages[lang].peopleDiscoverNoMatches,
           lang,
           minSharedItems,
         ),
         showSharedSections: true,
-        showLanguage: languageFilter === "all",
+        showLanguage: showLanguageFilter && languageFilter === "all",
       })
-      : formatPeopleDiscoveryRequirementText(
-        messages[lang].peopleDiscoverNeedsLists,
-        lang,
-        minSharedItems,
-      ),
+      : result.ok
+        ? formatPeopleDiscoveryRequirementText(
+          messages[lang].peopleDiscoverNoMatches,
+          lang,
+          minSharedItems,
+        )
+        : formatPeopleDiscoveryRequirementText(
+          messages[lang].peopleDiscoverNeedsLists,
+          lang,
+          minSharedItems,
+        ),
     keyboard: isEmpty
-      ? peopleDiscoverEmptyKeyboard(lang, { languageFilter })
+      ? peopleDiscoverEmptyKeyboard(lang, { languageFilter, showLanguageFilter })
       : peopleDiscoverListKeyboard(lang, {
         page: paged.page,
         totalPages: paged.totalPages,
         showLists: false,
         languageFilter,
+        showLanguageFilter,
       }),
   };
 }

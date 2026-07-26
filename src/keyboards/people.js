@@ -84,7 +84,9 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
     });
   }
   if (pageRows.length) rows.push(pageRows);
-  rows.push([getPeopleLanguageButton(lang, options.languageFilter)]);
+  if (options.showLanguageFilter) {
+    rows.push([getPeopleLanguageButton(lang, options.languageFilter)]);
+  }
   if (options.showLists) {
     rows.push([{
       text: messages[lang].peopleGoToLists,
@@ -99,11 +101,15 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
 }
 
 function peopleDiscoverEmptyKeyboard(lang, options = {}) {
-  return inlineKeyboard([
-    [getPeopleLanguageButton(lang, options.languageFilter)],
+  const rows = [];
+  if (options.showLanguageFilter) {
+    rows.push([getPeopleLanguageButton(lang, options.languageFilter)]);
+  }
+  rows.push(
     [{ text: messages[lang].peopleGoToLists, callback_data: callBacks.aiAssistant }],
     [{ text: messages[lang].discussionShareClose, callback_data: callBacks.peopleListClose }],
-  ]);
+  );
+  return inlineKeyboard(rows);
 }
 
 function peopleDiscoverLanguageKeyboard(lang, currentLanguage) {
