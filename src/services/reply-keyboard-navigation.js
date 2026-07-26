@@ -379,12 +379,22 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   }
   if (validAiListFilterState) {
     const section = aiListFilterMatch[1];
+    const filter = aiListFilterMatch[2];
     const addKey = section === "movies" ? "aiListManageAddLaterMovies"
       : section === "music" ? "aiListManageAddLaterMusic"
         : section === "books" ? "aiListManageAddLaterBooks" : "aiListManageAdd";
+    const oppositeFilterKey = section === "music"
+      ? (filter === "watched" ? "aiListManageShowNotWatchedMusic" : "aiListManageShowWatchedMusic")
+      : section === "books"
+        ? (filter === "watched" ? "aiListManageShowNotWatchedBooks" : "aiListManageShowWatchedBooks")
+        : section === "random"
+          ? (filter === "watched" ? "aiListManageShowNotWatchedRandom" : "aiListManageShowWatchedRandom")
+          : (filter === "watched" ? "aiListManageShowNotWatchedMovies" : "aiListManageShowWatchedMovies");
+    const oppositeFilter = filter === "watched" ? "not_watched" : "watched";
     entries.push(
       [addKey, `${callBacks.aiListManageAdd}${section}:watchlist`],
       ["aiListManageShowAll", `${callBacks.aiListManageShow}${section}:watchlist:all`],
+      [oppositeFilterKey, `${callBacks.aiListManageShow}${section}:watchlist:${oppositeFilter}`],
       ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`],
     );
   }

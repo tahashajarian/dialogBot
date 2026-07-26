@@ -150,17 +150,29 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   }));
 }
 
-function buildWatchlistMessage({ ctx, lang, section, includeWatched = true }) {
+function buildWatchlistMessage({ ctx, lang, section, includeWatched = true, filter = "all" }) {
   const sectionLabel = getSectionLabel(messages, lang, section);
   const listLabel = getSectionListLabel(messages, lang, section);
-  const entries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "watchlist"), section, lang);
+  const allEntries = getAiListItemsFromUser(ctx.user, section, "watchlist");
+  const filteredEntries = allEntries
+    .map((entry, index) => ({ ...entry, commandIndex: index + 1 }))
+    .filter((entry) => (
+      filter === "watched"
+        ? entry?.watched === true
+        : filter === "not_watched"
+          ? entry?.watched !== true
+          : true
+    ));
+  const entries = localizeAiListItemsForDisplay(filteredEntries, section, lang);
   const topTenTitleSet = toTitleSet(localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang));
   const title = messages[lang].aiWatchlistTitle
     .replace("{section}", sectionLabel)
     .replace("{listName}", listLabel);
-  const emptyText = messages[lang].aiWatchlistEmpty
-    .replace("{section}", sectionLabel)
-    .replace("{listName}", listLabel);
+  const emptyText = filter === "all"
+    ? messages[lang].aiWatchlistEmpty
+      .replace("{section}", sectionLabel)
+      .replace("{listName}", listLabel)
+    : messages[lang].aiWatchlistFilterEmpty;
   return withAiSectionTitle(
     lang,
     section,
@@ -259,13 +271,13 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   return messages[lang].aiTopTenManageInlineEntryCompleteNoLabel;
 }
 
-async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "" }) {
+async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "", filter = "all" }) {
   const listLabel = getSectionListLabel(messages, lang, section);
   const items = getAiListItemsFromUser(ctx.user, section, listType);
   const body = listType === "topTen"
     ? `${buildTopTenListMessage({ ctx, lang, section })}\n\n${await getTopTenManageEntryMessage(ctx, lang, section)}`
     : items.length
-      ? buildWatchlistMessage({ ctx, lang, section })
+      ? buildWatchlistMessage({ ctx, lang, section, filter })
       : messages[lang].aiListManageEmptyEntry.replace("{listName}", listLabel);
   return [prefix, body].filter(Boolean).join("\n\n");
 }

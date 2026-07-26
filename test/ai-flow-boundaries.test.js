@@ -2060,6 +2060,68 @@ test("AI list manager keyboard shows list and filter controls without standalone
   assert.equal(labels.includes(messages.en.aiListManageMoveToTopTen), false);
 });
 
+test("filtered watchlist keeps its filter and opposite-status reply action after a mutation", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const ctx = {
+    userId: 92,
+    user: {
+      userId: 92,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      navigationMode: "ai_list_filter:movies:watched",
+      sectionTipsShownAt: { forLaterInline: new Date() },
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: [
+            { title: "Arrival", watched: true },
+            { title: "Heat", watched: false },
+          ],
+        },
+      },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length, text, extra };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await openAiListManager(ctx, "en", "movies", "watchlist", { filter: "watched" });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const manager = replies.at(-1);
+  const labels = keyboardButtons(manager.extra).map((button) => button.text);
+  assert.match(manager.text, /Arrival/);
+  assert.doesNotMatch(manager.text, /Heat/);
+  assert.match(manager.text, /\/rm_mv_l_1/);
+  assert.equal(ctx.user.navigationMode, "ai_list_filter:movies:watched");
+  assert.ok(labels.includes(messages.en.aiListManageShowAll));
+  assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
+  assert.equal(labels.includes(messages.en.aiListManageShowWatchedMovies), false);
+
+  const resolve = (text) => resolveReplyKeyboardAction(text, {
+    mode: ctx.user.navigationMode,
+    state: ctx.user.state,
+    user: ctx.user,
+  })?.callbackData;
+  assert.equal(resolve(messages.en.aiListManageAddLaterMovies), `${callBacks.aiListManageAdd}movies:watchlist`);
+  assert.equal(resolve(messages.en.aiListManageShowAll), `${callBacks.aiListManageShow}movies:watchlist:all`);
+  assert.equal(
+    resolve(messages.en.aiListManageShowNotWatchedMovies),
+    `${callBacks.aiListManageShow}movies:watchlist:not_watched`,
+  );
+  assert.equal(resolve(messages.en.aiSuggestionGoToFavoritesButton), `${callBacks.aiListManageBack}movies`);
+});
+
 test("watchlist entry rendering always exposes done and not-done status", () => {
   const ctx = {
     user: {

@@ -339,9 +339,24 @@ function aiListManageMenuKeyboard(lang, section, listType, {
   const hasMixedWatchlistStatuses = isMediaSection
     && watchlistItems.some((entry) => entry?.watched === true)
     && watchlistItems.some((entry) => entry?.watched !== true);
-  if (listType === "watchlist" && hasMixedWatchlistStatuses) {
+  if (listType === "watchlist" && (hasMixedWatchlistStatuses || filter !== "all")) {
     const statusLabels = getSectionStatusLabels(lang, section);
-    if (filter !== "all") rows.push([{ text: messages[lang].aiListManageShowAll }]);
+    if (filter === "watched") rows.push([
+      {
+        text: messages[lang].aiListManageShowAll,
+      },
+      {
+        text: statusLabels.pending,
+      },
+    ]);
+    else if (filter === "not_watched") rows.push([
+      {
+        text: statusLabels.done,
+      },
+      {
+        text: messages[lang].aiListManageShowAll,
+      },
+    ]);
     else rows.push([
       {
         text: statusLabels.done,

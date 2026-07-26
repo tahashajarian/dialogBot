@@ -581,7 +581,7 @@ test("filtered For Later rows keep commands bound to original list indexes", () 
   assert.match(text, /\/rm_mv_l_3/);
 });
 
-test("filtered mixed-status For Later mode exposes only Show all and restores the full-list action", () => {
+test("filtered mixed-status For Later mode replaces the selected filter with Show all", () => {
   const { aiListManageMenuKeyboard } = require("../src/keyboards");
   const filteredButtons = aiListManageMenuKeyboard("en", "movies", "watchlist", {
     itemCount: 3,
@@ -593,8 +593,10 @@ test("filtered mixed-status For Later mode exposes only Show all and restores th
   }).reply_markup.keyboard.flat().map((button) => button.text);
   assert.ok(filteredButtons.includes(messages.en.aiListManageShowAll));
   assert.ok(!filteredButtons.includes(messages.en.aiListManageShowWatchedMovies));
-  assert.ok(!filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list_filter:movies:watched", state: "ai_manage_movies_watchlist", user: { lang: "en" } }).callbackData, `${callBacks.aiListManageShow}movies:watchlist:all`);
+  assert.ok(filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));
+  const filteredContext = { mode: "ai_list_filter:movies:watched", state: "ai_manage_movies_watchlist", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, filteredContext).callbackData, `${callBacks.aiListManageShow}movies:watchlist:all`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowNotWatchedMovies, filteredContext).callbackData, `${callBacks.aiListManageShow}movies:watchlist:not_watched`);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
 });
 

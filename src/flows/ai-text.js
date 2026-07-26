@@ -127,6 +127,13 @@ function normalizeKeyboardText(value) {
     .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "");
 }
 
+function getActiveWatchlistFilter(ctx, section) {
+  const match = String(ctx.user?.navigationMode || "").match(
+    /^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/,
+  );
+  return match?.[1] === section ? match[2] : "all";
+}
+
 function isAiBackText(text) {
   const normalizedText = normalizeKeyboardText(text);
   const backLabels = [
@@ -518,9 +525,15 @@ async function openAiListManager(ctx, lang, section, listType, {
   prefix = "",
   banner = null,
   bannerSeenKey = "",
+  filter = null,
 } = {}) {
+  const activeFilter = listType === "watchlist"
+    ? (filter || getActiveWatchlistFilter(ctx, section))
+    : "all";
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
-  const nextMode = `ai_list:${section}:${listType}`;
+  const nextMode = listType === "watchlist" && activeFilter !== "all"
+    ? `ai_list_filter:${section}:${activeFilter}`
+    : `ai_list:${section}:${listType}`;
   await clearAiPendingInputPrompt(ctx, { waitForDelete: false, fallbackToEdit: false });
   await clearAiActionMessage(ctx, { waitForDelete: false, fallbackToEdit: false });
   await updateUserState(ctx.userId, nextState);
@@ -528,7 +541,14 @@ async function openAiListManager(ctx, lang, section, listType, {
   await setNavigationMode(ctx, nextMode);
   if (ctx.user) ctx.user.navigationMode = nextMode;
   const items = getAiListItemsFromUser(ctx.user, section, listType);
-  const listText = await buildAiListManagerMessage({ ctx, lang, section, listType, prefix });
+  const listText = await buildAiListManagerMessage({
+    ctx,
+    lang,
+    section,
+    listType,
+    prefix,
+    filter: activeFilter,
+  });
   const showInlineCaptureTip = (
     listType === "watchlist"
     && ["movies", "music", "books"].includes(section)
@@ -541,6 +561,7 @@ async function openAiListManager(ctx, lang, section, listType, {
   const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
+    filter: activeFilter,
     watchlistItems: listType === "watchlist" ? items : [],
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
     hasTasteLabel: (() => {
@@ -566,7 +587,7 @@ async function openAiListManager(ctx, lang, section, listType, {
   } else {
     listMessage = await ctx.reply(text, keyboard);
   }
-  await rememberAiListMessage(ctx, section, listType, listMessage);
+  await rememberAiListMessage(ctx, section, listType, listMessage, { navigationMode: nextMode });
   if (inlineCaptureTip) {
     await markSectionTipShownForContext(ctx, "forLaterInline", new Date()).catch(() => null);
   }
@@ -585,6 +606,9 @@ function formatAiCommentSaved(lang, listType, itemTitle) {
 
 async function handleAiListActionCommand(ctx, lang, command) {
   const { action, section, listType, itemIndex } = command;
+  const activeFilter = listType === "watchlist"
+    ? getActiveWatchlistFilter(ctx, section)
+    : "all";
   const expectedState = getAiManageState(section, listType);
   const currentState = String(ctx.user?.state || "");
   if (currentState !== expectedState) {
@@ -627,7 +651,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
     rememberCtxAiListItems(ctx, section, listType, removed.items);
     if (listType === "topTen") await syncAiTasteForSection(ctx.userId, section);
     await ctx.reply(messages[lang].aiListRemovedNamed.replace("{item}", itemTitle));
-    return openAiListManager(ctx, lang, section, listType);
+    return openAiListManager(ctx, lang, section, listType, { filter: activeFilter });
   }
 
   if (action === "done" || action === "undone") {
@@ -641,7 +665,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
         : getSectionMessage(messages, lang, "aiWatchlistWatchedOff", section, "aiWatchlistWatchedOff");
       await ctx.reply(statusText);
     }
-    return openAiListManager(ctx, lang, section, "watchlist");
+    return openAiListManager(ctx, lang, section, "watchlist", { filter: activeFilter });
   }
 
   if (action === "top10") {
@@ -662,7 +686,7 @@ async function handleAiListActionCommand(ctx, lang, command) {
     const starNotice = buildStarRewardNotice(messages, lang, promoted.starRewards, promoted.starProgress);
     await syncAiTasteForSection(ctx.userId, section);
     await ctx.reply([messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"));
-    return openAiListManager(ctx, lang, section, "watchlist");
+    return openAiListManager(ctx, lang, section, "watchlist", { filter: activeFilter });
   }
 
   return null;

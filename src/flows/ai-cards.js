@@ -10,7 +10,9 @@ async function updateAiCardField(ctx, field, value) {
   return updateProfileField(ctx.userId, field, value);
 }
 
-async function rememberAiListMessage(ctx, section, listType, message) {
+async function rememberAiListMessage(ctx, section, listType, message, {
+  navigationMode = `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`,
+} = {}) {
   const messageId = getMessageId(message);
   if (!messageId) {
     return;
@@ -20,18 +22,18 @@ async function rememberAiListMessage(ctx, section, listType, message) {
     aiLastListMessageId: messageId,
     aiLastListSection: section,
     aiLastListType: listType,
-    navigationMode: `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`,
+    navigationMode,
   });
   if (ctx.user) {
     ctx.user.aiLastListMessageId = messageId;
     ctx.user.aiLastListSection = section;
     ctx.user.aiLastListType = listType;
-    ctx.user.navigationMode = `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`;
+    ctx.user.navigationMode = navigationMode;
   }
 }
 
-async function replaceRememberedAiListMessage(ctx, section, listType, message) {
-  await rememberAiListMessage(ctx, section, listType, message);
+async function replaceRememberedAiListMessage(ctx, section, listType, message, options) {
+  await rememberAiListMessage(ctx, section, listType, message, options);
 }
 
 async function deleteRememberedAiListMessage(ctx, section, listType, { waitForDelete: _waitForDelete = true } = {}) {
