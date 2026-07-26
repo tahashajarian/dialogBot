@@ -189,6 +189,7 @@ function getWatchlistPage({ ctx, section, filter = "all", page = 0 }) {
   const allEntries = getAiListItemsFromUser(ctx.user, section, "watchlist");
   const filteredEntries = allEntries
     .map((entry, index) => ({ ...entry, commandIndex: index + 1 }))
+    .reverse()
     .filter((entry) => (
       filter === "watched"
         ? entry?.watched === true

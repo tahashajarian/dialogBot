@@ -676,6 +676,8 @@ async function handleAiCallback(ctx, lang, helpers) {
     const addInputState = `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`;
     await updateUserState(ctx.userId, addInputState);
     if (ctx.user) ctx.user.state = addInputState;
+    await setNavigationMode(ctx, `ai_list:${section}:${listType}`);
+    if (ctx.user) ctx.user.navigationMode = `ai_list:${section}:${listType}`;
     const isInterestTopTen = section === "random" && listType === "topTen";
     const currentItems = isInterestTopTen
       ? getAiListItemsFromUser(ctx.user, "random", "topTen")

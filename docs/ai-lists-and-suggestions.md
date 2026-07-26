@@ -37,6 +37,7 @@
 ## Watchlist
 
 - Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `○` not done), including first entry and post-mutation refreshes.
+- For Later lists render newest entries first. Visible ordering must not change the stable full-list indexes used by item commands.
 - Watchlist supports section-aware status wording:
   - movies: watched
   - music: listened

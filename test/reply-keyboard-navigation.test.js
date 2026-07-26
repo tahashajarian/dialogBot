@@ -604,6 +604,26 @@ test("filtered mixed-status For Later card replaces the selected filter with Sho
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
 });
 
+test("For Later add controls recover from a stale navigation mode without becoming titles", () => {
+  for (const lang of ["en", "fa"]) {
+    const context = {
+      mode: "ai_suggestion_added:movies",
+      state: "ai_manage_movies_watchlist_add_input",
+      user: { lang },
+    };
+
+    assert.equal(
+      resolveReplyKeyboardAction(messages[lang].aiListManageAddBackToList, context)?.callbackData,
+      `${callBacks.aiListManageCancelAdd}movies:watchlist:back`,
+    );
+    assert.equal(
+      resolveReplyKeyboardAction(messages[lang].cancelEdit, context)?.callbackData,
+      `${callBacks.aiListManageCancelAdd}movies:watchlist`,
+    );
+    assert.equal(resolveReplyKeyboardAction("Arrival", context), null);
+  }
+});
+
 test("filtered For Later navigation returns to Favorites instead of add guidance", () => {
   for (const [lang, section, filter, addKey] of [
     ["en", "movies", "watched", "aiListManageAddLaterMovies"],

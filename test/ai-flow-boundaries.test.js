@@ -507,6 +507,7 @@ test("pressing Add retains the remembered list card", async () => {
       userId: 79,
       lang: "en",
       state: "ai_manage_movies_top_ten",
+      navigationMode: "ai_suggestion_added:movies",
       aiLastListMessageId: 39,
       aiLastListSection: "movies",
       aiLastListType: "topTen",
@@ -538,6 +539,7 @@ test("pressing Add retains the remembered list card", async () => {
   assert.equal(replies.filter((reply) => reply.text === messages.en.aiMovieFavoritesAddPrompt).length, 1);
   assert.equal(replies.some((reply) => reply.text === "."), false);
   assert.equal(ctx.user.aiPendingInputMessageId, 81);
+  assert.equal(ctx.user.navigationMode, "ai_list:movies:topTen");
   assert.equal(edits.length, 0);
   assert.equal(keyboardButtons(replies.at(-1).extra).at(-1).text, messages.en.cancelEdit);
 });
@@ -2003,9 +2005,9 @@ test("AI list UI builds section-titled list messages from user data", () => {
   assert.match(topTenText, /1\. Heat\n✨ tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
-  assert.match(watchlistText, /1\. ○ Heat 🏆/);
+  assert.match(watchlistText, /1\. ○ Solaris\n📝 این یه کامنت تستیه/);
   assert.match(watchlistText, /2\. ○ Arrival\n✨ rewatch/);
-  assert.match(watchlistText, /3\. ○ Solaris\n📝 این یه کامنت تستیه/);
+  assert.match(watchlistText, /3\. ○ Heat 🏆/);
   assert.doesNotMatch(watchlistText, /✨ این یه کامنت تستیه/);
   assert.match(watchlistText, /────────────────────────/);
   assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
@@ -2238,13 +2240,14 @@ test("For Later pagination preserves full-list command indexes", () => {
 
   const firstPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 0 });
   const secondPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 1 });
-  assert.match(firstPage, /Movie 1/);
-  assert.match(firstPage, /Movie 5/);
-  assert.doesNotMatch(firstPage, /Movie 6/);
-  assert.match(secondPage, /Movie 6/);
-  assert.match(secondPage, /\/rm_mv_l_6/);
-  assert.match(secondPage, /Movie 7/);
-  assert.doesNotMatch(secondPage, /Movie 5/);
+  assert.match(firstPage, /Movie 7/);
+  assert.match(firstPage, /\/rm_mv_l_7/);
+  assert.match(firstPage, /Movie 3/);
+  assert.doesNotMatch(firstPage, /Movie 2/);
+  assert.match(secondPage, /Movie 2/);
+  assert.match(secondPage, /\/rm_mv_l_2/);
+  assert.match(secondPage, /Movie 1/);
+  assert.doesNotMatch(secondPage, /Movie 3/);
 });
 
 test("For Later page callbacks edit the current card and remember the page", async () => {
@@ -2300,9 +2303,9 @@ test("For Later page callbacks edit the current card and remember the page", asy
   assert.equal(replies.length, 0);
   assert.equal(edits.length, 1);
   assert.equal(edits[0].messageId, 81);
-  assert.match(edits[0].text, /Movie 6/);
-  assert.match(edits[0].text, /\/rm_mv_l_6/);
-  assert.doesNotMatch(edits[0].text, /Movie 1/);
+  assert.match(edits[0].text, /Movie 2/);
+  assert.match(edits[0].text, /\/rm_mv_l_2/);
+  assert.doesNotMatch(edits[0].text, /Movie 7/);
   assert.equal(ctx.user.aiLastListPage, 1);
   assert.equal(
     keyboardButtons(edits[0].extra).some((button) => (
@@ -2329,8 +2332,10 @@ test("watchlist entry rendering always exposes done and not-done status", () => 
 
   const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
 
-  assert.match(rendered, /1\. ✔️ Lichess puzzles/);
-  assert.match(rendered, /2\. ○ Photo walk/);
+  assert.match(rendered, /1\. ○ Photo walk/);
+  assert.match(rendered, /Change to done 👉 \/dn_in_l_2/);
+  assert.match(rendered, /2\. ✔️ Lichess puzzles/);
+  assert.match(rendered, /Change to not done 👉 \/un_in_l_1/);
 });
 
 test("AI list UI uses specific duplicate and Top Ten requirement copy", () => {

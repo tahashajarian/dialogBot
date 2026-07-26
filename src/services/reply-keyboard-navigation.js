@@ -180,6 +180,25 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (inheritedAction) return inheritedAction;
   }
   const aiListMatch = String(mode).match(/^ai_list:(movies|music|books|random):(topTen|watchlist)$/);
+  const aiListAddStateMatch = String(state).match(
+    /^ai_manage_(movies|music|books|random)_(top_ten|watchlist)_add_input$/,
+  );
+  if (aiListAddStateMatch) {
+    const section = aiListAddStateMatch[1];
+    const listType = aiListAddStateMatch[2] === "top_ten" ? "top_ten" : "watchlist";
+    if (normalized === normalizeReplyButtonText(messages[lang].cancelEdit)) {
+      return {
+        callbackData: `${callBacks.aiListManageCancelAdd}${section}:${listType}`,
+        key: "cancelEdit",
+      };
+    }
+    if (normalized === normalizeReplyButtonText(messages[lang].aiListManageAddBackToList)) {
+      return {
+        callbackData: `${callBacks.aiListManageCancelAdd}${section}:${listType}:back`,
+        key: "aiListManageAddBackToList",
+      };
+    }
+  }
   const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|music|books):topTen$/);
   const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/);
   const suggestionModeMatch = String(mode).match(/^ai_suggestion_mode:(movies|music|books|random)$/);
