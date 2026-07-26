@@ -111,6 +111,38 @@ test("concurrent For Later additions cannot exceed one section's capacity", asyn
   assert.equal(user.aiLists.music.watchlist.length, 0);
 });
 
+test("For Later can append to a legacy structured list missing newer item fields", async () => {
+  await User.collection.insertOne({
+    userId: 704,
+    firstName: "Existing List User",
+    __v: 0,
+    aiLists: {
+      books: {
+        watchlist: [{
+          title: "سمفونی مردگان",
+          comment: "یک کامنت",
+          watched: false,
+        }],
+      },
+    },
+  });
+
+  const result = await addAiListItem(
+    704,
+    "books",
+    "watchlist",
+    { title: "تماما مخصوص عباس معروفی" },
+    100,
+  );
+
+  assert.equal(result.ok, true);
+  const user = await User.findOne({ userId: 704 }).lean();
+  assert.deepEqual(
+    user.aiLists.books.watchlist.map((item) => item.title),
+    ["سمفونی مردگان", "تماما مخصوص عباس معروفی"],
+  );
+});
+
 test("pending inline imports discard capacity overflow instead of retrying forever", async () => {
   await User.create({
     userId: 703,

@@ -551,6 +551,7 @@ async function openAiListManager(ctx, lang, section, listType, {
   filter = null,
   page = null,
   replaceCard = false,
+  includeManageTip = false,
 } = {}) {
   const previousMode = String(ctx.user?.navigationMode || "");
   const previousState = String(ctx.user?.state || "");
@@ -613,25 +614,32 @@ async function openAiListManager(ctx, lang, section, listType, {
   });
   let listMessage;
   if (listType === "watchlist" && items.length > 0) {
-    const alreadyInThisManager = previousMode === `ai_list:${section}:watchlist`
-      || previousMode.startsWith(`ai_list_filter:${section}:`);
-    if (!alreadyInThisManager || previousState !== nextState) {
-      await ctx.reply(messages[lang].aiListManageUseButtonsTip, replyKeyboard);
-    }
     const inlineKeyboard = aiWatchlistCardKeyboard(lang, section, {
       filter: activeFilter,
       page: watchlistPage.page,
       totalPages: watchlistPage.totalPages,
       watchlistItems: watchlistPage.allEntries,
     });
+    const hasInlineControls = Boolean(inlineKeyboard?.reply_markup?.inline_keyboard?.length);
+    const alreadyInThisManager = previousMode === `ai_list:${section}:watchlist`
+      || previousMode.startsWith(`ai_list_filter:${section}:`);
+    const tipKey = hasInlineControls
+      ? "aiListManageUseButtonsTipWithInline"
+      : "aiListManageUseButtonsTip";
+    if (!alreadyInThisManager || previousState !== nextState) {
+      await ctx.reply(messages[lang][tipKey], replyKeyboard);
+    }
+    const watchlistText = includeManageTip
+      ? `${text}\n\n${messages[lang][tipKey]}`
+      : text;
     if (replaceCard && typeof ctx.editMessageText === "function") {
       try {
-        listMessage = await ctx.editMessageText(ctx.callbackMessageId, text, inlineKeyboard);
+        listMessage = await ctx.editMessageText(ctx.callbackMessageId, watchlistText, inlineKeyboard);
       } catch {
-        listMessage = await ctx.reply(text, inlineKeyboard);
+        listMessage = await ctx.reply(watchlistText, inlineKeyboard);
       }
     } else {
-      listMessage = await ctx.reply(text, inlineKeyboard);
+      listMessage = await ctx.reply(watchlistText, inlineKeyboard);
     }
   } else if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
     try {
@@ -897,7 +905,7 @@ async function handleAiText(ctx, lang, text, state) {
         }
         return replaceAiPendingInputPrompt(
           ctx,
-          () => ctx.reply(messages[lang].aiListInvalidInput, aiListCancelAddKeyboard(lang, section, listType)),
+          () => ctx.reply(messages[lang].aiListSaveFailed, aiListCancelAddKeyboard(lang, section, listType)),
         );
       }
 
@@ -1029,6 +1037,13 @@ async function handleAiText(ctx, lang, text, state) {
     }
 
     await clearAiActionMessage(ctx);
+    if (isWatchlist) {
+      return openAiListManager(ctx, lang, section, listType, {
+        filter: getActiveWatchlistFilter(ctx, section),
+        page: Math.max(0, Number(ctx.user?.aiLastListPage) || 0),
+        includeManageTip: true,
+      });
+    }
     const actionMessage = await ctx.reply(
       `${await buildAiListManagerMessage({ ctx, lang, section, listType })}\n\n${messages[lang].aiListManageUseButtonsTip}`,
       aiListManageMenuKeyboard(lang, section, listType, {

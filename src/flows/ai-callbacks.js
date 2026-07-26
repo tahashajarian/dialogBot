@@ -70,6 +70,7 @@ const {
 const { isAllowedTasteLabel } = require("../services/taste-label-classifier");
 const { sendTasteLabelReview, withTasteInsight } = require("./ai-taste-labels");
 const {
+  claimSuggestionAction,
   getPendingSuggestion,
   clearPendingSuggestion,
   getSuggestionMood,
@@ -764,7 +765,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         const errorMessage = messages[lang].aiTopTenInvalidItemQualityRandom || messages[lang].aiTopTenInvalidItemQuality;
         return ctx.reply(errorMessage, aiListManageMenuKeyboard(lang, "random", "topTen"));
       }
-      return ctx.reply(messages[lang].aiListInvalidInput, aiListManageMenuKeyboard(lang, "random", "topTen"));
+      return ctx.reply(messages[lang].aiListSaveFailed, aiListManageMenuKeyboard(lang, "random", "topTen"));
     }
 
     if (ctx.user) {
@@ -1041,43 +1042,53 @@ async function handleAiCallback(ctx, lang, helpers) {
     const payload = data.replace(markDone ? callBacks.aiSectionAddSuggestionDone : callBacks.aiSectionAddSuggestion, "");
     const section = payload.trim();
     if (!section) return ctx.reply(messages[lang].unknownAction);
+    const releaseSuggestionAction = claimSuggestionAction(ctx.userId, section);
+    if (!releaseSuggestionAction) return null;
 
-    const pending = getPendingSuggestion(ctx.userId, section);
-    const title = String(pending?.title || "").trim();
-    const metadata = String(pending?.metadata || "").trim();
-    const comment = String(pending?.comment || "").trim();
-    if (!title) return recoverExpiredSuggestion(ctx, lang, section);
+    try {
+      const pending = getPendingSuggestion(ctx.userId, section);
+      const title = String(pending?.title || "").trim();
+      const metadata = String(pending?.metadata || "").trim();
+      const comment = String(pending?.comment || "").trim();
+      if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
-    const result = await addAiListItem(
-      ctx.userId,
-      section,
-      "watchlist",
-      { title, metadata, comment, commentSource: comment ? "ai" : "", watched: markDone },
-      operationalLimits.aiWatchlistItems,
-    );
+      const result = await addAiListItem(
+        ctx.userId,
+        section,
+        "watchlist",
+        { title, metadata, comment, commentSource: comment ? "ai" : "", watched: markDone },
+        operationalLimits.aiWatchlistItems,
+      );
 
-    if (!result.ok) {
-      if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
-      if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiSuggestionListFull"), aiListManageMenuKeyboard(lang, section, "watchlist"));
-      return ctx.reply(messages[lang].aiTemporaryUnavailable);
+      if (!result.ok) {
+        if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
+        if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiSuggestionListFull"), aiListManageMenuKeyboard(lang, section, "watchlist"));
+        logger.warn("AI suggestion save failed", {
+          section,
+          reason: result.reason || "unknown",
+        });
+        return ctx.reply(messages[lang].aiSuggestionSaveFailed);
+      }
+
+      await helpers.deleteCallbackMessageIfPossible(ctx);
+      clearPendingSuggestion(ctx.userId, section);
+      applyStarRewardsToContext(ctx, result.starRewards);
+      await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
+      const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
+      await updateUserState(ctx.userId, `ai_chat_${section}`);
+      await setNavigationMode(ctx, `ai_suggestion_added:${section}`);
+      if (ctx.user) ctx.user.navigationMode = `ai_suggestion_added:${section}`;
+      return ctx.reply(
+        [
+          formatSuggestionAddedMessage(lang, section, markDone),
+          starNotice,
+          getSuggestionNextGuidance(lang, ctx.userId, section),
+        ].filter(Boolean).join("\n\n"),
+        aiSuggestionAddedOptionsKeyboard(lang, section),
+      );
+    } finally {
+      releaseSuggestionAction();
     }
-
-    await helpers.deleteCallbackMessageIfPossible(ctx);
-    clearPendingSuggestion(ctx.userId, section);
-    applyStarRewardsToContext(ctx, result.starRewards);
-    await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);
-    const starNotice = buildStarRewardNotice(messages, lang, result.starRewards, result.starProgress);
-    await updateUserState(ctx.userId, `ai_chat_${section}`);
-    await setNavigationMode(ctx, `ai_suggestion_added:${section}`);
-    if (ctx.user) ctx.user.navigationMode = `ai_suggestion_added:${section}`;
-    return ctx.reply(
-      [
-        formatSuggestionAddedMessage(lang, section, markDone),
-        starNotice,
-        getSuggestionNextGuidance(lang, ctx.userId, section),
-      ].filter(Boolean).join("\n\n"),
-      aiSuggestionAddedOptionsKeyboard(lang, section),
-    );
   }
 
   if (data === callBacks.aiSuggestMovies) return enterAiSection(ctx, lang, "movies", helpers);

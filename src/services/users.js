@@ -777,11 +777,14 @@ async function addAiListItem(userId, section, listType, item, maxItems, { awardS
       return { ok: false, reason: "limit", items: current };
     }
 
-    const stored = user?.aiLists?.[section]?.[listType] || [];
     const candidate = [...current, newItem];
+    const version = Number(user.__v) || 0;
     const saved = await User.findOneAndUpdate(
-      { userId, [listPath]: stored },
-      { $set: { [listPath]: candidate } },
+      { userId, __v: version },
+      {
+        $set: { [listPath]: candidate },
+        $inc: { __v: 1 },
+      },
       { returnDocument: "after" },
     );
     if (saved) {

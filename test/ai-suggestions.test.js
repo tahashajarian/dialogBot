@@ -20,10 +20,24 @@ const {
   getSingleSuggestionDetailInstruction,
 } = require("../src/services/ai-suggestion-quality");
 const {
+  claimSuggestionAction,
   clearSuggestionMood,
   getSuggestionMood,
   setSuggestionMood,
 } = require("../src/services/ai-suggestion-cache");
+
+test("suggestion save actions allow only one in-flight action per user and section", () => {
+  const release = claimSuggestionAction(41, "books");
+  assert.equal(typeof release, "function");
+  assert.equal(claimSuggestionAction(41, "books"), null);
+  const releaseMovies = claimSuggestionAction(41, "movies");
+  assert.equal(typeof releaseMovies, "function");
+  release();
+  const releaseBooksAgain = claimSuggestionAction(41, "books");
+  assert.equal(typeof releaseBooksAgain, "function");
+  releaseMovies();
+  releaseBooksAgain();
+});
 
 test("suggestion mood persists for a session and can be reset", () => {
   clearSuggestionMood(42, "movies");

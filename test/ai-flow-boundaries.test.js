@@ -907,6 +907,8 @@ test("entering AI list manager shows item rows without an all-items button", asy
   const buttons = keyboardButtons(managerReply.extra);
 
   assert.deepEqual(deletedIds, []);
+  assert.match(replies[0].text, /first tap the Add button below/);
+  assert.doesNotMatch(replies[0].text, /Filters|page navigation/);
   assert.match(managerReply.text, /Arrival/);
   assert.match(managerReply.text, /\/cm_mv_l_1/);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
@@ -929,6 +931,51 @@ test("entering AI list manager shows item rows without an all-items button", asy
     `${callBacks.aiListManageBack}movies`,
   );
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
+});
+
+test("typed text in For Later resends the card with its inline controls", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const watchlist = Array.from({ length: 6 }, (_, index) => ({
+    title: `Movie ${index + 1}`,
+    watched: index === 0,
+  }));
+  const ctx = {
+    userId: 821,
+    user: {
+      userId: 821,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      navigationMode: "ai_list:movies:watchlist",
+      aiLastListPage: 0,
+      aiLists: { movies: { topTen: [], watchlist } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+  User.findOneAndUpdate = async () => ctx.user;
+
+  try {
+    await handleAiText(ctx, "en", "anything", ctx.user.state);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const listReply = replies.at(-1);
+  const buttons = keyboardButtons(listReply.extra);
+  assert.equal(replies.length, 1);
+  assert.match(listReply.text, /first tap the Add button below/);
+  assert.match(listReply.text, /Filters and page navigation/);
+  assert.equal(
+    buttons.some((button) => button.callback_data?.includes("movies:watchlist:watched:0")),
+    true,
+  );
+  assert.equal(
+    buttons.some((button) => button.callback_data?.includes("movies:watchlist:all:1")),
+    true,
+  );
 });
 
 test("entering Books uses its banner once and keeps later manager cards text-only", async () => {

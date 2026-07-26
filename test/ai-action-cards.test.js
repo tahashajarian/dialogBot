@@ -43,6 +43,7 @@ test("AI button guidance is concise, bot-authored, and distinguishes control typ
     assert.match(messages[lang].aiSectionUseButtonsOnly, /^👩‍🦳/);
     assert.match(messages[lang].aiSectionUseButtonsOnly, /💡/);
     assert.match(messages[lang].aiListManageUseButtonsTip, /^👩‍🦳/);
+    assert.match(messages[lang].aiListManageUseButtonsTipWithInline, /^👩‍🦳/);
     assert.match(messages[lang].aiSuggestionUseButtons, /^👩‍🦳/);
     assert.match(messages[lang].aiSuggestionUseButtons, /💡/);
   }

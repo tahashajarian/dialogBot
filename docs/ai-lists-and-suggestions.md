@@ -295,6 +295,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - A paid suggestion that reaches the visible timeout must refund before showing the retry state; a late API result must never complete that timed-out purchase.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
+- Save and completed/read/watched suggestion actions share one in-flight lock per user and section. Rapid or alternating repeated taps must not start competing writes or surface the generic AI-response failure; genuine persistence failures keep the suggestion pending and use save-specific retry copy.
 - Persian suggestion reasons should make the suggested item the subject and read naturally as standalone comments. Prefer forms such as `فضای تلخ و ماندگارش به X و Y نزدیکه`; avoid comparison constructions shaped like `برای X و Y، ... درمی‌آید` or `برای X و Y، ... می‌گیردت`.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.

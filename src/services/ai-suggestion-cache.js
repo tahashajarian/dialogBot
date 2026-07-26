@@ -1,5 +1,6 @@
 const pendingSuggestions = new Map();
 const suggestionMoods = new Map();
+const activeSuggestionActions = new Set();
 
 function buildKey(userId, section) {
   return `${Number(userId) || 0}:${String(section || "").trim()}`;
@@ -45,6 +46,18 @@ function clearPendingSuggestion(userId, section) {
   pendingSuggestions.delete(key);
 }
 
+function claimSuggestionAction(userId, section) {
+  const key = buildKey(userId, section);
+  if (!key || activeSuggestionActions.has(key)) return null;
+  activeSuggestionActions.add(key);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeSuggestionActions.delete(key);
+  };
+}
+
 function setSuggestionMood(userId, section, mood) {
   const key = buildKey(userId, section);
   const cleanMood = normalizeSuggestionComment(mood).slice(0, 80);
@@ -66,6 +79,7 @@ function clearSuggestionMood(userId, section) {
 }
 
 module.exports = {
+  claimSuggestionAction,
   setPendingSuggestion,
   getPendingSuggestion,
   clearPendingSuggestion,
