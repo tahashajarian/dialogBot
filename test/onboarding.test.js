@@ -562,8 +562,8 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(enRulesText, /Reports count only from different users/);
   assert.match(faRulesText, /۳ دعوت در هر ۲۴ ساعت/);
   assert.match(enRulesText, /3 per 24 hours/);
-  assert.match(messages.fa.helpGoToLists, /^محبوب‌های من/);
-  assert.match(messages.en.helpGoToLists, /^My favorites/);
+  assert.equal(messages.fa.helpGoToLists, messages.fa.aiAssistant);
+  assert.equal(messages.en.helpGoToLists, messages.en.aiAssistant);
   assert.match(messages.fa.helpText, /^👩‍🦳/);
   assert.match(messages.en.helpText, /^👩‍🦳/);
   assert.match(messages.fa.helpText, /🎬🎵📚 فیلم، موسیقی و کتاب/);
