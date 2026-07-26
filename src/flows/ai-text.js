@@ -977,12 +977,18 @@ async function handleAiText(ctx, lang, text, state) {
     if (manageState.commentInputMode) {
       const pendingItem = normalizeAiListItem(ctx.user?.aiSectionPendingCommentItem);
       const pendingListType = ctx.user?.aiSectionPendingCommentListType === "topTen" ? "topTen" : "watchlist";
+      const returnView = pendingListType === "watchlist"
+        ? {
+          filter: getActiveWatchlistFilter(ctx, section),
+          page: Math.max(0, Number(ctx.user?.aiLastListPage) || 0),
+        }
+        : {};
       if (!pendingItem) {
         await clearAiPendingInputPrompt(ctx);
         await updateUserState(ctx.userId, `ai_manage_${section}_${pendingListType === "topTen" ? "top_ten" : "watchlist"}`);
         await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
         await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
-        return openAiListManager(ctx, lang, section, pendingListType);
+        return openAiListManager(ctx, lang, section, pendingListType, returnView);
       }
 
       if (text.startsWith("/")) {
@@ -1010,11 +1016,9 @@ async function handleAiText(ctx, lang, text, state) {
       rememberCtxAiListItems(ctx, section, pendingListType, updated.items);
       if (pendingListType === "topTen") {
         await syncAiTasteForSection(ctx.userId, section);
-        await ctx.reply(formatAiCommentSaved(lang, pendingListType, pendingItem));
-        return openAiListManager(ctx, lang, section, pendingListType);
       }
       await ctx.reply(formatAiCommentSaved(lang, pendingListType, pendingItem));
-      return openAiListManager(ctx, lang, section, pendingListType);
+      return openAiListManager(ctx, lang, section, pendingListType, returnView);
     }
 
     await clearAiActionMessage(ctx);

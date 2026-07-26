@@ -654,13 +654,19 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
       userId: 81,
       lang: "fa",
       state: "ai_manage_movies_watchlist_comment_input",
+      navigationMode: "ai_list:movies:watchlist",
       aiPendingInputMessageId: 55,
-      aiSectionPendingCommentItem: "Arrival",
+      aiSectionPendingCommentItem: "Movie 1",
       aiSectionPendingCommentListType: "watchlist",
+      aiLastListSection: "",
+      aiLastListType: "",
+      aiLastListPage: 1,
       aiLists: {
         movies: {
           topTen: [],
-          watchlist: [{ title: "Arrival" }],
+          watchlist: Array.from({ length: 7 }, (_, index) => ({
+            title: `Movie ${index + 1}`,
+          })),
         },
       },
     },
@@ -696,12 +702,68 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   assert.equal(ctx.user.aiSectionPendingCommentItem, null);
   assert.equal(ctx.user.aiSectionPendingCommentListType, null);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
-  assert.match(finalReply.text, /Arrival/);
-  assert.match(finalReply.text, /\/cm_mv_l_1/);
+  assert.match(finalReply.text, /Movie 2/);
+  assert.match(finalReply.text, /\/cm_mv_l_2/);
+  assert.match(finalReply.text, /Movie 1/);
+  assert.doesNotMatch(finalReply.text, /Movie 7/);
+  assert.equal(ctx.user.aiLastListPage, 1);
   assert.doesNotMatch(finalReply.text, /لغو شد/);
   assert.equal(replyLabels.includes(messages.fa.cancelEdit), false);
-  assert.equal(replyLabels.includes(messages.fa.aiListManageAddLaterMovies), true);
-  assert.equal(keyboardButtons(finalReply.extra).length, 0);
+  assert.equal(
+    keyboardButtons(finalReply.extra).some((button) => (
+      button.callback_data === `${callBacks.aiListManageShow}movies:watchlist:all:0`
+    )),
+    true,
+  );
+});
+
+test("saving a For Later comment preserves the current page", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const items = Array.from({ length: 7 }, (_, index) => ({
+    title: `Movie ${index + 1}`,
+  }));
+  const ctx = {
+    userId: 811,
+    user: {
+      userId: 811,
+      lang: "en",
+      state: "ai_manage_movies_watchlist_comment_input",
+      navigationMode: "ai_list:movies:watchlist",
+      aiSectionPendingCommentItem: "Movie 1",
+      aiSectionPendingCommentListType: "watchlist",
+      aiLastListSection: "",
+      aiLastListType: "",
+      aiLastListPage: 1,
+      aiLists: { movies: { topTen: [], watchlist: items } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 + replies.length };
+    },
+  };
+
+  User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiText(ctx, "en", "A saved note", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const listReply = replies.at(-1);
+  assert.match(listReply.text, /Movie 2/);
+  assert.match(listReply.text, /\/cm_mv_l_2/);
+  assert.match(listReply.text, /Movie 1/);
+  assert.doesNotMatch(listReply.text, /Movie 7/);
+  assert.equal(ctx.user.aiLastListPage, 1);
+  assert.equal(ctx.user.aiLists.movies.watchlist[0].comment, "A saved note");
 });
 
 test("AI comment copy names the item instead of the list type", () => {

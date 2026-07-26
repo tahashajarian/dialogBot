@@ -551,11 +551,19 @@ async function handleAiCallback(ctx, lang, helpers) {
       return helpers.deleteCallbackMessageIfPossible(ctx);
     }
 
+    const returnView = listType === "watchlist"
+      ? {
+        filter: ["watched", "not_watched"].includes(ctx.user?.aiLastListFilter)
+          ? ctx.user.aiLastListFilter
+          : "all",
+        page: Math.max(0, Number(ctx.user?.aiLastListPage) || 0),
+      }
+      : {};
     await updateProfileField(ctx.userId, "aiSectionPendingCommentItem", null);
     await updateProfileField(ctx.userId, "aiSectionPendingCommentListType", null);
     await clearAiPendingInputPrompt(ctx);
     await updateUserState(ctx.userId, `ai_manage_${section}_${toAiManageStateListType(listType)}`);
-    return openAiListManager(ctx, lang, section, listType);
+    return openAiListManager(ctx, lang, section, listType, returnView);
   }
 
   if (data.startsWith(callBacks.aiListManagePromotePicker)) {
