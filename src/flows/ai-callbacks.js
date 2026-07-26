@@ -49,7 +49,6 @@ const {
   addAiListItem,
   addAiRejectedSuggestion,
   getAiListItemsFromUser,
-  getWatchlistItemsByStatusFromUser,
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
   syncAiTasteForSection,
@@ -89,14 +88,11 @@ const {
   buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
-  formatAiItemsList,
   formatAiLimitMessage,
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
-  getSectionLabelWithEmoji,
   toTitleSet,
-  withAiSectionTitle,
 } = require("../services/ai-list-ui");
 const {
   rememberAiPendingInputPrompt,
@@ -111,7 +107,6 @@ const {
   forgetRememberedAiListMessage,
   rememberAiActionMessage,
   rememberAiSectionEntryMessage,
-  replaceRememberedAiListMessage,
 } = require("./ai-cards");
 const {
   formatAiCommentPrompt,

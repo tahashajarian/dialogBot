@@ -398,7 +398,6 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   }
   if (validAiListFilterState) {
     const section = aiListFilterMatch[1];
-    const filter = aiListFilterMatch[2];
     const addKey = section === "movies" ? "aiListManageAddLaterMovies"
       : section === "music" ? "aiListManageAddLaterMusic"
         : section === "books" ? "aiListManageAddLaterBooks" : "aiListManageAdd";
