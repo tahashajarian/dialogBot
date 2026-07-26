@@ -94,3 +94,42 @@ test("onboarding import preserves a selection added concurrently and retries saf
   assert.deepEqual(user.aiLists.movies.watchlist.map((item) => item.title), ["Dune"]);
   assert.deepEqual(user.aiLists.books.watchlist.map((item) => item.title), ["Piranesi"]);
 });
+
+test("concurrent For Later additions cannot exceed one section's capacity", async () => {
+  await User.create({ userId: 702, firstName: "Capacity User" });
+
+  const results = await Promise.all(
+    Array.from({ length: 8 }, (_, index) => (
+      addAiListItem(702, "movies", "watchlist", { title: `Movie ${index}` }, 1)
+    )),
+  );
+
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal(results.filter((result) => result.reason === "limit").length, 7);
+  const user = await User.findOne({ userId: 702 }).lean();
+  assert.equal(user.aiLists.movies.watchlist.length, 1);
+  assert.equal(user.aiLists.music.watchlist.length, 0);
+});
+
+test("pending inline imports discard capacity overflow instead of retrying forever", async () => {
+  await User.create({
+    userId: 703,
+    firstName: "Full User",
+    aiLists: {
+      movies: {
+        watchlist: Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index}` })),
+      },
+    },
+  });
+  await stagePendingInlineListItem({ userId: 703, section: "movies", title: "Movie 101" });
+
+  const result = await importPendingInlineListItems(703);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.imported, 0);
+  assert.equal(result.skippedAtCapacity, 1);
+  assert.equal(result.pendingChanged, false);
+  assert.equal(await PendingInlineList.exists({ userId: 703 }), null);
+  const user = await User.findOne({ userId: 703 }).lean();
+  assert.equal(user.aiLists.movies.watchlist.length, 100);
+});

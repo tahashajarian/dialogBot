@@ -1047,7 +1047,6 @@ async function handleAiCallback(ctx, lang, helpers) {
     const comment = String(pending?.comment || "").trim();
     if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
-    await helpers.deleteCallbackMessageIfPossible(ctx);
     const result = await addAiListItem(
       ctx.userId,
       section,
@@ -1062,6 +1061,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       return ctx.reply(messages[lang].aiTemporaryUnavailable);
     }
 
+    await helpers.deleteCallbackMessageIfPossible(ctx);
     clearPendingSuggestion(ctx.userId, section);
     applyStarRewardsToContext(ctx, result.starRewards);
     await notifyExternalReferralReward(ctx, messages, result.externalReferralReward);

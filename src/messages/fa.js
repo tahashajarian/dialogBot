@@ -929,8 +929,8 @@ module.exports = {
     inlineCaptureResult_music: "🎵 ذخیرهٔ «{item}» در بعدا گوش بده",
     inlineCaptureResult_books: "📚 ذخیرهٔ «{item}» در بعدا بخون",
     inlineCaptureResultDescription: "برای ذخیره و فرستادن تأیید در همین گفت‌وگو بزن.",
-    inlineCaptureConfirmation_movies: "✓ «{item}» به فهرست «🎬📋 بعدا ببین» اضافه شد.",
-    inlineCaptureConfirmation_music: "✓ «{item}» به فهرست «🎵📋 بعدا گوش بده» اضافه شد.",
-    inlineCaptureConfirmation_books: "✓ «{item}» به فهرست «📚📋 بعدا بخون» اضافه شد.",
+    inlineCaptureConfirmation_movies: "«{item}» برای فهرست «🎬📋 بعدا ببین» به میوز فرستاده شد.",
+    inlineCaptureConfirmation_music: "«{item}» برای فهرست «🎵📋 بعدا گوش بده» به میوز فرستاده شد.",
+    inlineCaptureConfirmation_books: "«{item}» برای فهرست «📚📋 بعدا بخون» به میوز فرستاده شد.",
     inlineCaptureOpenBot: "باز کردن میوز"
   };

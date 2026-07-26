@@ -95,6 +95,7 @@ async function importPendingInlineListItems(userId, {
   if (!pending?.items?.length) return { ok: true, imported: 0 };
 
   let imported = 0;
+  let skippedAtCapacity = 0;
   for (const item of pending.items) {
     const result = await addListItem(
       normalizedUserId,
@@ -103,6 +104,10 @@ async function importPendingInlineListItems(userId, {
       { title: item.title, comment: "" },
       operationalLimits.aiWatchlistItems,
     );
+    if (!result.ok && result.reason === "limit") {
+      skippedAtCapacity += 1;
+      continue;
+    }
     if (!result.ok && result.reason !== "exists") {
       return {
         ok: false,
@@ -120,6 +125,7 @@ async function importPendingInlineListItems(userId, {
   return {
     ok: true,
     imported,
+    skippedAtCapacity,
     pendingChanged: Number(removed.deletedCount) === 0,
   };
 }

@@ -929,8 +929,8 @@ module.exports = {
     inlineCaptureResult_music: "🎵 Save “{item}” to Listen Later",
     inlineCaptureResult_books: "📚 Save “{item}” to Read Later",
     inlineCaptureResultDescription: "Tap to save and share the confirmation here.",
-    inlineCaptureConfirmation_movies: "✓ Added “{item}” to 🎬📋 Watch Later.",
-    inlineCaptureConfirmation_music: "✓ Added “{item}” to 🎵📋 Listen Later.",
-    inlineCaptureConfirmation_books: "✓ Added “{item}” to 📚📋 Read Later.",
+    inlineCaptureConfirmation_movies: "Sent “{item}” to Muze for 🎬📋 Watch Later.",
+    inlineCaptureConfirmation_music: "Sent “{item}” to Muze for 🎵📋 Listen Later.",
+    inlineCaptureConfirmation_books: "Sent “{item}” to Muze for 📚📋 Read Later.",
     inlineCaptureOpenBot: "Open Muze"
   };

@@ -106,6 +106,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   const sectionToken = getAiListCommandSectionToken(section);
   const listToken = listType === "top" ? "t" : "l";
   const canPromote = Boolean(options.canPromote);
+  const displayStartIndex = Math.max(0, Number(options.displayStartIndex) || 0);
   const pointer = options.lang === "fa" ? "👈" : "👉";
   const statusLabels = getStatusActionLabels(options.lang, section);
   const actionLabels = {
@@ -125,7 +126,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
       ? localizeListItemMetadata(options.lang, displayItem.metadata)
       : "";
     const itemLine = [
-      `${index + 1}. ${watchedBadge}${displayItem.title}${topTenBadge}${localizedMetadata ? ` — ${localizedMetadata}` : ""}`,
+      `${displayStartIndex + index + 1}. ${watchedBadge}${displayItem.title}${topTenBadge}${localizedMetadata ? ` — ${localizedMetadata}` : ""}`,
       entry?.comment
         ? `${entry?.commentSource === "user" ? "📝" : "✨"} ${entry.comment}`
         : "",
@@ -226,6 +227,7 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true, filt
       topTenTitleSet,
       includeWatched,
       includeActions: true,
+      displayStartIndex: watchlistPage.startIndex,
       canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < operationalLimits.aiTopTenItems,
       lang,
       section,

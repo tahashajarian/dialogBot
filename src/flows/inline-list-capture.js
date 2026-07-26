@@ -1,6 +1,10 @@
 const { createHash, timingSafeEqual } = require("crypto");
 const messages = require("../messages");
-const { addAiListItem, normalizeAiListItem } = require("../services/users");
+const {
+  addAiListItem,
+  getAiListItemsFromUser,
+  normalizeAiListItem,
+} = require("../services/users");
 const { getInlineListUser } = require("../services/inline-list-users");
 const { stagePendingInlineListItem } = require("../services/pending-inline-lists");
 const { operationalLimits } = require("../services/operational-limits");
@@ -115,9 +119,11 @@ function buildInlineSaveResults({
   lang,
   title,
   botUsername = "",
+  sections = INLINE_SECTIONS.map(({ section }) => section),
 }) {
   const visibleTitle = trimInlineResultTitle(title);
-  return INLINE_SECTIONS.map(({ section }) => ({
+  const allowedSections = new Set(sections);
+  return INLINE_SECTIONS.filter(({ section }) => allowedSections.has(section)).map(({ section }) => ({
     type: "article",
     id: buildInlineResultId(userId, section, title),
     title: messages[lang][`inlineCaptureResult_${section}`].replace("{item}", visibleTitle),
@@ -142,11 +148,18 @@ async function handleInlineListQuery(ctx, {
   const user = await getUser(userId);
   if (user?.bannedAt) return answerInlineQuery(ctx, [], emptyAnswer);
   const lang = getInlineQueryLanguage(ctx.inlineQuery?.from || ctx.from, user);
+  const sections = INLINE_SECTIONS
+    .filter(({ section }) => (
+      !user
+      || getAiListItemsFromUser(user, section, "watchlist").length < operationalLimits.aiWatchlistItems
+    ))
+    .map(({ section }) => section);
   return answerInlineQuery(ctx, buildInlineSaveResults({
     userId,
     lang,
     title,
     botUsername: ctx.botInfo?.username,
+    sections,
   }), {
     cache_time: 0,
     is_personal: true,

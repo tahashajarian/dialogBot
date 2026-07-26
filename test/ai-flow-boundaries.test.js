@@ -282,6 +282,7 @@ const {
 } = require("../src/flows/ai-callbacks");
 const {
   getSuggestionMood,
+  setPendingSuggestion,
   setSuggestionMood,
 } = require("../src/services/ai-suggestion-cache");
 const {
@@ -1870,6 +1871,92 @@ test("watchlist add flow stays open for the next item", async () => {
   assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);
 });
 
+test("the 101st manual For Later item returns to the remembered list page", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const items = Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index + 1}` }));
+  const ctx = {
+    userId: 780,
+    user: {
+      userId: 780,
+      lang: "en",
+      state: "ai_manage_movies_watchlist_add_input",
+      navigationMode: "ai_list:movies:watchlist",
+      aiLastListPage: 19,
+      aiLists: { movies: { watchlist: items, topTen: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+  User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiText(ctx, "en", "Movie 101", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const card = replies.at(-1);
+  assert.match(card.text, /full \(100\/100\)/);
+  assert.match(card.text, /96\. ○ Movie 5/);
+  assert.match(card.text, /100\. ○ Movie 1/);
+  assert.doesNotMatch(card.text, /Movie 101/);
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.equal(ctx.user.aiLastListPage, 19);
+  assert.equal(ctx.user.aiLists.movies.watchlist.length, 100);
+});
+
+test("a full For Later list keeps the AI suggestion card actionable", async () => {
+  const originalFindOne = User.findOne;
+  const replies = [];
+  const deleted = [];
+  const items = Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index + 1}` }));
+  const ctx = {
+    callbackData: `${callBacks.aiSectionAddSuggestion}movies`,
+    callbackMessageId: 88,
+    userId: 781,
+    user: {
+      userId: 781,
+      lang: "en",
+      state: "ai_chat_movies",
+      navigationMode: "ai_suggestion_result:movies",
+      aiLists: { movies: { watchlist: items, topTen: [] } },
+    },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+  User.findOne = async () => ctx.user;
+  setPendingSuggestion(ctx.userId, "movies", "Movie 101", "A reason");
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => {
+        deleted.push(ctx.callbackMessageId);
+        return true;
+      },
+    });
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.deepEqual(deleted, []);
+  assert.match(replies.at(-1).text, /full \(100\/100\)/);
+  assert.equal(ctx.user.state, "ai_chat_movies");
+  assert.equal(ctx.user.navigationMode, "ai_suggestion_result:movies");
+  assert.equal(ctx.user.aiLists.movies.watchlist.length, 100);
+});
+
 test("Interests editor shares the paged onboarding chip catalog", () => {
   const firstPage = aiInterestTopTenChipKeyboard("en", ["شطرنج"], 0);
   const secondPage = aiInterestTopTenChipKeyboard("en", [], 1);
@@ -2014,6 +2101,7 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
 
   assert.match(rendered, /1\. ✔️ Dune 🏆\n✨ reread/);
   assert.match(rendered, /2\. ○ Foundation/);
+  assert.match(rendered, /────────────────────────/);
 });
 
 test("AI list UI treats unmarked legacy comments as AI explanations", () => {
@@ -2306,9 +2394,9 @@ test("For Later pagination preserves full-list command indexes", () => {
   assert.match(firstPage, /\/rm_mv_l_7/);
   assert.match(firstPage, /Movie 3/);
   assert.doesNotMatch(firstPage, /Movie 2/);
-  assert.match(secondPage, /Movie 2/);
+  assert.match(secondPage, /6\. ○ Movie 2/);
   assert.match(secondPage, /\/rm_mv_l_2/);
-  assert.match(secondPage, /Movie 1/);
+  assert.match(secondPage, /7\. ○ Movie 1/);
   assert.doesNotMatch(secondPage, /Movie 3/);
 });
 
@@ -2365,7 +2453,7 @@ test("For Later page callbacks edit the current card and remember the page", asy
   assert.equal(replies.length, 0);
   assert.equal(edits.length, 1);
   assert.equal(edits[0].messageId, 81);
-  assert.match(edits[0].text, /Movie 2/);
+  assert.match(edits[0].text, /6\. ○ Movie 2/);
   assert.match(edits[0].text, /\/rm_mv_l_2/);
   assert.doesNotMatch(edits[0].text, /Movie 7/);
   assert.equal(ctx.user.aiLastListPage, 1);

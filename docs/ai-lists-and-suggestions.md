@@ -33,11 +33,14 @@
 - Item objects are `{ title, comment, watched }`.
 - `watchlist` is capped at 100 items per section.
 - `topTen` is capped at 10 items per section.
+- Watchlist capacity is enforced atomically per section. Concurrent additions cannot exceed the section's cap or overwrite one another.
+- A full section is omitted from inline quick-save destinations. Inline confirmation copy describes sending the item to Muze rather than claiming persistence before Telegram delivers the chosen-result update.
 
 ## Watchlist
 
 - Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `○` not done), including first entry and post-mutation refreshes.
 - For Later lists render newest entries first. Visible ordering must not change the stable full-list indexes used by item commands.
+- Paginated For Later rows keep continuous visible numbering across pages (1–5, 6–10, and so on), including filtered views.
 - Watchlist supports section-aware status wording:
   - movies: watched
   - music: listened

@@ -869,8 +869,15 @@ async function handleAiText(ctx, lang, text, state) {
           );
         }
         if (result.reason === "limit") {
+          if (isWatchlist) {
+            return openAiListManager(ctx, lang, section, listType, {
+              prefix: formatAiLimitMessage(lang, "aiWatchlistLimitReached"),
+              filter: getActiveWatchlistFilter(ctx, section),
+              page: Math.max(0, Number(ctx.user?.aiLastListPage) || 0),
+            });
+          }
           return ctx.reply(
-            formatAiLimitMessage(lang, isWatchlist ? "aiWatchlistLimitReached" : "aiTopTenLimitReachedHere"),
+            formatAiLimitMessage(lang, "aiTopTenLimitReachedHere"),
             aiListManageMenuKeyboard(lang, section, listType, {
               hasItems: currentItems.length > 0,
               itemCount: currentItems.length,

@@ -748,33 +748,49 @@ async function addAiListItem(userId, section, listType, item, maxItems, { awardS
     return { ok: false, reason: "invalid_item_quality" };
   }
 
-  const user = await User.findOne({ userId });
-  if (!user) {
-    return { ok: false, reason: "missing_user" };
-  }
-
-  const current = getAiListItemsFromUser(user, section, listType);
-  const duplicateMatch = getAiListDuplicateMatch(title, current);
-  if (duplicateMatch) {
-    return {
-      ok: false,
-      reason: "exists",
-      items: current,
-      duplicate: duplicateMatch.item,
-      duplicateScore: duplicateMatch.score,
-      duplicateType: duplicateMatch.type,
-    };
-  }
-
-  if (current.length >= itemLimit) {
-    return { ok: false, reason: "limit", items: current };
-  }
-
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const newItem = { title, metadata, comment, watched };
   if (comment && commentSource) newItem.commentSource = commentSource;
-  const updated = [...current, newItem];
-  await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
+  const listPath = `aiLists.${section}.${listType}`;
+  let updated = null;
+
+  // Compare the stored array when writing so concurrent additions cannot both
+  // claim the final slot or overwrite one another. A retry re-runs duplicate
+  // and capacity checks against the winning write.
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const user = await User.findOne({ userId });
+    if (!user) return { ok: false, reason: "missing_user" };
+
+    const current = getAiListItemsFromUser(user, section, listType);
+    const duplicateMatch = getAiListDuplicateMatch(title, current);
+    if (duplicateMatch) {
+      return {
+        ok: false,
+        reason: "exists",
+        items: current,
+        duplicate: duplicateMatch.item,
+        duplicateScore: duplicateMatch.score,
+        duplicateType: duplicateMatch.type,
+      };
+    }
+    if (current.length >= itemLimit) {
+      return { ok: false, reason: "limit", items: current };
+    }
+
+    const stored = user?.aiLists?.[section]?.[listType] || [];
+    const candidate = [...current, newItem];
+    const saved = await User.findOneAndUpdate(
+      { userId, [listPath]: stored },
+      { $set: { [listPath]: candidate } },
+      { returnDocument: "after" },
+    );
+    if (saved) {
+      updated = candidate;
+      break;
+    }
+  }
+  if (!updated) return { ok: false, reason: "concurrent_update" };
+
   void syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = awardStars
     ? await awardListMilestones({

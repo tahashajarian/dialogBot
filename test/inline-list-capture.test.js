@@ -85,7 +85,7 @@ test("people without an account receive choices while banned accounts do not", a
     getUser: async () => null,
   });
   assert.equal(inactiveAnswers[0].results.length, 3);
-  assert.match(inactiveAnswers[0].results[0].input_message_content.message_text, /^✓ Added/);
+  assert.match(inactiveAnswers[0].results[0].input_message_content.message_text, /^Sent/);
 
   const bannedAnswers = [];
   await handleInlineListQuery({
@@ -96,6 +96,35 @@ test("people without an account receive choices while banned accounts do not", a
     getUser: async () => ({ userId: 42, lang: "en", bannedAt: new Date() }),
   });
   assert.deepEqual(bannedAnswers[0].results, []);
+});
+
+test("inline query hides only sections whose own For Later list is full", async () => {
+  const answers = [];
+  await handleInlineListQuery({
+    inlineQuery: { query: "Dune", from: { id: 42, language_code: "en" } },
+    answerInlineQuery: async (results, extra) => answers.push({ results, extra }),
+  }, {
+    allowQuery: () => true,
+    getUser: async () => ({
+      userId: 42,
+      lang: "en",
+      aiLists: {
+        movies: {
+          watchlist: Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index}` })),
+        },
+        music: { watchlist: [] },
+        books: { watchlist: [] },
+      },
+    }),
+  });
+
+  assert.deepEqual(
+    answers[0].results.map((result) => result.title),
+    [
+      "🎵 Save “Dune” to Listen Later",
+      "📚 Save “Dune” to Read Later",
+    ],
+  );
 });
 
 test("chosen result is bound to its user, section, and normalized query", () => {
