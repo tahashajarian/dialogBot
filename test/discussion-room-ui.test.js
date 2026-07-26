@@ -62,10 +62,10 @@ test("formatDiscussionRoom localizes bot-created rooms and uses only the bot emo
   const text = formatDiscussionRoom(messages, "en", discussion);
   const persianText = formatDiscussionRoom(messages, "fa", discussion);
 
-  assert.match(text, /💬 👩‍🦳 Movie Chat/);
-  assert.match(text, /Chat about movies, scenes, and recent favorites/);
+  assert.match(text, /💬 👩‍🦳 Movies & Series Chat/);
+  assert.match(text, /Chat about movies, series, scenes, episodes, and recent favorites/);
   assert.match(persianText, /💬 👩‍🦳 گفت‌وگوی فیلم/);
-  assert.match(persianText, /برای گپ درباره فیلم‌ها، سکانس‌ها و چیزهایی که دوست داشتید/);
+  assert.match(persianText, /برای گپ درباره فیلم‌ها، سریال‌ها، سکانس‌ها، قسمت‌ها و چیزهایی که دوست داشتید/);
   assert.doesNotMatch(text, /official/i);
 });
 

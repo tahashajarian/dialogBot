@@ -239,7 +239,7 @@ test("people discovery UI shows the localized shared taste label", () => {
     sharedTasteLabels: [{ section: "movies", labelKey: "sci_fi_fan" }],
   }], { showSharedSections: true });
 
-  assert.match(text, /فیلم‌ها: 🚀 علمی‌تخیلی‌باز/);
+  assert.match(text, /فیلم و سریال: 🚀 علمی‌تخیلی‌باز/);
   assert.doesNotMatch(text, /sci_fi_fan/);
 });
 

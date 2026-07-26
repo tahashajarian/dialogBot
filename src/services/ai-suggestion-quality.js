@@ -25,6 +25,13 @@ function isSuggestionUncertainResponse(text) {
   return /^UNSURE[.!]?$/i.test(String(text || "").trim());
 }
 
+function buildSuggestionAttemptText(userText, fallbackText, attempt) {
+  const context = String(userText || "").trim();
+  if (attempt <= 0) return context || fallbackText;
+  const retryInstruction = "Suggest a different item. The previous one was already known.";
+  return context ? `${context}\n\n${retryInstruction}` : retryInstruction;
+}
+
 function getSuggestionRealityIssue({ mode, title, reason }) {
   const cleanTitle = String(title || "").trim();
   const cleanReason = String(reason || "").trim();
@@ -44,7 +51,7 @@ function getSuggestionRealityIssue({ mode, title, reason }) {
     return "fabrication_marker";
   }
 
-  if (mode === "movies" && !/\((?=.*(?:\bdir\.|\bdirector\b))[^)]+\)/i.test(cleanTitle)) {
+  if (mode === "movies" && !/\((?=.*(?:\bdir\.|\bdirector\b|\bcreator\b))[^)]+\)/i.test(cleanTitle)) {
     return "missing_movie_metadata";
   }
   if (mode === "music" && !/\([^)]+\)/.test(cleanTitle)) {
@@ -109,7 +116,10 @@ function parseSingleSuggestionResponse(raw, lang, helpers) {
 
 function getSingleSuggestionDetailInstruction(mode) {
   if (mode === "movies") {
-    return "Line 1 must include movie title + year + director in parentheses. Example: Interstellar (2014, Dir. Christopher Nolan).";
+    return [
+      "For a movie, line 1 must include title + year + director in parentheses; example: Interstellar (2014, Dir. Christopher Nolan).",
+      "For a series, line 1 must include title + premiere year + creator in parentheses; example: Dark (2017, Creator: Baran bo Odar).",
+    ].join(" ");
   }
 
   if (mode === "music") {
@@ -219,6 +229,7 @@ function createSuggestionHelpers(helpers) {
 }
 
 module.exports = {
+  buildSuggestionAttemptText,
   createSuggestionHelpers,
   getInterestSuggestionFamily,
   getSingleSuggestionDetailInstruction,

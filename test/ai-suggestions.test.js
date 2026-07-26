@@ -6,12 +6,17 @@ const {
   extractAiResponseText,
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
+  getModeInstruction,
   getSuggestionRealityIssue,
   isSuggestionUncertainResponse,
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
 } = require("../src/services/ai");
 const { formatSuggestionResultMessage } = require("../src/services/ai-list-ui");
+const {
+  buildSuggestionAttemptText,
+  getSingleSuggestionDetailInstruction,
+} = require("../src/services/ai-suggestion-quality");
 const {
   clearSuggestionMood,
   getSuggestionMood,
@@ -25,6 +30,12 @@ test("suggestion mood persists for a session and can be reset", () => {
   assert.equal(getSuggestionMood(42, "books"), "");
   clearSuggestionMood(42, "movies");
   assert.equal(getSuggestionMood(42, "movies"), "");
+});
+
+test("duplicate retries preserve an explicit series-only request", () => {
+  assert.equal(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 0), "فقط سریال");
+  assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /^فقط سریال/);
+  assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /different item/);
 });
 
 test("uncertain suggestion sentinel accepts only the standalone fallback", () => {
@@ -73,10 +84,21 @@ test("does not split movie metadata at director abbreviation", () => {
   assert.deepEqual(splitSuggestionSentence("Blade Runner 2049 (2017, Dir. Denis Villeneuve). A visual continuation of thoughtful sci-fi."), ["Blade Runner 2049 (2017, Dir. Denis Villeneuve).", "A visual continuation of thoughtful sci-fi."]);
 });
 
+test("Movies & Series suggestions define metadata for both formats", () => {
+  const instruction = getSingleSuggestionDetailInstruction("movies");
+  const modeInstruction = getModeInstruction("movies", "en");
+  assert.match(instruction, /For a movie/);
+  assert.match(instruction, /For a series/);
+  assert.match(instruction, /Creator/);
+  assert.match(modeInstruction, /movies and TV\/streaming series/);
+  assert.match(modeInstruction, /explicitly asks for a movie or series, honor it/);
+});
+
 test("suggestion reality gate rejects fabricated-looking outputs", () => {
   assert.equal(getSuggestionRealityIssue({ mode: "books", title: "The Silent Path (Unknown Author)", reason: "Matches your reflective mood." }), "placeholder_metadata");
   assert.equal(getSuggestionRealityIssue({ mode: "music", title: "Moon Dust Symphony", reason: "A fictional track for metal fans." }), "fabrication_marker");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Blade Runner 2049 (2017, Dir. Denis Villeneuve)", reason: "Slow sci-fi with neon melancholy." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Dark (2017, Creator: Baran bo Odar)", reason: "A layered science-fiction mystery." }), "");
 });
 
 test("Interests fallback is concrete and derived from the user's interests", () => {

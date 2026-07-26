@@ -350,6 +350,8 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعدا می‌بینم» ذخیره شد. (دیده‌شده)");
   assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
   assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعدا می‌خونم» ذخیره شد. (خوانده‌شده)");
+  assert.doesNotMatch(messages.fa.aiSuggestionChooseAction, /حالا|بعدش/);
+  assert.doesNotMatch(messages.fa.aiSuggestionNextGuidance, /حالا/);
 });
 
 test("AI-authored list promotion confirmation uses the Muze emoji", () => {
@@ -469,6 +471,8 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
 test("music add prompt accepts songs, albums, artists, bands, and titled audio", () => {
   assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicFavoritesAddPrompt);
   assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiBookFavoritesAddPrompt);
+  assert.match(getAiListAddPrompt("en", "movies", "topTen"), /movie or series/);
+  assert.match(getAiListAddPrompt("fa", "movies", "topTen"), /فیلم یا سریال/);
   assert.match(messages.en.aiMusicListManageAddPrompt, /song, album, artist, or band/);
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ، آلبوم، خواننده یا گروه موسیقی/);
 });
@@ -764,7 +768,7 @@ test("AI comment item callback asks for a comment on the selected title", async 
   }
 
   const finalPromptText = edits.at(-1)?.text || replies.at(-1)?.text;
-  assert.deepEqual(deletedIds, [55]);
+  assert.deepEqual(deletedIds, [55, 91]);
   assert.match(finalPromptText, /کامنت برای «Dune»/);
   assert.doesNotMatch(finalPromptText, /کامنت تاپ ۱۰/);
   assert.equal(ctx.user.state, "ai_manage_books_top_ten_comment_input");
@@ -1073,7 +1077,7 @@ test("queued suggestion keyboard taps are ignored while generation is active", a
   assert.equal(await handleAiText(ctx, "en", messages.en.aiBack, ctx.user.state), null);
 });
 
-test("typed text and stale Back preserve suggestion-result controls", async () => {
+test("stale Back preserves suggestion-result controls", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   User.findOneAndUpdate = async () => ({});
@@ -1094,13 +1098,12 @@ test("typed text and stale Back preserve suggestion-result controls", async () =
   };
 
   try {
-    await handleAiText(ctx, "en", "unexpected text", ctx.user.state);
     await handleAiText(ctx, "en", messages.en.aiBack, ctx.user.state);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.equal(replies.length, 2);
+  assert.equal(replies.length, 1);
   for (const reply of replies) {
     assert.equal(reply.text, messages.en.aiSuggestionUseButtons);
     const buttons = keyboardButtons(reply.extra);
@@ -1110,6 +1113,66 @@ test("typed text and stale Back preserve suggestion-result controls", async () =
   assert.equal(ctx.user.state, "ai_chat_books");
   assert.equal(ctx.user.navigationMode, "ai_suggestion_result:books");
   assert.equal(ctx.user.aiActionContext, "suggest_result:books");
+});
+
+test("typed text cannot skip feedback on a pending suggestion", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const replies = [];
+  const ctx = {
+    userId: 84,
+    user: {
+      userId: 84,
+      lang: "en",
+      state: "ai_chat_movies",
+      navigationMode: "ai_suggestion_result:movies",
+      aiActionMessageId: 70,
+      aiActionContext: "suggest_result:movies",
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 80 + replies.length };
+    },
+  };
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleAiText(ctx, "en", "series only", ctx.user.state);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].text, messages.en.aiSuggestionUseButtons);
+  assert.equal(ctx.user.aiActionContext, "suggest_result:movies");
+});
+
+test("typed text after suggestion feedback starts a replacement mood request", async () => {
+  const replies = [];
+  const ctx = {
+    userId: 85,
+    user: {
+      userId: 85,
+      lang: "en",
+      state: "ai_chat_movies",
+      navigationMode: "ai_suggestion_next:movies",
+      aiLists: {
+        movies: {
+          topTen: [{ title: "Arrival" }, { title: "Inception" }],
+          watchlist: [],
+        },
+      },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  await handleAiText(ctx, "en", "series only", ctx.user.state);
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].text, /at least 3/i);
+  assert.notEqual(replies[0].text, messages.en.aiSectionUseButtonsOnly);
 });
 
 test("suggestion mood prompt states and enforces the 80-character limit", async () => {
@@ -1130,7 +1193,8 @@ test("suggestion mood prompt states and enforces the 80-character limit", async 
 
   await handleAiText(ctx, "fa", "غمگین ".repeat(20), ctx.user.state);
 
-  assert.match(messages.fa.aiSuggestionModePrompt, /یک جمله/);
+  assert.match(messages.fa.aiSuggestionModePrompt, /نوع، حال‌وهوا یا ژانر/);
+  assert.match(messages.fa.aiSuggestionContextPrompt, /فقط سریال/);
   assert.doesNotMatch(messages.fa.aiSuggestionModePrompt, /نویسه|کاراکتر/);
   assert.match(messages.fa.aiSuggestionContextTooLong, /۸۰ کاراکتر/);
   assert.equal(replies.length, 1);
@@ -1947,7 +2011,7 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.match(empty, /Start with 3 favorites/);
   assert.match(early, /2\/3 favorites/);
   assert.match(early, /Add 1 more/);
-  assert.match(early, /movie suggestions/);
+  assert.match(early, /movie or series suggestions/);
   assert.match(unlocked, /Suggestions unlocked/);
   assert.match(unlocked, /3\/10/);
   assert.doesNotMatch(unlocked, /Current label|Movie Buff/);

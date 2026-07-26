@@ -14,6 +14,7 @@ test("detects obvious keyboard mash and placeholder TopTen inputs", () => {
 
 test("allows real-looking multilingual list items", () => {
   assert.equal(isLowQualityAiListItem("The Godfather"), false);
+  assert.equal(isLowQualityAiListItem("Breaking Bad"), false);
   assert.equal(isLowQualityAiListItem("Master of Puppets"), false);
   assert.equal(isLowQualityAiListItem("کافه‌گردی"), false);
   assert.equal(isLowQualityAiListItem("شطرنج"), false);

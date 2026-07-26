@@ -131,11 +131,11 @@ test("public Favorites sections use the same wider visible divider as profiles",
 
   assert.match(
     buildPublicFavoritesHubText(user, "en"),
-    /Ali's favorites\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎬 Movies — 1/,
+    /Ali's favorites\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎬 Movies & Series — 1/,
   );
   assert.match(
     buildPublicFavoritesSectionText(user, "en", "movies"),
-    /favorite Movies\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
+    /favorite Movies & Series\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
   );
 });
 

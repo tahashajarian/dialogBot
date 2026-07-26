@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const { getAiConfig } = require("../config");
 const { getClient, requestSuggestionText } = require("./ai-client");
 
-const TASTE_CLASSIFIER_VERSION = 5;
+const TASTE_CLASSIFIER_VERSION = 6;
 const MAX_AI_TASTE_MATCHES = 3;
 const MAX_TASTE_SHORTLIST_SIZE = 4;
 const MIN_TASTE_INSIGHT_EVIDENCE = 4;
@@ -17,17 +17,17 @@ const MIXED_TASTE_LABEL_BY_SECTION = Object.freeze({
 const TASTE_LABEL_CATALOG = Object.freeze({
   movies: Object.freeze({
     sci_fi_fan: "science fiction, technology, space, dystopias, artificial intelligence, and speculative futures",
-    action_junkie: "action, adventure, martial arts, chases, survival, and high-energy cinema",
+    action_junkie: "action, adventure, martial arts, chases, survival, and high-energy movies or series",
     drama_lover: "emotional, social, psychological, family, and character-driven dramas",
     mystery_fan: "crime, mystery, detective stories, psychological thrillers, conspiracies, and suspense",
     comedy_fan: "comedy, satire, parody, absurd humor, romantic comedy, and dark comedy",
-    horror_fan: "horror, supernatural fear, slashers, body horror, psychological terror, and disturbing cinema",
+    horror_fan: "horror, supernatural fear, slashers, body horror, psychological terror, and disturbing movies or series",
     romance_fan: "romance, relationships, intimacy, heartbreak, and love stories",
     fantasy_fan: "fantasy, mythology, magical worlds, folklore, and supernatural adventures",
     animation_lover: "anime, family animation, adult animation, stop-motion, and experimental animation",
-    documentary_viewer: "documentaries, biographies, investigative films, social issues, and nonfiction cinema",
-    cinephile: "classic cinema, world cinema, auteur films, arthouse, influential directors, and film history",
-    movie_buff: "a broad and varied movie taste with no single clearly dominant cinematic direction",
+    documentary_viewer: "documentary movies or series, biographies, investigations, social issues, and nonfiction screen works",
+    cinephile: "classic and world cinema, auteur films, arthouse, influential directors, and film history",
+    movie_buff: "a broad and varied movie-and-series taste with no single clearly dominant screen direction",
   }),
   music: Object.freeze({
     metalhead: "metal and its subgenres",
@@ -177,13 +177,14 @@ async function classifyMediaTaste(section, items, {
   const list = cleanItems
     .map((entry, index) => `${index + 1}. ${entry.title}${entry.comment ? ` — ${entry.comment}` : ""}`)
     .join("\n");
+  const subject = section === "movies" ? "movies and series" : section;
   const request = await requestText(client, {
     userId,
     config,
     maxOutputTokens: 180,
     operation: "taste_classification",
     instructions: [
-      `Classify the overall ${section} taste represented by the complete favorites list.`,
+      `Classify the overall ${subject} taste represented by the complete favorites list.`,
       "Return up to three distinct specific label keys, ordered from strongest to weaker match.",
       "Judge the whole list and its dominant pattern; do not let one recognizable item dominate the result.",
       "If most titles cannot be confidently recognized or understood from their comments, return no specific labels.",

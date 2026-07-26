@@ -9,7 +9,9 @@ const {
   aiAssistantKeyboard,
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
+  aiSuggestionAddedOptionsKeyboard,
   aiSuggestionCopyKeyboard,
+  aiSuggestionNextKeyboard,
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
@@ -43,6 +45,7 @@ const {
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
+const { buildSuggestionAttemptText } = require("../services/ai-suggestion-quality");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { sendTasteLabelReview } = require("./ai-taste-labels");
 const {
@@ -441,14 +444,15 @@ async function sendSingleSectionSuggestion({
 
   let suggestionResult = null;
   for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
-    const retryInstruction = "Suggest a different item. The previous one was already known.";
     suggestionResult = await getAiSingleSuggestion({
       userId: ctx.userId,
       mode: section,
       lang,
-      userText: attempt === 0
-        ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
-        : retryInstruction,
+      userText: buildSuggestionAttemptText(
+        userText,
+        section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`,
+        attempt,
+      ),
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
@@ -1023,6 +1027,51 @@ async function handleAiText(ctx, lang, text, state) {
   const section = getAiSectionFromState(state);
   if (section) {
     const actionContext = String(ctx.user?.aiActionContext || "");
+    const navigationMode = String(ctx.user?.navigationMode || "");
+    const canReplaceSuggestionMood = (
+      navigationMode === `ai_suggestion_next:${section}`
+      || navigationMode === `ai_suggestion_added:${section}`
+    );
+
+    if (canReplaceSuggestionMood) {
+      const userText = String(text || "").trim().replace(/\s+/g, " ");
+      if (userText && !userText.startsWith("/") && !isAiBackText(userText)) {
+        if (userText.length > AI_SUGGESTION_CONTEXT_MAX_CHARS) {
+          return ctx.reply(
+            messages[lang].aiSuggestionContextTooLong,
+            navigationMode === `ai_suggestion_added:${section}`
+              ? aiSuggestionAddedOptionsKeyboard(lang, section)
+              : aiSuggestionNextKeyboard(lang, section),
+          );
+        }
+
+        const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
+        if (topTenItems.length < 3) {
+          return ctx.reply(
+            getNeedTopTenMessage(lang, section),
+            aiSectionKeyboardForSection(lang, section),
+          );
+        }
+
+        const tasteContext = await resolveSectionTasteContext({
+          ctx,
+          lang,
+          section,
+          topTenItems,
+        });
+        setSuggestionMood(ctx.userId, section, userText);
+        return sendSingleSectionSuggestion({
+          ctx,
+          lang,
+          section,
+          topTenItems,
+          watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
+          tasteStyleHint: tasteContext.styleHint,
+          userText,
+        });
+      }
+    }
+
     if (actionContext === `suggest_mode:${section}`) {
       await clearAiPendingInputPrompt(ctx);
       await clearAiActionMessage(ctx);

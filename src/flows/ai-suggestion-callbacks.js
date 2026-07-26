@@ -20,6 +20,7 @@ const {
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
+const { buildSuggestionAttemptText } = require("../services/ai-suggestion-quality");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { getTasteLabelStyleHint } = require("../services/ai-section");
 const {
@@ -170,9 +171,11 @@ async function sendFollowupSuggestion({
       userId: ctx.userId,
       mode: section,
       lang,
-      userText: attempt === 0
-        ? (userText || (section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`))
-        : "Suggest a different item. The previous one was already known.",
+      userText: buildSuggestionAttemptText(
+        userText,
+        section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`,
+        attempt,
+      ),
       topTenItems,
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,

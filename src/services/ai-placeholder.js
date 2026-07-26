@@ -2,14 +2,33 @@ function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
 
+function hasReplyKeyboard(extra) {
+  const replyMarkup = extra?.reply_markup;
+  return Boolean(
+    replyMarkup
+    && (
+      Array.isArray(replyMarkup.keyboard)
+      || replyMarkup.remove_keyboard
+      || replyMarkup.force_reply
+    )
+  );
+}
+
 async function editPlaceholder(ctx, placeholder, text, extra, {
   deleteOnFallback = true,
   fallbackToReply = true,
+  replaceOnUncertain = false,
 } = {}) {
   const messageId = getMessageId(placeholder);
-  if (messageId && ctx.editMessageText) {
+  // Telegram only accepts inline keyboards while editing a message. Reply
+  // keyboards must be attached to a newly sent message.
+  if (messageId && ctx.editMessageText && !hasReplyKeyboard(extra)) {
     const edited = await ctx.editMessageText(messageId, text, extra);
     if (edited) {
+      if (replaceOnUncertain && edited.edit_uncertain) {
+        if (ctx.deleteMessage) await ctx.deleteMessage(messageId);
+        return fallbackToReply ? ctx.reply(text, extra) : placeholder;
+      }
       return getMessageId(edited) ? edited : placeholder;
     }
   }
@@ -51,8 +70,9 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
       if (settled && !terminal) return placeholder;
       if (retainSteps) return ctx.reply(text, extra);
       const updated = await editPlaceholder(ctx, placeholder, text, extra, {
-        deleteOnFallback: false,
+        deleteOnFallback: terminal,
         fallbackToReply: terminal,
+        replaceOnUncertain: terminal,
       });
       if (getMessageId(updated)) placeholder = updated;
       return updated;
@@ -99,4 +119,5 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
 module.exports = {
   startAiPlaceholder,
   editPlaceholder,
+  hasReplyKeyboard,
 };

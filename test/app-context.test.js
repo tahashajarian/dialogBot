@@ -93,7 +93,10 @@ test("editMessageText suppresses duplicate fallback when an edit times out", asy
     t.mock.timers.tick(10000);
     const edited = await editPromise;
 
-    assert.equal(edited, true);
+    assert.deepEqual(edited, {
+      message_id: 99,
+      edit_uncertain: true,
+    });
     assert.equal(warnings[0]?.message, "Telegram message edit result was uncertain; suppressing fallback");
   } finally {
     logger.warn = originalWarn;

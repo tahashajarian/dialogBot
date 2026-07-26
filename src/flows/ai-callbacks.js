@@ -1043,6 +1043,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       lang,
       section,
       watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
+      userText: getSuggestionMood(ctx.userId, section),
       placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
     });
 
@@ -1069,7 +1070,10 @@ async function handleAiCallback(ctx, lang, helpers) {
     await helpers.deleteCallbackMessageIfPossible(ctx);
     await setNavigationMode(ctx, `ai_suggestion_next:${section}`);
     if (ctx.user) ctx.user.navigationMode = `ai_suggestion_next:${section}`;
-    const actionMessage = await ctx.reply(messages[lang].aiSuggestionRejected, aiSuggestionNextKeyboard(lang, section));
+    const actionMessage = await ctx.reply(
+      `${messages[lang].aiSuggestionRejected}\n\n${messages[lang].aiSuggestionNextGuidance}`,
+      aiSuggestionNextKeyboard(lang, section),
+    );
     return actionMessage;
   }
 
@@ -1102,7 +1106,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     await setNavigationMode(ctx, `ai_suggestion_added:${section}`);
     if (ctx.user) ctx.user.navigationMode = `ai_suggestion_added:${section}`;
     return ctx.reply(
-      [formatSuggestionAddedMessage(lang, section, markDone), starNotice].filter(Boolean).join("\n\n"),
+      [
+        formatSuggestionAddedMessage(lang, section, markDone),
+        starNotice,
+        messages[lang].aiSuggestionNextGuidance,
+      ].filter(Boolean).join("\n\n"),
       aiSuggestionAddedOptionsKeyboard(lang, section),
     );
   }

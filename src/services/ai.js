@@ -31,7 +31,12 @@ function getModeInstruction(mode, lang) {
   const language = lang === "fa" ? "Persian" : "English";
 
   if (mode === "movies") {
-    return `Subject is movies. Reply in ${language}. Keep it short and useful.`;
+    return [
+      "Subject is movies and TV/streaming series.",
+      "Recommend either a movie or a series without asking the user to choose a type.",
+      "Infer the likely balance from their Favorites; if their short request explicitly asks for a movie or series, honor it.",
+      `Reply in ${language}. Keep it short and useful.`,
+    ].join(" ");
   }
 
   if (mode === "music") {
@@ -216,6 +221,7 @@ async function getAiSingleSuggestion({
 
 module.exports = {
   getAiSingleSuggestion,
+  getModeInstruction,
   buildInterestSuggestionFallback,
   extractAiResponseText,
   parseSingleSuggestionResponse,

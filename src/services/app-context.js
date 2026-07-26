@@ -244,8 +244,9 @@ function createAppContext(ctx, user, options = {}) {
         if (isMessageNotFoundError(error)) {
           return false;
         }
-        // A timeout/5xx does not tell us whether Telegram applied the edit. Treat
-        // it as handled so callers do not send a duplicate fallback message.
+        // A timeout/5xx does not tell us whether Telegram applied the edit.
+        // Preserve that distinction so terminal flows can replace temporary
+        // content while ordinary navigation still suppresses duplicate cards.
         if (isAmbiguousEditError(error)) {
           logger.warn("Telegram message edit result was uncertain; suppressing fallback", {
             chatId,
@@ -253,7 +254,10 @@ function createAppContext(ctx, user, options = {}) {
             code: getErrorCode(error),
             error: getErrorText(error),
           });
-          return true;
+          return {
+            message_id: normalizedMessageId,
+            edit_uncertain: true,
+          };
         }
         logger.warn("Failed to edit bot message", {
           chatId,

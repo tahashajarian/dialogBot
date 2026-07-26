@@ -2,7 +2,7 @@
 
 ## Sections
 
-- AI assistant/List menu includes the media sections only: movies, music, and books.
+- AI assistant/List menu includes the media sections only: Movies & Series, Music, and Books. The internal key remains `movies`; both movies and series use the same Favorites, For Later, taste, matching, and discussion-rule data without migration.
 - On each user's first successful visit, the main Movies, Music & Books / Favorites hub is one photo card using `assets/favorites-hub-banner.jpg`, with the existing localized hub copy as its caption and normal controls beneath it. Later visits are text-only so Telegram chat history and shared media do not accumulate repeated banners. Persist the per-user banner timestamp only after successful photo delivery; a failed photo attempt falls back to the complete text hub and remains eligible for retry. Banner delivery uses the shared Mongo-backed Telegram `file_id` cache; `FAVORITES_HUB_BANNER_FILE_ID` is only an optional seed.
 - Interests are edited from Profile and collected during onboarding, not shown as a fourth button inside the Lists hub.
 - The internal `random` section stores profile/onboarding interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
@@ -15,8 +15,8 @@
 - Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch Later list`, Music `Listen Later list`, and Books `Read Later list`. Persian uses the natural first-person names `لیست «بعدا می‌بینم»`, `لیست «بعدا گوش می‌دم»`, and `لیست «بعدا می‌خونم»`.
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
-- Media Favorites titles and add buttons should name the item directly: favorite movies, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
-- Media add prompts should be section-specific: an exact movie title, a song (or clearly titled audio), or a book title. Send one item per message.
+- Media Favorites titles and add buttons should name the item directly: favorite movies or series, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
+- Media add prompts should be section-specific: an exact movie or series title, a song (or clearly titled audio), or a book title. Send one item per message. Movies and series are accepted without a required type field or extra selection step.
 - Persian suggestion actions must make the direction explicit with wording such as `از میوز پیشنهاد بگیر`; avoid a standalone `پیشنهاد` button that could be mistaken for submitting a recommendation to someone else.
 - Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
@@ -43,6 +43,7 @@
   - books: read
   - random: done
 - Per-item status command labels should use this same section-aware wording, not a generic "done" label for every section.
+- Movies and series share watched/not-watched status. Season or episode progress remains optional free-form comment text in the MVP.
 - Watchlist list text should include per-item command links for:
   - status toggle
   - add comment / update comment, depending on whether the item already has a comment
@@ -293,6 +294,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.
 - Suggestion results include a native inline `Copy name` action for the exact suggested title. Save, completed, and reject remain in the scoped bottom action prompt sent immediately after the result.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
+- The Movies & Series suggestion flow has no additional type picker. It may recommend either format based on Favorites, while an optional short request such as "series only" or "movie only" must be honored.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `⏳` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.

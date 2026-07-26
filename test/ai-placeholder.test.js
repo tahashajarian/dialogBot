@@ -47,7 +47,7 @@ test("editPlaceholder preserves original message when edit response has no messa
   assert.equal(result, placeholder);
 });
 
-test("AI progress never deletes its placeholder when an edit fails", async () => {
+test("AI progress replaces its placeholder with a visible final result when editing fails", async () => {
   const replies = [];
   const deletedIds = [];
   const ctx = {
@@ -65,7 +65,7 @@ test("AI progress never deletes its placeholder when an edit fails", async () =>
   await new Promise((resolve) => setTimeout(resolve, 15));
   await placeholder.finish("Final result");
 
-  assert.deepEqual(deletedIds, []);
+  assert.deepEqual(deletedIds, [81]);
   assert.deepEqual(replies, ["Thinking", "Final result"]);
 });
 
@@ -117,9 +117,10 @@ test("final AI result is queued after an in-flight loading edit", async () => {
   assert.deepEqual(edits, ["Still thinking", "Final suggestion"]);
 });
 
-test("AI placeholders hide the keyboard and edit one message through the final result", async () => {
+test("AI placeholders replace progress with a new message when restoring a reply keyboard", async () => {
   const replies = [];
   const edits = [];
+  const deletedIds = [];
   const ctx = {
     reply: async (text, extra) => {
       replies.push({ text, extra });
@@ -129,6 +130,7 @@ test("AI placeholders hide the keyboard and edit one message through the final r
       edits.push({ messageId, text, extra });
       return true;
     },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
   };
 
   const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Still thinking"], {
@@ -138,11 +140,38 @@ test("AI placeholders hide the keyboard and edit one message through the final r
   await new Promise((resolve) => setTimeout(resolve, 15));
   await placeholder.finish("Final result", { reply_markup: { keyboard: [[{ text: "Save" }]] } });
 
-  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking"]);
+  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking", "Final result"]);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.deepEqual(edits.map((entry) => entry.text), ["Still thinking", "Final result"]);
-  assert.equal(edits.every((entry) => entry.messageId === 1), true);
-  assert.equal(edits[1].extra.reply_markup.keyboard[0][0].text, "Save");
+  assert.deepEqual(edits.map((entry) => entry.text), ["Still thinking"]);
+  assert.equal(edits[0].messageId, 1);
+  assert.deepEqual(deletedIds, [1]);
+  assert.equal(replies[1].extra.reply_markup.keyboard[0][0].text, "Save");
+});
+
+test("terminal AI results replace an uncertain placeholder edit before actions continue", async () => {
+  const replies = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 + replies.length };
+    },
+    editMessageText: async (messageId) => ({
+      message_id: messageId,
+      edit_uncertain: true,
+    }),
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking"]);
+  const result = await placeholder.finish("Dark (2017, Creator: Baran bo Odar)");
+
+  assert.deepEqual(deletedIds, [101]);
+  assert.deepEqual(replies.map((entry) => entry.text), [
+    "Thinking",
+    "Dark (2017, Creator: Baran bo Odar)",
+  ]);
+  assert.equal(result.message_id, 102);
 });
 
 test("AI placeholder runs refund work before showing a paid timeout", async () => {
