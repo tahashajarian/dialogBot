@@ -43,7 +43,10 @@ const AI_CALLBACK_PREFIXES = Object.freeze([
   callBacks.aiInterestTopTenMore,
 ]);
 
-const AI_EXACT_CALLBACKS = new Set([callBacks.aiTasteClose, callBacks.aiBack]);
+const AI_EXACT_CALLBACKS = new Set([
+  callBacks.aiTasteClose,
+  callBacks.aiBack,
+]);
 const STATE_SCOPED_SUGGESTION_PREFIXES = Object.freeze([
   callBacks.aiSectionAnotherSuggestion,
   callBacks.aiSectionSuggestMenu,

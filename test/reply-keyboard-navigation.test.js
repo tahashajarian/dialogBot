@@ -581,22 +581,26 @@ test("filtered For Later rows keep commands bound to original list indexes", () 
   assert.match(text, /\/rm_mv_l_3/);
 });
 
-test("filtered mixed-status For Later mode replaces the selected filter with Show all", () => {
-  const { aiListManageMenuKeyboard } = require("../src/keyboards");
-  const filteredButtons = aiListManageMenuKeyboard("en", "movies", "watchlist", {
-    itemCount: 3,
+test("filtered mixed-status For Later card replaces the selected filter with Show all", () => {
+  const { aiWatchlistCardKeyboard } = require("../src/keyboards");
+  const filteredButtons = aiWatchlistCardKeyboard("en", "movies", {
     filter: "watched",
     watchlistItems: [
       { title: "Arrival", watched: true },
       { title: "Heat", watched: false },
     ],
-  }).reply_markup.keyboard.flat().map((button) => button.text);
-  assert.ok(filteredButtons.includes(messages.en.aiListManageShowAll));
-  assert.ok(!filteredButtons.includes(messages.en.aiListManageShowWatchedMovies));
-  assert.ok(filteredButtons.includes(messages.en.aiListManageShowNotWatchedMovies));
+  }).reply_markup.inline_keyboard.flat();
+  const labels = filteredButtons.map((button) => button.text);
+  assert.ok(labels.includes(messages.en.aiListManageShowAll));
+  assert.ok(!labels.includes(messages.en.aiListManageShowWatchedMovies));
+  assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
+  assert.equal(
+    filteredButtons.find((button) => button.text === messages.en.aiListManageShowAll).callback_data,
+    `${callBacks.aiListManageShow}movies:watchlist:all:0`,
+  );
   const filteredContext = { mode: "ai_list_filter:movies:watched", state: "ai_manage_movies_watchlist", user: { lang: "en" } };
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, filteredContext).callbackData, `${callBacks.aiListManageShow}movies:watchlist:all`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowNotWatchedMovies, filteredContext).callbackData, `${callBacks.aiListManageShow}movies:watchlist:not_watched`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, filteredContext), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowNotWatchedMovies, filteredContext), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.aiListManageShowAll, { mode: "ai_list:movies:watchlist", state: "ai_manage_movies_watchlist", user: { lang: "en" } }), null);
 });
 

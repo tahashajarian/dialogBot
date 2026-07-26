@@ -7,9 +7,11 @@ const {
   syncAiTasteForSection,
 } = require("./users");
 const { localizeInterestChipItem } = require("./interest-chips");
+const { paginateItems } = require("./pagination");
 
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
 const AI_LIST_ITEM_DIVIDER = "────────────────────────";
+const AI_WATCHLIST_PAGE_SIZE = 5;
 
 function localizeAiListItemsForDisplay(items, section, lang) {
   if (section !== "random") return items;
@@ -117,7 +119,7 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   const actionLine = (label, command) => `${label} ${pointer} ${command}`;
   const lines = items.map((entry, index) => {
     const displayItem = splitLegacyMediaTitle(entry?.title, entry?.metadata);
-    const watchedBadge = includeWatched ? `${entry?.watched ? "✔️" : "⏳"} ` : "";
+    const watchedBadge = includeWatched ? `${entry?.watched ? "✔️" : "○"} ` : "";
     const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
     const localizedMetadata = displayItem.metadata
       ? localizeListItemMetadata(options.lang, displayItem.metadata)
@@ -183,9 +185,7 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   }));
 }
 
-function buildWatchlistMessage({ ctx, lang, section, includeWatched = true, filter = "all" }) {
-  const sectionLabel = getSectionLabel(messages, lang, section);
-  const listLabel = getSectionListLabel(messages, lang, section);
+function getWatchlistPage({ ctx, section, filter = "all", page = 0 }) {
   const allEntries = getAiListItemsFromUser(ctx.user, section, "watchlist");
   const filteredEntries = allEntries
     .map((entry, index) => ({ ...entry, commandIndex: index + 1 }))
@@ -196,11 +196,23 @@ function buildWatchlistMessage({ ctx, lang, section, includeWatched = true, filt
           ? entry?.watched !== true
           : true
     ));
-  const entries = localizeAiListItemsForDisplay(filteredEntries, section, lang);
+  return {
+    allEntries,
+    filteredEntries,
+    ...paginateItems(filteredEntries, page, AI_WATCHLIST_PAGE_SIZE),
+  };
+}
+
+function buildWatchlistMessage({ ctx, lang, section, includeWatched = true, filter = "all", page = 0 }) {
+  const sectionLabel = getSectionLabel(messages, lang, section);
+  const listLabel = getSectionListLabel(messages, lang, section);
+  const watchlistPage = getWatchlistPage({ ctx, section, filter, page });
+  const entries = localizeAiListItemsForDisplay(watchlistPage.items, section, lang);
   const topTenTitleSet = toTitleSet(localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang));
   const title = messages[lang].aiWatchlistTitle
     .replace("{section}", sectionLabel)
-    .replace("{listName}", listLabel);
+    .replace("{listName}", listLabel)
+    .replace("{count}", watchlistPage.allEntries.length.toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
   const emptyText = filter === "all"
     ? messages[lang].aiWatchlistEmpty
       .replace("{section}", sectionLabel)
@@ -304,13 +316,13 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   return messages[lang].aiTopTenManageInlineEntryCompleteNoLabel;
 }
 
-async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "", filter = "all" }) {
+async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix = "", filter = "all", page = 0 }) {
   const listLabel = getSectionListLabel(messages, lang, section);
   const items = getAiListItemsFromUser(ctx.user, section, listType);
   const body = listType === "topTen"
     ? `${buildTopTenListMessage({ ctx, lang, section })}\n\n${await getTopTenManageEntryMessage(ctx, lang, section)}`
     : items.length
-      ? buildWatchlistMessage({ ctx, lang, section, filter })
+      ? buildWatchlistMessage({ ctx, lang, section, filter, page })
       : messages[lang].aiListManageEmptyEntry.replace("{listName}", listLabel);
   return [prefix, body].filter(Boolean).join("\n\n");
 }
@@ -431,6 +443,8 @@ module.exports = {
   buildTopTenListMessage,
   buildTopTenSavedMessage,
   buildWatchlistMessage,
+  getWatchlistPage,
+  AI_WATCHLIST_PAGE_SIZE,
   getAiListCommandSectionToken,
   formatAiItemsList,
   formatSuggestionLimitMessage,

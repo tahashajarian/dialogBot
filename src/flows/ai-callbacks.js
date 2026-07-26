@@ -391,70 +391,17 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiListManageShow)) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.aiListManageShow, "");
-    const [section = "", rawListType = "", rawFilter = "all"] = payload.split(":");
+    const [section = "", rawListType = "", rawFilter = "all", rawPage = "0"] = payload.split(":");
     const listType = normalizeAiListTypeToken(rawListType);
     const filter = normalizeWatchlistFilter(rawFilter);
+    const page = Math.max(0, Number.parseInt(rawPage, 10) || 0);
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
 
-    await helpers.deleteCallbackMessageIfPossible(ctx);
-    const managerState = `ai_manage_${section}_${toAiManageStateListType(listType)}`;
-    await updateUserState(ctx.userId, managerState);
-    if (ctx.user) ctx.user.state = managerState;
-    await setNavigationMode(ctx, `ai_list:${section}:${listType}`);
-    if (ctx.user) ctx.user.navigationMode = `ai_list:${section}:${listType}`;
-    const sectionLabel = listType === "topTen"
-      ? getSectionLabelWithEmoji(messages, lang, section)
-      : getSectionLabel(messages, lang, section);
-    const listLabel = getSectionListLabel(messages, lang, section);
-    const title = (listType === "watchlist" ? messages[lang].aiWatchlistTitle : messages[lang].aiTopTenTitle)
-      .replace("{section}", sectionLabel)
-      .replace("{listName}", listLabel);
-    const emptyText = (listType === "watchlist" ? messages[lang].aiWatchlistEmpty : messages[lang].aiTopTenEmpty)
-      .replace("{section}", sectionLabel)
-      .replace("{listName}", listLabel);
-    const allWatchlistItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
-    const items = listType === "watchlist"
-      ? getWatchlistItemsByStatusFromUser(ctx.user, section, filter).map((entry) => ({
-        ...entry,
-        commandIndex: allWatchlistItems.findIndex((candidate) => candidate.title === entry.title) + 1,
-      }))
-      : getAiListItemsFromUser(ctx.user, section, listType);
-    const itemCount = getAiListItemsFromUser(ctx.user, section, listType).length;
-    const hasItems = itemCount > 0;
-    const listText = listType === "watchlist"
-      ? formatAiItemsList(title, items, filter === "all" ? emptyText : messages[lang].aiWatchlistFilterEmpty, {
-        includeWatched: true,
-        topTenTitleSet: toTitleSet(getAiListItemsFromUser(ctx.user, section, "topTen")),
-        includeActions: true,
-        canPromote: getAiListItemsFromUser(ctx.user, section, "topTen").length < operationalLimits.aiTopTenItems,
-        lang,
-        section,
-        listType,
-      })
-      : formatAiItemsList(title, items, emptyText, {
-        includeActions: true,
-        lang,
-        section,
-        listType,
-      });
-    const titledListText = withAiSectionTitle(lang, section, listText);
-
-    const listMessage = await ctx.reply(
-      titledListText,
-      aiListManageMenuKeyboard(lang, section, listType, {
-        hasItems,
-        itemCount,
-        filter,
-        watchlistItems: allWatchlistItems,
-        hasWatchlistItems: allWatchlistItems.length > 0,
-      }),
-    );
-    await replaceRememberedAiListMessage(ctx, section, listType, listMessage);
-    if (listType === "watchlist" && filter !== "all") {
-      await setNavigationMode(ctx, `ai_list_filter:${section}:${filter}`);
-      if (ctx.user) ctx.user.navigationMode = `ai_list_filter:${section}:${filter}`;
-    }
-    return listMessage;
+    return openAiListManager(ctx, lang, section, listType, {
+      filter,
+      page,
+      replaceCard: Boolean(ctx.callbackMessageId && !ctx.isReplyKeyboardAction),
+    });
   }
 
   if (data.startsWith(callBacks.aiTopTenInsight)) {

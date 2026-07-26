@@ -383,18 +383,8 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     const addKey = section === "movies" ? "aiListManageAddLaterMovies"
       : section === "music" ? "aiListManageAddLaterMusic"
         : section === "books" ? "aiListManageAddLaterBooks" : "aiListManageAdd";
-    const oppositeFilterKey = section === "music"
-      ? (filter === "watched" ? "aiListManageShowNotWatchedMusic" : "aiListManageShowWatchedMusic")
-      : section === "books"
-        ? (filter === "watched" ? "aiListManageShowNotWatchedBooks" : "aiListManageShowWatchedBooks")
-        : section === "random"
-          ? (filter === "watched" ? "aiListManageShowNotWatchedRandom" : "aiListManageShowWatchedRandom")
-          : (filter === "watched" ? "aiListManageShowNotWatchedMovies" : "aiListManageShowWatchedMovies");
-    const oppositeFilter = filter === "watched" ? "not_watched" : "watched";
     entries.push(
       [addKey, `${callBacks.aiListManageAdd}${section}:watchlist`],
-      ["aiListManageShowAll", `${callBacks.aiListManageShow}${section}:watchlist:all`],
-      [oppositeFilterKey, `${callBacks.aiListManageShow}${section}:watchlist:${oppositeFilter}`],
       ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`],
     );
   }
@@ -489,8 +479,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       }
     }
     if (state === expectedAiState && listType === "watchlist") {
-      const status = section === "music" ? ["aiListManageShowWatchedMusic", "aiListManageShowNotWatchedMusic"] : section === "books" ? ["aiListManageShowWatchedBooks", "aiListManageShowNotWatchedBooks"] : ["aiListManageShowWatchedMovies", "aiListManageShowNotWatchedMovies"];
-      entries.push([status[0], `${callBacks.aiListManageShow}${section}:${token}:watched`], [status[1], `${callBacks.aiListManageShow}${section}:${token}:not_watched`], ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`]);
+      entries.push(["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`]);
     } else if (state === expectedAiState) entries.push(["aiBack", `${callBacks.aiListManageBack}${section}`]);
   }
   if (validAiListCompletionState) {

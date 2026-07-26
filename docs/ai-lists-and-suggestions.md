@@ -22,7 +22,7 @@
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
 - In list, Top 10, or suggestion bottom modes, stray text does not activate an action or reset navigation. Keep the current mode and use concise guidance only when needed. After a suggestion result, persist the result action context so stray text or a stale Back label can only restore the same Save/Done/Reject controls; it must not expose a generic section keyboard, create a blank navigation footprint, or clear the Favorites manager.
 - Suggestion source, context, result, save/reject/next, and Back transitions retain prior messages. Clearing tracked suggestion/input/action IDs is database-only and must not call Telegram delete or markup-edit APIs. The callback dispatcher must never treat a reply-keyboard user message as a disposable bot callback card.
-- Top 10 and For Later navigation follows the same retained-history rule. Opening add/comment modes, changing filters, returning to a list or section, and switching between the two lists only forget tracked display IDs; it does not delete or edit earlier Telegram messages. Old indexed commands are revalidated against the current list and mode before mutation.
+- Top 10 navigation follows the retained-history rule. For Later keeps its visible per-item commands, but its current five-item card is edited in place for inline filtering and pagination. Opening add/comment modes, returning to a list or section, and switching between the two lists forget tracked display IDs without deleting unrelated Telegram messages. Old indexed commands are revalidated against the current list and mode before mutation.
 - Replacement list-management cards should preserve their useful description. In Top 10, keep current taste-label/progress context and append only a short button-use tip.
 - Media sections stay in the active list-management state; Back from the TopTen returns to the AI assistant menu.
 - The AI assistant Back bottom button returns according to its current server-side mode.
@@ -36,7 +36,7 @@
 
 ## Watchlist
 
-- Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `⏳` not done), including first entry and post-mutation refreshes.
+- Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `○` not done), including first entry and post-mutation refreshes.
 - Watchlist supports section-aware status wording:
   - movies: watched
   - music: listened
@@ -53,7 +53,7 @@
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
 - Favorites and For Later managers do not expose standalone list-sharing actions. Profile sharing is the single taste-sharing path: once any Movies, Music, or Books Favorites list contains at least three items, the own-profile card can create a shareable profile whose recipients may browse the public Favorites lists inside Muze when `showFavoritesOnProfile` is enabled. For Later lists never count toward this threshold. Turning that default-on profile privacy setting off keeps the lists available for personal suggestions, matching, and discussion eligibility while omitting Favorites and taste labels from public profiles and newly generated shareable-profile cards.
 - List-return buttons should consistently say `Back to list` / `برگشت به لیست`, including Favorites, watchlists, suggestions, add flows, and shareable-list guidance. Never expose the internal `Top 10` name.
-- List-level add, filters, status views, navigation, input cancel, and suggestion actions use bottom buttons bound to the exact section/list/filter mode. A filtered For Later view must preserve its active filter after item mutations and keep Add, Go to favorites, and a two-button filter row actionable. In that row, the selected status is replaced by Show all while the opposite status remains available (for example, Show all plus Not watched after filtering to Watched). Go to favorites must not fall through to add guidance. Inline remains for transactional confirmations and feature-specific native share/copy surfaces outside list management.
+- For Later uses the same two-layer pattern as Profile: the persistent reply keyboard keeps Add and Go to favorites, while the list card carries inline status filters and pagination. Show status filters only when the complete list contains at least one done and one not-done item. The selected status button becomes Show all while the opposite status remains available. Changing filters returns to page one. Paginate filtered results five items at a time, keep commands bound to their original full-list indexes, remember the current page across item mutations, and clamp to the previous valid page when a removal empties the last page. The card has no redundant Close button. Show the complete list count beside its title.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
 - Canceling comment input should quietly retire the input prompt and return to the refreshed list manager, without sending a separate "comment canceled" card.
@@ -298,7 +298,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
 - The Movies & Series suggestion flow has no additional type picker. It may recommend either format based on Favorites, while an optional short request such as "series only" or "movie only" must be honored.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
-- For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `⏳` only for item status.
+- For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `○` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
 - Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.
 

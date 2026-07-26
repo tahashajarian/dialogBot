@@ -277,10 +277,8 @@ function getSectionStatusLabels(lang, section) {
 
 function aiListManageMenuKeyboard(lang, section, listType, {
   itemCount = 0,
-  filter = "all",
   hasWatchlistItems = false,
   hasTasteLabel = false,
-  watchlistItems = [],
 } = {}) {
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
@@ -336,37 +334,6 @@ function aiListManageMenuKeyboard(lang, section, listType, {
     }
   }
 
-  const hasMixedWatchlistStatuses = isMediaSection
-    && watchlistItems.some((entry) => entry?.watched === true)
-    && watchlistItems.some((entry) => entry?.watched !== true);
-  if (listType === "watchlist" && (hasMixedWatchlistStatuses || filter !== "all")) {
-    const statusLabels = getSectionStatusLabels(lang, section);
-    if (filter === "watched") rows.push([
-      {
-        text: messages[lang].aiListManageShowAll,
-      },
-      {
-        text: statusLabels.pending,
-      },
-    ]);
-    else if (filter === "not_watched") rows.push([
-      {
-        text: statusLabels.done,
-      },
-      {
-        text: messages[lang].aiListManageShowAll,
-      },
-    ]);
-    else rows.push([
-      {
-        text: statusLabels.done,
-      },
-      {
-        text: statusLabels.pending,
-      },
-    ]);
-  }
-
   // Removed for now: Top 10 insight button (was in else block for watchlist condition)
   //   rows.push([
   //     {
@@ -382,6 +349,56 @@ function aiListManageMenuKeyboard(lang, section, listType, {
   ]);
 
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
+}
+
+function aiWatchlistCardKeyboard(lang, section, {
+  filter = "all",
+  page = 0,
+  totalPages = 1,
+  watchlistItems = [],
+} = {}) {
+  const rows = [];
+  const hasMixedStatuses = watchlistItems.some((entry) => entry?.watched === true)
+    && watchlistItems.some((entry) => entry?.watched !== true);
+  const payload = (nextFilter, nextPage = 0) => (
+    `${callBacks.aiListManageShow}${section}:watchlist:${nextFilter}:${nextPage}`
+  );
+
+  if (hasMixedStatuses) {
+    const labels = getSectionStatusLabels(lang, section);
+    rows.push(filter === "watched"
+      ? [
+        { text: messages[lang].aiListManageShowAll, callback_data: payload("all") },
+        { text: labels.pending, callback_data: payload("not_watched") },
+      ]
+      : filter === "not_watched"
+        ? [
+          { text: labels.done, callback_data: payload("watched") },
+          { text: messages[lang].aiListManageShowAll, callback_data: payload("all") },
+        ]
+        : [
+          { text: labels.done, callback_data: payload("watched") },
+          { text: labels.pending, callback_data: payload("not_watched") },
+        ]);
+  }
+
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  const normalizedTotalPages = Math.max(1, Number(totalPages) || 1);
+  const pageRow = [];
+  if (normalizedPage > 0) {
+    pageRow.push({
+      text: `⬅️ ${messages[lang].discussionListPrevPage}`,
+      callback_data: payload(filter, normalizedPage - 1),
+    });
+  }
+  if (normalizedPage < normalizedTotalPages - 1) {
+    pageRow.push({
+      text: `${messages[lang].discussionListMorePage} ➡️`,
+      callback_data: payload(filter, normalizedPage + 1),
+    });
+  }
+  if (pageRow.length) rows.push(pageRow);
+  return rows.length ? { reply_markup: { inline_keyboard: rows } } : {};
 }
 
 function aiListRemoveItemsKeyboard(lang, section, listType, items = []) {
@@ -481,7 +498,7 @@ function aiListActionItemsKeyboard(lang, section, listType, action, items = []) 
   const rows = items.map((entry, index) => ([
     {
       text: action === "toggle"
-        ? `${entry?.watched ? "✔️" : "⏳"} ${index + 1}. ${entry.title}`
+        ? `${entry?.watched ? "✔️" : "○"} ${index + 1}. ${entry.title}`
         : `${index + 1}. ${entry.title}`,
       callback_data: action === "toggle"
         ? `${callBacks.aiListManageToggleItem}${section}:${listTypeToken}:${index}`
@@ -526,6 +543,7 @@ module.exports = {
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
   aiListManageMenuKeyboard,
+  aiWatchlistCardKeyboard,
   aiListRemoveItemsKeyboard,
   aiTasteSuggestionKeyboard,
   aiTasteFailureKeyboard,

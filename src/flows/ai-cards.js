@@ -12,22 +12,25 @@ async function updateAiCardField(ctx, field, value) {
 
 async function rememberAiListMessage(ctx, section, listType, message, {
   navigationMode = `ai_list:${section}:${listType === "watchlist" ? "watchlist" : "topTen"}`,
+  page = 0,
+  filter = "all",
 } = {}) {
   const messageId = getMessageId(message);
-  if (!messageId) {
-    return;
-  }
-
-  await updateUserFields(ctx.userId, {
-    aiLastListMessageId: messageId,
+  const fields = {
+    ...(messageId ? { aiLastListMessageId: messageId } : {}),
     aiLastListSection: section,
     aiLastListType: listType,
+    aiLastListPage: Math.max(0, Number(page) || 0),
+    aiLastListFilter: filter,
     navigationMode,
-  });
+  };
+  await updateUserFields(ctx.userId, fields);
   if (ctx.user) {
-    ctx.user.aiLastListMessageId = messageId;
+    if (messageId) ctx.user.aiLastListMessageId = messageId;
     ctx.user.aiLastListSection = section;
     ctx.user.aiLastListType = listType;
+    ctx.user.aiLastListPage = fields.aiLastListPage;
+    ctx.user.aiLastListFilter = filter;
     ctx.user.navigationMode = navigationMode;
   }
 }

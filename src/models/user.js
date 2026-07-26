@@ -203,6 +203,8 @@ const UserSchema = new mongoose.Schema({
   aiLastListMessageId: Number,
   aiLastListSection: String,
   aiLastListType: String,
+  aiLastListPage: { type: Number, default: 0 },
+  aiLastListFilter: { type: String, default: "all" },
   aiSectionEntryMessageId: Number,
   aiActionMessageId: Number,
   aiActionContext: String,

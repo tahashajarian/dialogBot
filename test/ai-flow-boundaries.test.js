@@ -34,6 +34,7 @@ const {
   aiSuggestionNextKeyboard,
   aiListCancelAddKeyboard,
   aiListManageMenuKeyboard,
+  aiWatchlistCardKeyboard,
   aiInterestTopTenChipKeyboard,
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionModeKeyboard,
@@ -686,8 +687,8 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   }
 
   const finalReply = replies.at(-1);
-  const buttons = keyboardButtons(finalReply.extra);
-  const labels = buttons.map((button) => button.text);
+  const replyKeyboardMessage = replies.find((reply) => reply.extra?.reply_markup?.keyboard);
+  const replyLabels = keyboardButtons(replyKeyboardMessage?.extra).map((button) => button.text);
 
   assert.deepEqual(deletedIds, []);
   assert.equal(ctx.user.aiSectionPendingCommentItem, null);
@@ -696,9 +697,9 @@ test("canceling AI list comment returns to the refreshed list manager", async ()
   assert.match(finalReply.text, /Arrival/);
   assert.match(finalReply.text, /\/cm_mv_l_1/);
   assert.doesNotMatch(finalReply.text, /لغو شد/);
-  assert.equal(labels.includes(messages.fa.cancelEdit), false);
-  assert.equal(labels.includes(messages.fa.aiListManageAddLaterMovies), true);
-  assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
+  assert.equal(replyLabels.includes(messages.fa.cancelEdit), false);
+  assert.equal(replyLabels.includes(messages.fa.aiListManageAddLaterMovies), true);
+  assert.equal(keyboardButtons(finalReply.extra).length, 0);
 });
 
 test("AI comment copy names the item instead of the list type", () => {
@@ -823,12 +824,12 @@ test("entering AI list manager shows item rows without an all-items button", asy
   const managerReply = replies.at(-1);
   const buttons = keyboardButtons(managerReply.extra);
 
-  assert.deepEqual(deletedIds, [60]);
+  assert.deepEqual(deletedIds, []);
   assert.match(managerReply.text, /Arrival/);
   assert.match(managerReply.text, /\/cm_mv_l_1/);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
   assert.equal(ctx.user.navigationMode, "ai_list:movies:watchlist");
-  assert.equal(buttons.at(-1).text, messages.en.aiSuggestionGoToFavoritesButton);
+  assert.equal(buttons.length, 0);
   assert.equal(
     resolveReplyKeyboardAction(messages.en.aiListManageAddLaterMovies, {
       mode: ctx.user.navigationMode,
@@ -1948,7 +1949,7 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   );
 
   assert.match(rendered, /1\. ✔️ Dune 🏆\n✨ reread/);
-  assert.match(rendered, /2\. ⏳ Foundation/);
+  assert.match(rendered, /2\. ○ Foundation/);
 });
 
 test("AI list UI treats unmarked legacy comments as AI explanations", () => {
@@ -1974,7 +1975,7 @@ test("AI list UI separates legacy movie metadata and comments", () => {
     { includeWatched: true, lang: "fa", section: "movies" },
   );
 
-  assert.match(rendered, /1\. ⏳ Paris, Texas — 1984, کارگردان: Wim Wenders/);
+  assert.match(rendered, /1\. ○ Paris, Texas — 1984, کارگردان: Wim Wenders/);
   assert.match(rendered, /✨ سکوت و تنهایی‌اش/);
   assert.doesNotMatch(rendered, /Paris, Texas \(1984/);
 });
@@ -2002,9 +2003,9 @@ test("AI list UI builds section-titled list messages from user data", () => {
   assert.match(topTenText, /1\. Heat\n✨ tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
-  assert.match(watchlistText, /1\. ⏳ Heat 🏆/);
-  assert.match(watchlistText, /2\. ⏳ Arrival\n✨ rewatch/);
-  assert.match(watchlistText, /3\. ⏳ Solaris\n📝 این یه کامنت تستیه/);
+  assert.match(watchlistText, /1\. ○ Heat 🏆/);
+  assert.match(watchlistText, /2\. ○ Arrival\n✨ rewatch/);
+  assert.match(watchlistText, /3\. ○ Solaris\n📝 این یه کامنت تستیه/);
   assert.doesNotMatch(watchlistText, /✨ این یه کامنت تستیه/);
   assert.match(watchlistText, /────────────────────────/);
   assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
@@ -2090,16 +2091,12 @@ test("watchlist action labels use section-specific status wording", () => {
   assert.match(musicText, /Change to not listened 👉 \/un_mu_l_1/);
 });
 
-test("AI list manager keyboard shows list and filter controls without standalone sharing", () => {
+test("AI list manager keeps broad actions in reply controls and filters on the inline card", () => {
   const emptyKeyboard = aiListManageMenuKeyboard("en", "movies", "watchlist");
   const emptyButtons = keyboardButtons(emptyKeyboard);
   const emptyLabels = emptyButtons.map((button) => button.text);
   const keyboard = aiListManageMenuKeyboard("en", "movies", "watchlist", {
     hasItems: true,
-    watchlistItems: [
-      { title: "Arrival", watched: true },
-      { title: "Heat", watched: false },
-    ],
   });
   const buttons = keyboardButtons(keyboard);
   const labels = buttons.map((button) => button.text);
@@ -2107,10 +2104,17 @@ test("AI list manager keyboard shows list and filter controls without standalone
   assert.equal(emptyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
   assert.ok(labels.includes(messages.en.aiListManageAddLaterMovies));
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}movies:watchlist`), false);
-  assert.ok(labels.includes(messages.en.aiListManageShowWatchedMovies));
-  assert.ok(labels.includes(messages.en.aiListManageShowNotWatchedMovies));
-  const completedOnlyLabels = keyboardButtons(aiListManageMenuKeyboard("en", "movies", "watchlist", {
-    hasItems: true,
+  assert.equal(labels.includes(messages.en.aiListManageShowWatchedMovies), false);
+  assert.equal(labels.includes(messages.en.aiListManageShowNotWatchedMovies), false);
+  const filterLabels = keyboardButtons(aiWatchlistCardKeyboard("en", "movies", {
+    watchlistItems: [
+      { title: "Arrival", watched: true },
+      { title: "Heat", watched: false },
+    ],
+  })).map((button) => button.text);
+  assert.ok(filterLabels.includes(messages.en.aiListManageShowWatchedMovies));
+  assert.ok(filterLabels.includes(messages.en.aiListManageShowNotWatchedMovies));
+  const completedOnlyLabels = keyboardButtons(aiWatchlistCardKeyboard("en", "movies", {
     watchlistItems: [{ title: "Arrival", watched: true }],
   })).map((button) => button.text);
   assert.equal(completedOnlyLabels.includes(messages.en.aiListManageShowWatchedMovies), false);
@@ -2158,7 +2162,7 @@ test("AI list manager keyboard shows list and filter controls without standalone
   assert.equal(labels.includes(messages.en.aiListManageMoveToTopTen), false);
 });
 
-test("filtered watchlist keeps its filter and opposite-status reply action after a mutation", async () => {
+test("filtered watchlist keeps its filter inline while reply actions stay broad", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const ctx = {
@@ -2212,12 +2216,100 @@ test("filtered watchlist keeps its filter and opposite-status reply action after
     user: ctx.user,
   })?.callbackData;
   assert.equal(resolve(messages.en.aiListManageAddLaterMovies), `${callBacks.aiListManageAdd}movies:watchlist`);
-  assert.equal(resolve(messages.en.aiListManageShowAll), `${callBacks.aiListManageShow}movies:watchlist:all`);
-  assert.equal(
-    resolve(messages.en.aiListManageShowNotWatchedMovies),
-    `${callBacks.aiListManageShow}movies:watchlist:not_watched`,
-  );
+  assert.equal(resolve(messages.en.aiListManageShowAll), undefined);
+  assert.equal(resolve(messages.en.aiListManageShowNotWatchedMovies), undefined);
   assert.equal(resolve(messages.en.aiSuggestionGoToFavoritesButton), `${callBacks.aiListManageBack}movies`);
+});
+
+test("For Later pagination preserves full-list command indexes", () => {
+  const ctx = {
+    user: {
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: Array.from({ length: 7 }, (_, index) => ({
+            title: `Movie ${index + 1}`,
+            watched: false,
+          })),
+        },
+      },
+    },
+  };
+
+  const firstPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 0 });
+  const secondPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 1 });
+  assert.match(firstPage, /Movie 1/);
+  assert.match(firstPage, /Movie 5/);
+  assert.doesNotMatch(firstPage, /Movie 6/);
+  assert.match(secondPage, /Movie 6/);
+  assert.match(secondPage, /\/rm_mv_l_6/);
+  assert.match(secondPage, /Movie 7/);
+  assert.doesNotMatch(secondPage, /Movie 5/);
+});
+
+test("For Later page callbacks edit the current card and remember the page", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const edits = [];
+  const replies = [];
+  const ctx = {
+    callbackData: `${callBacks.aiListManageShow}movies:watchlist:all:1`,
+    callbackMessageId: 81,
+    userId: 93,
+    user: {
+      userId: 93,
+      lang: "en",
+      state: "ai_manage_movies_watchlist",
+      navigationMode: "ai_list:movies:watchlist",
+      aiLastListMessageId: 81,
+      aiLastListSection: "movies",
+      aiLastListType: "watchlist",
+      aiLists: {
+        movies: {
+          topTen: [],
+          watchlist: Array.from({ length: 7 }, (_, index) => ({
+            title: `Movie ${index + 1}`,
+            watched: false,
+          })),
+        },
+      },
+    },
+    answerCb: async () => true,
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 90 + replies.length };
+    },
+  };
+
+  User.findOneAndUpdate = async (query, update) => {
+    Object.assign(ctx.user, update);
+    return ctx.user;
+  };
+
+  try {
+    await handleAiCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => false,
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(replies.length, 0);
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].messageId, 81);
+  assert.match(edits[0].text, /Movie 6/);
+  assert.match(edits[0].text, /\/rm_mv_l_6/);
+  assert.doesNotMatch(edits[0].text, /Movie 1/);
+  assert.equal(ctx.user.aiLastListPage, 1);
+  assert.equal(
+    keyboardButtons(edits[0].extra).some((button) => (
+      button.callback_data === `${callBacks.aiListManageShow}movies:watchlist:all:0`
+    )),
+    true,
+  );
 });
 
 test("watchlist entry rendering always exposes done and not-done status", () => {
@@ -2238,7 +2330,7 @@ test("watchlist entry rendering always exposes done and not-done status", () => 
   const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
 
   assert.match(rendered, /1\. ✔️ Lichess puzzles/);
-  assert.match(rendered, /2\. ⏳ Photo walk/);
+  assert.match(rendered, /2\. ○ Photo walk/);
 });
 
 test("AI list UI uses specific duplicate and Top Ten requirement copy", () => {

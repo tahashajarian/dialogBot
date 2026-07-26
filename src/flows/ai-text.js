@@ -16,6 +16,7 @@ const {
   aiSuggestionModeKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiListManageMenuKeyboard,
+  aiWatchlistCardKeyboard,
   aiListCancelAddKeyboard,
   aiListCancelCommentKeyboard,
   aiInterestTopTenChipKeyboard,
@@ -98,6 +99,7 @@ const { formatInlineListCaptureTip } = require("../services/inline-list-capture-
 const {
   buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
+  getWatchlistPage,
   buildTopTenSavedMessage,
   formatAiItemsList,
   formatAiLimitMessage,
@@ -547,10 +549,28 @@ async function openAiListManager(ctx, lang, section, listType, {
   banner = null,
   bannerSeenKey = "",
   filter = null,
+  page = null,
+  replaceCard = false,
 } = {}) {
-  const activeFilter = listType === "watchlist"
+  const previousMode = String(ctx.user?.navigationMode || "");
+  const previousState = String(ctx.user?.state || "");
+  let activeFilter = listType === "watchlist"
     ? (filter || getActiveWatchlistFilter(ctx, section))
     : "all";
+  if (listType === "watchlist" && activeFilter !== "all") {
+    const currentItems = getAiListItemsFromUser(ctx.user, section, "watchlist");
+    const hasMixedStatuses = currentItems.some((entry) => entry?.watched === true)
+      && currentItems.some((entry) => entry?.watched !== true);
+    if (!hasMixedStatuses) activeFilter = "all";
+  }
+  const rememberedPage = (
+    ctx.user?.aiLastListSection === section
+    && ctx.user?.aiLastListType === listType
+  ) ? Math.max(0, Number(ctx.user?.aiLastListPage) || 0) : 0;
+  const activePage = page === null ? rememberedPage : Math.max(0, Number(page) || 0);
+  const watchlistPage = listType === "watchlist"
+    ? getWatchlistPage({ ctx, section, filter: activeFilter, page: activePage })
+    : null;
   const nextState = `ai_manage_${section}_${listType === "topTen" ? "top_ten" : "watchlist"}`;
   const nextMode = listType === "watchlist" && activeFilter !== "all"
     ? `ai_list_filter:${section}:${activeFilter}`
@@ -569,6 +589,7 @@ async function openAiListManager(ctx, lang, section, listType, {
     listType,
     prefix,
     filter: activeFilter,
+    page: watchlistPage?.page || 0,
   });
   const showInlineCaptureTip = (
     listType === "watchlist"
@@ -579,11 +600,9 @@ async function openAiListManager(ctx, lang, section, listType, {
     ? formatInlineListCaptureTip(ctx, lang)
     : "";
   const text = [listText, inlineCaptureTip].filter(Boolean).join("\n\n");
-  const keyboard = aiListManageMenuKeyboard(lang, section, listType, {
+  const replyKeyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
-    filter: activeFilter,
-    watchlistItems: listType === "watchlist" ? items : [],
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
     hasTasteLabel: (() => {
       if (!["movies", "music", "books"].includes(section)) return false;
@@ -593,22 +612,47 @@ async function openAiListManager(ctx, lang, section, listType, {
     })(),
   });
   let listMessage;
-  if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
+  if (listType === "watchlist" && items.length > 0) {
+    const alreadyInThisManager = previousMode === `ai_list:${section}:watchlist`
+      || previousMode.startsWith(`ai_list_filter:${section}:`);
+    if (!alreadyInThisManager || previousState !== nextState) {
+      await ctx.reply(messages[lang].aiListManageUseButtonsTip, replyKeyboard);
+    }
+    const inlineKeyboard = aiWatchlistCardKeyboard(lang, section, {
+      filter: activeFilter,
+      page: watchlistPage.page,
+      totalPages: watchlistPage.totalPages,
+      watchlistItems: watchlistPage.allEntries,
+    });
+    if (replaceCard && typeof ctx.editMessageText === "function") {
+      try {
+        listMessage = await ctx.editMessageText(ctx.callbackMessageId, text, inlineKeyboard);
+      } catch {
+        listMessage = await ctx.reply(text, inlineKeyboard);
+      }
+    } else {
+      listMessage = await ctx.reply(text, inlineKeyboard);
+    }
+  } else if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
     try {
       listMessage = await sendBannerPhoto(ctx, {
         ...banner,
-        extra: { ...keyboard, caption: text },
+        extra: { ...replyKeyboard, caption: text },
       });
       if (bannerSeenKey) {
         await markSectionTipShownForContext(ctx, bannerSeenKey, new Date()).catch(() => null);
       }
     } catch {
-      listMessage = await ctx.reply(text, keyboard);
+      listMessage = await ctx.reply(text, replyKeyboard);
     }
   } else {
-    listMessage = await ctx.reply(text, keyboard);
+    listMessage = await ctx.reply(text, replyKeyboard);
   }
-  await rememberAiListMessage(ctx, section, listType, listMessage, { navigationMode: nextMode });
+  await rememberAiListMessage(ctx, section, listType, listMessage, {
+    navigationMode: nextMode,
+    page: watchlistPage?.page || 0,
+    filter: activeFilter,
+  });
   if (inlineCaptureTip) {
     await markSectionTipShownForContext(ctx, "forLaterInline", new Date()).catch(() => null);
   }
