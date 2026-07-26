@@ -466,7 +466,7 @@ function aiListActionItemsKeyboard(lang, section, listType, action, items = []) 
   const rows = items.map((entry, index) => ([
     {
       text: action === "toggle"
-        ? `${entry?.watched ? "✅" : "⏳"} ${index + 1}. ${entry.title}`
+        ? `${entry?.watched ? "✔️" : "⏳"} ${index + 1}. ${entry.title}`
         : `${index + 1}. ${entry.title}`,
       callback_data: action === "toggle"
         ? `${callBacks.aiListManageToggleItem}${section}:${listTypeToken}:${index}`

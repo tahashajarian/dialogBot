@@ -36,7 +36,7 @@
 
 ## Watchlist
 
-- Watchlist/list rendering should always show the section-aware status marker (`✅` done or `⏳` not done), including first entry and post-mutation refreshes.
+- Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `⏳` not done), including first entry and post-mutation refreshes.
 - Watchlist supports section-aware status wording:
   - movies: watched
   - music: listened
@@ -294,7 +294,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Suggestion results include a native inline `Copy name` action for the exact suggested title. Save, completed, and reject remain in the scoped bottom action prompt sent immediately after the result.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
-- For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✅` / `⏳` only for item status.
+- For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `⏳` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
 - Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.
 

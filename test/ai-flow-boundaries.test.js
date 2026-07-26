@@ -1883,7 +1883,7 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
     { topTenTitleSet, includeWatched: true },
   );
 
-  assert.match(rendered, /1\. ✅ Dune 🏆 — reread/);
+  assert.match(rendered, /1\. ✔️ Dune 🏆 — reread/);
   assert.match(rendered, /2\. ⏳ Foundation/);
 });
 
@@ -2077,7 +2077,7 @@ test("watchlist entry rendering always exposes done and not-done status", () => 
 
   const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
 
-  assert.match(rendered, /1\. ✅ Lichess puzzles/);
+  assert.match(rendered, /1\. ✔️ Lichess puzzles/);
   assert.match(rendered, /2\. ⏳ Photo walk/);
 });
 
