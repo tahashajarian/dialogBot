@@ -276,6 +276,7 @@ test("suggestion limit offers paid confirmation when Stars spending is enabled",
   assert.equal(buttons[1].callback_data, `${callBacks.aiPaidSuggestionCancel}music`);
 });
 const {
+  getSuggestionNextGuidance,
   handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,
@@ -354,6 +355,22 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعدا می‌خونم» ذخیره شد. (خوانده‌شده)");
   assert.doesNotMatch(messages.fa.aiSuggestionChooseAction, /حالا|بعدش/);
   assert.doesNotMatch(messages.fa.aiSuggestionNextGuidance, /حالا/);
+});
+
+test("next-suggestion guidance mentions the same mood only when one exists", () => {
+  setSuggestionMood(919, "movies", "");
+  assert.equal(
+    getSuggestionNextGuidance("fa", 919, "movies"),
+    messages.fa.aiSuggestionNextGuidanceNoMood,
+  );
+  assert.doesNotMatch(getSuggestionNextGuidance("fa", 919, "movies"), /همان حال‌وهوا/);
+
+  setSuggestionMood(919, "movies", "تلخ و شهری");
+  assert.equal(
+    getSuggestionNextGuidance("fa", 919, "movies"),
+    messages.fa.aiSuggestionNextGuidance,
+  );
+  setSuggestionMood(919, "movies", "");
 });
 
 test("AI-authored list promotion confirmation uses the Muze emoji", () => {

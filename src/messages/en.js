@@ -546,6 +546,7 @@ module.exports = {
     aiSuggestionCopyNameButton: "📋 Copy name",
     aiSuggestionChooseAction: "👩‍🦳 Choose what to do with this suggestion:",
     aiSuggestionNextGuidance: "Now get another suggestion with the same mood, type a new mood, or go back.",
+    aiSuggestionNextGuidanceNoMood: "Get another suggestion, type the mood you want, or go back.",
     aiSuggestionAdded: "👩‍🦳 Saved to {listName}.",
     aiSuggestionAddedDone: "👩‍🦳 Saved to {listName} as done.",
     aiSuggestionAddedDoneMovies: "👩‍🦳 Saved to the 🎬📋 watch later list. (Watched)",

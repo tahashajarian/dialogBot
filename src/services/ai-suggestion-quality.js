@@ -1,6 +1,7 @@
 function normalizeSuggestionTitle(text) {
   return String(text || "")
-    .replace(/^[\s\-•*#\d.)]+/g, "")
+    .replace(/^[\s\-•*#]+/g, "")
+    .replace(/^\d+[.)]\s+/g, "")
     .replace(/^\((?:activity|game|channel|tool|place|podcast|course|creator|community|experience|practice|project|فعالیت|بازی|کانال|ابزار|مکان|پادکست|دوره|سازنده|جامعه|تجربه|تمرین|پروژه)\)\s*/i, "")
     .replace(/\s*\((?:activity|practice|project|creative project|experience|فعالیت|تمرین|پروژه|پروژه خلاق|تجربه)\)\s*$/i, "")
     .replace(/^(title|item|suggestion|عنوان|پیشنهاد)\s*[:：-]\s*/i, "")
@@ -11,11 +12,25 @@ function normalizeSuggestionTitle(text) {
 }
 
 function normalizeSuggestionReason(text, lang, { limitWords }) {
-  const cleaned = String(text || "")
+  let cleaned = String(text || "")
     .replace(/^(?:(?:reason|comment|دلیل|توضیح)\s*[:：-]|why\s*[?؟:：-]|چرا\s*[؟?:：-])\s*/i, "")
     .trim()
     .replace(/\s+/g, " ")
     .replace(/به\s+سلیقه(?:‌|\s)?ات\s+در\s+/g, "به ");
+  if (lang === "fa") {
+    const awkwardComparison = cleaned.match(
+      /^برای\s+(.+?)،\s*(.+?)\s+درمی(?:‌|\s)?آید[.!؟]?$/u,
+    );
+    if (awkwardComparison) {
+      cleaned = `فضای ${awkwardComparison[2]}ش به ${awkwardComparison[1]} نزدیکه.`;
+    }
+    const awkwardPersonalComparison = cleaned.match(
+      /^برای\s+(.+?)،\s*(?:همین\s+)?(.+?)\s+می(?:‌|\s)?گیردت[.!؟]?$/u,
+    );
+    if (awkwardPersonalComparison) {
+      cleaned = `${awkwardPersonalComparison[2]}‌اش به ${awkwardPersonalComparison[1]} نزدیکه.`;
+    }
+  }
   if (!cleaned) {
     return lang === "fa" ? "برای سلیقه‌ات گزینه خوبیه." : "Good match for your taste.";
   }

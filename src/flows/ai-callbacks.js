@@ -75,6 +75,12 @@ const {
   clearPendingSuggestion,
   getSuggestionMood,
 } = require("../services/ai-suggestion-cache");
+
+function getSuggestionNextGuidance(lang, userId, section) {
+  return getSuggestionMood(userId, section)
+    ? messages[lang].aiSuggestionNextGuidance
+    : messages[lang].aiSuggestionNextGuidanceNoMood;
+}
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
 } = require("../constants/ai");
@@ -1028,7 +1034,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await setNavigationMode(ctx, `ai_suggestion_next:${section}`);
     if (ctx.user) ctx.user.navigationMode = `ai_suggestion_next:${section}`;
     const actionMessage = await ctx.reply(
-      `${messages[lang].aiSuggestionRejected}\n\n${messages[lang].aiSuggestionNextGuidance}`,
+      `${messages[lang].aiSuggestionRejected}\n\n${getSuggestionNextGuidance(lang, ctx.userId, section)}`,
       aiSuggestionNextKeyboard(lang, section),
     );
     return actionMessage;
@@ -1073,7 +1079,7 @@ async function handleAiCallback(ctx, lang, helpers) {
       [
         formatSuggestionAddedMessage(lang, section, markDone),
         starNotice,
-        messages[lang].aiSuggestionNextGuidance,
+        getSuggestionNextGuidance(lang, ctx.userId, section),
       ].filter(Boolean).join("\n\n"),
       aiSuggestionAddedOptionsKeyboard(lang, section),
     );
@@ -1112,6 +1118,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 }
 
 module.exports = {
+  getSuggestionNextGuidance,
   handleAiCallback,
   isAiCallback,
   isSuggestionCallbackValidForState,

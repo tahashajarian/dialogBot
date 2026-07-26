@@ -272,6 +272,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Users are not forced to complete TopTen before receiving suggestions, but they must add at least three TopTen items in that section before suggestions are allowed.
 - If a user asks for a suggestion before the section has three TopTen items, retire the current manager card and show a short `👍 Got it` / `👍 متوجه شدم` acknowledgement card that returns to the section TopTen manager.
 - Pressing the section suggestion button explains that Favorites are always the suggestion base. In that prompt, users either type one optional short mood/genre directly or tap Suggest; there is no separate add-mood step.
+- Post-save and post-reject guidance may offer another result with the same mood only when the current suggestion session actually has a saved mood. Without one, offer another suggestion or an optional desired mood without implying prior context.
 - Optional mood/genre input is limited to 80 normalized characters. Ask for one short sentence in the normal prompt; mention the exact 80-character limit only when asking the user to shorten oversized input instead of silently truncating it.
 - The suggestion prompt must include Suggest and Back actions; Back returns to the section TopTen manager.
 - Do not call AI until the user taps Suggest or sends a mood/genre.
@@ -294,9 +295,11 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - If a paid extra suggestion cannot produce a usable result, refund the Star with a linked ledger transaction and show a short refund notice.
 - A paid suggestion that reaches the visible timeout must refund before showing the retry state; a late API result must never complete that timed-out purchase.
 - Suggestion reasons are saved as item comments when adding from suggestion buttons.
+- Persian suggestion reasons should make the suggested item the subject and read naturally as standalone comments. Prefer forms such as `فضای تلخ و ماندگارش به X و Y نزدیکه`; avoid comparison constructions shaped like `برای X و Y، ... درمی‌آید` or `برای X و Y، ... می‌گیردت`.
 - Suggestion cards include a `👎 No` action. It should record the rejected title per section, clear the pending suggestion, and avoid repeating rejected titles in future suggestions.
 - Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.
 - Media suggestion results keep the exact title separate from identifying metadata. Movies and series show year plus director/creator, music shows artist/band plus album/year when known, and books show author plus year when known. The saved list title remains the clean title, while the AI reason remains its saved comment.
+- Title cleanup may remove explicit numbered-list prefixes such as `1. `, but must preserve leading numbers that belong to real titles, including `12 Angry Men`, `1917`, and `2001: A Space Odyssey`.
 - Suggestion results include a native inline `Copy name` action containing a search-friendly query: clean title plus identifying metadata such as year, artist, author, director, creator, or platform. Save, completed, and reject remain in the scoped bottom action prompt sent immediately after the result.
 - External ratings are optional and never gate a suggestion. When the provider is highly certain, the saved explanation/comment may begin with a clearly named source: IMDb for movies or series, Goodreads for books, and Metacritic for albums where applicable. If the score is unavailable or uncertain, omit it and keep the suggestion. A future trusted rating-data integration should take precedence over model-supplied scores.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.

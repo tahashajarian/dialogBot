@@ -85,6 +85,30 @@ test("media suggestions keep clean titles and separate searchable metadata", () 
   assert.equal(copyButton.copy_text.text, "Perfect Days 2023 · Director: Wim Wenders");
 });
 
+test("numeric media titles keep their leading numbers", () => {
+  assert.equal(
+    parseSingleSuggestionResponse(
+      "12 Angry Men\n1957 · Director: Sidney Lumet\nA tense moral chamber drama.",
+      "en",
+    ).title,
+    "12 Angry Men",
+  );
+  assert.equal(
+    parseSingleSuggestionResponse(
+      "2001: A Space Odyssey\n1968 · Director: Stanley Kubrick\nVisionary philosophical science fiction.",
+      "en",
+    ).title,
+    "2001: A Space Odyssey",
+  );
+  assert.equal(
+    parseSingleSuggestionResponse(
+      "1. Dune\n1965 · Author: Frank Herbert\nFoundational epic science fiction.",
+      "en",
+    ).title,
+    "Dune",
+  );
+});
+
 test("suggestion Copy text contains names without labels, years, or scores", () => {
   assert.equal(
     buildSuggestionCopyText("movies", "Perfect Days", "2023 · Director: Wim Wenders"),
@@ -126,6 +150,24 @@ test("Persian suggestion reasons read naturally as standalone saved comments", (
   assert.equal(
     parsed.reason,
     "تلخیِ صمیمی و صدای بی‌پرده‌اش به فانته و پالپ می‌خورد.",
+  );
+});
+
+test("awkward Persian comparisons are normalized into subject-first comments", () => {
+  const parsed = parseSingleSuggestionResponse(
+    "Example Film\n2001 · Director: Example Director\nبرای رستگاری در شاوشانگ و پالپ فیکشن، تلخ و ماندگار درمی‌آید.",
+    "fa",
+  );
+  assert.equal(
+    parsed.reason,
+    "فضای تلخ و ماندگارش به رستگاری در شاوشانگ و پالپ فیکشن نزدیکه.",
+  );
+  assert.equal(
+    parseSingleSuggestionResponse(
+      "Example Film\n2001 · Director: Example Director\nبرای Fight Club و Pulp Fiction، همین تنهایی و زخم شهری می‌گیردت.",
+      "fa",
+    ).reason,
+    "تنهایی و زخم شهری‌اش به Fight Club و Pulp Fiction نزدیکه.",
   );
 });
 

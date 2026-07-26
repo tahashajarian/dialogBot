@@ -135,6 +135,9 @@ async function getAiSingleSuggestion({
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
       "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned.",
       "Write the reason so it works as a standalone saved comment. Refer directly to the relevant favorites or creators; avoid phrases like 'your taste in' or «سلیقه‌ات در».",
+      lang === "fa"
+        ? "In Persian, make the suggested item the subject. Prefer a natural form like «فضای تلخ و ماندگارش به X و Y نزدیکه». Never begin the reason with «برای» followed by favorites, and never use «درمی‌آید» or «می‌گیردت» for the comparison."
+        : "",
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
         ? "Keep the exact official title and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin."

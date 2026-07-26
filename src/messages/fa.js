@@ -546,6 +546,7 @@ module.exports = {
     aiSuggestionCopyNameButton: "📋 کپی نام",
     aiSuggestionChooseAction: "👩‍🦳 برای این پیشنهاد یکی از گزینه‌های زیر رو انتخاب کن:",
     aiSuggestionNextGuidance: "می‌تونی با همان حال‌وهوا پیشنهاد بعدی بگیری، حال‌وهوای تازه‌ای بنویسی، یا برگردی.",
+    aiSuggestionNextGuidanceNoMood: "می‌تونی پیشنهاد بعدی بگیری، حال‌وهوای دلخواهت رو بنویسی، یا برگردی.",
     aiSuggestionAdded: "👩‍🦳 در {listName} ذخیره شد.",
     aiSuggestionAddedDone: "👩‍🦳 در {listName} با وضعیت انجام‌شده ذخیره شد.",
     aiSuggestionAddedDoneMovies: "👩‍🦳 در 🎬📋 لیست «بعدا می‌بینم» ذخیره شد. (دیده‌شده)",
