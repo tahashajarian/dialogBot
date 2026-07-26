@@ -93,6 +93,14 @@ function peopleDiscoverListKeyboard(lang, options = {}) {
       callback_data: callBacks.aiAssistant,
     }]);
   }
+  if (options.showFavoritesAction) {
+    rows.push([{
+      text: options.favoritesFull
+        ? messages[lang].peopleDiscoverViewFavorites
+        : messages[lang].peopleDiscoverAddFavorites,
+      callback_data: callBacks.aiAssistant,
+    }]);
+  }
   rows.push([{
     text: messages[lang].discussionShareClose,
     callback_data: callBacks.peopleListClose,

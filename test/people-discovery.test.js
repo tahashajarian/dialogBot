@@ -513,6 +513,31 @@ test("people discovery empty state uses inline action and Close", () => {
   ]);
 });
 
+test("people discovery offers a clearer Favorites action when only saved people remain", () => {
+  const addButtons = peopleDiscoverListKeyboard("fa", { showFavoritesAction: true })
+    .reply_markup.inline_keyboard.flat();
+  const viewButtons = peopleDiscoverListKeyboard("fa", {
+    showFavoritesAction: true,
+    favoritesFull: true,
+  }).reply_markup.inline_keyboard.flat();
+
+  assert.ok(addButtons.some((button) => (
+    button.text === messages.fa.peopleDiscoverAddFavorites
+    && button.callback_data === callBacks.aiAssistant
+  )));
+  assert.ok(viewButtons.some((button) => (
+    button.text === messages.fa.peopleDiscoverViewFavorites
+    && button.callback_data === callBacks.aiAssistant
+  )));
+  const savedOnlyIntro = formatPeopleDiscoveryRequirementText(
+    messages.fa.peopleDiscoverNoMoreNew,
+    "fa",
+    2,
+  );
+  assert.match(savedOnlyIntro, /حداقل ۲ انتخاب مشترک در یک بخش/);
+  assert.match(savedOnlyIntro, /برچسب سلیقه‌ی یکسان/);
+});
+
 test("people discovery shows language filtering only for multilingual candidates", () => {
   const hiddenButtons = peopleDiscoverListKeyboard("fa", {
     languageFilter: "fa",
@@ -533,9 +558,12 @@ test("saved profiles are visibly separated at the end of People results", () => 
     { code: "u_SAVED", name: "Saved person", isSaved: true },
   ], {
     showSharedSections: true,
+    totalCount: 1,
   });
 
   assert.match(text, new RegExp(messages.fa.peopleDiscoverSavedSection));
+  assert.match(text, /\(۱\)/);
+  assert.doesNotMatch(text, /\(۲\)/);
   assert.ok(text.indexOf("New person") < text.indexOf(messages.fa.peopleDiscoverSavedSection));
   assert.ok(text.indexOf(messages.fa.peopleDiscoverSavedSection) < text.indexOf("Saved person"));
 });

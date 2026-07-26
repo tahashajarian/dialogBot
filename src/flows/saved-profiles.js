@@ -3,6 +3,7 @@ const path = require("node:path");
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
+const { operationalLimits } = require("../services/operational-limits");
 const {
   inlineKeyboard,
   advancedSearchPreviewKeyboard,
@@ -18,6 +19,7 @@ const {
 const { callBacks } = require("../constants");
 const {
   hasSectionTipBeenShown,
+  getAiListItemsFromUser,
   markSectionTipShownForContext,
   updateProfileField,
   updateUserFields,
@@ -402,6 +404,9 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
   const isEmpty = pageItems.length === 0;
   const showLanguageFilter = (result.availableLanguages || []).length > 1;
+  const mediaFavoritesFull = ["movies", "music", "books"].every((section) => (
+    getAiListItemsFromUser(ctx.user, section, "topTen").length >= operationalLimits.aiTopTenItems
+  ));
   return {
     page: paged.page,
     totalPages: paged.totalPages,
@@ -409,10 +414,14 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
     text: combinedItems.length
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
-        totalCount: combinedItems.length,
+        totalCount: discoveryItems.length,
         intro: discoveryItems.length
           ? messages[lang].peopleDiscoverIntro
-          : messages[lang].peopleDiscoverNoMoreNew,
+          : formatPeopleDiscoveryRequirementText(
+            messages[lang].peopleDiscoverNoMoreNew,
+            lang,
+            minSharedItems,
+          ),
         emptyText: formatPeopleDiscoveryRequirementText(
           messages[lang].peopleDiscoverNoMatches,
           lang,
@@ -438,6 +447,8 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
         page: paged.page,
         totalPages: paged.totalPages,
         showLists: false,
+        showFavoritesAction: discoveryItems.length === 0 && savedDiscoveryItems.length > 0,
+        favoritesFull: mediaFavoritesFull,
         languageFilter,
         showLanguageFilter,
       }),
