@@ -8,7 +8,7 @@ const {
 const { CapacityError } = require("./capacity-guard");
 const { aiCapacity } = require("./runtime-capacity");
 
-const DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS = 60;
+const DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS = 100;
 
 let client = null;
 

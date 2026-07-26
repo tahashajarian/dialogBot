@@ -19,13 +19,15 @@ function normalizeSuggestionComment(value) {
     .slice(0, 120);
 }
 
-function setPendingSuggestion(userId, section, title, comment = "") {
+function setPendingSuggestion(userId, section, title, comment = "", metadata = "") {
   const key = buildKey(userId, section);
   const cleanTitle = normalizeSuggestionTitle(title);
   const cleanComment = normalizeSuggestionComment(comment);
+  const cleanMetadata = normalizeSuggestionComment(metadata);
   if (!key || !cleanTitle) return "";
   pendingSuggestions.set(key, {
     title: cleanTitle,
+    metadata: cleanMetadata,
     comment: cleanComment,
   });
   return cleanTitle;

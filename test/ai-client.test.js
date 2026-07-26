@@ -18,8 +18,8 @@ test("AI provider errors distinguish billing, auth, rate limits, and timeouts", 
   assert.equal(classifyAiProviderError(new Error("ai_chat_completion_timeout")).category, "timeout");
 });
 
-test("suggestion output stays within the compact two-line budget", () => {
-  assert.equal(DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS, 60);
+test("suggestion output stays within the compact three-line budget", () => {
+  assert.equal(DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS, 100);
 });
 
 test("AI timeout aborts the provider request without waiting in real time", async (t) => {

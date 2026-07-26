@@ -307,6 +307,7 @@ function profileInterestsKeyboard(lang, selectedItems = [], page = 0) {
 
 function getProfileInterestsReplyActions(lang, selectedItems = [], page = 0) {
   const { rows, normalizedPage, totalPages } = buildFixedInterestRows(lang, selectedItems, page, {
+    pageSize: ONBOARDING_CHIPS_PER_PAGE,
     chipCallbackPrefix: callBacks.profileInterestChip,
     removeCallbackPrefix: callBacks.profileInterestRemove,
   });

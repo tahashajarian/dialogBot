@@ -89,7 +89,7 @@ module.exports = {
     peopleDiscoverNoMoreNew: "👩‍🦳 فعلا آدم جدیدی برای نمایش نیست؛ پروفایل‌های ذخیره‌شده‌ات رو می‌بینی.",
     peopleBackToHub: "🔙 برگشت به آدم‌ها",
     advancedSearchButton: "🎛 جست‌وجوی پیشرفته",
-    advancedSearchPreviewText: "👩‍🦳 جست‌وجوی پیشرفته هنوز آماده نیست.",
+    advancedSearchPreviewText: "👩‍🦳 جست‌وجوی پیشرفته برای تو فعال نشده.",
     advancedSearchNotifyButton: "🔔 وقتی آماده شد خبرم کن",
     advancedSearchNotifyAck: "🔔 ثبت شد؛ وقتی آماده شد خبرت می‌کنم.",
     help: "💡 راهنمای میوز",

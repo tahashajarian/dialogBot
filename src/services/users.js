@@ -44,21 +44,35 @@ function normalizeAiListComment(value) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
 }
 
+function normalizeAiListMetadata(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
+}
+
+function normalizeAiListCommentSource(value) {
+  const source = String(value || "").trim().toLowerCase();
+  return source === "ai" || source === "user" ? source : "";
+}
+
 function normalizeAiListItems(items = []) {
   const unique = new Set();
   const normalized = [];
 
   for (const item of items) {
     const titleSource = typeof item === "string" ? item : item?.title;
-    const commentSource = typeof item === "string" ? "" : item?.comment;
+    const metadataSource = typeof item === "string" ? "" : item?.metadata;
+    const commentValue = typeof item === "string" ? "" : item?.comment;
+    const commentSource = typeof item === "string" ? "" : normalizeAiListCommentSource(item?.commentSource);
     const watchedSource = typeof item === "string" ? false : Boolean(item?.watched);
     const title = normalizeAiListItem(titleSource);
-    const comment = normalizeAiListComment(commentSource);
+    const metadata = normalizeAiListMetadata(metadataSource);
+    const comment = normalizeAiListComment(commentValue);
     if (!title) continue;
     const key = title.toLowerCase();
     if (unique.has(key)) continue;
     unique.add(key);
-    normalized.push({ title, comment, watched: watchedSource });
+    const normalizedItem = { title, metadata, comment, watched: watchedSource };
+    if (commentSource) normalizedItem.commentSource = commentSource;
+    normalized.push(normalizedItem);
   }
 
   return normalized;
@@ -722,6 +736,8 @@ async function addAiListItem(userId, section, listType, item, maxItems, { awardS
     title = canonicalizeInterestChipTitle(title);
   }
   const comment = normalizeAiListComment(item?.comment);
+  const metadata = normalizeAiListMetadata(item?.metadata);
+  const commentSource = normalizeAiListCommentSource(item?.commentSource);
   if (!title) {
     return { ok: false, reason: "empty" };
   }
@@ -755,7 +771,9 @@ async function addAiListItem(userId, section, listType, item, maxItems, { awardS
   }
 
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
-  const updated = [...current, { title, comment, watched }];
+  const newItem = { title, metadata, comment, watched };
+  if (comment && commentSource) newItem.commentSource = commentSource;
+  const updated = [...current, newItem];
   await updateProfileField(userId, `aiLists.${section}.${listType}`, updated);
   void syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = awardStars
@@ -885,6 +903,7 @@ async function setAiListItemComment(userId, section, listType, item, comment) {
     return {
       ...entry,
       comment: cleanComment,
+      commentSource: cleanComment ? "user" : "",
     };
   });
 

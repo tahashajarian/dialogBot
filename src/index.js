@@ -54,6 +54,7 @@ const ALLOWED_USERNAMES = config.allowedUsernames;
 const SLOW_UPDATE_MS = 1500;
 const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
 const BACKGROUND_SEND_TIMEOUT_MS = 2500;
+const DELETE_WEBHOOK_TIMEOUT_MS = 8000;
 const HOT_PATH_QUERY_TIMEOUT_MS = 2500;
 const SETTINGS_REFRESH_INTERVAL_MS = 60 * 1000;
 const updateRateLimits = createUpdateRateLimits();
@@ -482,7 +483,11 @@ process.once("SIGTERM", () => {
 
     try {
       logger.info("Deleting webhook for polling mode");
-      await bot.telegram.deleteWebhook();
+      await withTimeout(
+        bot.telegram.deleteWebhook(),
+        DELETE_WEBHOOK_TIMEOUT_MS,
+        "deleteWebhook",
+      );
     } catch (deleteWebhookError) {
       logger.warn("deleteWebhook failed; continuing with polling mode", deleteWebhookError);
     }

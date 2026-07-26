@@ -9,7 +9,7 @@ const {
 const { localizeInterestChipItem } = require("./interest-chips");
 
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
-const AI_LIST_ITEM_DIVIDER = "────────";
+const AI_LIST_ITEM_DIVIDER = "────────────────────────";
 
 function localizeAiListItemsForDisplay(items, section, lang) {
   if (section !== "random") return items;
@@ -66,6 +66,31 @@ function getStatusActionLabels(lang, section) {
   };
 }
 
+function splitLegacyMediaTitle(title, metadata = "") {
+  const cleanTitle = String(title || "").trim();
+  const cleanMetadata = String(metadata || "").trim();
+  if (cleanMetadata) return { title: cleanTitle, metadata: cleanMetadata };
+  const legacyMatch = cleanTitle.match(
+    /^(.*?)\s*\(([^()]*(?:Dir\.|Director|Creator|Artist|Author|کارگردان|سازنده|هنرمند|نویسنده)[^()]*)\)\s*$/i,
+  );
+  if (!legacyMatch) return { title: cleanTitle, metadata: "" };
+  return {
+    title: legacyMatch[1].trim(),
+    metadata: legacyMatch[2].trim(),
+  };
+}
+
+function localizeListItemMetadata(lang, metadata) {
+  const value = String(metadata || "").trim();
+  if (lang !== "fa") return value;
+  return value
+    .replace(/\bDir\.\s*/gi, "کارگردان: ")
+    .replace(/\bDirector\s*:/gi, "کارگردان:")
+    .replace(/\bCreator\s*:/gi, "سازنده:")
+    .replace(/\bAuthor\s*:/gi, "نویسنده:")
+    .replace(/\bArtist\s*:/gi, "هنرمند:");
+}
+
 function formatAiItemsList(title, items, emptyText, options = {}) {
   if (!items.length) {
     return emptyText;
@@ -91,10 +116,18 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   };
   const actionLine = (label, command) => `${label} ${pointer} ${command}`;
   const lines = items.map((entry, index) => {
+    const displayItem = splitLegacyMediaTitle(entry?.title, entry?.metadata);
     const watchedBadge = includeWatched ? `${entry?.watched ? "✔️" : "⏳"} ` : "";
     const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
-    const commentPart = entry?.comment ? ` — ${entry.comment}` : "";
-    const itemLine = `${index + 1}. ${watchedBadge}${entry.title}${topTenBadge}${commentPart}`;
+    const localizedMetadata = displayItem.metadata
+      ? localizeListItemMetadata(options.lang, displayItem.metadata)
+      : "";
+    const itemLine = [
+      `${index + 1}. ${watchedBadge}${displayItem.title}${topTenBadge}${localizedMetadata ? ` — ${localizedMetadata}` : ""}`,
+      entry?.comment
+        ? `${entry?.commentSource === "user" ? "📝" : "✨"} ${entry.comment}`
+        : "",
+    ].filter(Boolean).join("\n");
     if (!includeActions || !section) return itemLine;
 
     const number = Number.isInteger(entry?.commandIndex) && entry.commandIndex > 0
@@ -292,10 +325,21 @@ function formatAiLimitMessage(lang, key) {
   return formatOperationalLimitsText(messages[lang][key]);
 }
 
-function formatSuggestionResultMessage(lang, title, reason, mood = "") {
+function localizeSuggestionMetadata(lang, metadata) {
+  const value = String(metadata || "").trim();
+  if (lang !== "fa") return value;
+  return value
+    .replace(/\bDirector\s*:/gi, "کارگردان:")
+    .replace(/\bCreator\s*:/gi, "سازنده:")
+    .replace(/\bAuthor\s*:/gi, "نویسنده:")
+    .replace(/\bArtist\s*:/gi, "هنرمند:");
+}
+
+function formatSuggestionResultMessage(lang, title, reason, mood = "", metadata = "") {
   const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
   return [
     messages[lang].aiSuggestionResultTitle.replace("{item}", title),
+    localizeSuggestionMetadata(lang, metadata),
     mood ? messages[lang].aiSuggestionResultMood.replace("{mood}", mood) : "",
     messages[lang].aiSuggestionResultReason.replace("{reason}", cleanReason),
   ].filter(Boolean).join("\n\n");

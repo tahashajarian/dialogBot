@@ -183,10 +183,10 @@ test("bot-authored picker prompts start with the bot marker", () => {
 });
 
 test("onboarding keyboard shows selected interests without a separate continue action", () => {
-  const keyboard = onboardingInterestsKeyboard("en", ["شطرنج"]);
+  const keyboard = onboardingInterestsKeyboard("en", ["هنر"]);
   const buttons = keyboard.reply_markup.keyboard.flat();
 
-  assert.equal(buttons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
+  assert.equal(buttons.some((button) => button.text.includes("Art") && button.text.includes("✓")), true);
   assert.equal(buttons.some((button) => button.text.includes("Movies")), true);
   assert.equal(buttons.some((button) => button.text === messages.en.onboardingMoreButton), true);
   assert.equal(buttons.some((button) => button.text === messages.en.onboardingCustomButton), false);
@@ -197,25 +197,25 @@ test("onboarding keyboard shows selected interests without a separate continue a
 });
 
 test("onboarding chips mark selected built-ins across languages", () => {
-  const englishKeyboard = onboardingInterestsKeyboard("en", ["فیلم", "شطرنج"]);
-  const persianKeyboard = onboardingInterestsKeyboard("fa", ["Movies", "Chess"]);
+  const englishKeyboard = onboardingInterestsKeyboard("en", ["فیلم", "هنر"]);
+  const persianKeyboard = onboardingInterestsKeyboard("fa", ["Movies", "Art"]);
   const englishButtons = englishKeyboard.reply_markup.keyboard.flat();
   const persianButtons = persianKeyboard.reply_markup.keyboard.flat();
 
   assert.equal(englishButtons.some((button) => button.text.includes("Movies") && button.text.includes("✓")), true);
-  assert.equal(englishButtons.some((button) => button.text.includes("Chess") && button.text.includes("✓")), true);
+  assert.equal(englishButtons.some((button) => button.text.includes("Art") && button.text.includes("✓")), true);
   assert.equal(persianButtons.some((button) => button.text.includes("فیلم") && button.text.includes("✓")), true);
-  assert.equal(persianButtons.some((button) => button.text.includes("شطرنج") && button.text.includes("✓")), true);
+  assert.equal(persianButtons.some((button) => button.text.includes("هنر") && button.text.includes("✓")), true);
 });
 
 test("onboarding keeps selected built-in chips in their original grid positions", () => {
   const plainRows = onboardingInterestsKeyboard("en", []).reply_markup.keyboard;
-  const selectedRows = onboardingInterestsKeyboard("en", ["Chess"]).reply_markup.keyboard;
-  const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
-  const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
+  const selectedRows = onboardingInterestsKeyboard("en", ["Art"]).reply_markup.keyboard;
+  const plainArt = plainRows.flat().find((button) => button.text.includes("Art"));
+  const selectedArt = selectedRows.flat().find((button) => button.text.includes("Art"));
 
-  assert.equal(plainRows[1][0], plainChess);
-  assert.equal(selectedRows[1][0], selectedChess);
+  assert.equal(plainRows[1][0], plainArt);
+  assert.equal(selectedRows[1][0], selectedArt);
   assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
   assert.equal(selectedRows[1][0].callback_data, undefined);
 });
@@ -237,9 +237,9 @@ test("onboarding rotates through stable interest pages", () => {
   const firstPage = onboardingInterestsKeyboard("en", [], 0).reply_markup.keyboard.flat();
   const secondPage = onboardingInterestsKeyboard("en", [], 1).reply_markup.keyboard.flat();
 
-  assert.equal(firstPage.some((button) => button.text.includes("Travel")), false);
-  assert.equal(secondPage.some((button) => button.text.includes("Travel")), true);
-  assert.equal(getOnboardingInterestChipTitle(9, "en"), "Art");
+  assert.equal(firstPage.some((button) => button.text.includes("Walking")), false);
+  assert.equal(secondPage.some((button) => button.text.includes("Walking")), true);
+  assert.equal(getOnboardingInterestChipTitle(9, "en"), "Poetry");
   assert.equal(getOnboardingPage(`${callBacks.onboardingMore}2`), 2);
 });
 

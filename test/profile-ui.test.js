@@ -504,14 +504,27 @@ test("profileKeyboard keeps only typed and media actions in compact rows", () =>
 
 test("profile interests keep selected built-in chips in place", () => {
   const plainRows = profileInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard;
-  const selectedRows = profileInterestsKeyboard("en", [{ title: "Chess" }], 0).reply_markup.inline_keyboard;
-  const plainChess = plainRows.flat().find((button) => button.text.includes("Chess"));
-  const selectedChess = selectedRows.flat().find((button) => button.text.includes("Chess"));
+  const selectedRows = profileInterestsKeyboard("en", [{ title: "Art" }], 0).reply_markup.inline_keyboard;
+  const plainArt = plainRows.flat().find((button) => button.text.includes("Art"));
+  const selectedArt = selectedRows.flat().find((button) => button.text.includes("Art"));
 
-  assert.equal(plainRows[1][0], plainChess);
-  assert.equal(selectedRows[1][0], selectedChess);
+  assert.equal(plainRows[1][0], plainArt);
+  assert.equal(selectedRows[1][0], selectedArt);
   assert.equal(selectedRows[1][0].text, `${plainRows[1][0].text} ✓`);
   assert.equal(selectedRows.at(-1)[0].callback_data, callBacks.profilePickerClose);
+});
+
+test("profile interests show the same four catalog rows as onboarding", () => {
+  const rows = profileInterestsKeyboard("en", [], 0).reply_markup.inline_keyboard;
+  const catalogRows = rows.filter((row) => row.some((button) => (
+    button.callback_data?.startsWith(callBacks.profileInterestChip)
+  )));
+
+  assert.equal(catalogRows.length, 4);
+  assert.deepEqual(
+    catalogRows.flat().map((button) => button.text),
+    ["🎬 Movies", "🎵 Music", "📚 Books", "🎨 Art", "✍️ Writing", "📸 Photography", "🎭 Theater", "🎧 Podcast", "🎤 Singing", "🪶 Poetry", "🖌 Painting", "🎥 Filmmaking"],
+  );
 });
 
 test("age picker buttons are ordered left to right", () => {

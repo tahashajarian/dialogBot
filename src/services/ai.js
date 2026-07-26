@@ -130,11 +130,15 @@ async function getAiSingleSuggestion({
   try {
     const instructions = [
       "Recommend exactly one real, established, widely known item.",
-      "Use exactly 2 short plain-text lines: requested item name and metadata; then a reason of at most 12 words.",
+      "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words.",
       "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
       "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned.",
+      "Write the reason so it works as a standalone saved comment. Refer directly to the relevant favorites or creators; avoid phrases like 'your taste in' or «سلیقه‌ات در».",
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
+      lang === "fa"
+        ? "Keep the exact official title and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin."
+        : "",
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
       personalized
@@ -174,6 +178,11 @@ async function getAiSingleSuggestion({
     }
 
     if (isSuggestionUncertainResponse(rawText)) {
+      logger.warn("AI suggestion output rejected", {
+        mode,
+        reason: "uncertain_suggestion",
+        hasMetadata: false,
+      });
       return { ok: false, reason: "uncertain_suggestion" };
     }
 
@@ -182,14 +191,25 @@ async function getAiSingleSuggestion({
       if (mode === "random" && topTenItems.length) {
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }
+      logger.warn("AI suggestion output rejected", {
+        mode,
+        reason: "missing_title",
+        hasMetadata: Boolean(parsed.metadata),
+      });
       return { ok: false, reason: "invalid_output" };
     }
     const realityIssue = getSuggestionRealityIssue({
       mode,
       title: parsed.title,
+      metadata: parsed.metadata,
       reason: parsed.reason,
     });
     if (realityIssue) {
+      logger.warn("AI suggestion output rejected", {
+        mode,
+        reason: realityIssue,
+        hasMetadata: Boolean(parsed.metadata),
+      });
       return { ok: false, reason: "unverified_suggestion", qualityIssue: realityIssue };
     }
     if (mode === "random") {
@@ -207,8 +227,9 @@ async function getAiSingleSuggestion({
     return {
       ok: true,
       title: parsed.title,
+      metadata: parsed.metadata,
       reason: parsed.reason,
-      text: `${parsed.title}\n${parsed.reason}`.trim(),
+      text: `${parsed.title}\n${parsed.metadata}\n${parsed.reason}`.trim(),
     };
   } catch (error) {
     logger.warn("AI single suggestion failed", error);

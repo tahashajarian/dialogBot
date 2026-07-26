@@ -13,8 +13,10 @@ const {
   splitSuggestionSentence,
 } = require("../src/services/ai");
 const { formatSuggestionResultMessage } = require("../src/services/ai-list-ui");
+const { aiSuggestionCopyKeyboard } = require("../src/keyboards");
 const {
   buildSuggestionAttemptText,
+  buildSuggestionCopyText,
   getSingleSuggestionDetailInstruction,
 } = require("../src/services/ai-suggestion-quality");
 const {
@@ -58,6 +60,89 @@ test("suggestion results show active mood only when provided", () => {
   );
 });
 
+test("media suggestions keep clean titles and separate searchable metadata", () => {
+  const parsed = parseSingleSuggestionResponse(
+    "Perfect Days\n2023 · Director: Wim Wenders\nIts quiet character study fits your reflective favorites.",
+    "en",
+  );
+  assert.deepEqual(parsed, {
+    title: "Perfect Days",
+    metadata: "2023 · Director: Wim Wenders",
+    reason: "Its quiet character study fits your reflective favorites.",
+  });
+
+  const message = formatSuggestionResultMessage(
+    "en",
+    parsed.title,
+    parsed.reason,
+    "",
+    parsed.metadata,
+  );
+  assert.match(message, /Perfect Days"\n\n2023 · Director: Wim Wenders/);
+
+  const copyButton = aiSuggestionCopyKeyboard("en", `${parsed.title} ${parsed.metadata}`)
+    .reply_markup.inline_keyboard[0][0];
+  assert.equal(copyButton.copy_text.text, "Perfect Days 2023 · Director: Wim Wenders");
+});
+
+test("suggestion Copy text contains names without labels, years, or scores", () => {
+  assert.equal(
+    buildSuggestionCopyText("movies", "Perfect Days", "2023 · Director: Wim Wenders"),
+    "Perfect Days Wim Wenders",
+  );
+  assert.equal(
+    buildSuggestionCopyText("movies", "Perfect Days", "۲۰۲۳ · کارگردان: ویم وندرس"),
+    "Perfect Days ویم وندرس",
+  );
+  assert.equal(
+    buildSuggestionCopyText("music", "Weird Fishes/Arpeggi", "Artist: Radiohead · Album: In Rainbows · 2007"),
+    "Weird Fishes/Arpeggi Radiohead",
+  );
+  assert.equal(
+    buildSuggestionCopyText("books", "The Remains of the Day", "Author: Kazuo Ishiguro · 1989"),
+    "The Remains of the Day Kazuo Ishiguro",
+  );
+});
+
+test("Persian suggestions keep searchable names but localize metadata and explanation", () => {
+  const parsed = parseSingleSuggestionResponse(
+    "Perfect Days\n2023 · Director: Wim Wenders\nA quiet character study.",
+    "fa",
+  );
+  assert.equal(parsed.title, "Perfect Days");
+  assert.equal(parsed.metadata, "2023 · Director: Wim Wenders");
+  assert.equal(parsed.reason, "برای سلیقه‌ات گزینه خوبیه.");
+  assert.match(
+    formatSuggestionResultMessage("fa", parsed.title, parsed.reason, "", parsed.metadata),
+    /2023 · کارگردان: Wim Wenders[\s\S]*برای سلیقه‌ات گزینه خوبیه/,
+  );
+});
+
+test("Persian suggestion reasons read naturally as standalone saved comments", () => {
+  const parsed = parseSingleSuggestionResponse(
+    "Ask the Dust\n1939 · Author: John Fante\nتلخیِ صمیمی و صدای بی‌پرده‌اش به سلیقه‌ات در فانته و پالپ می‌خورد.",
+    "fa",
+  );
+  assert.equal(
+    parsed.reason,
+    "تلخیِ صمیمی و صدای بی‌پرده‌اش به فانته و پالپ می‌خورد.",
+  );
+});
+
+test("legacy parenthesized suggestion metadata is separated from the saved title", () => {
+  assert.deepEqual(
+    parseSingleSuggestionResponse(
+      "Blade Runner 2049 (2017, Dir. Denis Villeneuve)\nSlow sci-fi with neon melancholy.",
+      "en",
+    ),
+    {
+      title: "Blade Runner 2049",
+      metadata: "2017, Dir. Denis Villeneuve",
+      reason: "Slow sci-fi with neon melancholy.",
+    },
+  );
+});
+
 test("extracts suggestion text from Responses and Chat Completions payloads", () => {
   assert.equal(extractAiResponseText({ output_text: "Lichess puzzles\nRelated to chess." }), "Lichess puzzles\nRelated to chess.");
   assert.equal(extractAiResponseText({ choices: [{ message: { content: "Photo walk\nRelated to photography." } }] }), "Photo walk\nRelated to photography.");
@@ -89,6 +174,9 @@ test("Movies & Series suggestions define metadata for both formats", () => {
   const modeInstruction = getModeInstruction("movies", "en");
   assert.match(instruction, /For a movie/);
   assert.match(instruction, /For a series/);
+  assert.match(instruction, /IMDb/);
+  assert.match(getSingleSuggestionDetailInstruction("books"), /Goodreads/);
+  assert.match(getSingleSuggestionDetailInstruction("music"), /Metacritic/);
   assert.match(instruction, /Creator/);
   assert.match(modeInstruction, /movies and TV\/streaming series/);
   assert.match(modeInstruction, /explicitly asks for a movie or series, honor it/);
@@ -99,6 +187,11 @@ test("suggestion reality gate rejects fabricated-looking outputs", () => {
   assert.equal(getSuggestionRealityIssue({ mode: "music", title: "Moon Dust Symphony", reason: "A fictional track for metal fans." }), "fabrication_marker");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Blade Runner 2049 (2017, Dir. Denis Villeneuve)", reason: "Slow sci-fi with neon melancholy." }), "");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Dark (2017, Creator: Baran bo Odar)", reason: "A layered science-fiction mystery." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023 · Director: Wim Wenders", reason: "A quiet character study." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "۲۰۲۳ · ویم وندرس", reason: "با سلیقه‌ات هماهنگه." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023", reason: "A quiet character study." }), "missing_movie_metadata");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023 · Director: Unknown", reason: "A quiet character study." }), "placeholder_metadata");
+  assert.equal(getSuggestionRealityIssue({ mode: "books", title: "The Remains of the Day", metadata: "Author: Kazuo Ishiguro · 1989", reason: "Restrained and reflective." }), "");
 });
 
 test("Interests fallback is concrete and derived from the user's interests", () => {

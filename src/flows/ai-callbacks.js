@@ -1086,11 +1086,18 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     const pending = getPendingSuggestion(ctx.userId, section);
     const title = String(pending?.title || "").trim();
+    const metadata = String(pending?.metadata || "").trim();
     const comment = String(pending?.comment || "").trim();
     if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
     await helpers.deleteCallbackMessageIfPossible(ctx);
-    const result = await addAiListItem(ctx.userId, section, "watchlist", { title, comment, watched: markDone }, operationalLimits.aiWatchlistItems);
+    const result = await addAiListItem(
+      ctx.userId,
+      section,
+      "watchlist",
+      { title, metadata, comment, commentSource: comment ? "ai" : "", watched: markDone },
+      operationalLimits.aiWatchlistItems,
+    );
 
     if (!result.ok) {
       if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));

@@ -24,7 +24,7 @@ test("People hub exposes an honest Advanced Search preview", () => {
 });
 
 test("Advanced Search preview stays minimal while unavailable", () => {
-  assert.equal(messages.fa.advancedSearchPreviewText, "👩‍🦳 جست‌وجوی پیشرفته هنوز آماده نیست.");
+  assert.equal(messages.fa.advancedSearchPreviewText, "👩‍🦳 جست‌وجوی پیشرفته برای تو فعال نشده.");
   assert.equal(messages.en.advancedSearchPreviewText, "👩‍🦳 Advanced Search is not available yet.");
 });
 

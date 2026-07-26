@@ -66,6 +66,28 @@ test("getAiListItemsFromUser canonicalizes built-in Interest chips", () => {
   );
 });
 
+test("getAiListItemsFromUser preserves suggestion metadata", () => {
+  assert.deepEqual(
+    getAiListItemsFromUser({
+      aiLists: {
+        movies: {
+          watchlist: [{
+            title: "Perfect Days",
+            metadata: "2023 · Director: Wim Wenders",
+            comment: "آرام و انسانی است.",
+          }],
+        },
+      },
+    }, "movies", "watchlist"),
+    [{
+      title: "Perfect Days",
+      metadata: "2023 · Director: Wim Wenders",
+      comment: "آرام و انسانی است.",
+      watched: false,
+    }],
+  );
+});
+
 test("section-tip state defaults independently and rejects unknown keys", async () => {
   const user = new User({ userId: 321 });
   assert.deepEqual(user.sectionTipsShownAt.toObject(), {

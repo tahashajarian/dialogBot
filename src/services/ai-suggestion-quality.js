@@ -14,11 +14,24 @@ function normalizeSuggestionReason(text, lang, { limitWords }) {
   const cleaned = String(text || "")
     .replace(/^(?:(?:reason|comment|دلیل|توضیح)\s*[:：-]|why\s*[?؟:：-]|چرا\s*[؟?:：-])\s*/i, "")
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .replace(/به\s+سلیقه(?:‌|\s)?ات\s+در\s+/g, "به ");
   if (!cleaned) {
     return lang === "fa" ? "برای سلیقه‌ات گزینه خوبیه." : "Good match for your taste.";
   }
+  if (lang === "fa" && !/[\u0600-\u06FF]/u.test(cleaned)) {
+    return "برای سلیقه‌ات گزینه خوبیه.";
+  }
   return limitWords(cleaned, 14);
+}
+
+function normalizeSuggestionMetadata(text) {
+  const cleaned = String(text || "")
+    .replace(/^[\s\-•*#]+/g, "")
+    .replace(/^(?:metadata|details|creator|artist|author|director|اطلاعات|جزئیات)\s*[:：-]\s*/i, "")
+    .trim()
+    .replace(/\s+/g, " ");
+  return /^[-—]$/.test(cleaned) ? "" : cleaned.slice(0, 120);
 }
 
 function isSuggestionUncertainResponse(text) {
@@ -32,13 +45,37 @@ function buildSuggestionAttemptText(userText, fallbackText, attempt) {
   return context ? `${context}\n\n${retryInstruction}` : retryInstruction;
 }
 
-function getSuggestionRealityIssue({ mode, title, reason }) {
+function buildSuggestionCopyText(mode, title, metadata = "") {
+  const cleanTitle = normalizeSuggestionTitle(title);
+  const cleanMetadata = normalizeSuggestionMetadata(metadata)
+    .replace(/\b(?:director|creator|artist|author|album|year)\s*:\s*/gi, "")
+    .replace(/(?:کارگردان|سازنده|خالق|هنرمند|خواننده|نویسنده|آلبوم|سال)\s*:\s*/g, "")
+    .replace(/\b(?:18|19|20)\d{2}\b/g, "")
+    .replace(/(?:۱۸|۱۹|۲۰)[۰-۹]{2}/g, "")
+    .replace(/\b(?:IMDb|Goodreads|Metacritic)\s*:\s*[\d.]+(?:\/(?:10|5|100))?/gi, "")
+    .trim();
+  const identifyingName = cleanMetadata
+    .split(/\s*[·|]\s*/)
+    .map((part) => part.replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, "").trim())
+    .find(Boolean) || "";
+
+  if (mode === "random") {
+    return [cleanTitle, cleanMetadata].filter(Boolean).join(" ").trim();
+  }
+  return [cleanTitle, identifyingName].filter(Boolean).join(" ").trim();
+}
+
+function getSuggestionRealityIssue({ mode, title, metadata = "", reason }) {
   const cleanTitle = String(title || "").trim();
+  const cleanMetadata = String(metadata || "").trim();
   const cleanReason = String(reason || "").trim();
-  const combined = `${cleanTitle} ${cleanReason}`;
+  const combined = `${cleanTitle} ${cleanMetadata} ${cleanReason}`;
   if (!cleanTitle) return "missing_title";
 
-  if (/\b(?:Title|Artist|Author|Director|Unknown Artist|Unknown Author|Unknown Director)\b/.test(combined)) {
+  if (/\b(?:Unknown Artist|Unknown Author|Unknown Director|Unknown Creator|Unknown Title)\b/i.test(combined)) {
+    return "placeholder_metadata";
+  }
+  if (/\b(?:Title|Artist|Author|Director|Creator)\s*:\s*(?:unknown|n\/a|none|tbd|-)\b/i.test(combined)) {
     return "placeholder_metadata";
   }
   if (/(عنوان|نویسنده|کارگردان|هنرمند)\s*(نامشخص|فرضی)/.test(combined)) {
@@ -51,13 +88,20 @@ function getSuggestionRealityIssue({ mode, title, reason }) {
     return "fabrication_marker";
   }
 
-  if (mode === "movies" && !/\((?=.*(?:\bdir\.|\bdirector\b|\bcreator\b))[^)]+\)/i.test(cleanTitle)) {
-    return "missing_movie_metadata";
+  if (mode === "movies") {
+    const movieMetadata = cleanMetadata || cleanTitle.match(/\(([^)]+)\)\s*$/)?.[1] || "";
+    const yearPattern = /(?:\b(?:18|19|20)\d{2}\b|(?:۱۸|۱۹|۲۰)[۰-۹]{2})/;
+    const hasYear = yearPattern.test(movieMetadata);
+    const creatorText = movieMetadata
+      .replace(/(?:\b(?:18|19|20)\d{2}\b|(?:۱۸|۱۹|۲۰)[۰-۹]{2})/g, "")
+      .replace(/(?:\bdir\.|\bdirector\b|\bcreator\b|کارگردان|سازنده|خالق)/gi, "")
+      .replace(/[\s,.:;·\-–—()[\]]/g, "");
+    if (!hasYear || creatorText.length < 2) return "missing_movie_metadata";
   }
-  if (mode === "music" && !/\([^)]+\)/.test(cleanTitle)) {
+  if (mode === "music" && !cleanMetadata && !/\([^)]+\)/.test(cleanTitle)) {
     return "missing_music_metadata";
   }
-  if (mode === "books" && !/\([^)]+\)/.test(cleanTitle)) {
+  if (mode === "books" && !cleanMetadata && !/\([^)]+\)/.test(cleanTitle)) {
     return "missing_book_metadata";
   }
 
@@ -96,7 +140,8 @@ function parseSingleSuggestionResponse(raw, lang, helpers) {
   }
 
   let titleLine = lines[0] || "";
-  let reasonLine = lines[1] || "";
+  let metadataLine = lines.length >= 3 ? lines[1] : "";
+  let reasonLine = lines.length >= 3 ? lines.slice(2).join(" ") : (lines[1] || "");
 
   if (lines.length === 1) {
     const single = lines[0];
@@ -109,25 +154,40 @@ function parseSingleSuggestionResponse(raw, lang, helpers) {
   }
 
   let title = normalizeSuggestionTitle(titleLine);
+  let metadata = normalizeSuggestionMetadata(metadataLine);
+  if (!metadata) {
+    const legacyMetadata = title.match(/\s*\(([^()]+)\)\s*$/);
+    if (legacyMetadata) {
+      metadata = normalizeSuggestionMetadata(legacyMetadata[1]);
+      title = normalizeSuggestionTitle(title.slice(0, legacyMetadata.index));
+    }
+  }
   let reason = normalizeSuggestionReason(reasonLine, lang, helpers);
 
-  return { title, reason };
+  return { title, metadata, reason };
 }
 
 function getSingleSuggestionDetailInstruction(mode) {
   if (mode === "movies") {
     return [
-      "For a movie, line 1 must include title + year + director in parentheses; example: Interstellar (2014, Dir. Christopher Nolan).",
-      "For a series, line 1 must include title + premiere year + creator in parentheses; example: Dark (2017, Creator: Baran bo Odar).",
+      "For a movie, line 1 must be only the exact original title; line 2 must be year + director; example: 2014 · Director: Christopher Nolan.",
+      "For a series, line 1 must be only the exact original title; line 2 must be premiere year + creator; example: 2017 · Creator: Baran bo Odar.",
+      "If you are highly certain of its IMDb rating, line 3 may start with IMDb: score/10 — then the reason; otherwise omit the rating and give only the reason.",
     ].join(" ");
   }
 
   if (mode === "music") {
-    return "Line 1 must include track/album title + artist/band (and year if known) in parentheses.";
+    return [
+      "Line 1 must be only the exact track or album title. Line 2 must be artist/band, then album and year when known.",
+      "For an album only, if you are highly certain of its Metacritic score, line 3 may start with Metacritic: score/100 — then the reason; otherwise omit the score.",
+    ].join(" ");
   }
 
   if (mode === "books") {
-    return "Line 1 must include book title + author (and year if known) in parentheses.";
+    return [
+      "Line 1 must be only the exact book title. Line 2 must be author, then publication year when known.",
+      "If you are highly certain of its Goodreads rating, line 3 may start with Goodreads: score/5 — then the reason; otherwise omit the rating.",
+    ].join(" ");
   }
 
   return [
@@ -139,6 +199,7 @@ function getSingleSuggestionDetailInstruction(mode) {
     "The reason must name the relevant user interest and explain a concrete connection, not generic benefits.",
     "Do not default to a book, movie, or song unless the user's listed interests explicitly include that medium.",
     "Do not add category labels such as (activity) or (فعالیت) to the title.",
+    "Line 1 must be only the exact searchable name. Line 2 must identify the platform or source.",
   ].join(" ");
 }
 
@@ -230,6 +291,7 @@ function createSuggestionHelpers(helpers) {
 
 module.exports = {
   buildSuggestionAttemptText,
+  buildSuggestionCopyText,
   createSuggestionHelpers,
   getInterestSuggestionFamily,
   getSingleSuggestionDetailInstruction,

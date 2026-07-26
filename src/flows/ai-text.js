@@ -45,7 +45,10 @@ const {
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
 const { getAiSingleSuggestion } = require("../services/ai");
-const { buildSuggestionAttemptText } = require("../services/ai-suggestion-quality");
+const {
+  buildSuggestionAttemptText,
+  buildSuggestionCopyText,
+} = require("../services/ai-suggestion-quality");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { sendTasteLabelReview } = require("./ai-taste-labels");
 const {
@@ -479,6 +482,11 @@ async function sendSingleSectionSuggestion({
   }
 
   if (!suggestionResult.ok || !suggestionResult.title) {
+    logger.warn("AI suggestion flow fell back", {
+      section,
+      reason: suggestionResult?.reason || "missing_result",
+      qualityIssue: suggestionResult?.qualityIssue || "",
+    });
     await restoreSuggestionMode();
     if (paidSuggestion) {
       await refundPaidSuggestion(
@@ -506,14 +514,23 @@ async function sendSingleSectionSuggestion({
     await completePaidSuggestion(paidSuggestion.quote._id, suggestionResult.title);
   }
   await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
-  setPendingSuggestion(ctx.userId, section, suggestionResult.title, suggestionResult.reason || "");
+  setPendingSuggestion(
+    ctx.userId,
+    section,
+    suggestionResult.title,
+    suggestionResult.reason || "",
+    suggestionResult.metadata || "",
+  );
   await updateUserState(ctx.userId, `ai_chat_${section}`);
   if (ctx.user) ctx.user.state = `ai_chat_${section}`;
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
-    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText),
-    aiSuggestionCopyKeyboard(lang, suggestionResult.title),
+    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText, suggestionResult.metadata),
+    aiSuggestionCopyKeyboard(
+      lang,
+      buildSuggestionCopyText(section, suggestionResult.title, suggestionResult.metadata),
+    ),
   );
   if (resultMessage) {
     const actionMessage = await ctx.reply(

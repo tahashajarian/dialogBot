@@ -144,7 +144,7 @@ function aiSuggestionCopyKeyboard(lang, title) {
   return inlineKeyboard([[
     {
       text: messages[lang].aiSuggestionCopyNameButton,
-      copy_text: { text: String(title || "").slice(0, 80) },
+      copy_text: { text: String(title || "").slice(0, 160) },
     },
   ]]);
 }

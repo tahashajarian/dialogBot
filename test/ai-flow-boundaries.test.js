@@ -1818,8 +1818,8 @@ test("Interests editor shares the paged onboarding chip catalog", () => {
   assert.equal(firstInterestButtons.length, 9);
   assert.equal(firstButtons.some((button) => button.text.includes("Movies")), true);
   assert.equal(firstButtons.some((button) => button.callback_data === `${callBacks.aiInterestTopTenMore}1`), true);
-  assert.equal(secondButtons.some((button) => button.text.includes("Art")), true);
-  assert.equal(getInterestTopTenChipTitle(9, "en"), "Art");
+  assert.equal(secondButtons.some((button) => button.text.includes("Poetry")), true);
+  assert.equal(getInterestTopTenChipTitle(9, "en"), "Poetry");
 });
 
 test("AI callback predicate keeps AI cards only for AI callbacks", () => {
@@ -1940,15 +1940,43 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   const rendered = formatAiItemsList(
     "Watchlist",
     [
-      { title: "Dune", comment: "reread", watched: true },
+      { title: "Dune", comment: "reread", commentSource: "ai", watched: true },
       { title: "Foundation", watched: false },
     ],
     "Empty",
     { topTenTitleSet, includeWatched: true },
   );
 
-  assert.match(rendered, /1\. ✔️ Dune 🏆 — reread/);
+  assert.match(rendered, /1\. ✔️ Dune 🏆\n✨ reread/);
   assert.match(rendered, /2\. ⏳ Foundation/);
+});
+
+test("AI list UI treats unmarked legacy comments as AI explanations", () => {
+  const rendered = formatAiItemsList(
+    "Watchlist",
+    [{ title: "The Seventh Seal", comment: "A legacy recommendation" }],
+    "Empty",
+  );
+
+  assert.match(rendered, /✨ A legacy recommendation/);
+});
+
+test("AI list UI separates legacy movie metadata and comments", () => {
+  const rendered = formatAiItemsList(
+    "لیست",
+    [{
+      title: "Paris, Texas (1984, Dir. Wim Wenders)",
+      comment: "سکوت و تنهایی‌اش به فیلم‌های محبوبت می‌خورد.",
+      commentSource: "ai",
+      watched: false,
+    }],
+    "خالی",
+    { includeWatched: true, lang: "fa", section: "movies" },
+  );
+
+  assert.match(rendered, /1\. ⏳ Paris, Texas — 1984, کارگردان: Wim Wenders/);
+  assert.match(rendered, /✨ سکوت و تنهایی‌اش/);
+  assert.doesNotMatch(rendered, /Paris, Texas \(1984/);
 });
 
 test("AI list UI builds section-titled list messages from user data", () => {
@@ -1956,8 +1984,12 @@ test("AI list UI builds section-titled list messages from user data", () => {
     user: {
       aiLists: {
         movies: {
-          topTen: [{ title: "Heat", comment: "tight" }],
-          watchlist: [{ title: "Heat" }, { title: "Arrival", comment: "rewatch" }],
+          topTen: [{ title: "Heat", comment: "tight", commentSource: "ai" }],
+          watchlist: [
+            { title: "Heat" },
+            { title: "Arrival", comment: "rewatch", commentSource: "ai" },
+            { title: "Solaris", comment: "این یه کامنت تستیه", commentSource: "user" },
+          ],
         },
       },
     },
@@ -1967,12 +1999,14 @@ test("AI list UI builds section-titled list messages from user data", () => {
   const watchlistText = buildWatchlistMessage({ ctx, lang: "en", section: "movies" });
 
   assert.match(topTenText, /❤️ My favorite movies/);
-  assert.match(topTenText, /1\. Heat — tight/);
+  assert.match(topTenText, /1\. Heat\n✨ tight/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
   assert.match(watchlistText, /1\. ⏳ Heat 🏆/);
-  assert.match(watchlistText, /2\. ⏳ Arrival — rewatch/);
-  assert.match(watchlistText, /────────/);
+  assert.match(watchlistText, /2\. ⏳ Arrival\n✨ rewatch/);
+  assert.match(watchlistText, /3\. ⏳ Solaris\n📝 این یه کامنت تستیه/);
+  assert.doesNotMatch(watchlistText, /✨ این یه کامنت تستیه/);
+  assert.match(watchlistText, /────────────────────────/);
   assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
   assert.match(watchlistText, /Change to watched 👉 \/dn_mv_l_1/);
   assert.match(watchlistText, /Add comment 👉 \/cm_mv_l_1/);

@@ -2,7 +2,9 @@ const mongoose = require("mongoose");
 
 const AiListItemSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  metadata: { type: String, default: "", maxlength: 120 },
   comment: { type: String, default: "" },
+  commentSource: { type: String, enum: ["", "ai", "user"], default: "" },
   watched: { type: Boolean, default: false },
 }, { _id: false });
 
