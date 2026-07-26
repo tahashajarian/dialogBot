@@ -317,6 +317,7 @@ Telegram inline mode provides a narrow capture entry point for the three media F
 
 - The user types the item directly after the bot username, for example `@MuzeBot Dune`.
 - The Guide explains this under `Quick save to a list` / `ذخیره سریع در لیست`, using the runtime bot username with the configured `BOT_USERNAME` as fallback. The first Movies, Music, or Books For Later manager opened after rollout also appends one compact inline-capture tip; `sectionTipsShownAt.forLaterInline` is marked only after that list card is delivered successfully.
+- Inline Movie, Music, and Book article choices include distinct 72px thumbnails so Telegram mobile clients do not render their generic question-mark placeholder. These use version-pinned Twemoji PNG URLs; thumbnail delivery is cosmetic and a CDN failure must not affect saving.
 - A non-empty query returns exactly three choices: save to Watch Later, Listen Later, or Read Later. An empty query returns no hint or result.
 - Selecting a result sends a small visible confirmation into the current chat; it does not redirect the user away from the chat. Existing users save immediately through `addAiListItem`.
 - Keep confirmation copy minimal. Telegram provides native inline-bot attribution, and one localized text-link footer may explicitly open the bot for users who want their full lists. Build it from the validated runtime bot username, use message entities rather than parse mode, and disable link previews.

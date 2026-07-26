@@ -50,11 +50,18 @@ test("typing an item returns Movie, Music, and Book choices without buttons", as
   for (const result of answers[0].results) {
     assert.equal(result.type, "article");
     assert.equal(Object.hasOwn(result, "reply_markup"), false);
+    assert.match(result.thumbnail_url, /^https:\/\/cdn\.jsdelivr\.net\/gh\/twitter\/twemoji@14\.0\.2\/assets\/72x72\/[a-f0-9]+\.png$/);
+    assert.equal(result.thumbnail_width, 72);
+    assert.equal(result.thumbnail_height, 72);
     assert.match(result.input_message_content.message_text, /Dune/);
     assert.match(result.input_message_content.message_text, /Open Muze$/);
     assert.equal(result.input_message_content.entities[0].url, "https://t.me/hey_muze_test_bot");
     assert.deepEqual(result.input_message_content.link_preview_options, { is_disabled: true });
   }
+  assert.deepEqual(
+    answers[0].results.map((result) => result.thumbnail_url.split("/").at(-1)),
+    ["1f3ac.png", "1f3b5.png", "1f4da.png"],
+  );
 });
 
 test("empty query is intentionally blank and performs no user lookup", async () => {

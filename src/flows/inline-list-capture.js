@@ -9,12 +9,14 @@ const INLINE_QUERY_WINDOW_MS = 30 * 1000;
 const INLINE_QUERY_LIMIT = 45;
 const INLINE_QUERY_RATE_CACHE_LIMIT = 5000;
 const INLINE_RESULT_TITLE_LIMIT = 48;
+const INLINE_THUMBNAIL_SIZE = 72;
+const TWEMOJI_CDN_ROOT = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
 const inlineQueryUsage = new Map();
 
 const INLINE_SECTIONS = Object.freeze([
-  { section: "movies", token: "m" },
-  { section: "music", token: "u" },
-  { section: "books", token: "b" },
+  { section: "movies", token: "m", thumbnailUrl: `${TWEMOJI_CDN_ROOT}/1f3ac.png` },
+  { section: "music", token: "u", thumbnailUrl: `${TWEMOJI_CDN_ROOT}/1f3b5.png` },
+  { section: "books", token: "b", thumbnailUrl: `${TWEMOJI_CDN_ROOT}/1f4da.png` },
 ]);
 const SECTION_BY_TOKEN = new Map(INLINE_SECTIONS.map(({ section, token }) => [token, section]));
 
@@ -117,11 +119,14 @@ function buildInlineSaveResults({
   botUsername = "",
 }) {
   const visibleTitle = trimInlineResultTitle(title);
-  return INLINE_SECTIONS.map(({ section }) => ({
+  return INLINE_SECTIONS.map(({ section, thumbnailUrl }) => ({
     type: "article",
     id: buildInlineResultId(userId, section, title),
     title: messages[lang][`inlineCaptureResult_${section}`].replace("{item}", visibleTitle),
     description: messages[lang].inlineCaptureResultDescription,
+    thumbnail_url: thumbnailUrl,
+    thumbnail_width: INLINE_THUMBNAIL_SIZE,
+    thumbnail_height: INLINE_THUMBNAIL_SIZE,
     input_message_content: buildInlineConfirmationContent({
       text: messages[lang][`inlineCaptureConfirmation_${section}`].replace("{item}", title),
       lang,
