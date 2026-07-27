@@ -17,6 +17,7 @@ const { getEffectiveDiscussionLanguageFilter, normalizeDiscussionLanguageFilter 
 const { sendNavigationFootprint } = require("../services/navigation-footprints");
 const { restoreStableReplyKeyboard } = require("./reply-keyboard-recovery");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
+const { restoreDiscussionListReturnMode } = require("../services/discussion-list-return");
 const {
   buildDiscussionJoinLockedText,
   decorateDiscussionsForList,
@@ -397,7 +398,12 @@ async function handleDiscussionListCallback(ctx, lang, {
 
   if (data === callBacks.discussionListClose) {
     await ctx.answerCb?.();
-    await setNavigationMode(ctx, "discussions");
+    const isInvitationList = /^discussion_invitations:/.test(String(ctx.user?.navigationMode || ""));
+    if (isInvitationList) {
+      await restoreDiscussionListReturnMode(ctx);
+    } else {
+      await setNavigationMode(ctx, "discussions");
+    }
     return deleteCallbackMessageIfPossible?.(ctx);
   }
 

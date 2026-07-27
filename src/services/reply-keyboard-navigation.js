@@ -523,9 +523,33 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   return null;
 }
 
+function isKnownReplyKeyboardLabel(value) {
+  const normalized = normalizeReplyButtonText(value);
+  if (!normalized) return false;
+  const keys = new Set([
+    ...GLOBAL.map(([key]) => key),
+    ...GUIDE_GLOBAL_RECOVERY.map(([key]) => key),
+    ...ONBOARDING_DESTINATION_RECOVERY.map(([key]) => key),
+    ...Object.values(BY_MODE).flat().map(([key]) => key),
+    "cancel", "cancelEdit", "discussionCreateCancel", "discussionRoomLeave",
+    "discussionRoomClose", "discussionRoomMembers", "discussionRoomBack",
+  ]);
+  for (const key of keys) {
+    for (const label of labels(key)) {
+      if (label === normalized) return true;
+      if (label.includes("{count}") || label.includes("{goal}")) {
+        const pattern = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{count\\\}|\\\{goal\\\}/g, "[0-9۰-۹]+");
+        if (new RegExp(`^${pattern}$`).test(normalized)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 module.exports = {
   MODES,
   isKnownProfileNavigationLabel,
+  isKnownReplyKeyboardLabel,
   normalizeReplyButtonText,
   resolveReplyKeyboardAction,
   setNavigationMode,

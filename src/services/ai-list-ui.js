@@ -417,7 +417,7 @@ async function buildTopTenSavedMessage({
 
   const responseParts = [savedText];
 
-  if (["movies", "music", "books"].includes(section) && count >= 3 && count < goal) {
+  if (["movies", "music", "books"].includes(section) && count === 3) {
     responseParts.push(
       messages[lang].aiFavoritesUnlockedProgress
         .replace("{count}", String(count))

@@ -184,7 +184,7 @@ async function findTasteLabelCandidates(viewer, viewerTasteLabels, { limit, lang
     ...buildPeopleLanguageQuery(languageFilter),
     $or: labelQueries,
   })
-    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste")
+    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste createdAt")
     .limit(Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT))
     .lean();
 }
@@ -244,7 +244,7 @@ async function findPeopleBySharedTaste(viewer, {
         bannedAt: null,
         showProfileInPeopleDiscovery: { $ne: false },
       })
-        .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste")
+        .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste createdAt")
         .lean()
       : [];
     const byUserId = new Map(
@@ -276,6 +276,7 @@ async function findPeopleBySharedTaste(viewer, {
         sharedTasteLabels,
         isSaved: savedCodes.has(String(code || "").toLowerCase()),
         hasProfileName: Boolean(candidate.profileName),
+        createdAt: candidate.createdAt || null,
       };
       entry.score = getPeopleDiscoveryScore(entry);
       items.push(entry);
@@ -295,7 +296,7 @@ async function findPeopleBySharedTaste(viewer, {
     bannedAt: null,
     showProfileInPeopleDiscovery: { $ne: false },
   })
-    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang createdAt aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(resultLimit)
     .lean();
 
@@ -325,6 +326,7 @@ async function findPeopleBySharedTaste(viewer, {
       sharedTasteLabels,
       isSaved: savedCodes.has(String(code || "").toLowerCase()),
       hasProfileName: Boolean(candidate.profileName),
+      createdAt: candidate.createdAt || null,
     };
     entry.score = getPeopleDiscoveryScore(entry);
     items.push(entry);

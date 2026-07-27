@@ -39,6 +39,10 @@ const EVENT_NAMES = Object.freeze({
   boostRecommendationNotInterested: "boost_recommendation_not_interested",
   advancedSearchPreviewViewed: "advanced_search_preview_viewed",
   advancedSearchNotifyRequested: "advanced_search_notify_requested",
+  homeConversationStarted: "home_conversation_started",
+  homeStatusAsked: "home_status_asked",
+  homeDestinationOffered: "home_destination_offered",
+  homeConversationFailed: "home_conversation_failed",
 });
 
 const SAFE_METADATA_KEYS = new Set([

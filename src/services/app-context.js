@@ -166,6 +166,17 @@ function createAppContext(ctx, user, options = {}) {
       () => ctx.replyWithPhoto(photo, formatExtra(extra)),
       apiMetrics,
     ),
+    sendChatAction: (action = "typing") => {
+      const chatId = resolveChatId(ctx);
+      if (!chatId) return Promise.resolve(false);
+      if (ctx.telegram?.callApi) {
+        return sendApi("sendChatAction", { chat_id: chatId, action });
+      }
+      if (typeof ctx.sendChatAction === "function") {
+        return withTelegramTiming("sendChatAction", () => ctx.sendChatAction(action), apiMetrics);
+      }
+      return Promise.resolve(false);
+    },
     answerCb: (text = "", extra = undefined) => {
       const payload = {
         callback_query_id: ctx.callbackQuery?.id,

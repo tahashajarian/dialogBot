@@ -144,10 +144,13 @@ const { sendNavigationFootprint } = require("./services/navigation-footprints");
 const {
   MODES,
   resolveReplyKeyboardAction,
+  isKnownReplyKeyboardLabel,
   setNavigationMode,
   setStableNavigationState,
 } = require("./services/reply-keyboard-navigation");
 const { starEconomy } = require("./services/star-settings");
+const { handleHomeConversation } = require("./flows/home-conversation");
+const { handleUnrecognizedSectionText } = require("./flows/unrecognized-section-text");
 const {
   getNavigationCommand,
   getStartInviteCode,
@@ -761,6 +764,17 @@ async function handleUpdate(ctx) {
     }
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList, fromDiscussionMembers, fromRestrictionList });
   }
+
+  if (isKnownReplyKeyboardLabel(text)) {
+    const guidedStaleLabel = await handleUnrecognizedSectionText(ctx, lang, text, state);
+    return guidedStaleLabel || null;
+  }
+
+  const handledHomeConversation = await handleHomeConversation(ctx, lang, text);
+  if (handledHomeConversation) return handledHomeConversation;
+
+  const handledUnrecognizedSectionText = await handleUnrecognizedSectionText(ctx, lang, text, state);
+  if (handledUnrecognizedSectionText) return handledUnrecognizedSectionText;
 
   // A delayed duplicate reply-keyboard tap can arrive after the first tap has
   // already changed the server-side mode. Otherwise-unrecognized idle text is

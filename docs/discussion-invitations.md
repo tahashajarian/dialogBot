@@ -1181,3 +1181,7 @@ Recommended MVP answers:
 5. Mark stale/blocked after accept failure.
 6. Yes. Use max 3 newly created stored invitations per sender per rolling 24 hours.
 7. Yes, show inviter profile link using public profile code.
+
+### Invitation-list return navigation
+
+The invitation list remembers the stable section from which it was opened. Closing a list opened from Home restores Home and its reply keyboard; closing one opened from Discussions restores Discussions. Paging and invitation previews preserve the original return destination rather than replacing it.

@@ -2,9 +2,23 @@
 
 ## Status
 
-This document specifies a planned feature. It is not implemented yet.
+The Conversational Home implementation is complete, but release verification remains pending until the full dependency-backed test suite passes. It uses a focused Home flow, an on-demand verified snapshot, topic-selected application-owned product knowledge, constrained AI response, application-owned destination allowlist, rendering, a visible Telegram typing state, and a short runtime-only conversation window. The runtime window expires automatically, is capped by user count with oldest-entry eviction, and is never persisted as durable conversation history.
 
-Today, otherwise-unrecognized text in the idle Home mode is intentionally ignored. Implementing this specification changes that behavior only for eligible users whose durable navigation mode is Home. Text in onboarding, temporary input flows, feature hubs, and active discussions keeps its existing scoped behavior.
+Eligible users whose durable navigation mode is Home can start a natural conversation. Unrecognized text in other idle section hubs receives one low-noise instruction to use the available buttons. Text in onboarding, temporary input flows, and active discussion rooms keeps its existing scoped behavior.
+
+## Token And Context Budget
+
+Home does not send the full product manual or full user snapshot on every request. A deterministic local router selects at most two concise product-knowledge blocks and identifies the exact verified fields required for the current message. Casual conversation performs no invitation or discussion database reads. Exact invitation-count questions use a local truthful response and spend no AI tokens.
+
+The AI request includes only:
+
+- a small permanent identity, voice, truth, and action-boundary prompt;
+- the current user message;
+- at most four short runtime-only conversation turns;
+- only requested verified snapshot fields;
+- the core product contract plus at most two relevant section blocks.
+
+Normal output is capped at 140 tokens. These limits reduce cost without weakening feature accuracy because every implemented section remains available through topic-selected knowledge. Unknown or ambiguous product capabilities must still be treated as unavailable rather than invented.
 
 ## Product Purpose
 
@@ -33,10 +47,10 @@ It does not include:
 - proactive Home notifications;
 - automatic background refresh;
 - a new Home submenu;
-- a new free-form conversation history model;
+- durable free-form conversation history;
 - automatic mutations inferred from conversation.
 
-The conversation itself is the refresh mechanism. When the user asks «چه خبر؟» or “What’s happening?”, Muze reads a freshly built, verified snapshot and answers from the current state.
+The conversation itself is the refresh mechanism. When the user asks «چه خبر؟» or “What’s new?”, Muze checks unseen pending invitations and otherwise gives a quiet truthful response. It does not call recently created people or Discussions “new” without user-specific seen-state tracking. Broader status and next-step questions use their own verified snapshot plans.
 
 A status card and Refresh control may be reconsidered later. They should reuse the same snapshot service rather than introduce a second source of truth.
 
@@ -81,7 +95,7 @@ Routing order must remain deterministic:
 3. Resolve server-authorized reply-keyboard actions.
 4. Route active discussion content and temporary input states to their existing handlers.
 5. Route eligible ordinary Home text to the Home conversation flow.
-6. Preserve the existing quiet no-op for unrecognized text in every other idle navigation mode.
+6. In every other idle navigation mode, send one short localized instruction to use the available buttons. Do not intercept active discussion messages or temporary input flows.
 
 Stale bottom labels must not become AI prompts. Label recognition remains centralized in `src/services/reply-keyboard-navigation.js`, including localized and legacy variants. A user must not be charged for or receive a conversational response to a delayed keyboard tap.
 
@@ -115,6 +129,8 @@ Muze may answer directly, ask one focused follow-up question, or connect the tho
 ## Verified Home Snapshot
 
 The language model must not discover product state by guessing, constructing database queries, or interpreting a raw User document. Application code builds a compact, typed, read-only snapshot before generating a product-aware response.
+
+The model also receives an application-owned, read-only product capability contract. This contract is the authority for feature questions and navigation facts. It explicitly records current boundaries such as: People has no direct messaging; user-to-user conversation happens only inside Discussions; Saved Profiles are private bookmarks; Discussions have no unread tracking; and all mutations stay in existing structured flows. The model must say it is unsure rather than invent a capability outside this contract.
 
 The snapshot may contain only facts needed for the response, such as:
 
@@ -209,6 +225,8 @@ Not:
 
 ## Response Style
 
+Conversational responses must use the product name exactly as `Muze` in English and «میوز» in Persian. Never write «موزه». Every bot-authored Home conversation reply starts with the configured Muze marker emoji. The model is instructed to include the default marker, and application rendering enforces it so dashboard-configured marker replacement still applies.
+
 Muze’s conversational replies should:
 
 - use first person when Muze speaks personally;
@@ -296,7 +314,7 @@ Home conversation is an orchestration and guidance surface, not a replacement fo
 ## Low-Noise And Message Lifecycle
 
 - Each user message may receive one concise Muze response.
-- Do not send a separate “thinking” message unless latency makes an existing shared typing/placeholder convention necessary.
+- Send Telegram’s `typing` chat action immediately while Home context and the AI response are being prepared. Refresh it quietly during longer requests, stop it before or immediately after the final reply, and never send a separate placeholder message.
 - Do not delete user messages.
 - Do not create or track a permanent Home conversation card in the MVP.
 - Contextual action controls belong to the individual response and must be revalidated when used.

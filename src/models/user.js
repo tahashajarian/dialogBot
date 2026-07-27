@@ -165,6 +165,7 @@ const UserSchema = new mongoose.Schema({
   navigationLastCardMessageId: { type: Number, default: null },
   navigationMode: { type: String, default: "" },
   publicProfileReturnNavigationMode: { type: String, default: "" },
+  discussionListReturnNavigationMode: { type: String, default: "" },
   profileEditPromptMessageId: { type: Number, default: null },
   pendingProfileViewCode: { type: String, default: "" },
   pendingProfileShareCode: { type: String, default: "" },

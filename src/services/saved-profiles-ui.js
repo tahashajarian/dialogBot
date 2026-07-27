@@ -35,7 +35,7 @@ function formatListIndex(lang, value) {
 
 const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
-const { getProfileGenderEmoji, PROFILE_CARD_DIVIDER } = require("./profile");
+const { getProfileGenderEmoji } = require("./profile");
 const SAVED_PROFILES_PAGE_SIZE = PAGINATION.savedProfilesPageSize;
 const SAVED_PROFILES_DIVIDER = PAGINATION.listDivider;
 
@@ -124,7 +124,8 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
   });
 
   const title = `${messages[lang].savedProfilesTitle} (${formatListIndex(lang, totalCount)})`;
-  return `${title}\n${PROFILE_CARD_DIVIDER}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
+  const tip = messages[lang].savedProfilesTip;
+  return `${title}\n\n${tip}\n\n${lines.join(`\n\n${SAVED_PROFILES_DIVIDER}\n\n`).replace(new RegExp(`${SAVED_PROFILES_DIVIDER}\\n\\n${SAVED_PROFILES_DIVIDER}$`), SAVED_PROFILES_DIVIDER)}`;
 }
 
 function buildProfileSavedFooter(messages, lang, code, isSaved, { hasDiscussions = false } = {}) {

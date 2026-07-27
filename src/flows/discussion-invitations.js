@@ -61,6 +61,7 @@ const {
 } = require("../services/discussion-ui");
 const { joinDiscussionAndNotify } = require("../services/discussion-actions");
 const { markSectionTipShownForContext, updateProfileField, updateUserState } = require("../services/users");
+const { rememberDiscussionListReturnMode } = require("../services/discussion-list-return");
 const {
   applyStarRewardsToContext,
   buildStarRewardNotice,
@@ -481,6 +482,7 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
 
   if (data === callBacks.discussionInvitations) {
     await ctx.answerCb?.();
+    await rememberDiscussionListReturnMode(ctx);
     if (ctx.callbackMessage?.caption || ctx.callbackMessage?.photo || ctx.callbackMessage?.document) {
       await deleteCallbackMessageIfPossible?.(ctx);
     }

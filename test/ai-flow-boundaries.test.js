@@ -614,8 +614,8 @@ test("Top Ten saved message contains only confirmation and progress guidance", a
     items: [{ title: "نتاشایباشسمنیاب" }],
   });
 
-  assert.match(text, /^✅/);
-  assert.match(text, /✅ «نتاشایباشسمنیاب» ثبت شد\. \(1\/10\)/);
+  assert.match(text, /^✓/);
+  assert.match(text, /✓ «نتاشایباشسمنیاب» ثبت شد\. \(1\/10\)/);
   assert.match(text, /👩‍🦳 خوبه؛ یکی دیگه هم بفرست/);
   assert.doesNotMatch(text, /ذخیره شد/);
 });
@@ -630,7 +630,7 @@ test("Top Ten saved message can omit its progress prompt when add mode supplies 
     includeNextPrompt: false,
   });
 
-  assert.match(text, /^✅/);
+  assert.match(text, /^✓/);
   assert.doesNotMatch(text, /یکی دیگه هم بفرست/);
 });
 
@@ -2561,4 +2561,23 @@ test("AI list UI uses specific duplicate and Top Ten requirement copy", () => {
     getNeedTopTenMessage("en", "books"),
     messages.en.aiSectionSuggestNeedTopTenItem.replace("{section}", messages.en.aiSectionNameBooks),
   );
+});
+
+test("suggestions-unlocked progress is shown only on the third saved favorite", async () => {
+  const third = await buildTopTenSavedMessage({
+    ctx: { userId: 1 },
+    lang: "en",
+    section: "movies",
+    item: "Third",
+    items: [{ title: "One" }, { title: "Two" }, { title: "Third" }],
+  });
+  const fourth = await buildTopTenSavedMessage({
+    ctx: { userId: 1 },
+    lang: "en",
+    section: "movies",
+    item: "Fourth",
+    items: [{ title: "One" }, { title: "Two" }, { title: "Third" }, { title: "Fourth" }],
+  });
+  assert.match(third, /Suggestions unlocked/);
+  assert.doesNotMatch(fourth, /Suggestions unlocked/);
 });

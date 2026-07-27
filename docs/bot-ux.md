@@ -9,18 +9,19 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 - Use third-person “Muze / میوز” only in external or shareable copy, legal and rules text, product descriptions, interface labels, and operational notices sent when Muze itself is unavailable. Introductions such as “I’m Muze / من میوزم” still use first person.
 - Keep Persian and English equivalent in speaker and point of view, including onboarding invitations, discussion guidance, service and busy messages, limited-access copy, and emoji validation.
 - Keep Persian informal and friendly. Never use tanwin: write «فعلا»، «بعدا»، and «احتمالا», not «فعلاً»، «بعداً»، and «احتمالاً».
+- Home conversation Persian should read like a natural Telegram chat, not a guide, article, announcement, or official statement. Prefer «رو»، «می‌تونی»، «می‌شه»، «اگه بخوای»، «سلیقه‌ت»، and «دستت میاد» over «را»، «می‌توانی»، «می‌شود»، «اگر بخواهی»، «سلیقه‌ات»، and «دستت می‌آید». The delivery sanitizer may normalize these common formal forms, but the model should produce conversational wording directly.
 - Do not put a hamze above a final heh. When ezafe is needed, use «ی»: «درباره‌ی»، «خانه‌ی»، and «دکمه‌ی», not «دربارهٔ»، «خانهٔ»، or «دکمهٔ». Without ezafe, keep the plain final heh.
 
 ## Low-Noise Conversation
 
-The planned Home-only conversation exception is specified in [Conversational Home](home-conversation.md). It is not implemented yet. Until rollout, otherwise-unrecognized idle Home text follows the current quiet no-op rule below. When implemented, only eligible ordinary text in the durable global Home mode becomes conversation; other modes retain the quiet no-op.
+The Home-only conversation behavior is implemented as specified in [Conversational Home](home-conversation.md). Only eligible ordinary text in the durable global Home mode becomes conversation. In other idle section hubs, unrecognized text receives one short instruction to use the available buttons; active discussions, onboarding, commands, deep links, and temporary input flows keep precedence.
 
 - Stable destinations and converted contextual flows use persistent bottom keyboards and do not create navigation footprints. Ordinary navigation retains earlier messages and makes no Telegram delete/edit cleanup call. Legacy navigation-card IDs are forgotten without touching Telegram.
 - Before sending a stable Home, Profile, Favorites, Discussions, People, or Guide reply keyboard, persist `state: idle` and its matching navigation mode together. This ordering prevents a process restart or deployment from leaving Telegram's visible keyboard ahead of the server-authorized mode. Do not reset all users at startup or erase legitimate in-progress flows globally.
 - Inline cleanup is flow-specific and limited to cards whose payload can become unsafe or incorrect: indexed mutations, identity-bound actions, destructive confirmation, payment/nonce confirmation, and temporary share/member cards with explicit Close.
 
 - Prefer one clear hub message per menu instead of sending repeated "back" or "returned" messages.
-- Ignore otherwise-unrecognized idle text without sending an error or resetting navigation. This includes a delayed duplicate bottom-button label that became stale after the first tap changed the server-side mode. Temporary input flows and active discussion messages keep their own validation/delivery behavior.
+- In Home, eligible ordinary text enters Home conversation. In other idle section hubs, otherwise-unrecognized text receives one short localized instruction to use the available buttons, without resetting navigation. A delayed duplicate reply-keyboard label is treated the same way and must never reach AI. Temporary input flows and active discussion messages keep their own validation or delivery behavior.
 - Bot-authored guidance, empty states, and safe error messages should start with the configured Muze marker emoji so they feel clearly from the bot. The default marker is `👩‍🦳`, and admins can change it from the dashboard. Short success confirmations can keep their action/status emoji.
 - Bot-authored messages sent before normal app-context routing, such as allowlist and banned-user blocks, should still apply the configured Muze marker emoji.
 - Edit an existing bot message when navigating menus if possible.

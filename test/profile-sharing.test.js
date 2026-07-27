@@ -123,20 +123,18 @@ test("public Favorites expose only media favorites and fit photo captions", () =
   assert.equal(rows[0][0].callback_data, `${callBacks.profileFavoritesOpen}shared:0:u_ABC`);
 });
 
-test("public Favorites sections use the same wider visible divider as profiles", () => {
+test("public Favorites sections omit the artificial title-width divider", () => {
   const user = {
     profileName: "Ali",
     aiLists: { movies: { topTen: [{ title: "Up" }] } },
   };
 
-  assert.match(
-    buildPublicFavoritesHubText(user, "en"),
-    /Ali's favorites\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎬 Movies & Series — 1/,
-  );
-  assert.match(
-    buildPublicFavoritesSectionText(user, "en", "movies"),
-    /favorite Movies & Series\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\. Up/,
-  );
+  const hub = buildPublicFavoritesHubText(user, "en");
+  const section = buildPublicFavoritesSectionText(user, "en", "movies");
+  assert.match(hub, /Ali's favorites\n\n🎬 Movies & Series — 1/);
+  assert.doesNotMatch(hub, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
+  assert.match(section, /favorite Movies & Series\n\n1\. Up/);
+  assert.doesNotMatch(section, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
 });
 
 test("hidden Favorites stay stored but disappear from public profile surfaces", () => {

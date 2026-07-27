@@ -75,7 +75,8 @@ test("buildSavedProfilesListText separates rows and hides discussions without vi
   ]);
 
   assert.match(text, new RegExp(messages.en.savedProfilesTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(text, /Saved profiles \(2\)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1\./);
+  assert.match(text, /Saved profiles \(2\)[\s\S]*Here you can see saved profiles and their active discussions[\s\S]*1\./);
+  assert.doesNotMatch(text, /Saved profiles \(2\)\n+━━━━━━━━/);
   assert.match(text, /1\.\n👤 Ali\n👁 View this profile 👉 \/u_A1\n💬 View this user's discussions 👉 \/ds_A1\n🗑 Remove from saved 👉 \/rm_A1/);
   assert.doesNotMatch(text, /\/ds_B2/);
   assert.doesNotMatch(text, /Invite this user/);
@@ -116,6 +117,15 @@ test("buildSavedProfilesListText uses Persian digits in fa", () => {
 
   assert.match(text, /۱\./);
   assert.match(text, /۲\./);
+});
+
+test("saved profiles section explains visible profiles, active discussions, and invitation location", () => {
+  const fa = buildSavedProfilesListText(messages, "fa", [{ code: "u_A1", name: "علی" }]);
+  const en = buildSavedProfilesListText(messages, "en", [{ code: "u_A1", name: "Ali" }]);
+  assert.match(fa, /پروفایل‌های ذخیره‌شده و گفت‌وگوهای فعالشون/);
+  assert.match(fa, /توی بخش گفت‌وگوها/);
+  assert.match(en, /saved profiles and their active discussions/);
+  assert.match(en, /from the Discussions section/);
 });
 
 test("profile discussion sections clearly separate current and created rooms", () => {

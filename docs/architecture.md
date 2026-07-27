@@ -33,7 +33,7 @@ Ordinary navigation is append-only chat history: converted destinations do not s
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - User schema lives in `src/models/user.js`.
 - For a quick file-by-file orientation, read [Agent map](agent-map.md).
-- The planned Home-only product-aware conversation, verified context boundary, constrained actions, and rollout contract are specified in [Conversational Home](home-conversation.md). It is not implemented yet.
+- The Home-only product-aware conversation, verified context boundary, application-owned product capability contract, constrained actions, Telegram typing state, runtime-only recent-turn window, and fallback behavior are specified in [Conversational Home](home-conversation.md).
 - The Stars economy, including rewards, spending, referrals, boosts, the Advanced Search preview, privacy, administration, rollout, and deferred payment work, is specified in [Stars Economy](stars.md).
 - Discussion language normalization and effective discovery preferences live in `src/services/discussion-language.js`; filtering is applied by `src/services/discussions.js` before limiting and ranking.
 
@@ -231,3 +231,15 @@ Age is optional and not enforced by the profile viewing gate.
 - `src/flows/guide-referrals.js` builds the focused Guide referral card from startup-loaded Star settings. `src/services/invite-links.js` builds safe deep links and `src/services/star-referrals.js` owns opaque links, first-referrer claims, qualification, and reward idempotency.
 - Shared-discussion continuation is stored on the User and consumed by the existing onboarding and normal discussion-preview flows. It never enters stored invitation services. Directed-pair rewards accept only stored `saved_profile` invitation sources.
 - `src/services/share-actions.js` owns platform-native share URL construction and safe copy-button limits. Referral, discussion, and Favorites flows provide their own localized content and attribution semantics.
+
+## Conversational Home
+
+Conversational Home is implemented through focused modules: `src/flows/home-conversation.js` owns eligibility and delivery; `src/services/home-context.js` builds a compact verified read-only snapshot; `src/services/home-conversation.js` handles deterministic answers and constrained provider output; `src/services/home-actions.js` maps only fixed application destinations; and `src/services/home-ui.js` renders the optional single action. `src/bot.js` retains routing precedence and calls the flow before the intentional idle-section buttons-only fallback and the final no-op.
+
+### Conversational Home runtime safeguards
+
+- Home reads the cached admin-configured Muze marker synchronously; appearance refresh remains in the existing background cache lifecycle and is not awaited in the message hot path.
+- «چه خبر؟» uses unseen pending invitations only. Recently created users or Discussions are not treated as user-specific news without seen-state tracking.
+- Runtime conversation memory is TTL-limited and globally capped with lazy expiry sweeping and oldest-entry eviction.
+- Provider and parsing exceptions are caught inside the Home flow, produce localized fallback copy, and emit privacy-safe failure telemetry.
+- Intentional non-Home behavior: unrecognized text in idle section hubs gets one short buttons-only instruction; active discussions and temporary input flows retain precedence.

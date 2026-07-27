@@ -1858,3 +1858,62 @@ test("full discussion guidance keeps the existing acknowledgement recovery", () 
   assert.equal(button.text, messages.fa.acknowledgeButton);
   assert.equal(keyboard.reply_markup.keyboard, undefined);
 });
+
+test("closing invitations opened from Home restores the Home reply keyboard mode", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const events = [];
+  const ctx = {
+    userId: 7,
+    user: {
+      navigationMode: "discussion_invitations:0:1",
+      discussionListReturnNavigationMode: "global",
+    },
+    persistNavigationMode: true,
+    callbackData: callBacks.discussionListClose,
+    callbackMessageId: 43,
+    answerCb: async () => events.push("answer"),
+  };
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleDiscussionListCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async (callbackCtx) => {
+        events.push(`delete:${callbackCtx.callbackMessageId}`);
+        return true;
+      },
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.deepEqual(events, ["answer", "delete:43"]);
+  assert.equal(ctx.user.navigationMode, "global");
+  assert.equal(ctx.user.discussionListReturnNavigationMode, "");
+});
+
+test("closing invitations opened from Discussions restores Discussions mode", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const ctx = {
+    userId: 7,
+    user: {
+      navigationMode: "discussion_invitations:0:1",
+      discussionListReturnNavigationMode: "discussions",
+    },
+    persistNavigationMode: true,
+    callbackData: callBacks.discussionListClose,
+    callbackMessageId: 44,
+    answerCb: async () => null,
+  };
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleDiscussionListCallback(ctx, "en", {
+      deleteCallbackMessageIfPossible: async () => true,
+    });
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  assert.equal(ctx.user.navigationMode, "discussions");
+  assert.equal(ctx.user.discussionListReturnNavigationMode, "");
+});

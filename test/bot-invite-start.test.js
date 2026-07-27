@@ -767,8 +767,12 @@ test("start command still recovers from active discussion state", async () => {
   assert.deepEqual(deletes, []);
 });
 
-test("unknown idle text and stale bottom labels are ignored without resetting context", async () => {
-  for (const command of ["/resetphoto", messages.en.profileEditName, "nonsense text"]) {
+test("unknown section text and stale labels guide to buttons without resetting context", async () => {
+  for (const [command, expectedReplies] of [
+    ["/resetphoto", 0],
+    [messages.en.profileEditName, 1],
+    ["nonsense text", 1],
+  ]) {
     const replies = [];
     const ctx = {
       text: command,
@@ -791,7 +795,8 @@ test("unknown idle text and stale bottom labels are ignored without resetting co
 
     await handleUpdate(ctx);
 
-    assert.equal(replies.length, 0);
+    assert.equal(replies.length, expectedReplies, command);
+    if (expectedReplies) assert.equal(replies[0].text, messages.en.sectionTextUseBottomButtons);
     assert.equal(ctx.user.navigationMode, "people");
   }
 });

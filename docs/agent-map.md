@@ -28,7 +28,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/pending-inline-lists.js` and `src/models/pending-inline-list.js`: bounded, expiring pre-onboarding selections and revision-safe silent import.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.
-- `docs/home-conversation.md`: planned conversational Home product, routing, verified context, voice, privacy, action, failure, and rollout contract. It is not implemented yet.
+- `docs/home-conversation.md`: implemented conversational Home product, routing, verified context, runtime-only continuity, privacy, actions, failures, and fallback contract.
 - `docs/privacy-policy.md`: public-facing, product-accurate privacy template; operator placeholders must be completed before publication.
 - `docs/moderation-runbook.md`: internal report, ban, appeal, incident, and safety operations.
 - `docs/stars.md`: source of truth, rollout rules, and remaining tasks for the implemented Stars economy.
@@ -167,7 +167,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 ## AI Lists And Suggestions
 
 - `docs/ai-lists-and-suggestions.md`: source of truth for AI list behavior.
-- `docs/home-conversation.md`: planned Home-only product-aware conversation. It must reuse structured suggestion flows rather than bypassing their eligibility, quota, Star, or confirmation rules.
+- `docs/home-conversation.md`: implemented Home-only product-aware conversation. It reuses structured flows rather than bypassing eligibility, quota, Star, or confirmation rules.
 - `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-list-input.js`: list-add prompt selection plus typed/audio input extraction for AI lists.
 - `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
@@ -256,3 +256,15 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/star-referrals.js`: opaque external links, expiry, atomic first-referrer locking, and qualification.
 - Shared discussion destinations persist on User fields and resume through `src/flows/onboarding.js` into the normal preview. After onboarding, an available joinable or join-condition-locked destination is preserved by `src/services/discussion-invitations.js` as a non-rewarding `shared_link` inbox row; directed saved-profile invitations remain separate.
 - `src/services/share-actions.js`: reusable native-share URL and safe Copy/Back keyboard construction. Callers retain ownership of content, destination, and referral attribution.
+
+- Conversational Home routing and delivery: `src/flows/home-conversation.js`.
+- Verified read-only Home snapshot: `src/services/home-context.js`.
+- Deterministic and constrained Home response generation: `src/services/home-conversation.js`.
+- Verified Home product capability contract: `src/services/home-product-knowledge.js`.
+- Immediate renewable Home typing state: `src/services/home-thinking.js`.
+- Home destination allowlist: `src/services/home-actions.js`; rendering: `src/services/home-ui.js`.
+
+- Conversational Home continuity: `src/services/home-conversation-memory.js` (TTL-limited and globally capped runtime-only history) (bounded runtime-only recent turns).
+- Unrecognized idle section text guidance: `src/flows/unrecognized-section-text.js`.
+
+- Conversational Home news uses unseen invitations only; broader activity feed, trends, and user-specific seen tracking remain deferred.
