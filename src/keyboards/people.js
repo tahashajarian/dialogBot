@@ -41,7 +41,7 @@ function peopleHubKeyboard(lang) {
   if (starEconomy.advancedSearchPreviewEnabled) {
     rows.push([{ text: messages[lang].advancedSearchButton }]);
   }
-  rows.push([{ text: messages[lang].aiBack }]);
+  rows.push([{ text: messages[lang].onboardingMainMenuButton }]);
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 

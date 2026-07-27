@@ -45,7 +45,7 @@ function discussionsMenuKeyboard(lang, { invitationCount: _invitationCount = 0 }
       { text: messages[lang].discussionMyList },
     ],
   ];
-  rows.push([{ text: messages[lang].aiBack }]);
+  rows.push([{ text: messages[lang].onboardingMainMenuButton }]);
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 

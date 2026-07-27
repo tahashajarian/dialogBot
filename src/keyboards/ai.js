@@ -36,7 +36,7 @@ function aiAssistantKeyboard(lang) {
     ],
     [
       {
-        text: messages[lang].aiBack,
+        text: messages[lang].onboardingMainMenuButton,
       },
     ],
   ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };

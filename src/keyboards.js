@@ -378,7 +378,7 @@ function profileKeyboard(lang, hasPhoto = false) {
       ? [[{ text: messages[lang].profileEditLocation }]]
       : []),
     [
-      { text: messages[lang].cancel },
+      { text: messages[lang].onboardingMainMenuButton },
     ],
   ];
 

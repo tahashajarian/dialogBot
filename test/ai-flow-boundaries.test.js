@@ -392,7 +392,7 @@ test("AI section keyboard prefixes section actions with section emoji", () => {
   assert.equal(randomSuggestButton.text, messages.fa.aiSectionSuggestButton);
 });
 
-test("AI bottom Back replaces reply controls with the media hub keyboard", async () => {
+test("AI bottom Back replaces reply controls with the media hub keyboard and its Home action", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const edits = [];
@@ -427,7 +427,7 @@ test("AI bottom Back replaces reply controls with the media hub keyboard", async
   assert.equal(replies[0].text, "⁣");
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
   assert.equal(replies[1].text, `${messages.fa.aiAssistantTitle}\n\n${messages.fa.aiAssistantMenu}`);
-  assert.equal(keyboardButtons(replies[1].extra).at(-1).text, messages.fa.aiBack);
+  assert.equal(keyboardButtons(replies[1].extra).at(-1).text, messages.fa.onboardingMainMenuButton);
   assert.equal(edits.length, 0);
 });
 

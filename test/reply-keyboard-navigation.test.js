@@ -40,7 +40,7 @@ test("normal language selection is inline while onboarding keeps scoped reply bu
   const context = { mode: MODES.LANGUAGE, state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", context).callbackData, callBacks.langSetFa);
   assert.equal(resolveReplyKeyboardAction("🇬🇧 English", context).callbackData, callBacks.langSetEn);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, context).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, context).callbackData, callBacks.menuMain);
   assert.equal(resolveReplyKeyboardAction("🇬🇧 English", { ...context, mode: MODES.GLOBAL }), null);
   const onboarding = { mode: "onboarding_language", state: "onboarding_language", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction("🇮🇷 فارسی", onboarding).callbackData, callBacks.langSetFa);
@@ -164,7 +164,7 @@ test("empty People discovery actions work only in the empty-result mode in both 
   for (const lang of ["en", "fa"]) {
     const empty = { mode: "people_discovery_empty", state: "idle", user: { lang } };
     assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, empty), null);
-    assert.equal(resolveReplyKeyboardAction(messages[lang].aiBack, empty).callbackData, callBacks.menuMain);
+    assert.equal(resolveReplyKeyboardAction(messages[lang].onboardingMainMenuButton, empty).callbackData, callBacks.menuMain);
     assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people" }), null);
     assert.equal(resolveReplyKeyboardAction(messages[lang].peopleGoToLists, { ...empty, mode: "people_discovery_results:0:2" }), null);
   }
@@ -174,13 +174,13 @@ test("saved-profile pagination and Back are bound to the exact server page", () 
   const first = { mode: "saved_profiles:0:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.savedProfilesPage}1`);
   assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, first).callbackData, callBacks.menuMain);
 
   const middleFa = { mode: "saved_profiles:1:3", state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middleFa).callbackData, `${callBacks.savedProfilesPage}2`);
   assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.fa.discussionListPrevPage}`, middleFa).callbackData, `${callBacks.savedProfilesPage}0`);
   assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, middleFa), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...middleFa, mode: "people" }).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, { ...middleFa, mode: "people" }).callbackData, callBacks.menuMain);
 });
 
 test("See People result pagination uses exact-page bottom actions in both languages", () => {
@@ -188,7 +188,7 @@ test("See People result pagination uses exact-page bottom actions in both langua
   const first = { mode: "people_discovery_results:0:3", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.en.discussionListMorePage} ➡️`, first).callbackData, `${callBacks.peopleDiscoverPage}1`);
   assert.equal(resolveReplyKeyboardAction(`🔙 ${messages.en.discussionListPrevPage}`, first), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, first).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, first).callbackData, callBacks.menuMain);
 
   const middle = { mode: "people_discovery_results:1:3", state: "idle", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, middle).callbackData, `${callBacks.peopleDiscoverPage}2`);
@@ -223,12 +223,12 @@ test("own-profile actions resolve only while the server says profile", () => {
   assert.equal(resolveReplyKeyboardAction(messages.en.profileMoreSettings, { mode: MODES.PROFILE }).callbackData, callBacks.profileSettings);
 });
 
-test("own Profile keeps Back as the final bottom-keyboard row", () => {
+test("own Profile keeps Home as the final bottom-keyboard row", () => {
   const { profileKeyboard } = require("../src/keyboards");
   for (const lang of ["en", "fa"]) {
     const rows = profileKeyboard(lang, true).reply_markup.keyboard;
-    assert.deepEqual(rows.at(-1).map((button) => button.text), [messages[lang].cancel]);
-    assert.equal(rows.slice(0, -1).flat().some((button) => button.text === messages[lang].cancel), false);
+    assert.deepEqual(rows.at(-1).map((button) => button.text), [messages[lang].onboardingMainMenuButton]);
+    assert.equal(rows.slice(0, -1).flat().some((button) => button.text === messages[lang].onboardingMainMenuButton), false);
   }
 });
 
@@ -410,12 +410,12 @@ test("For Later Add works after entering from a saved suggestion", () => {
   }
 });
 
-test("Back changes meaning after returning from a media list to Favorites", () => {
+test("Back inside a media list becomes Home after returning to Favorites", () => {
   for (const section of ["movies", "music", "books"]) {
     const manager = resolveReplyKeyboardAction(messages.en.aiBack, { mode: `ai_list:${section}:topTen`, state: `ai_manage_${section}_top_ten` });
     assert.equal(manager.callbackData, `${callBacks.aiListManageBack}${section}`);
   }
-  const favorites = resolveReplyKeyboardAction(messages.en.aiBack, { mode: MODES.FAVORITES, state: "idle" });
+  const favorites = resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, { mode: MODES.FAVORITES, state: "idle" });
   assert.equal(favorites.callbackData, callBacks.menuMain);
 });
 
@@ -668,7 +668,7 @@ test("Guide reply buttons recover from the inline experiment's persisted global 
 test("discussion list and invitation navigation is bound to its exact server page", () => {
   const active = { mode: "discussion_list:active:0:2:all:fa", state: "idle", activeDiscussionId: "room", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, active).callbackData, `${callBacks.discussionListActivePage}1:all:fa`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.discussionBack, active).callbackData, callBacks.discussions);
   assert.equal(resolveReplyKeyboardAction("🌐 زبان (فارسی)", active).callbackData, `${callBacks.discussionListLanguageOpen}all:fa`);
   assert.equal(resolveReplyKeyboardAction(`${messages.fa.discussionListMorePage} ➡️`, { ...active, mode: "discussions" }), null);
   const invitations = { mode: "discussion_invitations:1:3", state: "idle", user: { lang: "en" } };
@@ -689,7 +689,7 @@ test("discussion hub bottom buttons remain actionable under inline discussion ca
   assert.deepEqual(rows, [
     [messages.en.discussionActiveList, messages.en.discussionInvitations],
     [messages.en.discussionCreate, messages.en.discussionMyList],
-    [messages.en.aiBack],
+    [messages.en.onboardingMainMenuButton],
   ]);
   const modes = [
     "discussion_list:active:0:2:all:fa",
@@ -704,7 +704,7 @@ test("discussion hub bottom buttons remain actionable under inline discussion ca
     assert.equal(resolveReplyKeyboardAction(messages.en.discussionInvitations, context).callbackData, callBacks.discussionInvitations);
     assert.equal(resolveReplyKeyboardAction(messages.en.discussionCreate, context).callbackData, callBacks.discussionCreateStart);
     assert.equal(resolveReplyKeyboardAction(messages.en.discussionMyList, context).callbackData, callBacks.discussionListMine);
-    assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, context).callbackData, callBacks.menuMain);
+    assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, context).callbackData, callBacks.menuMain);
   }
 });
 
@@ -720,7 +720,7 @@ test("People hub bottom buttons remain actionable under inline People cards", ()
     assert.equal(resolveReplyKeyboardAction(messages.en.peopleDiscover, context).callbackData, callBacks.peopleDiscover);
     assert.equal(resolveReplyKeyboardAction(messages.en.savedProfiles, context).callbackData, callBacks.savedProfiles);
     assert.equal(resolveReplyKeyboardAction(messages.en.advancedSearchButton, context).callbackData, callBacks.peopleAdvancedSearch);
-    assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, context).callbackData, callBacks.menuMain);
+    assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, context).callbackData, callBacks.menuMain);
   }
 });
 
@@ -830,7 +830,7 @@ test("People and Saved profile previews use source-aware inline actions", () => 
 
   const peopleMode = { mode: "public_profile:people:u_A1:2:unsaved:0", state: "idle", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.profileSaveButton, peopleMode).callbackData, `${callBacks.profileSaveByCode}u_A1`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, peopleMode).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, peopleMode).callbackData, callBacks.menuMain);
   assert.equal(resolveReplyKeyboardAction(messages.en.peopleDiscover, peopleMode).callbackData, callBacks.peopleDiscover);
   assert.equal(resolveReplyKeyboardAction(messages.en.savedProfiles, peopleMode).callbackData, callBacks.savedProfiles);
   assert.equal(resolveReplyKeyboardAction(messages.en.savedProfileRemove, peopleMode), null);
@@ -976,10 +976,10 @@ test("profile discussion view uses inline Back and Close while keeping the Peopl
   ]);
 
   const mode = { mode: "profile_discussions:saved:u_A1:2", state: "idle", user: { lang: "fa" } };
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, mode).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, mode).callbackData, callBacks.menuMain);
   assert.equal(resolveReplyKeyboardAction(messages.fa.peopleDiscover, mode).callbackData, callBacks.peopleDiscover);
-  assert.equal(resolveReplyKeyboardAction(messages.en.aiBack, mode), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.aiBack, { ...mode, mode: "saved_profiles:2:3" }).callbackData, callBacks.menuMain);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMainMenuButton, mode), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, { ...mode, mode: "saved_profiles:2:3" }).callbackData, callBacks.menuMain);
 });
 
 test("saved-profile removal confirmation is exact-profile and source scoped", () => {
