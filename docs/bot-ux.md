@@ -2,6 +2,15 @@
 
 Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegram client state. Discussion and People list buttons are bound to the exact list type and page; create-wizard, paid-capacity, profile-action, and saved-profile removal buttons are bound to their durable server-side context. Stale or manually typed labels do not activate outside that mode. Identity-bound invitation/join actions and other payload-sensitive cards remain inline where documented.
 
+## Narrative Voice And Persian Writing
+
+- When Muze speaks personally to the user, use first person in both languages: “I prepared… / I’ll tell you…” and «برات آماده کردم / بهت می‌گم». Do not switch that same thought to third-person “Muze / میوز”.
+- Use neutral language for interface text, system state, and operational status when no personal speaker is needed.
+- Use third-person “Muze / میوز” only in external or shareable copy, legal and rules text, product descriptions, interface labels, and operational notices sent when Muze itself is unavailable. Introductions such as “I’m Muze / من میوزم” still use first person.
+- Keep Persian and English equivalent in speaker and point of view, including onboarding invitations, discussion guidance, service and busy messages, limited-access copy, and emoji validation.
+- Keep Persian informal and friendly. Never use tanwin: write «فعلا»، «بعدا»، and «احتمالا», not «فعلاً»، «بعداً»، and «احتمالاً».
+- Do not put a hamze above a final heh. When ezafe is needed, use «ی»: «درباره‌ی»، «خانه‌ی»، and «دکمه‌ی», not «دربارهٔ»، «خانهٔ»، or «دکمهٔ». Without ezafe, keep the plain final heh.
+
 ## Low-Noise Conversation
 
 - Stable destinations and converted contextual flows use persistent bottom keyboards and do not create navigation footprints. Ordinary navigation retains earlier messages and makes no Telegram delete/edit cleanup call. Legacy navigation-card IDs are forgotten without touching Telegram.
