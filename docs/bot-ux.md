@@ -13,6 +13,8 @@ Bottom reply-keyboard buttons are server-authorized actions, not trusted Telegra
 
 ## Low-Noise Conversation
 
+The planned Home-only conversation exception is specified in [Conversational Home](home-conversation.md). It is not implemented yet. Until rollout, otherwise-unrecognized idle Home text follows the current quiet no-op rule below. When implemented, only eligible ordinary text in the durable global Home mode becomes conversation; other modes retain the quiet no-op.
+
 - Stable destinations and converted contextual flows use persistent bottom keyboards and do not create navigation footprints. Ordinary navigation retains earlier messages and makes no Telegram delete/edit cleanup call. Legacy navigation-card IDs are forgotten without touching Telegram.
 - Before sending a stable Home, Profile, Favorites, Discussions, People, or Guide reply keyboard, persist `state: idle` and its matching navigation mode together. This ordering prevents a process restart or deployment from leaving Telegram's visible keyboard ahead of the server-authorized mode. Do not reset all users at startup or erase legitimate in-progress flows globally.
 - Inline cleanup is flow-specific and limited to cards whose payload can become unsafe or incorrect: indexed mutations, identity-bound actions, destructive confirmation, payment/nonce confirmation, and temporary share/member cards with explicit Close.

@@ -33,6 +33,7 @@ Ordinary navigation is append-only chat history: converted destinations do not s
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - User schema lives in `src/models/user.js`.
 - For a quick file-by-file orientation, read [Agent map](agent-map.md).
+- The planned Home-only product-aware conversation, verified context boundary, constrained actions, and rollout contract are specified in [Conversational Home](home-conversation.md). It is not implemented yet.
 - The Stars economy, including rewards, spending, referrals, boosts, the Advanced Search preview, privacy, administration, rollout, and deferred payment work, is specified in [Stars Economy](stars.md).
 - Discussion language normalization and effective discovery preferences live in `src/services/discussion-language.js`; filtering is applied by `src/services/discussions.js` before limiting and ranking.
 

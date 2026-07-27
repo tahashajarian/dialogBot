@@ -28,6 +28,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/pending-inline-lists.js` and `src/models/pending-inline-list.js`: bounded, expiring pre-onboarding selections and revision-safe silent import.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
 - `docs/product-roadmap.md`: future product, Telegram launch, analytics, discovery, and monetization checklist.
+- `docs/home-conversation.md`: planned conversational Home product, routing, verified context, voice, privacy, action, failure, and rollout contract. It is not implemented yet.
 - `docs/privacy-policy.md`: public-facing, product-accurate privacy template; operator placeholders must be completed before publication.
 - `docs/moderation-runbook.md`: internal report, ban, appeal, incident, and safety operations.
 - `docs/stars.md`: source of truth, rollout rules, and remaining tasks for the implemented Stars economy.
@@ -166,6 +167,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 ## AI Lists And Suggestions
 
 - `docs/ai-lists-and-suggestions.md`: source of truth for AI list behavior.
+- `docs/home-conversation.md`: planned Home-only product-aware conversation. It must reuse structured suggestion flows rather than bypassing their eligibility, quota, Star, or confirmation rules.
 - `src/flows/ai-text.js`: AI text states for section chat, list management, comments, and suggestion-context prompts.
 - `src/flows/ai-list-input.js`: list-add prompt selection plus typed/audio input extraction for AI lists.
 - `src/flows/ai-callbacks.js`: AI callback routes, section entry actions, and list action callbacks.
