@@ -204,6 +204,7 @@ module.exports = {
     discussionCloseConfirm: "discussion:close:confirm:",
     discussionCloseCancel: "discussion:close:cancel:",
     discussionMembers: "discussion:members:",
+    discussionMembersPage: "discussion:members-page:",
     discussionMembersClose: "discussion:members:close",
     discussionInviteJoin: "discussion:invite:join:",
     discussionInviteSwitchJoin: "discussion:invite:switch-join:",

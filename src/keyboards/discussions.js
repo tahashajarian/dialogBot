@@ -171,13 +171,31 @@ function discussionRoomKeyboard(lang, isOwner = false, { canBoost = true } = {})
   };
 }
 
-function discussionMembersCloseKeyboard(lang) {
-  return inlineKeyboard([[
+function discussionMembersCloseKeyboard(lang, {
+  discussionId = "",
+  page = 0,
+  totalPages = 1,
+} = {}) {
+  const rows = [];
+  const navigation = [];
+  const normalizedPage = Math.max(0, Number(page) || 0);
+  const maxPage = Math.max(0, Number(totalPages || 1) - 1);
+  if (normalizedPage < maxPage) navigation.push({
+    text: `${messages[lang].discussionListMorePage} ➡️`,
+    callback_data: `${callBacks.discussionMembersPage}${discussionId}:${normalizedPage + 1}`,
+  });
+  if (normalizedPage > 0) navigation.push({
+    text: `🔙 ${messages[lang].discussionListPrevPage}`,
+    callback_data: `${callBacks.discussionMembersPage}${discussionId}:${normalizedPage - 1}`,
+  });
+  if (navigation.length) rows.push(navigation);
+  rows.push([
     {
       text: messages[lang].discussionShareClose,
       callback_data: callBacks.discussionMembersClose,
     },
-  ]]);
+  ]);
+  return inlineKeyboard(rows);
 }
 
 function discussionCloseConfirmKeyboard(lang, discussionId, source = "room") {

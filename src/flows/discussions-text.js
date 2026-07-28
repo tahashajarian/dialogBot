@@ -49,6 +49,7 @@ const {
 } = require("../services/discussion-ui");
 const {
   formatDiscussionRoomFollowup,
+  paginateDiscussionMembers,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
   formatDiscussionRoom,
@@ -409,12 +410,24 @@ async function handleDiscussionBottomButton(ctx, lang, text) {
     const opened = await joinOrOpenDiscussion(ctx.userId, activeDiscussionId);
     if (!opened.ok) return ctx.reply(getDiscussionErrorMessage(messages, lang, opened.reason));
     const memberUsers = await User.find({ userId: { $in: opened.discussion.memberUserIds } })
-      .select("userId profileName firstName profileEmoji publicProfileCode")
+      .select("userId profileName firstName profileEmoji gender age publicProfileCode")
       .lean();
     const preparedMembers = await ensurePublicProfileCodes(memberUsers);
-    const rows = formatDiscussionMemberLines(messages, lang, preparedMembers, opened.discussion.creatorUserId, ctx.userId, opened.discussion._id);
-    const memberText = buildDiscussionMembersText(messages, lang, rows);
-    const sent = await ctx.reply(memberText, discussionMembersCloseKeyboard(lang));
+    const paginated = paginateDiscussionMembers(preparedMembers, opened.discussion.memberUserIds, 0);
+    const rows = formatDiscussionMemberLines(
+      messages,
+      lang,
+      paginated.items,
+      opened.discussion.creatorUserId,
+      ctx.userId,
+      { startIndex: paginated.startIndex },
+    );
+    const memberText = buildDiscussionMembersText(messages, lang, rows, paginated.totalCount);
+    const sent = await ctx.reply(memberText, discussionMembersCloseKeyboard(lang, {
+      discussionId: opened.discussion._id,
+      page: paginated.page,
+      totalPages: paginated.totalPages,
+    }));
     await rememberDiscussionMembersMessage(ctx, sent);
     return sent;
   }

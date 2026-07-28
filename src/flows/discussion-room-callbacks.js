@@ -18,6 +18,7 @@ const {
   formatDiscussionRoom,
   formatDiscussionRoomFollowup,
   buildDiscussionRoomKeyboard,
+  paginateDiscussionMembers,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
 } = require("../services/discussion-room-ui");
@@ -67,6 +68,7 @@ function isDiscussionRoomCallback(data = "") {
     || value.startsWith(callBacks.discussionInviteCancel)
     || value.startsWith(callBacks.discussionLeave)
     || value.startsWith(callBacks.discussionClose)
+    || value.startsWith(callBacks.discussionMembersPage)
     || (value !== callBacks.discussionMembersClose && value.startsWith(callBacks.discussionMembers))
     || value === callBacks.discussionRemoveMemberCancel
     || value.startsWith(callBacks.discussionRemoveMemberConfirm);
@@ -78,6 +80,7 @@ function getActiveRoomCallbackDiscussionId(data = "") {
     || data.startsWith(callBacks.discussionCloseCancel)
   ) return "";
   const prefixes = [
+    callBacks.discussionMembersPage,
     callBacks.discussionMembers,
     callBacks.discussionRemoveMemberConfirm,
     callBacks.discussionClose,
@@ -365,21 +368,67 @@ async function handleDiscussionRoomCallback(ctx, lang, {
     }
     const memberUsers = await findDiscussionMemberProfiles(opened.discussion.memberUserIds);
     const preparedMembers = await ensurePublicProfileCodes(memberUsers);
+    const paginated = paginateDiscussionMembers(preparedMembers, opened.discussion.memberUserIds, 0);
     const rows = formatDiscussionMemberLines(
       messages,
       lang,
-      preparedMembers,
+      paginated.items,
       opened.discussion.creatorUserId,
       ctx.userId,
-      opened.discussion._id,
+      { startIndex: paginated.startIndex },
     );
     const membersMessage = await editCallbackMessageOrReply(
       ctx,
-      buildDiscussionMembersText(messages, lang, rows),
-      discussionMembersCloseKeyboard(lang),
+      buildDiscussionMembersText(messages, lang, rows, paginated.totalCount),
+      discussionMembersCloseKeyboard(lang, {
+        discussionId: opened.discussion._id,
+        page: paginated.page,
+        totalPages: paginated.totalPages,
+      }),
     );
     await rememberDiscussionMembersMessage(ctx, ctx.callbackMessageId || membersMessage);
     return membersMessage;
+  }
+
+  if (data.startsWith(callBacks.discussionMembersPage)) {
+    await ctx.answerCb?.();
+    const payload = data.slice(callBacks.discussionMembersPage.length);
+    const separatorIndex = payload.lastIndexOf(":");
+    const discussionId = separatorIndex > 0 ? payload.slice(0, separatorIndex) : "";
+    const pageRaw = separatorIndex > 0 ? payload.slice(separatorIndex + 1) : "0";
+    const discussion = await findDiscussionByIdLean(discussionId);
+    if (
+      !discussion
+      || discussion.status !== "open"
+      || !(discussion.memberUserIds || []).some((userId) => Number(userId) === Number(ctx.userId))
+    ) {
+      await deleteCallbackMessageIfPossible(ctx);
+      return null;
+    }
+    const memberUsers = await findDiscussionMemberProfiles(discussion.memberUserIds);
+    const preparedMembers = await ensurePublicProfileCodes(memberUsers);
+    const paginated = paginateDiscussionMembers(
+      preparedMembers,
+      discussion.memberUserIds,
+      /^\d+$/.test(pageRaw) ? Number(pageRaw) : 0,
+    );
+    const rows = formatDiscussionMemberLines(
+      messages,
+      lang,
+      paginated.items,
+      discussion.creatorUserId,
+      ctx.userId,
+      { startIndex: paginated.startIndex },
+    );
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionMembersText(messages, lang, rows, paginated.totalCount),
+      discussionMembersCloseKeyboard(lang, {
+        discussionId: discussion._id,
+        page: paginated.page,
+        totalPages: paginated.totalPages,
+      }),
+    );
   }
 
   if (data === callBacks.discussionRemoveMemberCancel) {

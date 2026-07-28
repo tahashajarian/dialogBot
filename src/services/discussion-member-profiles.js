@@ -2,7 +2,7 @@ const User = require("../models/user");
 
 function findDiscussionMemberProfiles(userIds = []) {
   return User.find({ userId: { $in: userIds } })
-    .select("userId profileName firstName publicProfileCode")
+    .select("userId profileName firstName profileEmoji gender age publicProfileCode")
     .lean();
 }
 

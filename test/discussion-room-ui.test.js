@@ -11,6 +11,7 @@ const {
   formatRecentDiscussionMessages,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
+  paginateDiscussionMembers,
 } = require("../src/services/discussion-room-ui");
 
 test("rebuilding a boosted owner room keyboard keeps Boost hidden", async () => {
@@ -163,6 +164,45 @@ test("formatDiscussionMemberLines uses Persian digits in fa", () => {
 
   assert.match(lines[0], /۱\./);
   assert.match(lines[1], /۲\./);
+});
+
+test("discussion members use the same gender and age name line as People", () => {
+  const lines = formatDiscussionMemberLines(messages, "en", [
+    {
+      userId: 11,
+      profileName: "Sara",
+      gender: "female",
+      age: 28,
+      publicProfileCode: "u_B2",
+    },
+    {
+      userId: 12,
+      profileName: "Sam",
+      publicProfileCode: "u_C3",
+    },
+  ], 10, 10, { startIndex: 5 });
+
+  assert.match(lines[0], /^6\.\n👩 Sara — 🎂 28/m);
+  assert.match(lines[1], /^7\.\n👤 Sam/m);
+  assert.doesNotMatch(lines[1], /🎂/);
+});
+
+test("discussion member pagination follows room membership order", () => {
+  const members = [
+    { userId: 3, profileName: "Three" },
+    { userId: 1, profileName: "One" },
+    { userId: 6, profileName: "Six" },
+    { userId: 2, profileName: "Two" },
+    { userId: 5, profileName: "Five" },
+    { userId: 4, profileName: "Four" },
+  ];
+  const page = paginateDiscussionMembers(members, [1, 2, 3, 4, 5, 6], 1);
+
+  assert.equal(page.page, 1);
+  assert.equal(page.totalPages, 2);
+  assert.equal(page.totalCount, 6);
+  assert.equal(page.startIndex, 5);
+  assert.deepEqual(page.items.map((entry) => entry.userId), [6]);
 });
 
 test("discussion member lists are visibly bot-authored", () => {

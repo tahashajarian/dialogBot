@@ -664,13 +664,19 @@ test("closing a discussion list card restores the Discussions reply keyboard mod
   assert.equal(ctx.user.navigationMode, "discussions");
 });
 
-test("discussion members card has a Close-only inline action", () => {
-  const keyboard = discussionMembersCloseKeyboard("en");
+test("discussion members card paginates and keeps Close", () => {
+  const keyboard = discussionMembersCloseKeyboard("en", {
+    discussionId: "room-1",
+    page: 1,
+    totalPages: 3,
+  });
   const buttons = keyboard.reply_markup.inline_keyboard.flat();
 
-  assert.equal(buttons.length, 1);
-  assert.equal(buttons[0].text, messages.en.discussionShareClose);
-  assert.equal(buttons[0].callback_data, callBacks.discussionMembersClose);
+  assert.equal(buttons.length, 3);
+  assert.equal(buttons[0].callback_data, `${callBacks.discussionMembersPage}room-1:2`);
+  assert.equal(buttons[1].callback_data, `${callBacks.discussionMembersPage}room-1:0`);
+  assert.equal(buttons[2].text, messages.en.discussionShareClose);
+  assert.equal(buttons[2].callback_data, callBacks.discussionMembersClose);
   assert.equal(isDiscussionListCallback(callBacks.discussionMembersClose), true);
 });
 

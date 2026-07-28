@@ -20,6 +20,21 @@ function formatListIndex(lang, value) {
   return new Intl.NumberFormat("fa-IR").format(index);
 }
 
+function formatProfileListNameLine(lang, {
+  name = "",
+  genderEmoji = "",
+  age = null,
+} = {}) {
+  const personEmoji = genderEmoji || "👤";
+  const numericAge = Number(age);
+  const ageSuffix = Number.isInteger(numericAge) && numericAge > 0
+    ? ` — 🎂 ${formatListIndex(lang, numericAge)}`
+    : "";
+  return lang === "fa"
+    ? `${RTL_MARK}${personEmoji} ${FSI}${name}${PDI}${ageSuffix}`
+    : `${personEmoji} ${name}${ageSuffix}`;
+}
+
 function formatPeopleDiscoveryRequirementText(template, lang, minSharedItems) {
   return String(template || "").replace(
     "{minimumSharedItems}",
@@ -76,17 +91,10 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
       ...(entry.sharedSections || [])
         .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`),
     ].slice(0, 2).join("\n") : "";
-    const personEmoji = entry.genderEmoji || "👤";
-    const age = Number(entry.age);
-    const ageSuffix = Number.isInteger(age) && age > 0
-      ? ` — 🎂 ${formatListIndex(lang, age)}`
-      : "";
     const languageSuffix = showLanguage && entry.language
       ? ` — ${entry.language === "en" ? "🇬🇧" : "🇮🇷"}`
       : "";
-    const nameLine = lang === "fa"
-      ? `${RTL_MARK}${personEmoji} ${FSI}${entry.name}${PDI}${ageSuffix}${languageSuffix}`
-      : `${personEmoji} ${entry.name}${ageSuffix}${languageSuffix}`;
+    const nameLine = `${formatProfileListNameLine(lang, entry)}${languageSuffix}`;
 
     const row = [
       `${formatListIndex(lang, baseIndex + index + 1)}.`,
@@ -127,6 +135,7 @@ function isPeopleCallback(data = "") {
 module.exports = {
   buildPeopleHubText,
   buildPeopleDiscoveryText,
+  formatProfileListNameLine,
   formatPeopleDiscoveryRequirementText,
   isPeopleCallback,
 };

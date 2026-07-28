@@ -16,6 +16,7 @@ test("discussion room routing owns room lifecycle callbacks", () => {
     `${callBacks.discussionCloseConfirm}room-1:room`,
     `${callBacks.discussionCloseCancel}room-1:room`,
     `${callBacks.discussionMembers}room-1`,
+    `${callBacks.discussionMembersPage}room-1:1`,
     callBacks.discussionRemoveMemberCancel,
     `${callBacks.discussionRemoveMemberConfirm}room-1:u_ABC123`,
   ];

@@ -3,7 +3,9 @@ const {
   getDiscussionDisplayDescription,
   getDiscussionDisplayTitle,
 } = require("./discussion-ui");
-const { formatUserDisplayName } = require("./profile");
+const { formatUserDisplayName, getProfileGenderEmoji } = require("./profile");
+const { formatProfileListNameLine } = require("./people-discovery-ui");
+const { paginateItems } = require("./pagination");
 const { discussionRoomKeyboard } = require("../keyboards");
 const { hasActiveBoostForDiscussion } = require("./discussion-boosts");
 
@@ -91,7 +93,23 @@ async function buildDiscussionRoomKeyboard(lang, discussion, currentUserId) {
 
 const DISCUSSION_MEMBER_DIVIDER = PAGINATION.listDivider;
 
-function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, _discussionId = null) {
+function paginateDiscussionMembers(members = [], memberUserIds = [], page = 0) {
+  const positions = new Map(
+    (memberUserIds || []).map((userId, index) => [Number(userId), index]),
+  );
+  const orderedMembers = [...(members || [])].sort(
+    (left, right) => (positions.get(Number(left.userId)) ?? Number.MAX_SAFE_INTEGER)
+      - (positions.get(Number(right.userId)) ?? Number.MAX_SAFE_INTEGER),
+  );
+  return {
+    ...paginateItems(orderedMembers, page, PAGINATION.discussionMembersPageSize),
+    totalCount: orderedMembers.length,
+  };
+}
+
+function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId, currentUserId = null, {
+  startIndex = 0,
+} = {}) {
   return members.map((entry, index) => {
     const isCurrentUser = Number(entry.userId) === Number(currentUserId);
     const isOwner = Number(entry.userId) === Number(creatorUserId);
@@ -115,12 +133,17 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
 
     const actionText = actions.length ? `\n${actions.join("\n")}` : "";
     const divider = `\n${DISCUSSION_MEMBER_DIVIDER}`;
-    return `${lineForLang(lang, `${formatListIndex(lang, index + 1)}.`)}\n${lineForLang(lang, `👤 ${isolateText(lang, name)}${owner}`)}${actionText}${divider}`;
+    const nameLine = formatProfileListNameLine(lang, {
+      name,
+      genderEmoji: getProfileGenderEmoji(entry.gender),
+      age: entry.age,
+    });
+    return `${lineForLang(lang, `${formatListIndex(lang, startIndex + index + 1)}.`)}\n${nameLine}${owner}${actionText}${divider}`;
   });
 }
 
-function buildDiscussionMembersText(messages, lang, rows = []) {
-  const count = formatListIndex(lang, rows.length);
+function buildDiscussionMembersText(messages, lang, rows = [], totalCount = rows.length) {
+  const count = formatListIndex(lang, totalCount);
   const title = `👩‍🦳 ${messages[lang].discussionMembersTitle} (${count})`;
   const hasViewableMember = rows.some((row) => /\/u_[a-z0-9]+/i.test(String(row || "")));
   const header = [
@@ -136,6 +159,7 @@ module.exports = {
   buildDiscussionRoomKeyboard,
   formatRecentDiscussionMessages,
   getStarterDiscussionJoinNudge,
+  paginateDiscussionMembers,
   formatDiscussionMemberLines,
   buildDiscussionMembersText,
 };

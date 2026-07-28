@@ -17,7 +17,7 @@ The MVP described here is implemented. The current code supports:
 - live text delivery with last-10-message context and runtime-only native reply mapping
 - shareable invite links with a revalidated preview before joining
 - stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
-- member lists, public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
+- paginated member lists using the same gender, name, and optional age line as People discovery; public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - Persian and English instances of four Muze-created starter definitions, marked only with `👩‍🦳`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
 - onboarding starter invitations from Muze, shown in the normal invitations inbox without a Muze profile link
