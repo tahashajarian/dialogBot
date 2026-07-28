@@ -1,10 +1,9 @@
 const messages = require("../messages");
-const { MODES } = require("../services/reply-keyboard-navigation");
 
 function shouldGuideToBottomButtons(ctx, text, state) {
   if (!text || text.startsWith("/") || state !== "idle" || ctx.user?.activeDiscussionId) return false;
   const mode = String(ctx.user?.navigationMode || "");
-  return Boolean(mode && mode !== MODES.GLOBAL);
+  return Boolean(mode);
 }
 
 async function handleUnrecognizedSectionText(ctx, lang, text, state) {

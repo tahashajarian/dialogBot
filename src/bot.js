@@ -149,7 +149,6 @@ const {
   setStableNavigationState,
 } = require("./services/reply-keyboard-navigation");
 const { starEconomy } = require("./services/star-settings");
-const { handleHomeConversation } = require("./flows/home-conversation");
 const { handleUnrecognizedSectionText } = require("./flows/unrecognized-section-text");
 const {
   getNavigationCommand,
@@ -769,9 +768,6 @@ async function handleUpdate(ctx) {
     const guidedStaleLabel = await handleUnrecognizedSectionText(ctx, lang, text, state);
     return guidedStaleLabel || null;
   }
-
-  const handledHomeConversation = await handleHomeConversation(ctx, lang, text);
-  if (handledHomeConversation) return handledHomeConversation;
 
   const handledUnrecognizedSectionText = await handleUnrecognizedSectionText(ctx, lang, text, state);
   if (handledUnrecognizedSectionText) return handledUnrecognizedSectionText;
