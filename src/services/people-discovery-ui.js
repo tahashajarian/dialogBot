@@ -110,6 +110,7 @@ function isPeopleCallback(data = "") {
   return data === callBacks.people ||
     data === callBacks.peopleListClose ||
     data === callBacks.peopleDiscover ||
+    data === callBacks.peopleSimilarReengagementOpen ||
     data.startsWith(callBacks.peopleDiscoverLanguageOpen) ||
     data.startsWith(callBacks.peopleDiscoverLanguageSet) ||
     data === callBacks.peopleTasteMatches ||

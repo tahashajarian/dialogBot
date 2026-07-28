@@ -26,6 +26,7 @@ const {
 } = require("./analytics-events");
 const { reconcileStarBalances } = require("./stars");
 const { getTasteIndexHealth } = require("./user-taste-index");
+const { getSimilarPeopleReengagementPreview } = require("./similar-people-reengagement");
 
 const SECTIONS = ["movies", "music", "books", "random"];
 const SECTION_LABELS = {
@@ -510,6 +511,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     tasteIndexHealth,
     events,
     starMetrics,
+    similarPeopleReengagement,
   ] = await Promise.all([
     runMetricGroup("users", () => getUserDashboardMetrics({
       since24h,
@@ -522,6 +524,18 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     runMetricGroup("tasteIndex", () => getTasteIndexHealth({ maxUsers: 1000 }), { ok: false, reason: "query_failed" }, diagnostics),
     runMetricGroup("events", () => getEventDashboardMetrics({ since24h, since7d }), emptyEvents, diagnostics),
     runMetricGroup("stars", () => getStarDashboardMetrics({ now }), emptyStars, diagnostics),
+    runMetricGroup("similarPeopleReengagement", () => (
+      getSimilarPeopleReengagementPreview({ now })
+    ), {
+      enabled: false,
+      inactivityDays: limits.similarPeopleInactiveDays,
+      cooldownDays: limits.similarPeopleNotificationCooldownDays,
+      minimumSharedItems: limits.peopleDiscoveryMinSharedItems,
+      rolloutPercent: limits.similarPeopleReengagementRolloutPercent,
+      inactiveUsers: 0,
+      nextBatchUsers: 0,
+      nextBatchMatchingUsers: 0,
+    }, diagnostics),
   ]);
 
   return {
@@ -537,6 +551,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     users: userMetrics.users,
     lists: userMetrics.lists,
     discussions,
+    similarPeopleReengagement,
     invitations: invitationStatusCounts,
     stars: {
       outstanding: userMetrics.outstandingStars,

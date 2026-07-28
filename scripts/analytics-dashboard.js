@@ -435,7 +435,12 @@ function renderLimitsForm(values = {}, action = "/limits", {
     ${csrfField(csrfToken)}
     ${Object.entries(groups).map(([group, fields], index) => `<details class="setting-group" ${index === 0 ? "open" : ""}>
       <summary><span>${escapeHtml(group)}</span><small>${formatNumber(fields.length)} settings</small></summary>
-      <div class="limit-grid">${fields.map((field) => `<label class="setting-field">
+      <div class="limit-grid">${fields.map((field) => field.type === "boolean" ? `<label class="setting-field">
+        <span class="setting-label">${escapeHtml(field.label)}</span>
+        <small>${escapeHtml(field.description || "")}</small>
+        <input type="hidden" name="${escapeHtml(field.key)}" value="false" />
+        <input type="checkbox" name="${escapeHtml(field.key)}" value="true" ${field.value ? "checked" : ""} />
+      </label>` : `<label class="setting-field">
         <span class="setting-label">${escapeHtml(field.label)}</span>
         ${field.description ? `<small>${escapeHtml(field.description)}</small>` : ""}
         <input type="number" name="${escapeHtml(field.key)}" value="${escapeHtml(field.value)}"
@@ -513,6 +518,7 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
 
 function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = false } = {}) {
   const { users, discussions, health } = snapshot;
+  const similarPeople = snapshot.similarPeopleReengagement || {};
   const systemHealth = snapshot.systemHealth || {};
   const aiHour = health?.aiApi?.lastHour || {};
   const aiDay = health?.aiApi?.last24h || {};
@@ -797,6 +803,13 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     </div>
 
     <div class="stack">
+      ${collapsibleSection("Similar People Rollout Preview", `<div class="grid compact-grid">
+        ${statusCard("Delivery", Boolean(similarPeople.enabled), similarPeople.enabled ? "Enabled" : "Disabled — safe to deploy")}
+        ${card("Inactive eligible users", similarPeople.inactiveUsers || 0, `${formatNumber(similarPeople.inactivityDays || 0)} inactive days`)}
+        ${card("Users in next batch", similarPeople.nextBatchUsers || 0, `${formatNumber(similarPeople.rolloutPercent || 0)}% rollout`)}
+        ${card("Verified matches in batch", similarPeople.nextBatchMatchingUsers || 0, `Minimum ${formatNumber(similarPeople.minimumSharedItems || 0)} shared items`)}
+      </div>
+      <p class="muted">Preview is bounded to the next delivery batch and does not send messages. Repeat messages require newer eligible profiles after a ${formatNumber(similarPeople.cooldownDays || 0)}-day cooldown.</p>`, { note: "dry-run eligibility and verified matches", view: "manage", open: true })}
       ${collapsibleSection("Bot Limits", renderLimitsForm(snapshot.limits, "/limits", {
     updatedAt: snapshot.limitsUpdatedAt,
     saved: saved === "1",

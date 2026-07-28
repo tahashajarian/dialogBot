@@ -49,6 +49,8 @@ module.exports = {
     unknownAction: "Unknown action.",
     mainMenu: "🏠 Home\n\n👩‍🦳 Choose an option.",
     sectionTextUseBottomButtons: "👩‍🦳 Use the buttons here.",
+    similarPeopleNotification: "👩‍🦳 New people with taste similar to yours have joined Muze.",
+    similarPeopleNotificationOpen: "👀 See people",
     mainMenuTitle: "🏠 Home",
     language: "🌐 Change language",
     mainMenuMe: "👤 Me",

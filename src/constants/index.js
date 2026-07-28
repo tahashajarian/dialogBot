@@ -8,6 +8,7 @@ module.exports = {
     people: "menu:people",
     savedProfiles: "menu:saved-profiles",
     peopleDiscover: "people:discover",
+    peopleSimilarReengagementOpen: "people:similar-reengagement:open",
     peopleDiscoverPage: "people:discover:page:",
     peopleDiscoverLanguageOpen: "people:discover:language:open:",
     peopleDiscoverLanguageSet: "people:discover:language:set:",

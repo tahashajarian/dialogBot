@@ -139,6 +139,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/saved-profile-discussions-ui.js`: source-aware profile-discussion parsing, return controls, and viewer-current-room decoration.
 - `src/services/profile-discussions.js`: read-only visible-open-discussion queries for public profile surfaces.
 - `src/services/people-discovery.js`: free shared-item and same-taste-label matching, ranking, and pagination for `👀 دیدن آدم‌ها`.
+- `src/services/similar-people-reengagement.js`: default-off rollout control, deterministic rollout assignment, bounded dashboard preview, dashboard-configured inactivity/cooldown, atomic claims, and newly joined matching through normal People discovery. Its dedicated callback leaves an active discussion only when the user taps See People.
+- `docs/similar-people-reengagement.md`: source of truth for similar-people re-engagement eligibility, privacy, copy, and delivery.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.

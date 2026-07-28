@@ -2176,6 +2176,45 @@ test("people discovery insufficient data state links users to lists", async () =
   assert.equal(ctx.user.peopleLastListMessageId, 77);
 });
 
+test("similar-people notification leaves the active discussion only after its button is tapped", async () => {
+  const order = [];
+  const ctx = {
+    callbackData: callBacks.peopleSimilarReengagementOpen,
+    callbackMessageId: 456,
+    userId: 1,
+    user: {
+      userId: 1,
+      lang: "fa",
+      activeDiscussionId: "d1",
+      aiLists: {},
+    },
+    answerCb: async () => {
+      order.push("answer");
+      return true;
+    },
+    reply: async () => {
+      order.push("people");
+      return { message_id: 77 };
+    },
+  };
+
+  await handleSavedProfilesCallback(ctx, "fa", {
+    leaveDiscussionAndClearKeyboardForNavigation: async () => {
+      order.push("leave");
+      ctx.user.activeDiscussionId = null;
+      return { ok: true };
+    },
+    clearViewedPublicProfileMessage: async () => true,
+    deleteCallbackMessageIfPossible: async () => {
+      order.push("delete");
+      return true;
+    },
+  });
+
+  assert.deepEqual(order, ["answer", "leave", "delete", "people"]);
+  assert.equal(ctx.user.activeDiscussionId, null);
+});
+
 test("people profile opened from discovery ends with Close", async () => {
   const originalFindOne = User.findOne;
   const deletedIds = [];

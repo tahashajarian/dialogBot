@@ -49,6 +49,8 @@ module.exports = {
     unknownAction: "این عملیات شناخته‌شده نیست.",
     mainMenu: "🏠 خانه\n\n👩‍🦳 یکی از گزینه‌ها رو انتخاب کن.",
     sectionTextUseBottomButtons: "👩‍🦳 اینجا از دکمه‌ها استفاده کن.",
+    similarPeopleNotification: "👩‍🦳 آدم‌های تازه‌ای با سلیقه‌ای نزدیک به تو به میوز اضافه شدن.",
+    similarPeopleNotificationOpen: "👀 دیدن آدم‌ها",
     mainMenuTitle: "🏠 خانه",
     language: "🌐 تغییر زبان",
     mainMenuMe: "👤 من",

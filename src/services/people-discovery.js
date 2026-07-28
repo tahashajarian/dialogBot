@@ -34,9 +34,12 @@ function getEffectivePeopleLanguageFilter(user = {}) {
     || normalizeDiscussionLanguage(user.lang);
 }
 
-function buildPeopleLanguageQuery(languageFilter) {
+function buildPeopleLanguageQuery(languageFilter, candidateCreatedAfter = null) {
   const normalized = normalizeDiscussionLanguageFilter(languageFilter);
-  return normalized && normalized !== "all" ? { lang: normalized } : {};
+  return {
+    ...(normalized && normalized !== "all" ? { lang: normalized } : {}),
+    ...(candidateCreatedAfter ? { createdAt: { $gt: candidateCreatedAfter } } : {}),
+  };
 }
 
 function applyPeopleLanguageFilter(items = [], languageFilter = "all") {
@@ -172,7 +175,11 @@ function sortPeopleDiscoveryItems(items = [], viewer = {}, now = new Date()) {
   });
 }
 
-async function findTasteLabelCandidates(viewer, viewerTasteLabels, { limit, languageFilter }) {
+async function findTasteLabelCandidates(viewer, viewerTasteLabels, {
+  limit,
+  languageFilter,
+  candidateCreatedAfter = null,
+}) {
   const labelQueries = Object.entries(viewerTasteLabels)
     .map(([section, labelKey]) => ({ [`aiTaste.${section}.labelKey`]: labelKey }));
   if (!labelQueries.length) return [];
@@ -181,7 +188,7 @@ async function findTasteLabelCandidates(viewer, viewerTasteLabels, { limit, lang
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
     showProfileInPeopleDiscovery: { $ne: false },
-    ...buildPeopleLanguageQuery(languageFilter),
+    ...buildPeopleLanguageQuery(languageFilter, candidateCreatedAfter),
     $or: labelQueries,
   })
     .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste createdAt")
@@ -205,6 +212,8 @@ function trackPeopleDiscovery(viewer, { mode, resultCount, reason } = {}) {
 async function findPeopleBySharedTaste(viewer, {
   limit = PEOPLE_DISCOVERY_SCAN_LIMIT,
   languageFilter = getEffectivePeopleLanguageFilter(viewer),
+  candidateCreatedAfter = null,
+  track = true,
 } = {}) {
   const resultLimit = Math.max(1, Number(limit) || PEOPLE_DISCOVERY_SCAN_LIMIT);
   const minSharedItems = getPeopleDiscoveryMinSharedItems();
@@ -214,7 +223,7 @@ async function findPeopleBySharedTaste(viewer, {
     !hasEligibleDiscoverySection(viewerIndex, minSharedItems)
     && !Object.keys(viewerTasteLabels).length
   ) {
-    trackPeopleDiscovery(viewer, { mode: "taste", resultCount: 0, reason: "not_enough_data" });
+    if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: 0, reason: "not_enough_data" });
     return { ok: false, reason: "not_enough_data", items: [] };
   }
 
@@ -229,6 +238,7 @@ async function findPeopleBySharedTaste(viewer, {
     const tasteLabelCandidates = await findTasteLabelCandidates(viewer, viewerTasteLabels, {
       limit: resultLimit,
       languageFilter: "all",
+      candidateCreatedAfter,
     });
     const tasteLabelCandidateIds = (tasteLabelCandidates || [])
       .map((entry) => Number(entry.userId))
@@ -243,6 +253,7 @@ async function findPeopleBySharedTaste(viewer, {
         userId: { $in: indexedOnlyIds },
         bannedAt: null,
         showProfileInPeopleDiscovery: { $ne: false },
+        ...(candidateCreatedAfter ? { createdAt: { $gt: candidateCreatedAfter } } : {}),
       })
         .select("userId publicProfileCode firstName profileName profileEmoji gender age lang aiTaste createdAt")
         .lean()
@@ -283,7 +294,7 @@ async function findPeopleBySharedTaste(viewer, {
     }
     const languageResult = applyPeopleLanguageFilter(items, languageFilter);
     const limitedItems = sortPeopleDiscoveryItems(languageResult.items, viewer).slice(0, resultLimit);
-    trackPeopleDiscovery(viewer, { mode: "taste", resultCount: limitedItems.length });
+    if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: limitedItems.length });
     return {
       ok: true,
       items: limitedItems,
@@ -295,6 +306,7 @@ async function findPeopleBySharedTaste(viewer, {
     userId: { $ne: Number(viewer?.userId) },
     bannedAt: null,
     showProfileInPeopleDiscovery: { $ne: false },
+    ...(candidateCreatedAfter ? { createdAt: { $gt: candidateCreatedAfter } } : {}),
   })
     .select("userId publicProfileCode firstName profileName profileEmoji gender age lang createdAt aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(resultLimit)
@@ -334,7 +346,7 @@ async function findPeopleBySharedTaste(viewer, {
 
   const languageResult = applyPeopleLanguageFilter(items, languageFilter);
   const sortedItems = sortPeopleDiscoveryItems(languageResult.items, viewer);
-  trackPeopleDiscovery(viewer, { mode: "taste", resultCount: sortedItems.length });
+  if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: sortedItems.length });
   return {
     ok: true,
     items: sortedItems,

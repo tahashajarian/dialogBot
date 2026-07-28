@@ -67,3 +67,32 @@ test("People discovery minimum defaults to 2 and respects admin boundaries", () 
   assert.equal(normalizeLimits({ peopleDiscoveryMinSharedItems: 0 }).peopleDiscoveryMinSharedItems, 1);
   assert.equal(normalizeLimits({ peopleDiscoveryMinSharedItems: 999 }).peopleDiscoveryMinSharedItems, 100);
 });
+
+test("similar-people inactivity days are configurable from one to ninety days", () => {
+  assert.equal(normalizeLimits({}).similarPeopleReengagementEnabled, false);
+  assert.equal(
+    normalizeLimits({ similarPeopleReengagementEnabled: "true" }).similarPeopleReengagementEnabled,
+    true,
+  );
+  assert.equal(normalizeLimits({}).similarPeopleReengagementRolloutPercent, 10);
+  assert.equal(
+    normalizeLimits({ similarPeopleReengagementRolloutPercent: 0 }).similarPeopleReengagementRolloutPercent,
+    1,
+  );
+  assert.equal(
+    normalizeLimits({ similarPeopleReengagementRolloutPercent: 120 }).similarPeopleReengagementRolloutPercent,
+    100,
+  );
+  assert.equal(normalizeLimits({}).similarPeopleInactiveDays, 3);
+  assert.equal(normalizeLimits({ similarPeopleInactiveDays: 0 }).similarPeopleInactiveDays, 1);
+  assert.equal(normalizeLimits({ similarPeopleInactiveDays: 120 }).similarPeopleInactiveDays, 90);
+  assert.equal(normalizeLimits({}).similarPeopleNotificationCooldownDays, 3);
+  assert.equal(
+    normalizeLimits({ similarPeopleNotificationCooldownDays: 0 }).similarPeopleNotificationCooldownDays,
+    1,
+  );
+  assert.equal(
+    normalizeLimits({ similarPeopleNotificationCooldownDays: 120 }).similarPeopleNotificationCooldownDays,
+    90,
+  );
+});

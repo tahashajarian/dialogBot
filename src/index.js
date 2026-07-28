@@ -24,6 +24,10 @@ const { removeLegacyOwnerBoostIndex } = require("./services/discussion-boosts");
 const { formatBotExtra, formatBotText, refreshBotAppearance } = require("./services/bot-appearance");
 const { localizeOutgoingExtra, localizeVisibleDigits } = require("./services/number-localization");
 const { flushDueOwnerJoinNoticeSummaries } = require("./services/discussion-owner-join-notifications");
+const {
+  flushSimilarPeopleReengagement,
+  touchUserActivity,
+} = require("./services/similar-people-reengagement");
 const { buildUpdateErrorLogDetails } = require("./services/update-error-log");
 const { normalizeCallbackRouteLabel } = require("./services/callback-contracts");
 const {
@@ -53,6 +57,7 @@ const config = getRuntimeConfig();
 const ALLOWED_USERNAMES = config.allowedUsernames;
 const SLOW_UPDATE_MS = 1500;
 const OWNER_JOIN_SUMMARY_INTERVAL_MS = 60 * 1000;
+const SIMILAR_PEOPLE_REENGAGEMENT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const BACKGROUND_SEND_TIMEOUT_MS = 2500;
 const DELETE_WEBHOOK_TIMEOUT_MS = 8000;
 const HOT_PATH_QUERY_TIMEOUT_MS = 2500;
@@ -212,6 +217,12 @@ async function processUpdate(ctx) {
       return;
     }
     user = existingUser || await stageTimings.measure("userLookupMs", () => getOrCreateUser(from));
+    void touchUserActivity(user).catch((error) => {
+      logger.warn("Failed to update user activity timestamp", {
+        userId: user?.userId,
+        error: error?.message || error,
+      });
+    });
     if (user?.bannedAt) {
       const lang = messages[user.lang] ? user.lang : "fa";
       const text = formatBotText(messages[lang].userBannedAccessDenied);
@@ -381,6 +392,8 @@ let pollingStarted = false;
 let heartbeatTimer = null;
 let ownerJoinSummaryTimer = null;
 let ownerJoinSummaryRunning = false;
+let similarPeopleReengagementTimer = null;
+let similarPeopleReengagementRunning = false;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const runtimeMetrics = createRuntimeMetricsMonitor({ intervalMs: HEARTBEAT_INTERVAL_MS });
 const appearanceRefreshLoop = createPeriodicRefresh({
@@ -408,6 +421,10 @@ async function shutdown(reason, exitCode = 0) {
   if (ownerJoinSummaryTimer) {
     clearInterval(ownerJoinSummaryTimer);
     ownerJoinSummaryTimer = null;
+  }
+  if (similarPeopleReengagementTimer) {
+    clearInterval(similarPeopleReengagementTimer);
+    similarPeopleReengagementTimer = null;
   }
   appearanceRefreshLoop.stop();
 
@@ -517,6 +534,26 @@ process.once("SIGTERM", () => {
     void flushOwnerJoinSummaries();
     ownerJoinSummaryTimer = setInterval(flushOwnerJoinSummaries, OWNER_JOIN_SUMMARY_INTERVAL_MS);
     ownerJoinSummaryTimer.unref?.();
+    const flushSimilarPeople = async () => {
+      if (similarPeopleReengagementRunning) return;
+      similarPeopleReengagementRunning = true;
+      try {
+        await flushSimilarPeopleReengagement({
+          sendToUser: sendBackgroundMessage,
+          messages,
+        });
+      } catch (error) {
+        logger.warn("Failed to flush similar-people re-engagement notifications", error);
+      } finally {
+        similarPeopleReengagementRunning = false;
+      }
+    };
+    void flushSimilarPeople();
+    similarPeopleReengagementTimer = setInterval(
+      flushSimilarPeople,
+      SIMILAR_PEOPLE_REENGAGEMENT_INTERVAL_MS,
+    );
+    similarPeopleReengagementTimer.unref?.();
     logger.info("Bot started in polling mode");
 
     pollingLoop.catch(async (pollingError) => {

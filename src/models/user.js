@@ -103,6 +103,11 @@ const UserSchema = new mongoose.Schema({
   },
   photoFileId: String,
   showProfileInPeopleDiscovery: { type: Boolean, default: true },
+  lastActiveAt: { type: Date, default: Date.now },
+  similarPeopleNotificationsEnabled: { type: Boolean, default: true },
+  similarPeopleLastNotifiedAt: { type: Date, default: null },
+  similarPeopleNotificationClaimToken: { type: String, default: "" },
+  similarPeopleNotificationClaimedAt: { type: Date, default: null },
   showActiveDiscussionOnProfile: { type: Boolean, default: true },
   showFavoritesOnProfile: { type: Boolean, default: true },
   activeDiscussionHelpAcknowledgedAt: { type: Date, default: null },
@@ -255,6 +260,10 @@ UserSchema.index(
 UserSchema.index(
   { bannedAt: 1, profileName: 1, firstName: 1, userId: 1 },
   { name: "people_browse_candidates" },
+);
+UserSchema.index(
+  { similarPeopleNotificationsEnabled: 1, bannedAt: 1, lastActiveAt: 1, similarPeopleLastNotifiedAt: 1 },
+  { name: "similar_people_reengagement_candidates" },
 );
 for (const section of ["movies", "music", "books"]) {
   UserSchema.index(

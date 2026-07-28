@@ -10,6 +10,10 @@ const LIMIT_DEFINITIONS = Object.freeze({
   aiSuggestionsPerWindow: { label: "Suggestions per section / window", group: "Lists and suggestions", default: 10, min: 1, max: 10000 },
   aiSuggestionWindowMinutes: { label: "Suggestion window (minutes)", group: "Lists and suggestions", default: 60, min: 1, max: 10080 },
   peopleDiscoveryMinSharedItems: { label: "Minimum shared items", description: "Shared choices required in one section for a profile to appear in See People.", group: "People discovery", default: 2, min: 1, max: 100 },
+  similarPeopleReengagementEnabled: { label: "Enable similar-people messages", description: "Master rollout switch. Keep off until the preview is reviewed.", group: "People discovery", type: "boolean", default: false },
+  similarPeopleReengagementRolloutPercent: { label: "Similar-people rollout", description: "Deterministic percentage of eligible users included in the rollout.", group: "People discovery", unit: "%", default: 10, min: 1, max: 100 },
+  similarPeopleInactiveDays: { label: "Inactive days before similar-people message", description: "Days without activity before an eligible user may receive a similar-people re-engagement message. Discussion membership changes only if they tap See People.", group: "People discovery", default: 3, min: 1, max: 90 },
+  similarPeopleNotificationCooldownDays: { label: "Similar-people message cooldown (days)", description: "Minimum days between similar-people messages. Another message still requires newly joined eligible People results.", group: "People discovery", default: 3, min: 1, max: 90 },
   profileInterestItems: { label: "Profile interests", description: "Maximum interests a user can keep on their profile.", group: "Profile interests", default: 5, min: 1, max: 100 },
   profileInterestCustomMaxLength: { label: "Profile custom interest length", description: "Maximum characters for one typed profile interest.", group: "Profile interests", default: 24, min: 3, max: 120 },
   onboardingInterestMinItems: { label: "Onboarding target interests", description: "Onboarding completes after this many selected interests.", group: "Onboarding", default: 3, min: 1, max: 100 },
@@ -34,6 +38,10 @@ let limitsUpdatedAt = null;
 
 function normalizeLimits(values = {}) {
   const normalized = Object.fromEntries(Object.entries(LIMIT_DEFINITIONS).map(([key, definition]) => {
+    if (definition.type === "boolean") {
+      const raw = values[key];
+      return [key, raw === true || raw === "true" || raw === "1" || raw === 1];
+    }
     const parsed = Number(values[key]);
     const value = Number.isFinite(parsed) ? Math.round(parsed) : definition.default;
     return [key, Math.min(definition.max, Math.max(definition.min, value))];

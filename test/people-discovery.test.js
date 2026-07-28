@@ -102,6 +102,30 @@ test("people discovery returns users with at least 2 shared items and skips self
   }
 });
 
+test("people discovery can restrict candidates to accounts created after a watermark", async () => {
+  const originalFind = User.find;
+  const watermark = new Date("2026-07-01T00:00:00Z");
+  let query;
+  User.find = (value) => {
+    query = value;
+    return {
+      select: () => ({
+        limit: () => ({ lean: async () => [] }),
+      }),
+    };
+  };
+
+  try {
+    await findPeopleBySharedTaste(userWithMusic(1, ["metallica", "nirvana"]), {
+      candidateCreatedAfter: watermark,
+      track: false,
+    });
+    assert.equal(query.createdAt.$gt, watermark);
+  } finally {
+    User.find = originalFind;
+  }
+});
+
 test("people language filter follows interface language until explicitly changed", () => {
   assert.equal(getEffectivePeopleLanguageFilter({ lang: "en", peopleLanguageFilter: "" }), "en");
   assert.equal(getEffectivePeopleLanguageFilter({ lang: "en", peopleLanguageFilter: "fa" }), "fa");

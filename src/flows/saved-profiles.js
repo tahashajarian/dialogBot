@@ -1019,6 +1019,14 @@ async function handleSavedProfilesCallback(ctx, lang, {
     return sendPeopleDiscoveryList(ctx, lang, page);
   }
 
+  if (data === callBacks.peopleSimilarReengagementOpen) {
+    await ctx.answerCb?.();
+    await leaveDiscussionAndClearKeyboardForNavigation?.(ctx, { clearKeyboard: false });
+    await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);
+    await deleteInlineCallbackMessage();
+    return sendPeopleDiscoveryList(ctx, lang, 0);
+  }
+
   if (data === callBacks.peopleTasteMatches) {
     await ctx.answerCb?.();
     await clearViewedPublicProfile(ctx, [ctx.callbackMessageId]);

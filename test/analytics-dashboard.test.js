@@ -299,6 +299,16 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
       partial: false,
     },
     limits: {},
+    similarPeopleReengagement: {
+      enabled: false,
+      inactivityDays: 3,
+      cooldownDays: 3,
+      minimumSharedItems: 3,
+      rolloutPercent: 10,
+      inactiveUsers: 12,
+      nextBatchUsers: 2,
+      nextBatchMatchingUsers: 1,
+    },
     starSettings: {},
     botAppearance: {},
   });
@@ -308,6 +318,9 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
   assert.match(html, /Product Journey/);
   assert.match(html, /Route p95 latency comparison/);
   assert.match(html, /VPS Health/);
+  assert.match(html, /Similar People Rollout Preview/);
+  assert.match(html, /Disabled — safe to deploy/);
+  assert.match(html, /Verified matches in batch/);
   assert.match(html, /Memory utilization/);
   assert.match(html, /Disk utilization/);
   assert.match(html, /muze-vps&lt;script&gt;/);

@@ -119,6 +119,8 @@ The dashboard includes a separate **Star Economy** section. It reuses the existi
 
 It exposes the rewards, costs, future entitlement durations, boost/notification caps, earning windows, milestone thresholds, and economy/feature kill switches defined in [Stars Economy](stars.md). Each field has a label, description, unit, default, minimum, maximum, and cross-setting validation where applicable.
 
+The Manage view also includes a bounded Similar People rollout preview. Its master switch defaults off, its rollout percentage is deterministic per user, and the preview shows inactive eligibility plus verified matches for the next batch without sending notifications. The inactivity days, notification cooldown days, rollout percentage, and inherited People shared-item minimum are visible together before activation.
+
 Implemented behavior:
 
 - show currently persisted values and last update time

@@ -716,6 +716,8 @@ When a user with an active discussion sends normal text:
 
 When a user with an active discussion sends a global navigation command such as `/menu`, `/profile`, `/taste`, `/discussions`, `/people`, `/help`, or `/lang`, leave the discussion before opening the requested surface. Notify the remaining active members through the normal leave notification. Tell the departing user that they left the named discussion, remove the room keyboard, and then show the requested surface. Never store or broadcast the command itself as a discussion message.
 
+Receiving a similar-people re-engagement notification never removes the user from an active discussion. If the user taps that notification’s `👀 دیدن آدم‌ها` / `👀 See people` button, treat the tap as explicit People navigation: leave through the normal discussion action, notify remaining members, and then open the ordinary People discovery results.
+
 If there are no other current members, still store the message silently so it appears in recent messages for future members.
 
 Do not say "seen" or "read" unless the platform later provides reliable read receipts.
