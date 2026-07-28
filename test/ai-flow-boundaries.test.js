@@ -46,17 +46,59 @@ const keyboardButtons = (keyboard) => (
   keyboard?.reply_markup?.keyboard || keyboard?.reply_markup?.inline_keyboard || []
 ).flat();
 
-test("Favorites first-visit guidance stays inside the existing bilingual hub", () => {
+test("Favorites guidance separates first-visit copy from the 3-item suggestion threshold", () => {
   for (const lang of ["fa", "en"]) {
-    const normal = buildAiAssistantMenuMessage(lang);
-    const firstVisit = buildAiAssistantMenuMessage(lang, { showFirstVisitTip: true });
+    const user = { aiLists: {} };
+    const normal = buildAiAssistantMenuMessage(lang, { user });
+    const firstVisit = buildAiAssistantMenuMessage(lang, { showFirstVisitTip: true, user });
+    const unlocked = buildAiAssistantMenuMessage(lang, {
+      user: {
+        aiLists: {
+          movies: {
+            topTen: [{ title: "One" }, { title: "Two" }, { title: "Three" }],
+          },
+        },
+      },
+    });
+    const completed = buildAiAssistantMenuMessage(lang, {
+      user: {
+        aiLists: {
+          movies: {
+            topTen: Array.from({ length: 10 }, (_, index) => ({ title: `Item ${index + 1}` })),
+          },
+        },
+      },
+    });
+    const interestsOnly = buildAiAssistantMenuMessage(lang, {
+      user: {
+        aiLists: {
+          random: {
+            topTen: Array.from({ length: 10 }, (_, index) => ({ title: `Interest ${index + 1}` })),
+          },
+        },
+      },
+    });
 
     assert.equal(normal.includes(messages[lang].favoritesFirstVisitTip), false);
+    assert.equal(normal.includes(messages[lang].aiAssistantNewUserSuggestionTip), true);
+    assert.equal(normal.includes(messages[lang].aiAssistantTasteLabelTip), true);
     assert.equal(firstVisit, [
       messages[lang].aiAssistantTitle,
       messages[lang].favoritesFirstVisitTip,
+      messages[lang].aiAssistantNewUserSuggestionTip,
       messages[lang].aiAssistantMenu,
+      messages[lang].aiAssistantFavoritesGuidance,
+      messages[lang].aiAssistantTasteLabelTip,
     ].join("\n\n"));
+    assert.equal(unlocked.includes(messages[lang].aiAssistantNewUserSuggestionTip), false);
+    assert.equal(unlocked.includes(messages[lang].aiAssistantFavoritesGuidance), true);
+    assert.equal(unlocked.includes(messages[lang].aiAssistantTasteLabelTip), true);
+    assert.equal(completed.includes(messages[lang].aiAssistantNewUserSuggestionTip), false);
+    assert.equal(completed.includes(messages[lang].aiAssistantFavoritesGuidance), false);
+    assert.equal(completed.includes(messages[lang].aiAssistantTasteLabelTip), false);
+    assert.equal(interestsOnly.includes(messages[lang].aiAssistantNewUserSuggestionTip), true);
+    assert.equal(interestsOnly.includes(messages[lang].aiAssistantFavoritesGuidance), true);
+    assert.equal(interestsOnly.includes(messages[lang].aiAssistantTasteLabelTip), true);
     assert.match(messages[lang].favoritesFirstVisitTip, /^💡/);
   }
 });
@@ -426,7 +468,7 @@ test("AI bottom Back replaces reply controls with the media hub keyboard and its
   assert.equal(replies.length, 2);
   assert.equal(replies[0].text, "⁣");
   assert.equal(replies[0].extra?.reply_markup?.remove_keyboard, true);
-  assert.equal(replies[1].text, `${messages.fa.aiAssistantTitle}\n\n${messages.fa.aiAssistantMenu}`);
+  assert.equal(replies[1].text, buildAiAssistantMenuMessage("fa", { user: ctx.user }));
   assert.equal(keyboardButtons(replies[1].extra).at(-1).text, messages.fa.onboardingMainMenuButton);
   assert.equal(edits.length, 0);
 });
@@ -1432,7 +1474,7 @@ test("AI top-ten Back returns to the AI section picker", async () => {
   assert.equal(ctx.user.state, "idle");
   assert.equal(ctx.user.aiSectionEntryMessageId, null);
   assert.deepEqual(events, ["reply"]);
-  assert.equal(replies[0].text, `${messages.en.aiAssistantTitle}\n\n${messages.en.aiAssistantMenu}`);
+  assert.equal(replies[0].text, buildAiAssistantMenuMessage("en", { user: ctx.user }));
   assert.ok(updates.some((update) => update?.state === "idle"));
 });
 

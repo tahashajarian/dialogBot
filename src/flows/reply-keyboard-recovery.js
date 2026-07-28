@@ -44,7 +44,7 @@ function getStableReplyKeyboardRecovery(ctx, lang) {
   }
   if (mode === "favorites" || mode.startsWith("ai_")) {
     return {
-      text: buildAiAssistantMenuMessage(lang),
+      text: buildAiAssistantMenuMessage(lang, { user: ctx.user }),
       keyboard: aiAssistantKeyboard(lang),
     };
   }

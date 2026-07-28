@@ -785,7 +785,7 @@ async function handleAiText(ctx, lang, text, state) {
       return replyWithKeyboardRemovalNoticeThenInline(
         ctx,
         messages[lang].navigationFootprintTaste,
-        buildAiAssistantMenuMessage(lang),
+        buildAiAssistantMenuMessage(lang, { user: ctx.user }),
         aiAssistantKeyboard(lang),
       );
     }

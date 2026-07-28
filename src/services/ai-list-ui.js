@@ -162,11 +162,24 @@ function withAiSectionTitle(lang, section, body) {
   return `${heading}\n\n${body}`;
 }
 
-function buildAiAssistantMenuMessage(lang, { showFirstVisitTip = false } = {}) {
+const AI_MEDIA_SECTIONS = ["movies", "music", "books"];
+
+function hasReachedAiFavoritesCount(user, count) {
+  return AI_MEDIA_SECTIONS.some(
+    (section) => getAiListItemsFromUser(user, section, "topTen").length >= count,
+  );
+}
+
+function buildAiAssistantMenuMessage(lang, { showFirstVisitTip = false, user = null } = {}) {
+  const hasCompletedFavorites = user
+    && hasReachedAiFavoritesCount(user, operationalLimits.aiTopTenItems);
   return [
     messages[lang].aiAssistantTitle,
     showFirstVisitTip ? messages[lang].favoritesFirstVisitTip : "",
+    user && !hasReachedAiFavoritesCount(user, 3) ? messages[lang].aiAssistantNewUserSuggestionTip : "",
     messages[lang].aiAssistantMenu,
+    user && !hasCompletedFavorites ? messages[lang].aiAssistantFavoritesGuidance : "",
+    user && !hasCompletedFavorites ? messages[lang].aiAssistantTasteLabelTip : "",
   ].filter(Boolean).join("\n\n");
 }
 

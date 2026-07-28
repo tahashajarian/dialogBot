@@ -13,7 +13,7 @@ const FAVORITES_HUB_BANNER_PATH = path.join(__dirname, "../../assets/favorites-h
 
 async function sendAiAssistantHub(ctx, lang, { showFirstVisitTip = false } = {}) {
   await setStableNavigationState(ctx, MODES.FAVORITES);
-  const text = buildAiAssistantMenuMessage(lang, { showFirstVisitTip });
+  const text = buildAiAssistantMenuMessage(lang, { showFirstVisitTip, user: ctx.user });
   const keyboard = aiAssistantKeyboard(lang);
   const shouldShowBanner = !hasSectionTipBeenShown(ctx.user, "favoritesBanner");
   if (!shouldShowBanner || !ctx.replyWithPhoto || text.length > TELEGRAM_CAPTION_MAX_LENGTH) {
