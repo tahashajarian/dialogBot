@@ -149,7 +149,8 @@ The interface is split into four focused views:
   reliability.
 - **Manage** contains bot limits, appearance, and Star settings. Only one editor
   opens at a time, larger editors are split into collapsible setting groups, and
-  search opens the relevant group directly.
+  search opens the relevant group directly. The real collapsible section headers
+  are the only controls above each editor; no decorative shortcut cards are shown.
 - **Insights** contains user, product-journey, discussion, list, invitation, and
   cache analytics. Accessible horizontal bars make relative activity easier to
   scan while the adjacent tables preserve exact values.

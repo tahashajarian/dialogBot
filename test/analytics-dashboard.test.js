@@ -321,6 +321,8 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
   assert.match(html, /Similar People Rollout Preview/);
   assert.match(html, /Disabled — safe to deploy/);
   assert.match(html, /Verified matches in batch/);
+  assert.match(html, /id="section-bot-appearance"/);
+  assert.doesNotMatch(html, /data-section-shortcut/);
   assert.match(html, /Memory utilization/);
   assert.match(html, /Disk utilization/);
   assert.match(html, /muze-vps&lt;script&gt;/);
@@ -328,4 +330,6 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
   assert.match(html, /Movies &lt;script&gt;/);
   assert.doesNotMatch(html, /Movies <script>/);
   assert.match(html, /<table>/);
+  const browserScript = html.match(/<script>([\s\S]+)<\/script>/)?.[1] || "";
+  assert.doesNotThrow(() => new Function(browserScript));
 });

@@ -407,7 +407,8 @@ function sectionKey(title) {
 }
 
 function collapsibleSection(title, body, { open = false, note = "", view = "insights" } = {}) {
-  return `<details class="section" data-section="${escapeHtml(sectionKey(title))}" data-view="${escapeHtml(view)}" ${open ? "open" : ""}>
+  const key = sectionKey(title);
+  return `<details id="section-${escapeHtml(key)}" class="section" data-section="${escapeHtml(key)}" data-view="${escapeHtml(view)}" ${open ? "open" : ""}>
     <summary>
       <span>${escapeHtml(title)}</span>
       ${note ? `<small>${escapeHtml(note)}</small>` : ""}
@@ -698,10 +699,6 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     .setting-group[open] > summary::before { transform: rotate(90deg); }
     .setting-group > summary small { margin-left: auto; }
     .setting-group > .limit-grid { padding: 0 12px 12px; }
-    .manage-guide { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-    .manage-guide-item { padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--soft-line); }
-    .manage-guide-item strong { display: block; margin-bottom: 2px; }
-    .manage-guide-item span { color: var(--muted); font-size: 12px; }
     .top-actions { display: flex; gap: 8px; align-items: center; }
     .button-link { text-decoration: none; border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; background: var(--panel); font-weight: 700; }
     .view-nav { position: sticky; top: 10px; z-index: 10; display: flex; gap: 6px; padding: 6px; margin-bottom: 18px; width: fit-content; max-width: 100%; overflow-x: auto; border: 1px solid var(--soft-line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
@@ -738,7 +735,6 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       .setting-field { grid-column: 1 / -1; }
       th, td { padding: 9px; }
       .panel { overflow-x: auto; }
-      .manage-guide { grid-template-columns: 1fr; }
       .overview-visuals, .chart-table-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 420px) { .grid, .compact-grid { grid-template-columns: 1fr; } }
@@ -794,12 +790,6 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     <div class="settings-tools" data-settings-tools hidden>
       <input class="settings-search" type="search" placeholder="Search all settings..." aria-label="Search all settings" />
       <span class="muted">Open only what you need</span>
-    </div>
-
-    <div class="manage-guide" data-manage-guide hidden>
-      <div class="manage-guide-item"><strong>Appearance</strong><span>Change how bot guidance looks.</span></div>
-      <div class="manage-guide-item"><strong>Bot limits</strong><span>Manage usage caps and room rules.</span></div>
-      <div class="manage-guide-item"><strong>Star economy</strong><span>Control rollout, rewards, and costs.</span></div>
     </div>
 
     <div class="stack">
@@ -1054,21 +1044,20 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     const manageSections = document.querySelectorAll('details.section[data-view="manage"]');
     const overview = document.querySelector("[data-overview]");
     const settingsTools = document.querySelector("[data-settings-tools]");
-    const manageGuide = document.querySelector("[data-manage-guide]");
     const setView = (view) => {
       localStorage.setItem(viewKey, view);
       viewButtons.forEach((button) => button.classList.toggle("active", button.dataset.viewButton === view));
       overview.hidden = view !== "overview";
       settingsTools.hidden = view !== "manage";
-      manageGuide.hidden = view !== "manage";
       sections.forEach((section) => {
         section.hidden = view === "overview" ? !["health", "users", "product-journey", "discussions"].includes(section.dataset.section) : section.dataset.view !== view;
       });
     };
     viewButtons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewButton)));
     manageSections.forEach((section) => section.addEventListener("toggle", () => {
-      if (!section.open) return;
-      manageSections.forEach((other) => { if (other !== section) other.open = false; });
+      if (section.open) {
+        manageSections.forEach((other) => { if (other !== section) other.open = false; });
+      }
     }));
     let foundOpenManageSection = false;
     manageSections.forEach((section) => {
