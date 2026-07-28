@@ -159,9 +159,54 @@ password-manager entries into tickets, chat, CI logs, or screenshots.
 
 ## Deployment/update procedure
 
-Run tests, the production dependency audit, CI, and Secret Scanning before
-updating the VPS. Deploy an exact reviewed commit rather than an unreviewed
-moving branch.
+Production deployment is automated from the `Deploy production` job in
+`.github/workflows/ci.yml`. A push to `main` deploys only after the project
+checks and an in-workflow Gitleaks scan succeed. The job sends the exact tested
+commit SHA through a restricted SSH key; it does not give GitHub Actions a
+normal VPS shell.
+
+The one-time automation setup requires:
+
+- a dedicated Ed25519 key used only by GitHub Actions;
+- the public key in `muzeadmin`'s `authorized_keys` with `restrict` and the
+  forced command `sudo /usr/local/sbin/muze-deploy-from-github`;
+- `/usr/local/sbin/muze-deploy-from-github` installed from
+  `ops/muze-deploy-from-github`, owned by `root:root`, and mode `700`;
+- a sudoers rule allowing `muzeadmin` to run only that root-owned deployment
+  command without a password;
+- a GitHub `production` environment containing
+  `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`,
+  `DEPLOY_SSH_HOST`, and `DEPLOY_SSH_USER`.
+- the repository variable `PRODUCTION_DEPLOY_ENABLED=true`, set only after the
+  VPS command and all four secrets have been tested.
+
+The deployment script accepts one 40-character commit SHA on standard input
+and then:
+
+1. takes an exclusive deployment lock;
+2. rejects a dirty repository;
+3. fetches `origin/main` through the existing read-only GitHub deploy key;
+4. requires the requested SHA to equal `origin/main` and be a fast-forward;
+5. installs exact production dependencies and audits them;
+6. validates bot and dashboard configuration and creates indexes;
+7. restarts both services and verifies that both are active;
+8. verifies the deployed commit SHA.
+
+Normal deployment is therefore:
+
+```bash
+git push origin main
+```
+
+Confirm that the `CI / validate`, `CI / Scan Git history`, and
+`CI / Deploy production` jobs are green. The separate scheduled Secret
+Scanning workflow remains enabled for defense in depth.
+
+### Manual deployment fallback
+
+Use this only when GitHub Actions deployment is unavailable. Run tests, the
+production dependency audit, CI, and Secret Scanning before updating the VPS.
+Deploy an exact reviewed commit rather than an unreviewed moving branch.
 
 ```bash
 sudo -u muze env \
@@ -193,7 +238,9 @@ sudo systemd-run \
   /usr/bin/npm run create:indexes
 
 sudo systemctl restart muze-bot
+sudo systemctl restart muze-dashboard
 sudo systemctl status muze-bot --no-pager
+sudo systemctl status muze-dashboard --no-pager
 sudo journalctl -u muze-bot -n 100 --no-pager -o cat
 ```
 

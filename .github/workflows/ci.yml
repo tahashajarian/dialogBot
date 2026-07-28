@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   validate:
@@ -38,3 +39,74 @@ jobs:
 
       - name: Run project checks
         run: npm run check
+
+  scan:
+    name: Scan Git history
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  deploy:
+    name: Deploy production
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    needs:
+      - validate
+      - scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: muze-production
+      cancel-in-progress: false
+    environment: production
+
+    steps:
+      - name: Configure restricted deployment SSH key
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$DEPLOY_SSH_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/muze_deploy"
+          chmod 600 "$HOME/.ssh/muze_deploy"
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy exact tested commit
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          DEPLOY_SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DEPLOY_SSH_HOST"
+          test -n "$DEPLOY_SSH_USER"
+          printf '%s\n' "$GITHUB_SHA" |
+            ssh \
+              -i "$HOME/.ssh/muze_deploy" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=20 \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST"
+
+      - name: Remove deployment key
+        if: always()
+        run: rm -f "$HOME/.ssh/muze_deploy"

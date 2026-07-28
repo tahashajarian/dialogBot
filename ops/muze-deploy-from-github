@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly APP_DIR="/opt/muze/app"
+readonly APP_USER="muze"
+readonly ENV_FILE="/etc/muze/muze.env"
+readonly GITHUB_DEPLOY_KEY="/opt/muze/.ssh/github_deploy"
+readonly LOCK_FILE="/run/lock/muze-production-deploy.lock"
+
+fail() {
+  printf 'Deployment failed: %s\n' "$*" >&2
+  exit 1
+}
+
+run_as_app() {
+  runuser -u "$APP_USER" -- "$@"
+}
+
+read -r requested_sha || fail "missing commit SHA"
+[[ "$requested_sha" =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+
+exec 9>"$LOCK_FILE"
+flock -n 9 || fail "another production deployment is already running"
+
+[[ -d "$APP_DIR/.git" ]] || fail "application repository is missing"
+[[ -f "$ENV_FILE" ]] || fail "production environment file is missing"
+[[ -r "$GITHUB_DEPLOY_KEY" ]] || fail "GitHub deploy key is missing"
+
+if [[ -n "$(run_as_app git -C "$APP_DIR" status --porcelain)" ]]; then
+  fail "application repository has local changes"
+fi
+
+run_as_app env \
+  GIT_SSH_COMMAND="ssh -i $GITHUB_DEPLOY_KEY -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+  git -C "$APP_DIR" fetch --prune origin main
+
+origin_sha="$(run_as_app git -C "$APP_DIR" rev-parse origin/main)"
+readonly origin_sha
+[[ "$origin_sha" == "$requested_sha" ]] ||
+  fail "requested commit is not the current origin/main"
+
+run_as_app git -C "$APP_DIR" merge-base --is-ancestor HEAD "$requested_sha" ||
+  fail "deployment is not a fast-forward"
+
+run_as_app git -C "$APP_DIR" checkout main
+run_as_app git -C "$APP_DIR" merge --ff-only "$requested_sha"
+run_as_app npm --prefix "$APP_DIR" ci --omit=dev
+run_as_app npm --prefix "$APP_DIR" audit --omit=dev --audit-level=high
+
+systemd-run \
+  --wait \
+  --pipe \
+  --collect \
+  --unit="muze-deploy-config-${requested_sha:0:12}" \
+  --property="User=$APP_USER" \
+  --property="WorkingDirectory=$APP_DIR" \
+  --property="EnvironmentFile=$ENV_FILE" \
+  /usr/bin/npm run validate:production-config
+
+systemd-run \
+  --wait \
+  --pipe \
+  --collect \
+  --unit="muze-deploy-dashboard-${requested_sha:0:12}" \
+  --property="User=$APP_USER" \
+  --property="WorkingDirectory=$APP_DIR" \
+  --property="EnvironmentFile=$ENV_FILE" \
+  /usr/bin/npm run validate:production-dashboard
+
+systemd-run \
+  --wait \
+  --pipe \
+  --collect \
+  --unit="muze-deploy-indexes-${requested_sha:0:12}" \
+  --property="User=$APP_USER" \
+  --property="WorkingDirectory=$APP_DIR" \
+  --property="EnvironmentFile=$ENV_FILE" \
+  /usr/bin/npm run create:indexes
+
+systemctl restart muze-bot muze-dashboard
+sleep 3
+systemctl is-active --quiet muze-bot
+systemctl is-active --quiet muze-dashboard
+
+deployed_sha="$(run_as_app git -C "$APP_DIR" rev-parse HEAD)"
+readonly deployed_sha
+[[ "$deployed_sha" == "$requested_sha" ]] ||
+  fail "deployed commit verification failed"
+
+printf 'Deployment successful: %s\n' "$deployed_sha"
