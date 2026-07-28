@@ -243,3 +243,5 @@ Conversational Home is implemented through focused modules: `src/flows/home-conv
 - Runtime conversation memory is TTL-limited and globally capped with lazy expiry sweeping and oldest-entry eviction.
 - Provider and parsing exceptions are caught inside the Home flow, produce localized fallback copy, and emit privacy-safe failure telemetry.
 - Intentional non-Home behavior: unrecognized text in idle section hubs gets one short buttons-only instruction; active discussions and temporary input flows retain precedence.
+
+- Home text uses a positive product-scope allowlist in `home-intent.js`; unrelated requests never reach the generation provider. `home-conversation.js` reuses the shared sliding-window limiter implementation and adds a per-user in-flight guard to suppress reply storms without duplicating the global rate-limit architecture.

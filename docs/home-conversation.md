@@ -490,3 +490,37 @@ If later evidence supports a Home card:
 - avoid repeating unchanged explanations on frequent returns.
 
 The card is a possible presentation of the same verified Home state, not a separate feature or data model.
+
+### Speaking identity and personal-topic boundary
+
+Muze is both the Telegram bot and the speaking personality. Home replies use first person for Muze and refer to the interface as “here” or by the exact section name. They do not describe Muze as a separate place or third party except when directly answering what Muze is.
+
+Personal or emotional disclosures receive one short, respectful product-boundary response and do not enter AI generation or Home conversation memory. Home memory retains only the latest user/assistant pair for up to 10 minutes.
+
+### Personal-topic boundary
+
+Home uses a dedicated local boundary detector before normal AI conversation. Emotional, relationship, grief, loneliness, personal-health, and common follow-up phrasing receives one short product-scope reply, clears recent Home memory, is not stored, and is not sent to the normal conversation generator. Explicit self-harm or immediate-danger wording remains a separate safety category and is never downgraded to the ordinary personal-topic boundary.
+
+## Product-scope allowlist
+
+Home conversation is product-scoped rather than general-purpose. Messages are admitted only when they clearly concern a visible Muze section, product status, navigation, invitations, profile/taste features, or a direct product follow-up. Greetings remain locally supported. Everything else is classified as `outOfScope` and receives one short localized product-boundary response without calling the conversational provider or storing the turn.
+
+Personal/emotional messages and out-of-scope messages clear ephemeral Home memory. Explicit immediate-danger or self-harm wording stays on a separate deterministic safety path and never invites further disclosure.
+
+Home also reuses the shared in-memory sliding-window limiter from `update-rate-limit.js`, with a stricter Home window and an in-flight guard. Excess rapid Home messages are absorbed silently so a user burst cannot create a burst of AI calls, failure notices, or delayed replies. The outer general update limit remains in place for every section.
+
+
+## Recommendation and discussion status routing
+
+- Home never invents movie, series, music, or book recommendations. Recommendation requests point to the matching category in Interests. Home does not repeat the favorites threshold because the destination flow already explains its own eligibility state.
+- Home may answer whether the user has an active or owned open discussion using verified discussion records.
+- Recent join answers reuse the owner-join notification state and use its defined recent window; Home does not infer joins from member counts.
+
+
+## Scope routing
+
+Home uses a thin scope guard rather than a product allowlist. Commands, safety, spam protection, greetings, thanks, and clearly unrelated content requests are handled locally. Natural or ambiguous messages continue to the conversational model so it can understand product questions and short follow-ups without phrase-by-phrase regex patches.
+
+Clearly unrelated requests such as jokes, poems, stories, translation, general knowledge, weather, and homework receive the short product boundary without loading a user snapshot or calling the answer generator. Requests that map to an existing Muze feature are redirected to the relevant section; for example, movie, music, and book recommendations go to the matching Interests category.
+
+Snapshots are loaded only when the classified request needs verified user data, such as age, invitations, or discussion membership. Simple social replies and general product explanations do not load a snapshot.

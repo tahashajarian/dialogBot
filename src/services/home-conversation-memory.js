@@ -1,6 +1,6 @@
-const MAX_TURNS = 4;
+const MAX_TURNS = 2;
 const MAX_TEXT_LENGTH = 360;
-const TTL_MS = 30 * 60 * 1000;
+const TTL_MS = 10 * 60 * 1000;
 const MAX_USER_ENTRIES = 5000;
 const SWEEP_INTERVAL = 100;
 const conversations = new Map();

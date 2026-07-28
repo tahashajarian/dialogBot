@@ -176,3 +176,6 @@ temporary database and exercises persisted discussion mutations. MongoDB must
 be running locally; the temporary database is dropped after the suite.
 `npm.cmd run check` runs linting, translation validation, and both test suites.
 CI runs the same checks for pushes and pull requests.
+
+### Trusted Home runtime context
+Home conversation requests include the deployed bot version as authoritative runtime context. Verified profile, invitation, and discussion facts are supplied only when requested. The model must use those facts, never guess missing account data, and must answer natural age/version wording with the exact deployed version.

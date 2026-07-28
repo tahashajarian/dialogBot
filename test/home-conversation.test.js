@@ -5,9 +5,10 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const { isEligibleHomeConversation, handleHomeConversation } = require("../src/flows/home-conversation");
 const { buildVerifiedHomeSnapshot } = require("../src/services/home-context");
-const { deterministicResponse, safeParseModelOutput, generateHomeConversationResponse, buildInstructions } = require("../src/services/home-conversation");
+const { deterministicResponse, safeParseModelOutput, generateHomeConversationResponse, buildInstructions, compactInput } = require("../src/services/home-conversation");
 const { resolveHomeDestination } = require("../src/services/home-actions");
 const { isKnownReplyKeyboardLabel } = require("../src/services/reply-keyboard-navigation");
+const { routeHomeMessage } = require("../src/services/home-router");
 
 function user(overrides = {}) {
   return { state: "idle", navigationMode: "global", onboardingCompletedAt: new Date(), activeDiscussionId: null, ...overrides };
@@ -76,7 +77,7 @@ test("provider and snapshot failures preserve localized low-noise behavior", asy
   assert.equal(replies[0][0], messages.en.homeConversationAiFailure);
 
   replies.length = 0;
-  await handleHomeConversation(ctx, "fa", "یه سوال درباره میوز دارم", {
+  await handleHomeConversation(ctx, "fa", "وضعیتم چطوره؟", {
     buildSnapshot: async () => { throw new Error("db"); },
     trackEvent: async () => null,
   });
@@ -132,6 +133,15 @@ test("exact greetings are brief and do not reintroduce or welcome", () => {
   assert.match(buildInstructions("en"), /Do not welcome an onboarded user again/);
 });
 
+test("thanks are acknowledged locally without opening general conversation", () => {
+  const fa = deterministicResponse("مرسی", {}, "fa", "🐾");
+  const complaint = deterministicResponse("جواب مرسی رو هم نمیدی", {}, "fa", "🐾");
+  const en = deterministicResponse("Thank you!", {}, "en", "🐾");
+  assert.deepEqual(fa, { message: "🐾 خواهش می‌کنم.", destination: null });
+  assert.deepEqual(complaint, { message: "🐾 خواهش می‌کنم.", destination: null });
+  assert.deepEqual(en, { message: "🐾 You’re welcome.", destination: null });
+});
+
 test("what's new reports only verified news and never Favorites totals", () => {
   const withInvite = deterministicResponse("چه خبر؟", { invitationCount: 2 }, "fa", "🐾");
   assert.match(withInvite.message, /دعوت جدید/);
@@ -141,7 +151,10 @@ test("what's new reports only verified news and never Favorites totals", () => {
   const quiet = deterministicResponse("چه خبر؟", { invitationCount: 0, recentDiscussion: { present: false }, recentPerson: { present: false } }, "fa", "🐾");
   assert.equal(quiet.message, "🐾 فعلا چیز جدیدی نیست، همه‌چی رو به راهه.");
   assert.equal(quiet.destination, null);
-  assert.equal(deterministicResponse("سلام، حالت چطوره؟", {}, "fa"), null);
+  assert.deepEqual(
+    deterministicResponse("سلام، حالت چطوره؟", {}, "fa", "🐾"),
+    { message: "🐾 خوبم، مرسی. درباره‌ی کدوم بخش کمکت کنم؟", destination: null }
+  );
 });
 
 
@@ -231,7 +244,7 @@ test("Home thinking state starts immediately and always stops", async () => {
 test("configured dashboard Muze emoji is used in prompt and normalized output", async () => {
   let requestPayload;
   const result = await generateHomeConversationResponse({
-    text: "Tell me something useful",
+    text: "Tell me about Stars",
     snapshot: { invitationCount: 0, favorites: {}, sources: {}, activeDiscussion: { present: false } },
     history: [],
     lang: "en",
@@ -254,15 +267,32 @@ test("configured dashboard Muze emoji is used in prompt and normalized output", 
 const { classifyHomeMessage } = require("../src/services/home-intent");
 const { getHomeProductKnowledge } = require("../src/services/home-product-knowledge");
 
-test("casual messages avoid database-backed Home snapshot fields", async () => {
-  let receivedPlan;
-  const ctx = { userId: 33, user: user({ firstName: "Taha" }), reply: async () => null };
-  await handleHomeConversation(ctx, "en", "How are you?", {
-    buildSnapshot: async (_ctx, _lang, plan) => { receivedPlan = plan; return { language: "en", displayName: "Taha" }; },
-    generateResponse: async () => ({ message: "👩‍🦳 I’m good.", destination: null }),
+test("out-of-scope messages skip snapshots and receive only the product boundary", async () => {
+  let snapshotCalls = 0;
+  const replies = [];
+  const ctx = { userId: 33, user: user({ firstName: "Taha" }), reply: async (...args) => replies.push(args) };
+  await handleHomeConversation(ctx, "en", "Tell me a joke", {
+    buildSnapshot: async () => { snapshotCalls += 1; return { language: "en", displayName: "Taha" }; },
+    generateResponse: generateHomeConversationResponse,
     trackEvent: async () => null,
+    startThinking: () => () => null,
   });
-  assert.deepEqual(receivedPlan, { invitations: false, activeDiscussion: false, favorites: false, news: false, profileGrowth: false, identity: true });
+  assert.equal(snapshotCalls, 0);
+  assert.equal(replies[0][0], "👩‍🦳 I’m mainly here to help with the different sections of this bot.");
+});
+
+test("social check-ins stay local and do not load a snapshot", async () => {
+  let snapshotCalls = 0;
+  const replies = [];
+  const ctx = { userId: 34, user: user({ firstName: "Taha" }), reply: async (...args) => replies.push(args) };
+  await handleHomeConversation(ctx, "en", "How are you?", {
+    buildSnapshot: async () => { snapshotCalls += 1; return { language: "en", displayName: "Taha" }; },
+    generateResponse: generateHomeConversationResponse,
+    trackEvent: async () => null,
+    startThinking: () => () => null,
+  });
+  assert.equal(snapshotCalls, 0);
+  assert.equal(replies[0][0], "👩‍🦳 I’m good, thanks. Which section can I help you with?");
 });
 
 test("topic routing loads only relevant concise product blocks", () => {
@@ -313,6 +343,32 @@ test("on-demand snapshot performs no invitation or discussion reads for casual c
 });
 
 
+
+test("recommendation routing points to Interests without repeating the favorites threshold", () => {
+  const movie = deterministicResponse("یه فیلم خوب بهم پیشنهاد بده", {}, "fa", "🐾");
+  assert.equal(movie.destination, "favorites");
+  assert.equal(movie.message, "🐾 برای پیشنهاد فیلم، برو علاقه‌مندی‌ها و وارد فیلم و سریال شو.");
+  assert.doesNotMatch(movie.message, /حداقل|۳ محبوب/);
+
+  const music = deterministicResponse("یه آهنگ خوب پیشنهاد بده", {}, "fa", "🐾");
+  assert.equal(music.message, "🐾 برای پیشنهاد موسیقی، برو علاقه‌مندی‌ها و وارد موسیقی شو.");
+  assert.doesNotMatch(music.message, /حداقل|۳ محبوب/);
+
+  for (const text of ["یه آهنگ جدید خفن بگو", "فقط یه آهنگ بهم بگو", "یه ترانه معرفی کن"]) {
+    const variant = deterministicResponse(text, {}, "fa", "🐾");
+    assert.equal(variant.destination, "favorites");
+    assert.equal(variant.message, "🐾 برای پیشنهاد موسیقی، برو علاقه‌مندی‌ها و وارد موسیقی شو.");
+  }
+
+  const book = deterministicResponse("یه کتاب معرفی کن", {}, "fa", "🐾");
+  assert.equal(book.message, "🐾 برای پیشنهاد کتاب، برو علاقه‌مندی‌ها و وارد کتاب شو.");
+  assert.doesNotMatch(book.message, /حداقل|۳ محبوب/);
+
+  const naturalBook = deterministicResponse("یه کتاب جدید بگو بهم بخونم", {}, "fa", "🐾");
+  assert.equal(naturalBook.destination, "favorites");
+  assert.equal(naturalBook.message, "🐾 برای پیشنهاد کتاب، برو علاقه‌مندی‌ها و وارد کتاب شو.");
+});
+
 test("about Muze copy is practical and does not mention public profiles", () => {
   const fa = deterministicResponse("میوز چیه؟", {}, "fa", "🐾");
   assert.match(fa.message, /سلیقه‌ت رو بسازی/);
@@ -323,7 +379,12 @@ test("about Muze copy is practical and does not mention public profiles", () => 
 
 test("age, user statistics, and trends use natural bounded answers", () => {
   const age = deterministicResponse("چند سالته؟", {}, "fa", "🐾");
-  assert.equal(age.message, "🐾 سنم رو با نسخه‌ها حساب می‌کنم، نه با شمع‌های تولد.");
+  assert.equal(age.message, "🐾 سنم رو با نسخه‌ها حساب می‌کنم؛ الان نسخه‌ی 1.0.0 هستم.");
+
+  for (const text of ["تو چند سالته؟", "خودت چند سالته؟", "میوز چند سالشه؟", "سن خودت چنده؟", "نسخه‌ت چنده؟"]) {
+    const variant = deterministicResponse(text, {}, "fa", "🐾");
+    assert.equal(variant.message, "🐾 سنم رو با نسخه‌ها حساب می‌کنم؛ الان نسخه‌ی 1.0.0 هستم.");
+  }
 
   const stats = deterministicResponse("میوز چند تا کاربر داره؟", {}, "fa", "🐾");
   assert.equal(stats.message, "🐾 نمی‌تونم آمار کاربرهای میوز رو بهت بگم.");
@@ -385,7 +446,7 @@ test("Home generation exceptions use localized fallback and failure telemetry", 
   const replies = [];
   const events = [];
   const ctx = { userId: 23, user: user(), reply: async (...args) => replies.push(args) };
-  await handleHomeConversation(ctx, "en", "Tell me something useful", {
+  await handleHomeConversation(ctx, "en", "Tell me about the People section", {
     buildSnapshot: async () => ({ language: "en", displayName: "T" }),
     generateResponse: async () => { throw new Error("provider"); },
     trackEvent: async (event) => events.push(event),
@@ -448,4 +509,213 @@ test("Persian Home prompt explicitly requires chatty colloquial language", () =>
   const instructions = buildInstructions("fa", "🐾");
   assert.match(instructions, /natural Telegram chat/);
   assert.match(instructions, /avoid formal forms such as را, می‌توانی, می‌شود/);
+});
+
+test("Muze identity stays consistent between speaker and interface", () => {
+  const intent = classifyHomeMessage("میوز چیه؟");
+  const response = deterministicResponse("میوز چیه؟", {}, "fa", "🐾", intent);
+  assert.equal(response.message, "🐾 میوز همین باتیه که داری باهاش حرف می‌زنی؛ اینجا می‌تونی سلیقه‌ت رو بسازی، آدم‌ها رو ببینی و وارد گفت‌وگوها بشی.");
+  const instructions = buildInstructions("fa", "🐾");
+  assert.match(instructions, /Muze is both the bot and the speaking personality/);
+  assert.match(instructions, /say “here” or name the exact section/);
+  assert.match(instructions, /Avoid phrases like “in Muze,” “explore Muze,”/);
+});
+
+test("common Persian distress variants are caught before AI", () => {
+  for (const text of ["حالم خیلی بده", "خیلی حالم بده", "حالم واقعا بده", "حالم اصلا خوب نیست"]) {
+    assert.equal(classifyHomeMessage(text).personalDistress, true, text);
+  }
+});
+
+test("personal distress gets a brief product boundary and is not sent to AI", async () => {
+  let providerCalls = 0;
+  const intent = classifyHomeMessage("دوست دخترم ولم کرده و خیلی ناراحتم");
+  assert.equal(intent.personalDistress, true);
+  const response = await generateHomeConversationResponse({
+    text: "دوست دخترم ولم کرده و خیلی ناراحتم",
+    snapshot: { language: "fa" },
+    history: [],
+    intent,
+    lang: "fa",
+    userId: 9,
+    botEmoji: "🐾",
+    deps: {
+      getClient: () => ({}),
+      requestText: async () => { providerCalls += 1; return { text: "{}" }; },
+    },
+  });
+  assert.equal(providerCalls, 0);
+  assert.equal(response.message, "🐾 متأسفم که حالت خوب نیست. من اینجا بیشتر درباره‌ی بخش‌های مختلف می‌تونم کمکت کنم.");
+});
+
+test("personal-boundary detector covers varied emotional and relationship phrasing", () => {
+  const examples = [
+    "خیلی داغونم",
+    "روزای بدی دارم",
+    "از همه چی خسته شدم",
+    "حوصله هیچ چیزی رو ندارم",
+    "زندگیم به هم ریخته",
+    "خیلی تنهام",
+    "دوستم بهم خیانت کرده",
+    "چند شبه نخوابیدم",
+    "فقط تو رو دارم",
+    "بذار برات تعریف کنم",
+    "I feel empty and alone",
+    "My partner cheated on me",
+    "I need to vent",
+  ];
+  for (const text of examples) {
+    const intent = classifyHomeMessage(text);
+    assert.equal(intent.personalDistress, true, text);
+    assert.equal(intent.immediateSafety, false, text);
+  }
+});
+
+test("explicit immediate-safety wording is not downgraded to the ordinary personal boundary", () => {
+  for (const text of ["می‌خوام به خودم آسیب بزنم", "I want to kill myself"]) {
+    const intent = classifyHomeMessage(text);
+    assert.equal(intent.immediateSafety, true, text);
+    assert.equal(intent.personalDistress, false, text);
+  }
+});
+
+
+test("Home uses a product allowlist and rejects unrelated requests without AI", async () => {
+  for (const text of [
+    "یه جک تعریف کن",
+    "یه شعر بگو",
+    "پایتخت فرانسه کجاست؟",
+    "برام داستان بنویس",
+    "Tell me a joke",
+    "Translate this sentence",
+  ]) {
+    const intent = classifyHomeMessage(text);
+    assert.equal(intent.outOfScope, true, text);
+    let providerCalls = 0;
+    const response = await generateHomeConversationResponse({
+      text, snapshot: {}, history: [], intent, lang: /[\u0600-\u06ff]/.test(text) ? "fa" : "en", userId: 88, botEmoji: "🐾",
+      deps: { getClient: () => ({}), requestText: async () => { providerCalls += 1; return { text: "{}" }; } },
+    });
+    assert.equal(providerCalls, 0, text);
+    assert.match(response.message, /بخش‌های مختلف|different sections/, text);
+  }
+});
+
+test("Home reuses the sliding-window limiter and silently absorbs rapid bursts", async () => {
+  const replies = [];
+  let checks = 0;
+  const limiter = { check: () => ({ allowed: ++checks <= 2 }) };
+  const ctx = { userId: 9901, user: user(), reply: async (...args) => replies.push(args) };
+  const deps = { homeRateLimit: limiter, startThinking: () => () => null, trackEvent: async () => null };
+  await handleHomeConversation(ctx, "fa", "سلام", deps);
+  await handleHomeConversation(ctx, "fa", "سلام", deps);
+  await handleHomeConversation(ctx, "fa", "سلام", deps);
+  assert.equal(replies.length, 2);
+});
+
+test("short ambiguous follow-ups are allowed only after product context", () => {
+  const { isLikelyProductFollowup } = require("../src/services/home-intent");
+  assert.equal(isLikelyProductFollowup("چطور؟", []), false);
+  assert.equal(isLikelyProductFollowup("چطور؟", [{ role: "assistant", text: "از بخش آدم‌ها استفاده کن." }]), true);
+  assert.equal(isLikelyProductFollowup("یه جک بگو", [{ role: "assistant", text: "از بخش آدم‌ها استفاده کن." }]), false);
+});
+
+test("structured Home routing separates feedback, product help, and product data", () => {
+  const feedback = routeHomeMessage("تو خیلی گیج و احمقی");
+  assert.equal(feedback.kind, "feedback");
+  assert.equal(feedback.intent.discussionStatus, false);
+
+  const help = routeHomeMessage("تو گفتگوها گیج شدم");
+  assert.equal(help.kind, "product_help");
+  assert.equal(help.section, "discussions");
+  const helpReply = deterministicResponse("تو گفتگوها گیج شدم", {}, "fa", "🐾", help.intent);
+  assert.match(helpReply.message, /گفت‌وگوهای باز، دعوت‌ها/);
+  assert.equal(helpReply.destination, "discussions");
+
+  const data = routeHomeMessage("چند نفر تو گفتگوهام هستن؟");
+  assert.equal(data.kind, "product_data");
+});
+
+
+test("AI receives authoritative runtime version and verified account facts", () => {
+  const payload = JSON.parse(compactInput({
+    text: "تو جند سالته؟",
+    snapshot: { profileAge: 28, invitationCount: 2 },
+    history: [],
+    knowledge: {},
+    botVersion: "9.8.7",
+  }));
+  assert.equal(payload.trusted.botVersion, "9.8.7");
+  assert.equal(payload.facts.profileAge, 28);
+  assert.equal(payload.facts.invitationCount, 2);
+  const instructions = buildInstructions("fa", "🐾");
+  assert.match(instructions, /trusted\.botVersion/);
+  assert.match(instructions, /with typos/);
+  assert.match(instructions, /Never say you cannot see, access, or share your own version/);
+  assert.match(instructions, /do not guess/);
+});
+
+
+test("discussion synonyms map groups, chats, and rooms to verified discussion data", () => {
+  for (const text of ["من چند تا گروه دارم؟", "چند تا چت دارم؟", "روم‌هام چند نفر دارن؟", "How many groups do I have?"]) {
+    const intent = classifyHomeMessage(text);
+    assert.equal(intent.discussionStatus, true, text);
+  }
+});
+
+test("trusted context fixes localized labels and relationship identity boundary", () => {
+  const payload = JSON.parse(compactInput({ text: "با من ازدواج می‌کنی؟", snapshot: {}, history: [], knowledge: {}, botVersion: "1.2.3", lang: "fa" }));
+  assert.equal(payload.trusted.sectionLabels.people, "آدم‌ها");
+  assert.equal(payload.trusted.identity.relationshipBoundary, "no_marriage_dating_romantic_or_sexual_relationships");
+  const instructions = buildInstructions("fa", "🐾");
+  assert.match(instructions, /reply only with «نه\.»/);
+  assert.match(instructions, /always use those labels verbatim/);
+  const parsed = safeParseModelOutput('{"message":"برو بخش people.","destination":"people"}', "fa", "🐾");
+  assert.match(parsed.message, /بخش آدم‌ها/);
+  assert.doesNotMatch(parsed.message, /people/i);
+});
+
+
+test("relationship proposals reach AI identity rules instead of emotional boundary", () => {
+  for (const text of ["با من ازدواج می‌کنی؟", "دوست دخترم میشی؟", "Will you marry me?", "Be my girlfriend"]) {
+    const intent = classifyHomeMessage(text);
+    assert.equal(intent.relationshipProposal, true, text);
+    assert.equal(intent.personalDistress, false, text);
+    assert.equal(intent.outOfScope, false, text);
+    assert.equal(routeHomeMessage(text, intent).kind, "product_conversation", text);
+  }
+});
+
+test("trusted section labels follow the conversation language", () => {
+  const fa = JSON.parse(compactInput({ text: "آدم‌ها", snapshot: {}, history: [], knowledge: {}, lang: "fa" }));
+  const en = JSON.parse(compactInput({ text: "People", snapshot: {}, history: [], knowledge: {}, lang: "en" }));
+  assert.equal(fa.trusted.sectionLabels.people, "آدم‌ها");
+  assert.equal(en.trusted.sectionLabels.people, "People");
+  assert.equal(en.trusted.sectionLabels.discussions, "Discussions");
+});
+
+
+test("explicit People questions override stale discussion follow-up context", async () => {
+  clearHomeConversationHistory(812);
+  rememberHomeConversationTurn(812, "کسی توی گفت‌وگوهام هست؟", "فعلا غیر از خودت کسی توی گفت‌وگوهات نیست.");
+  const replies = [];
+  let snapshotCalls = 0;
+  const ctx = { userId: 812, user: user(), reply: async (...args) => replies.push(args) };
+  await handleHomeConversation(ctx, "fa", "نه تو بخش آدم‌ها میگم آدم جدیدی هست؟", {
+    buildSnapshot: async () => { snapshotCalls += 1; return {}; },
+    trackEvent: async () => null,
+  });
+  assert.equal(snapshotCalls, 0);
+  assert.match(replies[0][0], /بخش آدم‌ها/);
+  assert.match(replies[0][0], /دیدن آدم‌ها/);
+  assert.doesNotMatch(replies[0][0], /گفت‌وگوهات نیست/);
+});
+
+test("People discovery wording routes to People help rather than discussion members", () => {
+  for (const text of ["آدم جدید هست؟", "تو بخش آدم ها آدم جدیدی هست؟", "دیدن آدم‌ها کجاست؟", "Any new people in the People section?"]) {
+    const route = routeHomeMessage(text, classifyHomeMessage(text));
+    assert.equal(route.kind, "product_help", text);
+    assert.equal(route.section, "people", text);
+    assert.equal(route.intent.discussionMembersFollowup, false, text);
+  }
 });

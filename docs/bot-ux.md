@@ -231,3 +231,12 @@ Stars UX rules:
 Place `🎁 Invite someone to Muze` / `🎁 دعوت به میوز` in Guide beside Stars and Rules, not in Home, Discussions, People, or Saved Profiles. The main Guide explains that this button creates the user's invitation link, that a qualifying new user earns Stars, and that the profile card can also be shared from `Home → Me → Create shareable profile`. Opening Invite edits the Guide card in place with only the localized shareable invitation text and opaque link—no pointer or additional tip. Share and Copy use that exact payload; Back to Guide restores the Guide on the same message. The copy briefly explains favorites, taste-based people discovery, and discussions. Detailed qualification belongs in Rules. Do not expose the internal `TopTen` name or the retired “Top 10” product wording in referral copy. Shared-discussion onboarding ends with an explicit preview action and must never imply an automatic join.
 
 Discussion Forward and Copy carry the same localized invitation payload and attributable discussion link. Keep that shared payload within the platform copy-text limit; omit the description first and truncate only as a final fallback. Its final action is `Close` / `بستن`, because the user is already in the active room; it quietly deletes the temporary card without a confirmation message. Favorites managers do not create standalone share messages; the shareable profile is the single taste-sharing path and leads recipients to the public Favorites views inside Muze.
+
+## Muze identity in conversation
+
+- Muze is both the Telegram bot and the speaking personality. It speaks as “I”.
+- In normal conversation, the interface is called “here” or by the exact section name. Muze does not describe itself as a separate place or third party.
+- Avoid phrases such as “explore Muze”, “in Muze”, “Muze can help”, or “I can help about Muze”.
+- The name Muze is used directly when defining the bot, in labels, or when the user explicitly asks what Muze is.
+- Personal or emotional disclosures receive one brief, respectful boundary response. Muze does not invite more disclosure, and those messages are not retained in Home conversation memory.
+- Home conversation memory keeps only the latest user/assistant pair and expires after 10 minutes.

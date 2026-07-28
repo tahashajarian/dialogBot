@@ -401,6 +401,22 @@ async function flushDueOwnerJoinNoticeSummaries({ sendToUser, messages, now = ne
   return { checked: states.length, delivered };
 }
 
+async function getRecentOwnerJoinSummary(ownerUserId, discussionId, now = new Date()) {
+  if (!ownerUserId || !discussionId) return { available: false, count: 0 };
+  const cutoff = new Date(now.getTime() - NOTICE_WINDOW_MS);
+  const state = await DiscussionOwnerJoinNotice.findOne({ discussionId, ownerUserId }).lean();
+  if (!state) return { available: true, count: 0 };
+  const ids = new Set();
+  if (state.lastSuccessfulSendAt && state.lastSuccessfulSendAt > cutoff) {
+    for (const id of state.windowUserIds || []) ids.add(Number(id));
+  }
+  for (const id of state.pendingUserIds || []) ids.add(Number(id));
+  if (state.claimedAt && state.claimedAt > cutoff) {
+    for (const id of state.claimedUserIds || []) ids.add(Number(id));
+  }
+  return { available: true, count: [...ids].filter(Number.isInteger).length, windowMinutes: Math.round(NOTICE_WINDOW_MS / 60000) };
+}
+
 module.exports = {
   CLAIM_STALE_MS,
   NOTICE_WINDOW_MS,
@@ -410,6 +426,7 @@ module.exports = {
   completeOwnerJoinNoticeClaim,
   deliverOwnerJoinNoticeClaim,
   flushDueOwnerJoinNoticeSummaries,
+  getRecentOwnerJoinSummary,
   notifyDiscussionOwnerOfJoin,
   ownerJoinNoticeKeyboard,
   removeOwnerJoinNoticeState,
