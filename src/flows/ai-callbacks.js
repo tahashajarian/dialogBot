@@ -76,10 +76,12 @@ const {
   getSuggestionMood,
 } = require("../services/ai-suggestion-cache");
 
-function getSuggestionNextGuidance(lang, userId, section) {
-  return getSuggestionMood(userId, section)
-    ? messages[lang].aiSuggestionNextGuidance
-    : messages[lang].aiSuggestionNextGuidanceNoMood;
+function getSuggestionNextGuidance(lang, userId, section, { saved = false } = {}) {
+  const hasMood = Boolean(getSuggestionMood(userId, section));
+  const key = saved
+    ? (hasMood ? "aiSuggestionSavedNextGuidance" : "aiSuggestionSavedNextGuidanceNoMood")
+    : (hasMood ? "aiSuggestionNextGuidance" : "aiSuggestionNextGuidanceNoMood");
+  return messages[lang][key];
 }
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
@@ -1089,7 +1091,7 @@ async function handleAiCallback(ctx, lang, helpers) {
         [
           formatSuggestionAddedMessage(lang, section, markDone),
           starNotice,
-          getSuggestionNextGuidance(lang, ctx.userId, section),
+          getSuggestionNextGuidance(lang, ctx.userId, section, { saved: true }),
         ].filter(Boolean).join("\n\n"),
         aiSuggestionAddedOptionsKeyboard(lang, section),
       );

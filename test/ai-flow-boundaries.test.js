@@ -387,9 +387,9 @@ test("suggestion save buttons name the concrete section list", () => {
   const rejectedButtons = keyboardButtons(aiSuggestionNextKeyboard("fa", "movies"));
 
   assert.equal(musicAddButtons[0].text, "➕ Save to 🎵📋 listen later list");
-  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعدا می‌خونم»");
-  assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
+  assert.equal(booksAddedButtons[1].text, "📚📋 لیست «بعدا می‌خونم»");
+  assert.equal(booksAddedButtons[2].text, "❤️ لیست «محبوب‌ها»");
+  assert.equal(rejectedButtons[1].text, "❤️ لیست «محبوب‌ها»");
   assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "👩‍🦳 Saved to 📚📋 read later list.");
   assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعدا گوش می‌دم»"), "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد.");
   assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعدا می‌بینم» ذخیره شد. (دیده‌شده)");
@@ -416,12 +416,20 @@ test("next-suggestion guidance mentions the same mood only when one exists", () 
     getSuggestionNextGuidance("fa", 919, "movies"),
     messages.fa.aiSuggestionNextGuidanceNoMood,
   );
+  assert.equal(
+    getSuggestionNextGuidance("fa", 919, "movies", { saved: true }),
+    messages.fa.aiSuggestionSavedNextGuidanceNoMood,
+  );
   assert.doesNotMatch(getSuggestionNextGuidance("fa", 919, "movies"), /همان حال‌وهوا/);
 
   setSuggestionMood(919, "movies", "تلخ و شهری");
   assert.equal(
     getSuggestionNextGuidance("fa", 919, "movies"),
     messages.fa.aiSuggestionNextGuidance,
+  );
+  assert.equal(
+    getSuggestionNextGuidance("fa", 919, "movies", { saved: true }),
+    messages.fa.aiSuggestionSavedNextGuidance,
   );
   setSuggestionMood(919, "movies", "");
 });
