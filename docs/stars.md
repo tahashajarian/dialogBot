@@ -356,13 +356,13 @@ The capacity picker labels paid capacities with `⭐` only when Star spending an
 
 Paid capacity never bypasses discussion join rules, active-room limits, owner-created room caps, report/removal rules, or moderation.
 
-### Paid Extra Active Discussions
+### Additional Active Discussions
 
-One concurrently open owned discussion remains free. When a creator already owns one open room, the create entry may offer a second and then a third concurrently open owned room for the dashboard-configured price per slot (default 5 Stars). Three open owned rooms is the absolute per-user maximum. This offer is controlled by the master economy/spending switches and its own paid-extra-discussions switch.
+The first concurrently open owned discussion requires no Stars. When a creator already owns one open room, the create entry may offer a second and then a third concurrently open owned room for the dashboard-configured Star requirement per slot (default 5 Stars). This rule is identical for open and restricted join rules. Three open owned rooms is the absolute per-user maximum. This offer is controlled by the master economy switches and its own extra-discussions switch.
 
-The offer appears before the create wizard as an inline confirmation while the Discussions bottom keyboard remains visible. Confirmation rechecks the current owned count and current price, then spends idempotently and persists a server-side authorization for exactly the next slot. Only after that succeeds does the title step begin. Insufficient balance edits the offer into a one-button `Got it` card. Cancellation or creation failure refunds the extra-slot spend exactly once. A paid capacity and a paid extra-owned slot are independent products and may both be charged when both are explicitly confirmed.
+The offer appears before the create wizard as an inline confirmation while the Discussions bottom keyboard remains visible. Confirmation rechecks the current owned count and current Star requirement, then applies the ledger mutation idempotently and persists a server-side authorization for exactly the next slot. Only after that succeeds does the title step begin. Insufficient balance edits the offer into a one-button `Got it` card. Cancellation or creation failure returns the extra-slot Stars exactly once. A Star-required capacity and an additional owned slot are independent products and may both require Stars when both are explicitly confirmed.
 
-Paid overflow is bounded by the three-open-owned-room hard limit and never bypasses join rules, moderation, capacity, or active-room behavior. Joining discussions remains free.
+Additional owned slots are bounded by the three-open-owned-room hard limit and never bypass join rules, moderation, capacity, or active-room behavior. Joining discussions requires no Stars.
 
 ### People Discovery
 

@@ -55,6 +55,16 @@ test("Star numbers are localized for Persian", () => {
   assert.equal(formatStarNumber(-5, "en"), "0");
 });
 
+test("Persian Star copy uses required-Star language instead of transactional wording", () => {
+  const persianCopy = Object.values(messages.fa)
+    .filter((value) => typeof value === "string")
+    .join("\n");
+
+  assert.doesNotMatch(persianCopy, /هزینه|خرج|پرداخت|رایگان/);
+  assert.match(messages.fa.discussionExtraSlotConfirmText, /ستاره موردنیاز: \{cost\}/);
+  assert.match(messages.fa.discussionPaidCapacityConfirmText, /ستاره موردنیاز: \{cost\}/);
+});
+
 test("Star reward notice combines balance and one next milestone", () => {
   const text = buildStarRewardNotice(messages, "en", [{
     milestone: "topten_first_milestone",

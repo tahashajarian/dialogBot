@@ -19,7 +19,7 @@ const LIMIT_DEFINITIONS = Object.freeze({
   onboardingInterestMinItems: { label: "Onboarding target interests", description: "Onboarding completes after this many selected interests.", group: "Onboarding", default: 3, min: 1, max: 100 },
   onboardingInterestMaxItems: { label: "Onboarding interest limit", description: "Maximum interests accepted by the onboarding picker.", group: "Onboarding", default: 3, min: 1, max: 100 },
   onboardingCustomInterestMaxLength: { label: "Onboarding custom interest length", description: "Maximum characters for one typed onboarding interest.", group: "Onboarding", default: 24, min: 3, max: 120 },
-  activeOwnedDiscussions: { label: "Free open discussions owned", description: "Concurrently open discussions one user can own without spending Stars.", group: "Discussions", default: 1, min: 1, max: 3 },
+  activeOwnedDiscussions: { label: "Initial open discussions owned", description: "Concurrently open discussions one user can own before an additional Star authorization is required.", group: "Discussions", default: 1, min: 1, max: 3 },
   ownedDiscussionHardLimit: { label: "Overall open discussions owned", description: "Maximum concurrently open discussions one user can own, including Star-activated slots.", group: "Discussions", default: 3, min: 1, max: 3 },
   discussionMessagesPerWindow: { label: "Discussion messages / window", group: "Discussions", default: 30, min: 1, max: 10000 },
   discussionMessageWindowMinutes: { label: "Discussion message window (minutes)", group: "Discussions", default: 10, min: 1, max: 10080 },

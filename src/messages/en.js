@@ -351,7 +351,7 @@ module.exports = {
     discussionStarterJoinNudgeFree: "👋 Say hi.",
     discussionStarterJoinNudgeGaming: "👋 Say hi.",
     discussionStarterJoinNudgeMovies: "👋 Say hi.",
-    discussionActiveOwnedLimit: "👩‍🦳 Open discussions you created: {activeDiscussionsLimit}.\n\n💡 If you want to create a new discussion, first close one of your previous discussions.\n\nYou can go to «🗂 My Discussions» and close a discussion you no longer need.",
+    discussionActiveOwnedLimit: "👩‍🦳 You've reached the limit for open discussions you can create.\n\n💡 To create a new discussion, first close one of your previous discussions.\n\nYou can go to «🗂 My Discussions» and close a discussion you no longer need.",
     discussionStarterHintUnlocked: "💡 This discussion matches one of your Interests: {item}.",
     discussionStarterHintLocked: "💡 Add {item} to your profile interests to unlock this discussion.",
     botDiscussionFreeTitle: "Free Discussion",

@@ -52,7 +52,7 @@ test("interest onboarding/profile limits normalize impossible admin values", () 
   assert.equal(normalized.onboardingCustomInterestMaxLength, 120);
 });
 
-test("the database-backed overall discussion cap also bounds the free allowance", () => {
+test("the database-backed overall discussion cap also bounds the initial allowance", () => {
   const normalized = normalizeLimits({
     activeOwnedDiscussions: 12,
     ownedDiscussionHardLimit: 7,

@@ -168,7 +168,7 @@ Flow:
 7. If the rule is restricted, allow description to be skipped.
 8. Show preview, then create and auto-join creator after confirm.
 
-Before asking for the title, check if the user already has 3 active discussions they created. If they do, show an error message with a "Got it" acknowledgment button that returns to "My Discussions" list, where they can close an unwanted discussion before creating a new one.
+Before asking for the title, check how many open discussions the user owns. The first slot starts the wizard directly. The second and third slots each require a separate Star authorization, regardless of whether the discussion uses an open or restricted join rule. At three, show an error message with a "Got it" acknowledgment button that returns to "My Discussions", where the creator can close an unwanted discussion before creating another one.
 
 Limits:
 
@@ -273,7 +273,7 @@ Room capacity is editable from the preview step:
 - creator counts as a member
 - joining another discussion removes the user from the previous discussion
 
-Before the create wizard starts, Muze checks the creator's active-owned room count. One concurrently open owned discussion is free. A second or third open owned discussion requires a separate Star-activated slot; three is the absolute per-user maximum. At the free limit, and only while Star spending plus the paid-extra-discussion switch are enabled, Muze shows an inline price confirmation while leaving the Discussions bottom keyboard in place. Confirmation revalidates the live price and count, spends idempotently, and stores a server-side authorization for exactly one additional owned slot before continuing to the title step. Insufficient balance is shown on an inline `Got it` card; acknowledging it quietly removes the card and leaves the Discussions menu available. Cancelled or failed creation refunds an already-charged extra-slot authorization exactly once. Creating and joining open discussions remains free apart from these additional concurrent ownership slots; join rules do not change the slot price.
+Before the create wizard starts, Muze checks the creator's active-owned room count. The first concurrently open owned discussion requires no Stars. A second or third open owned discussion requires a separate Star-authorized slot; three is the absolute per-user maximum. This is based only on the number of open discussions the user owns: open and restricted join rules follow the same slot rule. At the initial limit, and only while Star use plus the extra-discussion switch are enabled, Muze shows an inline required-Stars confirmation while leaving the Discussions bottom keyboard in place. Confirmation revalidates the live requirement and count, applies the ledger mutation idempotently, and stores a server-side authorization for exactly one additional owned slot before continuing to the title step. Insufficient balance is shown on an inline `Got it` card; acknowledging it quietly removes the card and leaves the Discussions menu available. Cancelled or failed creation returns an already-applied extra-slot authorization exactly once. Joining a discussion requires no Stars; join rules do not change the owned-slot requirement.
 
 For restricted topics, show a preview before creating:
 
@@ -1111,7 +1111,7 @@ Stored inside `recentMessages`, capped at 10:
 
 MVP should include basic limits:
 
-- The free active-owned limit defaults to 3; each additional concurrently open owned room requires a fresh paid authorization, up to the database-configured overall owned-room cap (default 10).
+- The first concurrently open owned discussion requires no Stars. The second and third each require a fresh Star authorization, regardless of join rule; three is the fixed overall owned-room maximum.
 - Max 30 discussion messages per user per 10 minutes.
 - Max title length: 80.
 - Max description length: 300.
