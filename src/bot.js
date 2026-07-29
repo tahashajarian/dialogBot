@@ -150,6 +150,7 @@ const {
 } = require("./services/reply-keyboard-navigation");
 const { starEconomy } = require("./services/star-settings");
 const { handleUnrecognizedSectionText } = require("./flows/unrecognized-section-text");
+const { getHomeRuntimeInfoReply } = require("./services/home-runtime-info");
 const {
   getNavigationCommand,
   getStartInviteCode,
@@ -762,6 +763,15 @@ async function handleUpdate(ctx) {
       await clearDiscussionMembersMessage(ctx);
     }
     return sendPublicProfileByCode(ctx, lang, code, { fromSavedList, fromInvitationList, fromPeopleList, fromDiscussionMembers, fromRestrictionList });
+  }
+
+  const homeRuntimeInfoReply = await getHomeRuntimeInfoReply({
+    text,
+    lang: keyboardLang,
+    user: ctx.user,
+  });
+  if (homeRuntimeInfoReply) {
+    return ctx.reply(homeRuntimeInfoReply, mainMenuKeyboard(keyboardLang));
   }
 
   if (isKnownReplyKeyboardLabel(text)) {

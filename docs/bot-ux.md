@@ -62,6 +62,44 @@ Similar-people re-engagement is an occasional background notification, not Home 
 - Profile name/city are short fields; bio can be longer.
 - Normalize all visible digits at the delivery boundary: Persian UI uses Persian digits and English UI uses Latin digits, regardless of whether values came from storage, configuration, or static copy. Preserve Latin digits inside URLs, email addresses, bot commands, public codes, and callback payloads so actions remain valid.
 
+## Home Runtime Keys
+
+- Home supports the exact, case-insensitive English keys `status` and
+  `diagnostics`, plus the exact Persian `وضعیت` alias for `status`.
+  Other natural-language phrases and translated spellings are not keys.
+- `status` returns a user-facing summary built from verified data: completion
+  percentage across profile fields currently enabled in the product, media
+  Favorites progress, self-only Star balance, saved-profile count, pending
+  invitation count, and the user's open created discussions with current member
+  counts. Do not show a “current discussion” row on Home because entering Home
+  leaves the active room. Profile completion includes
+  name, city, age, gender, bio, photo, and Interests, plus Pet and exact
+  Location only while their dashboard rollout settings are enabled.
+- `diagnostics` returns a sanitized support report containing only the app
+  version, UTC timestamp, short reference code, the requesting user's own
+  numeric id and public profile code, language, state, navigation mode, and
+  compact counts. The same reference code is recorded in structured logs so a
+  forwarded report can be correlated with its request. It must never include
+  secrets, environment values, database document ids, message/list content, AI
+  prompts or responses, or another user's data. Its template and fallback
+  values are always English regardless of the user's interface language so
+  support receives one consistent format.
+- Only `status` / `وضعیت` is intended for normal user-facing discovery.
+  `diagnostics` is an operator/support utility and should not be advertised in
+  the ordinary product interface. The exact application version from
+  `package.json` is included in diagnostics rather than exposed as a separate
+  key.
+- The Guide permanently explains that users can type `status` or `وضعیت` at
+  any time while on Home to see their personal summary.
+- Render replies in the user's saved interface language and keep the Home reply
+  keyboard visible.
+- Keys are available only while the user is idle in the persisted global Home
+  mode. They must not intercept onboarding, profile/list input, another
+  navigation mode, or an active discussion.
+- Other ordinary Home text receives the existing concise use-buttons guidance.
+  Commands, active input flows, and active discussion messages retain their
+  existing routing.
+
 ## First-Session Onboarding
 
 - Ask fresh users to choose Persian or English before showing the product overview.

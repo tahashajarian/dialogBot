@@ -19,6 +19,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/language-callbacks.js`: language picker and onboarding-aware language selection callbacks.
 - `src/flows/public-profile-callbacks.js`: other-user profile view/save/unsave/close callback execution and return context.
 - `src/flows/bot-routing.js`: pure text command, start-payload, and close-confirmation state parsing for the text dispatcher.
+- `src/services/home-runtime-info.js`: exact Home-only runtime keys, verified personal status summary, and sanitized support diagnostics.
 - `src/services/callback-contracts.js`: shared callback payload parsing, route labels, field allowlists, and Telegram byte-limit contract.
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
 - `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.

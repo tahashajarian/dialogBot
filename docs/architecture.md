@@ -43,6 +43,7 @@ Keep the router files thin:
 - `src/bot.js` dispatches text messages.
 - `src/bot.js` also owns global Telegram command routing and the shared cleanup performed before command navigation.
 - `src/flows/bot-routing.js` owns pure text-command, deep-link, and persisted close-state parsing used by the text dispatcher.
+- `src/services/home-runtime-info.js` owns the exact Home-only `status` / `وضعیت` and `diagnostics` contract, verified status reads, and sanitized support-report shaping including the deployed version. It is guarded from non-Home modes, input states, and active discussions.
 - `src/callbacks.js` dispatches callback queries.
 - `src/flows/callback-lifecycle.js` owns callback-card editing/deletion safety, stale-card retirement, remembered-card ownership policy, inactive own-profile protection, and cross-feature cleanup before dispatch.
 - `src/flows/hub-callbacks.js` owns Home, Guide, own-Profile entry, Favorites entry, and Discussions hub callback execution.

@@ -178,4 +178,10 @@ be running locally; the temporary database is dropped after the suite.
 CI runs the same checks for pushes and pull requests.
 
 ### Trusted Home runtime context
-Home conversation requests include the deployed bot version as authoritative runtime context. Verified profile, invitation, and discussion facts are supplied only when requested. The model must use those facts, never guess missing account data, and must answer natural age/version wording with the exact deployed version.
+Home supports the exact keys `status` and `diagnostics`, plus the Persian
+`وضعیت` alias for `status`. They provide a verified personal summary and an
+always-English sanitized support report containing the deployed version. The
+routes are Home-only and cannot
+intercept onboarding, profile/list input, other navigation modes, or live
+discussion messages. Other Home text keeps the normal concise use-buttons
+guidance.

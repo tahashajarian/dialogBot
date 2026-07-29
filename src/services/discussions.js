@@ -407,6 +407,17 @@ async function listMyDiscussions(userId, { limit = 50 } = {}) {
   return { ok: true, discussions, activeDiscussionId: user.activeDiscussionId || null };
 }
 
+function listOwnedOpenDiscussionSummaries(userId, { limit = 10 } = {}) {
+  return Discussion.find({
+    status: "open",
+    creatorUserId: Number(userId),
+  })
+    .select("title memberUserIds isBotCreated botSeedKey language")
+    .sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 })
+    .limit(Math.max(1, Number(limit) || 10))
+    .lean();
+}
+
 async function listRecentJoinedDiscussions(userId, { limit = 3 } = {}) {
   const user = await User.findOne({ userId }).select("recentJoinedDiscussionIds").lean();
   if (!user) return { ok: false, reason: "missing_user", discussions: [] };
@@ -883,6 +894,7 @@ module.exports = {
   seedBotDiscussions,
   listActiveDiscussions,
   listMyDiscussions,
+  listOwnedOpenDiscussionSummaries,
   listRecentJoinedDiscussions,
   findDiscussionById,
   findDiscussionByIdLean,
