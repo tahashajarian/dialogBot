@@ -92,6 +92,16 @@ function getSectionMessage(messages, lang, baseKey, section, fallbackKey = "") {
   return messages?.[lang]?.[key] || (fallbackKey ? messages?.[lang]?.[fallbackKey] : "");
 }
 
+function getSuggestionActionPrompt(messages, lang, section) {
+  return getSectionMessage(
+    messages,
+    lang,
+    "aiSuggestionChooseAction",
+    section,
+    "aiSuggestionChooseAction",
+  );
+}
+
 const TASTE_LABEL_EMOJIS = {
   music: {
     metalhead: "🤘",
@@ -167,6 +177,7 @@ module.exports = {
   getSectionListButtonLabel,
   getSectionListLabel,
   getSectionMessage,
+  getSuggestionActionPrompt,
   getTasteLabelEmoji,
   getTasteLabelTitle,
   getDiscussionTasteLabelOptionText,

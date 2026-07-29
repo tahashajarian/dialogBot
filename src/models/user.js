@@ -6,6 +6,7 @@ const AiListItemSchema = new mongoose.Schema({
   comment: { type: String, default: "" },
   commentSource: { type: String, enum: ["", "ai", "user"], default: "" },
   watched: { type: Boolean, default: false },
+  suggestionFeedback: { type: String, enum: ["", "liked"], default: "" },
 }, { _id: false });
 
 const AiSectionListsSchema = new mongoose.Schema({

@@ -399,6 +399,17 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.doesNotMatch(messages.fa.aiSuggestionNextGuidance, /حالا/);
 });
 
+test("suggestion action tips explain neutral save, positive completion, and negative feedback by section", () => {
+  assert.match(messages.fa.aiSuggestionChooseActionMovies, /لیست «بعدا می‌بینم»/);
+  assert.match(messages.fa.aiSuggestionChooseActionMovies, /دیدمش و دوستش داشتم/);
+  assert.match(messages.fa.aiSuggestionChooseActionMusic, /گوشش دادم و دوستش داشتم/);
+  assert.match(messages.fa.aiSuggestionChooseActionBooks, /خوندمش و دوستش داشتم/);
+  for (const section of ["Movies", "Music", "Books"]) {
+    assert.match(messages.fa[`aiSuggestionChooseAction${section}`], /شبیه این پیشنهاد نده/);
+    assert.match(messages.en[`aiSuggestionChooseAction${section}`], /Don’t suggest things like this/);
+  }
+});
+
 test("next-suggestion guidance mentions the same mood only when one exists", () => {
   setSuggestionMood(919, "movies", "");
   assert.equal(
@@ -1247,6 +1258,38 @@ test("queued suggestion keyboard taps are ignored while generation is active", a
     ctx.user.state,
   ), null);
   assert.equal(await handleAiText(ctx, "en", messages.en.aiBack, ctx.user.state), null);
+});
+
+test("queued result buttons cannot become a new suggestion mood after feedback", async () => {
+  const ctx = {
+    userId: 82,
+    user: {
+      userId: 82,
+      lang: "fa",
+      state: "ai_chat_movies",
+      navigationMode: "ai_suggestion_added:movies",
+      aiLists: {
+        movies: {
+          topTen: [{ title: "A" }, { title: "B" }, { title: "C" }],
+          watchlist: [],
+        },
+      },
+    },
+    reply: async () => {
+      throw new Error("a stale result button must stay quiet");
+    },
+  };
+  const staleSave = messages.fa.aiSuggestionAddToListButton.replace(
+    "{listName}",
+    messages.fa.aiSectionListLabelMovies,
+  );
+
+  assert.equal(await handleAiText(ctx, "fa", staleSave, ctx.user.state), null);
+  assert.equal(
+    await handleAiText(ctx, "fa", messages.fa.aiSuggestionAddDoneButtonMovies, ctx.user.state),
+    null,
+  );
+  assert.equal(await handleAiText(ctx, "fa", messages.fa.aiSuggestionRejectButton, ctx.user.state), null);
 });
 
 test("stale Back preserves suggestion-result controls", async () => {

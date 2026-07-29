@@ -1056,7 +1056,14 @@ async function handleAiCallback(ctx, lang, helpers) {
         ctx.userId,
         section,
         "watchlist",
-        { title, metadata, comment, commentSource: comment ? "ai" : "", watched: markDone },
+        {
+          title,
+          metadata,
+          comment,
+          commentSource: comment ? "ai" : "",
+          watched: markDone,
+          suggestionFeedback: markDone ? "liked" : "",
+        },
         operationalLimits.aiWatchlistItems,
       );
 

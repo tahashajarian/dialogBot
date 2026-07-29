@@ -14,6 +14,7 @@ const {
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   getAiRejectedSuggestionTitlesFromUser,
+  getAiLikedSuggestionTitlesFromUser,
   getAiTasteFromUser,
   refundAiSuggestionQuota,
   updateUserState,
@@ -25,7 +26,7 @@ const {
   buildSuggestionCopyText,
 } = require("../services/ai-suggestion-quality");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
-const { getTasteLabelStyleHint } = require("../services/ai-section");
+const { getSuggestionActionPrompt, getTasteLabelStyleHint } = require("../services/ai-section");
 const {
   setPendingSuggestion,
   clearPendingSuggestion,
@@ -106,6 +107,7 @@ async function sendFollowupSuggestion({
   const topTenItems = getAiListTitlesFromUser(ctx.user, section, "topTen");
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
+  const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
@@ -135,7 +137,9 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingLonger,
   ], {
     placeholder: placeholderMessage,
-    ...(placeholderMessage ? { initialExtra: { reply_markup: { inline_keyboard: [] } } } : {}),
+    initialExtra: placeholderMessage
+      ? { reply_markup: { inline_keyboard: [] } }
+      : { reply_markup: { remove_keyboard: true, selective: true } },
     fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
@@ -183,6 +187,7 @@ async function sendFollowupSuggestion({
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       rejectedSuggestionItems,
+      likedSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });
@@ -240,7 +245,10 @@ async function sendFollowupSuggestion({
     ),
   );
   if (resultMessage) {
-    const actionMessage = await ctx.reply(messages[lang].aiSuggestionChooseAction, aiSuggestionAddKeyboard(lang, section));
+    const actionMessage = await ctx.reply(
+      getSuggestionActionPrompt(messages, lang, section),
+      aiSuggestionAddKeyboard(lang, section),
+    );
     await rememberAiActionMessage(ctx, `suggest_result:${section}`, actionMessage);
   }
   return resultMessage;

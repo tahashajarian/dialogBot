@@ -63,6 +63,9 @@ function normalizeAiListItems(items = []) {
     const commentValue = typeof item === "string" ? "" : item?.comment;
     const commentSource = typeof item === "string" ? "" : normalizeAiListCommentSource(item?.commentSource);
     const watchedSource = typeof item === "string" ? false : Boolean(item?.watched);
+    const suggestionFeedback = typeof item === "string" || item?.suggestionFeedback !== "liked"
+      ? ""
+      : "liked";
     const title = normalizeAiListItem(titleSource);
     const metadata = normalizeAiListMetadata(metadataSource);
     const comment = normalizeAiListComment(commentValue);
@@ -72,6 +75,7 @@ function normalizeAiListItems(items = []) {
     unique.add(key);
     const normalizedItem = { title, metadata, comment, watched: watchedSource };
     if (commentSource) normalizedItem.commentSource = commentSource;
+    if (suggestionFeedback) normalizedItem.suggestionFeedback = suggestionFeedback;
     normalized.push(normalizedItem);
   }
 
@@ -135,6 +139,12 @@ function getAiRejectedSuggestionTitlesFromUser(user, section) {
   return (user?.aiRejectedSuggestions?.[section] || [])
     .map((entry) => normalizeAiListItem(entry))
     .filter(Boolean);
+}
+
+function getAiLikedSuggestionTitlesFromUser(user, section) {
+  return getAiListItemsFromUser(user, section, "watchlist")
+    .filter((entry) => entry?.suggestionFeedback === "liked")
+    .map((entry) => entry.title);
 }
 
 async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
@@ -751,6 +761,9 @@ async function addAiListItem(userId, section, listType, item, maxItems, { awardS
   const watched = listType === "watchlist" ? Boolean(item?.watched) : false;
   const newItem = { title, metadata, comment, watched };
   if (comment && commentSource) newItem.commentSource = commentSource;
+  if (listType === "watchlist" && item?.suggestionFeedback === "liked") {
+    newItem.suggestionFeedback = "liked";
+  }
   const listPath = `aiLists.${section}.${listType}`;
   let updated = null;
 
@@ -1026,6 +1039,7 @@ module.exports = {
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   getAiRejectedSuggestionTitlesFromUser,
+  getAiLikedSuggestionTitlesFromUser,
   addAiRecentSuggestion,
   addAiRejectedSuggestion,
   getRecentSuggestionUsageFromUser,

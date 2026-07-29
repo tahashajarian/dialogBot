@@ -1,33 +1,252 @@
-# Muze Next Steps
+# New Onboarding — Confirmed Decisions
 
-## Shareable profiles and consistent public-profile taste browsing
+- Discuss every onboarding decision here step by step.
+- Add a decision to this file only after it is explicitly confirmed.
+- Before presenting any step for confirmation, inspect its current implementation, messages, documentation, and tests.
+- Do not begin implementation until the full onboarding flow is reviewed and approved.
 
-Product contract:
+## 1. Language selection
 
-- Use one bundled static banner, `assets/shared-profile-banner.jpg`; never generate or compose a per-user image.
-- The forwarded photo caption is a compact first-person public taste teaser: the user's profile emoji when present, up to five Profile Interests, available media taste labels, and at most one Favorite from each non-empty Movies/Music/Books section. It omits the display name.
-- Never include Stars, private growth hints, location, age, gender, pet preference, hidden discussion state, or Watch/Listen/Read Later items in shareable copy.
-- Put the opaque attributable bot link directly in the photo caption so forwarding preserves it. Profile sharing uses the existing genuinely-new external referral reward and must never stack with another referral claim.
-- Reuse onboarding exactly as it works now. Existing onboarded users open the destination immediately; genuinely new users complete the unchanged onboarding flow, see its existing completion message/reply keyboard, and then automatically receive the promised profile card.
-- Every other-user public profile uses the same public content and core Favorites action. Only source-specific Save/Remove, Discussions eligibility, restriction controls, and return/close navigation vary by context. The own-profile editing surface stays separate.
-- Public Favorites browsing exposes only Favorite lists and stored media taste labels. It never exposes For Later lists. Compatibility/comparison remains deferred.
+- Keep the existing first step unchanged.
+- A genuinely new user starts with the Persian/English language selection.
+- Do not show the product introduction before language selection.
+- Continue the new welcome flow in the selected language.
 
-Implementation steps:
+## 2. Welcome — Persian copy
 
-✔ 1. Documented the shareable-profile, referral destination, onboarding continuation, privacy, and public Favorites contract in `docs/bot-ux.md`, `docs/architecture.md`, `docs/agent-map.md`, and `docs/stars.md`.
+- Keep the existing cinematic welcome banner, personalized-name variant, text fallback, and `شروع کنیم 🌿` button.
+- Use this Persian welcome copy:
 
-✔ 2. Extended external referral links with a `profile_share` source and public-profile destination while retaining opaque tokens and the existing claim/reward rules; unit and Mongo integration tests cover destination persistence and non-rewarding link resolution.
+  👩‍🦳 سلام، من میوزم.
 
-✔ 3. Added shared-profile start routing and durable `pendingProfileShareCode`; existing users open immediately, while unfinished users receive normal onboarding completion before the profile.
+  هر چیزی که دوست داری، بخشی از سلیقه‌ات رو می‌سازه.
 
-✔ 4. Added the conditional full-width share action, focused caption service, 350,735-byte static JPEG banner delivery through the shared cache/fallback path, and compact forwarding guidance with Back. Creating it leaves the original profile and generated banner untouched.
+  از فیلم‌ها، موسیقی‌ها و کتاب‌ها تا هر چیزی که بخشی از دنیای توئه.
 
-✔ 5. Added the conditional `❤️ Favorites` action across People, Saved Profiles, discussion members, invitations, restrictions, shared links, and direct public-profile views while preserving source-specific actions.
+  برای شروع، ۳ تا از چیزهایی که خیلی دوست داری رو وارد کن. بعدش می‌تونی بر اساس اون‌ها پیشنهادهای تازه بگیری و بعدا آدم‌ها و گفت‌وگوهای مرتبط رو پیدا کنی.
 
-✔ 6. Added caption-safe public Favorites hub/section views for Movies/Music/Books and stored taste labels only, with in-place Back-to-profile restoration and delete-only Close.
+  برای جابه‌جایی از دکمه‌ها استفاده کن. فقط وقتی ازت خواستم، پیام متنی بفرست.
 
-✔ 7. Added bilingual copy and callback/navigation recognition; `npm.cmd run validate:translations` passes for all 903 English/Persian keys after removing the retired standalone Favorites-sharing copy.
+- Use this English welcome copy:
 
-✔ 8. Added focused unit, flow, callback-adjacent, and integration coverage for caption privacy/length/copy, complete-list gating, fallback delivery, referral destinations and non-rewarding cases, onboarding order, public Favorites, photo restoration, exact reply-keyboard restoration, in-place Save, and safe current-discussion handling; the full existing suite remains green.
+  👩‍🦳 Hi, I’m Muze.
 
-✔ 9. Validation complete: translations pass, the full unit suite passes, and the integration suite including profile-share referral persistence passes. Deployment remains a separate approval-gated task.
+  Everything you love becomes part of your taste.
+
+  From movies, music, and books to anything that feels like part of your world.
+
+  To start, add three things you really love. Based on them, you can get new suggestions and later find relevant people and discussions.
+
+  Use the buttons to navigate. Send text only when I ask you to type.
+
+- Keep the existing `Let’s start 🌿` button.
+
+## 3. Choose a Favorites section
+
+- After `شروع کنیم 🌿` / `Let’s start 🌿`, show a focused category-selection step without another banner.
+- Persian:
+
+  👩‍🦳 برای شروع، بخشی رو انتخاب کن که سهم بیشتری از دنیای تو داره.
+
+  💡 بعدا می‌تونی از «🎬🎵📚 محبوب‌های من» بخش‌های دیگه رو انتخاب کنی.
+
+- English:
+
+  👩‍🦳 To start, choose the section that has a bigger place in your world.
+
+  💡 Later, you can choose the other sections from “🎬🎵📚 My favorites.”
+
+- Show the existing section labels as buttons:
+  - `🎬 فیلم و سریال` / `🎬 Movies & Series`
+  - `🎵 موسیقی` / `🎵 Music`
+  - `📚 کتاب‌ها` / `📚 Books`
+- Use an exact server-scoped onboarding category state and accept only its current-language buttons.
+- If the user types instead of choosing, reuse the existing button-only guidance handler and `sectionTextUseBottomButtons` copy; do not create new wording.
+- Keep the category step active after button-only guidance.
+- Do not save typed text as a Favorite until a category has been selected.
+- Keep the existing global update rate limit and repeated-interaction protection.
+
+## 4. Favorites inputs and suggestion safety
+
+- Keep all existing Favorites section names and buttons unchanged.
+- Favorites may contain:
+  - Movies: a movie, series, or director.
+  - Music: a song, album, artist, or band.
+  - Books: a book or author.
+- Do not add a media/creator type-selection step and do not change the stored list-item schema.
+- For Later lists remain work-only rather than creator lists.
+- Update the section-specific Favorites entry messages across the whole bot, not only onboarding. Exact copy remains pending review.
+- Add only the minimum internal AI clarification needed to treat creators as taste signals; do not redesign the suggestion flow, result format, controls, limits, saving, or Stars.
+- Suggestions must always return one concrete, real, searchable item:
+  - Movies: a movie or series.
+  - Music: a song/track, not an artist, band, album, playlist, or general recommendation.
+  - Books: a book.
+- Preserve all existing anti-hallucination and output-verification protections.
+- Suggestion fallback order:
+  1. Use confidently recognized Favorites and creators.
+  2. Ignore unrecognized Favorites without guessing what they mean.
+  3. If only some are recognized, use only those as taste evidence.
+  4. If none are recognized, use the user's chosen mood/genre when available; otherwise return a safe, established general suggestion in that section.
+  5. Never claim that a general fallback is related to an unrecognized Favorite.
+- Provider failure, timeout, or invalid/unverifiable output keeps the existing failure behavior; the general fallback applies only to unrecognized taste input, not a failed provider.
+
+### Confirmed Favorites entry copy
+
+- Movies — Persian:
+
+  👩‍🦳 عنوان دقیق یک فیلم یا سریال، یا اسم کارگردانی که واقعا دوستش داری رو بفرست.
+
+  💡 در هر پیام فقط یک مورد.
+
+- Movies — English:
+
+  👩‍🦳 Send the exact title of a movie or series, or the name of a director you genuinely love.
+
+  💡 Send one item per message.
+
+- Music keeps its existing copy unchanged.
+
+- Books — Persian:
+
+  👩‍🦳 عنوان دقیق یک کتاب، یا اسم نویسنده‌ای که واقعا دوستش داری رو بفرست.
+
+  💡 در هر پیام فقط یک مورد.
+
+- Books — English:
+
+  👩‍🦳 Send the exact title of a book, or the name of an author you genuinely love.
+
+  💡 Send one item per message.
+
+### Confirmed Favorites input validation
+
+- Onboarding must save through the existing central `addAiListItem` path and reuse regular Favorites normalization, quality validation, duplicate detection, limits, Stars, analytics, and taste-index synchronization.
+- Reject empty input, command-like input, known placeholders, obvious keyboard sequences/mash, long repeated runs, other currently detected low-quality input, and duplicates/close duplicate matches.
+- Do not add an AI or external existence lookup for every Favorite.
+- A rejected input is not saved, does not advance progress, and keeps the user in the same onboarding input state so they can try again.
+- Unrecognized but plausible inputs that pass local validation remain covered by the confirmed suggestion-safety rule: never guess their meaning and ignore them as taste evidence if the suggestion provider cannot recognize them.
+- Update the Persian section-specific invalid-input copy:
+  - Movies: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک فیلم، سریال یا کارگردان رو بفرست.`
+  - Music: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک آهنگ، آلبوم، خواننده یا گروه موسیقی رو بفرست.`
+  - Books: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک کتاب یا نویسنده رو بفرست.`
+- Use the English section-specific invalid-input copy:
+  - Movies: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real movie, series, or director.`
+  - Music: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real song, album, artist, or band.`
+  - Books: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real book or author.`
+
+## 5. First onboarding Favorite saved
+
+- Save through the existing Favorites service and keep the real list capacity/progress at 1 of 10, while the onboarding surface displays progress toward its immediate three-item goal.
+- Persian:
+
+  ✓ «{item}» ثبت شد. (۱/۳)
+
+  👩‍🦳 مورد بعدی رو بفرست.
+
+  ⭐ با کامل‌کردن ۳ محبوب این بخش، {amount} ستاره می‌گیری.
+
+- English:
+
+  ✓ Saved “{item}”. (1/3)
+
+  👩‍🦳 Send the next one.
+
+  ⭐ Complete three Favorites in this section to earn {amount} Stars.
+
+- Resolve `{amount}` from the existing dashboard-managed first-three-Favorites reward setting; do not hardcode it.
+- Show this Star hint after the first successful onboarding Favorite only, not after every item.
+
+## 6. Second onboarding Favorite saved
+
+- Persian:
+
+  ✓ «{item}» ثبت شد. (۲/۳)
+
+  👩‍🦳 یکی دیگه بفرست. با ۳ انتخاب می‌تونی پیشنهاد بگیری.
+
+- English:
+
+  ✓ Saved “{item}”. (2/3)
+
+  👩‍🦳 Send one more. With three choices, you can get a suggestion.
+
+- Do not repeat the first-item Star hint.
+- Keep the user in the same category's onboarding input state.
+
+## 7. Onboarding Star reward
+
+- The third successfully saved onboarding Favorite awards only the existing first-three-Favorites reward for the chosen media section.
+- Use the existing dashboard-managed `rewardFirstThreePerSection` amount, which is 3 Stars by default.
+- Use the existing section-specific ledger reason and idempotency key: `topten_first_milestone` and `milestone:topten-first:{userId}:{section}`.
+- Completing the new onboarding must not also award the old `rewardOnboardingCompletion` reward, which is 5 Stars by default.
+- Do not stack the media Favorites milestone with the old onboarding-completion milestone.
+- Keep historical onboarding Star transactions unchanged.
+- Duplicate input, retries, process restarts, and repeated completion actions must not award the section reward twice.
+- If Star earning is disabled or the configured reward is zero, onboarding still completes and must not claim that Stars were earned.
+
+## 8. Third onboarding Favorite saved
+
+- Persian:
+
+  ✓ «{item}» ثبت شد. (۳/۳)
+
+  {existing localized Star-earned notice, only when a reward was applied}
+
+  👩‍🦳 حالا می‌تونی بر اساس محبوب‌هات پیشنهاد بگیری ✨
+
+- English:
+
+  ✓ Saved “{item}”. (3/3)
+
+  {existing localized Star-earned notice, only when a reward was applied}
+
+  👩‍🦳 You can now get a suggestion based on your Favorites ✨
+
+- Reuse the existing Star-earned notice with the applied amount and resulting balance.
+- Omit the Star notice if earning is disabled, the configured reward is zero, or no new reward was applied.
+- Do not show the normal next-full-list milestone hint during onboarding; the regular Favorites manager can introduce progress toward ten later.
+- Exit onboarding item-entry mode after the third successfully saved Favorite.
+- Use `✨` only now that suggestions are actually available; do not show it in the second-item progress line.
+
+## 9. Actions after onboarding completion
+
+- Completing the third Favorite fully completes onboarding; requesting a suggestion is optional and is not another required onboarding step.
+- Do not automatically place the user in suggestion mode.
+- Show only these two actions:
+  - `✨ پیشنهاد بگیر` / `✨ Suggestion`
+  - `🏠 خانه` / `🏠 Home`
+- The suggestion action opens the existing suggestion-mode flow, including its optional typed mood/genre context and existing `✨ بریم` / `✨ Suggest now` action.
+- Home takes the user directly to the main menu.
+- If the user types instead of choosing one of these buttons, reuse the bot's existing button-guidance handling; do not treat the text as suggestion context until the user has explicitly entered suggestion mode.
+
+## 10. Remove the automatic starter invitation
+
+- Do not create a bot-generated starter discussion invitation when the new onboarding is completed.
+- Remove the starter-invitation copy and action from the new onboarding completion experience.
+- This does not remove or discard genuine invitations or shared discussion links that brought the user to Muze.
+- Preserve real shared-link destinations so their continuation behavior can be handled separately.
+
+## 11. Resume abandoned onboarding
+
+- A plain `/start` during unfinished onboarding resumes the user at the persisted step instead of restarting onboarding or sending them to Home.
+- If no Favorites section has been chosen yet, return to the section-selection step.
+- If one or two onboarding Favorites have been saved, return to the same chosen section at the correct `1/3` or `2/3` progress.
+- Keep all previously saved Favorites and never reset the onboarding count.
+- Do not show language selection or the welcome banner again after they have already passed those steps.
+- Do not repeat an already-applied reward or the first-item Star explanation.
+- A `/start` carrying a genuine discussion, profile, or referral destination must preserve that destination while the unfinished onboarding is resumed.
+- Onboarding completion and Star milestone handling must remain idempotent across repeated `/start` commands, retries, and process restarts.
+- Send a fresh, short resume reminder appropriate to the saved step; agree on its exact localized wording separately before implementation.
+
+## 12. Suggestion handoff after onboarding
+
+- The third Favorite fully completes onboarding before either completion action is used.
+- `🏠 خانه` / `🏠 Home` opens the normal main menu without pushing another onboarding step.
+- `✨ پیشنهاد بگیر` / `✨ Suggestion` enters the existing suggestion-mode flow for the media section completed during onboarding; do not create a separate onboarding suggestion flow.
+- The existing suggestion-mode prompt and behavior remain the handoff:
+  - `✨ بریم` / `✨ Suggest now` generates from the saved Favorites without extra context.
+  - Valid typed mood, type, or genre context immediately generates a more specific suggestion.
+  - `🔙 برگشت` / `🔙 Back` opens that section's normal Favorites manager.
+- Preserve the existing suggestion-result actions and navigation, including saving to the appropriate For Later list, marking the item already consumed, rejecting it, requesting another suggestion, and returning to Favorites.
+- Allow the completion-screen Suggestion action only for the exact section successfully completed during onboarding.
+- Keep the existing section/state-scoped stale-button and repeated-tap protections; an old completion button or a button for another section must not start suggestion generation.

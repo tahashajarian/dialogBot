@@ -554,8 +554,8 @@ test("help is available from Home and onboarding completion", () => {
   assert.match(messages.en.helpRulesText, /💡/);
   assert.match(faRulesText, /۳۰ پیام در هر ۱۰ دقیقه/);
   assert.match(enRulesText, /Discussion messages: 30 per 10 minutes/);
-  assert.match(faRulesText, /با ۵ ستاره هر گفت‌وگوی باز اضافه رو تا سقف کلی ۱۰ فعال کنی/);
-  assert.match(enRulesText, /with 5 Stars, each additional one can be unlocked, up to 10 total/);
+  assert.match(faRulesText, /با ۵ ستاره هر گفت‌وگوی باز اضافه رو تا سقف کلی ۳ فعال کنی/);
+  assert.match(enRulesText, /each additional one can be activated with 5 Stars, up to 3 total/);
   assert.match(faRulesText, /نشانک خصوصی/);
   assert.match(enRulesText, /private bookmarks/);
   assert.match(faRulesText, /گزارش‌ها فقط از کاربران متفاوت/);

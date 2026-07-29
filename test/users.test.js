@@ -5,6 +5,7 @@ const User = require("../src/models/user");
 const {
   addAiListItem,
   getAiListItemsFromUser,
+  getAiLikedSuggestionTitlesFromUser,
   getOrCreateUser,
   hasSectionTipBeenShown,
   markSectionTipShown,
@@ -85,6 +86,29 @@ test("getAiListItemsFromUser preserves suggestion metadata", () => {
       comment: "آرام و انسانی است.",
       watched: false,
     }],
+  );
+});
+
+test("only explicit completed-and-liked suggestion feedback becomes positive AI evidence", () => {
+  const user = {
+    aiLists: {
+      books: {
+        watchlist: [
+          { title: "Saved only", watched: false },
+          { title: "Read but neutral", watched: true },
+          { title: "Read and liked", watched: true, suggestionFeedback: "liked" },
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(
+    getAiLikedSuggestionTitlesFromUser(user, "books"),
+    ["Read and liked"],
+  );
+  assert.equal(
+    getAiListItemsFromUser(user, "books", "watchlist")[2].suggestionFeedback,
+    "liked",
   );
 });
 

@@ -358,11 +358,11 @@ Paid capacity never bypasses discussion join rules, active-room limits, owner-cr
 
 ### Paid Extra Active Discussions
 
-The normal active-owned discussion allowance remains free. When a creator is already at that limit, the create entry may offer one additional concurrently open owned room for the dashboard-configured price (default 5 Stars). This offer is controlled by the master economy/spending switches and its own paid-extra-discussions switch.
+One concurrently open owned discussion remains free. When a creator already owns one open room, the create entry may offer a second and then a third concurrently open owned room for the dashboard-configured price per slot (default 5 Stars). Three open owned rooms is the absolute per-user maximum. This offer is controlled by the master economy/spending switches and its own paid-extra-discussions switch.
 
 The offer appears before the create wizard as an inline confirmation while the Discussions bottom keyboard remains visible. Confirmation rechecks the current owned count and current price, then spends idempotently and persists a server-side authorization for exactly the next slot. Only after that succeeds does the title step begin. Insufficient balance edits the offer into a one-button `Got it` card. Cancellation or creation failure refunds the extra-slot spend exactly once. A paid capacity and a paid extra-owned slot are independent products and may both be charged when both are explicitly confirmed.
 
-Paid overflow is bounded by the existing 10-room membership cap and never bypasses join rules, moderation, capacity, or active-room behavior.
+Paid overflow is bounded by the three-open-owned-room hard limit and never bypasses join rules, moderation, capacity, or active-room behavior. Joining discussions remains free.
 
 ### People Discovery
 

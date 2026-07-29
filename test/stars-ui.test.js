@@ -11,7 +11,7 @@ const { operationalLimits } = require("../src/services/operational-limits");
 
 test("Stars overview uses live settings and a self-only balance", () => {
   const previousHardLimit = operationalLimits.ownedDiscussionHardLimit;
-  operationalLimits.ownedDiscussionHardLimit = 11;
+  operationalLimits.ownedDiscussionHardLimit = 3;
   const text = buildStarsOverviewText(messages, "en", { starBalance: 18 }, {
     firstTopTenMilestoneItems: 4,
     topTenCompletionItems: 9,
@@ -40,7 +40,7 @@ test("Stars overview uses live settings and a self-only balance", () => {
   assert.match(text, /Extra suggestion: 1 Star/);
   assert.match(text, /Taste-label recheck: 10 Stars/);
   assert.match(text, /Discussion boost: 12 Stars/);
-  assert.match(text, /Concurrently open discussions: the first 3 need no Stars; each additional one activates with 8 Stars \(up to 11 total\)/);
+  assert.match(text, /Open discussions owned without Stars: 1; each additional one activates with 8 Stars \(up to 3 total\)/);
   assert.match(text, /First 4 favorites in each of Movies, Music, and Books: 3/);
   assert.match(text, /All 9 favorites in each of Movies, Music, and Books: 7/);
   assert.doesNotMatch(text, /Top 10/);

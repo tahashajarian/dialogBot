@@ -68,6 +68,7 @@ function buildUserContext({
   watchlistItems = [],
   recentSuggestionItems = [],
   rejectedSuggestionItems = [],
+  likedSuggestionItems = [],
 }) {
   if (!personalized) {
     return "";
@@ -77,6 +78,7 @@ function buildUserContext({
   return [
     `Favorites: ${compactList(topTenItems)}`,
     `Saved for later: ${compactList(watchlistItems)}`,
+    `Liked and already consumed: ${compactList(likedSuggestionItems)}`,
     `Recent suggestions: ${compactList(recentSuggestionItems)}`,
     `Rejected suggestions: ${compactList(rejectedSuggestionItems)}`,
   ].join("\n");
@@ -114,6 +116,7 @@ async function getAiSingleSuggestion({
   watchlistItems = [],
   recentSuggestionItems = [],
   rejectedSuggestionItems = [],
+  likedSuggestionItems = [],
   personalized = false,
   tasteStyleHint = "",
 }) {
@@ -145,7 +148,7 @@ async function getAiSingleSuggestion({
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
       personalized
-        ? "Base the recommendation on specific overlaps with the user's top 10. Avoid repeating top 10, watchlist, recently suggested items, or rejected/not-for-me suggestions."
+        ? "Base the recommendation primarily on specific overlaps with the user's favorites. Treat liked-and-already-consumed items as additional positive taste evidence. Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection. Saved-for-later items are neutral, not evidence that the user likes them. Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items."
         : "",
       buildTasteStyleInstruction(tasteStyleHint, lang),
       getModeInstruction(mode, lang),
@@ -161,6 +164,7 @@ async function getAiSingleSuggestion({
         watchlistItems,
         recentSuggestionItems,
         rejectedSuggestionItems,
+        likedSuggestionItems,
       })}`,
     });
     const rawText = request.text;

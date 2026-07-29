@@ -35,6 +35,7 @@ const {
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   getAiRejectedSuggestionTitlesFromUser,
+  getAiLikedSuggestionTitlesFromUser,
   setAiListItemComment,
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
@@ -69,6 +70,7 @@ const {
   getSectionListLabel,
   getTasteLabelTitle,
   getTasteLabelStyleHint,
+  getSuggestionActionPrompt,
 } = require("../services/ai-section");
 const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
@@ -208,6 +210,34 @@ function isAiSectionSuggestText(text) {
     ]),
   ].map(normalizeKeyboardText);
   return labels.includes(normalizedText);
+}
+
+function isSuggestionControlText(text) {
+  const normalizedText = normalizeKeyboardText(text);
+  if (!normalizedText) return false;
+  const labels = [];
+  for (const candidateLang of ["fa", "en"]) {
+    labels.push(
+      messages[candidateLang].aiSuggestionFromTopTenButton,
+      messages[candidateLang].aiSuggestionRejectButton,
+      messages[candidateLang].aiSuggestionAnotherButton,
+      messages[candidateLang].aiSuggestionGoToFavoritesButton,
+    );
+    for (const section of ["movies", "music", "books", "random"]) {
+      const listLabel = getSectionListLabel(messages, candidateLang, section);
+      labels.push(
+        messages[candidateLang].aiSuggestionAddToListButton.replace("{listName}", listLabel),
+        messages[candidateLang].aiSuggestionGoToListButton.replace("{listName}", listLabel),
+      );
+    }
+    labels.push(
+      messages[candidateLang].aiSuggestionAddDoneButtonMovies,
+      messages[candidateLang].aiSuggestionAddDoneButtonMusic,
+      messages[candidateLang].aiSuggestionAddDoneButtonBooks,
+      messages[candidateLang].aiSuggestionAddDoneButtonRandom,
+    );
+  }
+  return labels.some((label) => normalizeKeyboardText(label) === normalizedText);
 }
 
 function parseAiSuggestContextState(state) {
@@ -389,6 +419,7 @@ async function sendSingleSectionSuggestion({
 }) {
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
+  const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
@@ -411,6 +442,7 @@ async function sendSingleSectionSuggestion({
     messages[lang].aiThinkingAlmost,
     messages[lang].aiThinkingLonger,
   ], {
+    initialExtra: { reply_markup: { remove_keyboard: true, selective: true } },
     fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
@@ -462,6 +494,7 @@ async function sendSingleSectionSuggestion({
       watchlistItems: getPromptWatchlistItems(watchlistItems),
       recentSuggestionItems,
       rejectedSuggestionItems,
+      likedSuggestionItems,
       personalized: true,
       tasteStyleHint,
     });
@@ -536,7 +569,7 @@ async function sendSingleSectionSuggestion({
   );
   if (resultMessage) {
     const actionMessage = await ctx.reply(
-      messages[lang].aiSuggestionChooseAction,
+      getSuggestionActionPrompt(messages, lang, section),
       aiSuggestionAddKeyboard(lang, section),
     );
     await rememberAiActionMessage(ctx, `suggest_result:${section}`, actionMessage);
@@ -1122,6 +1155,7 @@ async function handleAiText(ctx, lang, text, state) {
 
     if (canReplaceSuggestionMood) {
       const userText = String(text || "").trim().replace(/\s+/g, " ");
+      if (isSuggestionControlText(userText)) return null;
       if (userText && !userText.startsWith("/") && !isAiBackText(userText)) {
         if (userText.length > AI_SUGGESTION_CONTEXT_MAX_CHARS) {
           return ctx.reply(
