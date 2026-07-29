@@ -1226,6 +1226,7 @@ async function handleAiText(ctx, lang, text, state) {
 
 module.exports = {
   handleAiText,
+  promptSuggestionMode,
   openAiListManager,
   formatAiCommentPrompt,
   formatAiCommentSaved,

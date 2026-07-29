@@ -523,16 +523,16 @@ test("concurrent discussion creation respects active owned limit", async () => {
     Discussion.find({ creatorUserId: 1, status: "open" }).lean(),
   ]);
 
-  assert.equal(created.length, 3);
-  assert.equal(rejected.length, 2);
+  assert.equal(created.length, 1);
+  assert.equal(rejected.length, 4);
   assert.ok(rejected.every((result) => result.reason === "active_owned_limit"));
-  assert.equal(discussions.length, 3);
-  assert.equal(user.ownedOpenDiscussionIds.length, 3);
+  assert.equal(discussions.length, 1);
+  assert.equal(user.ownedOpenDiscussionIds.length, 1);
 });
 
 test("a server-authorized paid slot permits exactly one room beyond the normal owned limit", async () => {
   await createUser(1);
-  for (let index = 1; index <= 3; index += 1) {
+  for (let index = 1; index <= 1; index += 1) {
     const result = await createDiscussion({
       creatorUserId: 1,
       title: `Normal room ${index}`,
@@ -548,21 +548,21 @@ test("a server-authorized paid slot permits exactly one room beyond the normal o
     {
       $set: {
         discussionDraftPaidOwnedSlotAuthorized: true,
-        discussionDraftPaidOwnedSlotCap: 4,
+        discussionDraftPaidOwnedSlotCap: 2,
         discussionDraftPaidOwnedSlotCost: 5,
       },
     },
   );
   const paid = await createDiscussion({
     creatorUserId: 1,
-    title: "Paid fourth room",
+    title: "Paid second room",
     description: "Useful paid overflow room",
     joinRule: { type: "open" },
     maxMembers: 5,
   });
   const extra = await createDiscussion({
     creatorUserId: 1,
-    title: "Unpaid fifth room",
+    title: "Unpaid third room",
     description: "This room must not be created",
     joinRule: { type: "open" },
     maxMembers: 5,
@@ -573,7 +573,7 @@ test("a server-authorized paid slot permits exactly one room beyond the normal o
   assert.equal(paid.paidOwnedSlotUsed, true);
   assert.equal(extra.ok, false);
   assert.equal(extra.reason, "active_owned_limit");
-  assert.equal(user.ownedOpenDiscussionIds.length, 4);
+  assert.equal(user.ownedOpenDiscussionIds.length, 2);
 });
 
 test("user must leave the active room before joining another", async () => {
@@ -1322,17 +1322,17 @@ test("onboarding with no available room creates no invitation or durable claim",
   assert.equal(user.onboardingStarterInvitationsAt, null);
 });
 
-test("shared-discussion onboarding preserves its preview and still prepares a starter invitation", async () => {
+test("shared-discussion onboarding preserves its preview without preparing a starter invitation", async () => {
   const user = await createUser(506, {
     lang: "en",
-    state: "onboarding_interests",
-    navigationMode: "onboarding_interests:0",
+    state: "onboarding_favorites:movies",
+    navigationMode: "onboarding_favorites:movies",
     pendingDiscussionShareCode: "d_SHARED506",
     aiLists: {
-      random: {
+      movies: {
         topTen: [
-          { title: "Movies" },
-          { title: "Gaming" },
+          { title: "Stalker" },
+          { title: "Nostalghia" },
         ],
       },
     },
@@ -1363,7 +1363,7 @@ test("shared-discussion onboarding preserves its preview and still prepares a st
   await handleOnboardingText({
     userId: 506,
     user,
-    text: "Coffee",
+    text: "Solaris",
     reply: async (text, extra) => {
       replies.push({ text, extra });
       return { message_id: 1 };
@@ -1383,17 +1383,14 @@ test("shared-discussion onboarding preserves its preview and still prepares a st
   assert.equal(persisted.pendingDiscussionShareCode, "d_SHARED506");
   assert.equal(persisted.onboardingVersion, 1);
   assert.equal(persisted.state, "idle");
-  assert.equal(persisted.navigationMode, "onboarding_complete:1:0");
-  assert.equal(invitations.length, 2);
-  assert.ok(invitations.some((entry) => (
-    entry.discussionPublicCode === "d_FREE506" && entry.source === "bot_onboarding"
-  )));
+  assert.equal(persisted.navigationMode, "onboarding_complete:movies");
+  assert.equal(invitations.length, 1);
   assert.ok(invitations.some((entry) => (
     entry.discussionPublicCode === "d_SHARED506" && entry.source === "shared_link"
   )));
   assert.deepEqual(previewCodes, ["d_SHARED506"]);
-  assert.equal(buttons[0].text, messages.en.onboardingInvitationButton);
-  assert.equal(buttons.some((button) => button.text === messages.en.onboardingDiscussionContinueButton), false);
+  assert.equal(buttons[0].text, messages.en.onboardingSuggestionButton);
+  assert.equal(buttons[1].text, messages.en.onboardingMainMenuButton);
 });
 
 test("a joinable shared-link destination is also preserved in the invitations inbox", async () => {

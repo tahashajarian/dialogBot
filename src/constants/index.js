@@ -25,6 +25,8 @@ module.exports = {
     helpRules: "menu:help:rules",
     helpCardClose: "menu:help:card:close",
     onboardingStart: "onboarding:start",
+    onboardingSection: "onboarding:section:",
+    onboardingSuggestion: "onboarding:suggestion:",
     onboardingInterest: "onboarding:interest:",
     onboardingInterestRemove: "onboarding:interest:remove:",
     onboardingMore: "onboarding:more:",

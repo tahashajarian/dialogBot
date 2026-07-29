@@ -74,7 +74,7 @@ Keep the router files thin:
 - `src/services/discussion-member-profiles.js` owns member-profile reads needed by discussion member cards and removal callbacks.
 
 - `src/flows/discussions-text.js` owns discussion text commands and bottom-keyboard controls.
-- `src/flows/onboarding.js` owns the append-only first-session flow, starter-invitation completion copy, and completion-destination analytics, including durable discussion/profile share destinations that render only after the normal completion surface; `src/services/reply-keyboard-navigation.js` resolves its language, welcome, page-aware Interest, custom-input, taste-nudge, and completion labels only in the matching durable mode.
+- `src/flows/onboarding.js` owns the first-session Favorites quick start, resumable section-scoped progress, and completion-destination analytics, including durable discussion/profile share destinations that render only after the normal completion surface. It saves through the central AI-list service and hands Suggestion off to the existing suggestion flow. `src/services/reply-keyboard-navigation.js` resolves language, welcome, media-section selection, completion, and the separate optional Interests nudge only in their matching durable modes.
 - `src/flows/discussion-messages.js` owns active-room text/voice message validation, recent-message append orchestration, delivery, and runtime reply mapping.
 - `src/flows/discussions-create-text.js` owns typed discussion-create wizard states.
 - `src/flows/discussions-create-callbacks.js` owns inline discussion-create wizard callbacks.
@@ -230,5 +230,5 @@ Age is optional and not enforced by the profile viewing gate.
 ## Referral And Shared-Link Continuation
 
 - `src/flows/guide-referrals.js` builds the focused Guide referral card from startup-loaded Star settings. `src/services/invite-links.js` builds safe deep links and `src/services/star-referrals.js` owns opaque links, first-referrer claims, qualification, and reward idempotency.
-- Shared-discussion continuation is stored on the User and consumed by the existing onboarding and normal discussion-preview flows. It never enters stored invitation services. Directed-pair rewards accept only stored `saved_profile` invitation sources.
+- Shared-discussion continuation is stored on the User and consumed by the onboarding and normal discussion-preview flows. On completion, the genuine shared link may be preserved as a non-rewarding `shared_link` invitation; onboarding never creates a generated starter invitation. Directed-pair rewards accept only stored `saved_profile` invitation sources.
 - `src/services/share-actions.js` owns platform-native share URL construction and safe copy-button limits. Referral, discussion, and Favorites flows provide their own localized content and attribution semantics.

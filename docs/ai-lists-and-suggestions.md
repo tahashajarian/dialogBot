@@ -4,9 +4,9 @@
 
 - AI assistant/List menu includes the media sections only: Movies & Series, Music, and Books. The internal key remains `movies`; both movies and series use the same Favorites, For Later, taste, matching, and discussion-rule data without migration.
 - On each user's first successful visit, the main Movies, Music & Books / Favorites hub is one photo card using `assets/favorites-hub-banner.jpg`, with the existing localized hub copy as its caption and normal controls beneath it. Later visits are text-only so Telegram chat history and shared media do not accumulate repeated banners. Persist the per-user banner timestamp only after successful photo delivery; a failed photo attempt falls back to the complete text hub and remains eligible for retry. Banner delivery uses the shared Mongo-backed Telegram `file_id` cache; `FAVORITES_HUB_BANNER_FILE_ID` is only an optional seed.
-- Interests are edited from Profile and collected during onboarding, not shown as a fourth button inside the Lists hub.
-- The internal `random` section stores profile/onboarding interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
-- `🌿 علاقه‌مندی‌ها` should feel first-class in Profile and onboarding for users who are not strongly into movies, music, or books.
+- Interests are edited from Profile and the separate optional Interests wizard, not shown as a fourth button inside the Lists hub or collected by first-run onboarding.
+- The internal `random` section stores profile Interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
+- `🌿 علاقه‌مندی‌ها` should feel first-class in Profile for users who are not strongly into movies, music, or books.
 - Media section entry opens the section TopTen manager directly; there is no separate section home/lobby. User-facing copy presents this as Favorites while the internal storage name remains `topTen`.
 - Media section entry should keep its section title visible in the active manager so users can see their path. On the first successful Movies, Music, or Books entry per user, the existing manager is sent as a single photo card using `assets/movies-section-banner.jpg`, `assets/music-section-banner.jpg`, or `assets/books-section-banner.jpg`, with the localized manager text as its caption and the normal controls beneath it; it must not send a separate banner message. Persist an independent per-section banner timestamp only after successful photo delivery. Later entries use the complete text manager without another photo, and failed photo attempts remain eligible for retry. Banner delivery reuses the global Mongo-backed Telegram `file_id`, accepts `MOVIES_SECTION_BANNER_FILE_ID` / `MUSIC_SECTION_BANNER_FILE_ID` / `BOOKS_SECTION_BANNER_FILE_ID` as optional seeds, and uploads then persists the bundled asset when no reusable ID exists. Change a banner's cache key when replacing its artwork so Telegram does not continue serving the prior cached asset. If the full manager text exceeds Telegram's photo-caption limit, retain the complete text in one text manager card instead of splitting it across messages.
 - The TopTen/Favorites manager is the section home. Its actions are progressive: add a favorite, show the concrete save-for-later list only after that list has its first item, show suggestion only after three favorites, and Back. Every visible Favorites reply button, including the section-emoji Suggest button, must resolve through the exact section/list mode. Saving a suggestion as the first save-for-later item reveals the list action on subsequent Favorites renders.
@@ -116,7 +116,7 @@ Changing display titles must not rename internal label keys because stored profi
 
 ## Interests Section
 
-The `random` section is conceptually the broad interests section, but it is surfaced through Profile and onboarding rather than as a fourth Lists hub button.
+The `random` section is conceptually the broad interests section, but it is surfaced through Profile and the optional Interests wizard rather than as a fourth Lists hub button.
 
 User-facing naming should prefer:
 
@@ -220,10 +220,10 @@ Initial common chips can include:
 
 Implementation notes:
 
-- Profile Interests and onboarding should share the same curated chip catalog.
-- Profile/onboarding Interest pickers should keep selected built-in chips in their original grid position with a `✓` marker; tapping a selected chip removes it. Custom typed interests can appear as removable selected chips above the built-in grid. Do not render partial one- or two-chip item rows.
+- Profile Interests and the optional Interests wizard share the same curated chip catalog.
+- Their Interest pickers keep selected built-in chips in their original grid position with a `✓` marker; tapping a selected chip removes it. Custom typed interests can appear as removable selected chips above the built-in grid. Do not render partial one- or two-chip item rows.
 - Show a rotating page of Interest chips with a More Options action instead of displaying the full catalog at once.
-- Profile and onboarding Interest limits and typed-interest character limits are admin-managed operational limits.
+- Profile and optional-wizard Interest limits and typed-interest character limits are admin-managed operational limits.
 - Built-in Interests chips and typed interests use the same normal saved/progress response and never call AI for item feedback.
 - Built-in chip selections should be stored canonically and displayed in the current UI language; custom typed interests should keep the user's original text.
 
@@ -319,7 +319,7 @@ The Stars economy rewards list completion without charging for normal list use. 
 - Each section may award once when its TopTen reaches the configured first milestone, recommended as 3 distinct valid items.
 - Each section may award once again when its TopTen reaches the configured completion size.
 - Watch Later, Listen Later, and Read Later lists do not award Stars.
-- Interests chosen during onboarding are ordinary Interests TopTen items and use the same milestone records; onboarding must not double-award them.
+- First-run onboarding saves three Favorites in one media section. Those ordinary Favorites use the existing section milestone and ledger key; onboarding must not add or stack the retired onboarding-completion reward.
 - Removing and re-adding items never awards a milestone twice.
 - List mutation helpers remain centralized in `src/services/users.js`. Star qualification happens only after a successful mutation and uses an idempotent ledger key.
 - Relevant Top 10 success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.

@@ -51,33 +51,20 @@ test("onboarding buttons resolve only in the exact server-side step and language
   const welcome = { mode: "onboarding_welcome", state: "onboarding_welcome", user: { lang: "en" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.onboardingStartButton, welcome).callbackData, callBacks.onboardingStart);
   assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingStartButton, welcome), null);
-  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingStartButton, { ...welcome, mode: "onboarding_interests:0", state: "onboarding_interests" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingStartButton, { ...welcome, mode: "onboarding_sections", state: "onboarding_sections" }), null);
 
-  const picker = { mode: "onboarding_interests:0", state: "onboarding_interests", user: { lang: "en", aiLists: { random: { topTen: [] } } } };
-  assert.equal(resolveReplyKeyboardAction("🎬 Movies", picker).callbackData, `${callBacks.onboardingInterest}0:0`);
-  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingMoreButton, picker).callbackData, `${callBacks.onboardingMore}1`);
-  assert.equal(resolveReplyKeyboardAction("🎬 Movies", { ...picker, mode: "onboarding_interests:1" }), null);
-
-  const selected = { ...picker, user: { lang: "en", aiLists: { random: { topTen: [{ title: "Movies" }] } } } };
-  assert.equal(resolveReplyKeyboardAction("🎬 Movies ✓", selected).callbackData, `${callBacks.onboardingInterestRemove}0:0`);
-  assert.equal(resolveReplyKeyboardAction("🎬 Movies", selected), null);
-
-  const custom = { mode: "onboarding_custom:2", state: "onboarding_custom_interest:2", user: { lang: "fa" } };
-  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingCustomCancelButton, custom).callbackData, `${callBacks.onboardingCustomCancel}2`);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingCustomCancelButton, { ...custom, state: "idle" }), null);
+  const picker = { mode: "onboarding_sections", state: "onboarding_sections", user: { lang: "en" } };
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestMovies, picker).callbackData, `${callBacks.onboardingSection}movies`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestMusic, picker).callbackData, `${callBacks.onboardingSection}music`);
+  assert.equal(resolveReplyKeyboardAction(messages.en.aiSuggestBooks, picker).callbackData, `${callBacks.onboardingSection}books`);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestMovies, picker), null);
 });
 
-test("onboarding completion and taste nudge actions expire outside their server modes", () => {
-  const complete = { mode: "onboarding_complete:1:0", state: "idle", user: { lang: "fa" } };
-  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingInvitationButton, complete).callbackData, callBacks.discussionInvitations);
+test("onboarding completion actions expire outside their server mode", () => {
+  const complete = { mode: "onboarding_complete:movies", state: "idle", user: { lang: "fa" } };
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingSuggestionButton, complete).callbackData, `${callBacks.onboardingSuggestion}movies`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingMainMenuButton, complete).callbackData, callBacks.menuMain);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingDiscussionContinueButton, complete), null);
-  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingInvitationButton, { ...complete, mode: MODES.GLOBAL }), null);
-
-  const nudge = { mode: "onboarding_taste_nudge", state: "idle", user: { lang: "en" } };
-  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupStartButton, nudge).callbackData, callBacks.onboardingTasteSetupStart);
-  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupLaterButton, nudge).callbackData, callBacks.onboardingTasteSetupDismiss);
-  assert.equal(resolveReplyKeyboardAction(messages.en.onboardingTasteSetupStartButton, { ...nudge, mode: MODES.GLOBAL }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.onboardingSuggestionButton, { ...complete, mode: MODES.GLOBAL }), null);
 });
 
 test("safe onboarding destinations recover from a stale completion keyboard", () => {

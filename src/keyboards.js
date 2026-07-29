@@ -284,6 +284,14 @@ function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
   return replyKeyboardFromActions(getOnboardingInterestsReplyActions(lang, selectedTitles, page));
 }
 
+function onboardingSectionsKeyboard(lang) {
+  return replyKeyboardFromActions([
+    [{ text: messages[lang].aiSuggestMovies, callback_data: `${callBacks.onboardingSection}movies` }],
+    [{ text: messages[lang].aiSuggestMusic, callback_data: `${callBacks.onboardingSection}music` }],
+    [{ text: messages[lang].aiSuggestBooks, callback_data: `${callBacks.onboardingSection}books` }],
+  ]);
+}
+
 function onboardingTasteSetupNudgeKeyboard(lang) {
   return replyKeyboardFromActions([
     [{
@@ -326,23 +334,11 @@ function getProfileInterestsReplyActions(lang, selectedItems = [], page = 0) {
   return rows;
 }
 
-function onboardingCompleteKeyboard(lang, { hasInvitation = false, discussionContinuation = false } = {}) {
+function onboardingCompleteKeyboard(lang, { section = "" } = {}) {
   return replyKeyboardFromActions([
-    ...(discussionContinuation ? [[{
-      text: messages[lang].onboardingDiscussionContinueButton,
-      callback_data: callBacks.onboardingDiscussionContinue,
-    }]] : []),
-    ...(hasInvitation ? [[{
-      text: messages[lang].onboardingInvitationButton,
-      callback_data: callBacks.discussionInvitations,
-    }]] : []),
     [{
-      text: messages[lang].discussionActiveList,
-      callback_data: callBacks.discussionListActive,
-    }],
-    [{
-      text: messages[lang].onboardingFavoritesButton,
-      callback_data: callBacks.aiAssistant,
+      text: messages[lang].onboardingSuggestionButton,
+      callback_data: `${callBacks.onboardingSuggestion}${section}`,
     }],
     [{
       text: messages[lang].onboardingMainMenuButton,
@@ -857,6 +853,7 @@ module.exports = {
   getInterestTopTenChipTitle,
   getOnboardingInterestChipTitle,
   onboardingWelcomeKeyboard,
+  onboardingSectionsKeyboard,
   onboardingInterestsKeyboard,
   getOnboardingInterestsReplyActions,
   onboardingTasteSetupNudgeKeyboard,

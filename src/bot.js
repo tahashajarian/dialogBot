@@ -121,6 +121,8 @@ const {
 } = require("./flows/saved-profiles");
 const {
   handleOnboardingText,
+  isOnboardingInProgress,
+  resumeOnboarding,
   sendMuzeWelcome,
   shouldOfferOnboarding,
   shouldRunOnboardingForSharedDiscussion,
@@ -404,6 +406,9 @@ async function handleUpdate(ctx) {
 
     await leaveDiscussionAndClearKeyboardForNavigation(ctx, { clearKeyboard: false });
 
+    if (isOnboardingInProgress(ctx.user)) {
+      return resumeOnboarding(ctx, keyboardLang);
+    }
     if (ctx.wasUserCreated || shouldOfferOnboarding(ctx.user)) {
       return startOnboardingLanguage(ctx, keyboardLang, "", { removeReplyKeyboard: isStartAgain });
     }
@@ -431,7 +436,9 @@ async function handleUpdate(ctx) {
       return handleCallback(ctx);
     }
     if (
-      state === "onboarding_interests"
+      state === "onboarding_sections"
+      || state.startsWith("onboarding_favorites:")
+      || state === "onboarding_interests"
       || state === "onboarding_taste_setup_interests"
       || state.startsWith("onboarding_custom_interest:")
       || state.startsWith("onboarding_taste_setup_custom_interest:")

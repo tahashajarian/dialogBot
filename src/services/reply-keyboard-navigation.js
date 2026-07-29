@@ -138,6 +138,19 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       ? { callbackData: callBacks.onboardingStart, key: "onboardingStartButton" }
       : null;
   }
+  if (state === "onboarding_sections" && mode === "onboarding_sections") {
+    const actions = [
+      ["aiSuggestMovies", `${callBacks.onboardingSection}movies`],
+      ["aiSuggestMusic", `${callBacks.onboardingSection}music`],
+      ["aiSuggestBooks", `${callBacks.onboardingSection}books`],
+    ];
+    for (const [key, callbackData] of actions) {
+      if (normalized === normalizeReplyButtonText(messages[lang][key])) {
+        return { callbackData, key };
+      }
+    }
+    return null;
+  }
   const onboardingPickerMode = String(mode).match(/^onboarding_(?:interests|taste_interests):(\d+)$/);
   if (onboardingPickerMode && ["onboarding_interests", "onboarding_taste_setup_interests"].includes(state)) {
     const selected = user?.aiLists?.random?.topTen || [];
@@ -159,12 +172,12 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (normalized === normalizeReplyButtonText(messages[lang].onboardingTasteSetupLaterButton)) return { callbackData: callBacks.onboardingTasteSetupDismiss, key: "onboardingTasteSetupLaterButton" };
     return null;
   }
-  const onboardingCompleteMode = String(mode).match(/^onboarding_complete:(0|1):(0|1)$/);
+  const onboardingCompleteMode = String(mode).match(/^onboarding_complete:(movies|music|books)$/);
   if (onboardingCompleteMode && state === "idle") {
-    const actions = [];
-    if (onboardingCompleteMode[2] === "1") actions.push(["onboardingDiscussionContinueButton", callBacks.onboardingDiscussionContinue]);
-    if (onboardingCompleteMode[1] === "1") actions.push(["onboardingInvitationButton", callBacks.discussionInvitations]);
-    actions.push(["discussionActiveList", callBacks.discussionListActive], ["onboardingFavoritesButton", callBacks.aiAssistant], ["onboardingMainMenuButton", callBacks.menuMain]);
+    const actions = [
+      ["onboardingSuggestionButton", `${callBacks.onboardingSuggestion}${onboardingCompleteMode[1]}`],
+      ["onboardingMainMenuButton", callBacks.menuMain],
+    ];
     for (const [key, callbackData] of actions) if (normalized === normalizeReplyButtonText(messages[lang][key])) return { callbackData, key };
     return null;
   }

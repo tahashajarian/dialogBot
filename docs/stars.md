@@ -81,7 +81,7 @@ The exact amounts are admin-editable. The values below are recommended launch de
 
 | Milestone | Default | Frequency | Qualification |
 | --- | ---: | --- | --- |
-| Complete onboarding | 5 | Once per account | The configured onboarding interest goal is completed |
+| Complete onboarding (retired for new flow) | 5 | Historical only | Kept for existing ledger/settings compatibility; new onboarding does not award it |
 | First 3 TopTen items in a section | 3 | Once per section | Three valid, distinct items exist in that section's Top 10 |
 | Complete a Top 10 section | 7 | Once per section | The section reaches the configured completion size; this is additional to the first-3 reward |
 | Complete profile milestone | 5 | Once per account | Display name and the configured non-sensitive completion rule are satisfied |
