@@ -209,12 +209,14 @@ test("completion destinations require the exact server-scoped keyboard", () => {
   );
 });
 
-test("Favorites prompts accept creators while suggestions stay concrete", () => {
+test("Favorites prompts request concrete works without encouraging creator entries", () => {
   for (const lang of ["fa", "en"]) {
-    assert.match(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /کارگردان/ : /director/);
-    assert.match(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /نویسنده/ : /author/);
-    assert.match(messages[lang].aiTopTenInvalidItemQualityMovies, lang === "fa" ? /کارگردان/ : /director/);
-    assert.match(messages[lang].aiTopTenInvalidItemQualityBooks, lang === "fa" ? /نویسنده/ : /author/);
+    assert.match(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /فیلم یا سریال/ : /movie or series/);
+    assert.match(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /کتاب/ : /book/);
+    assert.doesNotMatch(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /کارگردان/ : /director/);
+    assert.doesNotMatch(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /نویسنده/ : /author/);
+    assert.doesNotMatch(messages[lang].aiTopTenInvalidItemQualityMovies, lang === "fa" ? /کارگردان/ : /director/);
+    assert.doesNotMatch(messages[lang].aiTopTenInvalidItemQualityBooks, lang === "fa" ? /نویسنده/ : /author/);
   }
 });
 

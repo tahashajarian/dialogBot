@@ -548,11 +548,17 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
   );
 });
 
-test("music add prompt accepts songs, albums, artists, bands, and titled audio", () => {
+test("Favorites prompts request concrete works while titled music audio remains accepted", () => {
   assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicFavoritesAddPrompt);
   assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiBookFavoritesAddPrompt);
   assert.match(getAiListAddPrompt("en", "movies", "topTen"), /movie or series/);
   assert.match(getAiListAddPrompt("fa", "movies", "topTen"), /فیلم یا سریال/);
+  assert.doesNotMatch(messages.en.aiMovieFavoritesAddPrompt, /director/);
+  assert.doesNotMatch(messages.en.aiMusicFavoritesAddPrompt, /artist|band/);
+  assert.doesNotMatch(messages.en.aiBookFavoritesAddPrompt, /author/);
+  assert.doesNotMatch(messages.fa.aiMovieFavoritesAddPrompt, /کارگردان/);
+  assert.doesNotMatch(messages.fa.aiMusicFavoritesAddPrompt, /خواننده|گروه موسیقی/);
+  assert.doesNotMatch(messages.fa.aiBookFavoritesAddPrompt, /نویسنده/);
   assert.match(messages.en.aiMusicListManageAddPrompt, /song, album, artist, or band/);
   assert.match(messages.fa.aiMusicListManageAddPrompt, /آهنگ، آلبوم، خواننده یا گروه موسیقی/);
 });
