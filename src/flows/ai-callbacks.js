@@ -68,7 +68,11 @@ const {
   getSectionMessage,
 } = require("../services/ai-section");
 const { isAllowedTasteLabel } = require("../services/taste-label-classifier");
-const { sendTasteLabelReview, withTasteInsight } = require("./ai-taste-labels");
+const {
+  sendTasteLabelReview,
+  shouldShowTasteReviewPlaceholder,
+  withTasteInsight,
+} = require("./ai-taste-labels");
 const {
   claimSuggestionAction,
   getPendingSuggestion,
@@ -317,10 +321,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
     const taste = getAiTasteFromUser(ctx.user, section);
     const retryFailed = taste.classificationStatus === "needs_choice" && !taste.freeClassificationUsedAt;
+    const withPlaceholder = shouldShowTasteReviewPlaceholder(taste);
     return sendTasteLabelReview(ctx, lang, section, {
-      withPlaceholder: retryFailed,
+      withPlaceholder,
       retryFailed,
-      replaceMessage: !retryFailed && ctx.callbackMessageId
+      replaceMessage: !withPlaceholder && ctx.callbackMessageId
         ? { message_id: ctx.callbackMessageId }
         : null,
     });

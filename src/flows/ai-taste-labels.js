@@ -32,6 +32,12 @@ function withIncompleteRecheckTip(text, lang, progress = {}) {
   return `${text}\n\n${tip}`;
 }
 
+function shouldShowTasteReviewPlaceholder(taste = {}) {
+  if (taste.freeClassificationUsedAt) return false;
+  return !["suggested", "skipped", "confirmed", "confirmed_review"]
+    .includes(String(taste.classificationStatus || ""));
+}
+
 function buildTasteReviewPresentation(lang, section, syncResult, {
   canRecheck = false,
   recheckCost = 0,
@@ -116,5 +122,6 @@ module.exports = {
   buildTasteReviewPresentation,
   formatTasteLabel,
   sendTasteLabelReview,
+  shouldShowTasteReviewPlaceholder,
   withTasteInsight,
 };

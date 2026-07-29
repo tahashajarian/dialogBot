@@ -89,14 +89,25 @@ function getPersonalizedSuggestionInstruction() {
     "Base the recommendation primarily on specific overlaps with the user's favorites.",
     "Favorites may be works or creators such as directors, authors, artists, or bands.",
     "Treat a favorite creator as a taste signal for discovery, not as a request for that creator's most famous works.",
-    "Prefer established adjacent works by other creators that share specific style, themes, atmosphere, or structure.",
-    "Do not let works by favorite creators dominate; suggest one only when it is a less-obvious strong fit or the user's request specifically points there.",
-    "Never describe a work as similar or close to a person. If the suggestion is by a favorite creator, say it is by them; otherwise name the concrete qualities it shares.",
+    "If a Favorite is a creator, recommend an established adjacent work by a different creator that shares specific style, themes, atmosphere, or structure.",
+    "Do not recommend a work by a favorite creator unless the user's current request explicitly asks for that creator; this rule also applies when that creator's works appear in liked-and-already-consumed items.",
+    "Never describe a work as similar or close to a person, and never use a creator's name as the target of a comparison. Describe the concrete shared qualities instead.",
     "Treat liked-and-already-consumed items as additional positive taste evidence.",
     "Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection.",
     "Saved-for-later items are neutral, not evidence that the user likes them.",
     "Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items.",
   ].join(" ");
+}
+
+function getSuggestionReasonInstruction(lang) {
+  return [
+    "Write the reason so it works as a standalone saved comment.",
+    "When the evidence is a work, you may name that work directly. When the evidence is a creator, describe the shared qualities without comparing the suggestion to the person.",
+    "Avoid phrases like 'your taste in' or «سلیقه‌ات در».",
+    lang === "fa"
+      ? "In Persian, make the suggested item the subject. A comparison like «فضای تلخ و ماندگارش به Stalker و Nostalghia نزدیکه» is allowed only when X and Y are works, never people. Never begin the reason with «برای» followed by favorites, and never use «درمی‌آید» or «می‌گیردت» for the comparison."
+      : "",
+  ].filter(Boolean).join(" ");
 }
 
 function buildTasteStyleInstruction(tasteStyleHint, lang) {
@@ -149,13 +160,11 @@ async function getAiSingleSuggestion({
     const instructions = [
       "Recommend exactly one real, established, widely known item.",
       "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words.",
+      "Before answering, internally check that the exact official title and every identifying detail—including year and creator—belong to the same real item.",
       "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
       "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned.",
-      "Write the reason so it works as a standalone saved comment. Refer directly to the relevant favorites or creators; avoid phrases like 'your taste in' or «سلیقه‌ات در».",
-      lang === "fa"
-        ? "In Persian, make the suggested item the subject. Prefer a natural form like «فضای تلخ و ماندگارش به X و Y نزدیکه». Never begin the reason with «برای» followed by favorites, and never use «درمی‌آید» or «می‌گیردت» for the comparison."
-        : "",
+      getSuggestionReasonInstruction(lang),
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
         ? "Keep the exact official title and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin."
@@ -263,6 +272,7 @@ async function getAiSingleSuggestion({
 module.exports = {
   getAiSingleSuggestion,
   getPersonalizedSuggestionInstruction,
+  getSuggestionReasonInstruction,
   getModeInstruction,
   buildInterestSuggestionFallback,
   extractAiResponseText,

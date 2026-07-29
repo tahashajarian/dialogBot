@@ -8,6 +8,7 @@ const {
   getInterestSuggestionQualityIssue,
   getModeInstruction,
   getPersonalizedSuggestionInstruction,
+  getSuggestionReasonInstruction,
   getSuggestionRealityIssue,
   isSuggestionUncertainResponse,
   parseSingleSuggestionResponse,
@@ -58,11 +59,19 @@ test("duplicate retries preserve an explicit series-only request", () => {
 test("creator Favorites expand discovery instead of returning only obvious creator works", () => {
   const instruction = getPersonalizedSuggestionInstruction();
   assert.match(instruction, /directors, authors, artists, or bands/);
-  assert.match(instruction, /Prefer established adjacent works by other creators/);
-  assert.match(instruction, /Do not let works by favorite creators dominate/);
+  assert.match(instruction, /recommend an established adjacent work by a different creator/);
+  assert.match(instruction, /Do not recommend a work by a favorite creator unless the user's current request explicitly asks/);
+  assert.match(instruction, /also applies when that creator's works appear in liked-and-already-consumed items/);
   assert.match(instruction, /Never describe a work as similar or close to a person/);
-  assert.match(instruction, /If the suggestion is by a favorite creator, say it is by them/);
+  assert.match(instruction, /never use a creator's name as the target of a comparison/);
   assert.match(instruction, /Saved-for-later items are neutral/);
+});
+
+test("suggestion reasons compare works to works and describe creator influence as qualities", () => {
+  const instruction = getSuggestionReasonInstruction("fa");
+  assert.match(instruction, /When the evidence is a creator, describe the shared qualities/);
+  assert.match(instruction, /allowed only when X and Y are works, never people/);
+  assert.doesNotMatch(instruction, /Refer directly to the relevant favorites or creators/);
 });
 
 test("uncertain suggestion sentinel accepts only the standalone fallback", () => {

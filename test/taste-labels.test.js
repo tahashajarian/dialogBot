@@ -18,7 +18,10 @@ const {
   skipAiTasteLabel,
   syncAiTasteForSection,
 } = require("../src/services/users");
-const { buildTasteReviewPresentation } = require("../src/flows/ai-taste-labels");
+const {
+  buildTasteReviewPresentation,
+  shouldShowTasteReviewPlaceholder,
+} = require("../src/flows/ai-taste-labels");
 const { callBacks } = require("../src/constants");
 const { aiTasteSuggestionKeyboard } = require("../src/keyboards");
 const { getTopTenManageEntryMessage } = require("../src/services/ai-list-ui");
@@ -218,6 +221,23 @@ test("AI taste suggestions require a choice and failures offer retry or a return
   assert.ok(fallbackCallbacks.includes(`${callBacks.aiTasteConfirm}books:book_buff`));
   assert.ok(!fallbackCallbacks.includes(`${callBacks.aiTasteConfirm}books:novel_reader`));
   assert.doesNotMatch(alreadyUsed.text, /✨/);
+});
+
+test("taste review shows waiting only when its first AI result still needs generation", () => {
+  assert.equal(shouldShowTasteReviewPlaceholder({}), true);
+  assert.equal(shouldShowTasteReviewPlaceholder({ classificationStatus: "needs_choice" }), true);
+  assert.equal(shouldShowTasteReviewPlaceholder({
+    classificationStatus: "suggested",
+    freeClassificationUsedAt: new Date(),
+  }), false);
+  assert.equal(shouldShowTasteReviewPlaceholder({
+    classificationStatus: "confirmed",
+    freeClassificationUsedAt: new Date(),
+  }), false);
+  assert.equal(shouldShowTasteReviewPlaceholder({
+    classificationStatus: "skipped",
+    freeClassificationUsedAt: new Date(),
+  }), false);
 });
 
 test("changing a taste label marks only the current saved suggestion with the plain Interest-style tick", () => {
