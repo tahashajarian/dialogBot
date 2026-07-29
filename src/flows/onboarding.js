@@ -30,6 +30,7 @@ const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigat
 const { sendBannerPhoto } = require("../services/banner-media");
 const { importPendingInlineListItems } = require("../services/pending-inline-lists");
 const { preserveSharedLinkInvitation } = require("../services/discussion-invitations");
+const { getSectionLabel } = require("../services/ai-section");
 
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
@@ -139,6 +140,7 @@ async function enterFavoritesStep(ctx, lang, section, { resume = false } = {}) {
   );
   const reminder = resume && count > 0
     ? messages[lang][count === 1 ? "onboardingResumeOne" : "onboardingResumeTwo"]
+      .replace("{section}", getSectionLabel(messages, lang, section))
     : getFavoritesPrompt(lang, section);
   return ctx.reply(reminder, { reply_markup: { remove_keyboard: true } });
 }

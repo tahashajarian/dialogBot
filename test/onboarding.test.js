@@ -173,7 +173,11 @@ test("plain start can resume the persisted section and count", async () => {
     User.findOneAndUpdate = originalUpdate;
   }
   assert.equal(isOnboardingInProgress(ctx.user), true);
-  assert.equal(replies[0].text, messages.fa.onboardingResumeOne);
+  assert.equal(
+    replies[0].text,
+    messages.fa.onboardingResumeOne.replace("{section}", messages.fa.aiSectionNameBooks),
+  );
+  assert.match(replies[0].text, /۱ مورد/);
   assert.equal(ctx.user.state, "onboarding_favorites:books");
 });
 
