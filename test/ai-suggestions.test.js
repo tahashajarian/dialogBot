@@ -7,6 +7,7 @@ const {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getModeInstruction,
+  getPersonalizedSuggestionInstruction,
   getSuggestionRealityIssue,
   isSuggestionUncertainResponse,
   parseSingleSuggestionResponse,
@@ -52,6 +53,16 @@ test("duplicate retries preserve an explicit series-only request", () => {
   assert.equal(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 0), "فقط سریال");
   assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /^فقط سریال/);
   assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /different item/);
+});
+
+test("creator Favorites expand discovery instead of returning only obvious creator works", () => {
+  const instruction = getPersonalizedSuggestionInstruction();
+  assert.match(instruction, /directors, authors, artists, or bands/);
+  assert.match(instruction, /Prefer established adjacent works by other creators/);
+  assert.match(instruction, /Do not let works by favorite creators dominate/);
+  assert.match(instruction, /Never describe a work as similar or close to a person/);
+  assert.match(instruction, /If the suggestion is by a favorite creator, say it is by them/);
+  assert.match(instruction, /Saved-for-later items are neutral/);
 });
 
 test("uncertain suggestion sentinel accepts only the standalone fallback", () => {

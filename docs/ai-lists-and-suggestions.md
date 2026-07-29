@@ -15,9 +15,9 @@
 - Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch Later list`, Music `Listen Later list`, and Books `Read Later list`. Persian uses the natural first-person names `لیست «بعدا می‌بینم»`, `لیست «بعدا گوش می‌دم»`, and `لیست «بعدا می‌خونم»`.
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
-- Media Favorites titles and add buttons should name the item directly: favorite movies or series, songs, or books. Music accepts a song title or clearly titled audio; do not introduce artists as a separate Favorites concept.
-- Media add prompts should be section-specific: an exact movie or series title, a song (or clearly titled audio), or a book title. Send one item per message. Movies and series are accepted without a required type field or extra selection step.
-- The Persian entry action must make the direction explicit with `پیشنهاد بگیر`. After the user enters that flow, the contextual continue action is the shorter `✨ بریم`; avoid `پیشنهاد بده`, which sounds like the user should submit a recommendation.
+- Media Favorites may contain a movie, series, or director; a song, album, artist, or band; or a book or author. Keep the existing section and Add buttons rather than introducing a creator/work type picker. For Later lists and generated suggestions remain concrete works.
+- Media add prompts should accept the corresponding work or creator forms above, one item per message. Clearly titled music audio remains accepted. Movies and series require no extra type-selection step.
+- The Persian entry action is the action noun `گرفتن پیشنهاد`. After the user enters that flow, the contextual continue action remains the shorter `✨ بریم`; avoid `پیشنهاد بده`, which sounds like the user should submit a recommendation.
 - Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
 - In list, Top 10, or suggestion bottom modes, stray text does not activate an action or reset navigation. Keep the current mode and use concise guidance only when needed. After a suggestion result, persist the result action context so stray text or a stale Back label can only restore the same Save/Done/Reject controls; it must not expose a generic section keyboard, create a blank navigation footprint, or clear the Favorites manager.
@@ -259,6 +259,8 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 ## Suggestions
 
 - Suggestions in AI sections return exactly one item plus a very short reason.
+- Creator Favorites are discovery signals, not requests to cycle through that creator's most famous works. Prefer established adjacent works by other creators with concrete stylistic, thematic, atmospheric, or structural overlap. A work by the named creator remains allowed when it is a less-obvious strong fit or the user's request points there, but it must not dominate successive results.
+- Suggestion reasons must never describe a work as similar or close to a person. If the work is by a favorite creator, state that relationship directly; otherwise name the specific shared qualities.
 - Interests suggestions should recommend a concrete activity, hobby step, game, creator, channel, podcast, place, tool, community, course, or experience tied to the user's saved interests.
 - Interests suggestions must not default to books, movies, or songs unless the user's Interests TopTen explicitly points toward that medium.
 - Prefer named resources and tightly-defined actions over generic containers such as joining a class, group, club, or workshop.

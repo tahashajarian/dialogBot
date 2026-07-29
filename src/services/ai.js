@@ -84,6 +84,21 @@ function buildUserContext({
   ].join("\n");
 }
 
+function getPersonalizedSuggestionInstruction() {
+  return [
+    "Base the recommendation primarily on specific overlaps with the user's favorites.",
+    "Favorites may be works or creators such as directors, authors, artists, or bands.",
+    "Treat a favorite creator as a taste signal for discovery, not as a request for that creator's most famous works.",
+    "Prefer established adjacent works by other creators that share specific style, themes, atmosphere, or structure.",
+    "Do not let works by favorite creators dominate; suggest one only when it is a less-obvious strong fit or the user's request specifically points there.",
+    "Never describe a work as similar or close to a person. If the suggestion is by a favorite creator, say it is by them; otherwise name the concrete qualities it shares.",
+    "Treat liked-and-already-consumed items as additional positive taste evidence.",
+    "Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection.",
+    "Saved-for-later items are neutral, not evidence that the user likes them.",
+    "Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items.",
+  ].join(" ");
+}
+
 function buildTasteStyleInstruction(tasteStyleHint, lang) {
   const cleanHint = String(tasteStyleHint || "").trim();
   if (!cleanHint) {
@@ -147,9 +162,7 @@ async function getAiSingleSuggestion({
         : "",
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
-      personalized
-        ? "Base the recommendation primarily on specific overlaps with the user's favorites. Treat liked-and-already-consumed items as additional positive taste evidence. Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection. Saved-for-later items are neutral, not evidence that the user likes them. Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items."
-        : "",
+      personalized ? getPersonalizedSuggestionInstruction() : "",
       buildTasteStyleInstruction(tasteStyleHint, lang),
       getModeInstruction(mode, lang),
     ].join(" ");
@@ -249,6 +262,7 @@ async function getAiSingleSuggestion({
 
 module.exports = {
   getAiSingleSuggestion,
+  getPersonalizedSuggestionInstruction,
   getModeInstruction,
   buildInterestSuggestionFallback,
   extractAiResponseText,
