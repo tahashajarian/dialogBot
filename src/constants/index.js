@@ -188,6 +188,7 @@ module.exports = {
     discussionCreateEditDescription: "discussion:create:edit:description",
     discussionCreateEditRule: "discussion:create:edit:rule",
     discussionCreateEditCapacity: "discussion:create:edit:capacity",
+    discussionCreateToggleLocal: "discussion:create:toggle:local",
     discussionCreateCancelEdit: "discussion:create:cancel:edit",
     discussionCreateBackToTitle: "discussion:create:back:title",
     discussionCreateBackToJoinRule: "discussion:create:back:join-rule",

@@ -21,6 +21,7 @@ const {
   sortPeopleDiscoveryItems,
 } = require("../src/services/people-discovery");
 const {
+  addPeopleNearbyTip,
   buildPeopleHubText,
   buildPeopleDiscoveryText,
   formatPeopleDiscoveryRequirementText,
@@ -322,7 +323,7 @@ test("people discovery shows localized age only when set", () => {
   assert.doesNotMatch(withoutAge, /🎂/);
 });
 
-test("people discovery shows profile language flags only when requested for All results", () => {
+test("people discovery omits profile language flags because the filter already shows language", () => {
   const items = [{
     code: "u_A1",
     name: "Sara",
@@ -332,12 +333,18 @@ test("people discovery shows profile language flags only when requested for All 
     name: "علی",
     language: "fa",
   }];
-  const mixed = buildPeopleDiscoveryText(messages, "fa", items, { showLanguage: true });
-  const filtered = buildPeopleDiscoveryText(messages, "fa", items, { showLanguage: false });
+  const mixed = buildPeopleDiscoveryText(messages, "fa", items);
 
-  assert.match(mixed, /🇬🇧/);
-  assert.match(mixed, /🇮🇷/);
-  assert.doesNotMatch(filtered, /🇬🇧|🇮🇷/);
+  assert.doesNotMatch(mixed, /🇬🇧|🇮🇷/);
+});
+
+test("people discovery separates adjacent action commands to prevent mistaps", () => {
+  const text = buildPeopleDiscoveryText(messages, "en", [{
+    code: "u_A1",
+    name: "Sara",
+  }]);
+
+  assert.match(text, /Sara\n\n👁[\s\S]*\/u_A1\n\n🔖[\s\S]*\/save_A1/);
 });
 
 test("people discovery intro invites viewing and saving without privacy wording", () => {
@@ -355,6 +362,17 @@ test("people discovery title shows the full result count", () => {
   }], { totalCount: 7 });
 
   assert.match(text, /See people \(7\)/);
+});
+
+test("People nearby guidance appears below the results title", () => {
+  const list = buildPeopleDiscoveryText(messages, "fa", [{
+    code: "u_A1",
+    name: "Sara",
+  }]);
+  const tipped = addPeopleNearbyTip(list, messages.fa.nearbyLocationTip);
+
+  assert.match(tipped, /^👀 دیدن آدم‌ها \(۱\)\n\n💡/);
+  assert.equal(addPeopleNearbyTip(list), list);
 });
 
 test("People hub keeps one people discovery entry", () => {

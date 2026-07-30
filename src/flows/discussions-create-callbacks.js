@@ -24,7 +24,7 @@ const {
   getAiListItemsFromUser,
   getAiTasteFromUser,
 } = require("../services/users");
-const { toPlainUser } = require("../services/profile");
+const { hasValidLocation, toPlainUser } = require("../services/profile");
 const { normalizeDiscussionLanguage } = require("../services/discussion-language");
 const {
   getSectionLabel,
@@ -317,7 +317,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
     );
   };
 
@@ -329,6 +329,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     maxMembers: ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers,
     paidCapacityAuthorized,
     language: ctx.user?.discussionDraftLanguage || ctx.user?.lang,
+    isLocal: ctx.user?.discussionDraftIsLocal === true,
   });
 
   const showPaidCapacityQuote = async (capacityOption) => {
@@ -471,13 +472,13 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await updateProfileField(ctx.userId, "discussionDraftLanguage", selected);
     if (ctx.user) ctx.user.discussionDraftLanguage = selected;
     await updateUserState(ctx.userId, "discussion_create_preview");
-    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang));
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal));
   }
 
   if (data === callBacks.discussionCreateLanguageBack) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "discussion_create_preview");
-    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang));
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal));
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {
@@ -487,7 +488,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
     );
   }
 
@@ -519,7 +520,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentDraft(ctx, lang, joinRule, ""),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
     );
   }
 
@@ -532,7 +533,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: joinRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
       );
     }
     return askDescription(joinRule, {
@@ -671,7 +672,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
       );
     }
     return askDescription(nextRule, {
@@ -702,7 +703,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
       );
     }
     return askDescription(nextRule, {
@@ -746,7 +747,28 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+    );
+  }
+
+  if (data === callBacks.discussionCreateToggleLocal) {
+    if (!starEconomy.localDiscussionsEnabled) return false;
+    if (!ctx.user?.discussionDraftIsLocal && !hasValidLocation(ctx.user?.location)) {
+      await ctx.answerCb?.(messages[lang].discussionLocalNeedsLocation, { show_alert: true });
+      return true;
+    }
+    const nextValue = !ctx.user?.discussionDraftIsLocal;
+    await updateProfileField(ctx.userId, "discussionDraftIsLocal", nextValue);
+    if (ctx.user) ctx.user.discussionDraftIsLocal = nextValue;
+    await ctx.answerCb?.();
+    return editCallbackMessageOrReply(
+      ctx,
+      buildDiscussionPreviewForCurrentUser(ctx, lang),
+      discussionCreateConfirmKeyboard(
+        lang,
+        ctx.user?.discussionDraftLanguage || ctx.user?.lang,
+        nextValue,
+      ),
     );
   }
 
@@ -767,7 +789,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftMaxMembers: capacity }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
     );
   }
 

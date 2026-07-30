@@ -1064,7 +1064,12 @@ test("Active Discussions shows its new browsing tip once to an older guided user
     freshDestination: true,
   });
 
-  assert.match(rendered[0].text, new RegExp(`^${messages.en.discussionActiveListFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(rendered[0].text, /^🟢 Active discussions \(1\)/);
+  assert.match(rendered[0].text, new RegExp(messages.en.discussionActiveListFirstVisitTip.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(
+    rendered[0].text.indexOf("🟢 Active discussions")
+      < rendered[0].text.indexOf(messages.en.discussionActiveListFirstVisitTip),
+  );
   assert.doesNotMatch(rendered[1].text, /Active discussions are ranked/);
   assert.match(rendered[0].text, /You can use the Join command below any discussion to enter it/);
   assert.match(rendered[1].text, /You can use the Join command below any discussion to enter it/);

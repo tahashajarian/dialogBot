@@ -125,6 +125,14 @@ async function updateUserState(userId, state) {
   );
 }
 
+async function removeUserLocation(userId) {
+  return User.findOneAndUpdate(
+    { userId },
+    { $unset: { location: 1 } },
+    { returnDocument: "after" },
+  );
+}
+
 async function resetDiscussionDraft(userId) {
   return await updateUserFields(userId, {
     discussionDraftTitle: "",
@@ -133,6 +141,7 @@ async function resetDiscussionDraft(userId) {
     discussionDraftMaxMembers: 20,
     navigationMode: "discussions",
     discussionDraftLanguage: "",
+    discussionDraftIsLocal: false,
     discussionDraftPaidOwnedSlotTransactionId: null,
     discussionDraftPaidOwnedSlotAuthorized: false,
     discussionDraftPaidOwnedSlotCap: 0,
@@ -144,6 +153,7 @@ module.exports = {
   getOrCreateUser,
   normalizePlatformUserSource,
   recordRecentJoinedDiscussion,
+  removeUserLocation,
   resetDiscussionDraft,
   updateLanguage,
   updateLocationCityForSharedAt,

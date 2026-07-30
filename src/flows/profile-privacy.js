@@ -229,6 +229,7 @@ async function handleProfilePrivacyCallback(ctx, lang, {
     );
   }
 
+
   if (data === callBacks.profileInvitationRestrictions) {
     await ctx.answerCb?.();
     return renderInvitationRestrictionsList(ctx, lang, 0, {

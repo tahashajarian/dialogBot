@@ -1,7 +1,7 @@
 const { callBacks } = require("../constants");
 const messages = require("../messages");
 const { operationalLimits } = require("../services/operational-limits");
-const { isDiscussionBoostAvailable } = require("../services/star-settings");
+const { isDiscussionBoostAvailable, starEconomy } = require("../services/star-settings");
 const { localizeInterestChipTitleWithEmoji } = require("../services/interest-chips");
 const {
   formatCapacityOptionLabel,
@@ -84,17 +84,18 @@ function discussionListNavigationKeyboard(lang, {
   }
 
   if (listType === "active") {
-    rows.push([{
+    const filterRow = [{
       text: `🔓 ${joinableOnly ? messages[lang].discussionListShowAll : messages[lang].discussionListOnlyJoinable}`,
       callback_data: `${callBacks.discussionListActivePage}0:${joinableOnly ? "all" : "joinable"}${languageFilter ? `:${languageFilter}` : ""}`,
-    }]);
-    if (languageFilter) rows.push([{
+    }];
+    if (languageFilter) filterRow.push({
       text: messages[lang].discussionListLanguageFilterButton.replace(
         "{language}",
         languageFilter === "all" ? messages[lang].discussionLanguageBoth : languageFilter === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian,
       ),
       callback_data: `${callBacks.discussionListLanguageOpen}${joinableOnly ? "joinable" : "all"}:${languageFilter}`,
-    }]);
+    });
+    rows.push(filterRow);
   }
 
   if (listType === "mine" && hasRecentDiscussions) {
@@ -535,11 +536,11 @@ function discussionSectionKeyboard(lang, prefix, {
   return replyKeyboard(rows);
 }
 
-function discussionCreateConfirmKeyboard(lang, currentLanguage = lang) {
+function discussionCreateConfirmKeyboard(lang, currentLanguage = lang, isLocal = false) {
   const languageLabel = currentLanguage === "en"
     ? messages[lang].discussionLanguageEnglish
     : messages[lang].discussionLanguagePersian;
-  return replyKeyboard([
+  const rows = [
     [{ text: messages[lang].discussionCreateConfirm, callback_data: callBacks.discussionCreateConfirm }],
     [
       { text: messages[lang].discussionEditTitle, callback_data: callBacks.discussionCreateEditTitle },
@@ -549,11 +550,20 @@ function discussionCreateConfirmKeyboard(lang, currentLanguage = lang) {
       { text: messages[lang].discussionEditRule, callback_data: callBacks.discussionCreateEditRule },
       { text: messages[lang].discussionEditCapacity, callback_data: callBacks.discussionCreateEditCapacity },
     ],
+  ];
+  if (starEconomy.localDiscussionsEnabled) {
+    rows.push([{
+      text: isLocal ? messages[lang].discussionRemoveLocal : messages[lang].discussionMakeLocal,
+      callback_data: callBacks.discussionCreateToggleLocal,
+    }]);
+  }
+  rows.push(
     [
       { text: messages[lang].discussionChangeLanguage.replace("{language}", languageLabel), callback_data: callBacks.discussionCreateToggleLanguage },
       { text: messages[lang].discussionCreateCancel, callback_data: callBacks.discussionCreateCancel },
     ],
-  ]);
+  );
+  return replyKeyboard(rows);
 }
 
 function discussionCreateLanguagePickerKeyboard(lang, currentLanguage = "fa") {

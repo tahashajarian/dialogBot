@@ -234,3 +234,8 @@ Age is optional and not enforced by the profile viewing gate.
 - `src/flows/guide-referrals.js` builds the focused Guide referral card from startup-loaded Star settings. `src/services/invite-links.js` builds safe deep links and `src/services/star-referrals.js` owns opaque links, first-referrer claims, qualification, and reward idempotency.
 - Shared-discussion continuation is stored on the User and consumed by the onboarding and normal discussion-preview flows. On completion, the genuine shared link may be preserved as a non-rewarding `shared_link` invitation; onboarding never creates a generated starter invitation. Directed-pair rewards accept only stored `saved_profile` invitation sources.
 - `src/services/share-actions.js` owns platform-native share URL construction and safe copy-button limits. Referral, discussion, and Favorites flows provide their own localized content and attribution semantics.
+## Private geospatial matching
+
+`src/services/nearby.js` owns coordinate validation, GeoJSON construction, bounded query shapes, and stable
+nearby/non-nearby partitioning. User location mutations remain in user services; discussion geospatial queries
+remain in the discussion service. UI services receive only an `isNearby` marker and never raw distance data.

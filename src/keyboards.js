@@ -348,6 +348,9 @@ function onboardingCompleteKeyboard(lang, { section = "" } = {}) {
 }
 
 function profileKeyboard(lang, hasPhoto = false) {
+  const locationEnabled = starEconomy.profileLocationEnabled
+    || starEconomy.nearbyPeopleEnabled
+    || starEconomy.localDiscussionsEnabled;
   const rows = [
     [
       { text: messages[lang].profileEditName },
@@ -356,7 +359,7 @@ function profileKeyboard(lang, hasPhoto = false) {
     hasPhoto
       ? [
         { text: messages[lang].profileEditBio },
-        ...(starEconomy.profileLocationEnabled
+        ...(locationEnabled
           ? [{ text: messages[lang].profileEditLocation }]
           : []),
       ]
@@ -370,7 +373,7 @@ function profileKeyboard(lang, hasPhoto = false) {
         { text: messages[lang].profileResetPhoto },
       ]]
       : []),
-    ...(!hasPhoto && starEconomy.profileLocationEnabled
+    ...(!hasPhoto && locationEnabled
       ? [[{ text: messages[lang].profileEditLocation }]]
       : []),
     [
@@ -430,7 +433,7 @@ function profilePrivacySafetyKeyboard(lang, {
   showsInPeopleDiscovery = true,
   showsFavorites = true,
 } = {}) {
-  return inlineKeyboard([
+  const rows = [
     [
       {
         text: showsInPeopleDiscovery
@@ -455,6 +458,8 @@ function profilePrivacySafetyKeyboard(lang, {
       text: messages[lang].profileInvitationRestrictionsButton,
       callback_data: callBacks.profileInvitationRestrictions,
     }],
+  ];
+  rows.push(
     [{
       text: messages[lang].accountDeleteButton,
       callback_data: callBacks.accountDelete,
@@ -463,7 +468,8 @@ function profilePrivacySafetyKeyboard(lang, {
       text: messages[lang].profilePrivacyBackToSettings,
       callback_data: callBacks.profilePrivacyBack,
     }],
-  ]);
+  );
+  return inlineKeyboard(rows);
 }
 
 function profileInvitationRestrictionsKeyboard(lang, _entries = [], { page = 0, totalPages = 1 } = {}) {
@@ -671,19 +677,24 @@ function genderKeyboard(lang) {
   ]);
 }
 
-function locationKeyboard(lang) {
+function locationKeyboard(lang, { canRemove = false } = {}) {
   return {
     reply_markup: {
       keyboard: [
         [
           {
-            text: messages[lang].profileLocationButton,
+            text: canRemove
+              ? messages[lang].profileUpdateLocationButton
+              : messages[lang].profileLocationButton,
             request_location: true,
           },
         ],
+        ...(canRemove ? [[{
+          text: messages[lang].profileRemoveLocationButton,
+        }]] : []),
         [
           {
-            text: messages[lang].cancelEdit,
+            text: messages[lang].profileBackToProfile,
           },
         ],
       ],

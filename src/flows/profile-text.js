@@ -12,6 +12,7 @@ const {
 const {
   addAiListItem,
   getAiListItemsFromUser,
+  removeUserLocation,
   updateLocationCityForSharedAt,
   updateProfileField,
   updateUserFields,
@@ -23,6 +24,7 @@ const { isKnownProfileNavigationLabel } = require("../services/reply-keyboard-na
 const { resolveCityByCoordinates } = require("../services/location");
 const {
   isValidTextInput,
+  hasValidLocation,
   saveLocationProfile,
   toPlainUser,
   validateProfileName,
@@ -113,7 +115,12 @@ async function handleProfileCancelText(ctx, lang, state, { sendProfile, keyboard
 }
 
 async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboardLang }) {
-  if (state === "editing_location" && !starEconomy.profileLocationEnabled) {
+  if (
+    state === "editing_location"
+    && !starEconomy.profileLocationEnabled
+    && !starEconomy.nearbyPeopleEnabled
+    && !starEconomy.localDiscussionsEnabled
+  ) {
     await updateUserState(ctx.userId, "idle");
     await clearProfileEditPrompt(ctx);
     const updatedUser = toPlainUser(ctx.user);
@@ -246,7 +253,26 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
   }
 
   if (state === "editing_location") {
-    if (text === messages[lang].cancelEdit) {
+    if (text === messages[lang].profileRemoveLocationButton) {
+      const updatedUser = await removeUserLocation(ctx.userId);
+      await updateUserState(ctx.userId, "idle");
+      await clearProfileEditPrompt(ctx);
+      await ctx.reply(messages[lang].profileLocationRemoved, {
+        reply_markup: { remove_keyboard: true },
+      });
+      if (ctx.user) {
+        ctx.user.location = null;
+        ctx.user.state = "idle";
+      }
+      const nextUser = toPlainUser(updatedUser || ctx.user);
+      nextUser.state = "idle";
+      return sendProfile(ctx, nextUser, lang, keyboardLang);
+    }
+
+    if (
+      text === messages[lang].cancelEdit
+      || text === messages[lang].profileBackToProfile
+    ) {
       await updateUserState(ctx.userId, "idle");
       await clearProfileEditPrompt(ctx);
       const updatedUser = toPlainUser(ctx.user);
@@ -254,7 +280,13 @@ async function handleProfileText(ctx, lang, text, state, { sendProfile, keyboard
       return sendProfile(ctx, updatedUser, lang, keyboardLang);
     }
 
-    return sendProfileEditPrompt(ctx, messages[lang].profileEditHintLocation, locationKeyboard(lang));
+    return sendProfileEditPrompt(
+      ctx,
+      hasValidLocation(ctx.user?.location)
+        ? messages[lang].profileEditHintLocationExisting
+        : messages[lang].profileEditHintLocation,
+      locationKeyboard(lang, { canRemove: hasValidLocation(ctx.user?.location) }),
+    );
   }
 
   if (state === "editing_bio" && text) {

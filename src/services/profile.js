@@ -7,6 +7,7 @@ const { getProfileStarCompletionStatus } = require("./star-milestones");
 const { starEconomy } = require("./star-settings");
 const { isLowQualityProfileName } = require("./ai-input-quality");
 const { hasSensitiveName } = require("./sensitive-name-moderation");
+const { buildGeoPoint } = require("./nearby");
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
 const PDI = "\u2069";
@@ -368,6 +369,7 @@ function buildLocationPayload(locationMessage) {
   return {
     latitude: Number(locationMessage.latitude),
     longitude: Number(locationMessage.longitude),
+    point: buildGeoPoint(locationMessage),
     accuracy: locationMessage.horizontal_accuracy || null,
     city: null,
     cityLookupAttemptedAt: null,

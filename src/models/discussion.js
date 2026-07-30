@@ -39,6 +39,14 @@ const DiscussionSchema = new mongoose.Schema({
   language: { type: String, enum: ["fa", "en"], required: true, default: "fa", index: true },
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   joinRule: { type: DiscussionJoinRuleSchema, default: () => ({ type: "open" }) },
+  isLocal: { type: Boolean, default: false },
+  localLocation: {
+    point: {
+      type: { type: String, enum: ["Point"] },
+      coordinates: { type: [Number], default: undefined },
+    },
+    snappedAt: Date,
+  },
   memberUserIds: { type: [Number], default: [] },
   removedUserIds: { type: [Number], default: [] },
   maxMembers: { type: Number, default: 20 },
@@ -65,6 +73,16 @@ DiscussionSchema.index(
   { name: "creator_open_discussions_activity_sort" },
 );
 DiscussionSchema.index({ memberUserIds: 1, status: 1 });
+DiscussionSchema.index(
+  { "localLocation.point": "2dsphere" },
+  {
+    name: "local_discussion_location",
+    partialFilterExpression: {
+      isLocal: true,
+      "localLocation.point.type": "Point",
+    },
+  },
+);
 DiscussionSchema.index(
   { publicDiscussionCode: 1 },
   {

@@ -1,252 +1,213 @@
-# New Onboarding — Confirmed Decisions
-
-- Discuss every onboarding decision here step by step.
-- Add a decision to this file only after it is explicitly confirmed.
-- Before presenting any step for confirmation, inspect its current implementation, messages, documentation, and tests.
-- Do not begin implementation until the full onboarding flow is reviewed and approved.
-
-## 1. Language selection
-
-- Keep the existing first step unchanged.
-- A genuinely new user starts with the Persian/English language selection.
-- Do not show the product introduction before language selection.
-- Continue the new welcome flow in the selected language.
-
-## 2. Welcome — Persian copy
-
-- Keep the existing cinematic welcome banner, personalized-name variant, text fallback, and `شروع کنیم 🌿` button.
-- Use this Persian welcome copy:
-
-  👩‍🦳 سلام، من میوزم.
-
-  هر چیزی که دوست داری، بخشی از سلیقه‌ات رو می‌سازه.
-
-  از فیلم‌ها، موسیقی‌ها و کتاب‌ها تا هر چیزی که بخشی از دنیای توئه.
-
-  برای شروع، ۳ تا از چیزهایی که خیلی دوست داری رو وارد کن. بعدش می‌تونی بر اساس اون‌ها پیشنهادهای تازه بگیری و بعدا آدم‌ها و گفت‌وگوهای مرتبط رو پیدا کنی.
-
-  برای جابه‌جایی از دکمه‌ها استفاده کن. فقط وقتی ازت خواستم، پیام متنی بفرست.
-
-- Use this English welcome copy:
-
-  👩‍🦳 Hi, I’m Muze.
-
-  Everything you love becomes part of your taste.
-
-  From movies, music, and books to anything that feels like part of your world.
-
-  To start, add three things you really love. Based on them, you can get new suggestions and later find relevant people and discussions.
-
-  Use the buttons to navigate. Send text only when I ask you to type.
-
-- Keep the existing `Let’s start 🌿` button.
-
-## 3. Choose a Favorites section
-
-- After `شروع کنیم 🌿` / `Let’s start 🌿`, show a focused category-selection step without another banner.
-- Persian:
-
-  👩‍🦳 برای شروع، بخشی رو انتخاب کن که سهم بیشتری از دنیای تو داره.
-
-  💡 بعدا می‌تونی از «🎬🎵📚 محبوب‌های من» بخش‌های دیگه رو انتخاب کنی.
-
-- English:
-
-  👩‍🦳 To start, choose the section that has a bigger place in your world.
-
-  💡 Later, you can choose the other sections from “🎬🎵📚 My favorites.”
-
-- Show the existing section labels as buttons:
-  - `🎬 فیلم و سریال` / `🎬 Movies & Series`
-  - `🎵 موسیقی` / `🎵 Music`
-  - `📚 کتاب‌ها` / `📚 Books`
-- Use an exact server-scoped onboarding category state and accept only its current-language buttons.
-- If the user types instead of choosing, reuse the existing button-only guidance handler and `sectionTextUseBottomButtons` copy; do not create new wording.
-- Keep the category step active after button-only guidance.
-- Do not save typed text as a Favorite until a category has been selected.
-- Keep the existing global update rate limit and repeated-interaction protection.
-
-## 4. Favorites inputs and suggestion safety
-
-- Keep all existing Favorites section names and buttons unchanged.
-- Favorites may contain:
-  - Movies: a movie, series, or director.
-  - Music: a song, album, artist, or band.
-  - Books: a book or author.
-- Do not add a media/creator type-selection step and do not change the stored list-item schema.
-- For Later lists remain work-only rather than creator lists.
-- Update the section-specific Favorites entry messages across the whole bot, not only onboarding. Exact copy remains pending review.
-- Add only the minimum internal AI clarification needed to treat creators as taste signals; do not redesign the suggestion flow, result format, controls, limits, saving, or Stars.
-- Suggestions must always return one concrete, real, searchable item:
-  - Movies: a movie or series.
-  - Music: a song/track, not an artist, band, album, playlist, or general recommendation.
-  - Books: a book.
-- Preserve all existing anti-hallucination and output-verification protections.
-- Suggestion fallback order:
-  1. Use confidently recognized Favorites and creators.
-  2. Ignore unrecognized Favorites without guessing what they mean.
-  3. If only some are recognized, use only those as taste evidence.
-  4. If none are recognized, use the user's chosen mood/genre when available; otherwise return a safe, established general suggestion in that section.
-  5. Never claim that a general fallback is related to an unrecognized Favorite.
-- Provider failure, timeout, or invalid/unverifiable output keeps the existing failure behavior; the general fallback applies only to unrecognized taste input, not a failed provider.
-
-### Confirmed Favorites entry copy
-
-- Movies — Persian:
-
-  👩‍🦳 عنوان دقیق یک فیلم یا سریال، یا اسم کارگردانی که واقعا دوستش داری رو بفرست.
-
-  💡 در هر پیام فقط یک مورد.
-
-- Movies — English:
-
-  👩‍🦳 Send the exact title of a movie or series, or the name of a director you genuinely love.
-
-  💡 Send one item per message.
-
-- Music keeps its existing copy unchanged.
-
-- Books — Persian:
-
-  👩‍🦳 عنوان دقیق یک کتاب، یا اسم نویسنده‌ای که واقعا دوستش داری رو بفرست.
-
-  💡 در هر پیام فقط یک مورد.
-
-- Books — English:
-
-  👩‍🦳 Send the exact title of a book, or the name of an author you genuinely love.
-
-  💡 Send one item per message.
-
-### Confirmed Favorites input validation
-
-- Onboarding must save through the existing central `addAiListItem` path and reuse regular Favorites normalization, quality validation, duplicate detection, limits, Stars, analytics, and taste-index synchronization.
-- Reject empty input, command-like input, known placeholders, obvious keyboard sequences/mash, long repeated runs, other currently detected low-quality input, and duplicates/close duplicate matches.
-- Do not add an AI or external existence lookup for every Favorite.
-- A rejected input is not saved, does not advance progress, and keeps the user in the same onboarding input state so they can try again.
-- Unrecognized but plausible inputs that pass local validation remain covered by the confirmed suggestion-safety rule: never guess their meaning and ignore them as taste evidence if the suggestion provider cannot recognize them.
-- Update the Persian section-specific invalid-input copy:
-  - Movies: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک فیلم، سریال یا کارگردان رو بفرست.`
-  - Music: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک آهنگ، آلبوم، خواننده یا گروه موسیقی رو بفرست.`
-  - Books: `👩‍🦳 این مورد رو درست تشخیص ندادم. لطفا اسم واقعی یک کتاب یا نویسنده رو بفرست.`
-- Use the English section-specific invalid-input copy:
-  - Movies: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real movie, series, or director.`
-  - Music: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real song, album, artist, or band.`
-  - Books: `👩‍🦳 I couldn’t recognize that properly. Please send the name of a real book or author.`
-
-## 5. First onboarding Favorite saved
-
-- Save through the existing Favorites service and keep the real list capacity/progress at 1 of 10, while the onboarding surface displays progress toward its immediate three-item goal.
-- Persian:
-
-  ✓ «{item}» ثبت شد. (۱/۳)
-
-  👩‍🦳 مورد بعدی رو بفرست.
-
-  ⭐ با کامل‌کردن ۳ محبوب این بخش، {amount} ستاره می‌گیری.
-
-- English:
-
-  ✓ Saved “{item}”. (1/3)
-
-  👩‍🦳 Send the next one.
-
-  ⭐ Complete three Favorites in this section to earn {amount} Stars.
-
-- Resolve `{amount}` from the existing dashboard-managed first-three-Favorites reward setting; do not hardcode it.
-- Show this Star hint after the first successful onboarding Favorite only, not after every item.
-
-## 6. Second onboarding Favorite saved
-
-- Persian:
-
-  ✓ «{item}» ثبت شد. (۲/۳)
-
-  👩‍🦳 یکی دیگه بفرست. با ۳ انتخاب می‌تونی پیشنهاد بگیری.
-
-- English:
-
-  ✓ Saved “{item}”. (2/3)
-
-  👩‍🦳 Send one more. With three choices, you can get a suggestion.
-
-- Do not repeat the first-item Star hint.
-- Keep the user in the same category's onboarding input state.
-
-## 7. Onboarding Star reward
-
-- The third successfully saved onboarding Favorite awards only the existing first-three-Favorites reward for the chosen media section.
-- Use the existing dashboard-managed `rewardFirstThreePerSection` amount, which is 3 Stars by default.
-- Use the existing section-specific ledger reason and idempotency key: `topten_first_milestone` and `milestone:topten-first:{userId}:{section}`.
-- Completing the new onboarding must not also award the old `rewardOnboardingCompletion` reward, which is 5 Stars by default.
-- Do not stack the media Favorites milestone with the old onboarding-completion milestone.
-- Keep historical onboarding Star transactions unchanged.
-- Duplicate input, retries, process restarts, and repeated completion actions must not award the section reward twice.
-- If Star earning is disabled or the configured reward is zero, onboarding still completes and must not claim that Stars were earned.
-
-## 8. Third onboarding Favorite saved
-
-- Persian:
-
-  ✓ «{item}» ثبت شد. (۳/۳)
-
-  {existing localized Star-earned notice, only when a reward was applied}
-
-  👩‍🦳 حالا می‌تونی بر اساس محبوب‌هات پیشنهاد بگیری ✨
-
-- English:
-
-  ✓ Saved “{item}”. (3/3)
-
-  {existing localized Star-earned notice, only when a reward was applied}
-
-  👩‍🦳 You can now get a suggestion based on your Favorites ✨
-
-- Reuse the existing Star-earned notice with the applied amount and resulting balance.
-- Omit the Star notice if earning is disabled, the configured reward is zero, or no new reward was applied.
-- Do not show the normal next-full-list milestone hint during onboarding; the regular Favorites manager can introduce progress toward ten later.
-- Exit onboarding item-entry mode after the third successfully saved Favorite.
-- Use `✨` only now that suggestions are actually available; do not show it in the second-item progress line.
-
-## 9. Actions after onboarding completion
-
-- Completing the third Favorite fully completes onboarding; requesting a suggestion is optional and is not another required onboarding step.
-- Do not automatically place the user in suggestion mode.
-- Show only these two actions:
-  - `✨ پیشنهاد بگیر` / `✨ Suggestion`
-  - `🏠 خانه` / `🏠 Home`
-- The suggestion action opens the existing suggestion-mode flow, including its optional typed mood/genre context and existing `✨ بریم` / `✨ Suggest now` action.
-- Home takes the user directly to the main menu.
-- If the user types instead of choosing one of these buttons, reuse the bot's existing button-guidance handling; do not treat the text as suggestion context until the user has explicitly entered suggestion mode.
-
-## 10. Remove the automatic starter invitation
-
-- Do not create a bot-generated starter discussion invitation when the new onboarding is completed.
-- Remove the starter-invitation copy and action from the new onboarding completion experience.
-- This does not remove or discard genuine invitations or shared discussion links that brought the user to Muze.
-- Preserve real shared-link destinations so their continuation behavior can be handled separately.
-
-## 11. Resume abandoned onboarding
-
-- A plain `/start` during unfinished onboarding resumes the user at the persisted step instead of restarting onboarding or sending them to Home.
-- If no Favorites section has been chosen yet, return to the section-selection step.
-- If one or two onboarding Favorites have been saved, return to the same chosen section at the correct `1/3` or `2/3` progress.
-- Keep all previously saved Favorites and never reset the onboarding count.
-- Do not show language selection or the welcome banner again after they have already passed those steps.
-- Do not repeat an already-applied reward or the first-item Star explanation.
-- A `/start` carrying a genuine discussion, profile, or referral destination must preserve that destination while the unfinished onboarding is resumed.
-- Onboarding completion and Star milestone handling must remain idempotent across repeated `/start` commands, retries, and process restarts.
-- Send a fresh, short resume reminder appropriate to the saved step; agree on its exact localized wording separately before implementation.
-
-## 12. Suggestion handoff after onboarding
-
-- The third Favorite fully completes onboarding before either completion action is used.
-- `🏠 خانه` / `🏠 Home` opens the normal main menu without pushing another onboarding step.
-- `✨ پیشنهاد بگیر` / `✨ Suggestion` enters the existing suggestion-mode flow for the media section completed during onboarding; do not create a separate onboarding suggestion flow.
-- The existing suggestion-mode prompt and behavior remain the handoff:
-  - `✨ بریم` / `✨ Suggest now` generates from the saved Favorites without extra context.
-  - Valid typed mood, type, or genre context immediately generates a more specific suggestion.
-  - `🔙 برگشت` / `🔙 Back` opens that section's normal Favorites manager.
-- Preserve the existing suggestion-result actions and navigation, including saving to the appropriate For Later list, marking the item already consumed, rejecting it, requesting another suggestion, and returning to Favorites.
-- Allow the completion-screen Suggestion action only for the exact section successfully completed during onboarding.
-- Keep the existing section/state-scoped stale-button and repeated-tap protections; an old completion button or a button for another section must not start suggestion generation.
+# Nearby People And Local Discussions
+
+Status: implemented on `nearby-discovery` for testing; both rollout switches remain off by default.
+
+Review the user-facing copy during manual testing. Keep both rollout switches off by default so deployment changes no existing behavior.
+
+## Confirmed product decisions
+
+- Use exact shared coordinates only for private distance calculation.
+- The freely typed profile city remains display-only and must never be used for nearby matching.
+- Never show coordinates or exact distance to another user or discussion creator.
+- Do not sort results by exact distance.
+- Use one configurable nearby radius for People and Discussions.
+- Initial radius: strictly less than 50 km.
+- Locations do not expire automatically.
+- Users must be able to share, update, and remove their location.
+- Removing a location removes the user from location-based matching.
+- Existing stored locations must not automatically opt users into Nearby after rollout.
+- Existing “Show me in See People / Hide me” controls whether a profile participates in Nearby People.
+- Keep Nearby available without premium access initially so the discovery pool is not artificially reduced.
+- Use two independent dashboard switches:
+  - Nearby People
+  - Local Discussions
+- Both switches default off.
+- Location controls are available when at least one Nearby feature is enabled.
+
+## Nearby People behavior
+
+- Start from the existing normal People candidate pool.
+- Preserve all current eligibility, privacy, ban, language, saved-profile, deduplication, and taste-relevance rules.
+- A viewer needs a valid shared location and must be visible in See People before Nearby ranking is applied.
+- A candidate counts as nearby only when:
+  - the candidate has a valid shared location;
+  - the candidate is visible in See People;
+  - the viewer is visible in See People; and
+  - the private calculated distance is below the configured radius.
+- Partition the already-eligible results into:
+  1. nearby candidates;
+  2. all other normal candidates.
+- Show nearby candidates first.
+- Preserve the existing People relevance/order inside both groups.
+- Add the bot-controlled `📍` badge only to nearby candidates.
+- Do not expose distance bands, kilometers, coordinates, direction, or a map.
+- Non-nearby and location-unavailable candidates remain visible afterward in their normal order.
+- When Nearby People is disabled globally or by the viewer, People ordering and rendering remain exactly as they are now.
+
+## Local Discussion creation
+
+- Add an optional `📍 Make local` action to the final discussion preview.
+- Show it only when the Local Discussions dashboard switch is enabled.
+- If the creator has no valid shared location, ask them to share location before making the discussion local.
+- Use the creator's current shared location.
+- Save a fixed location snapshot on the discussion when it becomes local.
+- Do not follow later creator-location updates.
+- The final preview must clearly show whether the discussion is local without displaying its coordinates.
+- Allow the creator to remove the local setting before confirming creation.
+- Confirm whether an already-created discussion may later add/remove its local status; implement only after that edit behavior is explicitly approved.
+
+## Local Discussion discovery
+
+- Start from the existing normal Active Discussions candidate pool.
+- Preserve all current open/full, membership, join-rule, removed-user, language, relevance-tier, boost, freshness, capacity, and starter-room rules.
+- A local discussion counts as nearby only when:
+  - it has a valid creator-location snapshot;
+  - the viewer has a valid shared location; and
+  - the private calculated distance is below the configured radius.
+- Partition already-eligible discussions into:
+  1. nearby local discussions;
+  2. all other normal discussions.
+- Show nearby local discussions first.
+- Preserve the existing discussion ranking inside both groups.
+- Add the bot-controlled `📍` badge only when the discussion is nearby for that viewer.
+- Do not sort by exact distance or expose coordinates, kilometers, direction, or maps.
+- Discussions outside the radius and non-local discussions remain visible afterward normally.
+- When Local Discussions is disabled, hide creation controls and apply no nearby badge or ranking.
+- Keep stored local snapshots intact but unused while the feature is disabled.
+
+## Location UX
+
+- Audit the currently disabled profile-location flow and reuse its safe Telegram location input.
+- Do not add another Nearby on/off setting. Reuse See People visibility.
+- Agree on Persian and English copy before implementation for:
+  - what Nearby does;
+  - See People visibility;
+  - private use of exact coordinates;
+  - no public exact distance;
+  - updating location;
+  - removing location;
+  - disabling Nearby while retaining or deleting location;
+  - making a discussion local;
+  - removing local status;
+  - unavailable/invalid location;
+  - no nearby results, if a dedicated state is shown.
+- Keep all location actions together:
+  - Share location
+  - Update location
+  - Remove location
+- The location screen contains Share/Update, Remove when available, and Cancel.
+- No automatic location expiry.
+- Consider showing the user their last location-update date privately without exposing it publicly.
+
+## Anti-spoofing and safety
+
+- Keep `📍` reserved for bot-generated Nearby badges.
+- Existing validation already rejects emoji in profile names, discussion titles, and discussion descriptions; add explicit regression tests for `📍`.
+- Never send a nearby person's identity, location, or recipient list to a local discussion creator.
+- Never reveal who was considered nearby but filtered out.
+- Respect People visibility opt-out, bans, reports, invitation restrictions where applicable, and all existing discussion safety rules.
+- Revalidate location, See People visibility, switches, discussion state, and eligibility at action time.
+- Nearby does not bypass join rules, capacity, language, one-active-room, removed-user, or profile-name requirements.
+- Do not describe Nearby as live presence or claim that someone is currently at the stored location.
+
+## Data model and geospatial work
+
+- Reuse `showProfileInPeopleDiscovery`; do not add a separate Nearby consent field.
+- Reuse existing user latitude/longitude only after validating numeric bounds.
+- Add a geospatial representation/index suitable for bounded distance queries without exposing coordinates in public rendering.
+- Keep old users and existing location documents backward-compatible.
+- Add optional local-discussion fields:
+  - local enabled flag;
+  - creator location snapshot/geospatial point;
+  - snapshot timestamp.
+- Do not derive local status from the creator's current profile after creation.
+- Ensure account deletion and product-data cleanup remove all user location and local snapshot data required by privacy policy.
+- Define behavior when a creator removes their profile location after creating a local discussion: the confirmed discussion snapshot remains until the discussion closes or local status is removed.
+
+## Dashboard and rollout
+
+- Add independent dashboard switches:
+  - `nearbyPeopleEnabled`
+  - `localDiscussionsEnabled`
+- Add configurable `nearbyRadiusKm`, initially 50 km with strict `< radius` matching.
+- Define safe minimum/maximum dashboard bounds for the radius.
+- Both feature switches default off on deployment.
+- When both are off:
+  - hide all Nearby/local UI;
+  - perform no geospatial matching;
+  - preserve stored data without using it.
+- Display the effective radius and both switch states in dashboard configuration/diagnostics.
+- Keep premium gating out of the first implementation; revisit only after measuring adoption and nearby pool size.
+
+## Performance
+
+- Use indexed geospatial queries; never calculate distance against the full user or discussion collection in application memory.
+- Apply normal eligibility filters before or alongside bounded geospatial matching.
+- Keep query limits and pagination bounded.
+- Avoid additional location queries when the relevant dashboard switch is off or the viewer is hidden from See People.
+- Preserve deterministic People pagination and existing discussion ranking within nearby/non-nearby partitions.
+- Define stable pagination behavior so repeated requests do not reshuffle results.
+
+## Analytics and privacy-safe measurement
+
+- Track only aggregate events:
+  - Nearby enabled/disabled;
+  - location shared/updated/removed;
+  - nearby People result opened;
+  - local discussion marked/unmarked;
+  - nearby local discussion opened/joined.
+- Never log coordinates, exact distance, or recipient/candidate location pairs.
+- Add dashboard counts for location-sharing discoverable users and local discussions without exposing identities or locations.
+- Measure whether Nearby improves profile opens, saved profiles, discussion previews, and joins before considering premium access.
+
+## Tests
+
+- User location validation and coordinate bounds.
+- Existing stored location works only while the profile remains visible in See People.
+- Share/update/remove behavior.
+- Removing location removes the user from location matching.
+- Dashboard switches independently hide/show their feature surfaces.
+- Both switches off preserve current People and Discussion behavior exactly.
+- Strict radius boundary: below radius is nearby; equal to or above is not.
+- Nearby People requires both profiles to remain visible in See People.
+- Nearby candidates appear first without distance sorting.
+- Existing relevance order remains stable inside nearby and non-nearby groups.
+- Non-nearby People still appear afterward.
+- Local discussion uses a creation-time creator-location snapshot.
+- Creator location updates do not move an existing local discussion.
+- Nearby local discussions appear first while preserving current ranking inside groups.
+- Outside-radius and non-local discussions still appear afterward.
+- No exact location/distance appears in messages, profiles, callbacks, analytics, or logs.
+- `📍` remains rejected in user-entered profile names, discussion titles, and descriptions.
+- All existing join, invitation, block/restriction, visibility, pagination, and stale-action protections remain intact.
+- Account deletion removes required location data.
+- Translation validation, unit tests, integration tests for database mutations, and full regression suite.
+
+## Documentation updates required during implementation
+
+- `docs/discussions.md`
+- `docs/bot-ux.md`
+- `docs/architecture.md`
+- `docs/agent-map.md`
+- `docs/analytics-dashboard.md`
+- privacy/rules and deployment documentation where location behavior is described
+
+## Implemented in the testing branch
+
+- Independent dashboard switches and configurable radius.
+- Backward-compatible GeoJSON points and geospatial indexes.
+- Share/update/remove location controls in one location screen.
+- Mutual Nearby People matching, stable partitioning, and `📍` marker.
+- Optional local setting on the final discussion preview.
+- Fixed creator-location snapshots on local discussions.
+- Nearby-first Local Discussion discovery with stable existing ranking.
+- Privacy-safe rendering, strict coordinate validation, focused tests, integration tests, and source-of-truth docs.
+
+## Follow-up before rollout
+
+1. Manually test and polish Persian and English wording.
+2. Decide whether an already-created discussion may add/remove its local status.
+3. Add privacy-safe adoption/conversion analytics before a measured rollout.
+4. Add aggregate dashboard counts for location-sharing discoverable users and local discussions if needed for rollout decisions.
+5. Run a real Mongo geospatial smoke test with accounts just below and exactly at the configured radius.
+6. Deploy with both switches off and enable only after the manual privacy/UX review.

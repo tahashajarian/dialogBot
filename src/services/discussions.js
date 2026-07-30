@@ -1,5 +1,7 @@
 const Discussion = require("../models/discussion");
 const User = require("../models/user");
+const { starEconomy } = require("./star-settings");
+const { buildGeoPoint, buildNearbyGeoQuery } = require("./nearby");
 const { recordRecentJoinedDiscussion } = require("./users");
 const { normalizeDiscussionLanguage, normalizeDiscussionLanguageFilter } = require("./discussion-language");
 const { isUserMutedBy } = require("./discussion-invitation-mutes");
@@ -246,6 +248,7 @@ async function createDiscussion({
   maxMembers = operationalLimits.discussionMaxMembers,
   paidCapacityAuthorized = false,
   language,
+  isLocal = false,
 }) {
   const user = await User.findOne({ userId: creatorUserId });
   if (!user) return { ok: false, reason: "missing_user" };
@@ -253,6 +256,12 @@ async function createDiscussion({
     return { ok: false, reason: "invalid_language" };
   }
   const normalizedLanguage = normalizeDiscussionLanguage(language, user.lang);
+  const localPoint = isLocal && starEconomy.localDiscussionsEnabled
+    ? buildGeoPoint(user.location)
+    : null;
+  if (isLocal && starEconomy.localDiscussionsEnabled && !localPoint) {
+    return { ok: false, reason: "missing_location" };
+  }
 
   const normalizedTitle = normalizeTitle(title);
   if (!normalizedTitle) return { ok: false, reason: "invalid_title" };
@@ -288,6 +297,8 @@ async function createDiscussion({
     creatorUserId,
     language: normalizedLanguage,
     joinRule: parsedRule.joinRule,
+    isLocal: Boolean(localPoint),
+    ...(localPoint ? { localLocation: { point: localPoint, snappedAt: new Date() } } : {}),
     status: "open",
     memberUserIds: [creatorUserId],
     maxMembers: normalizedMaxMembers,
@@ -326,6 +337,7 @@ async function createDiscussion({
       joinRuleType: parsedRule.joinRule.type,
       maxMembers: normalizedMaxMembers,
       language: normalizedLanguage,
+      isLocal: Boolean(localPoint),
     },
   });
 
@@ -380,6 +392,18 @@ async function listActiveDiscussions({ userId, limit = 50, languageFilter = "all
   });
 
   return { ok: true, discussions };
+}
+
+async function findNearbyDiscussionIds(discussionIds = [], point, radiusKm) {
+  const geoQuery = buildNearbyGeoQuery(point, radiusKm);
+  if (!geoQuery || !discussionIds.length) return new Set();
+  const nearby = await Discussion.find({
+    _id: { $in: discussionIds },
+    status: "open",
+    isLocal: true,
+    "localLocation.point": geoQuery,
+  }).select("_id").lean();
+  return new Set((nearby || []).map((entry) => String(entry._id)));
 }
 
 async function listMyDiscussions(userId, { limit = 50 } = {}) {
@@ -893,6 +917,7 @@ module.exports = {
   createDiscussion,
   seedBotDiscussions,
   listActiveDiscussions,
+  findNearbyDiscussionIds,
   listMyDiscussions,
   listOwnedOpenDiscussionSummaries,
   listRecentJoinedDiscussions,
