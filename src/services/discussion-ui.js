@@ -1,5 +1,6 @@
 const {
   ensurePublicDiscussionCodes,
+  findNearbyDiscussionIds,
   validateJoinRules,
 } = require("./discussions");
 const { getSectionEmoji, getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
@@ -8,6 +9,7 @@ const { paginateItems } = require("./pagination");
 const { PAGINATION } = require("../constants/pagination");
 const User = require("../models/user");
 const { isDiscussionBoostAvailable, starEconomy } = require("./star-settings");
+const { hasValidGeoPoint, partitionNearby } = require("./nearby");
 const { formatOperationalLimitsText } = require("./operational-limits-ui");
 
 const DISCUSSION_LIST_PAGE_SIZE = PAGINATION.discussionListPageSize;
@@ -197,7 +199,7 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
     .filter((entry) => entry.discussion.isBoosted && entry.discussion.isJoinable)
     .slice(0, boostedSlots)
     .map((entry) => String(entry.discussion._id)));
-  return ranked
+  const normallyRanked = ranked
     .sort((left, right) => (
       (right.tier - left.tier) ||
       (Number(promotedBoostIds.has(String(right.discussion._id))) - Number(promotedBoostIds.has(String(left.discussion._id)))) ||
@@ -206,6 +208,24 @@ async function rankDiscussionsForDiscovery(user, discussions = [], { now = new D
       (left.index - right.index)
     ))
     .map((entry) => entry.discussion);
+  if (
+    !starEconomy.localDiscussionsEnabled
+    || !hasValidGeoPoint(user?.location?.point)
+    || !normallyRanked.length
+  ) {
+    return normallyRanked;
+  }
+  const ids = normallyRanked.map((entry) => entry?._id).filter(Boolean);
+  const nearbyIds = await findNearbyDiscussionIds(
+    ids,
+    user.location.point,
+    starEconomy.nearbyRadiusKm,
+  );
+  return partitionNearby(
+    normallyRanked,
+    nearbyIds,
+    (entry) => entry?._id,
+  );
 }
 
 function paginateDiscussions(discussions = [], page = 0) {
@@ -275,7 +295,8 @@ function getDiscussionDisplayTitle(messages, lang, discussion = {}) {
   const title = String(discussion.title || "").trim() || "-";
   const messageKey = getBotDiscussionMessageKey(discussion, "title");
   const localizedTitle = messageKey ? messages?.[discussion.language || lang]?.[messageKey] : title;
-  return discussion.isBotCreated ? `👩‍🦳 ${localizedTitle || title}` : title;
+  const displayTitle = discussion.isBotCreated ? `👩‍🦳 ${localizedTitle || title}` : title;
+  return discussion.isNearby ? `${displayTitle} 📍` : displayTitle;
 }
 
 function getDiscussionDisplayDescription(messages, lang, discussion = {}) {
@@ -334,7 +355,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
       entry.listAction === "leave" && code
         ? buildDiscussionActionLine(lang, leaveLabel, `/leave_${code.slice(2)}`)
         : "";
-    const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n");
+    const actions = [openLink, boostAction, ownerAction, leaveAction].filter(Boolean).join("\n\n");
     const actionsBlock = includeActions && actions ? `\n\n${actions}` : "";
     const roomNumber = `${formatListIndex(lang, baseIndex + index + 1)}.`;
     const currentPrefix = entry.isCurrentForProfileOwner
@@ -348,15 +369,11 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
       : `${roomNumber} 💬 ${roomTitle}`;
     const memberCountLine = `👥 ${count}/${entry.maxMembers || 20}`;
     const joinRuleLine = isolateText(lang, ruleWithStatus);
-    const languageDiffers = entry.language && entry.language !== lang;
     return [
       lineForLang(lang, titleLine),
       mixedValueLine(lang, "📄", description),
       lineForLang(lang, memberCountLine),
       lineForLang(lang, joinRuleLine),
-      languageDiffers
-        ? lineForLang(lang, `${entry.language === "en" ? "🇬🇧" : "🇮🇷"} ${entry.language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian}`)
-        : "",
       starterHint ? lineForLang(lang, starterHint) : "",
     ].filter(Boolean).join("\n") + actionsBlock;
   });
@@ -480,7 +497,13 @@ function buildDiscussionPreviewText(messages, lang, user) {
     .replace("{rule}", getJoinRulePreviewText(messages, lang, joinRule))
     .replace("{capacity}", String(capacity))
     .replace("{languageFlag}", language === "en" ? "🇬🇧" : "🇮🇷")
-    .replace("{language}", language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian);
+    .replace("{language}", language === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian)
+    .replace(
+      "{localLine}",
+      starEconomy.localDiscussionsEnabled
+        ? `\n${messages[lang].discussionLocalLabel}: ${user?.discussionDraftIsLocal ? messages[lang].discussionLocalYes : messages[lang].discussionLocalNo}`
+        : "",
+    );
 }
 
 module.exports = {

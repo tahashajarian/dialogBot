@@ -176,6 +176,7 @@ test("section-tip state defaults independently and rejects unknown keys", async 
     favorites: null,
     forLaterInline: null,
     people: null,
+    nearbyLocation: null,
     favoritesBanner: null,
     peopleBanner: null,
     discussionsBanner: null,

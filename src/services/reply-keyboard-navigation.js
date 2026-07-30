@@ -388,6 +388,12 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       const draftLanguage = user?.discussionDraftLanguage === "en" ? "en" : "fa";
       const languageLabel = draftLanguage === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian;
       entries.push(["discussionCreateConfirm", callBacks.discussionCreateConfirm], ["discussionEditTitle", callBacks.discussionCreateEditTitle], ["discussionEditDescription", callBacks.discussionCreateEditDescription], ["discussionEditRule", callBacks.discussionCreateEditRule], ["discussionEditCapacity", callBacks.discussionCreateEditCapacity], [messages[lang].discussionChangeLanguage.replace("{language}", languageLabel), callBacks.discussionCreateToggleLanguage]);
+      if (starEconomy.localDiscussionsEnabled) {
+        entries.push([
+          user?.discussionDraftIsLocal ? "discussionRemoveLocal" : "discussionMakeLocal",
+          callBacks.discussionCreateToggleLocal,
+        ]);
+      }
     }
     if (mode === "discussion_create_language") entries.push([`🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`✓ 🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], [`✓ 🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], ["discussionBack", callBacks.discussionCreateLanguageBack]);
     if (mode === "discussion_create_capacity") for (const capacity of getSelectableDiscussionCapacities()) entries.push([formatCapacityOptionLabel(capacity, user?.lang || "fa"), `${callBacks.discussionCreateSetCapacity}${capacity}`], [`✅ ${formatCapacityOptionLabel(capacity, user?.lang || "fa")}`, `${callBacks.discussionCreateSetCapacity}${capacity}`]);
@@ -522,7 +528,12 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   for (const [key, callbackData] of entries) {
     if (key === "advancedSearchButton" && !advancedSearchEnabled) continue;
     if (key === "profileEditPetPreference" && !starEconomy.profilePetPreferenceEnabled) continue;
-    if (key === "profileEditLocation" && !starEconomy.profileLocationEnabled) continue;
+    if (
+      key === "profileEditLocation"
+      && !starEconomy.profileLocationEnabled
+      && !starEconomy.nearbyPeopleEnabled
+      && !starEconomy.localDiscussionsEnabled
+    ) continue;
     const currentLang = messages[user?.lang] ? user.lang : "";
     const localizedValue = currentLang ? normalizeReplyButtonText(messages[currentLang][key]) : "";
     const variants = localizedValue ? [localizedValue] : labels(key);

@@ -29,8 +29,10 @@ const { sendBannerPhoto } = require("../services/banner-media");
 const {
   buildProfileText,
   getBasicProfileMissingFields,
+  hasValidLocation,
   sendProfileMessage,
 } = require("../services/profile");
+const { starEconomy } = require("../services/star-settings");
 const {
   normalizePublicProfileCode,
 } = require("../services/public-codes");
@@ -53,6 +55,7 @@ const {
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
 const {
+  addPeopleNearbyTip,
   buildPeopleHubText,
   buildPeopleDiscoveryText,
   formatPeopleDiscoveryRequirementText,
@@ -428,7 +431,6 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
           minSharedItems,
         ),
         showSharedSections: true,
-        showLanguage: showLanguageFilter && languageFilter === "all",
       })
       : result.ok
         ? formatPeopleDiscoveryRequirementText(
@@ -458,15 +460,24 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
 async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
+  const showNearbyTip = starEconomy.nearbyPeopleEnabled
+    && !hasSectionTipBeenShown(ctx.user, "nearbyLocation");
+  const nearbyTipText = showNearbyTip
+    ? (hasValidLocation(ctx.user?.location) ? messages[lang].nearbyMarkerTip : messages[lang].nearbyLocationTip)
+    : "";
+  const text = addPeopleNearbyTip(discoveryPage.text, nearbyTipText);
   if (page === 0) await sendNavigationFootprint(ctx, { lang, destination: "peopleDiscovery" });
   const sent = send
-    ? await send(discoveryPage.text, discoveryPage.keyboard)
-    : await ctx.reply(discoveryPage.text, discoveryPage.keyboard);
+    ? await send(text, discoveryPage.keyboard)
+    : await ctx.reply(text, discoveryPage.keyboard);
   const navigationMode = discoveryPage.isEmpty
     ? "people_discovery_empty"
     : `people_discovery_results:${discoveryPage.page}:${discoveryPage.totalPages}`;
   await setNavigationMode(ctx, navigationMode);
   await rememberPeopleListMessage(ctx, sent, discoveryPage.page);
+  if (showNearbyTip) {
+    await markSectionTipShownForContext(ctx, "nearbyLocation", new Date()).catch(() => null);
+  }
   return sent;
 }
 

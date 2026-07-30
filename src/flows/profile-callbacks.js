@@ -36,6 +36,7 @@ const {
 const {
   sendProfileMessage,
   buildProfileText,
+  hasValidLocation,
   toPlainUser,
 } = require("../services/profile");
 const { hasShareableMediaFavorites } = require("../services/profile-sharing");
@@ -705,11 +706,19 @@ async function handleProfileSettingsOrEditCallback(ctx, lang, {
 
   if (data === callBacks.profileEditLocation) {
     await ctx.answerCb?.();
-    if (!starEconomy.profileLocationEnabled) {
+    if (!starEconomy.profileLocationEnabled && !starEconomy.nearbyPeopleEnabled && !starEconomy.localDiscussionsEnabled) {
       await retireCallbackMessageIfPossible?.(ctx);
       return sendOwnProfile(ctx, lang, ctx.user || {});
     }
-    return beginProfileEdit(ctx, "editing_location", messages[lang].profileAskLocation, locationKeyboard(lang), { retireCallbackMessageIfPossible });
+    return beginProfileEdit(
+      ctx,
+      "editing_location",
+      hasValidLocation(ctx.user?.location)
+        ? messages[lang].profileAskLocationExisting
+        : messages[lang].profileAskLocation,
+      locationKeyboard(lang, { canRemove: hasValidLocation(ctx.user?.location) }),
+      { retireCallbackMessageIfPossible },
+    );
   }
 
   if (data.startsWith(callBacks.profileGenderSet)) {

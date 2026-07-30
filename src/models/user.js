@@ -78,6 +78,7 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
   favorites: { type: Date, default: null },
   forLaterInline: { type: Date, default: null },
   people: { type: Date, default: null },
+  nearbyLocation: { type: Date, default: null },
   favoritesBanner: { type: Date, default: null },
   peopleBanner: { type: Date, default: null },
   discussionsBanner: { type: Date, default: null },
@@ -103,6 +104,10 @@ const UserSchema = new mongoose.Schema({
   location: {
     latitude: Number,
     longitude: Number,
+    point: {
+      type: { type: String, enum: ["Point"] },
+      coordinates: { type: [Number], default: undefined },
+    },
     accuracy: Number,
     city: String,
     cityLookupAttemptedAt: Date,
@@ -186,6 +191,7 @@ const UserSchema = new mongoose.Schema({
   discussionDraftJoinRule: { type: mongoose.Schema.Types.Mixed, default: null },
   discussionDraftMaxMembers: { type: Number, default: 20 },
   discussionDraftLanguage: { type: String, enum: ["", "fa", "en"], default: "" },
+  discussionDraftIsLocal: { type: Boolean, default: false },
   discussionDraftPaidOwnedSlotTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
   discussionDraftPaidOwnedSlotAuthorized: { type: Boolean, default: false },
   discussionDraftPaidOwnedSlotCap: { type: Number, default: 0, min: 0, max: 10 },
@@ -268,6 +274,15 @@ UserSchema.index(
 UserSchema.index(
   { bannedAt: 1, profileName: 1, firstName: 1, userId: 1 },
   { name: "people_browse_candidates" },
+);
+UserSchema.index(
+  { "location.point": "2dsphere" },
+  {
+    name: "nearby_people_location",
+    partialFilterExpression: {
+      "location.point.type": "Point",
+    },
+  },
 );
 UserSchema.index(
   { similarPeopleNotificationsEnabled: 1, bannedAt: 1, lastActiveAt: 1, similarPeopleLastNotifiedAt: 1 },

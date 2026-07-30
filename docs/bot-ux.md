@@ -271,3 +271,14 @@ Discussion Forward and Copy carry the same localized invitation payload and attr
 - In normal conversation, the interface is called “here” or by the exact section name. Muze does not describe itself as a separate place or third party.
 - Avoid phrases such as “explore Muze”, “in Muze”, “Muze can help”, or “I can help about Muze”.
 - The name Muze is used directly when defining the bot, in labels, or when the user explicitly asks what Muze is.
+## Nearby rollout
+
+Nearby People and Local Discussions are optional, independently switched features. Exact Telegram coordinates
+are private matching inputs: never render coordinates, exact distance, direction, or maps. Profile city remains
+display-only. Nearby results are placed before other normally eligible results while preserving the existing
+order within both groups.
+
+When either Nearby surface is enabled, a user without a saved location sees one shared contextual tip on the
+first People or Active Discussions entry: adding location in Profile places nearby people and discussions
+higher. Once delivered on either surface, do not repeat it on the other. The Guide keeps the same information
+available permanently.

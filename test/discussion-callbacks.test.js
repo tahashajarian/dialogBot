@@ -265,6 +265,37 @@ test("discussion list text includes title, description, count, and rule", () => 
   assert.match(text, /Join 👈 \/d_AB12/);
 });
 
+test("discussion cards omit language flags because the list filter already shows language", () => {
+  const text = buildDiscussionListText(messages, "fa", "گفت‌وگوها", [{
+    title: "English room",
+    description: "Description",
+    language: "en",
+    memberUserIds: [],
+    maxMembers: 20,
+    joinRule: { type: "open" },
+    isJoinable: true,
+    publicDiscussionCode: "d_LANG",
+  }], { totalCount: 1 });
+
+  assert.doesNotMatch(text, /🇮🇷|🇬🇧/);
+});
+
+test("nearby discussion marker appears after the discussion title", () => {
+  const text = buildDiscussionListText(messages, "en", "Active discussions", [{
+    title: "Local room",
+    description: "Description",
+    memberUserIds: [],
+    maxMembers: 20,
+    joinRule: { type: "open" },
+    isJoinable: true,
+    isNearby: true,
+    publicDiscussionCode: "d_LOCAL",
+  }], { totalCount: 1 });
+
+  assert.match(text, /💬 Local room 📍/);
+  assert.doesNotMatch(text, /💬 📍 Local room/);
+});
+
 test("discussion list text separates multiple discussions with dividers", () => {
   const text = buildDiscussionListText(messages, "en", "Active discussions", [
     {
@@ -552,6 +583,19 @@ test("discussion navigation toggle keeps emoji and updates only text", () => {
   assert.equal(allButtons.at(-1)?.text, messages.fa.discussionShareClose);
 });
 
+test("Active Discussions keeps joinability and language filters in one row", () => {
+  const keyboard = discussionListNavigationKeyboard("fa", {
+    listType: "active",
+    joinableOnly: false,
+    languageFilter: "fa",
+  });
+  const filterRow = keyboard.reply_markup.inline_keyboard.find((row) =>
+    row.some((button) => button.callback_data?.startsWith(callBacks.discussionListActivePage))
+    && row.some((button) => button.callback_data?.startsWith(callBacks.discussionListLanguageOpen)),
+  );
+  assert.equal(filterRow?.length, 2);
+});
+
 test("non-empty My Discussions includes its width-friendly creator tip", () => {
   const text = buildDiscussionListText(messages, "en", messages.en.discussionMyList, [{
     title: "Hi",
@@ -568,6 +612,30 @@ test("non-empty My Discussions includes its width-friendly creator tip", () => {
   assert.match(messages.fa.discussionMyListTipWithRecent, /دکمه‌ی پایین/);
   assert.match(messages.en.discussionRecentListTip, /recently joined/);
   assert.match(messages.fa.discussionRecentListTip, /تازگی/);
+});
+
+test("My Discussions separates adjacent command links to prevent mistaps", () => {
+  const previousEconomy = starEconomy.economyEnabled;
+  const previousSpending = starEconomy.spendingEnabled;
+  const previousBoost = starEconomy.boostEnabled;
+  starEconomy.economyEnabled = true;
+  starEconomy.spendingEnabled = true;
+  starEconomy.boostEnabled = true;
+  try {
+    const text = buildDiscussionListText(messages, "fa", messages.fa.discussionMyList, [{
+      title: "گفت‌وگو",
+      description: "توضیح",
+      publicDiscussionCode: "d_SPACE1",
+      memberUserIds: [1],
+      joinRule: { type: "open" },
+      listAction: "close",
+    }]);
+    assert.match(text, /ورود 👈 \/d_SPACE1\n\n.+👈 \/boost_SPACE1\n\nبستن 👈 \/close_SPACE1/s);
+  } finally {
+    starEconomy.economyEnabled = previousEconomy;
+    starEconomy.spendingEnabled = previousSpending;
+    starEconomy.boostEnabled = previousBoost;
+  }
 });
 
 test("My Discussions navigation is inline and ends with Close", () => {
@@ -872,8 +940,13 @@ test("discussion first-visit guidance is compact, bilingual, and part of the lis
       isJoinable: true,
     }]);
     const tipped = addDiscussionFirstVisitTip(lang, list, true);
+    const [title, ...bodyLines] = list.split("\n");
 
-    assert.equal(tipped, `${messages[lang].discussionActiveListFirstVisitTip}\n\n${list}`);
+    assert.equal(
+      tipped,
+      `${title}\n\n${messages[lang].discussionActiveListFirstVisitTip}\n\n${bodyLines.join("\n").trim()}`,
+    );
+    assert.ok(tipped.indexOf(title) < tipped.indexOf(messages[lang].discussionActiveListFirstVisitTip));
     assert.equal(addDiscussionFirstVisitTip(lang, list, false), list);
     assert.match(messages[lang].discussionActiveListFirstVisitTip, /^💡/);
     assert.match(messages[lang].discussionActiveListFirstVisitTip, lang === "fa" ? /مرتب/ : /ranked/);

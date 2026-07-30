@@ -1459,3 +1459,10 @@ Stars remain a private supporting economy. Paid boosts or filters must not turn 
 - After shared-link onboarding completes, Muze immediately renders the original discussion preview and preserves the available original room as a `shared_link` inbox invitation whether it is joinable or locked by an unmet condition. A joinable preview has inline Join and delete-only Close; a locked preview has its requirement guidance and delete-only Close; neither has Back. Keep the Suggestion/Home onboarding-completion keyboard available underneath and do not prepare another starter invitation. Do not preserve missing, closed, full, removed-user, or already-member shared rooms. Joining remains explicit and applies the normal profile-name, open/full, capacity, ban, mute, restriction, active-room, and taste rules.
 - Only a direct in-bot invitation addressed to a specific existing saved profile may earn the directed-pair reward after its first eligible successful acceptance. A joinable or locked shared-link destination preserved during onboarding is a non-rewarding inbox entry; shared links can otherwise earn only the genuinely-new external-referral reward.
 - If the room becomes unavailable during onboarding, continuation uses the normal unavailable/join error without replacing or duplicating attribution.
+## Local Discussions rollout
+
+When the Local Discussions switch is enabled, a creator may mark the final draft preview as local. Creation
+stores a fixed snapshot of the creator's currently shared location. Later profile-location changes do not move
+the discussion. Discovery may place nearby local discussions first and mark them with `📍`; normal eligibility,
+join rules, capacity, language, safety rules, and ordering inside each group remain unchanged. Exact location and
+distance are never shown.

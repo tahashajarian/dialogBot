@@ -20,6 +20,7 @@ const {
   profileEmojiConfirmKeyboard,
   profileEmojiInsufficientKeyboard,
   profileActiveDiscussionHelpKeyboard,
+  locationKeyboard,
 } = require("../src/keyboards");
 const { callBacks } = require("../src/constants");
 const {
@@ -745,6 +746,23 @@ test("canceling location sharing returns to Profile", async () => {
     User.findOneAndUpdate = originalFindOneAndUpdate;
     starEconomy.profileLocationEnabled = previousLocationEnabled;
   }
+});
+
+test("location controls show Send before sharing and Update/Remove afterward", () => {
+  const firstUse = locationKeyboard("en").reply_markup.keyboard.flat();
+  assert.deepEqual(firstUse.map((button) => button.text), [
+    messages.en.profileLocationButton,
+    messages.en.profileBackToProfile,
+  ]);
+  assert.equal(firstUse[0].request_location, true);
+
+  const existing = locationKeyboard("en", { canRemove: true }).reply_markup.keyboard.flat();
+  assert.deepEqual(existing.map((button) => button.text), [
+    messages.en.profileUpdateLocationButton,
+    messages.en.profileRemoveLocationButton,
+    messages.en.profileBackToProfile,
+  ]);
+  assert.equal(existing[0].request_location, true);
 });
 
 test("sharing a location returns to Profile", async () => {

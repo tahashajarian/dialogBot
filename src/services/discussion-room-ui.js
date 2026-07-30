@@ -131,7 +131,7 @@ function formatDiscussionMemberLines(messages, lang, members = [], creatorUserId
       }
     }
 
-    const actionText = actions.length ? `\n${actions.join("\n")}` : "";
+    const actionText = actions.length ? `\n\n${actions.join("\n\n")}` : "";
     const divider = `\n${DISCUSSION_MEMBER_DIVIDER}`;
     const nameLine = formatProfileListNameLine(lang, {
       name,

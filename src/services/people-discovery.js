@@ -13,6 +13,8 @@ const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
 const { countSharedTasteItems } = require("./taste-item-matching");
 const { getProfileGenderEmoji } = require("./profile");
 const { operationalLimits } = require("./operational-limits");
+const { starEconomy } = require("./star-settings");
+const { buildNearbyGeoQuery, hasValidGeoPoint, partitionNearby } = require("./nearby");
 const {
   normalizeDiscussionLanguageFilter,
   normalizeDiscussionLanguage,
@@ -175,6 +177,27 @@ function sortPeopleDiscoveryItems(items = [], viewer = {}, now = new Date()) {
   });
 }
 
+async function applyNearbyPeoplePartition(viewer, items = []) {
+  if (
+    !starEconomy.nearbyPeopleEnabled
+    || viewer?.showProfileInPeopleDiscovery === false
+    || !hasValidGeoPoint(viewer?.location?.point)
+    || !items.length
+  ) {
+    return items;
+  }
+  const geoQuery = buildNearbyGeoQuery(viewer.location.point, starEconomy.nearbyRadiusKm);
+  if (!geoQuery) return items;
+  const candidateIds = items.map((entry) => Number(entry.userId)).filter(Number.isInteger);
+  const nearbyUsers = await User.find({
+    userId: { $in: candidateIds },
+    showProfileInPeopleDiscovery: { $ne: false },
+    "location.point": geoQuery,
+  }).select("userId").lean();
+  const nearbyIds = new Set((nearbyUsers || []).map((entry) => String(entry.userId)));
+  return partitionNearby(items, nearbyIds);
+}
+
 async function findTasteLabelCandidates(viewer, viewerTasteLabels, {
   limit,
   languageFilter,
@@ -293,7 +316,8 @@ async function findPeopleBySharedTaste(viewer, {
       items.push(entry);
     }
     const languageResult = applyPeopleLanguageFilter(items, languageFilter);
-    const limitedItems = sortPeopleDiscoveryItems(languageResult.items, viewer).slice(0, resultLimit);
+    const normallyOrderedItems = sortPeopleDiscoveryItems(languageResult.items, viewer).slice(0, resultLimit);
+    const limitedItems = await applyNearbyPeoplePartition(viewer, normallyOrderedItems);
     if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: limitedItems.length });
     return {
       ok: true,
@@ -345,7 +369,10 @@ async function findPeopleBySharedTaste(viewer, {
   }
 
   const languageResult = applyPeopleLanguageFilter(items, languageFilter);
-  const sortedItems = sortPeopleDiscoveryItems(languageResult.items, viewer);
+  const sortedItems = await applyNearbyPeoplePartition(
+    viewer,
+    sortPeopleDiscoveryItems(languageResult.items, viewer),
+  );
   if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: sortedItems.length });
   return {
     ok: true,
@@ -373,6 +400,7 @@ module.exports = {
   PEOPLE_DISCOVERY_SCORE_BAND_SIZE,
   PEOPLE_DISCOVERY_TASTE_LABEL_SECTIONS,
   applyPeopleLanguageFilter,
+  applyNearbyPeoplePartition,
   buildUserDiscoveryIndex,
   buildUserTasteLabelIndex,
   ensurePeopleDiscoveryCodes,

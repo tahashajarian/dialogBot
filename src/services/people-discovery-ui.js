@@ -9,6 +9,16 @@ function buildPeopleHubText(messages, lang, { showFirstVisitTip = false } = {}) 
   ].filter(Boolean).join("\n\n");
 }
 
+function addPeopleNearbyTip(text, tipText = "") {
+  if (!tipText) return text;
+  const value = String(text || "");
+  const firstLineBreak = value.indexOf("\n");
+  if (firstLineBreak < 0) return [value, tipText].filter(Boolean).join("\n\n");
+  const title = value.slice(0, firstLineBreak).trimEnd();
+  const body = value.slice(firstLineBreak).trim();
+  return [title, tipText, body].filter(Boolean).join("\n\n");
+}
+
 const PEOPLE_DIVIDER = PAGINATION.listDivider;
 const RTL_MARK = "\u200F";
 const FSI = "\u2068";
@@ -24,15 +34,17 @@ function formatProfileListNameLine(lang, {
   name = "",
   genderEmoji = "",
   age = null,
+  isNearby = false,
 } = {}) {
   const personEmoji = genderEmoji || "👤";
+  const nearbySuffix = isNearby ? " 📍" : "";
   const numericAge = Number(age);
   const ageSuffix = Number.isInteger(numericAge) && numericAge > 0
     ? ` — 🎂 ${formatListIndex(lang, numericAge)}`
     : "";
   return lang === "fa"
-    ? `${RTL_MARK}${personEmoji} ${FSI}${name}${PDI}${ageSuffix}`
-    : `${personEmoji} ${name}${ageSuffix}`;
+    ? `${RTL_MARK}${personEmoji} ${FSI}${name}${PDI}${ageSuffix}${nearbySuffix}`
+    : `${personEmoji} ${name}${ageSuffix}${nearbySuffix}`;
 }
 
 function formatPeopleDiscoveryRequirementText(template, lang, minSharedItems) {
@@ -67,7 +79,6 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
   intro = messages[lang].peopleDiscoverIntro,
   emptyText = messages[lang].peopleDiscoverNoProfiles,
   showSharedSections = false,
-  showLanguage = false,
   totalCount = items.length,
 } = {}) {
   if (!items.length) return emptyText;
@@ -91,18 +102,15 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
       ...(entry.sharedSections || [])
         .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`),
     ].slice(0, 2).join("\n") : "";
-    const languageSuffix = showLanguage && entry.language
-      ? ` — ${entry.language === "en" ? "🇬🇧" : "🇮🇷"}`
-      : "";
-    const nameLine = `${formatProfileListNameLine(lang, entry)}${languageSuffix}`;
+    const nameLine = formatProfileListNameLine(lang, entry);
+    const actions = [viewAction, saveAction].filter(Boolean).join("\n\n");
 
-    const row = [
+    const details = [
       `${formatListIndex(lang, baseIndex + index + 1)}.`,
       nameLine,
       sharedLines,
-      viewAction,
-      saveAction,
     ].filter(Boolean).join("\n");
+    const row = [details, actions].filter(Boolean).join("\n\n");
     const previous = items[index - 1];
     const startsSavedSection = entry.isSaved && !previous?.isSaved;
     return startsSavedSection
@@ -133,6 +141,7 @@ function isPeopleCallback(data = "") {
 }
 
 module.exports = {
+  addPeopleNearbyTip,
   buildPeopleHubText,
   buildPeopleDiscoveryText,
   formatProfileListNameLine,
