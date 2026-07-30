@@ -11,8 +11,10 @@ const {
   getSuggestionReasonInstruction,
   getSuggestionRealityIssue,
   isSuggestionUncertainResponse,
+  parseSuggestionBatch,
   parseSingleSuggestionResponse,
   splitSuggestionSentence,
+  validateSuggestionCandidate,
 } = require("../src/services/ai");
 const { formatSuggestionResultMessage } = require("../src/services/ai-list-ui");
 const { aiSuggestionCopyKeyboard } = require("../src/keyboards");
@@ -26,7 +28,8 @@ const {
   isRetryableSuggestionFailure,
 } = require("../src/services/ai-suggestion-quality");
 const {
-  AI_SUGGESTION_MAX_ATTEMPTS,
+  AI_SUGGESTION_BATCH_SIZE,
+  AI_SUGGESTION_MAX_BATCHES,
   AI_RECENT_SUGGESTION_CREATORS_LIMIT,
 } = require("../src/constants/ai");
 const {
@@ -49,6 +52,34 @@ test("suggestion save actions allow only one in-flight action per user and secti
   releaseBooksAgain();
 });
 
+test("suggestion batches parse strict JSON with optional code fences", () => {
+  const candidates = parseSuggestionBatch(
+    '```json\n[{"title":"Dark","metadata":"2017","reason":"Dense mystery and fractured timelines."}]\n```',
+  );
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].title, "Dark");
+  assert.deepEqual(parseSuggestionBatch("not json"), []);
+});
+
+test("batch candidates cannot hide uncertainty inside the reason field", () => {
+  const result = validateSuggestionCandidate({
+    candidate: {
+      title: "The Recognitions",
+      metadata: "Author: William Gaddis · 1955",
+      reason: "UNSURE",
+    },
+    mode: "books",
+    lang: "fa",
+    input: "Suggest one book",
+    topTenItems: [],
+    recentSuggestionItems: [],
+    recentSuggestionCreators: [],
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "uncertain_suggestion");
+  assert.equal(result.qualityIssue, "uncertain_candidate_field");
+});
+
 test("suggestion mood persists for a session and can be reset", () => {
   clearSuggestionMood(42, "movies");
   assert.equal(setSuggestionMood(42, "movies", "  dark comedy  "), "dark comedy");
@@ -65,7 +96,8 @@ test("duplicate retries preserve an explicit series-only request", () => {
 });
 
 test("suggestion retries stay bounded and explain the rejected quality issue", () => {
-  assert.equal(AI_SUGGESTION_MAX_ATTEMPTS, 3);
+  assert.equal(AI_SUGGESTION_BATCH_SIZE, 3);
+  assert.equal(AI_SUGGESTION_MAX_BATCHES, 2);
   assert.equal(AI_RECENT_SUGGESTION_CREATORS_LIMIT, 5);
   assert.match(
     buildSuggestionAttemptText("", "Suggest one books item", 1, "generic_reason"),
@@ -90,6 +122,38 @@ test("media suggestion quality rejects canned reasons but keeps concrete reasons
   );
   assert.equal(
     getMediaSuggestionQualityIssue({ reason: "ریتم آرام و تنش اخلاقی‌اش به Stalker نزدیکه." }),
+    "",
+  );
+});
+
+test("media suggestion quality rejects reasons that repeat Favorite names", () => {
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "انسان‌گرایی عمیقش با Shawshank و Into the Wild جور است.",
+      excludedReferenceItems: ["Shawshank", "Into the Wild"],
+    }),
+    "favorite_reference",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "انسان‌گرایی عمیق و جست‌وجوی معنایش ماندگار و تأمل‌برانگیزه.",
+      excludedReferenceItems: ["Shawshank", "Into the Wild"],
+    }),
+    "",
+  );
+});
+
+test("media suggestion quality rejects awkward Persian result phrasing", () => {
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "فضای اخلاقی خاکستری و تعلیق فلسفی‌اش ماندگار و عمیق از کار درآمده.",
+    }),
+    "awkward_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "فضای اخلاقی خاکستری و تعلیق فلسفی‌اش عمیق و ماندگاره.",
+    }),
     "",
   );
 });
@@ -132,6 +196,22 @@ test("creator safeguards reject favorite and recently suggested creators", () =>
     }),
     "",
   );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "Artist: The HU · Album: The Gereg · 2019",
+      topTenItems: ["the hu sad but true", "the hu mother nature"],
+      recentSuggestionCreators: [],
+    }),
+    "favorite_creator_work",
+  );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "Artist: The HU · Album: The Gereg · 2019",
+      topTenItems: ["The Human Condition"],
+      recentSuggestionCreators: [],
+    }),
+    "",
+  );
 });
 
 test("creator Favorites expand discovery instead of returning only obvious creator works", () => {
@@ -145,10 +225,12 @@ test("creator Favorites expand discovery instead of returning only obvious creat
   assert.match(instruction, /Saved-for-later items are neutral/);
 });
 
-test("suggestion reasons compare works to works and describe creator influence as qualities", () => {
+test("suggestion reasons describe shared qualities without naming Favorites", () => {
   const instruction = getSuggestionReasonInstruction("fa");
-  assert.match(instruction, /When the evidence is a creator, describe the shared qualities/);
-  assert.match(instruction, /allowed only when X and Y are works, never people/);
+  assert.match(instruction, /Do not name or quote any item or creator from the user's Favorites/);
+  assert.match(instruction, /concrete qualities, themes, mood, style, or structure/);
+  assert.match(instruction, /verb-free two-part phrase/);
+  assert.match(instruction, /فضای اخلاقی خاکستری و تعلیق فلسفی؛ عمیق و ماندگار/);
   assert.doesNotMatch(instruction, /Refer directly to the relevant favorites or creators/);
 });
 
@@ -170,6 +252,22 @@ test("suggestion results show active mood only when provided", () => {
     formatSuggestionResultMessage("fa", "زیر آتشفشان", "روایتی تلخ و تب‌آلود."),
     /چرا؟/,
   );
+});
+
+test("Persian book results italicize the verified original title", () => {
+  const message = formatSuggestionResultMessage(
+    "fa",
+    "مرگ قلب (The Death of the Heart)",
+    "فرسودگی عاطفی و نگاه بی‌رحم به آدم‌ها؛ دقیق و سنگین.",
+    "",
+    "Author: Elizabeth Bowen · 1938",
+    {
+      localizedTitle: "مرگ قلب",
+      originalTitle: "The Death of the Heart",
+    },
+  );
+  assert.match(message, /«مرگ قلب \(<i>The Death of the Heart<\/i>\)»/);
+  assert.match(message, /نویسنده: Elizabeth Bowen/);
 });
 
 test("media suggestions keep clean titles and separate searchable metadata", () => {
@@ -251,6 +349,16 @@ test("Persian suggestions keep searchable names but localize metadata and explan
   assert.match(
     formatSuggestionResultMessage("fa", parsed.title, parsed.reason, "", parsed.metadata),
     /2023 · کارگردان: Wim Wenders[\s\S]*برای سلیقه‌ات گزینه خوبیه/,
+  );
+  assert.match(
+    formatSuggestionResultMessage(
+      "fa",
+      "Weird Fishes/Arpeggi",
+      "ریتم سیال و گیتارهای لایه‌لایه‌اش با انتخاب‌هات هم‌مسیره.",
+      "",
+      "Artist: Radiohead · Album: In Rainbows",
+    ),
+    /هنرمند: Radiohead · آلبوم: In Rainbows/,
   );
 });
 

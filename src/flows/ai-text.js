@@ -419,6 +419,10 @@ async function sendSingleSectionSuggestion({
   userText = "",
   paidSuggestion = null,
 }) {
+  const paidRefundMessage = messages[lang].aiSuggestionPaidRefunded.replace(
+    "{cost}",
+    String(paidSuggestion?.quote?.quotedCost || 1),
+  );
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
   const recentSuggestionCreators = getAiRecentSuggestionCreatorsFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
@@ -440,13 +444,13 @@ async function sendSingleSectionSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
   const placeholder = await startAiPlaceholder(ctx, [
-    messages[lang].aiThinking,
-    messages[lang].aiThinkingStill,
-    messages[lang].aiThinkingAlmost,
-    messages[lang].aiThinkingLonger,
+    messages[lang].aiSuggestionChecking,
+    messages[lang].aiSuggestionVerifying,
+    messages[lang].aiSuggestionWaiting,
   ], {
+    stepDelays: [2500, 6500],
     initialExtra: { reply_markup: { remove_keyboard: true, selective: true } },
-    fallbackText: paidSuggestion ? messages[lang].aiSuggestionPaidRefunded : messages[lang].aiNoResponse,
+    fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
     onFallback: async () => {
@@ -515,7 +519,7 @@ async function sendSingleSectionSuggestion({
         paidSuggestion.spend?.transaction?._id,
       );
       return placeholder.finish(
-        messages[lang].aiSuggestionPaidRefunded,
+        paidRefundMessage,
         aiSuggestionModeKeyboard(lang, section),
       );
     }
@@ -556,11 +560,24 @@ async function sendSingleSectionSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_result:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_result:${section}`;
   const resultMessage = await placeholder.finish(
-    formatSuggestionResultMessage(lang, suggestionResult.title, suggestionResult.reason, userText, suggestionResult.metadata),
-    aiSuggestionCopyKeyboard(
+    formatSuggestionResultMessage(
       lang,
-      buildSuggestionCopyText(section, suggestionResult.title, suggestionResult.metadata),
+      suggestionResult.title,
+      suggestionResult.reason,
+      userText,
+      suggestionResult.metadata,
+      {
+        localizedTitle: suggestionResult.localizedTitle,
+        originalTitle: suggestionResult.originalTitle,
+      },
     ),
+    {
+      ...aiSuggestionCopyKeyboard(
+        lang,
+        buildSuggestionCopyText(section, suggestionResult.title, suggestionResult.metadata),
+      ),
+      ...(suggestionResult.originalTitle ? { parse_mode: "HTML" } : {}),
+    },
   );
   if (resultMessage) {
     const actionMessage = await ctx.reply(

@@ -5,6 +5,10 @@ const { editPlaceholder, startAiPlaceholder } = require("../src/services/ai-plac
 
 test("long-running suggestion copy includes a genuine still-thinking step", () => {
   const messages = require("../src/messages");
+  assert.equal(messages.fa.aiSuggestionChecking, "👩‍🦳 دارم چند پیشنهاد رو بررسی می‌کنم...");
+  assert.equal(messages.en.aiSuggestionChecking, "👩‍🦳 Checking a few possibilities...");
+  assert.equal(messages.fa.aiSuggestionVerifying, "👩‍🦳 دارم جزئیاتشون رو بررسی می‌کنم...");
+  assert.match(messages.fa.aiSuggestionWaiting, /هنوز ادامه داره/);
   assert.equal(messages.fa.aiThinkingLonger, "👩‍🦳 هنوز دارم فکر می‌کنم...");
   assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Still thinking...");
 });

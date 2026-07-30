@@ -106,10 +106,10 @@ function getPersonalizedSuggestionInstruction() {
 function getSuggestionReasonInstruction(lang) {
   return [
     "Write the reason so it works as a standalone saved comment.",
-    "When the evidence is a work, you may name that work directly. When the evidence is a creator, describe the shared qualities without comparing the suggestion to the person.",
+    "Do not name or quote any item or creator from the user's Favorites in the reason. Express the connection only through the suggestion's concrete qualities, themes, mood, style, or structure.",
     "Avoid phrases like 'your taste in' or «سلیقه‌ات در».",
     lang === "fa"
-      ? "In Persian, make the suggested item the subject. A comparison like «فضای تلخ و ماندگارش به Stalker و Nostalghia نزدیکه» is allowed only when X and Y are works, never people. Never begin the reason with «برای» followed by favorites, and never use «درمی‌آید» or «می‌گیردت» for the comparison."
+      ? "In Persian, prefer a compact, natural, verb-free two-part phrase: specific qualities, then «؛», then two fitting adjectives. Example: «فضای اخلاقی خاکستری و تعلیق فلسفی؛ عمیق و ماندگار.» Keep it a useful standalone comment, not a slogan. Never begin with «برای» followed by favorites, and never use «درمی‌آید», «می‌گیردت», or «از کار درآمده»."
       : "",
   ].filter(Boolean).join(" ");
 }
@@ -137,6 +137,106 @@ function buildInterestSuggestionFallback({ lang, topTenItems = [] }) {
   return { ok: true, title, reason, text: `${title}\n${reason}`, fallback: true };
 }
 
+function parseSuggestionBatch(rawText) {
+  const clean = String(rawText || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  const start = clean.indexOf("[");
+  const end = clean.lastIndexOf("]");
+  if (start < 0 || end <= start) return [];
+  try {
+    const parsed = JSON.parse(clean.slice(start, end + 1));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function validateSuggestionCandidate({
+  candidate,
+  mode,
+  lang,
+  input,
+  topTenItems,
+  recentSuggestionItems,
+  recentSuggestionCreators,
+}) {
+  const parsed = typeof candidate === "string"
+    ? parseSingleSuggestionResponse(candidate, lang)
+    : {
+        title: String(candidate?.title || "").trim(),
+        localizedTitle: String(
+          candidate?.localizedTitle
+          || candidate?.persianTitle
+          || candidate?.localized_title
+          || candidate?.titleFa
+          || candidate?.faTitle
+          || "",
+        ).trim(),
+        metadata: String(candidate?.metadata || "").trim(),
+        reason: String(candidate?.reason || "").trim(),
+      };
+  if (!parsed.title) return { ok: false, reason: "invalid_output", qualityIssue: "missing_title" };
+  if (
+    isSuggestionUncertainResponse(parsed.title)
+    || isSuggestionUncertainResponse(parsed.metadata)
+    || isSuggestionUncertainResponse(parsed.reason)
+  ) {
+    return {
+      ok: false,
+      reason: "uncertain_suggestion",
+      qualityIssue: "uncertain_candidate_field",
+    };
+  }
+
+  const realityIssue = getSuggestionRealityIssue({
+    mode,
+    title: parsed.title,
+    localizedTitle: parsed.localizedTitle || "",
+    metadata: parsed.metadata,
+    reason: parsed.reason,
+  });
+  if (realityIssue) {
+    return { ok: false, reason: "unverified_suggestion", qualityIssue: realityIssue };
+  }
+  if (mode !== "random") {
+    const mediaQualityIssue = getMediaSuggestionQualityIssue({
+      reason: parsed.reason,
+      excludedReferenceItems: topTenItems,
+    });
+    if (mediaQualityIssue) {
+      return { ok: false, reason: "low_quality_media", qualityIssue: mediaQualityIssue };
+    }
+    const creatorIssue = getSuggestionCreatorIssue({
+      metadata: parsed.metadata,
+      topTenItems,
+      recentSuggestionCreators,
+      requestText: input,
+    });
+    if (creatorIssue) {
+      return { ok: false, reason: "creator_repetition", qualityIssue: creatorIssue };
+    }
+  } else {
+    const qualityIssue = getInterestSuggestionQualityIssue({
+      title: parsed.title,
+      reason: parsed.reason,
+      topTenItems,
+      recentSuggestionItems,
+    });
+    if (qualityIssue) {
+      return { ok: false, reason: "low_quality_interest", qualityIssue };
+    }
+  }
+  return {
+    ok: true,
+    title: parsed.title,
+    metadata: parsed.metadata,
+    reason: parsed.reason,
+    text: `${parsed.title}\n${parsed.metadata}\n${parsed.reason}`.trim(),
+  };
+}
+
 async function getAiSingleSuggestion({
   userId,
   mode,
@@ -150,6 +250,7 @@ async function getAiSingleSuggestion({
   recentSuggestionCreators = [],
   personalized = false,
   tasteStyleHint = "",
+  candidateCount = 1,
 }) {
   const input = normalizeInput(userText);
   if (!input) {
@@ -162,9 +263,16 @@ async function getAiSingleSuggestion({
   }
 
   try {
+    const batchSize = candidateCount > 1 ? Math.min(3, candidateCount) : 1;
+    const wantsPersianBookTitle = batchSize > 1 && mode === "books" && lang === "fa";
     const instructions = [
-      "Recommend exactly one real, established, widely known item.",
-      "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words.",
+      `Recommend exactly ${batchSize === 1 ? "one" : batchSize} real, established, widely known item${batchSize === 1 ? "" : "s"}.`,
+      batchSize === 1
+        ? "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words."
+        : `Return only a valid JSON array with exactly ${batchSize} objects. Each object must have string fields "title", "metadata", and "reason"${wantsPersianBookTitle ? ', plus "localizedTitle"' : ""}; reason is at most 12 words. Do not repeat candidates.`,
+      wantsPersianBookTitle
+        ? 'For each book, "title" must be its exact original searchable title. "localizedTitle" should be the established Persian title when confidently known, written in Persian script without author, year, parentheses, quotation marks, or transliteration. Otherwise use an empty string; never invent a literal title.'
+        : "",
       "Before answering, internally check that the exact official title and every identifying detail—including year and creator—belong to the same real item.",
       "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
@@ -183,7 +291,9 @@ async function getAiSingleSuggestion({
     const request = await requestSuggestionText(openai, {
       userId,
       config: aiConfig,
-      maxOutputTokens: DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: batchSize === 1
+        ? DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS
+        : DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS * 4,
       instructions,
       input: `Request: ${input}\n${buildUserContext({
         personalized,
@@ -221,66 +331,30 @@ async function getAiSingleSuggestion({
       return { ok: false, reason: "uncertain_suggestion" };
     }
 
-    const parsed = parseSingleSuggestionResponse(rawText, lang);
-    if (!parsed.title) {
+    const rawCandidates = batchSize === 1 ? [rawText] : parseSuggestionBatch(rawText).slice(0, batchSize);
+    if (!rawCandidates.length) {
       if (mode === "random" && topTenItems.length) {
         return buildInterestSuggestionFallback({ lang, topTenItems });
       }
       logger.warn("AI suggestion output rejected", {
         mode,
         reason: "missing_title",
-        hasMetadata: Boolean(parsed.metadata),
+        hasMetadata: false,
       });
       return { ok: false, reason: "invalid_output" };
     }
-    const realityIssue = getSuggestionRealityIssue({
+    const validated = rawCandidates.map((candidate) => validateSuggestionCandidate({
+      candidate,
       mode,
-      title: parsed.title,
-      metadata: parsed.metadata,
-      reason: parsed.reason,
-    });
-    if (realityIssue) {
-      logger.warn("AI suggestion output rejected", {
-        mode,
-        reason: realityIssue,
-        hasMetadata: Boolean(parsed.metadata),
-      });
-      return { ok: false, reason: "unverified_suggestion", qualityIssue: realityIssue };
-    }
-    if (mode !== "random") {
-      const mediaQualityIssue = getMediaSuggestionQualityIssue({ reason: parsed.reason });
-      if (mediaQualityIssue) {
-        return { ok: false, reason: "low_quality_media", qualityIssue: mediaQualityIssue };
-      }
-      const creatorIssue = getSuggestionCreatorIssue({
-        metadata: parsed.metadata,
-        topTenItems,
-        recentSuggestionCreators,
-        requestText: input,
-      });
-      if (creatorIssue) {
-        return { ok: false, reason: "creator_repetition", qualityIssue: creatorIssue };
-      }
-    }
-    if (mode === "random") {
-      const qualityIssue = getInterestSuggestionQualityIssue({
-        title: parsed.title,
-        reason: parsed.reason,
-        topTenItems,
-        recentSuggestionItems,
-      });
-      if (qualityIssue) {
-        return { ok: false, reason: "low_quality_interest", qualityIssue };
-      }
-    }
-
-    return {
-      ok: true,
-      title: parsed.title,
-      metadata: parsed.metadata,
-      reason: parsed.reason,
-      text: `${parsed.title}\n${parsed.metadata}\n${parsed.reason}`.trim(),
-    };
+      lang,
+      input,
+      topTenItems,
+      recentSuggestionItems,
+      recentSuggestionCreators,
+    }));
+    const candidates = validated.filter((candidate) => candidate.ok);
+    if (!candidates.length) return validated[0] || { ok: false, reason: "invalid_output" };
+    return batchSize === 1 ? candidates[0] : { ok: true, candidates };
   } catch (error) {
     logger.warn("AI single suggestion failed", error);
     if (mode === "random" && topTenItems.length) {
@@ -303,4 +377,6 @@ module.exports = {
   getInterestSuggestionQualityIssue,
   getSuggestionRealityIssue,
   isSuggestionUncertainResponse,
+  parseSuggestionBatch,
+  validateSuggestionCandidate,
 };

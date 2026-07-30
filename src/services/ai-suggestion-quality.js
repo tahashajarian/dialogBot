@@ -59,6 +59,10 @@ function buildSuggestionAttemptText(userText, fallbackText, attempt, previousIss
   const issue = String(previousIssue || "").trim();
   const retryInstruction = issue === "generic_reason"
     ? "Try again with a different real item and explain at least two concrete connections; do not use a generic taste-match reason."
+    : issue === "localized_title_missing"
+      ? "Try again and include the required concise Persian book title in the localizedTitle field."
+    : issue === "favorite_reference"
+      ? "Try again without naming or quoting any Favorite in the reason; describe only the suggested item's concrete qualities."
     : issue === "favorite_creator_work" || issue === "repeated_creator"
       ? "Try again with a different real item by a different creator."
       : "Try again with a different real item. The previous candidate was unusable or already known.";
@@ -145,14 +149,24 @@ const RETRYABLE_SUGGESTION_FAILURES = new Set([
   "low_quality_interest",
   "duplicate_suggestion",
   "creator_repetition",
+  "catalog_unverified",
 ]);
 
-function getMediaSuggestionQualityIssue({ reason = "" }) {
+function getMediaSuggestionQualityIssue({ reason = "", excludedReferenceItems = [] }) {
   const cleanReason = String(reason || "").trim().replace(/\s+/g, " ");
   if (!cleanReason) return "missing_reason";
   if (MEDIA_GENERIC_REASON_PATTERNS.some((pattern) => pattern.test(cleanReason))) {
     return "generic_reason";
   }
+  if (/از\s+کار\s+در(?:آمده|اومده)/u.test(cleanReason)) {
+    return "awkward_reason";
+  }
+  const normalizedReason = normalizeComparableCreator(cleanReason);
+  const namesFavorite = excludedReferenceItems.some((item) => {
+    const normalizedItem = normalizeComparableCreator(item);
+    return normalizedItem.length >= 4 && containsCreatorPhrase(normalizedReason, normalizedItem);
+  });
+  if (namesFavorite) return "favorite_reference";
   return "";
 }
 
@@ -164,6 +178,11 @@ function normalizeComparableCreator(value) {
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .replace(/\s+/g, " ");
+}
+
+function containsCreatorPhrase(text, creator) {
+  if (!text || !creator) return false;
+  return ` ${text} `.includes(` ${creator} `);
 }
 
 function extractSuggestionCreator(metadata = "") {
@@ -196,10 +215,15 @@ function getSuggestionCreatorIssue({
   const normalizedCreator = normalizeComparableCreator(creator);
   if (!normalizedCreator) return "";
   const normalizedRequest = normalizeComparableCreator(requestText);
-  if (normalizedRequest.includes(normalizedCreator)) return "";
+  if (containsCreatorPhrase(normalizedRequest, normalizedCreator)) return "";
 
   const favoriteNames = new Set(topTenItems.map(normalizeComparableCreator).filter(Boolean));
-  if (favoriteNames.has(normalizedCreator)) return "favorite_creator_work";
+  if (
+    favoriteNames.has(normalizedCreator)
+    || (normalizedCreator.length >= 4 && [...favoriteNames].some((favorite) => (
+      containsCreatorPhrase(favorite, normalizedCreator)
+    )))
+  ) return "favorite_creator_work";
 
   const recentCreators = new Set(
     recentSuggestionCreators.map(normalizeComparableCreator).filter(Boolean),

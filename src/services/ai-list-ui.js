@@ -110,7 +110,8 @@ function localizeListItemMetadata(lang, metadata) {
     .replace(/\bDirector\s*:/gi, "کارگردان:")
     .replace(/\bCreator\s*:/gi, "سازنده:")
     .replace(/\bAuthor\s*:/gi, "نویسنده:")
-    .replace(/\bArtist\s*:/gi, "هنرمند:");
+    .replace(/\bArtist\s*:/gi, "هنرمند:")
+    .replace(/\bAlbum\s*:/gi, "آلبوم:");
 }
 
 function removeSearchNameFromMetadata(metadata) {
@@ -411,16 +412,41 @@ function localizeSuggestionMetadata(lang, metadata) {
     .replace(/\bDirector\s*:/gi, "کارگردان:")
     .replace(/\bCreator\s*:/gi, "سازنده:")
     .replace(/\bAuthor\s*:/gi, "نویسنده:")
-    .replace(/\bArtist\s*:/gi, "هنرمند:");
+    .replace(/\bArtist\s*:/gi, "هنرمند:")
+    .replace(/\bAlbum\s*:/gi, "آلبوم:");
 }
 
-function formatSuggestionResultMessage(lang, title, reason, mood = "", metadata = "") {
+function escapeSuggestionHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatSuggestionResultMessage(lang, title, reason, mood = "", metadata = "", {
+  localizedTitle = "",
+  originalTitle = "",
+} = {}) {
   const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
+  const usesLocalizedBookTitle = Boolean(lang === "fa" && localizedTitle && originalTitle);
+  const displayTitle = usesLocalizedBookTitle
+    ? `${escapeSuggestionHtml(localizedTitle)} (<i>${escapeSuggestionHtml(originalTitle)}</i>)`
+    : title;
   return [
-    messages[lang].aiSuggestionResultTitle.replace("{item}", title),
-    localizeSuggestionMetadata(lang, metadata),
-    mood ? messages[lang].aiSuggestionResultMood.replace("{mood}", mood) : "",
-    messages[lang].aiSuggestionResultReason.replace("{reason}", cleanReason),
+    messages[lang].aiSuggestionResultTitle.replace("{item}", displayTitle),
+    usesLocalizedBookTitle
+      ? escapeSuggestionHtml(localizeSuggestionMetadata(lang, metadata))
+      : localizeSuggestionMetadata(lang, metadata),
+    mood
+      ? messages[lang].aiSuggestionResultMood.replace(
+          "{mood}",
+          usesLocalizedBookTitle ? escapeSuggestionHtml(mood) : mood,
+        )
+      : "",
+    messages[lang].aiSuggestionResultReason.replace(
+      "{reason}",
+      usesLocalizedBookTitle ? escapeSuggestionHtml(cleanReason) : cleanReason,
+    ),
   ].filter(Boolean).join("\n\n");
 }
 
