@@ -50,7 +50,7 @@ test("isCodeSaved checks case-insensitive membership", () => {
   assert.equal(isCodeSaved(["u_A1", "u_B2"], "u_c3"), false);
 });
 
-test("buildSavedProfileListItems normalizes and hydrates user labels", async () => {
+test("buildSavedProfileListItems shows the most recently saved profile first", async () => {
   const rows = await buildSavedProfileListItems({
     codes: ["/u_a1", "u_b2", "u_a1"],
     normalizePublicProfileCode: (value) => {
@@ -63,8 +63,8 @@ test("buildSavedProfileListItems normalizes and hydrates user labels", async () 
     ]),
   });
   assert.deepEqual(rows, [
-    { code: "u_A1", name: "Ali", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
     { code: "u_B2", name: "Sara", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
+    { code: "u_A1", name: "Ali", genderEmoji: "", age: undefined, userId: undefined, hasDiscussions: false },
   ]);
 });
 

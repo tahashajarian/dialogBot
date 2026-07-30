@@ -67,7 +67,9 @@ async function buildSavedProfileListItems({
   findUsersByCodes,
   findDiscussionUserIds,
 }) {
-  const normalized = [...new Set((codes || []).map((entry) => normalizePublicProfileCode(entry)).filter(Boolean))];
+  const normalized = [...new Set(
+    (codes || []).map((entry) => normalizePublicProfileCode(entry)).filter(Boolean),
+  )].reverse();
   if (!normalized.length) return [];
   const users = await findUsersByCodes(normalized);
   const discussionUserIds = findDiscussionUserIds ? await findDiscussionUserIds(users || []) : new Set();
