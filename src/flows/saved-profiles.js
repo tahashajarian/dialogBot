@@ -170,9 +170,15 @@ function getPublicProfileActionKeyboard(lang, code, {
 
 function getPublicProfileActionsTip(lang, {
   canSave = false,
+  isSaved = false,
   hasFavorites = false,
   hasDiscussions = false,
 } = {}) {
+  if (isSaved) {
+    if (hasFavorites) return messages[lang].profileSavedActionsTipAll;
+    if (hasDiscussions) return messages[lang].profileSavedActionsTipDiscussions;
+    return messages[lang].profileSavedActionsTipRemove;
+  }
   if (!canSave) return "";
   if (hasFavorites) return messages[lang].profilePublicActionsTipAll;
   if (hasDiscussions) return messages[lang].profilePublicActionsTipDiscussions;
@@ -763,6 +769,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
 
   const actionsTip = getPublicProfileActionsTip(lang, {
     canSave: !isOwnProfile && !isSavedProfile && !fromInvitationPreview && !fromRestrictionList,
+    isSaved: !isOwnProfile && isSavedProfile && !fromInvitationPreview && !fromRestrictionList,
     hasFavorites,
     hasDiscussions,
   });

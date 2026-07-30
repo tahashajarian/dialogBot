@@ -389,6 +389,22 @@ test("public profile action tip mentions only available actions", () => {
     getPublicProfileActionsTip("en", { canSave: true }),
     messages.en.profilePublicActionsTipSave,
   );
+  assert.equal(
+    getPublicProfileActionsTip("fa", {
+      isSaved: true,
+      hasFavorites: true,
+      hasDiscussions: true,
+    }),
+    messages.fa.profileSavedActionsTipAll,
+  );
+  assert.equal(
+    getPublicProfileActionsTip("en", { isSaved: true, hasDiscussions: true }),
+    messages.en.profileSavedActionsTipDiscussions,
+  );
+  assert.equal(
+    getPublicProfileActionsTip("en", { isSaved: true }),
+    messages.en.profileSavedActionsTipRemove,
+  );
   assert.equal(getPublicProfileActionsTip("en", { hasFavorites: true }), "");
 });
 
