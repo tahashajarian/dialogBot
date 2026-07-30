@@ -92,10 +92,12 @@ const {
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
 const {
+  aiListTelegramExtra,
   buildAiListManagerMessage,
   buildTopTenInsightMessage,
   buildTopTenSavedMessage,
   formatAiLimitMessage,
+  formatAiListTelegramText,
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
   getNeedTopTenMessage,
@@ -427,12 +429,12 @@ async function handleAiCallback(ctx, lang, helpers) {
       getAiTasteFromUser(ctx.user, section),
     )}`);
     const actionMessage = await ctx.reply(
-      await buildAiListManagerMessage({ ctx, lang, section, listType: "topTen" }),
-      aiListManageMenuKeyboard(lang, section, "topTen", {
+      formatAiListTelegramText(await buildAiListManagerMessage({ ctx, lang, section, listType: "topTen" })),
+      aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, "topTen", {
         hasItems: items.length > 0,
         itemCount: items.length,
         hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
-      }),
+      })),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:topTen`, actionMessage);
     return actionMessage;
@@ -480,14 +482,14 @@ async function handleAiCallback(ctx, lang, helpers) {
     setCtxAiListItems(ctx, section, "watchlist", toggled.items);
     const statusCopy = getWatchStatusCopy(lang, section);
     return ctx.reply(
-      await buildAiListManagerMessage({
+      formatAiListTelegramText(await buildAiListManagerMessage({
         ctx,
         lang,
         section,
         listType: "watchlist",
         prefix: toggled.item?.watched ? statusCopy.doneText : statusCopy.pendingText,
-      }),
-      aiListManageMenuKeyboard(lang, section, "watchlist"),
+      })),
+      aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, "watchlist")),
     );
   }
 
@@ -644,14 +646,14 @@ async function handleAiCallback(ctx, lang, helpers) {
     await notifyExternalReferralReward(ctx, messages, promoteResult.externalReferralReward);
     const starNotice = buildStarRewardNotice(messages, lang, promoteResult.starRewards, promoteResult.starProgress);
     return ctx.reply(
-      await buildAiListManagerMessage({
+      formatAiListTelegramText(await buildAiListManagerMessage({
         ctx,
         lang,
         section,
         listType: "watchlist",
         prefix: [messages[lang].aiWatchlistPromotedToTopTen, starNotice].filter(Boolean).join("\n\n"),
-      }),
-      aiListManageMenuKeyboard(lang, section, "watchlist"),
+      })),
+      aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, "watchlist")),
     );
   }
 
@@ -851,12 +853,12 @@ async function handleAiCallback(ctx, lang, helpers) {
     const removedText = messages[lang].aiListRemovedNamed.replace("{item}", itemTitle);
 
     return ctx.reply(
-      await buildAiListManagerMessage({ ctx, lang, section, listType, prefix: removedText }),
-      aiListManageMenuKeyboard(lang, section, listType, {
+      formatAiListTelegramText(await buildAiListManagerMessage({ ctx, lang, section, listType, prefix: removedText })),
+      aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, listType, {
         hasItems: removeResult.items.length > 0,
         itemCount: removeResult.items.length,
         hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
-      }),
+      })),
     );
   }
 

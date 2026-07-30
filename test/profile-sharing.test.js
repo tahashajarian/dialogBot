@@ -22,6 +22,7 @@ const {
 const {
   buildPublicFavoritesHubText,
   buildPublicFavoritesSectionText,
+  formatPublicFavoritesTelegramText,
   getPublicFavoriteSections,
 } = require("../src/services/profile-favorites-ui");
 const { profileQuickActionsKeyboard, profilePublicActionsKeyboard } = require("../src/keyboards");
@@ -133,8 +134,71 @@ test("public Favorites sections omit the artificial title-width divider", () => 
   const section = buildPublicFavoritesSectionText(user, "en", "movies");
   assert.match(hub, /Ali's favorites\n\n🎬 Movies & Series — 1/);
   assert.doesNotMatch(hub, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
-  assert.match(section, /favorite Movies & Series\n\n1\. Up/);
+  assert.match(section, /favorite Movies & Series\n\n💡 To copy an item name, just tap its title\.\n\n1\..+Up/);
   assert.doesNotMatch(section, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
+});
+
+test("public Favorites make only item titles tap-to-copy", () => {
+  const user = {
+    profileName: "Taha <Friend>",
+    aiLists: {
+      movies: {
+        topTen: [{
+          title: "Persona & Stalker",
+          comment: "A <personal> comment & note",
+        }],
+      },
+    },
+  };
+
+  const text = formatPublicFavoritesTelegramText(
+    buildPublicFavoritesSectionText(user, "en", "movies"),
+  );
+
+  assert.match(text, /<code>Persona &amp; Stalker<\/code> — A &lt;personal&gt; comment &amp; note/);
+  assert.doesNotMatch(text, /<code>.*personal.*<\/code>/);
+  assert.match(text, /Taha &lt;Friend&gt;/);
+});
+
+test("public Favorites leave a blank line between items", () => {
+  const user = {
+    profileName: "Taha",
+    aiLists: {
+      movies: {
+        topTen: [
+          { title: "Persona", comment: "First note" },
+          { title: "Stalker", comment: "Second note" },
+        ],
+      },
+    },
+  };
+
+  const text = formatPublicFavoritesTelegramText(
+    buildPublicFavoritesSectionText(user, "en", "movies"),
+  );
+
+  assert.match(text, /First note\n\n2\. <code>Stalker<\/code>/);
+});
+
+test("public Favorites use the same metadata-enriched titles as the owner's list", () => {
+  const user = {
+    profileName: "Taha",
+    aiLists: {
+      movies: {
+        topTen: [{
+          title: "Nostalghia",
+          metadata: "۱۹۸۳ · کارگردان: Andrei Tarkovsky",
+          comment: "A note",
+        }],
+      },
+    },
+  };
+
+  const text = formatPublicFavoritesTelegramText(
+    buildPublicFavoritesSectionText(user, "fa", "movies"),
+  );
+
+  assert.match(text, /<code>Nostalghia Andrei Tarkovsky<\/code> — ۱۹۸۳ — A note/);
 });
 
 test("hidden Favorites stay stored but disappear from public profile surfaces", () => {

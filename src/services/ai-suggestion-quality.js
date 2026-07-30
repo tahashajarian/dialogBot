@@ -63,7 +63,7 @@ function buildSuggestionAttemptText(userText, fallbackText, attempt) {
 function buildSuggestionCopyText(mode, title, metadata = "") {
   const cleanTitle = normalizeSuggestionTitle(title);
   const cleanMetadata = normalizeSuggestionMetadata(metadata)
-    .replace(/\b(?:director|creator|artist|author|album|year)\s*:\s*/gi, "")
+    .replace(/\b(?:director|dir\.?|creator|artist|author|album|year)\s*:?\s*/gi, "")
     .replace(/(?:کارگردان|سازنده|خالق|هنرمند|خواننده|نویسنده|آلبوم|سال)\s*:\s*/g, "")
     .replace(/\b(?:18|19|20)\d{2}\b/g, "")
     .replace(/(?:۱۸|۱۹|۲۰)[۰-۹]{2}/g, "")

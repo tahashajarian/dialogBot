@@ -30,6 +30,7 @@
 ## AI Lists
 
 - AI lists are stored under `aiLists.{section}.{listType}`.
+- Titles in another user's public media Favorites sections use Telegram tap-to-copy formatting too. Only the title is copyable; public comments and taste labels remain ordinary text. Separate public Favorite entries with one blank line for mobile readability.
 - Item objects are `{ title, comment, watched }`.
 - `watchlist` is capped at 100 items per section.
 - `topTen` is capped at 10 items per section.
@@ -53,6 +54,7 @@
   - add comment / update comment, depending on whether the item already has a comment
   - move-to-TopTen, if TopTen has room
   - remove
+- Render each visible item name as Telegram inline code so mobile users can tap or hold it for native copying. When saved suggestion metadata is available, use the same clean search string as the suggestion Copy action (work title plus director, author, or artist); do not include year, scores, labels, or explanation. Keep non-name metadata outside the code span and do not repeat the included creator name. Show one compact copy tip beneath the list heading, never beneath every item.
 - Entering a non-empty list manager should show the current items directly in the manager card with command-link item actions; do not include a separate "show all" button.
 - Empty watchlist managers should use an intentional empty-state message that points to adding the first item, not just repeat the list title.
 - Favorites and For Later managers do not expose standalone list-sharing actions. Profile sharing is the single taste-sharing path: once any Movies, Music, or Books Favorites list contains at least three items, the own-profile card can create a shareable profile whose recipients may browse the public Favorites lists inside Muze when `showFavoritesOnProfile` is enabled. For Later lists never count toward this threshold. Turning that default-on profile privacy setting off keeps the lists available for personal suggestions, matching, and discussion eligibility while omitting Favorites and taste labels from public profiles and newly generated shareable-profile cards.
@@ -62,12 +64,9 @@
 - Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
 - Canceling comment input should quietly retire the input prompt and return to the refreshed list manager, without sending a separate "comment canceled" card.
 - Legacy status-toggle picker callbacks may remain safe for stale cards, but new list rendering should prefer command links in the list text.
-- Moving a watchlist item to TopTen is non-destructive:
-  - keep the item in watchlist
-  - copy it into TopTen
-  - show a `🏆` badge for watchlist items already present in TopTen
+- Moving a completed watchlist item to Favorites transfers it: add the complete item, including metadata and comment provenance, to Favorites and remove it from For Later in the same user update. Remove from For Later only as part of a successful Favorites mutation; do not show a duplicate-state badge.
 - Only completed/watched/read/listened watchlist items should be eligible for move-to-TopTen.
-- Already-TopTen items should be hidden from the move picker with a clear message if nothing new is eligible.
+- Historical items already present in both lists remain untouched and are hidden from the move picker; do not silently delete pre-change user data.
 
 ## TopTen
 
@@ -90,6 +89,7 @@ The stable internal keys keep these approved user-facing titles:
 Changing display titles must not rename internal label keys because stored profiles and discussion join rules depend on those keys.
 
 - TopTen items support add comment / update comment actions.
+- Favorites item names use the same copyable inline-code/search-string behavior as For Later items.
 - TopTen list text should include per-item command links for comment and remove actions. Do not add per-item inline rows when the command-link list can handle the action.
 - TopTen typed input should reject obvious placeholders, keyboard mash, and nonsense strings before saving.
 - TopTen full-limit copy should be context-aware: direct TopTen add flows should say to remove one from this TopTen, while watchlist promotion can tell the user to go to TopTen and remove one.

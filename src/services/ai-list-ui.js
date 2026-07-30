@@ -8,10 +8,30 @@ const {
 } = require("./users");
 const { localizeInterestChipItem } = require("./interest-chips");
 const { paginateItems } = require("./pagination");
+const { buildSuggestionCopyText } = require("./ai-suggestion-quality");
 
 const TASTE_RESPONSE_BLOCK_SEPARATOR = "\n\n\n";
 const AI_LIST_ITEM_DIVIDER = "────────────────────────";
 const AI_WATCHLIST_PAGE_SIZE = 5;
+const COPYABLE_TITLE_START = "\uE000";
+const COPYABLE_TITLE_END = "\uE001";
+
+function stripCopyableTitleMarkers(value) {
+  return String(value || "").replaceAll(COPYABLE_TITLE_START, "").replaceAll(COPYABLE_TITLE_END, "");
+}
+
+function formatAiListTelegramText(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll(COPYABLE_TITLE_START, "<code>")
+    .replaceAll(COPYABLE_TITLE_END, "</code>");
+}
+
+function aiListTelegramExtra(extra = {}) {
+  return { ...extra, parse_mode: "HTML" };
+}
 
 function localizeAiListItemsForDisplay(items, section, lang) {
   if (section !== "random") return items;
@@ -93,6 +113,36 @@ function localizeListItemMetadata(lang, metadata) {
     .replace(/\bArtist\s*:/gi, "هنرمند:");
 }
 
+function removeSearchNameFromMetadata(metadata) {
+  return String(metadata || "")
+    .split(/\s*[·|]\s*/)
+    .map((part) => part
+      .replace(
+        /(?:,\s*)?(?:Dir\.|Director|Creator|Artist|Author|Singer|Writer|کارگردان|سازنده|خالق|هنرمند|خواننده|نویسنده)\s*:?\s*.*$/i,
+        "",
+      )
+      .replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, "")
+      .trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function getAiListDisplayParts(entry, section, lang) {
+  const displayItem = splitLegacyMediaTitle(entry?.title, entry?.metadata);
+  const copyableTitle = stripCopyableTitleMarkers(
+    buildSuggestionCopyText(section, displayItem.title, displayItem.metadata) || displayItem.title,
+  );
+  const localizedMetadata = displayItem.metadata
+    ? stripCopyableTitleMarkers(localizeListItemMetadata(lang, displayItem.metadata))
+    : "";
+  return {
+    copyableTitle,
+    displayMetadata: copyableTitle !== displayItem.title
+      ? removeSearchNameFromMetadata(localizedMetadata)
+      : localizedMetadata,
+  };
+}
+
 function formatAiItemsList(title, items, emptyText, options = {}) {
   if (!items.length) {
     return emptyText;
@@ -119,16 +169,16 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
   };
   const actionLine = (label, command) => `${label} ${pointer} ${command}`;
   const lines = items.map((entry, index) => {
-    const displayItem = splitLegacyMediaTitle(entry?.title, entry?.metadata);
+    const { copyableTitle, displayMetadata } = getAiListDisplayParts(
+      entry,
+      section,
+      options.lang,
+    );
     const watchedBadge = includeWatched ? `${entry?.watched ? "✔️" : "○"} ` : "";
-    const topTenBadge = topTenTitleSet.has(String(entry?.title || "").trim().toLowerCase()) ? " 🏆" : "";
-    const localizedMetadata = displayItem.metadata
-      ? localizeListItemMetadata(options.lang, displayItem.metadata)
-      : "";
     const itemLine = [
-      `${displayStartIndex + index + 1}. ${watchedBadge}${displayItem.title}${topTenBadge}${localizedMetadata ? ` — ${localizedMetadata}` : ""}`,
+      `${displayStartIndex + index + 1}. ${watchedBadge}${COPYABLE_TITLE_START}${copyableTitle}${COPYABLE_TITLE_END}${displayMetadata ? ` — ${displayMetadata}` : ""}`,
       entry?.comment
-        ? `${entry?.commentSource === "user" ? "📝" : "✨"} ${entry.comment}`
+        ? `${entry?.commentSource === "user" ? "📝" : "✨"} ${stripCopyableTitleMarkers(entry.comment)}`
         : "",
     ].filter(Boolean).join("\n");
     if (!includeActions || !section) return itemLine;
@@ -153,7 +203,8 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
 
     return `${itemLine}\n${actions.join("\n")}`;
   });
-  return `${title}\n\n${lines.join(`\n${AI_LIST_ITEM_DIVIDER}\n`)}`;
+  const copyTip = section ? messages[options.lang]?.aiListCopyTitleTip : "";
+  return `${[title, copyTip].filter(Boolean).join("\n")}\n\n${lines.join(`\n${AI_LIST_ITEM_DIVIDER}\n`)}`;
 }
 
 function withAiSectionTitle(lang, section, body) {
@@ -340,7 +391,7 @@ async function buildAiListManagerMessage({ ctx, lang, section, listType, prefix 
     : items.length
       ? buildWatchlistMessage({ ctx, lang, section, filter, page })
       : messages[lang].aiListManageEmptyEntry.replace("{listName}", listLabel);
-  return [prefix, body].filter(Boolean).join("\n\n");
+  return [stripCopyableTitleMarkers(prefix), body].filter(Boolean).join("\n\n");
 }
 
 function formatSuggestionLimitMessage(lang, resetAt) {
@@ -454,6 +505,7 @@ async function buildTopTenSavedMessage({
 module.exports = {
   formatAiLimitMessage,
   buildAiListManagerMessage,
+  aiListTelegramExtra,
   buildAiAssistantMenuMessage,
   buildTopTenInsightMessage,
   buildTopTenListMessage,
@@ -463,11 +515,13 @@ module.exports = {
   AI_WATCHLIST_PAGE_SIZE,
   getAiListCommandSectionToken,
   formatAiItemsList,
+  formatAiListTelegramText,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
   getDuplicateItemTitle,
   getDuplicateListMessage,
   getDuplicateTopTenMessage,
+  getAiListDisplayParts,
   getNeedTopTenMessage,
   getSectionLabelWithEmoji,
   getTopTenManageEntryMessage,

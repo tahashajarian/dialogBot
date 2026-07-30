@@ -18,6 +18,7 @@ const {
 const User = require("../src/models/user");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
 const { starEconomy } = require("../src/services/star-settings");
+const { promoteWatchlistItemToTopTen } = require("../src/services/users");
 const { buildAiAssistantMenuMessage } = require("../src/services/ai-list-ui");
 const { sendAiAssistantHub } = require("../src/flows/ai-hub");
 const { handleCallback } = require("../src/callbacks");
@@ -334,16 +335,22 @@ const {
   shouldKeepAiListTitleForCallback,
 } = require("../src/flows/ai-cards");
 const {
+  aiListTelegramExtra,
   buildTopTenListMessage,
   buildTopTenSavedMessage,
   buildWatchlistMessage,
   formatAiItemsList,
+  formatAiListTelegramText,
   getDuplicateListMessage,
   getNeedTopTenMessage,
   getTopTenManageEntryMessage,
   toTitleSet,
 } = require("../src/services/ai-list-ui");
 const { resolveReplyKeyboardAction } = require("../src/services/reply-keyboard-navigation");
+
+function plainAiListText(value) {
+  return formatAiListTelegramText(value).replaceAll("<code>", "").replaceAll("</code>", "");
+}
 
 test("AI text state predicate recognizes only AI-owned text states", () => {
   assert.equal(isAiTextState("ai_chat_movies"), true);
@@ -435,8 +442,59 @@ test("next-suggestion guidance mentions the same mood only when one exists", () 
 });
 
 test("AI-authored list promotion confirmation uses the Muze emoji", () => {
-  assert.equal(messages.fa.aiWatchlistPromotedToTopTen, "👩‍🦳 به محبوب‌هات اضافه شد.");
-  assert.equal(messages.en.aiWatchlistPromotedToTopTen, "👩‍🦳 Added to your favorites.");
+  assert.equal(messages.fa.aiWatchlistPromotedToTopTen, "👩‍🦳 به محبوب‌هات منتقل شد.");
+  assert.equal(messages.en.aiWatchlistPromotedToTopTen, "👩‍🦳 Moved to your favorites.");
+});
+
+test("moving a completed For Later item transfers its full data to Favorites", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const user = {
+    userId: 77,
+    aiLists: {
+      movies: {
+        watchlist: [
+          {
+            title: "The Ascent",
+            metadata: "1977 · Director: Larisa Shepitko",
+            comment: "A difficult and memorable film",
+            commentSource: "ai",
+            watched: true,
+            suggestionFeedback: "liked",
+          },
+          { title: "Pulp Fiction", watched: false },
+        ],
+        topTen: [{ title: "Stalker", watched: false }],
+      },
+    },
+  };
+  let appliedUpdate = null;
+  User.findOne = async () => user;
+  User.findOneAndUpdate = async (_query, update) => {
+    appliedUpdate = update;
+    return user;
+  };
+
+  try {
+    const result = await promoteWatchlistItemToTopTen(77, "movies", "The Ascent", 10);
+    const nextWatchlist = appliedUpdate.$set["aiLists.movies.watchlist"];
+    const nextFavorites = appliedUpdate.$set["aiLists.movies.topTen"];
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(nextWatchlist.map((entry) => entry.title), ["Pulp Fiction"]);
+    assert.deepEqual(result.watchlistItems.map((entry) => entry.title), ["Pulp Fiction"]);
+    assert.deepEqual(nextFavorites.at(-1), {
+      title: "The Ascent",
+      metadata: "1977 · Director: Larisa Shepitko",
+      comment: "A difficult and memorable film",
+      watched: false,
+      commentSource: "ai",
+      suggestionFeedback: "liked",
+    });
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("AI section keyboard prefixes section actions with section emoji", () => {
@@ -2068,10 +2126,12 @@ test("the 101st manual For Later item returns to the remembered list page", asyn
   }
 
   const card = replies.at(-1);
-  assert.match(card.text, /full \(100\/100\)/);
-  assert.match(card.text, /96\. ○ Movie 5/);
-  assert.match(card.text, /100\. ○ Movie 1/);
-  assert.doesNotMatch(card.text, /Movie 101/);
+  const cardText = card.text.replaceAll("<code>", "").replaceAll("</code>", "");
+  assert.match(cardText, /full \(100\/100\)/);
+  assert.match(cardText, /96\. ○ Movie 5/);
+  assert.match(cardText, /100\. ○ Movie 1/);
+  assert.doesNotMatch(cardText, /Movie 101/);
+  assert.equal(card.extra.parse_mode, "HTML");
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
   assert.equal(ctx.user.aiLastListPage, 19);
   assert.equal(ctx.user.aiLists.movies.watchlist.length, 100);
@@ -2252,7 +2312,7 @@ test("AI remembered-card cleanup leaves kept or missing cards alone", async () =
 
 test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   const topTenTitleSet = toTitleSet([{ title: "Dune" }]);
-  const rendered = formatAiItemsList(
+  const rendered = plainAiListText(formatAiItemsList(
     "Watchlist",
     [
       { title: "Dune", comment: "reread", commentSource: "ai", watched: true },
@@ -2260,25 +2320,26 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
     ],
     "Empty",
     { topTenTitleSet, includeWatched: true },
-  );
+  ));
 
-  assert.match(rendered, /1\. ✔️ Dune 🏆\n✨ reread/);
+  assert.match(rendered, /1\. ✔️ Dune\n✨ reread/);
+  assert.doesNotMatch(rendered, /🏆/);
   assert.match(rendered, /2\. ○ Foundation/);
   assert.match(rendered, /────────────────────────/);
 });
 
 test("AI list UI treats unmarked legacy comments as AI explanations", () => {
-  const rendered = formatAiItemsList(
+  const rendered = plainAiListText(formatAiItemsList(
     "Watchlist",
     [{ title: "The Seventh Seal", comment: "A legacy recommendation" }],
     "Empty",
-  );
+  ));
 
   assert.match(rendered, /✨ A legacy recommendation/);
 });
 
 test("AI list UI separates legacy movie metadata and comments", () => {
-  const rendered = formatAiItemsList(
+  const rendered = plainAiListText(formatAiItemsList(
     "لیست",
     [{
       title: "Paris, Texas (1984, Dir. Wim Wenders)",
@@ -2288,11 +2349,31 @@ test("AI list UI separates legacy movie metadata and comments", () => {
     }],
     "خالی",
     { includeWatched: true, lang: "fa", section: "movies" },
-  );
+  ));
 
-  assert.match(rendered, /1\. ○ Paris, Texas — 1984, کارگردان: Wim Wenders/);
+  assert.match(rendered, /1\. ○ Paris, Texas Wim Wenders — 1984/);
   assert.match(rendered, /✨ سکوت و تنهایی‌اش/);
   assert.doesNotMatch(rendered, /Paris, Texas \(1984/);
+});
+
+test("AI list titles use the suggestion Copy search string as safe Telegram code", () => {
+  const rendered = formatAiListTelegramText(formatAiItemsList(
+    "Watchlist",
+    [{
+      title: "The Ascent",
+      metadata: "1977 · Director: Larisa Shepitko",
+      comment: "A <difficult> & memorable film",
+      watched: true,
+    }],
+    "Empty",
+    { includeWatched: true, lang: "en", section: "movies", listType: "watchlist" },
+  ));
+
+  assert.match(rendered, /<code>The Ascent Larisa Shepitko<\/code> — 1977/);
+  assert.doesNotMatch(rendered, /Larisa Shepitko.*Larisa Shepitko/);
+  assert.match(rendered, /A &lt;difficult&gt; &amp; memorable film/);
+  assert.match(rendered, /💡 To copy an item name, just tap its title\./);
+  assert.equal(aiListTelegramExtra({ reply_markup: {} }).parse_mode, "HTML");
 });
 
 test("AI list UI builds section-titled list messages from user data", () => {
@@ -2311,8 +2392,8 @@ test("AI list UI builds section-titled list messages from user data", () => {
     },
   };
 
-  const topTenText = buildTopTenListMessage({ ctx, lang: "en", section: "movies" });
-  const watchlistText = buildWatchlistMessage({ ctx, lang: "en", section: "movies" });
+  const topTenText = plainAiListText(buildTopTenListMessage({ ctx, lang: "en", section: "movies" }));
+  const watchlistText = plainAiListText(buildWatchlistMessage({ ctx, lang: "en", section: "movies" }));
 
   assert.match(topTenText, /❤️ My favorite movies/);
   assert.match(topTenText, /1\. Heat\n✨ tight/);
@@ -2320,7 +2401,8 @@ test("AI list UI builds section-titled list messages from user data", () => {
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
   assert.match(watchlistText, /1\. ○ Solaris\n📝 این یه کامنت تستیه/);
   assert.match(watchlistText, /2\. ○ Arrival\n✨ rewatch/);
-  assert.match(watchlistText, /3\. ○ Heat 🏆/);
+  assert.match(watchlistText, /3\. ○ Heat/);
+  assert.doesNotMatch(watchlistText, /🏆/);
   assert.doesNotMatch(watchlistText, /✨ این یه کامنت تستیه/);
   assert.match(watchlistText, /────────────────────────/);
   assert.doesNotMatch(watchlistText, /\n\n────────\n\n/);
@@ -2551,8 +2633,8 @@ test("For Later pagination preserves full-list command indexes", () => {
     },
   };
 
-  const firstPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 0 });
-  const secondPage = buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 1 });
+  const firstPage = plainAiListText(buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 0 }));
+  const secondPage = plainAiListText(buildWatchlistMessage({ ctx, lang: "en", section: "movies", page: 1 }));
   assert.match(firstPage, /Movie 7/);
   assert.match(firstPage, /\/rm_mv_l_7/);
   assert.match(firstPage, /Movie 3/);
@@ -2616,9 +2698,10 @@ test("For Later page callbacks edit the current card and remember the page", asy
   assert.equal(replies.length, 0);
   assert.equal(edits.length, 1);
   assert.equal(edits[0].messageId, 81);
-  assert.match(edits[0].text, /6\. ○ Movie 2/);
+  assert.match(edits[0].text.replaceAll("<code>", "").replaceAll("</code>", ""), /6\. ○ Movie 2/);
   assert.match(edits[0].text, /\/rm_mv_l_2/);
   assert.doesNotMatch(edits[0].text, /Movie 7/);
+  assert.equal(edits[0].extra.parse_mode, "HTML");
   assert.equal(ctx.user.aiLastListPage, 1);
   assert.equal(
     keyboardButtons(edits[0].extra).some((button) => (
@@ -2643,7 +2726,7 @@ test("watchlist entry rendering always exposes done and not-done status", () => 
     },
   };
 
-  const rendered = buildWatchlistMessage({ ctx, lang: "en", section: "random" });
+  const rendered = plainAiListText(buildWatchlistMessage({ ctx, lang: "en", section: "random" }));
 
   assert.match(rendered, /1\. ○ Photo walk/);
   assert.match(rendered, /Change to done 👉 \/dn_in_l_2/);

@@ -6,10 +6,22 @@ const {
   getTasteLabelTitle,
 } = require("./ai-section");
 const { getAiListItemsFromUser } = require("./users");
+const { getAiListDisplayParts } = require("./ai-list-ui");
 const { formatUserDisplayName } = require("./profile");
 const { MEDIA_SECTIONS } = require("./profile-sharing");
 
 const MEDIA_CAPTION_LIMIT = 1024;
+const COPYABLE_TITLE_START = "\uE000";
+const COPYABLE_TITLE_END = "\uE001";
+
+function formatPublicFavoritesTelegramText(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll(COPYABLE_TITLE_START, "<code>")
+    .replaceAll(COPYABLE_TITLE_END, "</code>");
+}
 
 function compactPublicValue(value, maxLength) {
   const chars = Array.from(String(value || "").trim().replace(/\s+/g, " "));
@@ -18,8 +30,9 @@ function compactPublicValue(value, maxLength) {
 
 function normalizePublicFavorite(item) {
   const title = compactPublicValue(typeof item === "string" ? item : item?.title, 72);
+  const metadata = compactPublicValue(typeof item === "string" ? "" : item?.metadata, 120);
   const comment = compactPublicValue(typeof item === "string" ? "" : item?.comment, 96);
-  return title ? { title, comment } : null;
+  return title ? { title, metadata, comment } : null;
 }
 
 function getPublicFavoriteSections(user) {
@@ -60,7 +73,14 @@ function buildPublicFavoritesSectionText(user, lang, section) {
       .replace("{emoji}", getSectionEmoji(section))
       .replace("{section}", getSectionLabel(messages, lang, section)),
     "",
-    ...entry.items.map((item, index) => `${index + 1}. ${item.title}${item.comment ? ` — ${item.comment}` : ""}`),
+    messages[lang].aiListCopyTitleTip,
+    "",
+    entry.items.map((item, index) => {
+      const { copyableTitle, displayMetadata } = getAiListDisplayParts(item, section, lang);
+      return `${index + 1}. ${COPYABLE_TITLE_START}${copyableTitle}${COPYABLE_TITLE_END}`
+        + `${displayMetadata ? ` — ${displayMetadata}` : ""}`
+        + `${item.comment ? ` — ${item.comment}` : ""}`;
+    }).join("\n\n"),
   ];
   const taste = user?.aiTaste?.[section] || {};
   const labelKey = String(taste.labelKey || "").trim();
@@ -74,7 +94,13 @@ function buildPublicFavoritesSectionText(user, lang, section) {
   const compactLines = [
     lines[0],
     "",
-    ...entry.items.map((item, index) => `${index + 1}. ${compactPublicValue(item.title, 60)}`),
+    messages[lang].aiListCopyTitleTip,
+    "",
+    entry.items.map((item, index) => {
+      const { copyableTitle, displayMetadata } = getAiListDisplayParts(item, section, lang);
+      return `${index + 1}. ${COPYABLE_TITLE_START}${compactPublicValue(copyableTitle, 60)}${COPYABLE_TITLE_END}`
+        + `${displayMetadata ? ` — ${compactPublicValue(displayMetadata, 60)}` : ""}`;
+    }).join("\n\n"),
   ];
   if (labelKey) compactLines.push("", lines.at(-1));
   text = compactLines.join("\n");
@@ -87,6 +113,7 @@ module.exports = {
   buildPublicFavoritesHubText,
   buildPublicFavoritesSectionText,
   compactPublicValue,
+  formatPublicFavoritesTelegramText,
   getPublicFavoriteSections,
   normalizePublicFavorite,
 };

@@ -6,6 +6,7 @@ const { getSectionEmoji, getSectionLabel } = require("../services/ai-section");
 const {
   buildPublicFavoritesHubText,
   buildPublicFavoritesSectionText,
+  formatPublicFavoritesTelegramText,
   getPublicFavoriteSections,
 } = require("../services/profile-favorites-ui");
 const { normalizePublicProfileCode } = require("../services/public-codes");
@@ -68,20 +69,22 @@ function favoritesSectionKeyboard(lang, context) {
   ]);
 }
 
-async function editFavoritesCard(ctx, text, keyboard) {
+async function editFavoritesCard(ctx, text, keyboard, { useHtml = false } = {}) {
+  const renderedText = useHtml ? formatPublicFavoritesTelegramText(text) : text;
+  const extra = useHtml ? { ...keyboard, parse_mode: "HTML" } : keyboard;
   const isMedia = Boolean(ctx.callbackMessage?.photo || ctx.callbackMessage?.document || ctx.callbackMessage?.caption);
   if (isMedia && text.length <= 1024 && ctx.editMessageCaption) {
-    const edited = await ctx.editMessageCaption(ctx.callbackMessageId, text, keyboard);
+    const edited = await ctx.editMessageCaption(ctx.callbackMessageId, renderedText, extra);
     if (edited) return edited;
   }
   if (!isMedia && ctx.editMessageText) {
-    const edited = await ctx.editMessageText(ctx.callbackMessageId, text, keyboard);
+    const edited = await ctx.editMessageText(ctx.callbackMessageId, renderedText, extra);
     if (edited) return edited;
   }
   if (ctx.deleteMessage && ctx.callbackMessageId) {
     try { await ctx.deleteMessage(ctx.callbackMessageId); } catch {}
   }
-  return ctx.reply(text, keyboard);
+  return ctx.reply(renderedText, extra);
 }
 
 function getProfileReturnOptions(context) {
@@ -138,7 +141,7 @@ async function handleProfileFavoritesCallback(ctx, lang) {
   const keyboard = section
     ? favoritesSectionKeyboard(lang, context)
     : favoritesHubKeyboard(lang, sections, context);
-  const result = await editFavoritesCard(ctx, text, keyboard);
+  const result = await editFavoritesCard(ctx, text, keyboard, { useHtml: Boolean(section) });
   await setNavigationMode(ctx, `profile_favorites:${context.source}:${context.page}:${context.code}:${section || "hub"}`);
   return result;
 }

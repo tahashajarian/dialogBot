@@ -986,9 +986,28 @@ async function promoteWatchlistItemToTopTen(
     return { ok: false, reason: "top_ten_limit", watchlistItems, topTenItems };
   }
 
-  const nextTopTen = [...topTenItems, { title: watchlistItem.title, comment: watchlistItem.comment, watched: false }];
+  const movedItem = {
+    ...watchlistItem,
+    watched: false,
+  };
+  const nextTopTen = [...topTenItems, movedItem];
+  const nextWatchlist = watchlistItems.filter(
+    (entry) => entry.title.toLowerCase() !== cleanItem.toLowerCase(),
+  );
 
-  await updateProfileField(userId, `aiLists.${section}.topTen`, nextTopTen);
+  const moved = await User.findOneAndUpdate(
+    { userId },
+    {
+      $set: {
+        [`aiLists.${section}.topTen`]: nextTopTen,
+        [`aiLists.${section}.watchlist`]: nextWatchlist,
+      },
+    },
+    { returnDocument: "after" },
+  );
+  if (!moved) {
+    return { ok: false, reason: "missing_user", watchlistItems, topTenItems };
+  }
   await syncUserTasteIndex(userId, { sections: [section] }).catch(() => null);
   const starMilestone = await awardListMilestones({
     userId,
@@ -1003,8 +1022,8 @@ async function promoteWatchlistItemToTopTen(
 
   return {
     ok: true,
-    movedItem: { title: watchlistItem.title, comment: watchlistItem.comment },
-    watchlistItems,
+    movedItem,
+    watchlistItems: nextWatchlist,
     topTenItems: nextTopTen,
     starRewards: starMilestone.rewards,
     starProgress: starMilestone.progress,

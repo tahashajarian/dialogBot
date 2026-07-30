@@ -99,11 +99,13 @@ const {
 const { operationalLimits } = require("../services/operational-limits");
 const { formatInlineListCaptureTip } = require("../services/inline-list-capture-ui");
 const {
+  aiListTelegramExtra,
   buildAiAssistantMenuMessage,
   buildAiListManagerMessage,
   getWatchlistPage,
   buildTopTenSavedMessage,
   formatAiItemsList,
+  formatAiListTelegramText,
   formatAiLimitMessage,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
@@ -634,6 +636,7 @@ async function openAiListManager(ctx, lang, section, listType, {
     ? formatInlineListCaptureTip(ctx, lang)
     : "";
   const text = [listText, inlineCaptureTip].filter(Boolean).join("\n\n");
+  const telegramText = formatAiListTelegramText(text);
   const replyKeyboard = aiListManageMenuKeyboard(lang, section, listType, {
     hasItems: items.length > 0,
     itemCount: items.length,
@@ -662,32 +665,33 @@ async function openAiListManager(ctx, lang, section, listType, {
     if (!alreadyInThisManager || previousState !== nextState) {
       await ctx.reply(messages[lang][tipKey], replyKeyboard);
     }
-    const watchlistText = includeManageTip
+    const watchlistText = formatAiListTelegramText(includeManageTip
       ? `${text}\n\n${messages[lang][tipKey]}`
-      : text;
+      : text);
+    const telegramInlineKeyboard = aiListTelegramExtra(inlineKeyboard);
     if (replaceCard && typeof ctx.editMessageText === "function") {
       try {
-        listMessage = await ctx.editMessageText(ctx.callbackMessageId, watchlistText, inlineKeyboard);
+        listMessage = await ctx.editMessageText(ctx.callbackMessageId, watchlistText, telegramInlineKeyboard);
       } catch {
-        listMessage = await ctx.reply(watchlistText, inlineKeyboard);
+        listMessage = await ctx.reply(watchlistText, telegramInlineKeyboard);
       }
     } else {
-      listMessage = await ctx.reply(watchlistText, inlineKeyboard);
+      listMessage = await ctx.reply(watchlistText, telegramInlineKeyboard);
     }
   } else if (banner && ctx.replyWithPhoto && text.length <= TELEGRAM_CAPTION_MAX_LENGTH) {
     try {
       listMessage = await sendBannerPhoto(ctx, {
         ...banner,
-        extra: { ...replyKeyboard, caption: text },
+        extra: aiListTelegramExtra({ ...replyKeyboard, caption: telegramText }),
       });
       if (bannerSeenKey) {
         await markSectionTipShownForContext(ctx, bannerSeenKey, new Date()).catch(() => null);
       }
     } catch {
-      listMessage = await ctx.reply(text, replyKeyboard);
+      listMessage = await ctx.reply(telegramText, aiListTelegramExtra(replyKeyboard));
     }
   } else {
-    listMessage = await ctx.reply(text, replyKeyboard);
+    listMessage = await ctx.reply(telegramText, aiListTelegramExtra(replyKeyboard));
   }
   await rememberAiListMessage(ctx, section, listType, listMessage, {
     navigationMode: nextMode,
@@ -861,8 +865,13 @@ async function handleAiText(ctx, lang, text, state) {
         ? { topTenTitleSet: toTitleSet(topTenItems), includeWatched: true }
         : {};
       return ctx.reply(
-        formatAiItemsList(title, currentItems, emptyText, listOptions),
-        aiSectionKeyboardForSection(lang, section),
+        formatAiListTelegramText(formatAiItemsList(title, currentItems, emptyText, {
+          ...listOptions,
+          lang,
+          section,
+          listType,
+        })),
+        aiListTelegramExtra(aiSectionKeyboardForSection(lang, section)),
       );
     }
 
@@ -1078,12 +1087,12 @@ async function handleAiText(ctx, lang, text, state) {
       });
     }
     const actionMessage = await ctx.reply(
-      `${await buildAiListManagerMessage({ ctx, lang, section, listType })}\n\n${messages[lang].aiListManageUseButtonsTip}`,
-      aiListManageMenuKeyboard(lang, section, listType, {
+      formatAiListTelegramText(`${await buildAiListManagerMessage({ ctx, lang, section, listType })}\n\n${messages[lang].aiListManageUseButtonsTip}`),
+      aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, listType, {
         hasItems: currentItems.length > 0,
         itemCount: currentItems.length,
         hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
-      }),
+      })),
     );
     await rememberAiActionMessage(ctx, `manage:${section}:${listType}`, actionMessage);
     return actionMessage;
