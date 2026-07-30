@@ -4,8 +4,10 @@ const assert = require("node:assert/strict");
 const User = require("../src/models/user");
 const {
   addAiListItem,
+  addAiRecentSuggestion,
   getAiListItemsFromUser,
   getAiLikedSuggestionTitlesFromUser,
+  getAiRecentSuggestionCreatorsFromUser,
   getOrCreateUser,
   hasSectionTipBeenShown,
   markSectionTipShown,
@@ -110,6 +112,59 @@ test("only explicit completed-and-liked suggestion feedback becomes positive AI 
     getAiListItemsFromUser(user, "books", "watchlist")[2].suggestionFeedback,
     "liked",
   );
+});
+
+test("recent suggestion creator history is backward-compatible and section-scoped", () => {
+  assert.deepEqual(getAiRecentSuggestionCreatorsFromUser({}, "movies"), []);
+  const newUser = new User({ userId: 654 });
+  assert.deepEqual(newUser.aiRecentSuggestionCreators.movies, []);
+  assert.deepEqual(newUser.aiRecentSuggestionCreators.music, []);
+  assert.deepEqual(newUser.aiRecentSuggestionCreators.books, []);
+  assert.deepEqual(
+    getAiRecentSuggestionCreatorsFromUser({
+      aiRecentSuggestionCreators: {
+        movies: ["Ingmar Bergman", "  Sidney   Lumet  "],
+        books: ["Kazuo Ishiguro"],
+      },
+    }, "movies"),
+    ["Ingmar Bergman", "Sidney Lumet"],
+  );
+});
+
+test("recent suggestion title and creator histories update together", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let appliedUpdate;
+  User.findOne = async () => ({
+    aiRecentSuggestions: { movies: ["Persona"] },
+    aiRecentSuggestionCreators: { movies: ["Ingmar Bergman"] },
+  });
+  User.findOneAndUpdate = async (_query, update) => {
+    appliedUpdate = update;
+    return {};
+  };
+
+  try {
+    const result = await addAiRecentSuggestion(
+      42,
+      "movies",
+      "12 Angry Men",
+      20,
+      { creator: "Sidney Lumet", maxCreatorItems: 5 },
+    );
+    assert.equal(result.ok, true);
+    assert.deepEqual(appliedUpdate.$set["aiRecentSuggestions.movies"], [
+      "Persona",
+      "12 Angry Men",
+    ]);
+    assert.deepEqual(appliedUpdate.$set["aiRecentSuggestionCreators.movies"], [
+      "Ingmar Bergman",
+      "Sidney Lumet",
+    ]);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("section-tip state defaults independently and rejects unknown keys", async () => {

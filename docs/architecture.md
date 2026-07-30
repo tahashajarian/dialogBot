@@ -144,6 +144,8 @@ To keep `src/callbacks.js` and `src/bot.js` focused on routing/orchestration, UI
 - `src/services/profile-favorites-ui.js` for caption-safe public media Favorites and taste-label rendering.
 - `src/services/saved-profiles-ui.js` for saved-profile list item shaping and saved-code helpers.
 - `src/services/ai-list-ui.js` for AI list/taste/suggestion text shaping.
+- `src/services/ai-suggestion-generation.js` for the shared bounded suggestion retry, quality-rejection, and duplicate-rejection loop used by initial and follow-up suggestion flows.
+- `src/services/ai-suggestion-quality.js` for suggestion parsing safeguards, media-reason validation, creator extraction/diversity, and retry classification.
 - `src/services/banner-media.js` for global Telegram banner `file_id` lookup, first-upload persistence in `AppSetting`, invalid-cache recovery, and bundled-asset fallback.
 - `src/services/ai-paid-suggestions.js` for paid extra suggestion quote/spend/refund state after free quota exhaustion.
 

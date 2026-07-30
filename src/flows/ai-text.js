@@ -34,6 +34,7 @@ const {
   getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
+  getAiRecentSuggestionCreatorsFromUser,
   getAiRejectedSuggestionTitlesFromUser,
   getAiLikedSuggestionTitlesFromUser,
   setAiListItemComment,
@@ -46,11 +47,11 @@ const {
   syncAiTasteForSection,
 } = require("../services/users");
 const { setNavigationMode } = require("../services/reply-keyboard-navigation");
-const { getAiSingleSuggestion } = require("../services/ai");
 const {
-  buildSuggestionAttemptText,
   buildSuggestionCopyText,
+  extractSuggestionCreator,
 } = require("../services/ai-suggestion-quality");
+const { generateUsableSuggestion } = require("../services/ai-suggestion-generation");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
 const { sendTasteLabelReview } = require("./ai-taste-labels");
 const {
@@ -72,7 +73,6 @@ const {
   getTasteLabelStyleHint,
   getSuggestionActionPrompt,
 } = require("../services/ai-section");
-const { getAiListDuplicateMatch } = require("../services/ai-list-duplicates");
 const {
   getAiListAddPrompt,
   resolveAiListAddInput,
@@ -92,8 +92,8 @@ const {
 } = require("./ai-cards");
 const {
   AI_RECENT_SUGGESTIONS_LIMIT,
+  AI_RECENT_SUGGESTION_CREATORS_LIMIT,
   AI_SUGGESTION_CONTEXT_MAX_CHARS,
-  AI_SUGGESTION_MAX_ATTEMPTS,
   AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../constants/ai");
 const { operationalLimits } = require("../services/operational-limits");
@@ -420,6 +420,7 @@ async function sendSingleSectionSuggestion({
   paidSuggestion = null,
 }) {
   const recentSuggestionItems = getAiRecentSuggestionTitlesFromUser(ctx.user, section);
+  const recentSuggestionCreators = getAiRecentSuggestionCreatorsFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
   const blockedSuggestionItems = [
@@ -481,37 +482,20 @@ async function sendSingleSectionSuggestion({
     );
   }
 
-  let suggestionResult = null;
-  for (let attempt = 0; attempt < AI_SUGGESTION_MAX_ATTEMPTS; attempt += 1) {
-    suggestionResult = await getAiSingleSuggestion({
-      userId: ctx.userId,
-      mode: section,
-      lang,
-      userText: buildSuggestionAttemptText(
-        userText,
-        section === "random" ? "Suggest one thing for me" : `Suggest one ${section} item`,
-        attempt,
-      ),
-      topTenItems,
-      watchlistItems: getPromptWatchlistItems(watchlistItems),
-      recentSuggestionItems,
-      rejectedSuggestionItems,
-      likedSuggestionItems,
-      personalized: true,
-      tasteStyleHint,
-    });
-
-    if (!suggestionResult.ok || !suggestionResult.title) {
-      break;
-    }
-
-    const duplicateMatch = getAiListDuplicateMatch(suggestionResult.title, blockedSuggestionItems);
-    if (!duplicateMatch) {
-      break;
-    }
-
-    suggestionResult = { ok: false, reason: "duplicate_suggestion" };
-  }
+  const suggestionResult = await generateUsableSuggestion({
+    userId: ctx.userId,
+    section,
+    lang,
+    userText,
+    topTenItems,
+    watchlistItems: getPromptWatchlistItems(watchlistItems),
+    recentSuggestionItems,
+    rejectedSuggestionItems,
+    likedSuggestionItems,
+    recentSuggestionCreators,
+    blockedSuggestionItems,
+    tasteStyleHint,
+  });
 
   if (placeholder.isSettled()) {
     if (!paidSuggestion) await refundAiSuggestionQuota(ctx.userId, section, quota.consumedAt);
@@ -550,7 +534,16 @@ async function sendSingleSectionSuggestion({
   if (paidSuggestion) {
     await completePaidSuggestion(paidSuggestion.quote._id, suggestionResult.title);
   }
-  await addAiRecentSuggestion(ctx.userId, section, suggestionResult.title, AI_RECENT_SUGGESTIONS_LIMIT);
+  await addAiRecentSuggestion(
+    ctx.userId,
+    section,
+    suggestionResult.title,
+    AI_RECENT_SUGGESTIONS_LIMIT,
+    {
+      creator: extractSuggestionCreator(suggestionResult.metadata),
+      maxCreatorItems: AI_RECENT_SUGGESTION_CREATORS_LIMIT,
+    },
+  );
   setPendingSuggestion(
     ctx.userId,
     section,

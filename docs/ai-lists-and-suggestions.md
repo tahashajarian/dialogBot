@@ -61,7 +61,8 @@
 - List-return buttons should consistently say `Back to list` / `برگشت به لیست`, including Favorites, watchlists, suggestions, add flows, and shareable-list guidance. Never expose the internal `Top 10` name.
 - For Later uses the same two-layer pattern as Profile: the persistent reply keyboard keeps Add and Go to favorites, while the list card carries inline status filters and pagination. Show status filters only when the complete list contains at least one done and one not-done item. The selected status button becomes Show all while the opposite status remains available. Changing filters returns to page one. Paginate filtered results five items at a time, keep commands bound to their original full-list indexes, remember the current page across item mutations, and clamp to the previous valid page when a removal empties the last page. The card has no redundant Close button. Show the complete list count beside its title.
 - Keep per-item command links compact because they repeat under every item, for example `/dn_mv_l_1`, `/cm_mv_l_1`, `/rm_mv_l_1`.
-- Separate rendered items with a compact divider so the command links for one item do not visually run into the next item without making long lists too tall.
+- Separate rendered items with one blank line on each side of the divider so repeated command links remain readable on mobile.
+- Put one blank line between an item's title/comment content and its command block, and between individual command links, so mobile users are less likely to tap the wrong command.
 - Canceling comment input should quietly retire the input prompt and return to the refreshed list manager, without sending a separate "comment canceled" card.
 - Legacy status-toggle picker callbacks may remain safe for stale cards, but new list rendering should prefer command links in the list text.
 - Moving a completed watchlist item to Favorites transfers it: add the complete item, including metadata and comment provenance, to Favorites and remove it from For Later in the same user update. Remove from For Later only as part of a successful Favorites mutation; do not show a duplicate-state badge.
@@ -286,6 +287,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
   - user's watchlist
   - `aiRecentSuggestions`
 - `aiRecentSuggestions.{section}` is capped at 20 stored titles.
+- `aiRecentSuggestionCreators.{section}` is capped at five normalized creator names for media sections and is updated with the title history in the same database write.
 - Suggestion prompts should send all TopTen items but only a capped recent slice of watchlist titles, currently 30.
 - Local duplicate checks must still use the full watchlist.
 - Suggestions are limited to 10 per hour per user per section via `aiSuggestionUsage`.
@@ -308,6 +310,8 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Suggestion results include a native inline `Copy name` action containing a search-friendly query: clean title plus identifying metadata such as year, artist, author, director, creator, or platform. Save, completed, and reject remain in the scoped bottom action prompt sent immediately after the result.
 - External ratings are optional and never gate a suggestion. When the provider is highly certain, the saved explanation/comment may begin with a clearly named source: IMDb for movies or series, Goodreads for books, and Metacritic for albums where applicable. If the score is unavailable or uncertain, omit it and keep the suggestion. A future trusted rating-data integration should take precedence over model-supplied scores.
 - Suggestions do not auto-send the next item after a status action; users explicitly press the bottom "another suggestion" action or Back to the section manager.
+- Media suggestions reject locally recognizable generic taste-match reasons and require a concrete explanation. Treat exact creator names stored as Favorites as exclusion signals for that creator's works, and keep a short per-section history of recently suggested creators so consecutive results diversify directors, authors, artists, and bands. Existing users need no migration; absent creator history is empty.
+- A suggestion normally uses one provider request. Retry up to two additional times only when local validation rejects an uncertain, malformed, generic, duplicate, creator-repeating, or otherwise unusable candidate. Provider/capacity failures do not trigger wasteful retries, and the existing quota refund and failure-navigation behavior remains unchanged.
 - The Movies & Series suggestion flow has no additional type picker. It may recommend either format based on Favorites, while an optional short request such as "series only" or "movie only" must be honored.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `○` only for item status.
@@ -366,6 +370,12 @@ Telegram inline mode provides a narrow capture entry point for the three media F
   - last-used time
 - Log cache match type: `exact`, `fuzzy`, `semantic`, `new_api_call`.
 - For recommendation prompts, send only the context the model needs.
-- Keep exclusion context compact. Use at most two generation attempts, and retry only when local duplicate detection rejects an otherwise valid result.
-- Cap suggestion output at 60 tokens for the required two-line response.
+- Keep exclusion context compact. Use at most three generation attempts, and make attempts two and three only after a locally retryable quality rejection.
+- Cap suggestion output at 60 tokens for the required three-line response.
 - Record provider-reported input, output, and total token usage with AI operational events when available.
+
+## Future Premium Suggestion Verification
+
+- If premium accounts are introduced, consider a separately metered enhanced-suggestion path that verifies candidates against trusted external catalogues before display: TMDB or Wikidata for movies and series, MusicBrainz for music, and Open Library, Google Books, or Wikidata for books.
+- Generate multiple internal candidates, resolve exact title/creator/year identities against the relevant catalogue, discard unresolved or conflicting candidates, then rank the verified remainder for relevance, novelty, and creator diversity. Write the user-facing explanation only after selecting a verified candidate.
+- Keep ordinary suggestions available without premium verification. Do not describe model-only validation as externally verified, and do not silently fall back from a promised verified result to an unverified one.

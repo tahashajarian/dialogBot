@@ -201,10 +201,10 @@ function formatAiItemsList(title, items, emptyText, options = {}) {
     ));
     actions.push(actionLine(actionLabels.remove, `/rm_${sectionToken}_${listToken}_${number}`));
 
-    return `${itemLine}\n${actions.join("\n")}`;
+    return `${itemLine}\n\n${actions.join("\n\n")}`;
   });
   const copyTip = section ? messages[options.lang]?.aiListCopyTitleTip : "";
-  return `${[title, copyTip].filter(Boolean).join("\n")}\n\n${lines.join(`\n${AI_LIST_ITEM_DIVIDER}\n`)}`;
+  return `${[title, copyTip].filter(Boolean).join("\n")}\n\n${lines.join(`\n\n${AI_LIST_ITEM_DIVIDER}\n\n`)}`;
 }
 
 function withAiSectionTitle(lang, section, body) {

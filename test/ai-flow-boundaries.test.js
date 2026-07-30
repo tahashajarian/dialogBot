@@ -2325,7 +2325,7 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   assert.match(rendered, /1\. ✔️ Dune\n✨ reread/);
   assert.doesNotMatch(rendered, /🏆/);
   assert.match(rendered, /2\. ○ Foundation/);
-  assert.match(rendered, /────────────────────────/);
+  assert.match(rendered, /✨ reread\n\n────────────────────────\n\n2\. ○ Foundation/);
 });
 
 test("AI list UI treats unmarked legacy comments as AI explanations", () => {
@@ -2397,10 +2397,12 @@ test("AI list UI builds section-titled list messages from user data", () => {
 
   assert.match(topTenText, /❤️ My favorite movies/);
   assert.match(topTenText, /1\. Heat\n✨ tight/);
+  assert.match(topTenText, /✨ tight\n\nUpdate comment 👉 \/cm_mv_t_1\n\nRemove 👉 \/rm_mv_t_1/);
   assert.match(topTenText, /Update comment 👉 \/cm_mv_t_1/);
   assert.match(topTenText, /Remove 👉 \/rm_mv_t_1/);
   assert.match(watchlistText, /1\. ○ Solaris\n📝 این یه کامنت تستیه/);
   assert.match(watchlistText, /2\. ○ Arrival\n✨ rewatch/);
+  assert.match(watchlistText, /✨ rewatch\n\nChange to watched 👉 \/dn_mv_l_2/);
   assert.match(watchlistText, /3\. ○ Heat/);
   assert.doesNotMatch(watchlistText, /🏆/);
   assert.doesNotMatch(watchlistText, /✨ این یه کامنت تستیه/);

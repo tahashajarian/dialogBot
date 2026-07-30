@@ -135,6 +135,12 @@ function getAiRecentSuggestionTitlesFromUser(user, section) {
     .filter(Boolean);
 }
 
+function getAiRecentSuggestionCreatorsFromUser(user, section) {
+  return (user?.aiRecentSuggestionCreators?.[section] || [])
+    .map((entry) => normalizeAiListItem(entry))
+    .filter(Boolean);
+}
+
 function getAiRejectedSuggestionTitlesFromUser(user, section) {
   return (user?.aiRejectedSuggestions?.[section] || [])
     .map((entry) => normalizeAiListItem(entry))
@@ -147,7 +153,13 @@ function getAiLikedSuggestionTitlesFromUser(user, section) {
     .map((entry) => entry.title);
 }
 
-async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
+async function addAiRecentSuggestion(
+  userId,
+  section,
+  title,
+  maxItems = 20,
+  { creator = "", maxCreatorItems = 5 } = {},
+) {
   const cleanTitle = normalizeAiListItem(title);
   if (!cleanTitle) {
     return { ok: false, reason: "empty" };
@@ -161,7 +173,20 @@ async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
   const current = getAiRecentSuggestionTitlesFromUser(user, section);
   const withoutDuplicate = current.filter((entry) => entry.toLowerCase() !== cleanTitle.toLowerCase());
   const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
-  await updateProfileField(userId, `aiRecentSuggestions.${section}`, updated);
+  const cleanCreator = normalizeAiListItem(creator);
+  let updatedCreators = getAiRecentSuggestionCreatorsFromUser(user, section);
+  if (cleanCreator && ["movies", "music", "books"].includes(section)) {
+    updatedCreators = [
+      ...updatedCreators.filter((entry) => entry.toLowerCase() !== cleanCreator.toLowerCase()),
+      cleanCreator,
+    ].slice(-maxCreatorItems);
+  }
+  await updateUserFields(userId, {
+    [`aiRecentSuggestions.${section}`]: updated,
+    ...(cleanCreator && ["movies", "music", "books"].includes(section)
+      ? { [`aiRecentSuggestionCreators.${section}`]: updatedCreators }
+      : {}),
+  });
   void trackEvent({
     name: EVENT_NAMES.suggestionSaved,
     userId,
@@ -171,7 +196,7 @@ async function addAiRecentSuggestion(userId, section, title, maxItems = 20) {
       goal: maxItems,
     },
   });
-  return { ok: true, items: updated };
+  return { ok: true, items: updated, creators: updatedCreators };
 }
 
 async function addAiRejectedSuggestion(userId, section, title, maxItems = 20) {
@@ -1057,6 +1082,7 @@ module.exports = {
   getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
+  getAiRecentSuggestionCreatorsFromUser,
   getAiRejectedSuggestionTitlesFromUser,
   getAiLikedSuggestionTitlesFromUser,
   addAiRecentSuggestion,

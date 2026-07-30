@@ -12,7 +12,9 @@ const {
 } = require("./ai-suggestion-data");
 const {
   createSuggestionHelpers,
+  getMediaSuggestionQualityIssue,
   getSingleSuggestionDetailInstruction,
+  getSuggestionCreatorIssue,
   isSuggestionUncertainResponse,
 } = require("./ai-suggestion-quality");
 const {
@@ -69,6 +71,7 @@ function buildUserContext({
   recentSuggestionItems = [],
   rejectedSuggestionItems = [],
   likedSuggestionItems = [],
+  recentSuggestionCreators = [],
 }) {
   if (!personalized) {
     return "";
@@ -80,6 +83,7 @@ function buildUserContext({
     `Saved for later: ${compactList(watchlistItems)}`,
     `Liked and already consumed: ${compactList(likedSuggestionItems)}`,
     `Recent suggestions: ${compactList(recentSuggestionItems)}`,
+    `Recently suggested creators: ${compactList(recentSuggestionCreators)}`,
     `Rejected suggestions: ${compactList(rejectedSuggestionItems)}`,
   ].join("\n");
 }
@@ -143,6 +147,7 @@ async function getAiSingleSuggestion({
   recentSuggestionItems = [],
   rejectedSuggestionItems = [],
   likedSuggestionItems = [],
+  recentSuggestionCreators = [],
   personalized = false,
   tasteStyleHint = "",
 }) {
@@ -163,7 +168,7 @@ async function getAiSingleSuggestion({
       "Before answering, internally check that the exact official title and every identifying detail—including year and creator—belong to the same real item.",
       "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
-      "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned.",
+      "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned. Name at least two concrete qualities that connect it to the user's evidence; never give a generic taste-match reason.",
       getSuggestionReasonInstruction(lang),
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
@@ -187,6 +192,7 @@ async function getAiSingleSuggestion({
         recentSuggestionItems,
         rejectedSuggestionItems,
         likedSuggestionItems,
+        recentSuggestionCreators,
       })}`,
     });
     const rawText = request.text;
@@ -240,6 +246,21 @@ async function getAiSingleSuggestion({
         hasMetadata: Boolean(parsed.metadata),
       });
       return { ok: false, reason: "unverified_suggestion", qualityIssue: realityIssue };
+    }
+    if (mode !== "random") {
+      const mediaQualityIssue = getMediaSuggestionQualityIssue({ reason: parsed.reason });
+      if (mediaQualityIssue) {
+        return { ok: false, reason: "low_quality_media", qualityIssue: mediaQualityIssue };
+      }
+      const creatorIssue = getSuggestionCreatorIssue({
+        metadata: parsed.metadata,
+        topTenItems,
+        recentSuggestionCreators,
+        requestText: input,
+      });
+      if (creatorIssue) {
+        return { ok: false, reason: "creator_repetition", qualityIssue: creatorIssue };
+      }
     }
     if (mode === "random") {
       const qualityIssue = getInterestSuggestionQualityIssue({

@@ -53,10 +53,15 @@ function isSuggestionUncertainResponse(text) {
   return /^UNSURE[.!]?$/i.test(String(text || "").trim());
 }
 
-function buildSuggestionAttemptText(userText, fallbackText, attempt) {
+function buildSuggestionAttemptText(userText, fallbackText, attempt, previousIssue = "") {
   const context = String(userText || "").trim();
   if (attempt <= 0) return context || fallbackText;
-  const retryInstruction = "Suggest a different item. The previous one was already known.";
+  const issue = String(previousIssue || "").trim();
+  const retryInstruction = issue === "generic_reason"
+    ? "Try again with a different real item and explain at least two concrete connections; do not use a generic taste-match reason."
+    : issue === "favorite_creator_work" || issue === "repeated_creator"
+      ? "Try again with a different real item by a different creator."
+      : "Try again with a different real item. The previous candidate was unusable or already known.";
   return context ? `${context}\n\n${retryInstruction}` : retryInstruction;
 }
 
@@ -121,6 +126,91 @@ function getSuggestionRealityIssue({ mode, title, metadata = "", reason }) {
   }
 
   return "";
+}
+
+const MEDIA_GENERIC_REASON_PATTERNS = [
+  /^Good match for your taste[.!]?$/i,
+  /^(?:This|It) (?:is|would be) (?:a )?(?:good|great|strong|perfect) (?:match|choice|fit)(?: for you| for your taste)?[.!]?$/i,
+  /^(?:A |An )?(?:good|great|strong|perfect) (?:match|choice|fit)(?: for you| for your taste)?[.!]?$/i,
+  /^برای سلیقه(?:‌|\s)?ات گزینه (?:خوب|عالی|مناسب)یه[.!؟]?$/u,
+  /^(?:خیلی )?به سلیقه(?:‌|\s)?ات می(?:‌|\s)?خوره[.!؟]?$/u,
+  /^(?:کاملا |کاملاً )?با سلیقه(?:‌|\s)?ات (?:هماهنگه|جوره)[.!؟]?$/u,
+  /^به چیزهایی که دوست داری نزدیکه[.!؟]?$/u,
+];
+const RETRYABLE_SUGGESTION_FAILURES = new Set([
+  "uncertain_suggestion",
+  "invalid_output",
+  "unverified_suggestion",
+  "low_quality_media",
+  "low_quality_interest",
+  "duplicate_suggestion",
+  "creator_repetition",
+]);
+
+function getMediaSuggestionQualityIssue({ reason = "" }) {
+  const cleanReason = String(reason || "").trim().replace(/\s+/g, " ");
+  if (!cleanReason) return "missing_reason";
+  if (MEDIA_GENERIC_REASON_PATTERNS.some((pattern) => pattern.test(cleanReason))) {
+    return "generic_reason";
+  }
+  return "";
+}
+
+function normalizeComparableCreator(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\u200c\u200f\u200e]/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function extractSuggestionCreator(metadata = "") {
+  const value = normalizeSuggestionMetadata(metadata)
+    .replace(/\b(?:IMDb|Goodreads|Metacritic)\s*:\s*[\d.]+(?:\/(?:10|5|100))?/gi, "")
+    .trim();
+  if (!value) return "";
+
+  const parts = value
+    .split(/\s*[·|]\s*/)
+    .map((part) => part
+      .replace(/\b(?:18|19|20)\d{2}\b/g, "")
+      .replace(/(?:۱۸|۱۹|۲۰)[۰-۹]{2}/g, "")
+      .replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, "")
+      .trim())
+    .filter(Boolean);
+  const creatorPattern = /^(?:director|dir\.?|creator|artist|band|author|writer|singer|کارگردان|سازنده|خالق|هنرمند|گروه|نویسنده|خواننده)\s*:\s*/i;
+  const explicit = parts.find((part) => creatorPattern.test(part));
+  const candidate = explicit || parts[0] || "";
+  return candidate.replace(creatorPattern, "").trim().slice(0, 80);
+}
+
+function getSuggestionCreatorIssue({
+  metadata = "",
+  topTenItems = [],
+  recentSuggestionCreators = [],
+  requestText = "",
+}) {
+  const creator = extractSuggestionCreator(metadata);
+  const normalizedCreator = normalizeComparableCreator(creator);
+  if (!normalizedCreator) return "";
+  const normalizedRequest = normalizeComparableCreator(requestText);
+  if (normalizedRequest.includes(normalizedCreator)) return "";
+
+  const favoriteNames = new Set(topTenItems.map(normalizeComparableCreator).filter(Boolean));
+  if (favoriteNames.has(normalizedCreator)) return "favorite_creator_work";
+
+  const recentCreators = new Set(
+    recentSuggestionCreators.map(normalizeComparableCreator).filter(Boolean),
+  );
+  if (recentCreators.has(normalizedCreator)) return "repeated_creator";
+  return "";
+}
+
+function isRetryableSuggestionFailure(result) {
+  if (!result || result.ok) return false;
+  return RETRYABLE_SUGGESTION_FAILURES.has(result.reason);
 }
 
 function splitSuggestionSentence(text) {
@@ -310,7 +400,11 @@ module.exports = {
   createSuggestionHelpers,
   getInterestSuggestionFamily,
   getSingleSuggestionDetailInstruction,
+  getMediaSuggestionQualityIssue,
+  getSuggestionCreatorIssue,
   getSuggestionRealityIssue,
+  extractSuggestionCreator,
+  isRetryableSuggestionFailure,
   isSuggestionUncertainResponse,
   splitSuggestionSentence,
 };

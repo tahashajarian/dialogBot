@@ -178,6 +178,8 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/ai-cards.js`: remembered AI list/section card IDs and stale-card cleanup helpers shared by AI text/callback flows.
 - `src/services/users.js`: centralized AI list storage helpers and media taste-label state.
 - `src/services/ai.js`: AI suggestion requests and recommendation parsing.
+- `src/services/ai-suggestion-generation.js`: shared bounded generation loop for retryable quality failures and duplicate candidates.
+- `src/services/ai-suggestion-quality.js`: suggestion parsing safeguards, media reason checks, creator diversity, and retry classification.
 - `src/services/ai-list-ui.js`: AI list/taste/suggestion text rendering helpers.
 - `src/services/ai-paid-suggestions.js`: paid extra suggestion quote/spend/refund rules after free quota exhaustion.
 - `src/services/taste-label-classifier.js`: allowlisted media label catalog, conservative structured AI classification, ranked shortlist, evidence-gated optional insight, and list fingerprinting.

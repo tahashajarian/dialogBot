@@ -19,8 +19,16 @@ const { aiSuggestionCopyKeyboard } = require("../src/keyboards");
 const {
   buildSuggestionAttemptText,
   buildSuggestionCopyText,
+  extractSuggestionCreator,
+  getMediaSuggestionQualityIssue,
   getSingleSuggestionDetailInstruction,
+  getSuggestionCreatorIssue,
+  isRetryableSuggestionFailure,
 } = require("../src/services/ai-suggestion-quality");
+const {
+  AI_SUGGESTION_MAX_ATTEMPTS,
+  AI_RECENT_SUGGESTION_CREATORS_LIMIT,
+} = require("../src/constants/ai");
 const {
   claimSuggestionAction,
   clearSuggestionMood,
@@ -53,7 +61,77 @@ test("suggestion mood persists for a session and can be reset", () => {
 test("duplicate retries preserve an explicit series-only request", () => {
   assert.equal(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 0), "فقط سریال");
   assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /^فقط سریال/);
-  assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /different item/);
+  assert.match(buildSuggestionAttemptText("فقط سریال", "Suggest one movies item", 1), /different real item/);
+});
+
+test("suggestion retries stay bounded and explain the rejected quality issue", () => {
+  assert.equal(AI_SUGGESTION_MAX_ATTEMPTS, 3);
+  assert.equal(AI_RECENT_SUGGESTION_CREATORS_LIMIT, 5);
+  assert.match(
+    buildSuggestionAttemptText("", "Suggest one books item", 1, "generic_reason"),
+    /two concrete connections/,
+  );
+  assert.match(
+    buildSuggestionAttemptText("", "Suggest one books item", 2, "repeated_creator"),
+    /different creator/,
+  );
+  assert.equal(isRetryableSuggestionFailure({ ok: false, reason: "low_quality_media" }), true);
+  assert.equal(isRetryableSuggestionFailure({ ok: false, reason: "capacity_busy" }), false);
+});
+
+test("media suggestion quality rejects canned reasons but keeps concrete reasons", () => {
+  assert.equal(
+    getMediaSuggestionQualityIssue({ reason: "برای سلیقه‌ات گزینه خوبیه." }),
+    "generic_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({ reason: "خیلی به سلیقه‌ات می‌خوره." }),
+    "generic_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({ reason: "ریتم آرام و تنش اخلاقی‌اش به Stalker نزدیکه." }),
+    "",
+  );
+});
+
+test("creator safeguards reject favorite and recently suggested creators", () => {
+  assert.equal(
+    extractSuggestionCreator("۱۹۸۳ · کارگردان: Andrei Tarkovsky"),
+    "Andrei Tarkovsky",
+  );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "۱۹۸۳ · کارگردان: Andrei Tarkovsky",
+      topTenItems: ["Andrei Tarkovsky", "Persona"],
+      recentSuggestionCreators: [],
+    }),
+    "favorite_creator_work",
+  );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "Author: Kazuo Ishiguro · 1989",
+      topTenItems: ["The Trial"],
+      recentSuggestionCreators: ["Kazuo Ishiguro"],
+    }),
+    "repeated_creator",
+  );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "1957 · Director: Sidney Lumet",
+      topTenItems: ["Persona"],
+      recentSuggestionCreators: ["Ingmar Bergman"],
+    }),
+    "",
+  );
+  assert.equal(
+    getSuggestionCreatorIssue({
+      metadata: "۱۹۸۳ · کارگردان: Andrei Tarkovsky",
+      topTenItems: ["Andrei Tarkovsky"],
+      recentSuggestionCreators: ["Andrei Tarkovsky"],
+      requestText: "Suggest something by Andrei Tarkovsky",
+    }),
+    "",
+  );
 });
 
 test("creator Favorites expand discovery instead of returning only obvious creator works", () => {
