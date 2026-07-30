@@ -27,7 +27,11 @@ const {
   formatPeopleDiscoveryRequirementText,
 } = require("../src/services/people-discovery-ui");
 const { areTasteItemsEquivalent } = require("../src/services/taste-item-matching");
-const { handleSavedProfilesCallback, sendPeopleHub } = require("../src/flows/saved-profiles");
+const {
+  getPublicProfileActionsTip,
+  handleSavedProfilesCallback,
+  sendPeopleHub,
+} = require("../src/flows/saved-profiles");
 
 function userWithMusic(userId, items, extra = {}) {
   return {
@@ -362,6 +366,30 @@ test("people discovery title shows the full result count", () => {
   }], { totalCount: 7 });
 
   assert.match(text, /See people \(7\)/);
+});
+
+test("public profile action tip mentions only available actions", () => {
+  assert.equal(
+    getPublicProfileActionsTip("fa", {
+      canSave: true,
+      hasFavorites: true,
+      hasDiscussions: true,
+    }),
+    messages.fa.profilePublicActionsTipAll,
+  );
+  assert.equal(
+    getPublicProfileActionsTip("fa", { canSave: true, hasFavorites: true }),
+    messages.fa.profilePublicActionsTipAll,
+  );
+  assert.equal(
+    getPublicProfileActionsTip("en", { canSave: true, hasDiscussions: true }),
+    messages.en.profilePublicActionsTipDiscussions,
+  );
+  assert.equal(
+    getPublicProfileActionsTip("en", { canSave: true }),
+    messages.en.profilePublicActionsTipSave,
+  );
+  assert.equal(getPublicProfileActionsTip("en", { hasFavorites: true }), "");
 });
 
 test("People nearby guidance appears below the results title", () => {

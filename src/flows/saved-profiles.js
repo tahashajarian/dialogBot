@@ -168,6 +168,17 @@ function getPublicProfileActionKeyboard(lang, code, {
   });
 }
 
+function getPublicProfileActionsTip(lang, {
+  canSave = false,
+  hasFavorites = false,
+  hasDiscussions = false,
+} = {}) {
+  if (!canSave) return "";
+  if (hasFavorites) return messages[lang].profilePublicActionsTipAll;
+  if (hasDiscussions) return messages[lang].profilePublicActionsTipDiscussions;
+  return messages[lang].profilePublicActionsTipSave;
+}
+
 async function runLeanQuery(query, select = "") {
   if (!query) return query;
   if (query.select) {
@@ -750,7 +761,15 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     });
   }
 
-  const footerText = fromDiscussionMembers && isSavedProfile ? messages[lang].profileSavedButton : "";
+  const actionsTip = getPublicProfileActionsTip(lang, {
+    canSave: !isOwnProfile && !isSavedProfile && !fromInvitationPreview && !fromRestrictionList,
+    hasFavorites,
+    hasDiscussions,
+  });
+  const footerText = [
+    actionsTip,
+    fromDiscussionMembers && isSavedProfile ? messages[lang].profileSavedButton : "",
+  ].filter(Boolean).join("\n\n");
   const result = editCurrent
     ? await editProfileSurfaceCard(ctx, [
       buildProfileText(target, lang, messages, { isOwnProfile: false }),
@@ -1279,6 +1298,7 @@ module.exports = {
   formatSavedProfileRemovedMessage,
   formatSavedProfileSavedMessage,
   getPeopleListReturnPage,
+  getPublicProfileActionsTip,
   profileDiscussionBackKeyboard,
   profileDiscussionsInlineKeyboard,
   parseProfileUnsaveConfirmMode,
