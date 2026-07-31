@@ -1028,7 +1028,19 @@ async function handleAiCallback(ctx, lang, helpers) {
     const title = String(pending?.title || "").trim();
     if (!title) return recoverExpiredSuggestion(ctx, lang, section);
 
-    const rejected = await addAiRejectedSuggestion(ctx.userId, section, title, AI_RECENT_SUGGESTIONS_LIMIT);
+    const rejected = await addAiRejectedSuggestion(
+      ctx.userId,
+      section,
+      title,
+      AI_RECENT_SUGGESTIONS_LIMIT,
+      {
+        aliases: section === "music"
+          ? [pending?.sourceTitle, pending?.sourceArtist && pending?.sourceTitle
+            ? `${pending.sourceTitle} — ${pending.sourceArtist}`
+            : ""].filter(Boolean)
+          : [],
+      },
+    );
     if (ctx.user && rejected.ok) {
       if (!ctx.user.aiRejectedSuggestions) ctx.user.aiRejectedSuggestions = {};
       ctx.user.aiRejectedSuggestions[section] = rejected.items;

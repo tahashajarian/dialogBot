@@ -200,9 +200,17 @@ async function addAiRecentSuggestion(
   return { ok: true, items: updated, creators: updatedCreators };
 }
 
-async function addAiRejectedSuggestion(userId, section, title, maxItems = 20) {
-  const cleanTitle = normalizeAiListItem(title);
-  if (!cleanTitle) {
+async function addAiRejectedSuggestion(
+  userId,
+  section,
+  title,
+  maxItems = 20,
+  { aliases = [] } = {},
+) {
+  const rejectedTitles = [title, ...aliases]
+    .map((entry) => normalizeAiListItem(entry))
+    .filter(Boolean);
+  if (!rejectedTitles.length) {
     return { ok: false, reason: "empty" };
   }
 
@@ -212,8 +220,14 @@ async function addAiRejectedSuggestion(userId, section, title, maxItems = 20) {
   }
 
   const current = getAiRejectedSuggestionTitlesFromUser(user, section);
-  const withoutDuplicate = current.filter((entry) => entry.toLowerCase() !== cleanTitle.toLowerCase());
-  const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
+  const merged = [...current];
+  for (const rejectedTitle of rejectedTitles) {
+    const key = rejectedTitle.toLowerCase();
+    const duplicateIndex = merged.findIndex((entry) => entry.toLowerCase() === key);
+    if (duplicateIndex >= 0) merged.splice(duplicateIndex, 1);
+    merged.push(rejectedTitle);
+  }
+  const updated = merged.slice(-maxItems);
   await updateProfileField(userId, `aiRejectedSuggestions.${section}`, updated);
   return { ok: true, items: updated };
 }

@@ -405,8 +405,17 @@ function formatAiLimitMessage(lang, key) {
   return formatOperationalLimitsText(messages[lang][key]);
 }
 
-function localizeSuggestionMetadata(lang, metadata) {
-  const value = String(metadata || "").trim();
+function localizeSuggestionMetadata(lang, metadata, section = "") {
+  let value = String(metadata || "").trim();
+
+  if (section === "movies") {
+    value = value.replace(/^(?:Director|Creator|Author)\s*:/i, "Director:");
+  } else if (section === "books") {
+    value = value.replace(/^(?:Director|Creator|Author)\s*:/i, "Author:");
+  } else if (section === "music") {
+    value = value.replace(/^(?:Artist|Author|Creator)\s*:/i, "Artist:");
+  }
+
   if (lang !== "fa") return value;
   return value
     .replace(/\bDirector\s*:/gi, "کارگردان:")
@@ -425,18 +434,26 @@ function escapeSuggestionHtml(value) {
 
 function formatSuggestionResultMessage(lang, title, reason, mood = "", metadata = "", {
   localizedTitle = "",
+  localizedCreator = "",
   originalTitle = "",
+  section = "",
 } = {}) {
   const cleanReason = reason || messages[lang].aiSuggestionFallbackTitle;
   const usesLocalizedBookTitle = Boolean(lang === "fa" && localizedTitle && originalTitle);
   const displayTitle = usesLocalizedBookTitle
     ? `${escapeSuggestionHtml(localizedTitle)} (<i>${escapeSuggestionHtml(originalTitle)}</i>)`
     : title;
+  const displayMetadata = usesLocalizedBookTitle && localizedCreator
+    ? String(metadata || "").replace(
+        /^(?:Author\s*:\s*)?[^·]+(?=\s*·|$)/i,
+        `Author: ${localizedCreator}`,
+      )
+    : metadata;
   return [
     messages[lang].aiSuggestionResultTitle.replace("{item}", displayTitle),
     usesLocalizedBookTitle
-      ? escapeSuggestionHtml(localizeSuggestionMetadata(lang, metadata))
-      : localizeSuggestionMetadata(lang, metadata),
+      ? escapeSuggestionHtml(localizeSuggestionMetadata(lang, displayMetadata, section))
+      : localizeSuggestionMetadata(lang, displayMetadata, section),
     mood
       ? messages[lang].aiSuggestionResultMood.replace(
           "{mood}",

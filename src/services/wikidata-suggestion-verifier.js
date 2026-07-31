@@ -205,7 +205,7 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
     .slice(0, 2);
   const year = getEntityYears(entity)[0] || "";
   const title = getEntityDisplayTitle(entity, suggestion?.title);
-  if (!title || !year || !creators.length) {
+  if (!title || !creators.length) {
     return {
       ok: false,
       reason: "catalog_unverified",
@@ -220,7 +220,7 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
     suggestion: {
       ...suggestion,
       title,
-      metadata: `${year} · ${creatorLabel}: ${creators.join(", ")}`,
+      metadata: [year, `${creatorLabel}: ${creators.join(", ")}`].filter(Boolean).join(" · "),
       mediaType,
       wikidataId: entity.id,
     },

@@ -58,7 +58,7 @@ function buildSuggestionAttemptText(userText, fallbackText, attempt, previousIss
   if (attempt <= 0) return context || fallbackText;
   const issue = String(previousIssue || "").trim();
   const retryInstruction = issue === "generic_reason"
-    ? "Try again with a different real item and explain at least two concrete connections; do not use a generic taste-match reason."
+    ? "Try again with a different real item. Write the reason only as a compact description of the suggested work itself: concrete qualities, then a semicolon, then two fitting adjectives. Do not mention the user, their taste, their list, favorites, or that it matches them."
     : issue === "localized_title_missing"
       ? "Try again and include the required concise Persian book title in the localizedTitle field."
     : issue === "favorite_reference"
@@ -112,15 +112,24 @@ function getSuggestionRealityIssue({ mode, title, metadata = "", reason }) {
     return "fabrication_marker";
   }
 
+  const creator = extractSuggestionCreator(cleanMetadata);
+  const normalizedCreator = normalizeComparableCreator(creator);
+  const genericCreatorTerms = {
+    books: new Set(["book", "novel", "author", "writer", "کتاب", "رمان", "نویسنده"]),
+    movies: new Set(["movie", "film", "series", "director", "creator", "فیلم", "سریال", "کارگردان", "سازنده"]),
+    music: new Set(["music", "song", "track", "album", "artist", "band", "singer", "موسیقی", "آهنگ", "ترک", "آلبوم", "هنرمند", "خواننده", "گروه"]),
+  };
+  if (normalizedCreator && genericCreatorTerms[mode]?.has(normalizedCreator)) {
+    return "generic_creator_metadata";
+  }
+
   if (mode === "movies") {
     const movieMetadata = cleanMetadata || cleanTitle.match(/\(([^)]+)\)\s*$/)?.[1] || "";
-    const yearPattern = /(?:\b(?:18|19|20)\d{2}\b|(?:۱۸|۱۹|۲۰)[۰-۹]{2})/;
-    const hasYear = yearPattern.test(movieMetadata);
     const creatorText = movieMetadata
       .replace(/(?:\b(?:18|19|20)\d{2}\b|(?:۱۸|۱۹|۲۰)[۰-۹]{2})/g, "")
       .replace(/(?:\bdir\.|\bdirector\b|\bcreator\b|کارگردان|سازنده|خالق)/gi, "")
       .replace(/[\s,.:;·\-–—()[\]]/g, "");
-    if (!hasYear || creatorText.length < 2) return "missing_movie_metadata";
+    if (creatorText.length < 2) return "missing_movie_metadata";
   }
   if (mode === "music" && !cleanMetadata && !/\([^)]+\)/.test(cleanTitle)) {
     return "missing_music_metadata";
@@ -150,11 +159,22 @@ const RETRYABLE_SUGGESTION_FAILURES = new Set([
   "duplicate_suggestion",
   "creator_repetition",
   "catalog_unverified",
+  "invalid_title_creator_pair",
 ]);
 
 function getMediaSuggestionQualityIssue({ reason = "", excludedReferenceItems = [] }) {
   const cleanReason = String(reason || "").trim().replace(/\s+/g, " ");
   if (!cleanReason) return "missing_reason";
+  const userMatchLanguage = [
+    /(?:سلیقه|فهرست|لیست|محبوب(?:\u200c|\s)?ها)(?:ت|\u200cت)?[^؛.!؟]{0,50}(?:جور|هماهنگ|نزدیک|مناسب|می(?:\u200c|\s)?خورد|می(?:\u200c|\s)?خوره)/u,
+    /(?:با|به)\s+(?:حال(?:\u200c|\s)?وهوای\s+)?(?:سلیقه|فهرست|لیست|محبوب(?:\u200c|\s)?ها)(?:ت|ت\s|ت\u200c|\u200cت|\s*کاربر)?[^؛.!؟]{0,45}(?:جور|هماهنگ|نزدیک|مناسب|می(?:\u200c|\s)?خورد|می(?:\u200c|\s)?خوره)/u,
+    /(?:برای|متناسب با)\s+(?:سلیقه|فهرست|لیست|محبوب(?:\u200c|\s)?ها)(?:ت|\u200cت)?/u,
+    /\b(?:matches?|fits?|suited? to|aligned? with)\b[^.;]{0,40}\b(?:your|the user(?:'s)?)\s+(?:taste|list|favorites?)\b/i,
+    /\b(?:because you like|based on your|for your taste|your favorites?)\b/i,
+  ];
+  if (userMatchLanguage.some((pattern) => pattern.test(cleanReason))) {
+    return "generic_reason";
+  }
   if (MEDIA_GENERIC_REASON_PATTERNS.some((pattern) => pattern.test(cleanReason))) {
     return "generic_reason";
   }
@@ -299,24 +319,21 @@ function parseSingleSuggestionResponse(raw, lang, helpers) {
 function getSingleSuggestionDetailInstruction(mode) {
   if (mode === "movies") {
     return [
-      "For a movie, line 1 must be only the exact original title; line 2 must be year + director; example: 2014 · Director: Christopher Nolan.",
-      "For a series, line 1 must be only the exact original title; line 2 must be premiere year + creator; example: 2017 · Creator: Baran bo Odar.",
-      "If you are highly certain of its IMDb rating, line 3 may start with IMDb: score/10 — then the reason; otherwise omit the rating and give only the reason.",
-    ].join(" ");
+      "For a movie, line 1 must be only the exact title; line 2 must identify only the director. Do not include year, rating, distributor, or extra metadata.",
+      "For a series, line 1 must be only the exact title; line 2 must identify only the creator. Do not include year, rating, platform, or extra metadata.",
+      "Never use generic values such as Movie, Film, Series, Director, or Creator as the person's name.",
+          ].join(" ");
   }
 
   if (mode === "music") {
     return [
-      "Line 1 must be only the exact track or album title. Line 2 must be artist/band, then album and year when known.",
-      "For an album only, if you are highly certain of its Metacritic score, line 3 may start with Metacritic: score/100 — then the reason; otherwise omit the score.",
-    ].join(" ");
+      "Line 1 must be only the exact released song title. Line 2 must identify only the real performing artist or band. Do not recommend an album, artist alone, unreleased work, or approximate title. Do not include album, year, label, rating, or extra metadata.",
+      "Never use generic values such as Music, Song, Track, Album, Artist, or Band as the creator name.",
+          ].join(" ");
   }
 
   if (mode === "books") {
-    return [
-      "Line 1 must be only the exact book title. Line 2 must be author, then publication year when known.",
-      "If you are highly certain of its Goodreads rating, line 3 may start with Goodreads: score/5 — then the reason; otherwise omit the rating.",
-    ].join(" ");
+    return "Line 1 must be only the established book title in the user's selected language. Line 2 must contain only the real author's name in that language. Never use Book, Novel, Author, Writer, کتاب, رمان, or نویسنده as the name. Do not include a year, rating, translator, edition, or publisher.";
   }
 
   return [

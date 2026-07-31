@@ -9,8 +9,10 @@ test("long-running suggestion copy includes a genuine still-thinking step", () =
   assert.equal(messages.en.aiSuggestionChecking, "👩‍🦳 Checking a few possibilities...");
   assert.equal(messages.fa.aiSuggestionVerifying, "👩‍🦳 دارم جزئیاتشون رو بررسی می‌کنم...");
   assert.match(messages.fa.aiSuggestionWaiting, /هنوز ادامه داره/);
-  assert.equal(messages.fa.aiThinkingLonger, "👩‍🦳 هنوز دارم فکر می‌کنم...");
-  assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Still thinking...");
+  assert.equal(messages.fa.aiThinking, "👩‍🦳 یک لحظه لطفا...");
+  assert.equal(messages.fa.aiThinkingStill, "👩‍🦳 لطفا کمی بیشتر صبر کن...");
+  assert.equal(messages.fa.aiThinkingLonger, "👩‍🦳 آماده‌کردن پاسخ کمی بیشتر زمان می‌برد...");
+  assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Preparing the response is taking a little longer...");
 });
 
 test("taste-label waiting copy reports waiting without claiming guessed progress", () => {
@@ -197,4 +199,94 @@ test("AI placeholder runs refund work before showing a paid timeout", async () =
   assert.deepEqual(events, ["reply:Thinking", "refund", "reply:Refunded"]);
   assert.equal(placeholder.isSettled(), true);
   assert.equal(await placeholder.finish("Late success"), null);
+});
+
+test("AI placeholder stops retrying edits after Telegram rejects the placeholder", async () => {
+  const replies = [];
+  const editCalls = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 200 + replies.length };
+    },
+    editMessageText: async (messageId, text) => {
+      editCalls.push({ messageId, text });
+      return false;
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Checking", "Still checking"], {
+    stepDelays: [5, 10],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await placeholder.finish("Final result");
+
+  assert.deepEqual(editCalls, [{ messageId: 201, text: "Checking" }]);
+  assert.deepEqual(deletedIds, [201]);
+  assert.deepEqual(replies, ["Thinking", "Final result"]);
+});
+
+test("AI placeholder can avoid Telegram edits and replace loading with a fresh result", async () => {
+  const replies = [];
+  const editCalls = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text) => {
+      replies.push(text);
+      return { message_id: 300 + replies.length };
+    },
+    editMessageText: async (messageId, text) => {
+      editCalls.push({ messageId, text });
+      return false;
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Checking", "Still checking"], {
+    stepDelays: [5, 10],
+    disableEdits: true,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await placeholder.finish("Final result");
+
+  assert.deepEqual(editCalls, []);
+  assert.deepEqual(deletedIds, [301]);
+  assert.deepEqual(replies, ["Thinking", "Final result"]);
+});
+
+test("AI placeholder separates reply-keyboard removal from editable progress", async () => {
+  const replies = [];
+  const edits = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 400 + replies.length };
+    },
+    editMessageText: async (messageId, text) => {
+      edits.push({ messageId, text });
+      return true;
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Checking", "Still checking"], {
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+    ensureEditable: true,
+    stepDelays: [5, 10],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await placeholder.finish("Final result");
+
+  assert.equal(replies.length, 2);
+  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.equal(replies[1].extra, undefined);
+  assert.deepEqual(deletedIds, [401]);
+  assert.deepEqual(edits, [
+    { messageId: 402, text: "Checking" },
+    { messageId: 402, text: "Still checking" },
+    { messageId: 402, text: "Final result" },
+  ]);
 });

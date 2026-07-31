@@ -7,6 +7,7 @@ const {
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
   getModeInstruction,
+  normalizeContextItem,
   getPersonalizedSuggestionInstruction,
   getSuggestionReasonInstruction,
   getSuggestionRealityIssue,
@@ -101,7 +102,7 @@ test("suggestion retries stay bounded and explain the rejected quality issue", (
   assert.equal(AI_RECENT_SUGGESTION_CREATORS_LIMIT, 5);
   assert.match(
     buildSuggestionAttemptText("", "Suggest one books item", 1, "generic_reason"),
-    /two concrete connections/,
+    /compact description/,
   );
   assert.match(
     buildSuggestionAttemptText("", "Suggest one books item", 2, "repeated_creator"),
@@ -122,6 +123,24 @@ test("media suggestion quality rejects canned reasons but keeps concrete reasons
   );
   assert.equal(
     getMediaSuggestionQualityIssue({ reason: "ریتم آرام و تنش اخلاقی‌اش به Stalker نزدیکه." }),
+    "",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "با حال‌وهوای آلترناتیو ایرانی فهرستت جور است؛ ریتم تند و نگاه اجتماعی تیزی دارد.",
+    }),
+    "generic_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "It matches your favorites with a fast rhythm and sharp social commentary.",
+    }),
+    "generic_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      reason: "ریتم تند و نگاه اجتماعی تیز؛ پرانرژی و کنایه‌آمیز.",
+    }),
     "",
   );
 });
@@ -254,20 +273,20 @@ test("suggestion results show active mood only when provided", () => {
   );
 });
 
-test("Persian book results italicize the verified original title", () => {
+test("book results keep the full suggestion format without requiring a year", () => {
   const message = formatSuggestionResultMessage(
     "fa",
-    "مرگ قلب (The Death of the Heart)",
-    "فرسودگی عاطفی و نگاه بی‌رحم به آدم‌ها؛ دقیق و سنگین.",
-    "",
-    "Author: Elizabeth Bowen · 1938",
-    {
-      localizedTitle: "مرگ قلب",
-      originalTitle: "The Death of the Heart",
-    },
+    "جای خالی سلوچ",
+    "روایت تلخ و انسانی.",
+    "تلخ و اجتماعی",
+    "Author: محمود دولت‌آبادی",
+    { section: "books" },
   );
-  assert.match(message, /«مرگ قلب \(<i>The Death of the Heart<\/i>\)»/);
-  assert.match(message, /نویسنده: Elizabeth Bowen/);
+  assert.match(message, /«جای خالی سلوچ»/);
+  assert.match(message, /نویسنده: محمود دولت‌آبادی/);
+  assert.match(message, /تلخ و اجتماعی/);
+  assert.match(message, /✨ روایت تلخ و انسانی\./);
+  assert.doesNotMatch(message, /1979|۱۹۷۹/);
 });
 
 test("media suggestions keep clean titles and separate searchable metadata", () => {
@@ -431,17 +450,27 @@ test("does not split movie metadata at director abbreviation", () => {
   assert.deepEqual(splitSuggestionSentence("Blade Runner 2049 (2017, Dir. Denis Villeneuve). A visual continuation of thoughtful sci-fi."), ["Blade Runner 2049 (2017, Dir. Denis Villeneuve).", "A visual continuation of thoughtful sci-fi."]);
 });
 
+test("suggestion context removes accidental list numbering without changing numeric titles", () => {
+  assert.equal(normalizeContextItem("۲. درباره الی — اصغر فرهادی"), "درباره الی — اصغر فرهادی");
+  assert.equal(normalizeContextItem("10. خانه دوست کجاست"), "خانه دوست کجاست");
+  assert.equal(normalizeContextItem("12 Angry Men — Sidney Lumet"), "12 Angry Men — Sidney Lumet");
+});
+
 test("Movies & Series suggestions define metadata for both formats", () => {
   const instruction = getSingleSuggestionDetailInstruction("movies");
   const modeInstruction = getModeInstruction("movies", "en");
   assert.match(instruction, /For a movie/);
   assert.match(instruction, /For a series/);
-  assert.match(instruction, /IMDb/);
-  assert.match(getSingleSuggestionDetailInstruction("books"), /Goodreads/);
-  assert.match(getSingleSuggestionDetailInstruction("music"), /Metacritic/);
+  assert.match(instruction, /Do not include year, rating/);
+  assert.match(getSingleSuggestionDetailInstruction("books"), /Do not include a year, rating/);
+  assert.match(getSingleSuggestionDetailInstruction("music"), /Do not include album, year, label, rating/);
   assert.match(instruction, /Creator/);
   assert.match(modeInstruction, /movies and TV\/streaming series/);
   assert.match(modeInstruction, /explicitly asks for a movie or series, honor it/);
+  assert.match(modeInstruction, /dominant cluster/);
+  assert.match(modeInstruction, /national cinema or language/);
+  assert.match(modeInstruction, /Do not jump to an unrelated genre/);
+  assert.match(modeInstruction, /malformed, ambiguous, or isolated Favorite/);
 });
 
 test("suggestion reality gate rejects fabricated-looking outputs", () => {
@@ -450,10 +479,13 @@ test("suggestion reality gate rejects fabricated-looking outputs", () => {
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Blade Runner 2049 (2017, Dir. Denis Villeneuve)", reason: "Slow sci-fi with neon melancholy." }), "");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Dark (2017, Creator: Baran bo Odar)", reason: "A layered science-fiction mystery." }), "");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023 · Director: Wim Wenders", reason: "A quiet character study." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "Director: Wim Wenders", reason: "A quiet character study." }), "");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "۲۰۲۳ · ویم وندرس", reason: "با سلیقه‌ات هماهنگه." }), "");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023", reason: "A quiet character study." }), "missing_movie_metadata");
   assert.equal(getSuggestionRealityIssue({ mode: "movies", title: "Perfect Days", metadata: "2023 · Director: Unknown", reason: "A quiet character study." }), "placeholder_metadata");
   assert.equal(getSuggestionRealityIssue({ mode: "books", title: "The Remains of the Day", metadata: "Author: Kazuo Ishiguro · 1989", reason: "Restrained and reflective." }), "");
+  assert.equal(getSuggestionRealityIssue({ mode: "books", title: "A House for Mr Biswas", metadata: "Author: Book", reason: "Family pressure and social detail." }), "generic_creator_metadata");
+  assert.equal(getSuggestionRealityIssue({ mode: "music", title: "Paranoid Android", metadata: "Artist: Music", reason: "Restless structure and sharp dynamics." }), "generic_creator_metadata");
 });
 
 test("Interests fallback is concrete and derived from the user's interests", () => {

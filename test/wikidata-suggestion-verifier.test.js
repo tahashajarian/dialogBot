@@ -110,6 +110,47 @@ test("Wikidata verification replaces movie metadata with catalogue facts", async
   assert.equal(result.suggestion.wikidataId, perfectDays.id);
 });
 
+
+test("Wikidata verification accepts a real movie when year is unavailable", async () => {
+  const noYearMovie = {
+    ...perfectDays,
+    claims: {
+      P31: perfectDays.claims.P31,
+      P57: perfectDays.claims.P57,
+    },
+  };
+  const fetchImpl = async (url) => {
+    const action = new URL(url).searchParams.get("action");
+    if (action === "wbsearchentities") {
+      return jsonResponse({ search: [{ id: noYearMovie.id }] });
+    }
+    const ids = new URL(url).searchParams.get("ids");
+    if (ids === noYearMovie.id) {
+      return jsonResponse({ entities: { [noYearMovie.id]: noYearMovie } });
+    }
+    return jsonResponse({
+      entities: {
+        Q554975: {
+          id: "Q554975",
+          labels: { en: { value: "Wim Wenders" } },
+          aliases: {},
+          claims: {},
+        },
+      },
+    });
+  };
+
+  const result = await verifyWikidataSuggestion({
+    ok: true,
+    title: "Perfect Days",
+    metadata: "Director: Wim Wenders",
+    reason: "Quiet routines and delicate observation shape its reflective mood.",
+  }, { fetchImpl });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.suggestion.metadata, "Director: Wim Wenders");
+});
+
 test("Wikidata verification rejects missing and incomplete catalogue entries", async () => {
   const missing = await verifyWikidataSuggestion({
     title: "Invented Film",

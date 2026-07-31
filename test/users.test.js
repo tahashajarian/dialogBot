@@ -5,6 +5,7 @@ const User = require("../src/models/user");
 const {
   addAiListItem,
   addAiRecentSuggestion,
+  addAiRejectedSuggestion,
   getAiListItemsFromUser,
   getAiLikedSuggestionTitlesFromUser,
   getAiRecentSuggestionCreatorsFromUser,
@@ -112,6 +113,40 @@ test("only explicit completed-and-liked suggestion feedback becomes positive AI 
     getAiListItemsFromUser(user, "books", "watchlist")[2].suggestionFeedback,
     "liked",
   );
+});
+
+
+test("rejected suggestions store display and source identity aliases", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let appliedUpdate;
+  User.findOne = async () => ({
+    aiRejectedSuggestions: { music: ["Old rejection"] },
+  });
+  User.findOneAndUpdate = async (_query, update) => {
+    appliedUpdate = update;
+    return {};
+  };
+
+  try {
+    const result = await addAiRejectedSuggestion(
+      42,
+      "music",
+      "بذار تو حال خودم باشم (Bezar To Hale Khodam Basham)",
+      20,
+      { aliases: ["Bezar To Hale Khodam Basham", "Bezar To Hale Khodam Basham — Amir Tataloo"] },
+    );
+    assert.equal(result.ok, true);
+    assert.deepEqual(appliedUpdate["aiRejectedSuggestions.music"], [
+      "Old rejection",
+      "بذار تو حال خودم باشم (Bezar To Hale Khodam Basham)",
+      "Bezar To Hale Khodam Basham",
+      "Bezar To Hale Khodam Basham — Amir Tataloo",
+    ]);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
 });
 
 test("recent suggestion creator history is backward-compatible and section-scoped", () => {

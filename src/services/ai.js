@@ -37,6 +37,10 @@ function getModeInstruction(mode, lang) {
       "Subject is movies and TV/streaming series.",
       "Recommend either a movie or a series without asking the user to choose a type.",
       "Infer the likely balance from their Favorites; if their short request explicitly asks for a movie or series, honor it.",
+      "Identify the dominant cluster in the Favorites before choosing: national cinema or language, realism versus genre, recurring themes, pacing, and directing style.",
+      "When a clear majority shares one national cinema or language, normally recommend inside that cinema or one close world-cinema step away. Do not jump to an unrelated genre merely because it is acclaimed or popular.",
+      "Treat one malformed, ambiguous, or isolated Favorite as weak evidence; do not let it override the repeated pattern across the rest of the list.",
+      "For a strongly realist social or family-drama list, prefer adjacent humanist, social, family, or moral drama unless the user explicitly asks for science fiction, fantasy, action, horror, or another genre.",
       `Reply in ${language}. Keep it short and useful.`,
     ].join(" ");
   }
@@ -64,6 +68,13 @@ const {
   tokenizeSignalWords: tokenizeSuggestionSignals,
 });
 
+function normalizeContextItem(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^[0-9۰-۹٠-٩]+[.)،:-]\s*/u, "")
+    .replace(/\s+/g, " ");
+}
+
 function buildUserContext({
   personalized,
   topTenItems = [],
@@ -77,7 +88,10 @@ function buildUserContext({
     return "";
   }
 
-  const compactList = (items) => items.length ? items.join(" | ") : "None";
+  const compactList = (items) => {
+    const normalized = items.map(normalizeContextItem).filter(Boolean);
+    return normalized.length ? normalized.join(" | ") : "None";
+  };
   return [
     `Favorites: ${compactList(topTenItems)}`,
     `Saved for later: ${compactList(watchlistItems)}`,
@@ -105,9 +119,9 @@ function getPersonalizedSuggestionInstruction() {
 
 function getSuggestionReasonInstruction(lang) {
   return [
-    "Write the reason so it works as a standalone saved comment.",
+    "Write the reason so it works as a standalone saved comment about the suggested work itself.",
     "Do not name or quote any item or creator from the user's Favorites in the reason. Express the connection only through the suggestion's concrete qualities, themes, mood, style, or structure.",
-    "Avoid phrases like 'your taste in' or «سلیقه‌ات در».",
+    "Never mention the user, their taste, their list, favorites, or that the suggestion matches them. Avoid phrases such as 'fits your taste', 'matches your list', «با سلیقه‌ات جوره», or «با فهرستت هماهنگه».",
     lang === "fa"
       ? "In Persian, prefer a compact, natural, verb-free two-part phrase: specific qualities, then «؛», then two fitting adjectives. Example: «فضای اخلاقی خاکستری و تعلیق فلسفی؛ عمیق و ماندگار.» Keep it a useful standalone comment, not a slogan. Never begin with «برای» followed by favorites, and never use «درمی‌آید», «می‌گیردت», or «از کار درآمده»."
       : "",
@@ -165,13 +179,23 @@ function validateSuggestionCandidate({
   const parsed = typeof candidate === "string"
     ? parseSingleSuggestionResponse(candidate, lang)
     : {
-        title: String(candidate?.title || "").trim(),
+        title: String(candidate?.title || "")
+          .split(/\r?\n/, 1)[0]
+          .trim(),
         localizedTitle: String(
           candidate?.localizedTitle
           || candidate?.persianTitle
           || candidate?.localized_title
           || candidate?.titleFa
           || candidate?.faTitle
+          || "",
+        ).trim(),
+        localizedCreator: String(
+          candidate?.localizedCreator
+          || candidate?.persianCreator
+          || candidate?.localized_creator
+          || candidate?.creatorFa
+          || candidate?.faCreator
           || "",
         ).trim(),
         metadata: String(candidate?.metadata || "").trim(),
@@ -233,6 +257,8 @@ function validateSuggestionCandidate({
     title: parsed.title,
     metadata: parsed.metadata,
     reason: parsed.reason,
+    localizedTitle: parsed.localizedTitle || "",
+    localizedCreator: parsed.localizedCreator || "",
     text: `${parsed.title}\n${parsed.metadata}\n${parsed.reason}`.trim(),
   };
 }
@@ -264,23 +290,33 @@ async function getAiSingleSuggestion({
 
   try {
     const batchSize = candidateCount > 1 ? Math.min(3, candidateCount) : 1;
-    const wantsPersianBookTitle = batchSize > 1 && mode === "books" && lang === "fa";
+    const isPersianBook = mode === "books" && lang === "fa";
+    const isPersianMovie = mode === "movies" && lang === "fa";
     const instructions = [
       `Recommend exactly ${batchSize === 1 ? "one" : batchSize} real, established, widely known item${batchSize === 1 ? "" : "s"}.`,
       batchSize === 1
         ? "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words."
-        : `Return only a valid JSON array with exactly ${batchSize} objects. Each object must have string fields "title", "metadata", and "reason"${wantsPersianBookTitle ? ', plus "localizedTitle"' : ""}; reason is at most 12 words. Do not repeat candidates.`,
-      wantsPersianBookTitle
-        ? 'For each book, "title" must be its exact original searchable title. "localizedTitle" should be the established Persian title when confidently known, written in Persian script without author, year, parentheses, quotation marks, or transliteration. Otherwise use an empty string; never invent a literal title.'
+        : `Return only a valid JSON array with exactly ${batchSize} objects. Each object must have string fields "title", "metadata", and "reason"; reason is at most 12 words. Do not repeat candidates.`,
+      isPersianBook
+        ? 'For books, use the established Persian publication title in "title" and the conventional Persian author name in "metadata". Do not transliterate, add the original title, or include a year.'
         : "",
-      "Before answering, internally check that the exact official title and every identifying detail—including year and creator—belong to the same real item.",
-      "Be factually certain: never invent, approximate, translate, or complete titles, creators, years, tools, channels, or resources.",
+      isPersianMovie
+        ? 'For movies and series, keep the official original searchable title and creator in "title" and "metadata". Also include "localizedTitle" and "localizedCreator" with the established Persian title and Persian creator name when confidently known. For Iranian or Persian-language works, these localized fields are required and must use Persian script. Never invent a translation.'
+        : "",
+      "Before answering, internally check that the title and creator belong to the same real item.",
+      "Be factually certain: never invent or approximate titles, creators, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
       "Make the reason friendly, natural, specific, and conversational—not funny, poetic, exaggerated, or canned. Name at least two concrete qualities that connect it to the user's evidence; never give a generic taste-match reason.",
       getSuggestionReasonInstruction(lang),
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
-        ? "Keep the exact official title and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin."
+        ? (mode === "books"
+          ? "Use established Persian book titles and Persian author names."
+          : mode === "music"
+            ? "For Iranian or Persian-language music, use the established Persian-script song title and artist name exactly as listeners know them. For non-Persian music, keep the official original title and artist name. Write line 2 labels and all of line 3 in Persian."
+            : mode === "movies"
+              ? "For movies and series, provide original searchable identity plus established Persian display fields as instructed. Write line 2 labels and all of line 3 in Persian."
+              : "Keep exact official titles and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin.")
         : "",
       getSingleSuggestionDetailInstruction(mode),
       "No numbering, no markdown, no emojis.",
@@ -369,6 +405,7 @@ module.exports = {
   getPersonalizedSuggestionInstruction,
   getSuggestionReasonInstruction,
   getModeInstruction,
+  normalizeContextItem,
   buildInterestSuggestionFallback,
   extractAiResponseText,
   parseSingleSuggestionResponse,

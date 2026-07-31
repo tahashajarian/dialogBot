@@ -20,7 +20,7 @@ function normalizeSuggestionComment(value) {
     .slice(0, 120);
 }
 
-function setPendingSuggestion(userId, section, title, comment = "", metadata = "") {
+function setPendingSuggestion(userId, section, title, comment = "", metadata = "", identity = {}) {
   const key = buildKey(userId, section);
   const cleanTitle = normalizeSuggestionTitle(title);
   const cleanComment = normalizeSuggestionComment(comment);
@@ -30,6 +30,8 @@ function setPendingSuggestion(userId, section, title, comment = "", metadata = "
     title: cleanTitle,
     metadata: cleanMetadata,
     comment: cleanComment,
+    sourceTitle: normalizeSuggestionTitle(identity?.sourceTitle),
+    sourceArtist: normalizeSuggestionComment(identity?.sourceArtist),
   });
   return cleanTitle;
 }

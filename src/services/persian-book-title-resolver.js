@@ -12,21 +12,46 @@ const NEGATIVE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 500;
 const cache = new Map();
 
-function normalizeResolvedPersianTitle(value) {
-  const title = String(value || "")
+function normalizePersianDisplayValue(value, maxLength = 80) {
+  const normalized = String(value || "")
     .trim()
-    .replace(/^```(?:text)?\s*/i, "")
+    .replace(/^```(?:json|text)?\s*/i, "")
     .replace(/\s*```$/, "")
     .replace(/^["'«»“”]+|["'«»“”]+$/g, "")
     .replace(/\s+/g, " ")
-    .slice(0, 80);
+    .slice(0, maxLength);
   if (
-    !title
-    || /^UNSURE[.!]?$/i.test(title)
-    || !/[\u0600-\u06ff]/u.test(title)
-    || /[a-z]/i.test(title)
+    !normalized
+    || /^UNSURE[.!]?$/i.test(normalized)
+    || !/[\u0600-\u06ff]/u.test(normalized)
+    || /[a-z]/i.test(normalized)
   ) return "";
-  return title;
+  return normalized;
+}
+
+function normalizeResolvedPersianTitle(value) {
+  return normalizePersianDisplayValue(value, 80);
+}
+
+function normalizeResolvedPersianCreator(value) {
+  return normalizePersianDisplayValue(value, 100);
+}
+
+function parseResolvedPersianDisplay(value) {
+  const text = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      localizedTitle: normalizeResolvedPersianTitle(parsed?.localizedTitle || parsed?.title),
+      localizedCreator: normalizeResolvedPersianCreator(parsed?.localizedCreator || parsed?.creator || parsed?.author),
+    };
+  } catch {
+    // Backward-compatible parsing for older/plain-title test responses.
+    return {
+      localizedTitle: normalizeResolvedPersianTitle(text),
+      localizedCreator: "",
+    };
+  }
 }
 
 function getCacheKey(title, author) {
@@ -42,19 +67,20 @@ function readCache(key) {
   }
   cache.delete(key);
   cache.set(key, entry);
-  return entry.title;
+  return entry.value;
 }
 
-function writeCache(key, title) {
+function writeCache(key, value) {
+  const hasValue = Boolean(value?.localizedTitle || value?.localizedCreator);
   cache.delete(key);
   cache.set(key, {
-    title,
-    expiresAt: Date.now() + (title ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS),
+    value,
+    expiresAt: Date.now() + (hasValue ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS),
   });
   while (cache.size > MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
 }
 
-async function resolvePersianBookTitle({
+async function resolvePersianBookDisplay({
   userId,
   title,
   metadata = "",
@@ -65,35 +91,41 @@ async function resolvePersianBookTitle({
 } = {}) {
   const originalTitle = String(title || "").trim();
   const author = extractSuggestionCreator(metadata);
-  if (!originalTitle || !author) return "";
+  if (!originalTitle || !author) return { localizedTitle: "", localizedCreator: "" };
   const key = getCacheKey(originalTitle, author);
   const cached = readCache(key);
   if (cached !== undefined) return cached;
 
   const openai = client === undefined ? getClient(config) : client;
-  if (!openai) return "";
+  if (!openai) return { localizedTitle: "", localizedCreator: "" };
   try {
     const response = await requestText(openai, {
       userId,
       config,
       maxOutputTokens: 40,
       instructions: [
-        "Identify the established Persian publication title of this real book.",
-        "Return only that Persian title in Persian script, with no author, explanation, quotes, parentheses, transliteration, or punctuation around it.",
+        "Identify the established Persian publication title and the standard Persian-script author name of this already verified real book.",
+        "Return only valid compact JSON with string fields localizedTitle and localizedCreator.",
         "Use the title known in Persian publishing, not a new literal translation.",
-        "If you are not highly confident that an established Persian title exists, reply exactly UNSURE.",
+        "Use the conventional Persian spelling of the author's name, not Latin transliteration.",
+        "If either value is not highly confident, use an empty string for that field. Never guess.",
       ].join(" "),
       input: `Original title: ${originalTitle}\nAuthor: ${author}`,
     });
-    const resolved = normalizeResolvedPersianTitle(response?.text);
+    const resolved = parseResolvedPersianDisplay(response?.text);
     writeCache(key, resolved);
     return resolved;
   } catch (error) {
-    logger.warn("Persian book title resolution failed", {
+    logger.warn("Persian book display resolution failed", {
       name: error?.name || "Error",
     });
-    return "";
+    return { localizedTitle: "", localizedCreator: "" };
   }
+}
+
+async function resolvePersianBookTitle(args, dependencies) {
+  const resolved = await resolvePersianBookDisplay(args, dependencies);
+  return resolved.localizedTitle;
 }
 
 function clearPersianBookTitleCache() {
@@ -102,6 +134,9 @@ function clearPersianBookTitleCache() {
 
 module.exports = {
   clearPersianBookTitleCache,
+  normalizeResolvedPersianCreator,
   normalizeResolvedPersianTitle,
+  parseResolvedPersianDisplay,
+  resolvePersianBookDisplay,
   resolvePersianBookTitle,
 };

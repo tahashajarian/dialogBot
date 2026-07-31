@@ -4,6 +4,7 @@ const { logger } = require("../services/logger");
 const { sendBannerPhoto } = require("../services/banner-media");
 
 const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
+const MUSIC_PLACEHOLDER_TIMEOUT_MS = Math.max(60000, getAiConfig().timeoutMs + 30000);
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
 const {
   aiAssistantKeyboard,
@@ -432,7 +433,9 @@ async function sendSingleSectionSuggestion({
     ...watchlistItems,
     ...recentSuggestionItems,
     ...rejectedSuggestionItems,
-  ].map((title) => ({ title }));
+  ].map((entry) => ({
+    title: typeof entry === "string" ? entry : String(entry?.title || "").trim(),
+  })).filter((entry) => entry.title);
   const restoreSuggestionMode = async () => {
     await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
     if (ctx.user) ctx.user.state = `ai_suggest_context_${section}`;
@@ -444,15 +447,17 @@ async function sendSingleSectionSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
   const placeholder = await startAiPlaceholder(ctx, [
-    messages[lang].aiSuggestionChecking,
-    messages[lang].aiSuggestionVerifying,
-    messages[lang].aiSuggestionWaiting,
+    messages[lang].aiThinking,
+    messages[lang].aiThinkingStill,
+    messages[lang].aiThinkingLonger,
   ], {
-    stepDelays: [2500, 6500],
+    stepDelays: [3000, 8000],
+    ensureEditable: true,
+    replaceProgress: false,
     initialExtra: { reply_markup: { remove_keyboard: true, selective: true } },
     fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
-    timeoutMs: AI_PLACEHOLDER_TIMEOUT_MS,
+    timeoutMs: section === "music" ? MUSIC_PLACEHOLDER_TIMEOUT_MS : AI_PLACEHOLDER_TIMEOUT_MS,
     onFallback: async () => {
       if (paidSuggestion) {
         await refundPaidSuggestion(
@@ -511,6 +516,7 @@ async function sendSingleSectionSuggestion({
       section,
       reason: suggestionResult?.reason || "missing_result",
       qualityIssue: suggestionResult?.qualityIssue || "",
+      ...(suggestionResult?.diagnostics ? { diagnostics: suggestionResult.diagnostics } : {}),
     });
     await restoreSuggestionMode();
     if (paidSuggestion) {
@@ -554,6 +560,10 @@ async function sendSingleSectionSuggestion({
     suggestionResult.title,
     suggestionResult.reason || "",
     suggestionResult.metadata || "",
+    {
+      sourceTitle: suggestionResult.sourceTitle || "",
+      sourceArtist: suggestionResult.sourceArtist || "",
+    },
   );
   await updateUserState(ctx.userId, `ai_chat_${section}`);
   if (ctx.user) ctx.user.state = `ai_chat_${section}`;
@@ -568,7 +578,9 @@ async function sendSingleSectionSuggestion({
       suggestionResult.metadata,
       {
         localizedTitle: suggestionResult.localizedTitle,
+        localizedCreator: suggestionResult.localizedCreator,
         originalTitle: suggestionResult.originalTitle,
+        section,
       },
     ),
     {

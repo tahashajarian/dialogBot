@@ -173,3 +173,94 @@ test("Open Library removes punctuation-only duplicate author variants", async ()
   assert.equal(result.ok, true);
   assert.equal(result.suggestion.metadata, "Author: Hubert Selby, Jr. · 1964");
 });
+
+test("Open Library mismatch includes safe candidate diagnostics", async () => {
+  const result = await verifyOpenLibrarySuggestion({
+    ok: true,
+    title: "همه چیز فرو می‌پاشد",
+    metadata: "Author: Chinua Achebe · 1958",
+    reason: "A reason.",
+  }, {
+    fetchImpl: async () => jsonResponse({
+      docs: [{
+        key: "/works/OL1W",
+        title: "Things Fall Apart",
+        author_name: ["Chinua Achebe"],
+        first_publish_year: 1958,
+      }],
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.qualityIssue, "catalog_title_creator_mismatch");
+  assert.equal(result.diagnostics.requestedTitle, "همه چیز فرو می‌پاشد");
+  assert.equal(result.diagnostics.requestedCreator, "Chinua Achebe");
+  assert.deepEqual(result.diagnostics.catalogCandidates, [{
+    title: "Things Fall Apart",
+    creators: ["Chinua Achebe"],
+    year: "1958",
+  }]);
+});
+
+test("Open Library accepts safe author transliteration differences", async () => {
+  const result = await verifyOpenLibrarySuggestion({
+    ok: true,
+    title: "My Uncle Napoleon",
+    metadata: "Author: Iraj Pezeshkzad · 1973",
+    reason: "A reason.",
+  }, {
+    fetchImpl: async () => jsonResponse({
+      docs: [{
+        key: "/works/OL1W",
+        title: "My Uncle Napoleon",
+        author_name: ["Īraj Pizishkzād"],
+        first_publish_year: 2006,
+      }],
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.suggestion.title, "My Uncle Napoleon");
+});
+
+test("Open Library accepts a requested title contained in a catalogue title", async () => {
+  const result = await verifyOpenLibrarySuggestion({
+    ok: true,
+    title: "Season of Migration to the North",
+    metadata: "Author: Tayeb Salih · 1966",
+    reason: "A reason.",
+  }, {
+    fetchImpl: async () => jsonResponse({
+      docs: [{
+        key: "/works/OL2W",
+        title: "Tayeb Salih's Season of Migration to the North",
+        author_name: ["Tayeb Salih"],
+        first_publish_year: 1986,
+      }],
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.suggestion.title, "Tayeb Salih's Season of Migration to the North");
+});
+
+test("Open Library still rejects a different book by the same author", async () => {
+  const result = await verifyOpenLibrarySuggestion({
+    ok: true,
+    title: "Season of Migration to the North",
+    metadata: "Author: Tayeb Salih · 1966",
+    reason: "A reason.",
+  }, {
+    fetchImpl: async () => jsonResponse({
+      docs: [{
+        key: "/works/OL3W",
+        title: "The Wedding of Zein",
+        author_name: ["Tayeb Salih"],
+        first_publish_year: 1969,
+      }],
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.qualityIssue, "catalog_title_creator_mismatch");
+});

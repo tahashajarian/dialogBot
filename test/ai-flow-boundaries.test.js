@@ -2284,7 +2284,7 @@ test("suggestion callback edits the tapped card through waiting and final states
   assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 0);
   assert.equal(edits[0].messageId, 55);
-  assert.equal(edits[0].text, messages.en.aiSuggestionChecking);
+  assert.equal(edits[0].text, messages.en.aiThinking);
   assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard, []);
   assert.equal(edits.every((entry) => entry.messageId === 55), true);
   assert.match(edits.at(-1).text, /free suggestions/);

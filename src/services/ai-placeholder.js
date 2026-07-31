@@ -18,11 +18,13 @@ async function editPlaceholder(ctx, placeholder, text, extra, {
   deleteOnFallback = true,
   fallbackToReply = true,
   replaceOnUncertain = false,
+  allowEdit = true,
+  onEditRejected = null,
 } = {}) {
   const messageId = getMessageId(placeholder);
   // Telegram only accepts inline keyboards while editing a message. Reply
   // keyboards must be attached to a newly sent message.
-  if (messageId && ctx.editMessageText && !hasReplyKeyboard(extra)) {
+  if (allowEdit && messageId && ctx.editMessageText && !hasReplyKeyboard(extra)) {
     const edited = await ctx.editMessageText(messageId, text, extra);
     if (edited) {
       if (replaceOnUncertain && edited.edit_uncertain) {
@@ -31,6 +33,7 @@ async function editPlaceholder(ctx, placeholder, text, extra, {
       }
       return getMessageId(edited) ? edited : placeholder;
     }
+    if (typeof onEditRejected === "function") onEditRejected();
   }
 
   if (deleteOnFallback && messageId && ctx.deleteMessage) {
@@ -43,8 +46,9 @@ async function editPlaceholder(ctx, placeholder, text, extra, {
 async function startAiPlaceholder(ctx, steps, options = {}) {
   const initialPlaceholder = options.placeholder || null;
   const retainSteps = Boolean(options.retainSteps);
+  const disableEdits = Boolean(options.disableEdits);
   let placeholder;
-  if (retainSteps && initialPlaceholder) {
+  if ((retainSteps || disableEdits) && initialPlaceholder) {
     const initialMessageId = getMessageId(initialPlaceholder);
     if (initialMessageId && ctx.deleteMessage) {
       try {
@@ -61,18 +65,60 @@ async function startAiPlaceholder(ctx, steps, options = {}) {
   } else {
     placeholder = await ctx.reply(steps[0], options.initialExtra);
   }
+
+  // Telegram can reject edits to a message that was also used to remove a
+  // reply keyboard. When live progress is important, retire that setup
+  // message and create a plain bot message that can be edited safely.
+  if (
+    options.ensureEditable
+    && !disableEdits
+    && hasReplyKeyboard(options.initialExtra)
+    && getMessageId(placeholder)
+  ) {
+    const setupMessage = placeholder;
+    placeholder = await ctx.reply(steps[0]);
+    if (ctx.deleteMessage) {
+      try {
+        await ctx.deleteMessage(getMessageId(setupMessage));
+      } catch (_) {
+        // The keyboard has already been removed; a cleanup failure should not
+        // stop suggestion generation or the live progress indicator.
+      }
+    }
+  }
+
   const timers = [];
   let settled = false;
+  let placeholderEditable = !disableEdits;
+  const replaceProgress = Boolean(options.replaceProgress);
   let editQueue = Promise.resolve(placeholder);
 
   const queueEdit = (text, extra, { terminal = false } = {}) => {
     editQueue = editQueue.then(async () => {
       if (settled && !terminal) return placeholder;
       if (retainSteps) return ctx.reply(text, extra);
+      if (disableEdits && !terminal) return placeholder;
+      if (replaceProgress) {
+        const currentMessageId = getMessageId(placeholder);
+        if (currentMessageId && ctx.deleteMessage) {
+          try {
+            await ctx.deleteMessage(currentMessageId);
+          } catch (_) {
+            // Replacing progress must not interrupt the underlying work.
+          }
+        }
+        const replacement = await ctx.reply(text, extra);
+        if (getMessageId(replacement)) placeholder = replacement;
+        return replacement;
+      }
       const updated = await editPlaceholder(ctx, placeholder, text, extra, {
         deleteOnFallback: terminal,
         fallbackToReply: terminal,
         replaceOnUncertain: terminal,
+        allowEdit: placeholderEditable,
+        onEditRejected: () => {
+          placeholderEditable = false;
+        },
       });
       if (getMessageId(updated)) placeholder = updated;
       return updated;
