@@ -21,6 +21,13 @@ test('music ranker can only select an existing candidate', () => {
     localizedTitle: 'عشق سرعت',
     localizedArtist: 'کیوسک',
   });
+  assert.deepEqual(parseRankedMusic('{"index":1,"mood":"warm","reason":"clear","localizedTitle":"عشق سرعت","localizedArtist":"کیوسک"}', 3, 'en'), {
+    index: 0,
+    mood: 'warm',
+    reason: 'clear',
+    localizedTitle: '',
+    localizedArtist: '',
+  });
   assert.equal(parseRankedMusic('{"index":5,"mood":"x","reason":"y"}', 3), null);
 });
 

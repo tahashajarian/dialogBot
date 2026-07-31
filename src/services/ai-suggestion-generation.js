@@ -8,6 +8,7 @@ const { extractSuggestionCreator } = require("./ai-suggestion-quality");
 const { verifyAiMediaPair } = require("./ai-media-pair-verifier");
 const { retrieveMusicCandidates } = require("./music-candidate-retriever");
 const { rankRetrievedMusic } = require("./ai-music-retrieval-ranker");
+const { getPreferredSuggestionDisplayLanguage } = require("./ai-suggestion-display-language");
 const {
   buildSuggestionAttemptText,
   isRetryableSuggestionFailure,
@@ -47,12 +48,12 @@ function applyLocalizedBookTitle(suggestion, section, lang) {
   };
 }
 
-function simplifyBookSuggestion(suggestion, lang) {
-  const localizedTitle = lang === "fa"
+function simplifyBookSuggestion(suggestion, displayLanguage) {
+  const localizedTitle = displayLanguage === "fa"
     ? normalizePersianBookTitle(suggestion?.localizedTitle)
     : "";
   const title = localizedTitle || String(suggestion?.title || "").trim();
-  const localizedCreator = lang === "fa" && /[\u0600-\u06ff]/u.test(
+  const localizedCreator = displayLanguage === "fa" && /[\u0600-\u06ff]/u.test(
     String(suggestion?.localizedCreator || ""),
   )
     ? String(suggestion.localizedCreator).trim()
@@ -73,15 +74,15 @@ function getPersianLocalizedValue(value) {
   return clean && /[\u0600-\u06ff]/u.test(clean) ? clean : "";
 }
 
-function simplifyMediaSuggestion(suggestion, section, lang) {
+function simplifyMediaSuggestion(suggestion, section, displayLanguage) {
   if (section !== "movies" && section !== "music") return suggestion;
   const originalCreator = extractSuggestionCreator(suggestion?.metadata || "");
   if (!originalCreator) return suggestion;
   if (section === "music") {
     return { ...suggestion, metadata: `Artist: ${originalCreator}` };
   }
-  const localizedTitle = lang === "fa" ? getPersianLocalizedValue(suggestion?.localizedTitle) : "";
-  const localizedCreator = lang === "fa" ? getPersianLocalizedValue(suggestion?.localizedCreator) : "";
+  const localizedTitle = displayLanguage === "fa" ? getPersianLocalizedValue(suggestion?.localizedTitle) : "";
+  const localizedCreator = displayLanguage === "fa" ? getPersianLocalizedValue(suggestion?.localizedCreator) : "";
   const isSeriesCreator = /\bcreator\s*:/i.test(String(suggestion?.metadata || ""))
     || /سازنده\s*:/u.test(String(suggestion?.metadata || ""));
   return {
@@ -115,6 +116,7 @@ async function generateUsableSuggestion({
 } = {}) {
   let suggestionResult = null;
   let previousSuggestionIssue = "";
+  const displayLanguage = getPreferredSuggestionDisplayLanguage(topTenItems, lang);
 
   if (section === "music") {
     const retrieved = await retrieveMusic({ favorites: topTenItems });
@@ -126,6 +128,7 @@ async function generateUsableSuggestion({
       favorites: topTenItems,
       rejectedSuggestions: rejectedSuggestionItems,
       candidates: available,
+      displayLanguage,
     });
     if (ranked.ok) {
       return {
@@ -162,6 +165,7 @@ async function generateUsableSuggestion({
       personalized: true,
       tasteStyleHint,
       candidateCount: AI_SUGGESTION_BATCH_SIZE,
+      displayLanguage,
     });
 
     if (!suggestionResult.ok) {
@@ -184,16 +188,6 @@ async function generateUsableSuggestion({
     for (const candidate of candidates) {
       suggestionResult = candidate;
       if (section === "movies") {
-        if (lang === "fa" && (!getPersianLocalizedValue(suggestionResult.localizedTitle)
-          || !getPersianLocalizedValue(suggestionResult.localizedCreator))) {
-          suggestionResult = {
-            ok: false,
-            reason: "missing_localized_identity",
-            qualityIssue: "missing_localized_identity",
-          };
-          previousSuggestionIssue = suggestionResult.qualityIssue;
-          continue;
-        }
         const verification = await verifyMediaPair({
           userId,
           section,
@@ -212,11 +206,14 @@ async function generateUsableSuggestion({
       }
 
       const displaySuggestion = section === "books"
-        ? simplifyBookSuggestion(suggestionResult, lang)
-        : simplifyMediaSuggestion(suggestionResult, section, lang);
+        ? simplifyBookSuggestion(suggestionResult, displayLanguage)
+        : simplifyMediaSuggestion(suggestionResult, section, displayLanguage);
       const duplicate = findDuplicate(displaySuggestion.title, blockedSuggestionItems)
         || (displaySuggestion.originalTitle
           ? findDuplicate(displaySuggestion.originalTitle, blockedSuggestionItems)
+          : null)
+        || (suggestionResult.localizedTitle
+          ? findDuplicate(suggestionResult.localizedTitle, blockedSuggestionItems)
           : null)
         || (
           displaySuggestion.title !== suggestionResult.title

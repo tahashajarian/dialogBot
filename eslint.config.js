@@ -1,8 +1,10 @@
 const nodeGlobals = {
   AbortController: "readonly",
   Buffer: "readonly",
+  URL: "readonly",
   clearTimeout: "readonly",
   console: "readonly",
+  fetch: "readonly",
   __dirname: "readonly",
   module: "readonly",
   process: "readonly",
@@ -79,6 +81,21 @@ module.exports = [
       "require-yield": "error",
       "use-isnan": "error",
       "valid-typeof": "error",
+    },
+  },
+  {
+    files: ["scripts/qa-ui/*.js"],
+    languageOptions: {
+      globals: {
+        Blob: "readonly",
+        TextDecoder: "readonly",
+        URL: "readonly",
+        document: "readonly",
+        fetch: "readonly",
+        localStorage: "readonly",
+        navigator: "readonly",
+        window: "readonly",
+      },
     },
   },
 ];

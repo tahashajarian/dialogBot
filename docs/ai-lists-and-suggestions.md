@@ -386,3 +386,11 @@ Telegram inline mode provides a narrow capture entry point for the three media F
 - If premium accounts are introduced, consider a separately metered enhanced-suggestion path that cross-checks candidates against additional trusted catalogues before display while keeping Wikidata for movies and series, MusicBrainz for music, and Open Library for books as the core verification sources.
 - Generate multiple internal candidates, resolve exact title/creator/year identities against the relevant catalogue, discard unresolved or conflicting candidates, then rank the verified remainder for relevance, novelty, and creator diversity. Write the user-facing explanation only after selecting a verified candidate.
 - Keep ordinary suggestions available without premium verification. Do not describe model-only validation as externally verified, and do not silently fall back from a promised verified result to an unverified one.
+
+## Manual QA without changing stored favorites
+
+Use `npm.cmd run qa:suggestions` to exercise the production suggestion services
+with reusable Persian and English taste profiles. The runner does not start the
+bot, write to MongoDB, consume quotas, or spend Stars. It can also load a custom
+JSON profile and pass temporary rejected or liked items. See
+[AI suggestion QA runner](ai-suggestion-qa.md).

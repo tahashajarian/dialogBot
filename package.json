@@ -29,7 +29,9 @@
     "clear:user-data:dry": "node ./scripts/clear-user-data.js --dry-run",
     "clear:user-data": "node ./scripts/clear-user-data.js",
     "seed:people": "node ./scripts/seed-people-test-data.js",
-    "seed:discussions": "node ./scripts/seed-discussions-test-data.js"
+    "seed:discussions": "node ./scripts/seed-discussions-test-data.js",
+    "qa:suggestions": "node --no-deprecation ./scripts/qa-ai-suggestions.js",
+    "qa:suggestions:web": "node --no-deprecation ./scripts/qa-suggestions-web.js"
   },
   "keywords": [],
   "author": "",

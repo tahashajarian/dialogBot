@@ -170,6 +170,7 @@ test("book suggestions use the localized title and author without catalogue veri
   const result = await generateUsableSuggestion(baseRequest({
     section: "books",
     lang: "fa",
+    topTenItems: ["سووشون", "بوف کور", "چشم‌هایش"],
   }), {
     requestSuggestion: async () => ({
       ok: true,
@@ -218,6 +219,7 @@ test("book generation retries malformed output once", async () => {
   const result = await generateUsableSuggestion(baseRequest({
     section: "books",
     lang: "fa",
+    topTenItems: ["سووشون", "بوف کور", "چشم‌هایش"],
   }), {
     requestSuggestion: async () => {
       calls += 1;
@@ -260,6 +262,7 @@ test("Persian movie suggestions display localized identity and reject cross-lang
   const result = await generateUsableSuggestion(baseRequest({
     section: "movies",
     lang: "fa",
+    topTenItems: ["جدایی نادر از سیمین", "طعم گیلاس", "هامون"],
     blockedSuggestionItems: [{ title: "خانه دوست کجاست — عباس کیارستمی" }],
   }), {
     requestSuggestion: async () => ({
@@ -284,7 +287,7 @@ test("Persian movie suggestions display localized identity and reject cross-lang
 });
 
 test("Persian movie suggestions show Persian title and director when not duplicated", async () => {
-  const result = await generateUsableSuggestion(baseRequest({ section: "movies", lang: "fa" }), {
+  const result = await generateUsableSuggestion(baseRequest({ section: "movies", lang: "fa", topTenItems: ["جدایی نادر از سیمین", "طعم گیلاس", "هامون"] }), {
     requestSuggestion: async () => ({
       ok: true,
       title: "Close-Up",
@@ -318,4 +321,134 @@ test("English movie suggestions keep original title and director", async () => {
 
   assert.equal(result.title, "Close-Up");
   assert.equal(result.metadata, "Director: Abbas Kiarostami");
+});
+
+
+test("Persian UI with Latin-script movie favorites keeps original movie identity", async () => {
+  const requests = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    lang: "fa",
+    topTenItems: ["Pulp Fiction", "Forrest Gump", "The Matrix", "Inception"],
+  }), {
+    requestSuggestion: async (request) => {
+      requests.push(request);
+      return {
+        ok: true,
+        title: "Enemy",
+        localizedTitle: "دشمن",
+        localizedCreator: "دنی ویلنوو",
+        metadata: "Director: Denis Villeneuve",
+        reason: "هویت دوپاره و فضای مبهم ذهنی؛ دقیق و ناآرام.",
+      };
+    },
+    verifyMediaPair: async () => ({ ok: true, verdict: "valid" }),
+    findDuplicate: () => null,
+  });
+
+  assert.equal(requests[0].displayLanguage, "en");
+  assert.equal(result.title, "Enemy");
+  assert.equal(result.metadata, "Director: Denis Villeneuve");
+});
+
+test("Persian UI with Latin-script book favorites keeps original book identity", async () => {
+  const requests = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "fa",
+    topTenItems: ["The Trial", "The Stranger", "One Hundred Years of Solitude"],
+  }), {
+    requestSuggestion: async (request) => {
+      requests.push(request);
+      return {
+        ok: true,
+        title: "The Remains of the Day",
+        localizedTitle: "بازمانده روز",
+        localizedCreator: "کازوئو ایشی‌گورو",
+        metadata: "Author: Kazuo Ishiguro",
+        reason: "حافظه و پشیمانی فروخورده؛ آرام و دقیق.",
+      };
+    },
+    findDuplicate: () => null,
+  });
+
+  assert.equal(requests[0].displayLanguage, "en");
+  assert.equal(result.title, "The Remains of the Day");
+  assert.equal(result.metadata, "Author: Kazuo Ishiguro");
+});
+
+test("Persian UI with Latin-script music favorites asks ranker for original display", async () => {
+  const rankInputs = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "music",
+    lang: "fa",
+    topTenItems: ["Paranoid Android — Radiohead", "Roads — Portishead", "Teardrop — Massive Attack"],
+  }), {
+    retrieveMusic: async () => [{ title: "All Mine", artist: "Portishead" }],
+    rankMusic: async (request) => {
+      rankInputs.push(request);
+      return {
+        ok: true,
+        candidate: request.candidates[0],
+        displayTitle: request.candidates[0].title,
+        displayArtist: request.candidates[0].artist,
+        mood: "تیره و آرام",
+        reason: "ضرب کند و وکال شکننده؛ سنگین و درون‌گرا.",
+      };
+    },
+    findDuplicate: () => null,
+  });
+
+  assert.equal(rankInputs[0].displayLanguage, "en");
+  assert.equal(result.title, "All Mine");
+  assert.equal(result.metadata, "Artist: Portishead");
+});
+
+test("English UI with Persian-script favorites prefers Persian display identity", async () => {
+  const movieRequests = [];
+  const movie = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    lang: "en",
+    topTenItems: ["جدایی نادر از سیمین", "طعم گیلاس", "هامون"],
+  }), {
+    requestSuggestion: async (request) => {
+      movieRequests.push(request);
+      return {
+        ok: true,
+        title: "Close-Up",
+        localizedTitle: "کلوزآپ",
+        localizedCreator: "عباس کیارستمی",
+        metadata: "Director: Abbas Kiarostami",
+        reason: "Reality and reconstruction blur together; humane and layered.",
+      };
+    },
+    verifyMediaPair: async () => ({ ok: true, verdict: "valid" }),
+    findDuplicate: () => null,
+  });
+
+  assert.equal(movieRequests[0].displayLanguage, "fa");
+  assert.equal(movie.title, "کلوزآپ");
+  assert.equal(movie.metadata, "Director: عباس کیارستمی");
+
+  const bookRequests = [];
+  const book = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "en",
+    topTenItems: ["سووشون", "بوف کور", "چشم‌هایش"],
+  }), {
+    requestSuggestion: async (request) => {
+      bookRequests.push(request);
+      return {
+        ok: true,
+        title: "جای خالی سلوچ",
+        metadata: "Author: محمود دولت‌آبادی",
+        reason: "Family erosion and poverty; stark and humane.",
+      };
+    },
+    findDuplicate: () => null,
+  });
+
+  assert.equal(bookRequests[0].displayLanguage, "fa");
+  assert.equal(book.title, "جای خالی سلوچ");
+  assert.equal(book.metadata, "Author: محمود دولت‌آبادی");
 });

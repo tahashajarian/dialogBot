@@ -127,6 +127,22 @@ Use `create:indexes` before starting a fresh deployment database or after
 adding schema indexes. It calls MongoDB `createIndexes()` for the declared
 Mongoose models, so it creates missing indexes without dropping existing ones.
 
+## AI suggestion QA without changing favorites
+
+Use the development-only QA runner to test reusable Persian and English taste
+profiles without editing a real user's favorites or writing to MongoDB:
+
+```powershell
+npm.cmd run qa:suggestions -- list
+npm.cmd run qa:suggestions -- run fa-iranian-music --count=10
+npm.cmd run qa:suggestions -- run fa-iranian-movies --count=5 --mood="تلخ و اجتماعی"
+```
+
+It uses the real suggestion and catalogue services from `.env`, but it does not
+start Telegram, consume quotas or Stars, or change stored user data. See
+[AI suggestion QA runner](docs/ai-suggestion-qa.md) for presets, custom JSON
+profiles, rejected-item tests, JSON output, and timing comparisons.
+
 ## Telegram inline capture
 
 After deploying the inline-capture code, enable inline mode explicitly in
@@ -159,6 +175,7 @@ Read these before changing related behavior:
 - [Architecture notes](docs/architecture.md)
 - [Bot UX rules](docs/bot-ux.md)
 - [AI lists and suggestions](docs/ai-lists-and-suggestions.md)
+- [AI suggestion QA runner](docs/ai-suggestion-qa.md)
 - [Discussions](docs/discussions.md)
 - [Analytics dashboard](docs/analytics-dashboard.md)
 - [Fresh server and fresh MongoDB deployment](docs/fresh-server-deployment.md)
@@ -185,3 +202,14 @@ routes are Home-only and cannot
 intercept onboarding, profile/list input, other navigation modes, or live
 discussion messages. Other Home text keeps the normal concise use-buttons
 guidance.
+## Suggestion QA dashboard
+
+Before deployment, run the local editable QA dashboard without changing real user favorites:
+
+```powershell
+npm.cmd run qa:suggestions:web
+```
+
+On Windows, `start-suggestion-lab.cmd` launches the same dashboard by double-click.
+See `docs/ai-suggestion-qa.md` for profiles, safety guarantees, and terminal usage.
+

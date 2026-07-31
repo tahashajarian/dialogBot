@@ -277,6 +277,7 @@ async function getAiSingleSuggestion({
   personalized = false,
   tasteStyleHint = "",
   candidateCount = 1,
+  displayLanguage = lang,
 }) {
   const input = normalizeInput(userText);
   if (!input) {
@@ -290,19 +291,24 @@ async function getAiSingleSuggestion({
 
   try {
     const batchSize = candidateCount > 1 ? Math.min(3, candidateCount) : 1;
-    const isPersianBook = mode === "books" && lang === "fa";
-    const isPersianMovie = mode === "movies" && lang === "fa";
+    const prefersPersianDisplay = displayLanguage === "fa";
+    const isPersianBook = mode === "books" && prefersPersianDisplay;
+    const isPersianMovie = mode === "movies" && prefersPersianDisplay;
     const instructions = [
       `Recommend exactly ${batchSize === 1 ? "one" : batchSize} real, established, widely known item${batchSize === 1 ? "" : "s"}.`,
       batchSize === 1
         ? "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words."
         : `Return only a valid JSON array with exactly ${batchSize} objects. Each object must have string fields "title", "metadata", and "reason"; reason is at most 12 words. Do not repeat candidates.`,
       isPersianBook
-        ? 'For books, use the established Persian publication title in "title" and the conventional Persian author name in "metadata". Do not transliterate, add the original title, or include a year.'
-        : "",
+        ? 'For books, use the established Persian publication title in "title" and the conventional Persian author name in "metadata". If no established Persian title is confidently known, use the official original title and author instead. Do not invent or literally translate a title, and do not include a year.'
+        : mode === "books"
+          ? 'For books, use the official original title in "title" and the author name in its established original/Latin form in "metadata". Do not translate the title and do not include a year.'
+          : "",
       isPersianMovie
-        ? 'For movies and series, keep the official original searchable title and creator in "title" and "metadata". Also include "localizedTitle" and "localizedCreator" with the established Persian title and Persian creator name when confidently known. For Iranian or Persian-language works, these localized fields are required and must use Persian script. Never invent a translation.'
-        : "",
+        ? 'For movies and series, keep the official original searchable title and creator in "title" and "metadata". Also include "localizedTitle" and "localizedCreator" with the established Persian title and Persian creator name when confidently known. If no established Persian identity is confidently known, leave those localized fields empty so the original identity can be shown. Never invent a translation.'
+        : mode === "movies"
+          ? 'For movies and series, use the official original searchable title and creator in "title" and "metadata". Do not translate or localize their names.'
+          : "",
       "Before answering, internally check that the title and creator belong to the same real item.",
       "Be factually certain: never invent or approximate titles, creators, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
@@ -311,11 +317,17 @@ async function getAiSingleSuggestion({
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
         ? (mode === "books"
-          ? "Use established Persian book titles and Persian author names."
+          ? (prefersPersianDisplay
+            ? "The favorites are mainly in Persian script, so prefer established Persian book and author names; fall back to the official original identity when unavailable."
+            : "The favorites are mainly in Latin script, so keep book titles and author names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
           : mode === "music"
-            ? "For Iranian or Persian-language music, use the established Persian-script song title and artist name exactly as listeners know them. For non-Persian music, keep the official original title and artist name. Write line 2 labels and all of line 3 in Persian."
+            ? (prefersPersianDisplay
+              ? "The favorites are mainly in Persian script, so prefer established Persian song and artist names when known. Write line 2 labels and all of line 3 in Persian."
+              : "The favorites are mainly in Latin script, so keep song titles and artist names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
             : mode === "movies"
-              ? "For movies and series, provide original searchable identity plus established Persian display fields as instructed. Write line 2 labels and all of line 3 in Persian."
+              ? (prefersPersianDisplay
+                ? "The favorites are mainly in Persian script, so provide established Persian display fields when confidently known. Write line 2 labels and all of line 3 in Persian."
+                : "The favorites are mainly in Latin script, so display movie titles and creator names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
               : "Keep exact official titles and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin.")
         : "",
       getSingleSuggestionDetailInstruction(mode),

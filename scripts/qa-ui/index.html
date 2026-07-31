@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Muze Suggestion Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div>
+          <div class="brand-title">Muze Suggestion Lab</div>
+          <div class="brand-subtitle">Local, editable QA for books, movies, and music</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="connection-pill" id="connectionPill">
+          <span class="status-dot"></span>
+          <span id="connectionText">Connecting…</span>
+        </div>
+        <button class="button button-ghost" id="newProfileButton" type="button">New profile</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar" aria-label="Test profiles">
+        <div class="sidebar-header">
+          <div>
+            <h2>Profiles</h2>
+            <p>Choose a preset or save your own.</p>
+          </div>
+          <span class="count-badge" id="profileCount">0</span>
+        </div>
+
+        <label class="search-box">
+          <span class="sr-only">Search profiles</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+          <input id="profileSearch" type="search" placeholder="Search profiles">
+        </label>
+
+        <div class="filter-row" aria-label="Filter by section">
+          <button class="filter-chip active" data-section="all" type="button">All</button>
+          <button class="filter-chip" data-section="books" type="button">Books</button>
+          <button class="filter-chip" data-section="movies" type="button">Movies</button>
+          <button class="filter-chip" data-section="music" type="button">Music</button>
+        </div>
+        <div class="filter-row compact" aria-label="Filter by language">
+          <button class="filter-chip active" data-lang="all" type="button">Both</button>
+          <button class="filter-chip" data-lang="fa" type="button">فارسی</button>
+          <button class="filter-chip" data-lang="en" type="button">English</button>
+        </div>
+
+        <div class="profile-list" id="profileList"></div>
+      </aside>
+
+      <section class="editor-panel">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow">TEST PROFILE</div>
+            <h1 id="editorTitle">Choose a profile</h1>
+            <p id="editorSubtitle">Everything here is temporary and does not touch real users.</p>
+          </div>
+          <div class="panel-actions">
+            <button class="button button-ghost" id="duplicateButton" type="button">Duplicate</button>
+            <button class="button button-secondary" id="saveProfileButton" type="button">Save custom</button>
+            <button class="icon-button danger hidden" id="deleteProfileButton" type="button" title="Delete custom profile" aria-label="Delete custom profile">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16m-10 4v6m4-6v6M9 7l1-3h4l1 3m3 0-1 14H7L6 7"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <form id="profileForm" class="profile-form">
+          <div class="form-grid two-columns">
+            <label class="field">
+              <span>Profile name</span>
+              <input id="profileLabel" type="text" maxlength="100" placeholder="Iranian alternative music">
+            </label>
+            <label class="field">
+              <span>Profile ID</span>
+              <input id="profileId" type="text" maxlength="80" placeholder="my-music-test">
+            </label>
+          </div>
+
+          <div class="form-grid two-columns">
+            <fieldset class="field segmented-field">
+              <legend>Section</legend>
+              <div class="segmented-control" id="sectionControl">
+                <label><input type="radio" name="section" value="books"><span>Books</span></label>
+                <label><input type="radio" name="section" value="movies"><span>Movies</span></label>
+                <label><input type="radio" name="section" value="music"><span>Music</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="field segmented-field">
+              <legend>Language</legend>
+              <div class="segmented-control" id="languageControl">
+                <label><input type="radio" name="lang" value="fa"><span>فارسی</span></label>
+                <label><input type="radio" name="lang" value="en"><span>English</span></label>
+              </div>
+            </fieldset>
+          </div>
+
+          <label class="field">
+            <span>Temporary request or mood <small>Optional</small></span>
+            <input id="userText" type="text" maxlength="240" placeholder="For example: quiet, dark, and character-driven">
+          </label>
+
+          <div class="list-field">
+            <div class="field-header">
+              <div>
+                <span class="field-title">Favorites</span>
+                <span class="field-help">One item per line. These are the positive taste signals.</span>
+              </div>
+              <span class="line-count" id="favoritesCount">0 items</span>
+            </div>
+            <textarea id="favorites" rows="10" spellcheck="false" placeholder="Title — creator"></textarea>
+          </div>
+
+          <details class="advanced-card">
+            <summary>
+              <span>Negative and additional signals</span>
+              <span class="summary-hint">Rejected, liked, and saved items</span>
+            </summary>
+            <div class="advanced-content">
+              <div class="form-grid three-columns">
+                <label class="field textarea-field">
+                  <span>Rejected / “No”</span>
+                  <textarea id="rejected" rows="6" spellcheck="false" placeholder="One item per line"></textarea>
+                </label>
+                <label class="field textarea-field">
+                  <span>Liked suggestions</span>
+                  <textarea id="liked" rows="6" spellcheck="false" placeholder="One item per line"></textarea>
+                </label>
+                <label class="field textarea-field">
+                  <span>Watchlist / saved</span>
+                  <textarea id="watchlist" rows="6" spellcheck="false" placeholder="One item per line"></textarea>
+                </label>
+              </div>
+            </div>
+          </details>
+        </form>
+
+        <div class="run-bar">
+          <div class="run-settings">
+            <label class="count-control">
+              <span>Runs</span>
+              <button id="decreaseCount" type="button" aria-label="Decrease runs">−</button>
+              <input id="runCount" type="number" min="1" max="20" value="3">
+              <button id="increaseCount" type="button" aria-label="Increase runs">+</button>
+            </label>
+            <label class="toggle-control">
+              <input id="verboseToggle" type="checkbox">
+              <span class="toggle-track"><span></span></span>
+              <span>Show source identity</span>
+            </label>
+          </div>
+          <div class="run-actions">
+            <button class="button button-ghost hidden" id="cancelButton" type="button">Cancel</button>
+            <button class="button button-primary" id="runButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg>
+              Run profile
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="results-panel" aria-live="polite">
+        <div class="results-heading">
+          <div>
+            <div class="eyebrow">RESULTS</div>
+            <h2>Live suggestions</h2>
+          </div>
+          <div class="results-actions">
+            <button class="button button-ghost" id="exportButton" type="button" disabled>Export JSON</button>
+            <button class="button button-ghost" id="clearResultsButton" type="button" disabled>Clear</button>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card"><span>Completed</span><strong id="metricCompleted">0</strong></div>
+          <div class="metric-card"><span>Success rate</span><strong id="metricSuccess">—</strong></div>
+          <div class="metric-card"><span>Average time</span><strong id="metricTime">—</strong></div>
+        </div>
+
+        <div class="run-progress hidden" id="runProgress">
+          <div class="progress-copy">
+            <span class="spinner" aria-hidden="true"></span>
+            <div>
+              <strong id="progressTitle">Running profile…</strong>
+              <span id="progressSubtitle">Waiting for the first result</span>
+            </div>
+          </div>
+          <div class="progress-track"><span id="progressBar"></span></div>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8m-8 4h5"/></svg>
+          </div>
+          <h3>No results yet</h3>
+          <p>Choose or edit a profile, then run it. Results appear here one by one.</p>
+        </div>
+
+        <div class="result-list" id="resultList"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

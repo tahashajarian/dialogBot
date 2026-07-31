@@ -29,3 +29,13 @@ This file summarizes the current production contract so future changes do not re
 - Free and paid suggestion paths use the same editable placeholder flow.
 - Persian copy avoids tanvin and does not expose internal verification steps.
 - Telegram edit failure must fall back to a visible terminal result without losing the suggestion.
+
+## Title and creator display language
+
+Suggestion identity display is section-specific and follows the dominant script of that section's favorites rather than the interface language:
+
+- mostly Persian-script favorites → prefer established Persian title and creator names;
+- mostly Latin-script favorites → keep official original/Latin title and creator names;
+- tied or empty favorites → fall back to the interface language.
+
+The interface language still controls labels, mood text, and the short descriptive reason. If a Persian display identity is not confidently available, the verified/original identity is shown instead of inventing a translation. This applies to books, movies/series, and music.
