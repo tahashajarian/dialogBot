@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   buildInterestSuggestionFallback,
+  buildUserContext,
   extractAiResponseText,
   getInterestSuggestionFamily,
   getInterestSuggestionQualityIssue,
@@ -32,6 +33,7 @@ const {
   AI_SUGGESTION_BATCH_SIZE,
   AI_SUGGESTION_MAX_BATCHES,
   AI_RECENT_SUGGESTION_CREATORS_LIMIT,
+  AI_WATCHLIST_PROMPT_LIMIT,
 } = require("../src/constants/ai");
 const {
   claimSuggestionAction,
@@ -39,6 +41,20 @@ const {
   getSuggestionMood,
   setSuggestionMood,
 } = require("../src/services/ai-suggestion-cache");
+
+test("personalized context makes the watchlist an explicit cross-language exclusion", () => {
+  const context = buildUserContext({
+    personalized: true,
+    topTenItems: ["Inception — Christopher Nolan"],
+    watchlistItems: ["Enemy — Denis Villeneuve", "دشمن — دنی ویلنوو"],
+  });
+
+  assert.equal(AI_WATCHLIST_PROMPT_LIMIT, 50);
+  assert.match(context, /Hard exclusions/);
+  assert.match(context, /never suggest the same work under another language/);
+  assert.match(context, /Enemy — Denis Villeneuve/);
+  assert.match(context, /دشمن — دنی ویلنوو/);
+});
 
 test("suggestion save actions allow only one in-flight action per user and section", () => {
   const release = claimSuggestionAction(41, "books");

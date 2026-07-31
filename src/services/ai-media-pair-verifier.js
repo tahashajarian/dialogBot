@@ -10,7 +10,14 @@ function normalizeVerdict(value) {
   return "uncertain";
 }
 
-async function verifyAiMediaPair({ userId, section, title, metadata, requireCertain = false }, {
+async function verifyAiMediaPair({
+  userId,
+  section,
+  title,
+  metadata,
+  requireCertain = false,
+  timeoutMs = null,
+}, {
   config = getAiConfig(),
   requestText = requestSuggestionText,
   client,
@@ -24,14 +31,25 @@ async function verifyAiMediaPair({ userId, section, title, metadata, requireCert
     return { ok: false, verdict: "invalid", reason: "missing_title_creator" };
   }
 
-  const openai = client || getClient(config);
+  const requestedTimeoutMs = Number(timeoutMs);
+  const hasRequestedTimeout = timeoutMs !== null
+    && timeoutMs !== undefined
+    && Number.isFinite(requestedTimeoutMs)
+    && requestedTimeoutMs > 0;
+  const effectiveConfig = hasRequestedTimeout
+    ? {
+        ...config,
+        timeoutMs: Math.max(1000, Math.min(Number(config?.timeoutMs) || requestedTimeoutMs, requestedTimeoutMs)),
+      }
+    : config;
+  const openai = client || getClient(effectiveConfig);
   if (!openai) return { ok: true, verdict: "unavailable" };
 
   try {
     const kind = section === "movies" ? "movie or series" : "released song";
     const result = await requestText(openai, {
       userId,
-      config,
+      config: effectiveConfig,
       operation: "suggestion_pair_check",
       maxOutputTokens: 6,
       instructions: [

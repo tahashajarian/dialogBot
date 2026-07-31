@@ -14,6 +14,9 @@ const {
   isRetryableSuggestionFailure,
 } = require("./ai-suggestion-quality");
 
+const MOVIE_EXTENDED_HISTORY_THRESHOLD = 20;
+const MOVIE_PAIR_CHECK_TIMEOUT_MS = 3500;
+
 function normalizePersianBookTitle(value) {
   const title = String(value || "")
     .trim()
@@ -117,6 +120,12 @@ async function generateUsableSuggestion({
   let suggestionResult = null;
   let previousSuggestionIssue = "";
   const displayLanguage = getPreferredSuggestionDisplayLanguage(topTenItems, lang);
+  const diagnostics = {
+    attempts: 0,
+    generatedCandidates: 0,
+    duplicateCandidates: 0,
+    invalidPairCandidates: 0,
+  };
 
   if (section === "music") {
     const retrieved = await retrieveMusic({ favorites: topTenItems });
@@ -144,8 +153,11 @@ async function generateUsableSuggestion({
     return { ok: false, reason: ranked.reason || "no_catalog_candidates" };
   }
 
-  const maxAttempts = AI_SUGGESTION_MAX_BATCHES;
+  const maxAttempts = section === "movies" && blockedSuggestionItems.length >= MOVIE_EXTENDED_HISTORY_THRESHOLD
+    ? AI_SUGGESTION_MAX_BATCHES + 1
+    : AI_SUGGESTION_MAX_BATCHES;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    diagnostics.attempts += 1;
     suggestionResult = await requestSuggestion({
       userId,
       mode: section,
@@ -185,26 +197,9 @@ async function generateUsableSuggestion({
       continue;
     }
 
+    diagnostics.generatedCandidates += candidates.length;
     for (const candidate of candidates) {
       suggestionResult = candidate;
-      if (section === "movies") {
-        const verification = await verifyMediaPair({
-          userId,
-          section,
-          title: suggestionResult.title,
-          metadata: suggestionResult.metadata,
-        });
-        if (!verification.ok) {
-          suggestionResult = {
-            ok: false,
-            reason: verification.reason || "invalid_title_creator_pair",
-            qualityIssue: verification.reason || "invalid_title_creator_pair",
-          };
-          previousSuggestionIssue = suggestionResult.qualityIssue;
-          continue;
-        }
-      }
-
       const displaySuggestion = section === "books"
         ? simplifyBookSuggestion(suggestionResult, displayLanguage)
         : simplifyMediaSuggestion(suggestionResult, section, displayLanguage);
@@ -220,16 +215,45 @@ async function generateUsableSuggestion({
             ? findDuplicate(suggestionResult.title, blockedSuggestionItems)
             : null
         );
-      if (!duplicate) {
-        return displaySuggestion;
+      if (duplicate) {
+        diagnostics.duplicateCandidates += 1;
+        suggestionResult = { ok: false, reason: "duplicate_suggestion" };
+        previousSuggestionIssue = suggestionResult.reason;
+        continue;
       }
-      suggestionResult = { ok: false, reason: "duplicate_suggestion" };
-      previousSuggestionIssue = suggestionResult.reason;
+
+      // Duplicate checks are intentionally done before the extra movie pair
+      // check. A large real watchlist should not spend time verifying titles
+      // that are already known to be unusable.
+      if (section === "movies") {
+        const verification = await verifyMediaPair({
+          userId,
+          section,
+          title: suggestionResult.title,
+          metadata: suggestionResult.metadata,
+          timeoutMs: MOVIE_PAIR_CHECK_TIMEOUT_MS,
+        });
+        if (!verification.ok) {
+          diagnostics.invalidPairCandidates += 1;
+          suggestionResult = {
+            ok: false,
+            reason: verification.reason || "invalid_title_creator_pair",
+            qualityIssue: verification.reason || "invalid_title_creator_pair",
+          };
+          previousSuggestionIssue = suggestionResult.qualityIssue;
+          continue;
+        }
+      }
+
+      return displaySuggestion;
     }
   }
 
 
-  return suggestionResult || { ok: false, reason: "missing_result" };
+  return {
+    ...(suggestionResult || { ok: false, reason: "missing_result" }),
+    diagnostics,
+  };
 }
 
 module.exports = {

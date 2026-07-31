@@ -94,7 +94,7 @@ function buildUserContext({
   };
   return [
     `Favorites: ${compactList(topTenItems)}`,
-    `Saved for later: ${compactList(watchlistItems)}`,
+    `Hard exclusions — already saved for later; never suggest the same work under another language, translation, transliteration, spelling, edition, or localized title: ${compactList(watchlistItems)}`,
     `Liked and already consumed: ${compactList(likedSuggestionItems)}`,
     `Recent suggestions: ${compactList(recentSuggestionItems)}`,
     `Recently suggested creators: ${compactList(recentSuggestionCreators)}`,
@@ -113,6 +113,7 @@ function getPersonalizedSuggestionInstruction() {
     "Treat liked-and-already-consumed items as additional positive taste evidence.",
     "Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection.",
     "Saved-for-later items are neutral, not evidence that the user likes them.",
+    "Treat the saved-for-later list as a hard exclusion list: never recommend the same work under another language, translation, transliteration, spelling, edition, or localized title.",
     "Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items.",
   ].join(" ");
 }
@@ -413,6 +414,7 @@ async function getAiSingleSuggestion({
 }
 
 module.exports = {
+  buildUserContext,
   getAiSingleSuggestion,
   getPersonalizedSuggestionInstruction,
   getSuggestionReasonInstruction,

@@ -1,6 +1,9 @@
 const messages = require("../messages");
-const { getAiConfig } = require("../config");
 const { logger } = require("../services/logger");
+const {
+  AI_SUGGESTION_STEP_DELAYS_MS,
+  getAiSuggestionTimeoutMs,
+} = require("../services/ai-suggestion-timing");
 const {
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionAddKeyboard,
@@ -52,8 +55,6 @@ const {
   refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
 
-const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
-const MUSIC_PLACEHOLDER_TIMEOUT_MS = Math.max(60000, getAiConfig().timeoutMs + 30000);
 
 async function promptSuggestionMode(ctx, lang, section) {
   clearSuggestionMood(ctx.userId, section);
@@ -143,7 +144,7 @@ async function sendFollowupSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingLonger,
   ], {
-    stepDelays: [3000, 8000],
+    stepDelays: AI_SUGGESTION_STEP_DELAYS_MS,
     placeholder: placeholderMessage,
     initialExtra: placeholderMessage
       ? { reply_markup: { inline_keyboard: [] } }
@@ -151,7 +152,7 @@ async function sendFollowupSuggestion({
     ensureEditable: true,
     fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
-    timeoutMs: section === "music" ? MUSIC_PLACEHOLDER_TIMEOUT_MS : AI_PLACEHOLDER_TIMEOUT_MS,
+    timeoutMs: getAiSuggestionTimeoutMs(section),
     onFallback: async () => {
       if (paidSuggestion) {
         await refundPaidSuggestion(

@@ -125,3 +125,11 @@ be tested without searching runtime logs.
 
 This is a live external test: AI and music catalogue availability can still
 vary between runs. Keep `--count` bounded to avoid unnecessary API usage.
+
+## Reproducing accounts with long saved history
+
+A clean preset is easier than a real account because it has no saved, recent, or
+rejected items. Use `fa-latin-mainstream-movies-heavy-history` to exercise a
+movie profile with a large blocked history similar to a long-lived production
+account. This is useful for catching duplicate exhaustion and timeout issues
+that may not appear with a fresh preset.

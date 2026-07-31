@@ -452,3 +452,80 @@ test("English UI with Persian-script favorites prefers Persian display identity"
   assert.equal(book.title, "جای خالی سلوچ");
   assert.equal(book.metadata, "Author: محمود دولت‌آبادی");
 });
+
+
+test("movie pair checks receive the bounded verification timeout", async () => {
+  const timeouts = [];
+  const result = await generateUsableSuggestion(baseRequest({ section: "movies" }), {
+    requestSuggestion: async () => ({
+      ok: true,
+      title: "Coherence",
+      metadata: "Director: James Ward Byrkit",
+      reason: "Intimate tension and puzzle-box structure.",
+    }),
+    findDuplicate: () => null,
+    verifyMediaPair: async ({ timeoutMs }) => {
+      timeouts.push(timeoutMs);
+      return { ok: true, verdict: "valid" };
+    },
+  });
+
+  assert.deepEqual(timeouts, [3500]);
+  assert.equal(result.title, "Coherence");
+});
+
+test("movie duplicate candidates are skipped before pair verification", async () => {
+  const verified = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    blockedSuggestionItems: [{ title: "Enemy" }],
+  }), {
+    requestSuggestion: async () => ({
+      ok: true,
+      candidates: [
+        { ok: true, title: "Enemy", metadata: "Director: Denis Villeneuve", reason: "Fractured identity and dread." },
+        { ok: true, title: "Coherence", metadata: "Director: James Ward Byrkit", reason: "Intimate tension and puzzle-box structure." },
+      ],
+    }),
+    findDuplicate: (title) => title === "Enemy" ? { title } : null,
+    verifyMediaPair: async ({ title }) => {
+      verified.push(title);
+      return { ok: true, verdict: "valid" };
+    },
+  });
+
+  assert.deepEqual(verified, ["Coherence"]);
+  assert.equal(result.title, "Coherence");
+});
+
+test("movie profiles with large saved history receive one bounded extra batch", async () => {
+  let calls = 0;
+  const blocked = Array.from({ length: 25 }, (_, index) => ({ title: `Saved ${index}` }));
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    blockedSuggestionItems: blocked,
+  }), {
+    requestSuggestion: async () => {
+      calls += 1;
+      if (calls < 3) {
+        return {
+          ok: true,
+          candidates: [
+            { ok: true, title: "Saved 1", metadata: "Director: A", reason: "A specific reason." },
+            { ok: true, title: "Saved 2", metadata: "Director: B", reason: "A specific reason." },
+            { ok: true, title: "Saved 3", metadata: "Director: C", reason: "A specific reason." },
+          ],
+        };
+      }
+      return {
+        ok: true,
+        candidates: [{ ok: true, title: "Coherence", metadata: "Director: James Ward Byrkit", reason: "Intimate tension and puzzle-box structure." }],
+      };
+    },
+    findDuplicate: (title) => title.startsWith("Saved") ? { title } : null,
+    verifyMediaPair: async () => ({ ok: true, verdict: "valid" }),
+  });
+
+  assert.equal(calls, 3);
+  assert.equal(result.title, "Coherence");
+});

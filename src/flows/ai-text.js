@@ -1,10 +1,11 @@
 const messages = require("../messages");
-const { getAiConfig } = require("../config");
 const { logger } = require("../services/logger");
+const {
+  AI_SUGGESTION_STEP_DELAYS_MS,
+  getAiSuggestionTimeoutMs,
+} = require("../services/ai-suggestion-timing");
 const { sendBannerPhoto } = require("../services/banner-media");
 
-const AI_PLACEHOLDER_TIMEOUT_MS = getAiConfig().timeoutMs + 3000;
-const MUSIC_PLACEHOLDER_TIMEOUT_MS = Math.max(60000, getAiConfig().timeoutMs + 30000);
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
 const {
   aiAssistantKeyboard,
@@ -451,13 +452,13 @@ async function sendSingleSectionSuggestion({
     messages[lang].aiThinkingStill,
     messages[lang].aiThinkingLonger,
   ], {
-    stepDelays: [3000, 8000],
+    stepDelays: AI_SUGGESTION_STEP_DELAYS_MS,
     ensureEditable: true,
     replaceProgress: false,
     initialExtra: { reply_markup: { remove_keyboard: true, selective: true } },
     fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
-    timeoutMs: section === "music" ? MUSIC_PLACEHOLDER_TIMEOUT_MS : AI_PLACEHOLDER_TIMEOUT_MS,
+    timeoutMs: getAiSuggestionTimeoutMs(section),
     onFallback: async () => {
       if (paidSuggestion) {
         await refundPaidSuggestion(

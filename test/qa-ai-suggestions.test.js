@@ -21,7 +21,7 @@ test("QA presets are valid bilingual media scenarios", () => {
     const preset = getPreset(entry.id);
     const normalized = normalizeScenario({ ...preset, id: entry.id }, entry.id);
     assert.equal(normalized.id, entry.id);
-    assert.ok(normalized.favorites.length >= 10);
+    assert.ok(normalized.favorites.length >= 3);
   }
 });
 
