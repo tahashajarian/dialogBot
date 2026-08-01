@@ -1006,7 +1006,11 @@ async function handleAiCallback(ctx, lang, helpers) {
     if (topTenItems.length < 3) return ctx.reply(getNeedTopTenMessage(lang, section), aiSectionKeyboardForSection(lang, section));
 
     await clearAiPendingInputPrompt(ctx);
-    const sentSuggestion = await sendFollowupSuggestion({
+    // sendFollowupSuggestion owns both success and failure rendering. A null
+    // result means its timeout fallback has already settled, so replying here
+    // would duplicate the error and replace the suggestion-mode keyboard with
+    // the section keyboard.
+    return sendFollowupSuggestion({
       ctx,
       lang,
       section,
@@ -1014,9 +1018,6 @@ async function handleAiCallback(ctx, lang, helpers) {
       userText: getSuggestionMood(ctx.userId, section),
       placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
     });
-
-    if (sentSuggestion) return sentSuggestion;
-    return ctx.reply(messages[lang].aiTemporaryUnavailable, aiSectionKeyboardForSection(lang, section));
   }
 
   if (data.startsWith(callBacks.aiSectionRejectSuggestion)) {
