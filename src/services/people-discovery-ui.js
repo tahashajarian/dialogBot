@@ -84,6 +84,9 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
   if (!items.length) return emptyText;
 
   const baseIndex = Math.max(0, Number(startIndex) || 0);
+  const discoveryCount = Math.max(0, Number(totalCount) || 0);
+  let nextDiscoveryIndex = Math.min(baseIndex, discoveryCount) + 1;
+  let nextSavedIndex = Math.max(0, baseIndex - discoveryCount) + 1;
   const rows = items.map((entry, index) => {
     const shortCode = String(entry.code || "").replace(/^u_/i, "");
     const viewCommand = `/${entry.code}`;
@@ -105,8 +108,9 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
     const nameLine = formatProfileListNameLine(lang, entry);
     const actions = [viewAction, saveAction].filter(Boolean).join("\n\n");
 
+    const itemIndex = entry.isSaved ? nextSavedIndex++ : nextDiscoveryIndex++;
     const details = [
-      `${formatListIndex(lang, baseIndex + index + 1)}.`,
+      `${formatListIndex(lang, itemIndex)}.`,
       nameLine,
       sharedLines,
     ].filter(Boolean).join("\n");

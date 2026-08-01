@@ -650,8 +650,24 @@ test("saved profiles are visibly separated at the end of People results", () => 
   assert.match(text, new RegExp(messages.fa.peopleDiscoverSavedSection));
   assert.match(text, /\(۱\)/);
   assert.doesNotMatch(text, /\(۲\)/);
+  assert.match(text, /۱\.[\s\S]*New person/);
+  assert.match(text, new RegExp(`${messages.fa.peopleDiscoverSavedSection}\\n\\n۱\\.[\\s\\S]*Saved person`));
   assert.ok(text.indexOf("New person") < text.indexOf(messages.fa.peopleDiscoverSavedSection));
   assert.ok(text.indexOf(messages.fa.peopleDiscoverSavedSection) < text.indexOf("Saved person"));
+});
+
+test("saved profile numbering continues across later People pages", () => {
+  const text = buildPeopleDiscoveryText(messages, "en", [
+    { code: "u_SAVED_3", name: "Third saved", isSaved: true },
+    { code: "u_SAVED_4", name: "Fourth saved", isSaved: true },
+  ], {
+    startIndex: 7,
+    totalCount: 5,
+  });
+
+  assert.match(text, /See people \(5\)/);
+  assert.match(text, /3\.[\s\S]*Third saved/);
+  assert.match(text, /4\.[\s\S]*Fourth saved/);
 });
 
 test("People list Close only deletes the tapped card", async () => {
