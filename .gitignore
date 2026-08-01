@@ -3,3 +3,4 @@ node_modules
 data/ai-feedback-cache.json
 users.json
 SESSION_SUMMARY.md
+reports/

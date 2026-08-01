@@ -156,6 +156,11 @@
               <span class="toggle-track"><span></span></span>
               <span>Show source identity</span>
             </label>
+            <label class="toggle-control">
+              <input id="variantsToggle" type="checkbox" checked>
+              <span class="toggle-track"><span></span></span>
+              <span>Run account variants</span>
+            </label>
           </div>
           <div class="run-actions">
             <button class="button button-ghost hidden" id="cancelButton" type="button">Cancel</button>
@@ -183,6 +188,8 @@
           <div class="metric-card"><span>Completed</span><strong id="metricCompleted">0</strong></div>
           <div class="metric-card"><span>Success rate</span><strong id="metricSuccess">—</strong></div>
           <div class="metric-card"><span>Average time</span><strong id="metricTime">—</strong></div>
+          <div class="metric-card"><span>Display language</span><strong id="metricLanguage">—</strong></div>
+          <div class="metric-card"><span>Unique creators</span><strong id="metricCreators">—</strong></div>
         </div>
 
         <div class="run-progress hidden" id="runProgress">

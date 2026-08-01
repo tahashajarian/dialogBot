@@ -6,6 +6,7 @@ const path = require("node:path");
 const { PRESETS } = require("./qa-suggestion-presets");
 const {
   getRuntimeDependencies,
+  buildScenarioVariants,
   normalizeScenario,
   runScenario,
 } = require("./qa-ai-suggestions");
@@ -160,24 +161,30 @@ function createQaWebServer({ runtimeFactory = getRuntimeDependencies } = {}) {
           "Content-Type": "application/x-ndjson; charset=utf-8",
           "X-Content-Type-Options": "nosniff",
         });
+        const scenarios = body.runVariants ? buildScenarioVariants(scenario) : [scenario];
         writeEvent(response, "start", {
-          count,
+          count: count * scenarios.length,
           profile: scenario.id,
+          variants: scenarios.map((item) => item.variant || "full-account"),
           startedAt: new Date().toISOString(),
         });
 
-        const results = await runScenario(scenario, {
-          count,
-          mood: body.mood,
-          reject: Array.isArray(body.rejected) ? body.rejected.join("|") : "",
-          like: Array.isArray(body.liked) ? body.liked.join("|") : "",
-          silent: true,
-          verbose: Boolean(body.verbose),
-          isCancelled: () => disconnected,
-          onResult: async (result) => {
-            writeEvent(response, "result", { result });
-          },
-        }, runtime);
+        const results = [];
+        for (const variant of scenarios) {
+          if (disconnected) break;
+          results.push(...await runScenario(variant, {
+            count,
+            mood: variant.userText || body.mood,
+            reject: variant.rejected.join("|"),
+            like: variant.liked.join("|"),
+            silent: true,
+            verbose: Boolean(body.verbose),
+            isCancelled: () => disconnected,
+            onResult: async (result) => {
+              writeEvent(response, "result", { result });
+            },
+          }, runtime));
+        }
 
         writeEvent(response, "complete", {
           completed: results.length,

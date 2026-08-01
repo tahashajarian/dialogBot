@@ -19,11 +19,12 @@ npm.cmd run qa:suggestions:web
 
 The command opens `http://127.0.0.1:4173` in the default browser. The dashboard:
 
-- includes 21 varied Persian and English starter profiles, including Persian-interface profiles whose favorites use Latin-script titles;
+- includes 25 varied Persian and English starter profiles, including the heavy-Metallica and dark-Persian-literature production regressions;
 - lets you edit every favorite, request, rejection, liked item, and saved item;
 - saves custom profiles only in browser local storage;
 - streams each live result as it finishes;
-- shows success rate and response timing;
+- automatically runs 3-Favorite, 5-Favorite, full-account, and empty-history variants when applicable;
+- shows success rate, response timing, display-language compliance, and unique-creator coverage;
 - supports source-identity inspection, copy, quality marking, cancellation, and JSON export;
 - keeps API credentials on the local Node server and never sends them to the page;
 - binds to localhost and does not write to MongoDB, Telegram, quotas, or Stars.
@@ -84,8 +85,19 @@ Add temporary negative or positive signals without changing stored user data:
 npm.cmd run qa:suggestions -- run fa-iranian-music --count=5 --reject="فاصله‌ها — احسان خواجه‌امیری|یه روز خوب میاد — سیروان خسروی"
 ```
 
-Use `--verbose` to show the underlying catalogue identity for music. Use
+Use `--verbose` to show the underlying catalogue identity. JSON results include
+the selected variant, source identity, pipeline diagnostics, display-language
+compliance, and creator-repeat status. Use
 `--json` for machine-readable output and timing comparisons.
+
+For a complete sweep, write the combined JSON directly inside the workspace so
+console logs cannot truncate it:
+
+```powershell
+npm.cmd run qa:suggestions -- all --count=2 --json --output=reports/qa-suggestions.json
+```
+
+Generated `reports/` files are local QA artifacts and are ignored by Git.
 
 ## Custom profile
 

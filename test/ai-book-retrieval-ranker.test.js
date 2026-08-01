@@ -44,6 +44,7 @@ test("book ranker selects an existing candidate without changing its identity", 
   assert.equal(result.candidate.title, "The Man Without Qualities");
   assert.equal(result.candidate.author, "Robert Musil");
   assert.match(requests[0].instructions, /Never invent, translate, rewrite/);
+  assert.match(requests[0].instructions, /soft direction unless the request explicitly says/);
 });
 
 test("book ranker fails rather than accepting an invented index", async () => {
@@ -59,4 +60,25 @@ test("book ranker fails rather than accepting an invented index", async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, "invalid_ranker_output");
+});
+
+test("book ranker can decline a catalogue pool with no relevant candidate", async () => {
+  const requests = [];
+  const result = await rankRetrievedBooks({
+    userId: 1,
+    lang: "en",
+    userText: "speculative fiction",
+    candidates: [{ title: "Lectures on Literature", author: "A Critic" }],
+  }, {
+    config: { timeoutMs: 20000 },
+    client: {},
+    requestText: async (_client, request) => {
+      requests.push(request);
+      return { text: '{"index":0,"mood":"","reason":""}' };
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "invalid_ranker_output");
+  assert.match(requests[0].instructions, /If no candidate is clearly relevant/);
 });

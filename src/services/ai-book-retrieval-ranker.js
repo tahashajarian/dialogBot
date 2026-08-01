@@ -40,6 +40,7 @@ async function rankRetrievedBooks({
   likedSuggestions = [],
   rejectedSuggestions = [],
   hardExclusions = [],
+  recentCreators = [],
   tasteStyleHint = "",
   candidates = [],
 }, {
@@ -76,13 +77,16 @@ async function rankRetrievedBooks({
       operation: "book_retrieval_ranking",
       maxOutputTokens: 100,
       instructions: [
-        "Choose exactly one book from the supplied real catalogue candidates by returning its 1-based index.",
+        "Choose one strongly relevant book from the supplied real catalogue candidates by returning its 1-based index.",
+        "If no candidate is clearly relevant to the favorites and request from its supplied subjects or description, return {\"index\":0,\"mood\":\"\",\"reason\":\"\"}. Never choose a merely adjacent academic, study-guide, lecture, criticism, or reference work for a fiction profile.",
         "Never invent, translate, rewrite, correct, combine, or replace a title or author. The application displays the selected catalogue identity exactly as supplied.",
         "Use favorites, liked books, the taste direction, and the current request as positive evidence.",
+        "Treat broad genre and mood wording as a soft direction unless the request explicitly says only/exclusively/فقط. A candidate may be adjacent rather than the exact same subtype when at least two concrete literary qualities connect it to the evidence. Prefer a varied reading path over repeatedly selecting the same premise or narrow microgenre.",
         "Use rejected books as negative evidence without overgeneralizing from one rejection.",
         "Never choose a favorite, saved, recent, or rejected work, including the same work under a translated, transliterated, alternate, or edition title.",
         "Prefer candidates whose supplied subjects or description provide concrete evidence of relevance. Do not infer a plot, mood, or theme from the title alone.",
         "Prefer a different author from the favorites when several candidates are equally suitable, but do not sacrifice relevance merely to change authors.",
+        "Never choose an author from Recent creators unless the current request explicitly asks for that author.",
         displayLanguage === "fa"
           ? "Every supplied candidate has a Persian-script catalogue title. Choose only from them and preserve the supplied title and author exactly; never output a Latin title or create a translation."
           : "When equally suitable, prefer the supplied original/Latin catalogue identity; never localize it.",
@@ -99,6 +103,7 @@ async function rankRetrievedBooks({
         `Liked books: ${compactContext(likedSuggestions).join(" | ") || "None"}`,
         `Rejected books: ${compactContext(rejectedSuggestions).join(" | ") || "None"}`,
         `Hard exclusions: ${compactContext(hardExclusions).join(" | ") || "None"}`,
+        `Recent creators: ${compactContext(recentCreators).join(" | ") || "None"}`,
         `Candidates:\n${list}`,
       ].join("\n"),
     });
@@ -108,6 +113,10 @@ async function rankRetrievedBooks({
         ok: false,
         reason: result.capacityRejected ? "capacity_busy" : "invalid_ranker_output",
       };
+    }
+    if (/\b(?:suggests?|promises?|appears?|possibly|perhaps|may be)\b/i.test(ranked.reason)
+      || /(?:احتمالاً|احتمالی|محتمل|به[‌\s]+نظر[‌\s]+می‌رسد)/u.test(ranked.reason)) {
+      return { ok: false, reason: "weak_catalog_evidence", qualityIssue: "speculative_candidate_reason" };
     }
     const qualityIssue = getMediaSuggestionQualityIssue({
       reason: ranked.reason,

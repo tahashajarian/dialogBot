@@ -279,6 +279,7 @@ async function getAiSingleSuggestion({
   tasteStyleHint = "",
   candidateCount = 1,
   displayLanguage = lang,
+  requestTimeoutMs = null,
 }) {
   const input = normalizeInput(userText);
   if (!input) {
@@ -291,7 +292,7 @@ async function getAiSingleSuggestion({
   }
 
   try {
-    const batchSize = candidateCount > 1 ? Math.min(3, candidateCount) : 1;
+    const batchSize = candidateCount > 1 ? Math.min(5, candidateCount) : 1;
     const prefersPersianDisplay = displayLanguage === "fa";
     const isPersianBook = mode === "books" && prefersPersianDisplay;
     const isPersianMovie = mode === "movies" && prefersPersianDisplay;
@@ -337,12 +338,15 @@ async function getAiSingleSuggestion({
       buildTasteStyleInstruction(tasteStyleHint, lang),
       getModeInstruction(mode, lang),
     ].join(" ");
+    const requestConfig = Number.isFinite(Number(requestTimeoutMs)) && Number(requestTimeoutMs) > 0
+      ? { ...aiConfig, timeoutMs: Math.max(1000, Number(requestTimeoutMs)) }
+      : aiConfig;
     const request = await requestSuggestionText(openai, {
       userId,
-      config: aiConfig,
+      config: requestConfig,
       maxOutputTokens: batchSize === 1
         ? DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS
-        : DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS * 4,
+        : DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS * (batchSize + 1),
       instructions,
       input: `Request: ${input}\n${buildUserContext({
         personalized,

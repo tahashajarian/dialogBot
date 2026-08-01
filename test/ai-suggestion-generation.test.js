@@ -3,7 +3,20 @@ const assert = require("node:assert/strict");
 
 const {
   generateUsableSuggestion,
+  getMovieRequestRelevanceIssue,
+  simplifyMediaSuggestion,
 } = require("../src/services/ai-suggestion-generation");
+
+test("explicit science-fiction requests require concrete science-fiction evidence", () => {
+  assert.equal(
+    getMovieRequestRelevanceIssue("slow sci-fi mystery", "Hypnotic mood and unsettling identity questions."),
+    "requested_scifi_not_supported",
+  );
+  assert.equal(
+    getMovieRequestRelevanceIssue("slow sci-fi mystery", "A futuristic world and android identity mystery."),
+    "",
+  );
+});
 
 function baseRequest(overrides = {}) {
   return {
@@ -40,6 +53,128 @@ test("shared suggestion generation does not retry provider failures", async () =
   });
   assert.equal(calls, 1);
   assert.equal(result.reason, "capacity_busy");
+});
+
+test("production book path retrieves and ranks catalogue candidates in the favorites language", async () => {
+  let retrievalRequest;
+  let rankingRequest;
+  const candidates = [{
+    title: "ملکوت",
+    author: "بهرام صادقی",
+    source: "google_books",
+    sourceId: "book-1",
+  }, {
+    title: "تهوع", author: "ژان پل سارتر", source: "open_library", sourceId: "book-2",
+  }, {
+    title: "ملکوت دیگر", author: "نویسنده دیگر", source: "open_library", sourceId: "book-3",
+  }];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "en",
+    topTenItems: ["بوف کور — صادق هدایت", "سمفونی مردگان — عباس معروفی", "آبشوران — علی‌اشرف درویشیان"],
+    recentSuggestionCreators: ["فردینان سلین"],
+  }), {
+    retrieveBooks: async (request) => { retrievalRequest = request; return candidates; },
+    rankBooks: async (request) => {
+      rankingRequest = request;
+      return { ok: true, candidate: candidates[0], mood: "تلخ", reason: "فروپاشی روانی و وهم اجتماعی؛ تلخ و فشرده." };
+    },
+  });
+  assert.equal(retrievalRequest.displayLanguage, "fa");
+  assert.deepEqual(retrievalRequest.excludedCreators, ["فردینان سلین"]);
+  assert.equal(rankingRequest.displayLanguage, "fa");
+  assert.equal(result.title, "ملکوت");
+  assert.equal(result.metadata, "Author: بهرام صادقی");
+  assert.equal(result.sourceTitle, "ملکوت");
+});
+
+test("production movie path requires catalogue verification", async () => {
+  const result = await generateUsableSuggestion(baseRequest({ topTenItems: ["Persona", "Stalker", "Cache"] }), {
+    requestSuggestion: async () => ({
+      ok: true,
+      title: "Perfect Days",
+      metadata: "Director: Wim Wenders",
+      reason: "Quiet routines reveal loneliness and grace; humane and meditative.",
+    }),
+    verifyMovie: async (suggestion) => ({
+      ok: true,
+      suggestion: { ...suggestion, title: "Perfect Days", metadata: "2023 · Director: Wim Wenders" },
+    }),
+  });
+  assert.equal(result.title, "Perfect Days");
+  assert.equal(result.metadata, "Director: Wim Wenders");
+});
+
+test("production movie path rechecks localized aliases and creators after verification", async () => {
+  let requestedCount = 0;
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    lang: "fa",
+    topTenItems: ["جدایی نادر از سیمین — اصغر فرهادی", "درباره الی — اصغر فرهادی"],
+    blockedSuggestionItems: [{ title: "کفرناحوم — نادین لبکی" }],
+  }), {
+    requestSuggestion: async (request) => {
+      requestedCount = request.candidateCount;
+      return {
+        ok: true,
+        candidates: [
+          { ok: true, title: "Capharnaum", metadata: "Director: Nadine Labaki", reason: "فشار اجتماعی و نگاه کودک‌محور؛ تلخ و انسانی." },
+          { ok: true, title: "The Salesman", metadata: "Director: Asghar Farhadi", reason: "تنش اخلاقی و واقع‌گرایی شهری؛ دقیق و درگیرکننده." },
+          { ok: true, title: "Shoplifters", metadata: "Director: Hirokazu Kore-eda", reason: "خانواده شکننده و جزئیات روزمره؛ انسانی و تأثیرگذار." },
+        ],
+      };
+    },
+    verifyMovie: async (suggestion) => ({ ok: true, suggestion }),
+    resolveMovieDisplay: async ({ title }) => ({
+      localizedTitle: title === "Capharnaum" ? "کفرناحوم" : title === "The Salesman" ? "فروشنده" : "دزدان فروشگاه",
+      localizedCreator: title === "Capharnaum" ? "نادین لبکی" : title === "The Salesman" ? "اصغر فرهادی" : "هیروکازو کورئیدا",
+    }),
+  });
+
+  assert.equal(requestedCount, 5);
+  assert.equal(result.ok, true);
+  assert.equal(result.title, "دزدان فروشگاه");
+  assert.equal(result.sourceTitle, "Shoplifters");
+});
+
+test("explicit comedy requests skip candidates whose reason has no comedy evidence", async () => {
+  const verified = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "movies",
+    lang: "fa",
+    userText: "کمدی موقعیت، شخصیت‌محور و اجتماعی",
+    topTenItems: ["اجاره‌نشین‌ها — داریوش مهرجویی", "مارمولک — کمال تبریزی"],
+  }), {
+    requestSuggestion: async () => ({
+      ok: true,
+      candidates: [
+        { ok: true, title: "A Separation", metadata: "Director: Asghar Farhadi", reason: "کشمکش خانوادگی و جزئیات اجتماعی؛ دقیق و انسانی." },
+        { ok: true, title: "The Full Monty", metadata: "Director: Peter Cattaneo", reason: "طنز معیشتی و کمدی گروهی؛ گرم و صمیمی." },
+      ],
+    }),
+    verifyMovie: async (suggestion) => {
+      verified.push(suggestion.title);
+      return { ok: true, suggestion };
+    },
+    resolveMovieDisplay: async () => ({ localizedTitle: "فول مانتی", localizedCreator: "پیتر کاتانیو" }),
+  });
+
+  assert.deepEqual(verified, ["The Full Monty"]);
+  assert.equal(result.title, "فول مانتی");
+});
+
+test("movie display omits an original title identical to its localized title", () => {
+  const result = simplifyMediaSuggestion({
+    ok: true,
+    title: "طلا و مس",
+    localizedTitle: "طلا و مس",
+    localizedCreator: "همایون اسعدیان",
+    metadata: "Director: Homayoun Asadian",
+    reason: "طنز موقعیت خانوادگی؛ گرم و انسانی.",
+  }, "movies", "fa");
+
+  assert.equal(result.title, "طلا و مس");
+  assert.equal(result.originalTitle, "");
 });
 
 test("shared suggestion generation retries duplicate batches but remains bounded", async () => {
@@ -318,7 +453,7 @@ test("book generation receives saved and recent books only as hard exclusions", 
   assert.deepEqual(inputs[0].hardExclusions, ["کتاب ذخیره‌شده", "پیشنهاد اخیر", "کتاب ردشده"]);
 });
 
-test("Persian-dominant book lists fall back to verified original title when no Persian edition exists", async () => {
+test("Persian-dominant book lists resolve a verified original identity for Persian display", async () => {
   let verifyCalls = 0;
   const result = await generateUsableSuggestion(baseRequest({
     section: "books",
@@ -346,13 +481,116 @@ test("Persian-dominant book lists fall back to verified original title when no P
         displayAuthor: "Isabel Allende",
       };
     },
+    resolveBookDisplay: async () => ({
+      localizedTitle: "خانه ارواح",
+      localizedCreator: "ایزابل آلنده",
+    }),
     findDuplicate: () => null,
   });
 
   assert.equal(verifyCalls, 1);
   assert.equal(result.ok, true);
-  assert.equal(result.title, "The House of the Spirits");
-  assert.equal(result.metadata, "Author: Isabel Allende");
+  assert.equal(result.title, "خانه ارواح");
+  assert.equal(result.metadata, "Author: ایزابل آلنده");
+  assert.equal(result.sourceTitle, "The House of the Spirits");
+});
+
+test("Persian books use a verified original identity only when localization is the sole blocker", async () => {
+  const candidate = {
+    originalTitle: "The Opposing Shore",
+    originalAuthor: "Julien Gracq",
+    mood: "تیره",
+    reason: "نثر فشرده و موسیقایی؛ تعلیق فرساینده در فضای زوال.",
+  };
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "fa",
+    topTenItems: ["بوف کور — صادق هدایت", "سمفونی مردگان — عباس معروفی"],
+  }), {
+    generateBooks: async () => ({ ok: true, candidates: [candidate] }),
+    verifyBook: async () => ({
+      ok: true,
+      candidate,
+      canonicalTitle: "The Opposing Shore",
+      canonicalAuthors: ["Julien Gracq"],
+      aliases: ["The Opposing Shore"],
+      authorAliases: ["Julien Gracq"],
+      displayTitle: "The Opposing Shore",
+      displayAuthor: "Julien Gracq",
+      source: "open_library",
+      sourceId: "/works/OL1W",
+    }),
+    resolveBookDisplay: async () => ({ localizedTitle: "", localizedCreator: "" }),
+    findDuplicate: () => null,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.title, "The Opposing Shore");
+  assert.equal(result.metadata, "Author: Julien Gracq");
+  assert.equal(result.displayLanguageFallback, true);
+});
+
+test("a different verified work by a Favorite author is the final book fallback", async () => {
+  const candidate = {
+    originalTitle: "Three Drops of Blood",
+    originalAuthor: "Sadegh Hedayat",
+    localizedTitle: "سه قطره خون",
+    localizedAuthor: "صادق هدایت",
+    mood: "تیره",
+    reason: "روایت‌های وهم‌آلود و روان‌پریشانه؛ تیره و فشرده.",
+  };
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "fa",
+    topTenItems: ["بوف کور — صادق هدایت"],
+  }), {
+    generateBooks: async () => ({ ok: true, candidates: [candidate] }),
+    verifyBook: async () => ({
+      ok: true,
+      candidate,
+      canonicalTitle: "Three Drops of Blood",
+      canonicalAuthors: ["Sadegh Hedayat"],
+      authorAliases: ["صادق هدایت"],
+      aliases: ["Three Drops of Blood", "سه قطره خون"],
+      displayTitle: "سه قطره خون",
+      displayAuthor: "صادق هدایت",
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.title, "سه قطره خون");
+  assert.equal(result.favoriteAuthorFallback, true);
+});
+
+test("a recently suggested book author remains blocked from final fallback", async () => {
+  const candidate = {
+    originalTitle: "Three Drops of Blood",
+    originalAuthor: "Sadegh Hedayat",
+    localizedTitle: "سه قطره خون",
+    localizedAuthor: "صادق هدایت",
+    reason: "روایت‌های وهم‌آلود و روان‌پریشانه؛ تیره و فشرده.",
+  };
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "fa",
+    topTenItems: ["بوف کور — صادق هدایت"],
+    recentSuggestionCreators: ["صادق هدایت"],
+  }), {
+    generateBooks: async () => ({ ok: true, candidates: [candidate] }),
+    verifyBook: async () => ({
+      ok: true,
+      candidate,
+      canonicalTitle: "Three Drops of Blood",
+      canonicalAuthors: ["Sadegh Hedayat"],
+      authorAliases: ["صادق هدایت"],
+      aliases: ["Three Drops of Blood", "سه قطره خون"],
+      displayTitle: "سه قطره خون",
+      displayAuthor: "صادق هدایت",
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "no_catalog_candidates");
 });
 
 test("Persian movie suggestions display localized identity and reject cross-language duplicates", async () => {

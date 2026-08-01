@@ -290,7 +290,7 @@ textarea { padding: 12px; resize: vertical; line-height: 1.65; }
   top: 76px;
 }
 .results-heading h2 { font-size: 21px; }
-.metrics-grid { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.metrics-grid { margin-top: 20px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .metric-card { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.68); }
 .metric-card span { display: block; color: var(--muted); font-size: 10px; }
 .metric-card strong { display: block; margin-top: 5px; font-size: 17px; letter-spacing: -.02em; }

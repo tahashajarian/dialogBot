@@ -32,6 +32,8 @@ function setPendingSuggestion(userId, section, title, comment = "", metadata = "
     comment: cleanComment,
     sourceTitle: normalizeSuggestionTitle(identity?.sourceTitle),
     sourceArtist: normalizeSuggestionComment(identity?.sourceArtist),
+    sourceAuthor: normalizeSuggestionComment(identity?.sourceAuthor),
+    sourceCreator: normalizeSuggestionComment(identity?.sourceCreator),
   });
   return cleanTitle;
 }

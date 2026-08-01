@@ -203,6 +203,13 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
       || creatorResult.entities?.[id]?.labels?.fa?.value)
     .filter(Boolean)
     .slice(0, 2);
+  const genreIds = getEntityClaimIds(entity, "P136").slice(0, 8);
+  const genreResult = await getWikidataEntities(genreIds, options);
+  if (!genreResult.ok) return genreResult;
+  const catalogGenres = genreIds.map((id) => (
+    genreResult.entities?.[id]?.labels?.en?.value
+      || genreResult.entities?.[id]?.labels?.fa?.value
+  )).filter(Boolean);
   const year = getEntityYears(entity)[0] || "";
   const title = getEntityDisplayTitle(entity, suggestion?.title);
   if (!title || !creators.length) {
@@ -223,6 +230,7 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
       metadata: [year, `${creatorLabel}: ${creators.join(", ")}`].filter(Boolean).join(" · "),
       mediaType,
       wikidataId: entity.id,
+      catalogGenres,
     },
   };
 }

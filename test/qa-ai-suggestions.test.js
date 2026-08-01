@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  buildScenarioVariants,
   getBlockedItems,
   normalizeScenario,
   parseArgs,
@@ -54,6 +55,24 @@ test("QA blocked items combine favorites, watchlist, rejections, and current run
 
 test("QA pipe list parser accepts convenient rejected and liked lists", () => {
   assert.deepEqual(splitPipeList("one | two|| three "), ["one", "two", "three"]);
+});
+
+test("QA account variants cover early, full, and clean-history states", () => {
+  const variants = buildScenarioVariants({
+    id: "account",
+    label: "Account",
+    section: "music",
+    lang: "en",
+    favorites: Array.from({ length: 10 }, (_, index) => `Favorite ${index + 1}`),
+    watchlist: ["Saved"],
+  });
+  assert.deepEqual(variants.map((variant) => variant.variant), [
+    "full-account",
+    "3-favorites",
+    "5-favorites",
+    "empty-history",
+  ]);
+  assert.equal(normalizeScenario(variants[1]).variant, "3-favorites");
 });
 
 test("QA scenario validation rejects unsupported section and missing favorites", () => {

@@ -84,6 +84,7 @@ async function resolvePersianBookDisplay({
   userId,
   title,
   metadata = "",
+  requestTimeoutMs = null,
 }, {
   config = getAiConfig(),
   requestText = requestSuggestionText,
@@ -96,12 +97,15 @@ async function resolvePersianBookDisplay({
   const cached = readCache(key);
   if (cached !== undefined) return cached;
 
-  const openai = client === undefined ? getClient(config) : client;
+  const requestConfig = Number.isFinite(Number(requestTimeoutMs)) && Number(requestTimeoutMs) > 0
+    ? { ...config, timeoutMs: Math.max(1000, Number(requestTimeoutMs)) }
+    : config;
+  const openai = client === undefined ? getClient(requestConfig) : client;
   if (!openai) return { localizedTitle: "", localizedCreator: "" };
   try {
     const response = await requestText(openai, {
       userId,
-      config,
+      config: requestConfig,
       maxOutputTokens: 40,
       instructions: [
         "Identify the established Persian publication title and the standard Persian-script author name of this already verified real book.",

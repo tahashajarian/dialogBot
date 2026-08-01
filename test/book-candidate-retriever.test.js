@@ -3,11 +3,18 @@ const assert = require("node:assert/strict");
 
 const {
   googleBookCandidates,
+  isDisplayableBookCandidate,
   isRomanizedPersianCandidate,
   openLibraryBookCandidates,
   retrieveBookCandidates,
   uniqueBookCandidates,
 } = require("../src/services/book-candidate-retriever");
+
+test("English display rejects catalogue editions explicitly marked as another language", () => {
+  assert.equal(isDisplayableBookCandidate({ title: "Animal Farm", author: "George Orwell", language: "eng" }, "en"), true);
+  assert.equal(isDisplayableBookCandidate({ title: "Rebelión en la Granja", author: "George Orwell", language: "spa" }, "en"), false);
+  assert.equal(isDisplayableBookCandidate({ title: "Negosiasi dan mediasi", author: "Sudiarto", language: "ind" }, "en"), false);
+});
 
 test("book catalogue parsers keep only real title-author records with source identities", () => {
   assert.deepEqual(googleBookCandidates({

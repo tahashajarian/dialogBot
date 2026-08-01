@@ -292,6 +292,17 @@ function updateMetrics() {
   elements.metricCompleted.textContent = String(completed);
   elements.metricSuccess.textContent = completed ? `${Math.round((successful / completed) * 100)}%` : "—";
   elements.metricTime.textContent = completed ? `${(average / 1000).toFixed(1)}s` : "—";
+  const successfulResults = state.results.filter((result) => result.ok);
+  const languagePasses = successfulResults.filter((result) => result.quality?.displayLanguagePass).length;
+  elements.metricLanguage.textContent = successfulResults.length
+    ? `${Math.round((languagePasses / successfulResults.length) * 100)}%`
+    : "—";
+  const creators = new Set(successfulResults.map((result) => (
+    result.sourceArtist || result.sourceAuthor || result.sourceCreator || ""
+  )).filter(Boolean).map((value) => value.toLowerCase()));
+  elements.metricCreators.textContent = successfulResults.length
+    ? `${creators.size}/${successfulResults.length}`
+    : "—";
   elements.exportButton.disabled = !completed;
   elements.clearResultsButton.disabled = !completed;
   elements.emptyState.classList.toggle("hidden", completed > 0);
@@ -307,13 +318,13 @@ function renderResults() {
   state.results.forEach((result, index) => {
     const card = document.createElement("article");
     card.className = `result-card ${result.ok ? "" : "failed"}`.trim();
-    const source = [result.sourceTitle, result.sourceArtist].filter(Boolean).join(" — ");
+    const source = [result.sourceTitle, result.sourceArtist || result.sourceAuthor || result.sourceCreator].filter(Boolean).join(" — ");
     const evaluation = state.evaluations[resultEvaluationKey(result)] || "";
     card.innerHTML = `
       <div class="result-card-header">
         <div class="result-status">
           <span class="result-index">${index + 1}</span>
-          <strong>${result.ok ? "Suggestion ready" : "Suggestion failed"}</strong>
+          <strong>${result.ok ? "Suggestion ready" : "Suggestion failed"} · ${escapeHtml(result.variant || "full-account")}</strong>
         </div>
         <span class="result-time">${(Number(result.elapsedMs || 0) / 1000).toFixed(1)}s</span>
       </div>
@@ -328,12 +339,12 @@ function renderResults() {
           <button class="mini-button ${evaluation === "good" ? "selected good" : ""}" data-rate="good" type="button">Good</button>
           <button class="mini-button ${evaluation === "bad" ? "selected bad" : ""}" data-rate="bad" type="button">Bad</button>
         </div>
-        <button class="mini-button" data-copy type="button">Copy</button>
+        <button class="mini-button" data-copy type="button">Copy name</button>
       </div>
     `;
     card.querySelector("[data-copy]").addEventListener("click", async () => {
-      await navigator.clipboard.writeText(result.displayMessage || result.title || result.reason || "");
-      showToast("Result copied.");
+      await navigator.clipboard.writeText(result.copyText || result.title || "");
+      showToast("Search name copied, matching the bot.");
     });
     for (const button of card.querySelectorAll("[data-rate]")) {
       button.addEventListener("click", () => {
@@ -388,7 +399,11 @@ async function runProfile() {
   elements.runCount.value = String(count);
   state.results = [];
   state.evaluations = {};
-  state.expectedCount = count;
+  const variantCount = elements.variantsToggle.checked
+    ? 1 + (scenario.favorites.length > 3 ? 1 : 0) + (scenario.favorites.length > 5 ? 1 : 0)
+      + ((scenario.watchlist.length || scenario.rejected.length || scenario.liked.length) ? 1 : 0)
+    : 1;
+  state.expectedCount = count * variantCount;
   renderResults();
   setRunning(true);
   updateProgress();
@@ -405,6 +420,7 @@ async function runProfile() {
         rejected: scenario.rejected,
         liked: scenario.liked,
         verbose: elements.verboseToggle.checked,
+        runVariants: elements.variantsToggle.checked,
       }),
       signal: state.controller.signal,
     });
@@ -457,8 +473,8 @@ function bindElements() {
     "connectionPill", "connectionText", "newProfileButton", "profileCount", "profileSearch", "profileList",
     "editorTitle", "editorSubtitle", "duplicateButton", "saveProfileButton", "deleteProfileButton", "profileForm",
     "profileLabel", "profileId", "userText", "favorites", "rejected", "liked", "watchlist", "favoritesCount",
-    "decreaseCount", "increaseCount", "runCount", "verboseToggle", "cancelButton", "runButton", "exportButton",
-    "clearResultsButton", "metricCompleted", "metricSuccess", "metricTime", "runProgress", "progressTitle",
+    "decreaseCount", "increaseCount", "runCount", "verboseToggle", "variantsToggle", "cancelButton", "runButton", "exportButton",
+    "clearResultsButton", "metricCompleted", "metricSuccess", "metricTime", "metricLanguage", "metricCreators", "runProgress", "progressTitle",
     "progressSubtitle", "progressBar", "emptyState", "resultList", "toastRegion",
   ];
   for (const id of ids) elements[id] = $(id);

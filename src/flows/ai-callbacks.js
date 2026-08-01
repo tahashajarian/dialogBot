@@ -1034,11 +1034,12 @@ async function handleAiCallback(ctx, lang, helpers) {
       title,
       AI_RECENT_SUGGESTIONS_LIMIT,
       {
-        aliases: section === "music"
-          ? [pending?.sourceTitle, pending?.sourceArtist && pending?.sourceTitle
-            ? `${pending.sourceTitle} — ${pending.sourceArtist}`
-            : ""].filter(Boolean)
-          : [],
+        aliases: [
+          pending?.sourceTitle,
+          pending?.sourceTitle && (pending?.sourceArtist || pending?.sourceAuthor || pending?.sourceCreator)
+            ? `${pending.sourceTitle} — ${pending.sourceArtist || pending.sourceAuthor || pending.sourceCreator}`
+            : "",
+        ].filter(Boolean),
       },
     );
     if (ctx.user && rejected.ok) {

@@ -11,6 +11,9 @@ function getRuntimeDependencies() {
     generateUsableSuggestion: require("../src/services/ai-suggestion-generation").generateUsableSuggestion,
     formatSuggestionResultMessage: require("../src/services/ai-list-ui").formatSuggestionResultMessage,
     extractSuggestionCreator: require("../src/services/ai-suggestion-quality").extractSuggestionCreator,
+    buildSuggestionCopyText: require("../src/services/ai-suggestion-quality").buildSuggestionCopyText,
+    getPreferredSuggestionDisplayLanguage: require("../src/services/ai-suggestion-display-language").getPreferredSuggestionDisplayLanguage,
+    classifyItemScript: require("../src/services/ai-suggestion-display-language").classifyItemScript,
   };
 }
 
@@ -66,6 +69,7 @@ function normalizeScenario(raw, sourceLabel = "custom") {
     watchlist: Array.isArray(raw?.watchlist) ? raw.watchlist : [],
     rejected: Array.isArray(raw?.rejected) ? raw.rejected : [],
     liked: Array.isArray(raw?.liked) ? raw.liked : [],
+    variant: String(raw?.variant || "").trim() || "full-account",
   };
 }
 
@@ -83,11 +87,46 @@ function getBlockedItems({ favorites, watchlist, rejected, seen }) {
     .filter((entry) => entry.title);
 }
 
+function extractListedCreator(value) {
+  const text = String(value?.metadata || value || "").trim();
+  const separated = text.split(/\s+[—–|]\s+/u);
+  if (separated.length > 1) return separated.at(-1).trim();
+  return "";
+}
+
+function buildScenarioVariants(scenarioInput) {
+  const scenario = normalizeScenario(scenarioInput, scenarioInput.id || "variant");
+  const variants = [{ ...scenario, variant: "full-account" }];
+  for (const size of [3, 5]) {
+    if (scenario.favorites.length > size) {
+      variants.push({
+        ...scenario,
+        id: `${scenario.id}-${size}-favorites`,
+        label: `${scenario.label} · first ${size} favorites`,
+        favorites: scenario.favorites.slice(0, size),
+        variant: `${size}-favorites`,
+      });
+    }
+  }
+  if (scenario.watchlist.length || scenario.rejected.length || scenario.liked.length) {
+    variants.push({
+      ...scenario,
+      id: `${scenario.id}-clean-history`,
+      label: `${scenario.label} · empty history`,
+      watchlist: [],
+      rejected: [],
+      liked: [],
+      variant: "empty-history",
+    });
+  }
+  return variants;
+}
+
 function formatDuration(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function buildJsonResult({ scenario, iteration, elapsedMs, result, displayMessage = "" }) {
+function buildJsonResult({ scenario, iteration, elapsedMs, result, displayMessage = "", quality = {}, copyText = "" }) {
   return {
     preset: scenario.id,
     section: scenario.section,
@@ -101,11 +140,21 @@ function buildJsonResult({ scenario, iteration, elapsedMs, result, displayMessag
     reason: result?.reason || "",
     sourceTitle: result?.sourceTitle || "",
     sourceArtist: result?.sourceArtist || "",
+    sourceAuthor: result?.sourceAuthor || "",
+    sourceCreator: result?.sourceCreator || "",
+    source: result?.source || "",
+    sourceId: result?.sourceId || "",
     localizedTitle: result?.localizedTitle || "",
     localizedCreator: result?.localizedCreator || "",
     originalTitle: result?.originalTitle || "",
+    displayLanguageFallback: Boolean(result?.displayLanguageFallback),
+    favoriteAuthorFallback: Boolean(result?.favoriteAuthorFallback),
     qualityIssue: result?.qualityIssue || "",
+    diagnostics: result?.diagnostics || null,
+    variant: scenario.variant || "full-account",
+    quality,
     displayMessage,
+    copyText,
   };
 }
 
@@ -117,6 +166,7 @@ async function runScenario(scenarioInput, options = {}, runtime = getRuntimeDepe
   const liked = [...scenario.liked, ...splitPipeList(options.like)];
   const seen = [];
   const recentCreators = [];
+  const watchlistCreators = scenario.watchlist.map(extractListedCreator).filter(Boolean);
   const results = [];
 
   if (!options.json && !options.silent) {
@@ -147,6 +197,7 @@ async function runScenario(scenarioInput, options = {}, runtime = getRuntimeDepe
         rejected,
         seen,
       }),
+      watchlistCreators,
       tasteStyleHint: "",
     });
     const elapsedMs = Date.now() - startedAt;
@@ -165,19 +216,38 @@ async function runScenario(scenarioInput, options = {}, runtime = getRuntimeDepe
         },
       )
       : "";
+    const creator = result?.ok ? runtime.extractSuggestionCreator(result.metadata) : "";
+    const expectedDisplayLanguage = runtime.getPreferredSuggestionDisplayLanguage
+      ? runtime.getPreferredSuggestionDisplayLanguage(scenario.favorites, scenario.lang)
+      : scenario.lang;
+    const quality = {
+      expectedDisplayLanguage,
+      displayLanguagePass: !result?.title
+        ? false
+        : runtime.classifyItemScript
+          ? runtime.classifyItemScript(result.title) === expectedDisplayLanguage
+          : true,
+      creatorRepeated: Boolean(creator && recentCreators.some((item) => (
+        String(item).toLocaleLowerCase() === String(creator).toLocaleLowerCase()
+      ))),
+      verifiedIdentity: Boolean(result?.source || result?.sourceTitle || result?.sourceArtist),
+    };
     const record = buildJsonResult({
       scenario,
       iteration: index + 1,
       elapsedMs,
       result,
       displayMessage,
+      quality,
+      copyText: result?.ok && runtime.buildSuggestionCopyText
+        ? runtime.buildSuggestionCopyText(scenario.section, result.title, result.metadata)
+        : result?.title || "",
     });
     results.push(record);
 
     if (result?.ok && result?.title) {
       seen.push(result.title);
       if (result.sourceTitle) seen.push(result.sourceTitle);
-      const creator = runtime.extractSuggestionCreator(result.metadata);
       if (creator) recentCreators.push(creator);
     }
 
@@ -214,7 +284,7 @@ function printHelp() {
   console.log(`Usage:
   npm run qa:suggestions -- list
   npm run qa:suggestions -- run <preset> [--count=5] [--mood="..."] [--reject="a|b"] [--verbose]
-  npm run qa:suggestions -- all [--count=2]
+  npm run qa:suggestions -- all [--count=2] [--output=reports/suggestions.json]
   npm run qa:suggestions -- file <scenario.json> [--count=5]
 
 Examples:
@@ -224,6 +294,19 @@ Examples:
 
 This runner uses the real AI/catalogue logic and real API credentials from .env,
 but never writes to MongoDB or Telegram and never consumes user quotas or stars.`);
+}
+
+function writeJsonOutput(outputPath, records) {
+  if (!outputPath || outputPath === true) return;
+  const workspace = path.resolve(process.cwd());
+  const absolutePath = path.resolve(workspace, String(outputPath));
+  const relativePath = path.relative(workspace, absolutePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw new Error("--output must stay inside the current workspace.");
+  }
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+  console.log(`Saved ${records.length} results to ${absolutePath}`);
 }
 
 async function main() {
@@ -250,15 +333,24 @@ async function main() {
     const presetId = positional[1];
     const preset = getPreset(presetId);
     if (!preset) throw new Error(`Unknown preset: ${presetId || "(missing)"}. Run 'npm run qa:suggestions -- list'.`);
-    await runScenario({ ...preset, id: presetId }, options, runtime);
+    const records = await runScenario({ ...preset, id: presetId }, {
+      ...options,
+      silent: Boolean(options.output),
+    }, runtime);
+    writeJsonOutput(options.output, records);
     return;
   }
 
   if (command === "all") {
+    const records = [];
     for (const item of listPresets()) {
       const preset = getPreset(item.id);
-      await runScenario({ ...preset, id: item.id }, options, runtime);
+      records.push(...await runScenario({ ...preset, id: item.id }, {
+        ...options,
+        silent: Boolean(options.output),
+      }, runtime));
     }
+    writeJsonOutput(options.output, records);
     return;
   }
 
@@ -291,6 +383,7 @@ module.exports = {
   getRuntimeDependencies,
   loadScenarioFile,
   normalizeScenario,
+  buildScenarioVariants,
   parseArgs,
   runScenario,
   splitPipeList,

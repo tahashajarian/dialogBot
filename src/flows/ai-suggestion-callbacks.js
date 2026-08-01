@@ -11,6 +11,7 @@ const {
 const {
   addAiRecentSuggestion,
   consumeAiSuggestionQuota,
+  getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   getAiRecentSuggestionCreatorsFromUser,
@@ -112,6 +113,9 @@ async function sendFollowupSuggestion({
   const recentSuggestionCreators = getAiRecentSuggestionCreatorsFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
+  const watchlistCreators = getAiListItemsFromUser(ctx.user, section, "watchlist")
+    .map((entry) => extractSuggestionCreator(entry?.metadata || ""))
+    .filter(Boolean);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
@@ -191,6 +195,7 @@ async function sendFollowupSuggestion({
     likedSuggestionItems,
     recentSuggestionCreators,
     blockedSuggestionItems,
+    watchlistCreators,
     tasteStyleHint,
   });
 
@@ -245,6 +250,8 @@ async function sendFollowupSuggestion({
     {
       sourceTitle: suggestionResult.sourceTitle || "",
       sourceArtist: suggestionResult.sourceArtist || "",
+      sourceAuthor: suggestionResult.sourceAuthor || "",
+      sourceCreator: suggestionResult.sourceCreator || "",
     },
   );
   await updateUserState(ctx.userId, `ai_chat_${section}`);

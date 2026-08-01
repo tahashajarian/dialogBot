@@ -2,18 +2,26 @@ const { URL, URLSearchParams } = require("url");
 const { logger } = require("./logger");
 const { normalizeCatalogueTitle } = require("./catalogue-normalization");
 const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
+const {
+  creatorIsExplicitlyRequested,
+  normalizeCreator,
+} = require("./ai-suggestion-diversity");
 
 const GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes";
 const OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json";
 const BOOK_RETRIEVAL_TIMEOUT_MS = 5000;
 const OPEN_LIBRARY_USER_AGENT = "MuzeBot/1.0 (https://t.me/HeyMuzeBot)";
-const MAX_SEEDS = 3;
+const MAX_SEEDS = 2;
 const MAX_AUTHOR_HINTS = 4;
 const MAX_CANDIDATES = 36;
 const MIN_AVAILABLE_CANDIDATES = 3;
-const MAX_DISCOVERY_SUBJECTS = 4;
-const MAX_DISCOVERY_AUTHORS = 3;
-const MAX_EXPANSION_QUERIES = 4;
+const MAX_DISCOVERY_SUBJECTS = 2;
+const MAX_DISCOVERY_AUTHORS = 2;
+const MAX_EXPANSION_QUERIES = 2;
+const CATALOG_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MAX_CATALOG_CACHE_ENTRIES = 500;
+const catalogueResponseCache = new Map();
+let googleBooksDisabled = false;
 
 const GENERIC_SUBJECTS = new Set([
   "book",
@@ -112,6 +120,15 @@ function isPersianLanguage(value) {
     || language === "persian";
 }
 
+function isEnglishLanguage(value) {
+  const language = clean(value, 20).toLocaleLowerCase("en-US");
+  return !language
+    || language === "en"
+    || language.startsWith("en-")
+    || language === "eng"
+    || language === "english";
+}
+
 function isRomanizedPersianCandidate(candidate) {
   return Boolean(
     candidate
@@ -183,6 +200,12 @@ async function fetchJson(url, {
   stats = null,
 } = {}) {
   if (typeof fetchImpl !== "function") return null;
+  const cacheKey = String(url);
+  const useCache = fetchImpl === globalThis.fetch;
+  if (useCache && source === "google_books" && googleBooksDisabled) return null;
+  const cached = useCache ? catalogueResponseCache.get(cacheKey) : null;
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (cached) catalogueResponseCache.delete(cacheKey);
   recordRetrievalStat(stats, "requests");
   recordSourceStat(stats, source, "requests");
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
@@ -196,11 +219,20 @@ async function fetchJson(url, {
       recordRetrievalStat(stats, "httpErrors");
       recordSourceStat(stats, source, "httpErrors");
       const statusKey = String(Number(response.status) || "unknown");
+      if (useCache && source === "google_books" && Number(response.status) === 403) {
+        googleBooksDisabled = true;
+      }
       const statuses = stats?.sources?.[source]?.statuses;
       if (statuses) statuses[statusKey] = (statuses[statusKey] || 0) + 1;
       return null;
     }
     const data = await response.json();
+    if (useCache) {
+      catalogueResponseCache.set(cacheKey, { data, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS });
+      while (catalogueResponseCache.size > MAX_CATALOG_CACHE_ENTRIES) {
+        catalogueResponseCache.delete(catalogueResponseCache.keys().next().value);
+      }
+    }
     recordRetrievalStat(stats, "successfulResponses");
     recordSourceStat(stats, source, "successes");
     recordRetrievalStat(stats, source === "google_books" ? "googleBooksResponses" : "openLibraryResponses");
@@ -402,16 +434,23 @@ function isBlockedBookCandidate(candidate, blockedItems = []) {
 function isDisplayableBookCandidate(candidate, displayLanguage) {
   if (!candidate || isRomanizedPersianCandidate(candidate)) return false;
   if (displayLanguage === "fa") return hasPersianScript(candidate.title);
-  return true;
+  return !hasPersianScript(candidate.title)
+    && /[A-Za-z]/.test(candidate.title)
+    && !hasPersianScript(firstAuthor(candidate))
+    && /[A-Za-z]/.test(firstAuthor(candidate))
+    && isEnglishLanguage(candidate.language);
 }
 
 function availableBookCandidates(candidates, {
   blockedItems = [],
   displayLanguage = "en",
+  excludedCreators = [],
 } = {}) {
+  const excludedCreatorKeys = new Set(excludedCreators.map(normalizeCreator).filter(Boolean));
   return uniqueBookCandidates(candidates, 96).filter((candidate) => (
     isDisplayableBookCandidate(candidate, displayLanguage)
     && !isBlockedBookCandidate(candidate, blockedItems)
+    && !excludedCreatorKeys.has(normalizeCreator(firstAuthor(candidate)))
   ));
 }
 
@@ -482,11 +521,17 @@ async function retrieveBookCandidates({
   displayLanguage = "en",
   tasteStyleHint = "",
   blockedItems = [],
+  excludedCreators = [],
+  requestText = "",
 } = {}, options = {}) {
   const seeds = [...new Set(
     (favorites || []).map((item) => clean(item, 140)).filter(Boolean),
   )].slice(0, MAX_SEEDS);
   const authorHints = inferAuthorQueries(favorites);
+  const effectiveExcludedCreators = [
+    ...excludedCreators,
+    ...authorHints.filter((author) => !creatorIsExplicitlyRequested(author, requestText)),
+  ];
   const fallbackQuery = clean(tasteStyleHint, 120);
   const stats = createRetrievalStats();
   const requestOptions = { ...options, stats };
@@ -542,7 +587,11 @@ async function retrieveBookCandidates({
 
   const discoveredGroups = discoveryRequests.length ? await Promise.all(discoveryRequests) : [];
   const firstPool = [...discoveredGroups.flat(), ...seedCandidates];
-  let available = availableBookCandidates(firstPool, { blockedItems, displayLanguage });
+  let available = availableBookCandidates(firstPool, {
+    blockedItems,
+    displayLanguage,
+    excludedCreators: effectiveExcludedCreators,
+  });
 
   // If the first catalogue pass is empty or mostly blocked, keep using the
   // remaining request budget. Author hints are especially important when the
@@ -594,10 +643,18 @@ async function retrieveBookCandidates({
       ]),
     ];
     const expandedGroups = expansionRequests.length ? await Promise.all(expansionRequests) : [];
+    const expandedPool = [...expandedGroups.flat(), ...firstPool];
     available = availableBookCandidates(
-      [...expandedGroups.flat(), ...firstPool],
-      { blockedItems, displayLanguage },
+      expandedPool,
+      { blockedItems, displayLanguage, excludedCreators: effectiveExcludedCreators },
     );
+    if (!available.length && effectiveExcludedCreators.length > excludedCreators.length) {
+      available = availableBookCandidates(expandedPool, {
+        blockedItems,
+        displayLanguage,
+        excludedCreators,
+      });
+    }
   }
 
   const result = orderCandidates(available, displayLanguage, authorQueries).slice(0, MAX_CANDIDATES);
@@ -623,6 +680,7 @@ module.exports = {
   inferAuthorQueries,
   isBlockedBookCandidate,
   isDisplayableBookCandidate,
+  isEnglishLanguage,
   isPersianLanguage,
   isRomanizedPersianCandidate,
   openLibraryBookCandidates,
