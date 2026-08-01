@@ -111,17 +111,20 @@ function buildSavedProfilesListText(messages, lang, items = [], { startIndex = 0
         : `${discussionsLabel} 👉 ${discussionsCommand}`
       : "";
     const isLast = index === arr.length - 1;
-    const item = [
+    const details = [
       lineForLang(lang, `${formatListIndex(lang, baseIndex + index + 1)}.`),
       mixedValueLine(
         lang,
         entry.genderEmoji || "👤",
         `${entry.name}${Number.isInteger(Number(entry.age)) && Number(entry.age) > 0 ? ` — 🎂 ${formatListIndex(lang, entry.age)}` : ""}`,
       ),
+    ].join("\n");
+    const actions = [
       lineForLang(lang, viewAction),
       discussionsAction ? lineForLang(lang, discussionsAction) : "",
       lineForLang(lang, removeAction),
-    ].filter(Boolean).join("\n");
+    ].filter(Boolean).join("\n\n");
+    const item = `${details}\n\n${actions}`;
     return isLast ? `${item}\n\n${SAVED_PROFILES_DIVIDER}` : item;
   });
 
