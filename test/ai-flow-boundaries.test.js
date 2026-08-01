@@ -406,14 +406,10 @@ test("suggestion save buttons name the concrete section list", () => {
   assert.doesNotMatch(messages.fa.aiSuggestionNextGuidance, /حالا/);
 });
 
-test("suggestion action tips explain neutral save, positive completion, and negative feedback by section", () => {
-  assert.match(messages.fa.aiSuggestionChooseActionMovies, /لیست «بعدا می‌بینم»/);
-  assert.match(messages.fa.aiSuggestionChooseActionMovies, /دیدمش و دوستش داشتم/);
-  assert.match(messages.fa.aiSuggestionChooseActionMusic, /گوشش دادم و دوستش داشتم/);
-  assert.match(messages.fa.aiSuggestionChooseActionBooks, /خوندمش و دوستش داشتم/);
+test("suggestion action prompt stays minimal because the reply keyboard names each action", () => {
   for (const section of ["Movies", "Music", "Books"]) {
-    assert.match(messages.fa[`aiSuggestionChooseAction${section}`], /شبیه این پیشنهاد نده/);
-    assert.match(messages.en[`aiSuggestionChooseAction${section}`], /Don’t suggest things like this/);
+    assert.equal(messages.fa[`aiSuggestionChooseAction${section}`], "👱‍♀️ یکی رو انتخاب کن:");
+    assert.equal(messages.en[`aiSuggestionChooseAction${section}`], "👱‍♀️ Choose one:");
   }
 });
 
@@ -2284,7 +2280,7 @@ test("suggestion callback edits the tapped card through waiting and final states
   assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 0);
   assert.equal(edits[0].messageId, 55);
-  assert.equal(edits[0].text, messages.en.aiThinking);
+  assert.equal(edits[0].text, messages.en.aiSuggestionPreparing);
   assert.deepEqual(edits[0].extra.reply_markup.inline_keyboard, []);
   assert.equal(edits.every((entry) => entry.messageId === 55), true);
   assert.match(edits.at(-1).text, /free suggestions/);

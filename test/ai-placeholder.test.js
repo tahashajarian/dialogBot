@@ -9,10 +9,32 @@ test("long-running suggestion copy includes a genuine still-thinking step", () =
   assert.equal(messages.en.aiSuggestionChecking, "👩‍🦳 Checking a few possibilities...");
   assert.equal(messages.fa.aiSuggestionVerifying, "👩‍🦳 دارم جزئیاتشون رو بررسی می‌کنم...");
   assert.match(messages.fa.aiSuggestionWaiting, /هنوز ادامه داره/);
-  assert.equal(messages.fa.aiThinking, "👩‍🦳 یک لحظه لطفا...");
-  assert.equal(messages.fa.aiThinkingStill, "👩‍🦳 لطفا کمی بیشتر صبر کن...");
-  assert.equal(messages.fa.aiThinkingLonger, "👩‍🦳 آماده‌کردن پاسخ کمی بیشتر زمان می‌برد...");
-  assert.equal(messages.en.aiThinkingLonger, "👩‍🦳 Preparing the response is taking a little longer...");
+  assert.equal(messages.fa.aiThinking, "👱‍♀️ در حال فکر کردن.");
+  assert.equal(messages.fa.aiSuggestionPreparing, "👱‍♀️ در حال آماده‌کردن پیشنهاد...");
+  assert.equal(messages.en.aiSuggestionPreparing, "👱‍♀️ Preparing your suggestion...");
+  assert.equal(messages.fa.aiThinkingStill, "👱‍♀️ در حال فکر کردن..");
+  assert.equal(messages.fa.aiThinkingLonger, "👱‍♀️ در حال فکر کردن...");
+  assert.equal(messages.en.aiThinkingLonger, "👱‍♀️ Thinking...");
+});
+
+test("AI placeholder can loop dot animation until the final result", async () => {
+  const edits = [];
+  const ctx = {
+    reply: async () => ({ message_id: 66 }),
+    editMessageText: async (_messageId, text) => {
+      edits.push(text);
+      return true;
+    },
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking.", "Thinking..", "Thinking..."], {
+    loopIntervalMs: 10,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  await placeholder.finish("Final result");
+
+  assert.deepEqual(edits.slice(0, 3), ["Thinking..", "Thinking...", "Thinking."]);
+  assert.equal(edits.at(-1), "Final result");
 });
 
 test("taste-label waiting copy reports waiting without claiming guessed progress", () => {
@@ -256,7 +278,7 @@ test("AI placeholder can avoid Telegram edits and replace loading with a fresh r
   assert.deepEqual(replies, ["Thinking", "Final result"]);
 });
 
-test("AI placeholder separates reply-keyboard removal from editable progress", async () => {
+test("AI placeholder replaces a keyboard-removal message before the first progress edit", async () => {
   const replies = [];
   const edits = [];
   const deletedIds = [];
@@ -280,13 +302,103 @@ test("AI placeholder separates reply-keyboard removal from editable progress", a
   await new Promise((resolve) => setTimeout(resolve, 20));
   await placeholder.finish("Final result");
 
-  assert.equal(replies.length, 2);
+  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking", "Checking"]);
   assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
-  assert.equal(replies[1].extra, undefined);
   assert.deepEqual(deletedIds, [401]);
   assert.deepEqual(edits, [
-    { messageId: 402, text: "Checking" },
     { messageId: 402, text: "Still checking" },
     { messageId: 402, text: "Final result" },
   ]);
+});
+
+test("AI placeholder never attempts the fragile first edit after removing a reply keyboard", async () => {
+  const replies = [];
+  const edits = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 450 + replies.length };
+    },
+    editMessageText: async (messageId, text) => {
+      edits.push({ messageId, text });
+      return false;
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Thinking", "Checking", "Still checking"], {
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+    ensureEditable: true,
+    stepDelays: [5, 10],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await placeholder.finish("Final result");
+
+  assert.deepEqual(replies.map((entry) => entry.text), ["Thinking", "Checking", "Final result"]);
+  assert.deepEqual(deletedIds, [451, 452]);
+  assert.deepEqual(edits, [
+    { messageId: 452, text: "Still checking" },
+  ]);
+});
+
+test("static AI placeholder tries one final in-place edit before replacing the message", async () => {
+  const replies = [];
+  const edits = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 501 + replies.length, text, extra };
+    },
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId, text, extra };
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Preparing"], {
+    disableEdits: true,
+    tryTerminalEdit: true,
+    initialExtra: { reply_markup: { remove_keyboard: true } },
+  });
+  const result = await placeholder.finish("Final suggestion", {
+    reply_markup: { inline_keyboard: [[{ text: "Copy", callback_data: "copy" }]] },
+  });
+
+  assert.equal(result.message_id, 502);
+  assert.deepEqual(replies.map((entry) => entry.text), ["Preparing"]);
+  assert.deepEqual(edits.map((entry) => [entry.messageId, entry.text]), [[502, "Final suggestion"]]);
+  assert.deepEqual(deletedIds, []);
+});
+
+test("static AI placeholder deletes and sends the result when the final edit is rejected", async () => {
+  const replies = [];
+  const edits = [];
+  const deletedIds = [];
+  const ctx = {
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 601 + replies.length, text, extra };
+    },
+    editMessageText: async (messageId, text) => {
+      edits.push({ messageId, text });
+      return false;
+    },
+    deleteMessage: async (messageId) => deletedIds.push(messageId),
+  };
+
+  const placeholder = await startAiPlaceholder(ctx, ["Preparing"], {
+    disableEdits: true,
+    tryTerminalEdit: true,
+  });
+  const result = await placeholder.finish("Final suggestion", {
+    reply_markup: { inline_keyboard: [[{ text: "Copy", callback_data: "copy" }]] },
+  });
+
+  assert.equal(result.message_id, 603);
+  assert.deepEqual(edits, [{ messageId: 602, text: "Final suggestion" }]);
+  assert.deepEqual(deletedIds, [602]);
+  assert.deepEqual(replies.map((entry) => entry.text), ["Preparing", "Final suggestion"]);
 });

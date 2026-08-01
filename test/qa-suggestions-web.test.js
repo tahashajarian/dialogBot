@@ -27,8 +27,8 @@ test("QA web arguments support local port and no-open mode", () => {
 
 test("QA web dashboard exposes diverse editable starter profiles", () => {
   const presets = serializePresets();
-  assert.equal(presets.length, 22);
-  assert.equal(presets.filter((preset) => preset.lang === "fa").length, 13);
+  assert.equal(presets.length, 23);
+  assert.equal(presets.filter((preset) => preset.lang === "fa").length, 14);
   assert.equal(presets.filter((preset) => preset.lang === "en").length, 9);
   assert.ok(presets.every((preset) => preset.favorites.length >= 3));
 });
@@ -42,7 +42,7 @@ test("QA web server serves the dashboard and preset API", async () => {
     const response = await fetch(`${baseUrl}/api/presets`);
     const body = await response.json();
     assert.equal(response.status, 200);
-    assert.equal(body.presets.length, 22);
+    assert.equal(body.presets.length, 23);
   });
 });
 

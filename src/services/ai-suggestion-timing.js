@@ -1,6 +1,10 @@
 const { getAiConfig } = require("../config");
 
-const AI_SUGGESTION_STEP_DELAYS_MS = Object.freeze([7000, 20000]);
+const AI_SUGGESTION_PROGRESS_INTERVAL_MS = 3000;
+const AI_SUGGESTION_STEP_DELAYS_MS = Object.freeze([
+  AI_SUGGESTION_PROGRESS_INTERVAL_MS,
+  AI_SUGGESTION_PROGRESS_INTERVAL_MS * 2,
+]);
 const AI_SUGGESTION_MAX_WAIT_MS = 25000;
 
 function getAiSuggestionTimeoutMs(section, config = getAiConfig()) {
@@ -13,6 +17,7 @@ function getAiSuggestionTimeoutMs(section, config = getAiConfig()) {
 
 module.exports = {
   AI_SUGGESTION_MAX_WAIT_MS,
+  AI_SUGGESTION_PROGRESS_INTERVAL_MS,
   AI_SUGGESTION_STEP_DELAYS_MS,
   getAiSuggestionTimeoutMs,
 };

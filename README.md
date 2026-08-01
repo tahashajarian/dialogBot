@@ -92,6 +92,10 @@ HTTPS. `ACCOUNT_DELETION_SECRET` is required, must be at least 32 characters,
 and must be independent from the bot token and AI API key. Startup errors name
 the invalid setting without printing its value.
 
+
+Book suggestions use one AI candidate batch followed by bounded Open Library identity checks.
+Saved-for-later items are exclusions only and never positive taste evidence.
+
 `AI_SUGGESTION_PROVIDER` controls which OpenAI-compatible API is used for
 one-item suggestions. Use `auto` to try chat completions and then responses,
 `chat` for chat-completions-only providers, or `responses` for providers where

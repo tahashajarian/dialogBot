@@ -4,10 +4,14 @@ This file summarizes the current production contract so future changes do not re
 
 ## Books
 
-- AI generates the recommendation directly from Favorites and optional mood.
-- Show title, author, mood when supplied, and the short standalone description.
-- Year and external catalogue verification are not required.
-- Rejected, saved, recent, and Favorite titles remain exclusion/negative signals.
+- AI returns one ordered batch of up to five real book candidates.
+- Each candidate contains a display title/author and an official original title/author pair.
+- Favorites and explicitly liked/read books are positive evidence. Read Later and recent items are neutral hard exclusions. Rejected books are negative evidence.
+- Code removes duplicates using both display and original identities before any network verification.
+- Open Library verifies the original title-author pairs in parallel. Only verified candidates may be displayed.
+- Persian-dominant Favorites require Persian-script display title and author. Latin or romanized Persian display identities are rejected.
+- No Google Books discovery, catalogue expansion, second-page searching, or extra ranking AI call is used.
+- Do not display year, publisher, edition, rating, or other catalogue metadata.
 
 ## Movies and series
 
@@ -26,9 +30,9 @@ This file summarizes the current production contract so future changes do not re
 
 ## Placeholder
 
-- Free and paid suggestion paths use the same editable placeholder flow.
-- Persian copy avoids tanvin and does not expose internal verification steps.
-- Telegram edit failure must fall back to a visible terminal result without losing the suggestion.
+- Free and paid suggestion paths show one static placeholder: `👱‍♀️ در حال آماده‌کردن پیشنهاد...` / `👱‍♀️ Preparing your suggestion...`.
+- The placeholder is deleted when the terminal result or fallback is sent; there is no dot animation and no repeated edit loop.
+- The entire user-facing suggestion wait remains capped at 25 seconds.
 
 ## Title and creator display language
 

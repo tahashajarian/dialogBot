@@ -1,9 +1,6 @@
 const messages = require("../messages");
 const { logger } = require("../services/logger");
-const {
-  AI_SUGGESTION_STEP_DELAYS_MS,
-  getAiSuggestionTimeoutMs,
-} = require("../services/ai-suggestion-timing");
+const { getAiSuggestionTimeoutMs } = require("../services/ai-suggestion-timing");
 const {
   aiPaidSuggestionConfirmKeyboard,
   aiSuggestionAddKeyboard,
@@ -140,16 +137,16 @@ async function sendFollowupSuggestion({
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
 
   const placeholder = await startAiPlaceholder(ctx, [
-    messages[lang].aiThinking,
-    messages[lang].aiThinkingStill,
-    messages[lang].aiThinkingLonger,
+    messages[lang].aiSuggestionPreparing,
   ], {
-    stepDelays: AI_SUGGESTION_STEP_DELAYS_MS,
+    // Callback cards use inline keyboards, so keep editing the tapped card in
+    // place. Text-triggered flows have no placeholderMessage and still use the
+    // safer send/delete path for reply-keyboard removal.
+    disableEdits: !placeholderMessage,
     placeholder: placeholderMessage,
     initialExtra: placeholderMessage
       ? { reply_markup: { inline_keyboard: [] } }
       : { reply_markup: { remove_keyboard: true, selective: true } },
-    ensureEditable: true,
     fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
     timeoutMs: getAiSuggestionTimeoutMs(section),
@@ -215,7 +212,9 @@ async function sendFollowupSuggestion({
       return placeholder.finish(paidRefundMessage, aiSuggestionModeKeyboard(lang, section));
     }
     const fallbackMessage = await placeholder.finish(
-      suggestionResult.reason === "capacity_busy" ? messages[lang].serviceBusy : messages[lang].aiNoResponse,
+      ["capacity_busy", "catalog_unavailable"].includes(suggestionResult.reason)
+        ? messages[lang].serviceBusy
+        : messages[lang].aiNoResponse,
       aiSuggestionModeKeyboard(lang, section),
     );
     try {

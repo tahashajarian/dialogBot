@@ -1,9 +1,6 @@
 const messages = require("../messages");
 const { logger } = require("../services/logger");
-const {
-  AI_SUGGESTION_STEP_DELAYS_MS,
-  getAiSuggestionTimeoutMs,
-} = require("../services/ai-suggestion-timing");
+const { getAiSuggestionTimeoutMs } = require("../services/ai-suggestion-timing");
 const { sendBannerPhoto } = require("../services/banner-media");
 
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
@@ -448,13 +445,10 @@ async function sendSingleSectionSuggestion({
   await setNavigationMode(ctx, `ai_suggestion_loading:${section}`);
   if (ctx.user) ctx.user.navigationMode = `ai_suggestion_loading:${section}`;
   const placeholder = await startAiPlaceholder(ctx, [
-    messages[lang].aiThinking,
-    messages[lang].aiThinkingStill,
-    messages[lang].aiThinkingLonger,
+    messages[lang].aiSuggestionPreparing,
   ], {
-    stepDelays: AI_SUGGESTION_STEP_DELAYS_MS,
-    ensureEditable: true,
-    replaceProgress: false,
+    disableEdits: true,
+    tryTerminalEdit: true,
     initialExtra: { reply_markup: { remove_keyboard: true, selective: true } },
     fallbackText: paidSuggestion ? paidRefundMessage : messages[lang].aiNoResponse,
     fallbackExtra: aiSuggestionModeKeyboard(lang, section),
@@ -531,7 +525,9 @@ async function sendSingleSectionSuggestion({
       );
     }
     const fallbackMessage = await placeholder.finish(
-      suggestionResult.reason === "capacity_busy" ? messages[lang].serviceBusy : messages[lang].aiNoResponse,
+      ["capacity_busy", "catalog_unavailable"].includes(suggestionResult.reason)
+        ? messages[lang].serviceBusy
+        : messages[lang].aiNoResponse,
       aiSuggestionModeKeyboard(lang, section),
     );
     try {
