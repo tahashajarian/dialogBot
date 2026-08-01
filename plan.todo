@@ -5,3 +5,5 @@
 ☐ later: any new label or badge in any section should first time come with the banner releted to the badge, only fiirst time, then on profile if only one badge we make the banner tht badge if two we should kind of combine them and if 3 again we combine them and come up with new banner
 so for this purpose we need to generate banner for all badge in all sections, then two badges then 3 badge, let's make a plan to know how we can do this
 
+☐ later, after usage grows: add per-task AI model routing to reduce suggestion cost
+    Keep the strongest model for final recommendation judgment and use a cheaper mini model for bounded support work such as candidate generation, localization, identity checks, and taste classification. Do not switch based on assumptions: first expose model/token usage in the suggestion lab, compare the same representative profiles, and deploy each cheaper route only when quality and failure rates remain acceptable. Until real traffic approaches the complimentary GPT-5.4 allowance or cost becomes material, keep the current single-model setup.
