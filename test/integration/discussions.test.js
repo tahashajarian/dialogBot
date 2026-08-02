@@ -50,7 +50,8 @@ const {
   BOT_STARTER_INSTANCES,
   seedBotDiscussions,
 } = require("../../src/services/discussion-starters");
-const { handleOnboardingText } = require("../../src/flows/onboarding");
+const { handleOnboardingCallback, handleOnboardingText } = require("../../src/flows/onboarding");
+const { callBacks } = require("../../src/constants");
 const { renderActiveDiscussionList } = require("../../src/flows/discussions-callbacks");
 const {
   hasSectionTipBeenShown,
@@ -1396,6 +1397,55 @@ test("shared-discussion onboarding preserves its preview without preparing a sta
   assert.deepEqual(previewCodes, ["d_SHARED506"]);
   assert.equal(buttons[0].text, messages.en.onboardingSuggestionButton);
   assert.equal(buttons[1].text, messages.en.onboardingMainMenuButton);
+});
+
+test("early onboarding completion preserves and opens the original shared discussion", async () => {
+  const user = await createUser(1506, {
+    lang: "en",
+    state: "onboarding_favorites:books",
+    navigationMode: "onboarding_favorites:books",
+    pendingDiscussionShareCode: "d_SHARED1506",
+    aiLists: { books: { topTen: [{ title: "The Blind Owl" }] } },
+  });
+  await createOpenDiscussion(1507, {
+    title: "Shared book room",
+    publicDiscussionCode: "d_SHARED1506",
+    language: "en",
+  });
+  const replies = [];
+  const previewCodes = [];
+
+  await handleOnboardingCallback({
+    userId: 1506,
+    user,
+    callbackData: callBacks.onboardingFinishLater,
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 1 };
+    },
+  }, "en", {
+    showSharedDiscussionPreview: async (code) => {
+      previewCodes.push(code);
+      return { ok: true };
+    },
+  });
+
+  const persisted = await User.findOne({ userId: 1506 }).lean();
+  const invitation = await DiscussionInvitation.findOne({
+    inviteeUserId: 1506,
+    discussionPublicCode: "d_SHARED1506",
+  }).lean();
+  const buttons = replies[0].extra.reply_markup.keyboard.flat();
+
+  assert.equal(persisted.onboardingVersion, 1);
+  assert.ok(persisted.onboardingCompletedAt);
+  assert.equal(persisted.state, "idle");
+  assert.equal(persisted.navigationMode, "global");
+  assert.equal(persisted.aiLists.books.topTen.length, 1);
+  assert.equal(invitation.source, "shared_link");
+  assert.deepEqual(previewCodes, ["d_SHARED1506"]);
+  assert.ok(buttons.some(({ text }) => text === messages.en.mainMenuMe));
 });
 
 test("a joinable shared-link destination is also preserved in the invitations inbox", async () => {

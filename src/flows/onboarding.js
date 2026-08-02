@@ -3,6 +3,7 @@ const messages = require("../messages");
 const { callBacks } = require("../constants");
 const {
   onboardingCompleteKeyboard,
+  onboardingFavoritesInlineKeyboard,
   getOnboardingInterestChipTitle,
   mainMenuKeyboard,
   onboardingInterestsKeyboard,
@@ -27,10 +28,14 @@ const {
 } = require("../services/stars-ui");
 const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
 const { MODES, setNavigationMode } = require("../services/reply-keyboard-navigation");
+const {
+  getMessageId,
+  replyWithRemovedKeyboardThenInline,
+} = require("../services/bot-navigation");
 const { sendBannerPhoto } = require("../services/banner-media");
 const { importPendingInlineListItems } = require("../services/pending-inline-lists");
 const { preserveSharedLinkInvitation } = require("../services/discussion-invitations");
-const { getSectionLabel } = require("../services/ai-section");
+const { getSectionEmoji, getSectionLabel } = require("../services/ai-section");
 
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
@@ -87,6 +92,8 @@ function shouldRunOnboardingForSharedDiscussion(user) {
 
 function isOnboardingCallback(data = "") {
   return data === callBacks.onboardingStart
+    || data === callBacks.onboardingSectionBack
+    || data === callBacks.onboardingFinishLater
     || data === callBacks.onboardingTasteSetupStart
     || data === callBacks.onboardingTasteSetupDismiss
     || data.startsWith(callBacks.onboardingInterest)
@@ -119,6 +126,30 @@ async function showSectionPicker(ctx, lang) {
   return ctx.reply(messages[lang].onboardingSectionPrompt, onboardingSectionsKeyboard(lang));
 }
 
+async function retireOnboardingPrompt(ctx) {
+  const messageId = Number(ctx.user?.onboardingPromptMessageId);
+  const hadRememberedPrompt = Number.isInteger(messageId) && messageId > 0;
+  if (hadRememberedPrompt && ctx.editMessageReplyMarkup) {
+    try {
+      await ctx.editMessageReplyMarkup(messageId, { inline_keyboard: [] });
+    } catch {}
+  }
+  if (ctx.user) ctx.user.onboardingPromptMessageId = null;
+  if (hadRememberedPrompt && ctx.userId !== undefined && ctx.userId !== null) {
+    await updateProfileField(ctx.userId, "onboardingPromptMessageId", null);
+  }
+}
+
+async function sendOnboardingInputPrompt(ctx, text, keyboard) {
+  await retireOnboardingPrompt(ctx);
+  const sent = await replyWithRemovedKeyboardThenInline(ctx, text, keyboard);
+  const messageId = Number(getMessageId(sent));
+  if (!Number.isInteger(messageId) || messageId <= 0) return sent;
+  if (ctx.user) ctx.user.onboardingPromptMessageId = messageId;
+  await updateProfileField(ctx.userId, "onboardingPromptMessageId", messageId);
+  return sent;
+}
+
 function getFavoritesPrompt(lang, section) {
   const key = section === "movies"
     ? "aiMovieFavoritesAddPrompt"
@@ -142,7 +173,9 @@ async function enterFavoritesStep(ctx, lang, section, { resume = false } = {}) {
     ? messages[lang][count === 1 ? "onboardingResumeOne" : "onboardingResumeTwo"]
       .replace("{section}", getSectionLabel(messages, lang, section))
     : getFavoritesPrompt(lang, section);
-  return ctx.reply(reminder, { reply_markup: { remove_keyboard: true } });
+  return sendOnboardingInputPrompt(ctx, reminder, onboardingFavoritesInlineKeyboard(lang, {
+    canFinishLater: count > 0,
+  }));
 }
 
 async function startOnboardingLanguage(ctx, lang, inviteCode = "") {
@@ -185,10 +218,9 @@ async function resumeOnboarding(ctx, lang) {
   return ctx.reply(messages[lang].chooseLanguage, onboardingLanguageKeyboard());
 }
 
-async function completeOnboarding(ctx, section) {
+async function completeOnboarding(ctx, section, { count = ONBOARDING_GOAL, mode = "full" } = {}) {
   await updateProfileField(ctx.userId, "onboardingVersion", ONBOARDING_VERSION);
   await updateProfileField(ctx.userId, "onboardingCompletedAt", new Date());
-  await updateProfileField(ctx.userId, "onboardingPromptMessageId", null);
   await updateUserState(ctx.userId, "idle");
   if (ctx.user) {
     ctx.user.onboardingVersion = ONBOARDING_VERSION;
@@ -210,17 +242,19 @@ async function completeOnboarding(ctx, section) {
     userId: ctx.userId,
     source: "onboarding",
     section,
+    metadata: { count, mode },
   });
 }
 
 function buildSavedText(lang, item, count, result) {
+  const withFinishLaterHint = (text) => `${text}\n\n${messages[lang].onboardingFinishLaterHint}`;
   if (count === 1) {
-    return messages[lang].onboardingFirstSaved
+    return withFinishLaterHint(messages[lang].onboardingFirstSaved
       .replace("{item}", item)
-      .replace("{amount}", formatStarNumber(starEconomy.rewardFirstThreePerSection, lang));
+      .replace("{amount}", formatStarNumber(starEconomy.rewardFirstThreePerSection, lang)));
   }
   if (count === 2) {
-    return messages[lang].onboardingSecondSaved.replace("{item}", item);
+    return withFinishLaterHint(messages[lang].onboardingSecondSaved.replace("{item}", item));
   }
   const notice = buildStarRewardNotice(messages, lang, result.starRewards);
   return messages[lang].onboardingThirdSaved
@@ -252,6 +286,35 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
       buildTasteSetupPrompt(lang, getAiListItemsFromUser(ctx.user, "random", "topTen")),
       onboardingInterestsKeyboard(lang),
     );
+  }
+
+  if (data === callBacks.onboardingSectionBack) {
+    const section = getStateSection(state);
+    if (!section || getAiListItemsFromUser(ctx.user, section, "topTen").length > 0) return null;
+    await retireOnboardingPrompt(ctx);
+    return showSectionPicker(ctx, lang);
+  }
+
+  if (data === callBacks.onboardingFinishLater) {
+    const section = getStateSection(state);
+    const count = section
+      ? Math.min(ONBOARDING_GOAL, getAiListItemsFromUser(ctx.user, section, "topTen").length)
+      : 0;
+    if (!section || count < 1 || count >= ONBOARDING_GOAL) return null;
+    await retireOnboardingPrompt(ctx);
+    await completeOnboarding(ctx, section, { count, mode: "early" });
+    await setNavigationMode(ctx, MODES.GLOBAL);
+    const remaining = formatStarNumber(ONBOARDING_GOAL - count, lang);
+    await ctx.reply(
+      messages[lang].onboardingFinishedEarly
+        .replace("{remaining}", remaining)
+        .replace(
+          "{section}",
+          `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}`,
+        ),
+      mainMenuKeyboard(lang),
+    );
+    return continueToPendingSharedDestination(ctx, helpers);
   }
 
   if (state === TASTE_SETUP_STATE) {
@@ -322,6 +385,11 @@ async function handleOnboardingText(ctx, lang, helpers = {}) {
   const section = getStateSection(state);
   if (!section) return undefined;
   const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
+  const isInlineControlLabel = ["fa", "en"].some((candidateLang) => (
+    item === messages[candidateLang].onboardingChooseAnotherSectionButton
+    || item === messages[candidateLang].onboardingFinishLaterButton
+  ));
+  if (isInlineControlLabel) return null;
   const result = await addAiListItem(
     ctx.userId,
     section,
@@ -338,7 +406,7 @@ async function handleOnboardingText(ctx, lang, helpers = {}) {
           .replaceAll("{topTenLimit}", String(operationalLimits.aiTopTenItems))
         : messages[lang][`aiTopTenInvalidItemQuality${sectionKey}`]
           || messages[lang].aiTopTenInvalidItemQuality;
-    return ctx.reply(error, { reply_markup: { remove_keyboard: true } });
+    return ctx.reply(error);
   }
   if (ctx.user) {
     ctx.user.aiLists ||= {};
@@ -350,11 +418,20 @@ async function handleOnboardingText(ctx, lang, helpers = {}) {
   const count = Math.min(ONBOARDING_GOAL, result.items.length);
   const response = buildSavedText(lang, item, count, result);
   if (count < ONBOARDING_GOAL) {
-    return ctx.reply(response, { reply_markup: { remove_keyboard: true } });
+    return sendOnboardingInputPrompt(
+      ctx,
+      response,
+      onboardingFavoritesInlineKeyboard(lang, { canFinishLater: true }),
+    );
   }
 
-  await completeOnboarding(ctx, section);
+  await retireOnboardingPrompt(ctx);
+  await completeOnboarding(ctx, section, { count, mode: "full" });
   await ctx.reply(response, onboardingCompleteKeyboard(lang, { section }));
+  return continueToPendingSharedDestination(ctx, helpers);
+}
+
+async function continueToPendingSharedDestination(ctx, helpers = {}) {
   const discussionCode = String(ctx.user?.pendingDiscussionShareCode || "");
   if (discussionCode && typeof helpers.showSharedDiscussionPreview === "function") {
     return helpers.showSharedDiscussionPreview(discussionCode);

@@ -292,6 +292,20 @@ function onboardingSectionsKeyboard(lang) {
   ]);
 }
 
+function onboardingFavoritesInlineKeyboard(lang, { canFinishLater = false } = {}) {
+  return inlineKeyboard([[
+    canFinishLater
+      ? {
+        text: messages[lang].onboardingFinishLaterButton,
+        callback_data: callBacks.onboardingFinishLater,
+      }
+      : {
+        text: messages[lang].onboardingChooseAnotherSectionButton,
+        callback_data: callBacks.onboardingSectionBack,
+      },
+  ]]);
+}
+
 function onboardingTasteSetupNudgeKeyboard(lang) {
   return replyKeyboardFromActions([
     [{
@@ -865,6 +879,7 @@ module.exports = {
   getOnboardingInterestChipTitle,
   onboardingWelcomeKeyboard,
   onboardingSectionsKeyboard,
+  onboardingFavoritesInlineKeyboard,
   onboardingInterestsKeyboard,
   getOnboardingInterestsReplyActions,
   onboardingTasteSetupNudgeKeyboard,

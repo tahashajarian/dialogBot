@@ -5,6 +5,7 @@ const messages = require("../src/messages");
 const { callBacks } = require("../src/constants");
 const {
   onboardingCompleteKeyboard,
+  onboardingFavoritesInlineKeyboard,
   onboardingLanguageKeyboard,
   onboardingSectionsKeyboard,
   onboardingWelcomeKeyboard,
@@ -77,6 +78,8 @@ test("onboarding callbacks are limited to the new scoped actions", () => {
   assert.equal(isOnboardingCallback(`${callBacks.onboardingSuggestion}books`), true);
   assert.equal(isOnboardingCallback(`${callBacks.onboardingInterest}2`), true);
   assert.equal(isOnboardingCallback(callBacks.onboardingTasteSetupStart), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingSectionBack), true);
+  assert.equal(isOnboardingCallback(callBacks.onboardingFinishLater), true);
   assert.equal(isOnboardingCallback(callBacks.discussions), false);
 });
 
@@ -125,6 +128,26 @@ test("typing at category selection reuses the existing button guidance", async (
   );
 });
 
+test("manually typed onboarding inline labels are ignored", async () => {
+  const replies = [];
+  const ctx = {
+    userId: 81,
+    user: {
+      state: "onboarding_favorites:movies",
+      aiLists: { movies: { topTen: [] } },
+    },
+    text: messages.fa.onboardingChooseAnotherSectionButton,
+    reply: async (...args) => replies.push(args),
+  };
+
+  assert.equal(await handleOnboardingText(ctx, "fa"), null);
+  assert.deepEqual(replies, []);
+
+  ctx.text = messages.en.onboardingFinishLaterButton;
+  assert.equal(await handleOnboardingText(ctx, "fa"), null);
+  assert.deepEqual(replies, []);
+});
+
 test("category action enters the chosen Favorites input state with the regular prompt", async () => {
   const originalUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});
@@ -139,7 +162,14 @@ test("category action enters the chosen Favorites input state with the regular p
       aiLists: { movies: { topTen: [] } },
     },
     answerCb: async () => {},
-    reply: async (text, extra) => replies.push({ text, extra }),
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 99 };
+    },
+    editMessageText: async (_messageId, text, extra) => {
+      replies[0] = { text, extra };
+      return { message_id: 99 };
+    },
   };
   try {
     await handleOnboardingCallback(ctx, "en", {});
@@ -149,7 +179,118 @@ test("category action enters the chosen Favorites input state with the regular p
   assert.equal(ctx.user.state, "onboarding_favorites:movies");
   assert.equal(ctx.user.navigationMode, "onboarding_favorites:movies");
   assert.equal(replies[0].text, messages.en.aiMovieFavoritesAddPrompt);
-  assert.equal(replies[0].extra.reply_markup.remove_keyboard, true);
+  assert.deepEqual(replies[0].extra, onboardingFavoritesInlineKeyboard("en"));
+});
+
+test("before the first Favorite the only onboarding input control returns to sections", () => {
+  for (const lang of ["fa", "en"]) {
+    const labels = onboardingFavoritesInlineKeyboard(lang).reply_markup.inline_keyboard.flat()
+      .map(({ text }) => text);
+    assert.deepEqual(labels, [messages[lang].onboardingChooseAnotherSectionButton]);
+  }
+});
+
+test("after the first Favorite the only onboarding input control finishes later", () => {
+  for (const lang of ["fa", "en"]) {
+    const labels = onboardingFavoritesInlineKeyboard(lang, { canFinishLater: true })
+      .reply_markup.inline_keyboard.flat().map(({ text }) => text);
+    assert.deepEqual(labels, [messages[lang].onboardingFinishLaterButton]);
+  }
+});
+
+test("back before the first Favorite returns to the section picker", async () => {
+  const originalUpdate = User.findOneAndUpdate;
+  User.findOneAndUpdate = async () => ({});
+  const replies = [];
+  const retiredMarkups = [];
+  const ctx = {
+    userId: 11,
+    callbackData: callBacks.onboardingSectionBack,
+    user: {
+      userId: 11,
+      lang: "fa",
+      state: "onboarding_favorites:music",
+      navigationMode: "onboarding_favorites:music",
+      onboardingPromptMessageId: 77,
+      aiLists: { music: { topTen: [] } },
+    },
+    answerCb: async () => {},
+    deleteMessage: async () => assert.fail("onboarding prompt should not be deleted"),
+    editMessageReplyMarkup: async (messageId, markup) => {
+      retiredMarkups.push({ messageId, markup });
+      return true;
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 100 };
+    },
+    editMessageText: async (_messageId, text, extra) => {
+      replies[0] = { text, extra };
+      return { message_id: 100 };
+    },
+  };
+  try {
+    await handleOnboardingCallback(ctx, "fa");
+  } finally {
+    User.findOneAndUpdate = originalUpdate;
+  }
+  assert.equal(ctx.user.state, "onboarding_sections");
+  assert.equal(ctx.user.navigationMode, "onboarding_sections");
+  assert.equal(replies[0].text, messages.fa.onboardingSectionPrompt);
+  assert.deepEqual(retiredMarkups, [{ messageId: 77, markup: { inline_keyboard: [] } }]);
+});
+
+test("finishing later completes onboarding, preserves Favorites, and continues a shared profile", async () => {
+  const originalUpdate = User.findOneAndUpdate;
+  const updates = [];
+  User.findOneAndUpdate = async (_filter, update) => {
+    updates.push(update);
+    return {};
+  };
+  const replies = [];
+  const retiredMarkups = [];
+  const sharedProfiles = [];
+  const user = {
+    userId: 12,
+    lang: "fa",
+    onboardingVersion: 0,
+    state: "onboarding_favorites:books",
+    navigationMode: "onboarding_favorites:books",
+    onboardingPromptMessageId: 88,
+    pendingProfileShareCode: "u_SHARED",
+    aiLists: { books: { topTen: [{ title: "بوف کور" }] } },
+  };
+  const ctx = {
+    userId: 12,
+    callbackData: callBacks.onboardingFinishLater,
+    user,
+    answerCb: async () => {},
+    deleteMessage: async () => assert.fail("onboarding prompt should not be deleted"),
+    editMessageReplyMarkup: async (messageId, markup) => {
+      retiredMarkups.push({ messageId, markup });
+      return true;
+    },
+    reply: async (text, extra) => replies.push({ text, extra }),
+  };
+  try {
+    await handleOnboardingCallback(ctx, "fa", {
+      showSharedProfile: async (code) => sharedProfiles.push(code),
+    });
+  } finally {
+    User.findOneAndUpdate = originalUpdate;
+  }
+  assert.equal(user.onboardingVersion, 1);
+  assert.ok(user.onboardingCompletedAt instanceof Date);
+  assert.equal(user.state, "idle");
+  assert.equal(user.navigationMode, "global");
+  assert.equal(user.aiLists.books.topTen[0].title, "بوف کور");
+  assert.match(replies[0].text, /^🏠 خانه\n\n👩‍🦳/);
+  assert.match(replies[0].text, /💡 با اضافه‌کردن ۲ مورد دیگه به بخش «📚 کتاب‌ها»/);
+  assert.match(replies[0].text, /می‌تونی از «🎬🎵📚 محبوب‌های من» ادامه بدی/);
+  assert.deepEqual(sharedProfiles, ["u_SHARED"]);
+  assert.equal(user.pendingProfileShareCode, "");
+  assert.deepEqual(retiredMarkups, [{ messageId: 88, markup: { inline_keyboard: [] } }]);
+  assert.ok(updates.some((update) => update.onboardingCompletedAt instanceof Date));
 });
 
 test("plain start can resume the persisted section and count", async () => {
@@ -165,7 +306,14 @@ test("plain start can resume the persisted section and count", async () => {
       state: "onboarding_favorites:books",
       aiLists: { books: { topTen: [{ title: "سمفونی مردگان" }] } },
     },
-    reply: async (text, extra) => replies.push({ text, extra }),
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: 101 };
+    },
+    editMessageText: async (_messageId, text, extra) => {
+      replies[0] = { text, extra };
+      return { message_id: 101 };
+    },
   };
   try {
     await resumeOnboarding(ctx, "fa");
@@ -179,6 +327,13 @@ test("plain start can resume the persisted section and count", async () => {
   );
   assert.match(replies[0].text, /۱ مورد/);
   assert.equal(ctx.user.state, "onboarding_favorites:books");
+  assert.deepEqual(
+    replies[0].extra.reply_markup.inline_keyboard.flat(),
+    [{
+      text: messages.fa.onboardingFinishLaterButton,
+      callback_data: callBacks.onboardingFinishLater,
+    }],
+  );
 });
 
 test("completion keyboard offers only Suggestion and Home for the completed section", () => {
@@ -211,6 +366,9 @@ test("completion destinations require the exact server-scoped keyboard", () => {
 
 test("Favorites prompts request concrete works without encouraging creator entries", () => {
   for (const lang of ["fa", "en"]) {
+    assert.match(messages[lang].aiMovieFavoritesAddPrompt, /^👩‍🦳 🎬/);
+    assert.match(messages[lang].aiMusicFavoritesAddPrompt, /^👩‍🦳 🎵/);
+    assert.match(messages[lang].aiBookFavoritesAddPrompt, /^👩‍🦳 📚/);
     assert.match(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /فیلم یا سریال/ : /movie or series/);
     assert.match(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /کتاب/ : /book/);
     assert.doesNotMatch(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /کارگردان/ : /director/);

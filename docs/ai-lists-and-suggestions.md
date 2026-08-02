@@ -342,7 +342,7 @@ The Stars economy rewards list completion without charging for normal list use. 
 - Each section may award once when its TopTen reaches the configured first milestone, recommended as 3 distinct valid items.
 - Each section may award once again when its TopTen reaches the configured completion size.
 - Watch Later, Listen Later, and Read Later lists do not award Stars.
-- First-run onboarding saves three Favorites in one media section. Those ordinary Favorites use the existing section milestone and ledger key; onboarding must not add or stack the retired onboarding-completion reward.
+- First-run onboarding asks for three Favorites in one media section. Before the first save, users may return to section selection; after one or two saves, they may finish onboarding early and keep those items. Only reaching three uses the existing section milestone and ledger key; onboarding must not add or stack the retired onboarding-completion reward.
 - Removing and re-adding items never awards a milestone twice.
 - List mutation helpers remain centralized in `src/services/users.js`. Star qualification happens only after a successful mutation and uses an idempotent ledger key.
 - Relevant Top 10 success/progress copy may show the earned amount, resulting balance, and one unclaimed next milestone.
