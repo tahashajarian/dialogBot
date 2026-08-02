@@ -103,7 +103,7 @@ Similar-people re-engagement is an occasional background notification, not Home 
 ## First-Session Onboarding
 
 - Ask fresh users to choose Persian or English before showing the product overview.
-- First-session language selection and the localized welcome/start step use bottom reply keyboards. Append the next onboarding message instead of editing or deleting the previous prompt.
+- First-session language selection and the localized welcome/start step use bottom reply keyboards. Free text on either button-only step repeats the concise use-buttons guidance with that step's keyboard, matching the section picker. Append the next onboarding message instead of editing or deleting the previous prompt.
 - The localized onboarding welcome is one photo card using `assets/muze-welcome-banner-cinematic-v2.jpg`, with the approved first-person Muze introduction as its caption and one Start action. For an already onboarded user, plain `/start` is a clean Home action and does not repeat the introduction. Reuse the global Telegram `file_id` cache under the current banner version, accept `MUZE_WELCOME_BANNER_V3_FILE_ID` as an optional seed, and fall back to the complete text card if media delivery fails.
 - The welcome states the product promise: add Favorites, get suggestions, and later find related people and discussions.
 - The welcome message should briefly teach that bottom buttons control navigation and users should send text only when Muze explicitly asks for typed input.

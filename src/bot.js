@@ -436,7 +436,10 @@ async function handleUpdate(ctx) {
       return handleCallback(ctx);
     }
     if (
-      state === "onboarding_sections"
+      state === "onboarding_language"
+      || state.startsWith("onboarding_invite_language:")
+      || state === "onboarding_welcome"
+      || state === "onboarding_sections"
       || state.startsWith("onboarding_favorites:")
       || state === "onboarding_interests"
       || state === "onboarding_taste_setup_interests"

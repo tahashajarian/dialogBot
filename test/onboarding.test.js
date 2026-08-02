@@ -128,6 +128,39 @@ test("typing at category selection reuses the existing button guidance", async (
   );
 });
 
+test("typing on language and welcome screens repeats their scoped button guidance", async () => {
+  const cases = [
+    {
+      state: "onboarding_language",
+      lang: "fa",
+      expectedKeyboard: onboardingLanguageKeyboard(),
+    },
+    {
+      state: "onboarding_invite_language:d_SHARED",
+      lang: "en",
+      expectedKeyboard: onboardingLanguageKeyboard(),
+    },
+    {
+      state: "onboarding_welcome",
+      lang: "en",
+      expectedKeyboard: onboardingWelcomeKeyboard("en"),
+    },
+  ];
+
+  for (const { state, lang, expectedKeyboard } of cases) {
+    const replies = [];
+    await handleOnboardingText({
+      user: { state },
+      text: "hello",
+      reply: async (text, extra) => replies.push({ text, extra }),
+    }, lang);
+    assert.deepEqual(replies, [{
+      text: messages[lang].sectionTextUseBottomButtons,
+      extra: expectedKeyboard,
+    }]);
+  }
+});
+
 test("manually typed onboarding inline labels are ignored", async () => {
   const replies = [];
   const ctx = {

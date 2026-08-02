@@ -376,6 +376,12 @@ async function handleOnboardingCallback(ctx, lang, helpers = {}) {
 
 async function handleOnboardingText(ctx, lang, helpers = {}) {
   const state = String(ctx.user?.state || "");
+  if (state === "onboarding_language" || state.startsWith("onboarding_invite_language:")) {
+    return ctx.reply(messages[lang].sectionTextUseBottomButtons, onboardingLanguageKeyboard());
+  }
+  if (state === "onboarding_welcome") {
+    return ctx.reply(messages[lang].sectionTextUseBottomButtons, onboardingWelcomeKeyboard(lang));
+  }
   if (state === TASTE_SETUP_STATE) {
     return saveTasteSetupItem(ctx, lang, String(ctx.text || "").trim().replace(/\s+/g, " "));
   }
