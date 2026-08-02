@@ -1,5 +1,10 @@
 const messages = require("../messages");
-const { getSectionLabel, getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
+const {
+  getSectionEmoji,
+  getSectionLabel,
+  getTasteLabelEmoji,
+  getTasteLabelTitle,
+} = require("./ai-section");
 const { getAiListItemsFromUser } = require("./users");
 const { getProfileInterestTitles } = require("./profile");
 const { starEconomy } = require("./star-settings");
@@ -34,7 +39,7 @@ function getShareFavoriteLines(user, lang) {
     const favorite = getAiListItemsFromUser(user, section, "topTen")[0];
     const title = compactShareValue(typeof favorite === "string" ? favorite : favorite?.title);
     if (!title) return "";
-    return `${getSectionLabel(messages, lang, section)}: ${title}`;
+    return `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}: ${title}`;
   }).filter(Boolean);
 }
 

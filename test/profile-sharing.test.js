@@ -74,9 +74,27 @@ test("shareable profile caption uses first-person copy and the profile emoji", (
 
   assert.match(caption, /^✨ پروفایل من در میوز 🎶/);
   assert.match(caption, /پروفایل و محبوب‌های من 🎶 رو در میوز ببین:/);
+  assert.match(caption, /🎬 فیلم و سریال: Movie 1/);
+  assert.match(caption, /🎵 موسیقی: Song 1/);
   assert.doesNotMatch(caption, /طاها|Taha/);
   assert.match(caption, /https:\/\/t\.me\/muze_bot\?start=ref_CODE/);
   assert.ok(caption.length <= 1024);
+});
+
+test("shareable profile favorite rows use their section emojis in English", () => {
+  const user = {
+    aiLists: {
+      movies: { topTen: [{ title: "Pulp Fiction" }] },
+      music: { topTen: [{ title: "For Whom the Bell Tolls" }] },
+      books: { topTen: [{ title: "The Blind Owl" }] },
+    },
+  };
+
+  const caption = buildShareableProfileCaption({ user, lang: "en", link: "https://example.com/profile" });
+
+  assert.match(caption, /🎬 Movies & Series: Pulp Fiction/);
+  assert.match(caption, /🎵 Music: For Whom the Bell Tolls/);
+  assert.match(caption, /📚 Books: The Blind Owl/);
 });
 
 test("share button requires at least three items in one media Favorites list", () => {
