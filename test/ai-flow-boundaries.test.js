@@ -1477,8 +1477,13 @@ test("suggestion mood prompt states and enforces the 80-character limit", async 
   await handleAiText(ctx, "fa", "غمگین ".repeat(20), ctx.user.state);
 
   assert.match(messages.fa.aiSuggestionModePrompt, /نوع، حال‌وهوا یا ژانر/);
-  assert.match(messages.fa.aiSuggestionContextPrompt, /فقط سریال/);
+  assert.match(messages.fa.aiSuggestionContextPrompt, /تلخ، شاد، عجیب/);
+  assert.match(messages.en.aiSuggestionModePrompt, /type, mood, or genre/);
+  assert.match(messages.en.aiSuggestionContextPrompt, /dark, cheerful, strange/);
+  assert.match(messages.en.aiSuggestionModePrompt, /“Suggest now”/);
   assert.doesNotMatch(messages.fa.aiSuggestionModePrompt, /نویسه|کاراکتر/);
+  assert.doesNotMatch(messages.en.aiSuggestionModePrompt, /series only/);
+  assert.doesNotMatch(messages.fa.aiSuggestionContextPrompt, /فقط سریال/);
   assert.match(messages.fa.aiSuggestionContextTooLong, /۸۰ کاراکتر/);
   assert.equal(replies.length, 1);
   assert.equal(replies[0].text, messages.fa.aiSuggestionContextTooLong);
