@@ -780,7 +780,6 @@ module.exports = {
     profileShareFavoritesTitle: "❤️ A few favorites",
     profileShareCallToAction: "See my profile and favorites{emoji} in Muze:",
     profileShareCallToActionWithoutFavorites: "See my profile{emoji} in Muze:",
-    profileShareFooter: "👩‍🦳 Made with Muze",
     profileShareGuidance: "👩‍🦳 Send this card to others. You earn {reward} Stars for every new user who joins Muze through it. 👆",
     profileShareGuidanceNoReward: "👩‍🦳 Send this card to others so they can see your profile and favorites on Muze. 👆",
     profileShareGuidanceNoRewardWithoutFavorites: "👩‍🦳 Send this card to others so they can see your profile on Muze. 👆",

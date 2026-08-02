@@ -70,8 +70,7 @@ function buildShareableProfileCaption({ user, lang = "fa", link = "" } = {}) {
     callToAction.replace("{emoji}", profileEmoji ? ` ${profileEmoji}` : ""),
     String(link || "").trim(),
   ].filter(Boolean).join("\n");
-  const footer = messages[lang].profileShareFooter;
-  const compose = () => [title, ...detailBlocks, destination, footer].filter(Boolean).join("\n\n");
+  const compose = () => [title, ...detailBlocks, destination].filter(Boolean).join("\n\n");
 
   while (detailBlocks.length && compose().length > TELEGRAM_CAPTION_MAX_LENGTH) {
     detailBlocks.pop();

@@ -780,7 +780,6 @@ module.exports = {
     profileShareFavoritesTitle: "❤️ چند محبوب",
     profileShareCallToAction: "پروفایل و محبوب‌های من{emoji} رو در میوز ببین:",
     profileShareCallToActionWithoutFavorites: "پروفایل من{emoji} رو در میوز ببین:",
-    profileShareFooter: "👩‍🦳 ساخته‌شده با میوز",
     profileShareGuidance: "👩‍🦳 این کارت رو برای بقیه بفرست. با اومدن هر کاربر جدید به میوز از طریق این کارت، {reward} ستاره می‌گیری. 👆",
     profileShareGuidanceNoReward: "👩‍🦳 این کارت رو برای بقیه بفرست تا پروفایل و محبوب‌هات رو در میوز ببینن. 👆",
     profileShareGuidanceNoRewardWithoutFavorites: "👩‍🦳 این کارت رو برای بقیه بفرست تا پروفایلت رو در میوز ببینن. 👆",
