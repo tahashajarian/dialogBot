@@ -441,6 +441,8 @@ test("received invitations localize bot-created discussion title and description
   assert.match(text, /👩‍🦳 گفت‌وگوی آزاد/);
   assert.match(text, /یه جای ساده برای شروع گپ با بقیه/);
   assert.match(text, /^از طرف: Sara — دیدن پروفایل 👈 \/inviter_u_SARA1$/m);
+  assert.match(text, /\/inviter_u_SARA1\n\n📄/);
+  assert.match(text, /\/accept_inv_TEST123\n\n[^\n]*\/remove_inv_TEST123/);
   assert.doesNotMatch(text, /Free Discussion/);
   assert.doesNotMatch(text, /A simple place to start chatting/);
 });

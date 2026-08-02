@@ -97,14 +97,17 @@ function buildInvitationEntryText(messages, lang, entry, index, {
   const lines = [
     `${includeIndex ? `${index + 1}. ` : ""}${statusEmoji} ${title}`,
   ];
+  const commandLineIndexes = new Set();
   const inviterLine = messages[lang].discussionInvitationFrom.replace("{name}", inviterName);
-  lines.push(includeActions && inviterCode
+  const inviterHasCommand = includeActions && inviterCode;
+  lines.push(inviterHasCommand
     ? `${inviterLine} — ${pointerLine(
       lang,
       messages[lang].discussionInvitationInviterProfile,
       `/inviter_u_${inviterCode}`,
     )}`
     : inviterLine);
+  if (inviterHasCommand) commandLineIndexes.add(lines.length - 1);
 
   const description = discussion ? getDiscussionDisplayDescription(messages, lang, discussion) : "";
   if (description) {
@@ -120,11 +123,17 @@ function buildInvitationEntryText(messages, lang, entry, index, {
 
   if (includeActions && (state.state === "joinable" || state.state === "already_member")) {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationAccept, `/accept_inv_${code}`));
+    commandLineIndexes.add(lines.length - 1);
   }
   if (includeActions) {
     lines.push(pointerLine(lang, messages[lang].discussionInvitationRemove, `/remove_inv_${code}`));
+    commandLineIndexes.add(lines.length - 1);
   }
-  return lines.join("\n");
+  return lines.map((line, lineIndex) => {
+    if (lineIndex === 0) return line;
+    const besideCommand = commandLineIndexes.has(lineIndex) || commandLineIndexes.has(lineIndex - 1);
+    return `${besideCommand ? "\n\n" : "\n"}${line}`;
+  }).join("");
 }
 
 function buildInvitationPreviewText(messages, lang, entry) {
