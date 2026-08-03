@@ -9,6 +9,8 @@ const SECTION_TIP_KEYS = Object.freeze([
   "forLaterInline",
   "people",
   "nearbyLocation",
+  "peopleNearbyLocation",
+  "discussionLocalLocation",
   "favoritesBanner",
   "peopleBanner",
   "discussionsBanner",

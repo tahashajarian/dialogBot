@@ -90,7 +90,7 @@ Profiles are public inside bot social surfaces for now. If a user clicks/taps an
 
 **Profile viewing gate requirements**:
 - Display name (required) - must have `profileName` or `firstName`; edited user names cannot contain emoji because emoji markers are reserved for bot-authored labels/messages.
-- Before creating or entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, sexual/degrading/abusive terms, placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
+- Before entering any discussion, users must explicitly set a meaningful Muze profile name with 3 to 30 characters, no emoji, sexual/degrading/abusive terms, placeholder, repeated-character, or keyboard-mash text. Telegram profile names do not satisfy this gate by themselves. Discussion creation asks for the profile name only at final confirmation, immediately before creating and entering the room, not when the creation wizard starts. The prompt must explain that this is the profile name shown beside room messages. If they cancel the prompt, remove only the prompt card and return them to the correct previous surface. Create-flow cancels return to the discussions menu, invitation accepts return to the invitations inbox, and active-list joins return to the active discussions list.
 - Age is optional and not required for viewing profiles
 
 Profile discussion visibility is a separate setting that controls both the user's current discussion and open discussions they created. It defaults to on for new accounts, can be turned off from Profile → Privacy & safety, and must always respect the user's saved choice.
@@ -1466,3 +1466,8 @@ stores a fixed snapshot of the creator's currently shared location. Later profil
 the discussion. Discovery may place nearby local discussions first and mark them with `📍`; normal eligibility,
 join rules, capacity, language, safety rules, and ordering inside each group remain unchanged. Exact location and
 distance are never shown.
+
+If the creator has not shared a valid profile location, the Discussions hub shows one setup tip before they begin
+the creation wizard, and the final preview hides the local toggle without repeating that tip. A stale or manually
+typed local-toggle action must still return the same guidance as a visible message for reply-keyboard input instead
+of relying on an inline callback alert.

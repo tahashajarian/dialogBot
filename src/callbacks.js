@@ -13,6 +13,8 @@ const {
 const { sendNavigationFootprint } = require("./services/navigation-footprints");
 const { sendBannerPhoto } = require("./services/banner-media");
 const { setStableNavigationState } = require("./services/reply-keyboard-navigation");
+const { hasValidLocation } = require("./services/profile");
+const { starEconomy } = require("./services/star-settings");
 const {
   hasSectionTipBeenShown,
   markSectionTipShownForContext,
@@ -96,6 +98,13 @@ const {
 async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shouldClearKeyboard) {
   await setStableNavigationState(ctx, mode);
   await sendNavigationFootprint(ctx, { lang, destination, removeKeyboard: shouldClearKeyboard });
+  const showLocalLocationTip = destination === "discussions"
+    && starEconomy.localDiscussionsEnabled
+    && !hasValidLocation(ctx.user?.location)
+    && !hasSectionTipBeenShown(ctx.user, "discussionLocalLocation");
+  const hubText = showLocalLocationTip
+    ? `${text}\n\n${messages[lang].discussionLocalSetupTip}`
+    : text;
   let sent;
   if (destination === "discussions" && !hasSectionTipBeenShown(ctx.user, "discussionsBanner")) {
     try {
@@ -103,14 +112,17 @@ async function showBottomHub(ctx, lang, destination, mode, text, keyboard, shoul
         bannerKey: "discussions_section_v2",
         localSource: path.join(__dirname, "..", "assets", "discussions-section-banner.jpg"),
         configuredFileId: process.env.DISCUSSIONS_SECTION_BANNER_FILE_ID,
-        extra: { ...keyboard, caption: text },
+        extra: { ...keyboard, caption: hubText },
       });
       await markSectionTipShownForContext(ctx, "discussionsBanner", new Date()).catch(() => null);
     } catch {
-      sent = await ctx.reply(text, keyboard);
+      sent = await ctx.reply(hubText, keyboard);
     }
   } else {
-    sent = await ctx.reply(text, keyboard);
+    sent = await ctx.reply(hubText, keyboard);
+  }
+  if (showLocalLocationTip) {
+    await markSectionTipShownForContext(ctx, "discussionLocalLocation", new Date()).catch(() => null);
   }
   return sent;
 }

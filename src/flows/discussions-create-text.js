@@ -8,7 +8,7 @@ const {
   discussionCreateConfirmKeyboard,
 } = require("../keyboards");
 const { updateProfileField, resetDiscussionDraft, updateUserState } = require("../services/users");
-const { toPlainUser } = require("../services/profile");
+const { hasValidLocation, toPlainUser } = require("../services/profile");
 const {
   normalizeDescription,
   normalizeTitle,
@@ -47,6 +47,15 @@ function buildDiscussionPreviewForCurrentDraft(ctx, lang, description) {
     ...toPlainUser(ctx.user),
     discussionDraftDescription: description,
   });
+}
+
+function buildDiscussionCreateConfirmKeyboard(ctx, lang) {
+  return discussionCreateConfirmKeyboard(
+    lang,
+    ctx.user?.discussionDraftLanguage || ctx.user?.lang,
+    ctx.user?.discussionDraftIsLocal,
+    { canMakeLocal: hasValidLocation(ctx.user?.location) },
+  );
 }
 
 function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
@@ -115,7 +124,7 @@ async function handleDiscussionCreateTitleText(ctx, lang, text, state) {
     await updateUserState(ctx.userId, "discussion_create_preview");
     return ctx.reply(
       buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftTitle: normalized }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
@@ -167,7 +176,7 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
     await updateUserState(ctx.userId, "discussion_create_preview");
     return ctx.reply(
       buildDiscussionPreviewForCurrentDraft(ctx, lang, ""),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
@@ -206,7 +215,7 @@ async function handleDiscussionCreateDescriptionText(ctx, lang, text, state) {
   await updateUserState(ctx.userId, "discussion_create_preview");
   return ctx.reply(
     buildDiscussionPreviewForCurrentDraft(ctx, lang, normalized),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
   );
 }
 

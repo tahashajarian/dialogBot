@@ -1933,6 +1933,8 @@ test("Home entries retain history and open their bottom-keyboard hubs", async ()
 });
 
 test("Discussions hub sends its banner once and keeps later entries text-only", async () => {
+  const originalLocalEnabled = starEconomy.localDiscussionsEnabled;
+  starEconomy.localDiscussionsEnabled = true;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const originalCountDocuments = DiscussionInvitation.countDocuments;
   const sent = [];
@@ -1965,15 +1967,19 @@ test("Discussions hub sends its banner once and keeps later entries text-only", 
     await handleCallback(ctx);
     await handleCallback(ctx);
   } finally {
+    starEconomy.localDiscussionsEnabled = originalLocalEnabled;
     User.findOneAndUpdate = originalFindOneAndUpdate;
     DiscussionInvitation.countDocuments = originalCountDocuments;
   }
 
   assert.equal(sent.length, 2);
   assert.match(sent[0].photo.source, /assets[\\/]discussions-section-banner\.jpg$/);
+  assert.match(sent[0].extra.caption, /create and see local discussions/);
   assert.equal(sent[1].photo, undefined);
   assert.match(sent[1].text, new RegExp(messages.en.discussionsMenu));
+  assert.doesNotMatch(sent[1].text, /create and see local discussions/);
   assert.ok(ctx.user.sectionTipsShownAt.discussionsBanner instanceof Date);
+  assert.ok(ctx.user.sectionTipsShownAt.discussionLocalLocation instanceof Date);
 });
 
 test("Home aligns persisted state before sending its reply keyboard", async () => {

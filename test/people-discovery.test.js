@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const User = require("../src/models/user");
 const messages = require("../src/messages");
 const { operationalLimits } = require("../src/services/operational-limits");
+const { starEconomy } = require("../src/services/star-settings");
 const { callBacks } = require("../src/constants");
 const {
   peopleHubKeyboard,
@@ -415,7 +416,7 @@ test("People nearby guidance appears below the results title", () => {
   }]);
   const tipped = addPeopleNearbyTip(list, messages.fa.nearbyLocationTip);
 
-  assert.match(tipped, /^👀 دیدن آدم‌ها \(۱\)\n\n💡/);
+  assert.match(tipped, /^👀 دیدن آدم‌ها \(۱\)\n\n📍/);
   assert.equal(addPeopleNearbyTip(list), list);
 });
 
@@ -435,11 +436,17 @@ test("People first-visit guidance stays inside the bilingual hub only when reque
       buildPeopleHubText(messages, lang, { showFirstVisitTip: true }),
       `${messages[lang].peopleMenu}\n\n${messages[lang].peopleFirstVisitTip}`,
     );
+    assert.equal(
+      buildPeopleHubText(messages, lang, { showNearbyLocationTip: true }),
+      `${messages[lang].peopleMenu}\n\n${messages[lang].nearbyLocationTip}`,
+    );
     assert.match(messages[lang].peopleFirstVisitTip, /^💡/);
   }
 });
 
 test("People hub sends its banner once and keeps later entries text-only", async () => {
+  const originalNearbyEnabled = starEconomy.nearbyPeopleEnabled;
+  starEconomy.nearbyPeopleEnabled = true;
   const sent = [];
   const ctx = {
     userId: 6,
@@ -454,14 +461,20 @@ test("People hub sends its banner once and keeps later entries text-only", async
     },
   };
 
-  await sendPeopleHub(ctx, "en");
-  await sendPeopleHub(ctx, "en");
+  try {
+    await sendPeopleHub(ctx, "en");
+    await sendPeopleHub(ctx, "en");
+  } finally {
+    starEconomy.nearbyPeopleEnabled = originalNearbyEnabled;
+  }
 
   assert.equal(sent.length, 2);
   assert.match(sent[0].photo.source, /assets[\\/]people-section-banner\.jpg$/);
+  assert.match(sent[0].extra.caption, /nearby people higher/);
   assert.equal(sent[1].photo, undefined);
   assert.equal(sent[1].text, messages.en.peopleMenu);
   assert.ok(ctx.user.sectionTipsShownAt.peopleBanner instanceof Date);
+  assert.ok(ctx.user.sectionTipsShownAt.peopleNearbyLocation instanceof Date);
 });
 
 test("failed People banner delivery falls back to text without marking the banner shown", async () => {

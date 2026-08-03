@@ -79,6 +79,8 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
   forLaterInline: { type: Date, default: null },
   people: { type: Date, default: null },
   nearbyLocation: { type: Date, default: null },
+  peopleNearbyLocation: { type: Date, default: null },
+  discussionLocalLocation: { type: Date, default: null },
   favoritesBanner: { type: Date, default: null },
   peopleBanner: { type: Date, default: null },
   discussionsBanner: { type: Date, default: null },

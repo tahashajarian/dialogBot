@@ -78,6 +78,7 @@ const {
   handleDiscussionCreateText,
 } = require("./flows/discussions-create-text");
 const {
+  resumeDiscussionCreatePreview,
   startDiscussionCreateFlow,
 } = require("./flows/discussions-create-callbacks");
 const {
@@ -600,6 +601,9 @@ async function handleUpdate(ctx) {
       });
     }
     if (pendingEntry?.source === "create") {
+      if (pendingEntry.token === "confirm") {
+        return resumeDiscussionCreatePreview(ctx, lang);
+      }
       return startDiscussionCreateFlow(ctx, lang, {
         editCallbackMessageOrReply: (_ctx, textToSend, keyboard) => _ctx.reply(textToSend, keyboard),
         rememberDiscussionMenuNotice,

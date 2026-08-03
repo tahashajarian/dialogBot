@@ -30,9 +30,6 @@ const {
   listMyDiscussions,
   listRecentJoinedDiscussions,
 } = require("../services/discussions");
-const { hasValidLocation } = require("../services/profile");
-const { starEconomy } = require("../services/star-settings");
-
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
 }
@@ -244,12 +241,6 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
 } = {}) {
   if (freshDestination) await sendNavigationFootprint(ctx, { lang, destination: "activeDiscussions" });
   const showFirstVisitTip = freshDestination && !hasSectionTipBeenShown(ctx.user, "activeDiscussions");
-  const showNearbyTip = freshDestination
-    && starEconomy.localDiscussionsEnabled
-    && !hasSectionTipBeenShown(ctx.user, "nearbyLocation");
-  const nearbyTipText = showNearbyTip
-    ? (hasValidLocation(ctx.user?.location) ? messages[lang].nearbyMarkerTip : messages[lang].nearbyLocationTip)
-    : "";
   const effectiveLanguage = normalizeDiscussionLanguageFilter(languageFilter) || getEffectiveDiscussionLanguageFilter(ctx.user);
   const result = await listActiveDiscussions({ userId: ctx.userId, limit: 100, languageFilter: effectiveLanguage });
   if (!result.discussions.length) {
@@ -257,11 +248,10 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     await setNavigationMode(ctx, "discussions");
     const emptyMessage = await editCallbackMessageOrReply(
       ctx,
-      addDiscussionFirstVisitTip(lang, messages[lang].discussionListEmpty, showFirstVisitTip, nearbyTipText),
+      addDiscussionFirstVisitTip(lang, messages[lang].discussionListEmpty, showFirstVisitTip),
       discussionsMenuKeyboard(lang),
     );
     if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
-    if (showNearbyTip) await markSectionTipShownForContext(ctx, "nearbyLocation", new Date()).catch(() => null);
     return emptyMessage;
   }
   await ctx.answerCb?.();
@@ -273,7 +263,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     await setNavigationMode(ctx, navigationMode);
     const listMessage = await editCallbackMessageOrReply(
       ctx,
-      addDiscussionFirstVisitTip(lang, messages[lang].discussionListJoinableEmpty, showFirstVisitTip, nearbyTipText),
+      addDiscussionFirstVisitTip(lang, messages[lang].discussionListJoinableEmpty, showFirstVisitTip),
       discussionListNavigationKeyboard(lang, {
         listType: "active",
         page: 0,
@@ -283,7 +273,6 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
       }),
     );
     if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
-    if (showNearbyTip) await markSectionTipShownForContext(ctx, "nearbyLocation", new Date()).catch(() => null);
     await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
     return listMessage;
   }
@@ -300,7 +289,7 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
         headerTip: messages[lang].discussionActiveListTip,
       }),
       showFirstVisitTip,
-      nearbyTipText,
+      "",
     ),
     discussionListNavigationKeyboard(lang, {
       listType: "active",
@@ -311,7 +300,6 @@ async function renderActiveDiscussionList(ctx, lang, page = 0, joinableOnly = fa
     }),
   );
   if (showFirstVisitTip) await markDiscussionFirstVisitTip(ctx);
-  if (showNearbyTip) await markSectionTipShownForContext(ctx, "nearbyLocation", new Date()).catch(() => null);
   await rememberDiscussionListMessage(ctx, "active", freshDestination ? listMessage : (ctx.callbackMessageId || listMessage));
   return listMessage;
 }

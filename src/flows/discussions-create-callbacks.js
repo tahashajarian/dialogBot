@@ -81,6 +81,25 @@ function buildDiscussionPreviewForCurrentUser(ctx, lang, overrides = {}) {
   });
 }
 
+function buildDiscussionCreateConfirmKeyboard(ctx, lang, isLocal = ctx.user?.discussionDraftIsLocal) {
+  return discussionCreateConfirmKeyboard(
+    lang,
+    ctx.user?.discussionDraftLanguage || ctx.user?.lang,
+    isLocal,
+    { canMakeLocal: hasValidLocation(ctx.user?.location) },
+  );
+}
+
+async function resumeDiscussionCreatePreview(ctx, lang) {
+  await updateUserState(ctx.userId, "discussion_create_preview");
+  if (ctx.user) ctx.user.state = "discussion_create_preview";
+  await setNavigationMode(ctx, "discussion_create");
+  return ctx.reply(
+    buildDiscussionPreviewForCurrentUser(ctx, lang),
+    buildDiscussionCreateConfirmKeyboard(ctx, lang),
+  );
+}
+
 function isEditingDiscussionRuleFromPreview(ctx) {
   return ctx.user?.state === "discussion_create_join_rule_edit";
 }
@@ -169,13 +188,9 @@ async function sendDiscussionCreateTitlePrompt(ctx, lang, {
   state = "discussion_create_title",
   cancelCallback = callBacks.discussionCreateCancel,
   cancelText = null,
-  includeTitlePin = false,
   rememberDiscussionMenuNotice,
 } = {}) {
   await updateUserState(ctx.userId, state);
-  if (includeTitlePin) {
-    await ctx.reply(messages[lang].discussionCreateTitlePin);
-  }
   const sent = await ctx.reply(
     messages[lang].discussionCreateAskTitle,
     discussionCreateCancelKeyboard(lang, cancelCallback, cancelText),
@@ -206,12 +221,6 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
     editCallbackMessageOrReply = (_ctx, text, keyboard) => _ctx.reply(text, keyboard),
     rememberDiscussionMenuNotice = async () => {},
   } = helpers;
-
-  const hasName = await requireDiscussionProfileName(ctx, lang, {
-    source: "create",
-    token: "start",
-  });
-  if (!hasName) return true;
 
   const activeLimit = await checkActiveOwnedDiscussionsLimit(ctx.userId);
   if (!activeLimit.ok) {
@@ -250,7 +259,6 @@ async function startDiscussionCreateFlow(ctx, lang, helpers = {}) {
   await updateProfileField(ctx.userId, "discussionDraftLanguage", defaultLanguage);
   if (ctx.user) ctx.user.discussionDraftLanguage = defaultLanguage;
   return sendDiscussionCreateTitlePrompt(ctx, lang, {
-    includeTitlePin: true,
     rememberDiscussionMenuNotice,
   });
 }
@@ -317,7 +325,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   };
 
@@ -366,7 +374,6 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await updateProfileField(ctx.userId, "discussionDraftLanguage", defaultLanguage);
     if (ctx.user) ctx.user.discussionDraftLanguage = defaultLanguage;
     return sendDiscussionCreateTitlePrompt(ctx, lang, {
-      includeTitlePin: true,
       rememberDiscussionMenuNotice,
     });
   };
@@ -472,13 +479,13 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await updateProfileField(ctx.userId, "discussionDraftLanguage", selected);
     if (ctx.user) ctx.user.discussionDraftLanguage = selected;
     await updateUserState(ctx.userId, "discussion_create_preview");
-    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal));
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), buildDiscussionCreateConfirmKeyboard(ctx, lang));
   }
 
   if (data === callBacks.discussionCreateLanguageBack) {
     await ctx.answerCb?.();
     await updateUserState(ctx.userId, "discussion_create_preview");
-    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal));
+    return editCallbackMessageOrReply(ctx, buildDiscussionPreviewForCurrentUser(ctx, lang), buildDiscussionCreateConfirmKeyboard(ctx, lang));
   }
 
   if (data === callBacks.discussionCreateCancelEdit) {
@@ -488,7 +495,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
@@ -520,7 +527,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentDraft(ctx, lang, joinRule, ""),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
@@ -533,7 +540,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: joinRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
       );
     }
     return askDescription(joinRule, {
@@ -672,7 +679,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
       );
     }
     return askDescription(nextRule, {
@@ -703,7 +710,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return editCallbackMessageOrReply(
         ctx,
         buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftJoinRule: nextRule }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
       );
     }
     return askDescription(nextRule, {
@@ -747,14 +754,18 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
   if (data === callBacks.discussionCreateToggleLocal) {
     if (!starEconomy.localDiscussionsEnabled) return false;
     if (!ctx.user?.discussionDraftIsLocal && !hasValidLocation(ctx.user?.location)) {
-      await ctx.answerCb?.(messages[lang].discussionLocalNeedsLocation, { show_alert: true });
+      if (ctx.isReplyKeyboardAction) {
+        await ctx.reply(messages[lang].discussionLocalNeedsLocation);
+      } else {
+        await ctx.answerCb?.(messages[lang].discussionLocalNeedsLocation, { show_alert: true });
+      }
       return true;
     }
     const nextValue = !ctx.user?.discussionDraftIsLocal;
@@ -764,11 +775,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang),
-      discussionCreateConfirmKeyboard(
-        lang,
-        ctx.user?.discussionDraftLanguage || ctx.user?.lang,
-        nextValue,
-      ),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang, nextValue),
     );
   }
 
@@ -789,12 +796,17 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     return editCallbackMessageOrReply(
       ctx,
       buildDiscussionPreviewForCurrentUser(ctx, lang, { discussionDraftMaxMembers: capacity }),
-      discussionCreateConfirmKeyboard(lang, ctx.user?.discussionDraftLanguage || ctx.user?.lang, ctx.user?.discussionDraftIsLocal),
+      buildDiscussionCreateConfirmKeyboard(ctx, lang),
     );
   }
 
   if (data === callBacks.discussionCreateConfirm) {
     await ctx.answerCb?.();
+    const hasName = await requireDiscussionProfileName(ctx, lang, {
+      source: "create",
+      token: "confirm",
+    });
+    if (!hasName) return true;
     const capacity = Number(ctx.user?.discussionDraftMaxMembers || operationalLimits.discussionMaxMembers);
     const paidCapacity = getPaidDiscussionCapacity(capacity);
     if (paidCapacity) {
@@ -900,5 +912,6 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
 module.exports = {
   isDiscussionCreateCallback,
   handleDiscussionCreateCallback,
+  resumeDiscussionCreatePreview,
   startDiscussionCreateFlow,
 };

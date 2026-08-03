@@ -2,10 +2,14 @@ const { PAGINATION } = require("../constants/pagination");
 const { callBacks } = require("../constants");
 const { getTasteLabelEmoji, getTasteLabelTitle } = require("./ai-section");
 
-function buildPeopleHubText(messages, lang, { showFirstVisitTip = false } = {}) {
+function buildPeopleHubText(messages, lang, {
+  showFirstVisitTip = false,
+  showNearbyLocationTip = false,
+} = {}) {
   return [
     messages[lang].peopleMenu,
     showFirstVisitTip ? messages[lang].peopleFirstVisitTip : "",
+    showNearbyLocationTip ? messages[lang].nearbyLocationTip : "",
   ].filter(Boolean).join("\n\n");
 }
 

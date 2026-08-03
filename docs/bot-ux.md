@@ -279,7 +279,8 @@ are private matching inputs: never render coordinates, exact distance, direction
 display-only. Nearby results are placed before other normally eligible results while preserving the existing
 order within both groups.
 
-When either Nearby surface is enabled, a user without a saved location sees one shared contextual tip on the
-first People or Active Discussions entry: adding location in Profile places nearby people and discussions
-higher. Once delivered on either surface, do not repeat it on the other. The Guide keeps the same information
-available permanently.
+When Nearby People is enabled, a user without a saved location sees one tip on the People hub explaining that
+adding location in Profile places nearby people higher. When Local Discussions is enabled, the same user sees a
+separate one-time tip on the Discussions hub explaining that profile location unlocks local discussion creation.
+Do not defer these setup tips until the result lists or the final discussion preview. The Guide keeps the broader
+nearby explanation available permanently.

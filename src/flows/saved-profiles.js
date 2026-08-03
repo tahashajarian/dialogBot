@@ -55,7 +55,6 @@ const {
   paginatePeopleDiscovery,
 } = require("../services/people-discovery");
 const {
-  addPeopleNearbyTip,
   buildPeopleHubText,
   buildPeopleDiscoveryText,
   formatPeopleDiscoveryRequirementText,
@@ -374,7 +373,10 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   await forgetPeopleListMessage(ctx);
   await sendNavigationFootprint(ctx, { lang, destination: "people", removeKeyboard });
   const showFirstVisitTip = !hasSectionTipBeenShown(ctx.user, "people");
-  const text = buildPeopleHubText(messages, lang, { showFirstVisitTip });
+  const showNearbyLocationTip = starEconomy.nearbyPeopleEnabled
+    && !hasValidLocation(ctx.user?.location)
+    && !hasSectionTipBeenShown(ctx.user, "peopleNearbyLocation");
+  const text = buildPeopleHubText(messages, lang, { showFirstVisitTip, showNearbyLocationTip });
   const keyboard = peopleHubKeyboard(lang);
   const shouldShowBanner = !hasSectionTipBeenShown(ctx.user, "peopleBanner");
   let sent;
@@ -395,6 +397,9 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   }
   if (showFirstVisitTip) {
     await markSectionTipShownForContext(ctx, "people", new Date()).catch(() => null);
+  }
+  if (showNearbyLocationTip) {
+    await markSectionTipShownForContext(ctx, "peopleNearbyLocation", new Date()).catch(() => null);
   }
   return sent;
 }
@@ -477,12 +482,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
 async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}) {
   await forgetSavedProfilesListMessage(ctx);
   const discoveryPage = await buildPeopleDiscoveryPage(ctx, lang, page);
-  const showNearbyTip = starEconomy.nearbyPeopleEnabled
-    && !hasSectionTipBeenShown(ctx.user, "nearbyLocation");
-  const nearbyTipText = showNearbyTip
-    ? (hasValidLocation(ctx.user?.location) ? messages[lang].nearbyMarkerTip : messages[lang].nearbyLocationTip)
-    : "";
-  const text = addPeopleNearbyTip(discoveryPage.text, nearbyTipText);
+  const text = discoveryPage.text;
   if (page === 0) await sendNavigationFootprint(ctx, { lang, destination: "peopleDiscovery" });
   const sent = send
     ? await send(text, discoveryPage.keyboard)
@@ -492,9 +492,6 @@ async function sendPeopleDiscoveryList(ctx, lang, page = 0, { send = null } = {}
     : `people_discovery_results:${discoveryPage.page}:${discoveryPage.totalPages}`;
   await setNavigationMode(ctx, navigationMode);
   await rememberPeopleListMessage(ctx, sent, discoveryPage.page);
-  if (showNearbyTip) {
-    await markSectionTipShownForContext(ctx, "nearbyLocation", new Date()).catch(() => null);
-  }
   return sent;
 }
 

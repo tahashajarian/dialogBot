@@ -9,6 +9,7 @@ const { localizeInterestChipTitleWithEmoji } = require("./interest-chips");
 const { getAiListItemsFromUser, getAiTasteFromUser, updateProfileField, updateUserFields } = require("./users");
 const { operationalLimits } = require("./operational-limits");
 const { starEconomy } = require("./star-settings");
+const { hasValidLocation } = require("./profile");
 
 const MODES = Object.freeze({ GLOBAL: "global", LANGUAGE: "language", FAVORITES: "favorites", DISCUSSIONS: "discussions", PEOPLE: "people", PROFILE: "profile", PROFILE_SETTINGS: "profile_settings", PROFILE_PRIVACY: "profile_privacy", HELP: "help", HELP_RULES: "help_rules" });
 
@@ -388,7 +389,10 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       const draftLanguage = user?.discussionDraftLanguage === "en" ? "en" : "fa";
       const languageLabel = draftLanguage === "en" ? messages[lang].discussionLanguageEnglish : messages[lang].discussionLanguagePersian;
       entries.push(["discussionCreateConfirm", callBacks.discussionCreateConfirm], ["discussionEditTitle", callBacks.discussionCreateEditTitle], ["discussionEditDescription", callBacks.discussionCreateEditDescription], ["discussionEditRule", callBacks.discussionCreateEditRule], ["discussionEditCapacity", callBacks.discussionCreateEditCapacity], [messages[lang].discussionChangeLanguage.replace("{language}", languageLabel), callBacks.discussionCreateToggleLanguage]);
-      if (starEconomy.localDiscussionsEnabled) {
+      if (
+        starEconomy.localDiscussionsEnabled
+        && (user?.discussionDraftIsLocal || hasValidLocation(user?.location))
+      ) {
         entries.push([
           user?.discussionDraftIsLocal ? "discussionRemoveLocal" : "discussionMakeLocal",
           callBacks.discussionCreateToggleLocal,

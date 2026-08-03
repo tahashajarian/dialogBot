@@ -536,7 +536,7 @@ function discussionSectionKeyboard(lang, prefix, {
   return replyKeyboard(rows);
 }
 
-function discussionCreateConfirmKeyboard(lang, currentLanguage = lang, isLocal = false) {
+function discussionCreateConfirmKeyboard(lang, currentLanguage = lang, isLocal = false, { canMakeLocal = false } = {}) {
   const languageLabel = currentLanguage === "en"
     ? messages[lang].discussionLanguageEnglish
     : messages[lang].discussionLanguagePersian;
@@ -551,7 +551,7 @@ function discussionCreateConfirmKeyboard(lang, currentLanguage = lang, isLocal =
       { text: messages[lang].discussionEditCapacity, callback_data: callBacks.discussionCreateEditCapacity },
     ],
   ];
-  if (starEconomy.localDiscussionsEnabled) {
+  if (starEconomy.localDiscussionsEnabled && (isLocal || canMakeLocal)) {
     rows.push([{
       text: isLocal ? messages[lang].discussionRemoveLocal : messages[lang].discussionMakeLocal,
       callback_data: callBacks.discussionCreateToggleLocal,

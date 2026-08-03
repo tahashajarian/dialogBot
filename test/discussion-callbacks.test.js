@@ -32,6 +32,7 @@ const {
   discussionMembersCloseKeyboard,
   discussionCloseConfirmKeyboard,
   discussionCreateCapacityKeyboard,
+  discussionCreateConfirmKeyboard,
   discussionCreateLanguagePickerKeyboard,
   discussionTasteLabelsKeyboard,
   discussionExtraSlotConfirmKeyboard,
@@ -61,6 +62,7 @@ const {
 const {
   handleDiscussionCreateCallback,
   isDiscussionCreateCallback,
+  resumeDiscussionCreatePreview,
 } = require("../src/flows/discussions-create-callbacks");
 const {
   handleDiscussionNameCancel,
@@ -1283,15 +1285,24 @@ test("discussion create guidance has no inline acknowledgement and restores join
   }
 });
 
-test("discussion create start asks for profile name before title prompt", async () => {
+test("discussion create start reaches the title prompt without asking for a profile name", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const updates = [];
+  const originalFindOne = User.findOne;
+  const originalDiscussionFind = Discussion.find;
+  const originalCountDocuments = Discussion.countDocuments;
   const replies = [];
-  const deletedIds = [];
-  User.findOneAndUpdate = async (filter, update) => {
-    updates.push({ filter, update });
-    return {};
+  const updates = [];
+  const userQuery = {
+    select() { return this; },
+    lean: async () => ({ ownedOpenDiscussionIds: [] }),
   };
+  User.findOneAndUpdate = (filter, update) => {
+    updates.push({ filter, update });
+    return userQuery;
+  };
+  User.findOne = () => ({ select: () => ({ lean: async () => ({}) }) });
+  Discussion.find = () => ({ select: () => ({ lean: async () => [] }) });
+  Discussion.countDocuments = async () => 0;
 
   try {
     const ctx = {
@@ -1302,23 +1313,155 @@ test("discussion create start asks for profile name before title prompt", async 
       answerCb: async () => true,
       reply: async (text, keyboard) => {
         replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await handleDiscussionCreateCallback(ctx, "en", {
+      rememberDiscussionMenuNotice: async () => true,
+      editCallbackMessageOrReply: async (_ctx, text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    });
+
+    assert.ok(!replies.some((entry) => entry.text === messages.en.discussionNameRequired));
+    assert.ok(updates.some((entry) => entry.update.state === "discussion_create_title"));
+    assert.ok(!updates.some((entry) => String(entry.update.state || "").startsWith("discussion_name_required:")));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    User.findOne = originalFindOne;
+    Discussion.find = originalDiscussionFind;
+    Discussion.countDocuments = originalCountDocuments;
+  }
+});
+
+test("discussion create confirm asks for a profile name immediately before entry", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const replies = [];
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  try {
+    const ctx = {
+      callbackData: callBacks.discussionCreateConfirm,
+      userId: 42,
+      user: {
+        userId: 42,
+        profileName: "",
+        discussionDraftTitle: "Open cafe",
+        discussionDraftDescription: "A room",
+        discussionDraftJoinRule: { type: "open" },
+      },
+      answerCb: async () => true,
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
         return { message_id: 92 };
       },
     };
 
     await handleDiscussionCreateCallback(ctx, "en", {
-      deleteCallbackMessageIfPossible: async (callbackCtx) => {
-        deletedIds.push(callbackCtx.callbackMessageId);
-        return true;
-      },
       editCallbackMessageOrReply: async () => {
-        throw new Error("create should not continue before name");
+        throw new Error("creation should stop at the profile-name gate");
       },
     });
 
-    assert.deepEqual(deletedIds, []);
-    assert.match(replies[0].text, /Before creating or entering a discussion/);
-    assert.ok(updates.some((entry) => entry.update.state === "discussion_name_required:create:start"));
+    assert.match(replies[0].text, /Before entering a discussion/);
+    assert.match(replies[0].text, /appears beside your messages/);
+    assert.ok(updates.some((entry) => entry.update.state === "discussion_name_required:create:confirm"));
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("discussion preview hides the local toggle without repeating setup guidance", () => {
+  const originalLocalEnabled = starEconomy.localDiscussionsEnabled;
+  starEconomy.localDiscussionsEnabled = true;
+  try {
+    const draft = {
+      lang: "en",
+      discussionDraftTitle: "Neighborhood films",
+      discussionDraftDescription: "Local screenings",
+      discussionDraftJoinRule: { type: "open" },
+    };
+    const preview = buildDiscussionPreviewText(messages, "en", draft);
+    const withoutLocation = discussionCreateConfirmKeyboard("en", "en", false, { canMakeLocal: false });
+    const withLocation = discussionCreateConfirmKeyboard("en", "en", false, { canMakeLocal: true });
+    const withoutLabels = withoutLocation.reply_markup.keyboard.flat().map((button) => button.text);
+    const withLabels = withLocation.reply_markup.keyboard.flat().map((button) => button.text);
+
+    assert.doesNotMatch(preview, /add your location/);
+    assert.ok(!withoutLabels.includes(messages.en.discussionMakeLocal));
+    assert.ok(withLabels.includes(messages.en.discussionMakeLocal));
+  } finally {
+    starEconomy.localDiscussionsEnabled = originalLocalEnabled;
+  }
+});
+
+test("a stale local reply-keyboard action shows visible location guidance", async () => {
+  const originalLocalEnabled = starEconomy.localDiscussionsEnabled;
+  starEconomy.localDiscussionsEnabled = true;
+  const replies = [];
+  try {
+    const ctx = {
+      callbackData: callBacks.discussionCreateToggleLocal,
+      isReplyKeyboardAction: true,
+      userId: 42,
+      user: { discussionDraftIsLocal: false },
+      reply: async (text) => {
+        replies.push(text);
+        return true;
+      },
+      answerCb: async () => {
+        throw new Error("reply-keyboard guidance must not rely on a callback alert");
+      },
+    };
+
+    await handleDiscussionCreateCallback(ctx, "en", {});
+
+    assert.deepEqual(replies, [messages.en.discussionLocalNeedsLocation]);
+  } finally {
+    starEconomy.localDiscussionsEnabled = originalLocalEnabled;
+  }
+});
+
+test("saving the required profile name restores the completed discussion preview", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const updates = [];
+  const replies = [];
+  User.findOneAndUpdate = async (filter, update) => {
+    updates.push({ filter, update });
+    return {};
+  };
+
+  try {
+    const ctx = {
+      userId: 42,
+      user: {
+        userId: 42,
+        lang: "en",
+        discussionDraftTitle: "Open cafe",
+        discussionDraftDescription: "A room",
+        discussionDraftJoinRule: { type: "open" },
+      },
+      reply: async (text, keyboard) => {
+        replies.push({ text, keyboard });
+        return true;
+      },
+    };
+
+    await resumeDiscussionCreatePreview(ctx, "en");
+
+    assert.equal(ctx.user.state, "discussion_create_preview");
+    assert.match(replies[0].text, /Open cafe/);
+    assert.equal(
+      replies[0].keyboard.reply_markup.keyboard[0][0].text,
+      messages.en.discussionCreateConfirm,
+    );
+    assert.ok(updates.some((entry) => entry.update.state === "discussion_create_preview"));
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
@@ -1522,6 +1665,8 @@ test("paid capacity create confirm opens payment confirmation and cancel returns
     callbackMessageId: 44,
     userId: 10,
     user: {
+      profileName: "Tester",
+      profileNameConfirmedAt: new Date(),
       starBalance: 8,
       discussionDraftTitle: "Tiny room",
       discussionDraftDescription: "A focused room",

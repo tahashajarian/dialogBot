@@ -1001,6 +1001,22 @@ test("discussion create and paid-capacity buttons are bound to their exact serve
   const { discussionPaidCapacityConfirmKeyboard, discussionPaidCapacityAckKeyboard } = require("../src/keyboards");
   const preview = { mode: "discussion_create", state: "discussion_create_preview", user: { lang: "en", discussionDraftLanguage: "fa" } };
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionEditTitle, preview).callbackData, callBacks.discussionCreateEditTitle);
+  assert.equal(resolveReplyKeyboardAction(messages.en.discussionMakeLocal, preview), null);
+  const localPreview = {
+    ...preview,
+    user: {
+      ...preview.user,
+      location: { latitude: 35.7, longitude: 51.4 },
+    },
+  };
+  const originalLocalEnabled = starEconomy.localDiscussionsEnabled;
+  starEconomy.localDiscussionsEnabled = true;
+  const localAction = resolveReplyKeyboardAction(messages.en.discussionMakeLocal, localPreview);
+  starEconomy.localDiscussionsEnabled = originalLocalEnabled;
+  assert.equal(
+    localAction.callbackData,
+    callBacks.discussionCreateToggleLocal,
+  );
   assert.equal(resolveReplyKeyboardAction("🌐 Change language (Persian)", preview).callbackData, callBacks.discussionCreateToggleLanguage);
   assert.equal(resolveReplyKeyboardAction("🌐 Change language (English)", preview), null);
   assert.equal(resolveReplyKeyboardAction(messages.en.discussionJoinRuleOpen, preview), null);
