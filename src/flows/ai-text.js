@@ -529,9 +529,9 @@ async function sendSingleSectionSuggestion({
       );
     }
     const fallbackMessage = await placeholder.finish(
-      ["capacity_busy", "catalog_unavailable"].includes(suggestionResult.reason)
-        ? messages[lang].serviceBusy
-        : messages[lang].aiNoResponse,
+      ["capacity_busy", "catalog_unavailable", "suggestion_timeout"].includes(suggestionResult.reason)
+        ? messages[lang].aiNoResponse
+        : messages[lang].aiNoSuitableSuggestion,
       aiSuggestionModeKeyboard(lang, section),
     );
     try {
