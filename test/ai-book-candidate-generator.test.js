@@ -92,7 +92,7 @@ test("book generation asks AI only for original identity and treats saved items 
   });
 
   assert.equal(result.ok, true);
-  assert.equal(requests[0].config.timeoutMs, 14000);
+  assert.equal(requests[0].config.timeoutMs, 20000);
   assert.match(requests[0].instructions, /originalTitle, originalAuthor, localizedTitle, localizedAuthor, mood, reason/);
   assert.match(requests[0].instructions, /Never translate, localize, transliterate, rename/);
   assert.match(requests[0].instructions, /Saved-for-later items are neutral hard exclusions/);

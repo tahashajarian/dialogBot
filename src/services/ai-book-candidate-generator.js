@@ -6,7 +6,7 @@ const { getMediaSuggestionQualityIssue } = require("./ai-suggestion-quality");
 // Five complete identities are more reliable than a larger JSON response: the
 // latter was frequently truncated or padded with translated duplicates.
 const BOOK_CANDIDATE_COUNT = 5;
-const BOOK_GENERATION_TIMEOUT_MS = 14000;
+const BOOK_GENERATION_TIMEOUT_MS = 30000;
 const MAX_CONTEXT_ITEMS = 50;
 
 function cleanJson(value) {

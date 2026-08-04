@@ -106,6 +106,7 @@ const {
   formatAiItemsList,
   formatAiListTelegramText,
   formatAiLimitMessage,
+  formatNoSuitableSuggestionMessage,
   formatSuggestionLimitMessage,
   formatSuggestionResultMessage,
   getDuplicateListMessage,
@@ -531,7 +532,7 @@ async function sendSingleSectionSuggestion({
     const fallbackMessage = await placeholder.finish(
       ["capacity_busy", "catalog_unavailable", "suggestion_timeout"].includes(suggestionResult.reason)
         ? messages[lang].aiNoResponse
-        : messages[lang].aiNoSuitableSuggestion,
+        : formatNoSuitableSuggestionMessage(lang, userText),
       aiSuggestionModeKeyboard(lang, section),
     );
     try {

@@ -20,6 +20,12 @@ function stripCopyableTitleMarkers(value) {
   return String(value || "").replaceAll(COPYABLE_TITLE_START, "").replaceAll(COPYABLE_TITLE_END, "");
 }
 
+function formatNoSuitableSuggestionMessage(lang, userText = "") {
+  return String(userText || "").trim()
+    ? messages[lang].aiNoSuitableSuggestionWithMood
+    : messages[lang].aiNoSuitableSuggestion;
+}
+
 function formatAiListTelegramText(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -560,6 +566,7 @@ module.exports = {
   formatAiItemsList,
   formatAiListTelegramText,
   formatSuggestionLimitMessage,
+  formatNoSuitableSuggestionMessage,
   formatSuggestionResultMessage,
   getDuplicateItemTitle,
   getDuplicateListMessage,

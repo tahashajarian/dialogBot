@@ -282,6 +282,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - If a typed mood/genre is invalid, the retry prompt provides a section-scoped bottom Cancel button.
 - Cancel returns to the section TopTen manager.
 - A mood/genre is temporary session context. Suggestion results display it, and Another suggestion reuses it after saves or rejections without asking again. Returning to Favorites and starting Suggestion again begins a fresh session with no mood.
+- When no suitable suggestion is found, keep the existing exact-title guidance. If the current session includes a mood, the first line also states that both Favorites and the entered mood were considered; without a mood, preserve the shorter existing first line. Technical provider, catalogue, capacity, and timeout failures continue to use the service-failure message instead.
 - Suggestions should avoid duplicates from:
   - user's TopTen
   - user's watchlist

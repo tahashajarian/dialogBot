@@ -642,6 +642,7 @@ module.exports = {
     aiThinkingLonger: "👱‍♀️ Thinking...",
     aiNoResponse: "👩‍🦳 I couldn’t get a response right now. Please try again.",
     aiNoSuitableSuggestion: "👱‍♀️ I couldn’t find a suitable suggestion.\n\n💡 Using the exact name of each work helps you get better suggestions. Broad or unclear choices make suitable suggestions harder to find.",
+    aiNoSuitableSuggestionWithMood: "👱‍♀️ Considering your Favorites and the mood you entered, I couldn’t find a suitable suggestion.\n\n💡 Using the exact name of each work helps you get better suggestions. Broad or unclear choices make suitable suggestions harder to find.",
     aiTasteItemSaved: "✓ Saved \"{item}\". ({count}/{goal})",
     aiTasteAskNext: "Send another one 👀",
     aiTasteAskNext_1: "Good start; send another so I can read your taste better.",

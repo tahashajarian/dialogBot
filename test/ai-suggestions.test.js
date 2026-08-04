@@ -18,7 +18,11 @@ const {
   splitSuggestionSentence,
   validateSuggestionCandidate,
 } = require("../src/services/ai");
-const { formatSuggestionResultMessage } = require("../src/services/ai-list-ui");
+const {
+  formatNoSuitableSuggestionMessage,
+  formatSuggestionResultMessage,
+} = require("../src/services/ai-list-ui");
+const messages = require("../src/messages");
 const { aiSuggestionCopyKeyboard } = require("../src/keyboards");
 const {
   buildSuggestionAttemptText,
@@ -41,6 +45,16 @@ const {
   getSuggestionMood,
   setSuggestionMood,
 } = require("../src/services/ai-suggestion-cache");
+
+test("no-suitable copy mentions mood only when one was entered", () => {
+  assert.equal(formatNoSuitableSuggestionMessage("fa"), messages.fa.aiNoSuitableSuggestion);
+  assert.equal(formatNoSuitableSuggestionMessage("fa", "  "), messages.fa.aiNoSuitableSuggestion);
+  assert.equal(
+    formatNoSuitableSuggestionMessage("fa", "گوتیک"),
+    messages.fa.aiNoSuitableSuggestionWithMood,
+  );
+  assert.match(formatNoSuitableSuggestionMessage("fa", "گوتیک"), /محبوب‌هات و حال‌وهوایی/);
+});
 
 test("personalized context makes the watchlist an explicit cross-language exclusion", () => {
   const context = buildUserContext({
