@@ -23,6 +23,7 @@
 - [x] Do not choose prompt or title language from the majority script of Favorites. Interface language controls explanatory text; verified original identity controls title and creator.
 - [x] Do not force every suggestion into English. Use the original-identity rule instead.
 - [x] Per-task AI routing no longer needs to wait for usage growth; it is implemented with QA visibility and safe fallback.
+- [x] Keep Movies and Series together in one Favorites and suggestion section for now. Users can request `movie only` or `series only`; splitting them would fragment taste data and require migration across onboarding, profiles, matching, and discussions.
 
 ## Later
 
@@ -36,9 +37,6 @@
   - Keep each banner first-time-only and avoid adding chat noise.
 
 ## Needs discussion
-
-- [ ] Should Movies and Series become separate Favorites and suggestion sections?
-  - This affects existing data, onboarding, profiles, matching, discussion rules, keyboards, and migration behavior.
 
 - [ ] Should a completed Favorites list automatically trigger a discussion invitation, or should the user opt in from the completion card?
 
