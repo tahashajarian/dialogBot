@@ -544,7 +544,9 @@ function createStarsService({
     const normalizedLimit = Math.max(1, Math.min(10000, Math.round(Number(limit) || 1000)));
     await recoverPendingStarTransactions({ limit: Math.min(normalizedLimit, 1000) });
     const ledgerRows = await TransactionModel.aggregate([
-      { $match: { status: "applied" } },
+      // Account deletion retains ledger rows under negative anonymized
+      // tombstones. They no longer have a User wallet to reconcile.
+      { $match: { status: "applied", userId: { $gt: 0 } } },
       { $group: { _id: "$userId", ledgerBalance: { $sum: "$amount" }, transactions: { $sum: 1 } } },
       { $sort: { _id: 1 } },
       { $limit: normalizedLimit },
@@ -553,7 +555,7 @@ function createStarsService({
     const [users, nonzeroWithoutLedger] = await Promise.all([
       UserModel.find({ userId: { $in: userIds } }).select("userId starBalance").lean(),
       UserModel.find({
-        userId: { $nin: userIds },
+        userId: { $nin: userIds, $gt: 0 },
         starBalance: { $ne: 0 },
       }).select("userId starBalance").limit(normalizedLimit).lean(),
     ]);

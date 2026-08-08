@@ -115,6 +115,8 @@ function createFakeStore(initialUsers = []) {
       }
       const grouped = new Map();
       for (const transaction of transactions) {
+        if (match?.status && transaction.status !== match.status) continue;
+        if (match?.userId?.$gt !== undefined && transaction.userId <= match.userId.$gt) continue;
         const current = grouped.get(transaction.userId) || { _id: transaction.userId, ledgerBalance: 0, transactions: 0 };
         current.ledgerBalance += transaction.amount;
         current.transactions += 1;
@@ -145,6 +147,7 @@ function createFakeStore(initialUsers = []) {
       return query(Array.from(users.values()).filter((user) => (
         (!includedIds || includedIds.has(user.userId)) &&
         (!excludedIds || !excludedIds.has(user.userId)) &&
+        (filter.userId?.$gt === undefined || user.userId > filter.userId.$gt) &&
         (filter.starBalance?.$ne === undefined || user.starBalance !== filter.starBalance.$ne)
       )).map(clone));
     },
@@ -313,4 +316,24 @@ test("reconciliation detects a nonzero wallet with no ledger history", async () 
     cachedBalance: 4,
     transactions: 0,
   });
+});
+
+test("reconciliation ignores anonymized deleted-account ledger tombstones", async () => {
+  const store = createFakeStore([]);
+  store.transactions.push({
+    _id: "deleted-ledger-row",
+    userId: -1597657212,
+    amount: 39,
+    status: "applied",
+    type: "earn",
+    reason: "deleted_account_history",
+    idempotencyKey: "deleted:ledger-row",
+  });
+  const service = createService(store);
+
+  const result = await service.reconcileStarBalances();
+
+  assert.equal(result.checked, 0);
+  assert.equal(result.mismatchCount, 0);
+  assert.deepEqual(result.mismatches, []);
 });
