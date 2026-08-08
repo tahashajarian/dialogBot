@@ -7,3 +7,18 @@ so for this purpose we need to generate banner for all badge in all sections, th
 
 ☐ later, after usage grows: add per-task AI model routing to reduce suggestion cost
     Keep the strongest model for final recommendation judgment and use a cheaper mini model for bounded support work such as candidate generation, localization, identity checks, and taste classification. Do not switch based on assumptions: first expose model/token usage in the suggestion lab, compare the same representative profiles, and deploy each cheaper route only when quality and failure rates remain acceptable. Until real traffic approaches the complimentary GPT-5.4 allowance or cost becomes material, keep the current single-model setup.
+
+imporve suggestions
+after saying no suggestion it show the button to save or whatevr and then i hit save save a coorect item,
+check it out why that happen    ☐ 
+
+✔ 👱‍♀️ به‌عنوان تماشا شده ثبت شد. need the name of item as well @done (8/5/2026, 1:54:11 PM)
+
+☐ make sure eng and persian suggestion feedback result looks the same
+☐ let think about catalog unavailable on books
+☐ for persian if we not sure let's keep the english title alwyas
+☐ movies need imporvment the persian title is awful
+☐ let's keep all suggestion in English i think or in a original language
+☐ we dont' need send the genre or whatever just list
+☐ if majoirty of list is persian send the prompt in periosn and vice versa
+☐ and let's use cheaper model when no need the expensive model

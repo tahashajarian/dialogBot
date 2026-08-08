@@ -481,13 +481,15 @@ async function handleAiCallback(ctx, lang, helpers) {
 
     setCtxAiListItems(ctx, section, "watchlist", toggled.items);
     const statusCopy = getWatchStatusCopy(lang, section);
+    const statusText = (toggled.item?.watched ? statusCopy.doneText : statusCopy.pendingText)
+      .replace("{item}", itemTitle);
     return ctx.reply(
       formatAiListTelegramText(await buildAiListManagerMessage({
         ctx,
         lang,
         section,
         listType: "watchlist",
-        prefix: toggled.item?.watched ? statusCopy.doneText : statusCopy.pendingText,
+        prefix: statusText,
       })),
       aiListTelegramExtra(aiListManageMenuKeyboard(lang, section, "watchlist")),
     );

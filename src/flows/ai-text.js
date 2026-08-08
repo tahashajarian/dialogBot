@@ -796,9 +796,9 @@ async function handleAiListActionCommand(ctx, lang, command) {
       const toggled = await toggleWatchlistItemWatched(ctx.userId, section, itemTitle);
       if (!toggled.ok) return ctx.reply(messages[lang].aiListNotFound, aiListManageMenuKeyboard(lang, section, "watchlist"));
       rememberCtxAiListItems(ctx, section, "watchlist", toggled.items);
-      const statusText = toggled.item?.watched
+      const statusText = (toggled.item?.watched
         ? getSectionMessage(messages, lang, "aiWatchlistWatchedOn", section, "aiWatchlistWatchedOn")
-        : getSectionMessage(messages, lang, "aiWatchlistWatchedOff", section, "aiWatchlistWatchedOff");
+        : getSectionMessage(messages, lang, "aiWatchlistWatchedOff", section, "aiWatchlistWatchedOff")).replace("{item}", itemTitle);
       await ctx.reply(statusText);
     }
     return openAiListManager(ctx, lang, section, "watchlist", { filter: activeFilter });
