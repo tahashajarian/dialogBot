@@ -1232,7 +1232,7 @@ test("section suggestion need-state consumes Top Ten card and shows Got it ackno
 
   assert.deepEqual(deletedIds, []);
   assert.equal(replies.length, 1);
-  assert.match(replies[0].text, /add at least 3 things/);
+  assert.equal(replies[0].text, messages.en.aiSectionSuggestNeedTopTenItem);
   assert.deepEqual(
     replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.text),
     [messages.en.acknowledgeButton],

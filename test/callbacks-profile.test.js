@@ -2174,7 +2174,7 @@ test("people discovery insufficient data state links users to lists", async () =
     User.find = originalFind;
   }
 
-  assert.match(replies.at(-1).text, /برای دیدن آدم‌ها/);
+  assert.match(replies.at(-1).text, /آدم‌هایی با انتخاب‌های مشترک رو ببینی/);
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(!buttons.some((button) => button.text === messages.fa.profileEditInterests));
   assert.ok(buttons.some((button) => button.text === messages.fa.aiAssistant));
