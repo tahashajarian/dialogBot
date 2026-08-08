@@ -181,6 +181,40 @@ test("manually typed onboarding inline labels are ignored", async () => {
   assert.deepEqual(replies, []);
 });
 
+test("music onboarding resolves audio titles and formats structured duplicates", async () => {
+  const originalFindOne = User.findOne;
+  User.findOne = async () => ({
+    userId: 82,
+    aiLists: { music: { topTen: [{ title: "Faramooshi", comment: "", metadata: {} }] } },
+  });
+  const replies = [];
+  const ctx = {
+    userId: 82,
+    user: {
+      state: "onboarding_favorites:music",
+      aiLists: { music: { topTen: [{ title: "Faramooshi", comment: "", metadata: {} }] } },
+    },
+    message: {
+      audio: { title: "Faramooshi", file_name: "unrelated-file-name.mp3" },
+      caption: "#proxy #music #forwarded lots of unrelated caption text",
+      forward_origin: { type: "channel" },
+    },
+    reply: async (text, extra) => replies.push({ text, extra }),
+  };
+
+  try {
+    await handleOnboardingText(ctx, "en");
+  } finally {
+    User.findOne = originalFindOne;
+  }
+
+  assert.equal(
+    replies[0].text,
+    messages.en.aiListDuplicateMatch.replace("{item}", "Faramooshi"),
+  );
+  assert.doesNotMatch(replies[0].text, /\[object Object\]/);
+});
+
 test("category action enters the chosen Favorites input state with the regular prompt", async () => {
   const originalUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});

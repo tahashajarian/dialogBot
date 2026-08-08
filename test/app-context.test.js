@@ -199,3 +199,24 @@ test("English app context normalizes Persian and Arabic-Indic digits to Latin", 
   assert.equal(replies[0].text, "Count 12 and 12");
   assert.equal(replies[0].extra.reply_markup.keyboard[0][0].text, "Page 12");
 });
+
+test("deleteMessage never deletes the current incoming user message", async () => {
+  const calls = [];
+  const ctx = {
+    chat: { id: 123 },
+    message: { message_id: 77, forward_origin: { type: "channel" } },
+    telegram: {
+      callApi: async (method, payload) => {
+        calls.push({ method, payload });
+        return true;
+      },
+    },
+  };
+  const appCtx = createAppContext(ctx, { userId: 1 }, { operationTimeoutMs: 100 });
+
+  assert.equal(await appCtx.deleteMessage(77), false);
+  assert.deepEqual(calls, []);
+  assert.equal(await appCtx.deleteMessage(78), true);
+  assert.equal(calls[0].method, "deleteMessage");
+  assert.equal(calls[0].payload.message_id, 78);
+});

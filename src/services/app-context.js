@@ -360,6 +360,14 @@ function createAppContext(ctx, user, options = {}) {
       if (!chatId || !Number.isInteger(normalizedMessageId) || normalizedMessageId <= 0) {
         return false;
       }
+      const incomingMessageId = Number(ctx.message?.message_id || ctx.message?.messageId);
+      if (Number.isInteger(incomingMessageId) && normalizedMessageId === incomingMessageId) {
+        logger.warn("Refused to delete the current user message", {
+          chatId,
+          messageId: normalizedMessageId,
+        });
+        return false;
+      }
 
       try {
         return await sendApi("deleteMessage", {

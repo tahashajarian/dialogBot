@@ -34,8 +34,10 @@ const {
 } = require("../services/bot-navigation");
 const { sendBannerPhoto } = require("../services/banner-media");
 const { importPendingInlineListItems } = require("../services/pending-inline-lists");
+const { getDuplicateListMessage } = require("../services/ai-list-ui");
 const { preserveSharedLinkInvitation } = require("../services/discussion-invitations");
 const { getSectionEmoji, getSectionLabel } = require("../services/ai-section");
+const { resolveAiListAddInput } = require("./ai-list-input");
 
 const ONBOARDING_VERSION = 1;
 const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
@@ -390,12 +392,26 @@ async function handleOnboardingText(ctx, lang, helpers = {}) {
   }
   const section = getStateSection(state);
   if (!section) return undefined;
-  const item = String(ctx.text || "").trim().replace(/\s+/g, " ");
+  const typedItem = String(ctx.text || "").trim().replace(/\s+/g, " ");
   const isInlineControlLabel = ["fa", "en"].some((candidateLang) => (
-    item === messages[candidateLang].onboardingChooseAnotherSectionButton
-    || item === messages[candidateLang].onboardingFinishLaterButton
+    typedItem === messages[candidateLang].onboardingChooseAnotherSectionButton
+    || typedItem === messages[candidateLang].onboardingFinishLaterButton
   ));
   if (isInlineControlLabel) return null;
+  const addInput = resolveAiListAddInput(ctx, section, typedItem);
+  const item = addInput.item;
+  if (!item) {
+    const sectionKey = section.charAt(0).toUpperCase() + section.slice(1);
+    const error = addInput.reason === "untitled_audio"
+      ? messages[lang].aiMusicAudioTitleMissing
+      : addInput.reason === "unsupported_media"
+        ? (section === "music"
+          ? messages[lang].aiMusicAddTextOrAudioOnly
+          : messages[lang].aiListAddTextOnly)
+        : messages[lang][`aiTopTenInvalidItemQuality${sectionKey}`]
+          || messages[lang].aiTopTenInvalidItemQuality;
+    return ctx.reply(error);
+  }
   const result = await addAiListItem(
     ctx.userId,
     section,
@@ -406,7 +422,7 @@ async function handleOnboardingText(ctx, lang, helpers = {}) {
   if (!result.ok) {
     const sectionKey = section.charAt(0).toUpperCase() + section.slice(1);
     const error = result.reason === "exists"
-      ? messages[lang].aiListDuplicateMatch.replace("{item}", result.duplicate?.title || item)
+      ? getDuplicateListMessage(lang, result)
       : result.reason === "limit"
         ? messages[lang].aiTopTenLimitReached
           .replaceAll("{topTenLimit}", String(operationalLimits.aiTopTenItems))
