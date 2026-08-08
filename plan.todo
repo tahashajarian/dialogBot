@@ -24,12 +24,9 @@
 - [x] Do not force every suggestion into English. Use the original-identity rule instead.
 - [x] Per-task AI routing no longer needs to wait for usage growth; it is implemented with QA visibility and safe fallback.
 - [x] Keep Movies and Series together in one Favorites and suggestion section for now. Users can request `movie only` or `series only`; splitting them would fragment taste data and require migration across onboarding, profiles, matching, and discussions.
+- [x] Do not add People or Discussion invitations when a user first completes 10 Favorites. The existing taste-label completion flow stays focused, and social features remain available from their normal menus.
 
 ## Later
-
-- [ ] After a user completes all 10 Favorites in a section, optionally send a relevant discussion invitation.
-  - Not for launch.
-  - Requires a frequency cap, active-room handling, join-rule safety, and no invitation Star reward.
 
 - [ ] Explore first-time taste-label badge banners and combined profile banners.
   - Generate one banner per badge first.
@@ -37,7 +34,5 @@
   - Keep each banner first-time-only and avoid adding chat noise.
 
 ## Needs discussion
-
-- [ ] Should a completed Favorites list automatically trigger a discussion invitation, or should the user opt in from the completion card?
 
 - [ ] For badge banners, should combined profiles use generated combinations, a reusable layout assembled from individual badge art, or only the strongest badge?
