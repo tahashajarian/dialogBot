@@ -223,9 +223,10 @@ async function findIndexedSharedTasteCandidates(viewer, {
   limit = 200,
   excludeUserIds = [],
   minSharedItems = AI_TASTE_INDEX_MIN_SHARED_ITEMS,
+  indexReady = false,
 } = {}) {
   const minimum = Math.max(1, Number(minSharedItems) || AI_TASTE_INDEX_MIN_SHARED_ITEMS);
-  if (!(await hasTasteIndexData())) return null;
+  if (!indexReady && !(await hasTasteIndexData())) return null;
   const viewerIndex = buildUserTasteIndexSections(viewer);
   const eligibleSections = Object.entries(viewerIndex)
     .filter(([, items]) => items.length >= minimum);

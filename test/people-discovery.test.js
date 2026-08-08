@@ -18,6 +18,7 @@ const {
   findPeopleBySharedTaste,
   getEffectivePeopleLanguageFilter,
   getSharedSections,
+  loadIndexedCandidateSources,
   paginatePeopleDiscovery,
   sortPeopleDiscoveryItems,
 } = require("../src/services/people-discovery");
@@ -49,6 +50,33 @@ function userWithMusic(userId, items, extra = {}) {
     ...extra,
   };
 }
+
+test("indexed shared-item and taste-label discovery queries start concurrently", async () => {
+  const started = [];
+  let releaseIndexed;
+  let releaseLabels;
+  const indexedGate = new Promise((resolve) => { releaseIndexed = resolve; });
+  const labelsGate = new Promise((resolve) => { releaseLabels = resolve; });
+  const pending = loadIndexedCandidateSources({}, {}, { limit: 20 }, {
+    checkIndex: async () => true,
+    findIndexed: async () => {
+      started.push("indexed");
+      await indexedGate;
+      return [];
+    },
+    findLabels: async () => {
+      started.push("labels");
+      await labelsGate;
+      return [];
+    },
+  });
+
+  await Promise.resolve();
+  assert.deepEqual(started, ["indexed", "labels"]);
+  releaseIndexed();
+  releaseLabels();
+  assert.deepEqual(await pending, { indexedCandidates: [], tasteLabelCandidates: [] });
+});
 
 test("people discovery requires the default 2 items in one viewer section", async () => {
   const originalFind = User.find;

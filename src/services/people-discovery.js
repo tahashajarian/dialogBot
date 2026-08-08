@@ -9,7 +9,10 @@ const {
   normalizeAiListItem,
 } = require("./users");
 const { EVENT_NAMES, trackEvent } = require("./analytics-events");
-const { findIndexedSharedTasteCandidates } = require("./user-taste-index");
+const {
+  findIndexedSharedTasteCandidates,
+  hasTasteIndexData,
+} = require("./user-taste-index");
 const { countSharedTasteItems } = require("./taste-item-matching");
 const { getProfileGenderEmoji } = require("./profile");
 const { operationalLimits } = require("./operational-limits");
@@ -219,6 +222,23 @@ async function findTasteLabelCandidates(viewer, viewerTasteLabels, {
     .lean();
 }
 
+async function loadIndexedCandidateSources(viewer, viewerTasteLabels, options, dependencies = {}) {
+  const checkIndex = dependencies.checkIndex || hasTasteIndexData;
+  const findIndexed = dependencies.findIndexed || findIndexedSharedTasteCandidates;
+  const findLabels = dependencies.findLabels || findTasteLabelCandidates;
+  if (!(await checkIndex())) return { indexedCandidates: null, tasteLabelCandidates: [] };
+
+  const [indexedCandidates, tasteLabelCandidates] = await Promise.all([
+    findIndexed(viewer, { ...options, indexReady: true }),
+    findLabels(viewer, viewerTasteLabels, {
+      limit: options.limit,
+      languageFilter: "all",
+      candidateCreatedAfter: options.candidateCreatedAfter,
+    }),
+  ]);
+  return { indexedCandidates, tasteLabelCandidates };
+}
+
 function trackPeopleDiscovery(viewer, { mode, resultCount, reason } = {}) {
   void trackEvent({
     name: EVENT_NAMES.peopleDiscoveryQueried,
@@ -251,18 +271,18 @@ async function findPeopleBySharedTaste(viewer, {
   }
 
   const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
-  const indexedCandidates = await findIndexedSharedTasteCandidates(viewer, {
-    limit: resultLimit,
-    minSharedItems,
-  });
+  const { indexedCandidates, tasteLabelCandidates } = await loadIndexedCandidateSources(
+    viewer,
+    viewerTasteLabels,
+    {
+      limit: resultLimit,
+      minSharedItems,
+      candidateCreatedAfter,
+    },
+  );
   if (indexedCandidates) {
     const sharedByUserId = new Map(indexedCandidates.map((entry) => [Number(entry.userId), entry.sharedSections || []]));
     const indexedCandidateIds = indexedCandidates.map((entry) => Number(entry.userId)).filter((id) => Number.isInteger(id));
-    const tasteLabelCandidates = await findTasteLabelCandidates(viewer, viewerTasteLabels, {
-      limit: resultLimit,
-      languageFilter: "all",
-      candidateCreatedAfter,
-    });
     const tasteLabelCandidateIds = (tasteLabelCandidates || [])
       .map((entry) => Number(entry.userId))
       .filter((id) => Number.isInteger(id));
@@ -409,6 +429,7 @@ module.exports = {
   getPeopleDiscoveryMinSharedItems,
   getSharedSections,
   getSharedTasteLabels,
+  loadIndexedCandidateSources,
   paginatePeopleDiscovery,
   sortPeopleDiscoveryItems,
 };
