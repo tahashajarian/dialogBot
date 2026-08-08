@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  chooseExactBookResult,
   verifyOpenLibraryBookCandidate,
 } = require("../src/services/open-library-book-verifier");
 
@@ -13,7 +14,7 @@ function response(body, { ok = true, status = 200 } = {}) {
   };
 }
 
-test("Open Library verifies canonical identity and uses a verified Persian edition title", async () => {
+test("Open Library verifies identity and reuses aliases from the bounded search response", async () => {
   const calls = [];
   const candidate = {
     originalTitle: "The Catcher in the Rye",
@@ -24,15 +25,6 @@ test("Open Library verifies canonical identity and uses a verified Persian editi
     displayLanguage: "fa",
     fetchImpl: async (url) => {
       calls.push(String(url));
-      if (String(url).includes("/editions.json")) {
-        return response({
-          entries: [
-            { title: "The Catcher in the Rye" },
-            { title: "ناطور دشت" },
-            { title: "ناتور دشت" },
-          ],
-        });
-      }
       return response({
         docs: [{
           key: "/works/OL1W",
@@ -51,11 +43,11 @@ test("Open Library verifies canonical identity and uses a verified Persian editi
   assert.equal(result.canonicalTitle, "The Catcher in the Rye");
   assert.equal(result.displayTitle, "ناطور دشت");
   assert.equal(result.displayAuthor, "جی. دی. سلینجر");
-  assert.ok(result.aliases.includes("ناتور دشت"));
+  assert.ok(result.aliases.includes("ناطور دشت"));
   assert.match(calls[0], /title=The\+Catcher\+in\+the\+Rye/);
   assert.match(calls[0], /author=J\.\+D\.\+Salinger/);
   assert.match(calls[0], /lang=fa/);
-  assert.match(calls[1], /\/works\/OL1W\/editions\.json/);
+  assert.equal(calls.length, 1);
 });
 
 test("Open Library falls back to verified canonical title instead of AI localization", async () => {
@@ -99,6 +91,35 @@ test("Open Library rejects a real title paired with the wrong author", async () 
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, "catalog_unverified");
+});
+
+test("Open Library exact matching rejects combined titles and study guides", () => {
+  const docs = [{
+    key: "/works/GUIDE",
+    title: "The Stranger, The Plague (Coles Notes)",
+    author_name: ["Albert Camus"],
+  }, {
+    key: "/works/STUDY",
+    title: "The Stranger Study Guide",
+    author_name: ["Albert Camus"],
+  }];
+  assert.equal(chooseExactBookResult(docs, "The Stranger", "Albert Camus"), null);
+  assert.equal(chooseExactBookResult([{
+    key: "/works/REAL",
+    title: "The Stranger",
+    author_name: ["Albert Camus"],
+  }], "The Stranger", "Albert Camus")?.key, "/works/REAL");
+});
+
+test("Open Library accepts an exact safe edition title with the exact author", () => {
+  const result = chooseExactBookResult([{
+    key: "/works/EDITION",
+    title: "Collected fiction",
+    author_name: ["Clarice Lispector"],
+    editions: { docs: [{ title: "The Hour of the Star" }] },
+  }], "The Hour of the Star", "Clarice Lispector");
+
+  assert.equal(result?.key, "/works/EDITION");
 });
 
 test("Open Library HTTP failures are reported as catalogue unavailability", async () => {

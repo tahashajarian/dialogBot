@@ -162,9 +162,12 @@ const RETRYABLE_SUGGESTION_FAILURES = new Set([
   "invalid_title_creator_pair",
 ]);
 
-function getMediaSuggestionQualityIssue({ reason = "", excludedReferenceItems = [] }) {
+function getMediaSuggestionQualityIssue({ reason = "", excludedReferenceItems = [], lang = "en" }) {
   const cleanReason = String(reason || "").trim().replace(/\s+/g, " ");
   if (!cleanReason) return "missing_reason";
+  if (lang === "fa" && /[A-Za-z]{2,}/u.test(cleanReason)) {
+    return "mixed_language_reason";
+  }
   const userMatchLanguage = [
     /(?:سلیقه|فهرست|لیست|محبوب(?:\u200c|\s)?ها)(?:ت|\u200cت)?[^؛.!؟]{0,50}(?:جور|هماهنگ|نزدیک|مناسب|می(?:\u200c|\s)?خورد|می(?:\u200c|\s)?خوره)/u,
     /(?:با|به)\s+(?:حال(?:\u200c|\s)?وهوای\s+)?(?:سلیقه|فهرست|لیست|محبوب(?:\u200c|\s)?ها)(?:ت|ت\s|ت\u200c|\u200cت|\s*کاربر)?[^؛.!؟]{0,45}(?:جور|هماهنگ|نزدیک|مناسب|می(?:\u200c|\s)?خورد|می(?:\u200c|\s)?خوره)/u,

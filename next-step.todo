@@ -1,213 +1,40 @@
-# Nearby People And Local Discussions
+# Suggestion Roadmap
 
-Status: implemented on `nearby-discovery` for testing; both rollout switches remain off by default.
+Current status: the agreed Movies, Books, and Music improvements are implemented, tested, and ready to commit.
 
-Review the user-facing copy during manual testing. Keep both rollout switches off by default so deployment changes no existing behavior.
+## Done
 
-## Confirmed product decisions
+- [x] Use only the active section's Favorites (`topTen`) as positive taste evidence.
+- [x] Treat For Later, recent, liked/completed, and rejected items only as exclusions.
+- [x] Keep taste badges out of suggestion selection and ranking.
+- [x] Add `FAST_MODEL_NAME` / `OPENAI_FAST_MODEL`, with safe fallback to the main model.
+- [x] Retry an unusable fast-model result once with the main model and record the model role for QA.
+- [x] Generate up to five ranked Movie/Series candidates, verify them in parallel with Wikidata, and select the first safe result.
+- [x] Reject Movie/Series title-creator conflicts and check verified cross-language aliases for duplicates.
+- [x] Use official original identity across Movies, Books, and Music: Persian originals stay Persian; foreign works keep their official English/international identity.
+- [x] Prevent interface language, Favorite script, mood, and request wording from translating titles or creators.
+- [x] Remove Google Books and retrieval-first ranking from the active Book suggestion flow.
+- [x] Generate five ranked Book identities and verify up to five in order within the existing deadline.
+- [x] Verify Books with exact Open Library title-author matching, then strict Wikidata fallback.
+- [x] Accept exact safe Open Library edition-title aliases while rejecting combined records, study guides, notes, summaries, analysis, criticism, companions, and workbooks.
+- [x] Allow unusual Wikidata Book classifications only when the exact title and P50 author relationship match; reject Movie/TV entities.
+- [x] Cache verified Book identities and explicit mismatches, but never cache complete catalogue outages.
+- [x] Update the suggestion QA lab and documentation for the new flow.
+- [x] Complete initial manual QA for Movies, Books, and Music.
+- [x] Pass lint, architecture checks, translation validation, unit tests, integration tests, and production dependency audit.
 
-- Use exact shared coordinates only for private distance calculation.
-- The freely typed profile city remains display-only and must never be used for nearby matching.
-- Never show coordinates or exact distance to another user or discussion creator.
-- Do not sort results by exact distance.
-- Use one configurable nearby radius for People and Discussions.
-- Initial radius: strictly less than 50 km.
-- Locations do not expire automatically.
-- Users must be able to share, update, and remove their location.
-- Removing a location removes the user from location-based matching.
-- Existing stored locations must not automatically opt users into Nearby after rollout.
-- Existing “Show me in See People / Hide me” controls whether a profile participates in Nearby People.
-- Keep Nearby available without premium access initially so the discovery pool is not artificially reduced.
-- Use two independent dashboard switches:
-  - Nearby People
-  - Local Discussions
-- Both switches default off.
-- Location controls are available when at least one Nearby feature is enabled.
+## Cleanup completed
 
-## Nearby People behavior
+- [x] Remove retired Book retrieval/ranking modules, their old Google Books implementation, and dedicated obsolete tests.
+- [x] Remove retired Persian Book, Movie, and Music display resolvers and their dedicated obsolete tests after confirming no production imports remain.
 
-- Start from the existing normal People candidate pool.
-- Preserve all current eligibility, privacy, ban, language, saved-profile, deduplication, and taste-relevance rules.
-- A viewer needs a valid shared location and must be visible in See People before Nearby ranking is applied.
-- A candidate counts as nearby only when:
-  - the candidate has a valid shared location;
-  - the candidate is visible in See People;
-  - the viewer is visible in See People; and
-  - the private calculated distance is below the configured radius.
-- Partition the already-eligible results into:
-  1. nearby candidates;
-  2. all other normal candidates.
-- Show nearby candidates first.
-- Preserve the existing People relevance/order inside both groups.
-- Add the bot-controlled `📍` badge only to nearby candidates.
-- Do not expose distance bands, kilometers, coordinates, direction, or a map.
-- Non-nearby and location-unavailable candidates remain visible afterward in their normal order.
-- When Nearby People is disabled globally or by the viewer, People ordering and rendering remain exactly as they are now.
+## Later (only if testing shows a need)
 
-## Local Discussion creation
+- [ ] Add persistent/shared catalogue-verification caching if repeated verification traffic becomes a measurable performance or rate-limit problem. The current cache is bounded and in memory.
+- [ ] Improve Persian display for international Music only if users struggle to recognize or search the official catalogue names.
+- [ ] Add a trusted ratings provider only if ratings become a product requirement; ratings must never gate suggestions.
 
-- Add an optional `📍 Make local` action to the final discussion preview.
-- Show it only when the Local Discussions dashboard switch is enabled.
-- If the creator has no valid shared location, ask them to share location before making the discussion local.
-- Use the creator's current shared location.
-- Save a fixed location snapshot on the discussion when it becomes local.
-- Do not follow later creator-location updates.
-- The final preview must clearly show whether the discussion is local without displaying its coordinates.
-- Allow the creator to remove the local setting before confirming creation.
-- Confirm whether an already-created discussion may later add/remove its local status; implement only after that edit behavior is explicitly approved.
+## Needs discussion before implementation
 
-## Local Discussion discovery
-
-- Start from the existing normal Active Discussions candidate pool.
-- Preserve all current open/full, membership, join-rule, removed-user, language, relevance-tier, boost, freshness, capacity, and starter-room rules.
-- A local discussion counts as nearby only when:
-  - it has a valid creator-location snapshot;
-  - the viewer has a valid shared location; and
-  - the private calculated distance is below the configured radius.
-- Partition already-eligible discussions into:
-  1. nearby local discussions;
-  2. all other normal discussions.
-- Show nearby local discussions first.
-- Preserve the existing discussion ranking inside both groups.
-- Add the bot-controlled `📍` badge only when the discussion is nearby for that viewer.
-- Do not sort by exact distance or expose coordinates, kilometers, direction, or maps.
-- Discussions outside the radius and non-local discussions remain visible afterward normally.
-- When Local Discussions is disabled, hide creation controls and apply no nearby badge or ranking.
-- Keep stored local snapshots intact but unused while the feature is disabled.
-
-## Location UX
-
-- Audit the currently disabled profile-location flow and reuse its safe Telegram location input.
-- Do not add another Nearby on/off setting. Reuse See People visibility.
-- Agree on Persian and English copy before implementation for:
-  - what Nearby does;
-  - See People visibility;
-  - private use of exact coordinates;
-  - no public exact distance;
-  - updating location;
-  - removing location;
-  - disabling Nearby while retaining or deleting location;
-  - making a discussion local;
-  - removing local status;
-  - unavailable/invalid location;
-  - no nearby results, if a dedicated state is shown.
-- Keep all location actions together:
-  - Share location
-  - Update location
-  - Remove location
-- The location screen contains Share/Update, Remove when available, and Cancel.
-- No automatic location expiry.
-- Consider showing the user their last location-update date privately without exposing it publicly.
-
-## Anti-spoofing and safety
-
-- Keep `📍` reserved for bot-generated Nearby badges.
-- Existing validation already rejects emoji in profile names, discussion titles, and discussion descriptions; add explicit regression tests for `📍`.
-- Never send a nearby person's identity, location, or recipient list to a local discussion creator.
-- Never reveal who was considered nearby but filtered out.
-- Respect People visibility opt-out, bans, reports, invitation restrictions where applicable, and all existing discussion safety rules.
-- Revalidate location, See People visibility, switches, discussion state, and eligibility at action time.
-- Nearby does not bypass join rules, capacity, language, one-active-room, removed-user, or profile-name requirements.
-- Do not describe Nearby as live presence or claim that someone is currently at the stored location.
-
-## Data model and geospatial work
-
-- Reuse `showProfileInPeopleDiscovery`; do not add a separate Nearby consent field.
-- Reuse existing user latitude/longitude only after validating numeric bounds.
-- Add a geospatial representation/index suitable for bounded distance queries without exposing coordinates in public rendering.
-- Keep old users and existing location documents backward-compatible.
-- Add optional local-discussion fields:
-  - local enabled flag;
-  - creator location snapshot/geospatial point;
-  - snapshot timestamp.
-- Do not derive local status from the creator's current profile after creation.
-- Ensure account deletion and product-data cleanup remove all user location and local snapshot data required by privacy policy.
-- Define behavior when a creator removes their profile location after creating a local discussion: the confirmed discussion snapshot remains until the discussion closes or local status is removed.
-
-## Dashboard and rollout
-
-- Add independent dashboard switches:
-  - `nearbyPeopleEnabled`
-  - `localDiscussionsEnabled`
-- Add configurable `nearbyRadiusKm`, initially 50 km with strict `< radius` matching.
-- Define safe minimum/maximum dashboard bounds for the radius.
-- Both feature switches default off on deployment.
-- When both are off:
-  - hide all Nearby/local UI;
-  - perform no geospatial matching;
-  - preserve stored data without using it.
-- Display the effective radius and both switch states in dashboard configuration/diagnostics.
-- Keep premium gating out of the first implementation; revisit only after measuring adoption and nearby pool size.
-
-## Performance
-
-- Use indexed geospatial queries; never calculate distance against the full user or discussion collection in application memory.
-- Apply normal eligibility filters before or alongside bounded geospatial matching.
-- Keep query limits and pagination bounded.
-- Avoid additional location queries when the relevant dashboard switch is off or the viewer is hidden from See People.
-- Preserve deterministic People pagination and existing discussion ranking within nearby/non-nearby partitions.
-- Define stable pagination behavior so repeated requests do not reshuffle results.
-
-## Analytics and privacy-safe measurement
-
-- Track only aggregate events:
-  - Nearby enabled/disabled;
-  - location shared/updated/removed;
-  - nearby People result opened;
-  - local discussion marked/unmarked;
-  - nearby local discussion opened/joined.
-- Never log coordinates, exact distance, or recipient/candidate location pairs.
-- Add dashboard counts for location-sharing discoverable users and local discussions without exposing identities or locations.
-- Measure whether Nearby improves profile opens, saved profiles, discussion previews, and joins before considering premium access.
-
-## Tests
-
-- User location validation and coordinate bounds.
-- Existing stored location works only while the profile remains visible in See People.
-- Share/update/remove behavior.
-- Removing location removes the user from location matching.
-- Dashboard switches independently hide/show their feature surfaces.
-- Both switches off preserve current People and Discussion behavior exactly.
-- Strict radius boundary: below radius is nearby; equal to or above is not.
-- Nearby People requires both profiles to remain visible in See People.
-- Nearby candidates appear first without distance sorting.
-- Existing relevance order remains stable inside nearby and non-nearby groups.
-- Non-nearby People still appear afterward.
-- Local discussion uses a creation-time creator-location snapshot.
-- Creator location updates do not move an existing local discussion.
-- Nearby local discussions appear first while preserving current ranking inside groups.
-- Outside-radius and non-local discussions still appear afterward.
-- No exact location/distance appears in messages, profiles, callbacks, analytics, or logs.
-- `📍` remains rejected in user-entered profile names, discussion titles, and descriptions.
-- All existing join, invitation, block/restriction, visibility, pagination, and stale-action protections remain intact.
-- Account deletion removes required location data.
-- Translation validation, unit tests, integration tests for database mutations, and full regression suite.
-
-## Documentation updates required during implementation
-
-- `docs/discussions.md`
-- `docs/bot-ux.md`
-- `docs/architecture.md`
-- `docs/agent-map.md`
-- `docs/analytics-dashboard.md`
-- privacy/rules and deployment documentation where location behavior is described
-
-## Implemented in the testing branch
-
-- Independent dashboard switches and configurable radius.
-- Backward-compatible GeoJSON points and geospatial indexes.
-- Share/update/remove location controls in one location screen.
-- Mutual Nearby People matching, stable partitioning, and `📍` marker.
-- Optional local setting on the final discussion preview.
-- Fixed creator-location snapshots on local discussions.
-- Nearby-first Local Discussion discovery with stable existing ranking.
-- Privacy-safe rendering, strict coordinate validation, focused tests, integration tests, and source-of-truth docs.
-
-## Follow-up before rollout
-
-1. Manually test and polish Persian and English wording.
-2. Decide whether an already-created discussion may add/remove its local status.
-3. Add privacy-safe adoption/conversion analytics before a measured rollout.
-4. Add aggregate dashboard counts for location-sharing discoverable users and local discussions if needed for rollout decisions.
-5. Run a real Mongo geospatial smoke test with accounts just below and exactly at the configured radius.
-6. Deploy with both switches off and enable only after the manual privacy/UX review.
+- [ ] Decide whether Movies need an extra fast-model reranking call. Current manual results are good; adding it would increase latency and cost.
+- [ ] Decide whether Books should request a second replacement batch when all five candidates fail verification. This could reduce failures but would increase latency, provider usage, and catalogue calls.

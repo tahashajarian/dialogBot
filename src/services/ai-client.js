@@ -175,12 +175,17 @@ async function requestSuggestionTextWithoutCapacity(
     maxOutputTokens = DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
     recordEvent = recordAiApiEvent,
     operation = "suggestion",
+    modelRole = "main",
   },
 ) {
   const errors = [];
   const provider = config.suggestionProvider || "auto";
   const useChatCompletions = provider !== "responses";
   const useResponses = provider !== "chat";
+  const selectedModel = modelRole === "fast"
+    ? (config.fastModel || config.model)
+    : config.model;
+  const modelMetadata = { modelRole: modelRole === "fast" ? "fast" : "main" };
 
   if (useChatCompletions && openai?.chat?.completions?.create) {
     const startedAt = Date.now();
@@ -189,7 +194,7 @@ async function requestSuggestionTextWithoutCapacity(
         (signal) =>
           openai.chat.completions.create(
             {
-              model: config.model,
+              model: selectedModel,
               max_completion_tokens: maxOutputTokens,
               messages: [
                 { role: "system", content: instructions },
@@ -208,7 +213,7 @@ async function requestSuggestionTextWithoutCapacity(
           operation,
           provider: "chat_completions",
           durationMs: Date.now() - startedAt,
-          metadata: extractAiTokenUsage(response),
+          metadata: { ...modelMetadata, ...extractAiTokenUsage(response) },
         });
         return { text, api: "chat_completions" };
       }
@@ -218,6 +223,7 @@ async function requestSuggestionTextWithoutCapacity(
         provider: "chat_completions",
         reason: "empty_output",
         durationMs: Date.now() - startedAt,
+        metadata: modelMetadata,
       });
       errors.push("chat_completions_empty");
     } catch (error) {
@@ -228,7 +234,7 @@ async function requestSuggestionTextWithoutCapacity(
         provider: "chat_completions",
         reason: classified.category,
         durationMs: Date.now() - startedAt,
-        metadata: classified.metadata,
+        metadata: { ...modelMetadata, ...classified.metadata },
       });
       errors.push(classified.category);
     }
@@ -241,7 +247,7 @@ async function requestSuggestionTextWithoutCapacity(
         (signal) =>
           openai.responses.create(
             {
-              model: config.model,
+              model: selectedModel,
               max_output_tokens: maxOutputTokens,
               instructions,
               input,
@@ -258,7 +264,7 @@ async function requestSuggestionTextWithoutCapacity(
           operation,
           provider: "responses",
           durationMs: Date.now() - startedAt,
-          metadata: extractAiTokenUsage(response),
+          metadata: { ...modelMetadata, ...extractAiTokenUsage(response) },
         });
         return { text, api: "responses" };
       }
@@ -268,6 +274,7 @@ async function requestSuggestionTextWithoutCapacity(
         provider: "responses",
         reason: "empty_output",
         durationMs: Date.now() - startedAt,
+        metadata: modelMetadata,
       });
       errors.push("responses_empty");
     } catch (error) {
@@ -278,7 +285,7 @@ async function requestSuggestionTextWithoutCapacity(
         provider: "responses",
         reason: classified.category,
         durationMs: Date.now() - startedAt,
-        metadata: classified.metadata,
+        metadata: { ...modelMetadata, ...classified.metadata },
       });
       errors.push(classified.category);
     }
@@ -306,6 +313,24 @@ async function requestSuggestionText(openai, options = {}) {
   }
 }
 
+async function requestFastSuggestionText(openai, options = {}, isUsable = (result) => Boolean(result?.text)) {
+  const config = options.config || getAiConfig();
+  const fastResult = await requestSuggestionText(openai, {
+    ...options,
+    config,
+    modelRole: "fast",
+  });
+  if (isUsable(fastResult) || !config.fastModel || config.fastModel === config.model) {
+    return { ...fastResult, modelRole: "fast" };
+  }
+  const mainResult = await requestSuggestionText(openai, {
+    ...options,
+    config,
+    modelRole: "main",
+  });
+  return { ...mainResult, modelRole: "main", fastFallback: true };
+}
+
 module.exports = {
   DEFAULT_SUGGESTION_MAX_OUTPUT_TOKENS,
   classifyAiProviderError,
@@ -314,6 +339,7 @@ module.exports = {
   getClient,
   getEmbedding,
   requestSuggestionText,
+  requestFastSuggestionText,
   requestSuggestionTextWithoutCapacity,
   withAiTimeout,
 };

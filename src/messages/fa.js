@@ -599,7 +599,7 @@ module.exports = {
     aiSuggestionAddedDoneMusic: "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)",
     aiSuggestionAddedDoneBooks: "👩‍🦳 در 📚📋 لیست «بعدا می‌خونم» ذخیره شد. (خوانده‌شده)",
     aiSuggestionAddedDoneRandom: "👩‍🦳 در 🌿📋 لیست علاقه‌مندی‌ها ذخیره شد. (انجام‌شده)",
-    aiSuggestionRejected: "👩‍🦳 👍 متوجه شدم؛ از این مدل پیشنهاد کمتر می‌دم.",
+    aiSuggestionRejected: "👩‍🦳 👍 متوجه شدم؛ این مورد رو دوباره پیشنهاد نمی‌دم.",
     aiSuggestionAnotherButton: "🔁 پیشنهاد بعدی",
     aiSuggestionGoToListButton: "رفتن به {listName}",
     aiSuggestionGoToFavoritesButton: "❤️ رفتن به لیست «محبوب‌ها»",

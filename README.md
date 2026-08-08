@@ -51,9 +51,11 @@ TELEGRAM_PROXY_URL=
 API_BASE_URL=
 API_KEY=
 MODEL_NAME=gpt-4o-mini
+FAST_MODEL_NAME=
 EMBEDDING_MODEL=text-embedding-3-small
 AI_SUGGESTION_PROVIDER=auto
 AI_TIMEOUT_MS=8000
+OPEN_LIBRARY_CONTACT_EMAIL=
 
 # Private-beta usernames, comma-separated.
 # Leave empty to allow all users.
@@ -93,7 +95,7 @@ and must be independent from the bot token and AI API key. Startup errors name
 the invalid setting without printing its value.
 
 
-Book suggestions use one AI candidate batch followed by bounded Open Library identity checks.
+Book suggestions use one ranked AI candidate batch followed by bounded Open Library identity checks and a strict Wikidata fallback. Set `OPEN_LIBRARY_CONTACT_EMAIL` so Open Library can identify regular API traffic. Google Books is not used.
 Saved-for-later items are exclusions only and never positive taste evidence.
 
 `AI_SUGGESTION_PROVIDER` controls which OpenAI-compatible API is used for
@@ -216,4 +218,3 @@ npm.cmd run qa:suggestions:web
 
 On Windows, `start-suggestion-lab.cmd` launches the same dashboard by double-click.
 See `docs/ai-suggestion-qa.md` for profiles, safety guarantees, and terminal usage.
-

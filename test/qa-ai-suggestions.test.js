@@ -36,18 +36,20 @@ test("QA argument parser supports positional commands and named options", () => 
   );
 });
 
-test("QA blocked items combine favorites, watchlist, rejections, and current run history", () => {
+test("QA blocked items combine favorites and exclusion-only history", () => {
   assert.deepEqual(
     getBlockedItems({
       favorites: ["Favorite"],
       watchlist: [{ title: "Saved" }],
       rejected: ["Rejected"],
+      liked: ["Liked"],
       seen: ["Seen"],
     }),
     [
       { title: "Favorite" },
       { title: "Saved" },
       { title: "Rejected" },
+      { title: "Liked" },
       { title: "Seen" },
     ],
   );
@@ -116,4 +118,30 @@ test("QA runner reuses real flow inputs without persistence and blocks earlier r
   assert.deepEqual(calls[0].recentSuggestionItems, []);
   assert.ok(calls[1].recentSuggestionItems.includes("First result"));
   assert.ok(calls[1].blockedSuggestionItems.some((entry) => entry.title === "First result"));
+});
+
+test("QA accepts original-language movie titles independently of interface language", async () => {
+  const runtime = {
+    generateUsableSuggestion: async () => ({
+      ok: true,
+      title: "Dark City",
+      metadata: "Director: Alex Proyas",
+      reason: "جهان‌سازی لایه‌مند و هویت متزلزل؛ رازآلود و عمیق.",
+      source: "wikidata",
+    }),
+    extractSuggestionCreator: () => "Alex Proyas",
+    formatSuggestionResultMessage: () => "formatted",
+    getPreferredSuggestionDisplayLanguage: () => "fa",
+    classifyItemScript: () => "en",
+  };
+  const [result] = await runScenario({
+    id: "movie-language",
+    label: "Movie language",
+    section: "movies",
+    lang: "fa",
+    favorites: ["ماتریکس", "ورود", "سولاریس"],
+  }, { count: 1, silent: true }, runtime);
+
+  assert.equal(result.quality.expectedDisplayLanguage, "original");
+  assert.equal(result.quality.displayLanguagePass, true);
 });

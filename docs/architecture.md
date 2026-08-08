@@ -219,7 +219,8 @@ Age is optional and not enforced by the profile viewing gate.
 - `TELEGRAM_PROXY_URL` is an optional HTTP(S) proxy for Telegram Bot API calls when the host cannot reach `api.telegram.org` directly.
 - `API_BASE_URL` is reserved for GapGPT/OpenAI-compatible endpoint base URL.
 - `API_KEY` or `OPENAI_API_KEY` is used for GapGPT/OpenAI-compatible auth.
-- `MODEL_NAME` or `OPENAI_MODEL` controls AI model selection.
+- `MODEL_NAME` or `OPENAI_MODEL` controls the main AI model. `FAST_MODEL_NAME` or `OPENAI_FAST_MODEL` optionally routes bounded suggestion ranking, discovery, and explanation work to a faster model; when unset it falls back to the main model.
+- `OPEN_LIBRARY_CONTACT_EMAIL` identifies regular Open Library verification traffic in the user-agent. Book suggestions do not use Google Books.
 - `AI_SUGGESTION_PROVIDER` controls suggestion API routing: `auto` tries chat completions then responses, `chat` uses only chat completions, and `responses` uses only the Responses API.
 - `BOT_DEEP_LINK_BASE_URL` is the public bot URL for invite deep links. For Telegram use `https://t.me/BotUsername`. If it contains `{payload}`, the payload is substituted there; otherwise `?start=payload` is appended.
 - `BOT_PUBLIC_URL` and `BOT_USERNAME` are still supported as fallback invite-link settings.

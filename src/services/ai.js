@@ -35,12 +35,9 @@ function getModeInstruction(mode, lang) {
   if (mode === "movies") {
     return [
       "Subject is movies and TV/streaming series.",
-      "Recommend either a movie or a series without asking the user to choose a type.",
-      "Infer the likely balance from their Favorites; if their short request explicitly asks for a movie or series, honor it.",
-      "Identify the dominant cluster in the Favorites before choosing: national cinema or language, realism versus genre, recurring themes, pacing, and directing style.",
-      "When a clear majority shares one national cinema or language, normally recommend inside that cinema or one close world-cinema step away. Do not jump to an unrelated genre merely because it is acclaimed or popular.",
-      "Treat one malformed, ambiguous, or isolated Favorite as weak evidence; do not let it override the repeated pattern across the rest of the list.",
-      "For a strongly realist social or family-drama list, prefer adjacent humanist, social, family, or moral drama unless the user explicitly asks for science fiction, fantasy, action, horror, or another genre.",
+      "Recommend the movies or series that best fit the Favorites and current request.",
+      "Infer national cinema, language, genre, themes, mood, pacing, and style directly from the strongest repeated patterns in Favorites.",
+      "Stay inside those strongest repeated patterns unless the current request explicitly asks for something different.",
       `Reply in ${language}. Keep it short and useful.`,
     ].join(" ");
   }
@@ -92,27 +89,28 @@ function buildUserContext({
     const normalized = items.map(normalizeContextItem).filter(Boolean);
     return normalized.length ? normalized.join(" | ") : "None";
   };
+  const exclusions = [
+    ...watchlistItems,
+    ...recentSuggestionItems,
+    ...rejectedSuggestionItems,
+    ...likedSuggestionItems,
+  ];
   return [
     `Favorites: ${compactList(topTenItems)}`,
-    `Hard exclusions — already saved for later; never suggest the same work under another language, translation, transliteration, spelling, edition, or localized title: ${compactList(watchlistItems)}`,
-    `Liked and already consumed: ${compactList(likedSuggestionItems)}`,
-    `Recent suggestions: ${compactList(recentSuggestionItems)}`,
+    `Hard exclusions — do not infer taste from these and never suggest the same work under another language, translation, transliteration, spelling, edition, or localized title: ${compactList(exclusions)}`,
     `Recently suggested creators: ${compactList(recentSuggestionCreators)}`,
-    `Rejected suggestions: ${compactList(rejectedSuggestionItems)}`,
   ].join("\n");
 }
 
 function getPersonalizedSuggestionInstruction() {
   return [
-    "Base the recommendation primarily on specific overlaps with the user's favorites.",
+    "Use Favorites as the only evidence of the user's taste. Base recommendation relevance only on specific overlaps with those Favorites and the current request.",
     "Favorites may be works or creators such as directors, authors, artists, or bands.",
     "Treat a favorite creator as a taste signal for discovery, not as a request for that creator's most famous works.",
     "If a Favorite is a creator, recommend an established adjacent work by a different creator that shares specific style, themes, atmosphere, or structure.",
     "Do not recommend a work by a favorite creator unless the user's current request explicitly asks for that creator; this rule also applies when that creator's works appear in liked-and-already-consumed items.",
     "Never describe a work as similar or close to a person, and never use a creator's name as the target of a comparison. Describe the concrete shared qualities instead.",
-    "Treat liked-and-already-consumed items as additional positive taste evidence.",
-    "Treat rejected/not-for-me items as negative evidence and reduce genuinely similar suggestions, without overgeneralizing from one rejection.",
-    "Saved-for-later items are neutral, not evidence that the user likes them.",
+    "Saved-for-later, recent, liked, and rejected items are exclusions only. Never infer taste from them.",
     "Treat the saved-for-later list as a hard exclusion list: never recommend the same work under another language, translation, transliteration, spelling, edition, or localized title.",
     "Avoid repeating favorites, saved-for-later, liked-and-consumed, recently suggested, or rejected items.",
   ].join(" ");
@@ -229,6 +227,7 @@ function validateSuggestionCandidate({
     const mediaQualityIssue = getMediaSuggestionQualityIssue({
       reason: parsed.reason,
       excludedReferenceItems: topTenItems,
+      lang,
     });
     if (mediaQualityIssue) {
       return { ok: false, reason: "low_quality_media", qualityIssue: mediaQualityIssue };
@@ -278,7 +277,7 @@ async function getAiSingleSuggestion({
   personalized = false,
   tasteStyleHint = "",
   candidateCount = 1,
-  displayLanguage = lang,
+  displayLanguage: _displayLanguage = lang,
   requestTimeoutMs = null,
 }) {
   const input = normalizeInput(userText);
@@ -293,24 +292,20 @@ async function getAiSingleSuggestion({
 
   try {
     const batchSize = candidateCount > 1 ? Math.min(5, candidateCount) : 1;
-    const prefersPersianDisplay = displayLanguage === "fa";
-    const isPersianBook = mode === "books" && prefersPersianDisplay;
-    const isPersianMovie = mode === "movies" && prefersPersianDisplay;
     const instructions = [
       `Recommend exactly ${batchSize === 1 ? "one" : batchSize} real, established, widely known item${batchSize === 1 ? "" : "s"}.`,
       batchSize === 1
         ? "Use exactly 3 short plain-text lines: exact searchable item name; identifying metadata; then a reason of at most 12 words."
-        : `Return only a valid JSON array with exactly ${batchSize} objects. Each object must have string fields "title", "metadata", and "reason"; reason is at most 12 words. Do not repeat candidates.`,
-      isPersianBook
-        ? 'For books, use the established Persian publication title in "title" and the conventional Persian author name in "metadata". If no established Persian title is confidently known, use the official original title and author instead. Do not invent or literally translate a title, and do not include a year.'
-        : mode === "books"
-          ? 'For books, use the official original title in "title" and the author name in its established original/Latin form in "metadata". Do not translate the title and do not include a year.'
-          : "",
-      isPersianMovie
-        ? 'For movies and series, keep the official original searchable title and creator in "title" and "metadata". Also include "localizedTitle" and "localizedCreator" with the established Persian title and Persian creator name when confidently known. If no established Persian identity is confidently known, leave those localized fields empty so the original identity can be shown. Never invent a translation.'
-        : mode === "movies"
-          ? 'For movies and series, use the official original searchable title and creator in "title" and "metadata". Do not translate or localize their names.'
-          : "",
+        : `Return only a valid JSON array with exactly ${batchSize} objects, ordered from strongest to weakest relevance to the Favorites and current request. Each object must have string fields "title", "metadata", and "reason"; reason is at most 12 words. Do not repeat candidates.`,
+      mode === "books"
+        ? 'For books, use the official original-language title in "title" and the author name in its official catalogue form in "metadata". Persian originals stay Persian; otherwise use the official English/international identity. Never translate or transliterate the title and do not include a year.'
+        : "",
+      mode === "music"
+        ? 'For music, use the official original catalogue title and artist. Persian originals stay Persian; otherwise use the official English/international identity. Never translate or transliterate them.'
+        : "",
+      mode === "movies"
+        ? 'For movies and series, use the exact official title in its original language in "title" and its real director or creator in "metadata". If the original title is Persian, write it in Persian. Otherwise use the official English or international title. Never translate a foreign title into Persian and do not add localizedTitle or localizedCreator fields.'
+        : "",
       "Before answering, internally check that the title and creator belong to the same real item.",
       "Be factually certain: never invent or approximate titles, creators, tools, channels, or resources.",
       "Prefer certainty over novelty or a perfect taste match. If unsure, reply exactly UNSURE.",
@@ -319,17 +314,11 @@ async function getAiSingleSuggestion({
       "Address the user informally; in Persian use تو/سلیقه‌ات, never شما/سلیقه‌تان.",
       lang === "fa"
         ? (mode === "books"
-          ? (prefersPersianDisplay
-            ? "The favorites are mainly in Persian script, so prefer established Persian book and author names; fall back to the official original identity when unavailable."
-            : "The favorites are mainly in Latin script, so keep book titles and author names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
+          ? "Keep book titles and author names in their official original identity. Write only mood and reason in Persian."
           : mode === "music"
-            ? (prefersPersianDisplay
-              ? "The favorites are mainly in Persian script, so prefer established Persian song and artist names when known. Write line 2 labels and all of line 3 in Persian."
-              : "The favorites are mainly in Latin script, so keep song titles and artist names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
+            ? "Keep song titles and artist names in their official original identity. Write only mood and reason in Persian."
             : mode === "movies"
-              ? (prefersPersianDisplay
-                ? "The favorites are mainly in Persian script, so provide established Persian display fields when confidently known. Write line 2 labels and all of line 3 in Persian."
-                : "The favorites are mainly in Latin script, so display movie titles and creator names in their official original/Latin form. Write line 2 labels and all of line 3 in Persian.")
+              ? "Keep every movie title in its original language: Persian originals in Persian and foreign originals in their official English/international form. Write the entire reason naturally in Persian with no English words."
               : "Keep exact official titles and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin.")
         : "",
       getSingleSuggestionDetailInstruction(mode),

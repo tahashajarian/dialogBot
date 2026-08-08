@@ -528,7 +528,12 @@ async function initialize() {
     const healthBody = await healthResponse.json();
     state.presets = presetBody.presets || [];
     elements.connectionPill.classList.add(healthBody.apiConfigured ? "ready" : "warning");
-    elements.connectionText.textContent = healthBody.apiConfigured ? "Local · API ready" : "Local · add API key";
+    const modelSummary = healthBody.models?.main
+      ? ` · ${healthBody.models.main}${healthBody.models.fast && healthBody.models.fast !== healthBody.models.main ? ` → ${healthBody.models.fast}` : ""}`
+      : "";
+    elements.connectionText.textContent = healthBody.apiConfigured
+      ? `Local · API ready${modelSummary}`
+      : "Local · add API key";
 
     let initial = null;
     try {

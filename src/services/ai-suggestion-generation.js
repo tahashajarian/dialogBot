@@ -13,16 +13,12 @@ const { retrieveMusicCandidates } = require("./music-candidate-retriever");
 const { rankRetrievedMusic } = require("./ai-music-retrieval-ranker");
 const { discoverAdjacentMusicArtists } = require("./ai-music-artist-discovery");
 const { generateBookCandidates } = require("./ai-book-candidate-generator");
-const { verifyOpenLibraryBookCandidate } = require("./open-library-book-verifier");
-const { inferAuthorQueries, retrieveBookCandidates } = require("./book-candidate-retriever");
-const { rankRetrievedBooks } = require("./ai-book-retrieval-ranker");
-const { resolvePersianBookDisplay } = require("./persian-book-title-resolver");
+const { verifyBookSuggestionCandidate } = require("./book-suggestion-verifier");
+const { inferAuthorQueries } = require("./book-author-inference");
 const { verifyWikidataSuggestion } = require("./wikidata-suggestion-verifier");
-const { resolvePersianMovieDisplay } = require("./persian-movie-display-resolver");
 const {
   creatorIsExplicitlyRequested,
 } = require("./ai-suggestion-diversity");
-const { getPreferredSuggestionDisplayLanguage } = require("./ai-suggestion-display-language");
 const { normalizeAiInput } = require("./input-normalization");
 const {
   buildSuggestionAttemptText,
@@ -230,11 +226,8 @@ async function generateUsableSuggestion({
   watchlistItems = [],
   recentSuggestionItems = [],
   rejectedSuggestionItems = [],
-  likedSuggestionItems = [],
   recentSuggestionCreators = [],
   blockedSuggestionItems = [],
-  watchlistCreators = [],
-  tasteStyleHint = "",
 }, dependencies = {}) {
   const requestSuggestion = dependencies.requestSuggestion || getAiSingleSuggestion;
   const findDuplicate = dependencies.findDuplicate || getAiListDuplicateMatch;
@@ -243,26 +236,29 @@ async function generateUsableSuggestion({
   const rankMusic = dependencies.rankMusic || rankRetrievedMusic;
   const discoverMusicArtists = dependencies.discoverMusicArtists || discoverAdjacentMusicArtists;
   const generateBooks = dependencies.generateBooks || generateBookCandidates;
-  const verifyBook = dependencies.verifyBook || verifyOpenLibraryBookCandidate;
-  const retrieveBooks = dependencies.retrieveBooks || retrieveBookCandidates;
-  const rankBooks = dependencies.rankBooks || rankRetrievedBooks;
-  const resolveBookDisplay = dependencies.resolveBookDisplay || resolvePersianBookDisplay;
+  const verifyBook = dependencies.verifyBook || verifyBookSuggestionCandidate;
   const verifyMovie = dependencies.verifyMovie || verifyWikidataSuggestion;
-  const resolveMovieDisplay = dependencies.resolveMovieDisplay || resolvePersianMovieDisplay;
-  const useLegacyBookPipeline = Object.prototype.hasOwnProperty.call(dependencies, "generateBooks")
-    || Object.prototype.hasOwnProperty.call(dependencies, "verifyBook");
   const useLegacyMovieVerifier = Object.prototype.hasOwnProperty.call(dependencies, "verifyMediaPair");
   let suggestionResult = null;
   let previousSuggestionIssue = "";
-  const displayLanguage = getPreferredSuggestionDisplayLanguage(topTenItems, lang);
+  const displayLanguage = "original";
   const diagnostics = {
     attempts: 0,
     generatedCandidates: 0,
     duplicateCandidates: 0,
     invalidPairCandidates: 0,
+    verifiedCandidates: 0,
   };
   const deadlineAt = Date.now() + SUGGESTION_WORK_BUDGET_MS;
-  let retrievedBookDiagnostics = null;
+  const blockedTitles = [
+    ...blockedSuggestionItems,
+    ...watchlistItems,
+    ...recentSuggestionItems,
+    ...rejectedSuggestionItems,
+  ]
+    .map((entry) => (typeof entry === "string" ? entry : entry?.title))
+    .map((title) => String(title || "").trim())
+    .filter(Boolean);
 
   if (section === "music") {
     const discoveryArtists = Object.prototype.hasOwnProperty.call(dependencies, "retrieveMusic")
@@ -272,13 +268,13 @@ async function generateUsableSuggestion({
         favorites: topTenItems,
         requestText: userText,
         recentCreators: recentSuggestionCreators,
-        savedCreators: watchlistCreators,
+        savedCreators: [],
       });
     const retrieved = await retrieveMusic({
       favorites: topTenItems,
       requestText: userText,
       recentCreators: recentSuggestionCreators,
-      savedCreators: watchlistCreators,
+      savedCreators: [],
       discoveryArtists,
     });
     const available = retrieved.filter((candidate) => (
@@ -290,11 +286,8 @@ async function generateUsableSuggestion({
       lang,
       userText,
       favorites: topTenItems,
-      likedSuggestions: likedSuggestionItems,
-      rejectedSuggestions: rejectedSuggestionItems,
       recentCreators: recentSuggestionCreators,
       candidates: available,
-      displayLanguage,
     });
     if (ranked.ok) {
       return {
@@ -310,64 +303,13 @@ async function generateUsableSuggestion({
     return { ok: false, reason: ranked.reason || "no_catalog_candidates" };
   }
 
-  if (section === "books" && !useLegacyBookPipeline) {
-    const candidates = await retrieveBooks({
-      favorites: topTenItems,
-      displayLanguage,
-      tasteStyleHint,
-      blockedItems: blockedSuggestionItems,
-      excludedCreators: recentSuggestionCreators,
-      requestText: userText,
-    });
-    retrievedBookDiagnostics = candidates.diagnostics || { availableCandidates: candidates.length };
-    if (candidates.length >= 3) {
-      const ranked = await rankBooks({
-        userId,
-        lang,
-        displayLanguage,
-        userText,
-        favorites: topTenItems,
-        likedSuggestions: likedSuggestionItems,
-        rejectedSuggestions: rejectedSuggestionItems,
-        hardExclusions: [...watchlistItems, ...recentSuggestionItems, ...rejectedSuggestionItems],
-        recentCreators: recentSuggestionCreators,
-        tasteStyleHint,
-        candidates,
-      });
-      if (ranked.ok && ranked.candidate) {
-        return {
-          ok: true,
-          title: ranked.candidate.title,
-          metadata: `Author: ${ranked.candidate.author}`,
-          mood: ranked.mood,
-          reason: ranked.reason,
-          sourceTitle: ranked.candidate.title,
-          sourceAuthor: ranked.candidate.author,
-          source: ranked.candidate.source,
-          sourceId: ranked.candidate.sourceId,
-          diagnostics: {
-            ...retrievedBookDiagnostics,
-            rankedCandidates: Math.min(30, candidates.length),
-          },
-        };
-      }
-    }
-  }
-
   if (section === "books") {
     const generated = await generateBooks({
       userId,
       lang,
       userText,
       favorites: topTenItems,
-      likedSuggestions: likedSuggestionItems,
-      rejectedSuggestions: rejectedSuggestionItems,
-      tasteStyleHint,
-      hardExclusions: [
-        ...watchlistItems,
-        ...recentSuggestionItems,
-        ...rejectedSuggestionItems,
-      ],
+      hardExclusions: blockedTitles,
       requestTimeoutMs: Math.min(10000, Math.max(1000, deadlineAt - Date.now() - 5500)),
     });
     if (!generated.ok || !generated.candidates?.length) {
@@ -382,7 +324,7 @@ async function generateUsableSuggestion({
       candidate.originalTitle,
       `${candidate.originalTitle} ${candidate.originalAuthor}`,
     ].filter(Boolean).some((identity) => findDuplicate(identity, blockedSuggestionItems));
-    const available = generated.candidates.filter((candidate) => !originalIdentityBlocked(candidate));
+    const available = generated.candidates.filter((candidate) => !originalIdentityBlocked(candidate)).slice(0, 5);
     if (!available.length) {
       return {
         ok: false,
@@ -394,21 +336,20 @@ async function generateUsableSuggestion({
       };
     }
 
-    const verificationResults = await Promise.all(
-      available.map((candidate) => verifyBook(candidate, {
-        displayLanguage,
-        timeoutMs: Math.min(3000, Math.max(1000, deadlineAt - Date.now() - 3500)),
-      })),
-    );
+    const verificationResults = [];
     let verifiedCandidates = 0;
     let duplicateCandidates = 0;
-    let originalLanguageFallback = null;
     let favoriteAuthorLocalizedFallback = null;
-    let favoriteAuthorOriginalFallback = null;
     const favoriteAuthors = inferAuthorQueries(topTenItems, 10);
     const favoriteAuthorItems = favoriteAuthors.map((title) => ({ title }));
     const recentAuthorItems = recentSuggestionCreators.map((title) => ({ title }));
-    for (const verified of verificationResults) {
+    for (const candidate of available) {
+      if (deadlineAt - Date.now() < 1800) break;
+      const verified = await verifyBook(candidate, {
+        displayLanguage,
+        timeoutMs: Math.min(1800, Math.max(1000, deadlineAt - Date.now() - 1000)),
+      });
+      verificationResults.push(verified);
       if (!verified?.ok || !verified.candidate) continue;
       verifiedCandidates += 1;
       const creators = [
@@ -453,39 +394,8 @@ async function generateUsableSuggestion({
       const favoriteAuthorBlocked = creatorAliases.some((creator) => (
         findDuplicate(creator, favoriteAuthorItems)
       )) && !creatorExplicitlyRequested;
-      let displayTitle = displayLanguage === "fa"
-        ? selected.localizedTitle || verified.displayTitle || verified.canonicalTitle || selected.originalTitle
-        : verified.displayTitle || verified.canonicalTitle || selected.originalTitle;
-      let displayAuthor = displayLanguage === "fa"
-        ? selected.localizedAuthor || verified.displayAuthor || canonicalAuthor
-        : verified.displayAuthor || canonicalAuthor;
-      if (displayLanguage === "fa" && (!/[\u0600-\u06ff]/u.test(displayTitle) || !/[\u0600-\u06ff]/u.test(displayAuthor))) {
-        const localized = await resolveBookDisplay({
-          userId,
-          title: verified.canonicalTitle || selected.originalTitle,
-          metadata: `Author: ${canonicalAuthor}`,
-          requestTimeoutMs: Math.min(3000, Math.max(1000, deadlineAt - Date.now() - 1000)),
-        });
-        displayTitle = localized.localizedTitle;
-        displayAuthor = localized.localizedCreator;
-        if (!displayTitle || !displayAuthor) {
-          const fallback = {
-            ok: true,
-            title: verified.canonicalTitle || selected.originalTitle,
-            metadata: `Author: ${canonicalAuthor}`,
-            mood: selected.mood,
-            reason: selected.reason,
-            sourceTitle: verified.canonicalTitle || selected.originalTitle,
-            sourceAuthor: canonicalAuthor,
-            source: verified.source || "open_library",
-            sourceId: verified.sourceId || "",
-            displayLanguageFallback: true,
-          };
-          if (favoriteAuthorBlocked) favoriteAuthorOriginalFallback ||= fallback;
-          else originalLanguageFallback ||= fallback;
-          continue;
-        }
-      }
+      const displayTitle = selected.originalTitle;
+      const displayAuthor = selected.originalAuthor;
       const localizedDuplicate = findDuplicate(displayTitle, blockedSuggestionItems)
         || findDuplicate(`${displayTitle} ${displayAuthor}`, blockedSuggestionItems);
       if (localizedDuplicate) {
@@ -513,15 +423,8 @@ async function generateUsableSuggestion({
     const unavailableCount = verificationResults.filter((result) => (
       result?.reason === "catalog_unavailable"
     )).length;
-    if (originalLanguageFallback) return originalLanguageFallback;
     if (favoriteAuthorLocalizedFallback) {
       return { ...favoriteAuthorLocalizedFallback, favoriteAuthorFallback: true };
-    }
-    if (favoriteAuthorOriginalFallback) {
-      return {
-        ...favoriteAuthorOriginalFallback,
-        favoriteAuthorFallback: true,
-      };
     }
     return {
       ok: false,
@@ -562,13 +465,11 @@ async function generateUsableSuggestion({
         previousSuggestionIssue,
       ),
       topTenItems,
-      watchlistItems,
-      recentSuggestionItems,
-      rejectedSuggestionItems,
-      likedSuggestionItems,
+      watchlistItems: blockedTitles,
+      recentSuggestionItems: [],
+      rejectedSuggestionItems: [],
       recentSuggestionCreators,
       personalized: true,
-      tasteStyleHint,
       candidateCount: section === "movies" ? 5 : AI_SUGGESTION_BATCH_SIZE,
       displayLanguage,
       requestTimeoutMs: section === "movies"
@@ -594,7 +495,36 @@ async function generateUsableSuggestion({
     }
 
     diagnostics.generatedCandidates += candidates.length;
-    for (const candidate of candidates) {
+    const movieVerifications = section === "movies"
+      ? await Promise.all(candidates.map(async (candidate) => {
+        const displayCandidate = simplifyMediaSuggestion(candidate, section, displayLanguage);
+        const duplicate = findDuplicate(displayCandidate.title, blockedSuggestionItems)
+          || (displayCandidate.originalTitle ? findDuplicate(displayCandidate.originalTitle, blockedSuggestionItems) : null)
+          || (candidate.localizedTitle ? findDuplicate(candidate.localizedTitle, blockedSuggestionItems) : null)
+          || (displayCandidate.title !== candidate.title ? findDuplicate(candidate.title, blockedSuggestionItems) : null)
+          || getMovieIdentityDuplicate(candidate, displayCandidate, blockedSuggestionItems)
+          || (movieReasonReportsDuplicate(candidate.reason) ? { type: "self_reported_duplicate" } : null);
+        if (duplicate || getMovieRequestRelevanceIssue(userText, candidate.reason)) return null;
+        const remainingBeforeVerification = deadlineAt - Date.now();
+        if (remainingBeforeVerification < 1000) return { ok: false, reason: "suggestion_timeout" };
+        return useLegacyMovieVerifier
+          ? verifyMediaPair({
+            userId,
+            section,
+            title: candidate.title,
+            metadata: candidate.metadata,
+            timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
+          })
+          : verifyMovie(candidate, {
+            timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
+          });
+      }))
+      : [];
+    if (section === "movies") {
+      diagnostics.verifiedCandidates += movieVerifications.filter((result) => result?.ok).length;
+    }
+    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+      const candidate = candidates[candidateIndex];
       suggestionResult = candidate;
       const displaySuggestion = section === "books"
         ? simplifyBookSuggestion(suggestionResult, displayLanguage)
@@ -634,23 +564,8 @@ async function generateUsableSuggestion({
           previousSuggestionIssue = relevanceIssue;
           continue;
         }
-        const remainingBeforeVerification = deadlineAt - Date.now();
-        if (remainingBeforeVerification < 1000) {
-          suggestionResult = { ok: false, reason: "suggestion_timeout" };
-          previousSuggestionIssue = suggestionResult.reason;
-          break;
-        }
-        const verification = useLegacyMovieVerifier
-          ? await verifyMediaPair({
-            userId,
-            section,
-            title: suggestionResult.title,
-            metadata: suggestionResult.metadata,
-            timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
-          })
-          : await verifyMovie(suggestionResult, {
-            timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
-          });
+        const verification = movieVerifications[candidateIndex]
+          || { ok: false, reason: "invalid_title_creator_pair" };
         if (!verification.ok) {
           diagnostics.invalidPairCandidates += 1;
           suggestionResult = {
@@ -678,41 +593,22 @@ async function generateUsableSuggestion({
           }
         }
         if (!useLegacyMovieVerifier && verification.suggestion) {
-          let localizedTitle = suggestionResult.localizedTitle;
-          let localizedCreator = suggestionResult.localizedCreator;
-          if (displayLanguage === "fa" && (!localizedTitle || !localizedCreator)) {
-            const resolvedDisplay = await resolveMovieDisplay({
-              userId,
-              title: verification.suggestion.title,
-              creator: extractSuggestionCreator(verification.suggestion.metadata),
-              requestTimeoutMs: Math.min(3000, Math.max(1000, deadlineAt - Date.now() - 1000)),
-            });
-            localizedTitle ||= resolvedDisplay.localizedTitle;
-            localizedCreator ||= resolvedDisplay.localizedCreator;
-          }
           suggestionResult = {
             ...suggestionResult,
             title: verification.suggestion.title,
             metadata: verification.suggestion.metadata,
-            localizedTitle,
-            localizedCreator,
+            localizedTitle: "",
+            localizedCreator: "",
           };
           const verifiedDisplay = simplifyMediaSuggestion(suggestionResult, section, displayLanguage);
-          const displayHasPersian = /[\u0600-\u06ff]/u.test(verifiedDisplay.title)
-            && /[\u0600-\u06ff]/u.test(verifiedDisplay.metadata);
-          const displayHasLatin = /[A-Za-z]/.test(verifiedDisplay.title)
-            && /[A-Za-z]/.test(verifiedDisplay.metadata);
-          if ((displayLanguage === "fa" && !displayHasPersian)
-            || (displayLanguage === "en" && !displayHasLatin)) {
-            suggestionResult = { ok: false, reason: "localized_identity_unavailable" };
-            previousSuggestionIssue = suggestionResult.reason;
-            continue;
-          }
           const verifiedDuplicate = findDuplicate(verifiedDisplay.title, blockedSuggestionItems)
             || (verifiedDisplay.originalTitle
               ? findDuplicate(verifiedDisplay.originalTitle, blockedSuggestionItems)
               : null)
             || findDuplicate(verification.suggestion.title, blockedSuggestionItems)
+            || (verification.suggestion.aliases || []).some((alias) => (
+              findDuplicate(alias, blockedSuggestionItems)
+            ))
             || getMovieIdentityDuplicate(suggestionResult, verifiedDisplay, blockedSuggestionItems);
           if (verifiedDuplicate) {
             diagnostics.duplicateCandidates += 1;
@@ -741,6 +637,10 @@ async function generateUsableSuggestion({
             sourceCreator: extractSuggestionCreator(verification.suggestion.metadata),
             source: "wikidata",
             sourceId: verification.suggestion.wikidataId || "",
+            diagnostics: {
+              ...diagnostics,
+              selectedCandidateRank: candidateIndex + 1,
+            },
           };
         }
       }

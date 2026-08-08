@@ -6,6 +6,7 @@ const {
   addSearchNamesToEntities,
   chooseWikidataEntity,
   getEntityMediaType,
+  verifyWikidataBookCandidate,
   verifyWikidataSuggestion,
 } = require("../src/services/wikidata-suggestion-verifier");
 
@@ -75,7 +76,7 @@ test("Wikidata matching requires an exact media title and recognizes movies and 
   );
 });
 
-test("Wikidata verification replaces movie metadata with catalogue facts", async () => {
+test("Wikidata verification rejects a movie paired with the wrong creator", async () => {
   const fetchImpl = async (url) => {
     const action = new URL(url).searchParams.get("action");
     if (action === "wbsearchentities") {
@@ -104,10 +105,31 @@ test("Wikidata verification replaces movie metadata with catalogue facts", async
     reason: "Quiet routines and delicate observation shape its reflective mood.",
   }, { fetchImpl });
 
+  assert.equal(result.ok, false);
+  assert.equal(result.qualityIssue, "catalog_creator_mismatch");
+});
+
+test("Wikidata verification preserves a verified creator spelling", async () => {
+  const fetchImpl = async (url) => {
+    const action = new URL(url).searchParams.get("action");
+    if (action === "wbsearchentities") return jsonResponse({ search: [{ id: perfectDays.id }] });
+    const ids = new URL(url).searchParams.get("ids");
+    if (ids === perfectDays.id) return jsonResponse({ entities: { [perfectDays.id]: perfectDays } });
+    return jsonResponse({ entities: { Q554975: {
+      id: "Q554975",
+      labels: { en: { value: "Wim Wenders" }, fa: { value: "ویم وندرس" } },
+      aliases: {},
+      claims: {},
+    } } });
+  };
+  const result = await verifyWikidataSuggestion({
+    ok: true,
+    title: "Perfect Days",
+    metadata: "2023 · Director: ویم وندرس",
+  }, { fetchImpl });
+
   assert.equal(result.ok, true);
-  assert.equal(result.suggestion.title, "Perfect Days");
-  assert.equal(result.suggestion.metadata, "2023 · Director: Wim Wenders");
-  assert.equal(result.suggestion.wikidataId, perfectDays.id);
+  assert.equal(result.suggestion.metadata, "2023 · Director: ویم وندرس");
 });
 
 
@@ -185,4 +207,100 @@ test("Wikidata verification rejects missing and incomplete catalogue entries", a
     },
   });
   assert.equal(incompleteResult.qualityIssue, "catalog_missing_metadata");
+});
+
+test("Wikidata book verification requires an exact title and author relationship", async () => {
+  const book = {
+    id: "QBOOK",
+    labels: { en: { value: "The Sound and the Fury" } },
+    aliases: { fa: [{ value: "خشم و هیاهو" }] },
+    claims: {
+      P31: [claim("P31", "Q8261")],
+      P50: [claim("P50", "QAUTHOR")],
+    },
+  };
+  const fetchImpl = async (url) => {
+    const action = new URL(url).searchParams.get("action");
+    if (action === "wbsearchentities") {
+      return jsonResponse({ search: [{ id: book.id, label: "The Sound and the Fury" }] });
+    }
+    const ids = new URL(url).searchParams.get("ids");
+    if (ids === book.id) return jsonResponse({ entities: { [book.id]: book } });
+    return jsonResponse({ entities: { QAUTHOR: {
+      id: "QAUTHOR",
+      labels: { en: { value: "William Faulkner" } },
+      aliases: {},
+      claims: {},
+    } } });
+  };
+
+  const verified = await verifyWikidataBookCandidate({
+    originalTitle: "The Sound and the Fury",
+    originalAuthor: "William Faulkner",
+  }, { fetchImpl });
+  assert.equal(verified.ok, true);
+  assert.equal(verified.source, "wikidata");
+  assert.ok(verified.aliases.includes("خشم و هیاهو"));
+
+  const mismatch = await verifyWikidataBookCandidate({
+    originalTitle: "The Sound and the Fury",
+    originalAuthor: "Wrong Author",
+  }, { fetchImpl });
+  assert.equal(mismatch.ok, false);
+  assert.equal(mismatch.qualityIssue, "catalog_creator_mismatch");
+});
+
+test("Wikidata accepts an exact title-author relationship with unusual book classification", async () => {
+  const work = {
+    id: "QWORK",
+    labels: { en: { value: "Exact Work" } },
+    aliases: {},
+    claims: {
+      P31: [claim("P31", "QUNUSUAL")],
+      P50: [claim("P50", "QAUTHOR")],
+    },
+  };
+  const fetchImpl = async (url) => {
+    const params = new URL(url).searchParams;
+    if (params.get("action") === "wbsearchentities") {
+      return jsonResponse({ search: [{ id: work.id, label: "Exact Work" }] });
+    }
+    if (params.get("ids") === work.id) return jsonResponse({ entities: { [work.id]: work } });
+    return jsonResponse({ entities: { QAUTHOR: {
+      id: "QAUTHOR",
+      labels: { en: { value: "Exact Author" } },
+      aliases: {},
+      claims: {},
+    } } });
+  };
+
+  const result = await verifyWikidataBookCandidate({
+    originalTitle: "Exact Work",
+    originalAuthor: "Exact Author",
+  }, { fetchImpl });
+
+  assert.equal(result.ok, true);
+});
+
+test("Wikidata does not accept a movie as a book even with an author claim", async () => {
+  const movie = {
+    id: "QMOVIE",
+    labels: { en: { value: "Exact Work" } },
+    aliases: {},
+    claims: {
+      P31: [claim("P31", "Q11424")],
+      P50: [claim("P50", "QAUTHOR")],
+    },
+  };
+  const result = await verifyWikidataBookCandidate({
+    originalTitle: "Exact Work",
+    originalAuthor: "Exact Author",
+  }, {
+    fetchImpl: async (url) => new URL(url).searchParams.get("action") === "wbsearchentities"
+      ? jsonResponse({ search: [{ id: movie.id, label: "Exact Work" }] })
+      : jsonResponse({ entities: { [movie.id]: movie } }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.qualityIssue, "catalog_title_mismatch");
 });

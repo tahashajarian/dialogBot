@@ -1,24 +1,45 @@
+# Product Plan
 
-☐ after fill up any top 10 if there is a relative discussion bot should send a invitation to the user
-    Not for launch. Needs frequency cap, active-room handling, join-rule safety, and no invitation Star reward.
+## Do before deployment
 
-☐ later: any new label or badge in any section should first time come with the banner releted to the badge, only fiirst time, then on profile if only one badge we make the banner tht badge if two we should kind of combine them and if 3 again we combine them and come up with new banner
-so for this purpose we need to generate banner for all badge in all sections, then two badges then 3 badge, let's make a plan to know how we can do this
+- [ ] Add the new environment variables to the server configuration:
+  - `FAST_MODEL_NAME`
+  - `OPEN_LIBRARY_CONTACT_EMAIL` (recommended, not required for startup)
 
-☐ later, after usage grows: add per-task AI model routing to reduce suggestion cost
-    Keep the strongest model for final recommendation judgment and use a cheaper mini model for bounded support work such as candidate generation, localization, identity checks, and taste classification. Do not switch based on assumptions: first expose model/token usage in the suggestion lab, compare the same representative profiles, and deploy each cheaper route only when quality and failure rates remain acceptable. Until real traffic approaches the complimentary GPT-5.4 allowance or cost becomes material, keep the current single-model setup.
+## Done
 
-imporve suggestions
-after saying no suggestion it show the button to save or whatevr and then i hit save save a coorect item,
-check it out why that happen    ☐ 
+- [x] Route suitable suggestion work to the cheaper fast model, with main-model fallback.
+- [x] Keep suggestion identity in its official original form: Persian originals in Persian and foreign works in their official English/international form.
+- [x] Stop forcing title language from the interface language, Favorite-list script, or mood.
+- [x] Fix poor invented Persian Movie and Book title translations by removing localization from the active flow.
+- [x] Keep suggestion cards compact and omit genre/rating/publisher/album metadata; show only the work identity, creator, mood, and short reason.
+- [x] Improve Book catalogue-unavailable handling with Open Library followed by strict Wikidata fallback.
+- [x] Protect suggestion feedback state so rejecting/failing a suggestion cannot leave working Save/Completed controls for the wrong item.
+- [x] Keep English and Persian suggestion-feedback flows structurally aligned.
+- [x] Include the item name in watched/read/listened list-status confirmations.
 
-✔ 👱‍♀️ به‌عنوان تماشا شده ثبت شد. need the name of item as well @done (8/5/2026, 1:54:11 PM)
+## Closed or superseded decisions
 
-☐ make sure eng and persian suggestion feedback result looks the same
-☐ let think about catalog unavailable on books
-☐ for persian if we not sure let's keep the english title alwyas
-☐ movies need imporvment the persian title is awful
-☐ let's keep all suggestion in English i think or in a original language
-☐ we dont' need send the genre or whatever just list
-☐ if majoirty of list is persian send the prompt in periosn and vice versa
-☐ and let's use cheaper model when no need the expensive model
+- [x] Do not choose prompt or title language from the majority script of Favorites. Interface language controls explanatory text; verified original identity controls title and creator.
+- [x] Do not force every suggestion into English. Use the original-identity rule instead.
+- [x] Per-task AI routing no longer needs to wait for usage growth; it is implemented with QA visibility and safe fallback.
+
+## Later
+
+- [ ] After a user completes all 10 Favorites in a section, optionally send a relevant discussion invitation.
+  - Not for launch.
+  - Requires a frequency cap, active-room handling, join-rule safety, and no invitation Star reward.
+
+- [ ] Explore first-time taste-label badge banners and combined profile banners.
+  - Generate one banner per badge first.
+  - Define how two- and three-badge combinations should work without generating an unmanageable number of assets.
+  - Keep each banner first-time-only and avoid adding chat noise.
+
+## Needs discussion
+
+- [ ] Should Movies and Series become separate Favorites and suggestion sections?
+  - This affects existing data, onboarding, profiles, matching, discussion rules, keyboards, and migration behavior.
+
+- [ ] Should a completed Favorites list automatically trigger a discussion invitation, or should the user opt in from the completion card?
+
+- [ ] For badge banners, should combined profiles use generated combinations, a reusable layout assembled from individual badge art, or only the strongest badge?

@@ -79,8 +79,8 @@ function loadScenarioFile(filePath) {
   return normalizeScenario(parsed, absolutePath);
 }
 
-function getBlockedItems({ favorites, watchlist, rejected, seen }) {
-  return [...favorites, ...watchlist, ...rejected, ...seen]
+function getBlockedItems({ favorites, watchlist, rejected, liked = [], seen }) {
+  return [...favorites, ...watchlist, ...rejected, ...liked, ...seen]
     .map((entry) => ({
       title: typeof entry === "string" ? entry : String(entry?.title || "").trim(),
     }))
@@ -195,6 +195,7 @@ async function runScenario(scenarioInput, options = {}, runtime = getRuntimeDepe
         favorites: scenario.favorites,
         watchlist: scenario.watchlist,
         rejected,
+        liked,
         seen,
       }),
       watchlistCreators,
@@ -217,16 +218,12 @@ async function runScenario(scenarioInput, options = {}, runtime = getRuntimeDepe
       )
       : "";
     const creator = result?.ok ? runtime.extractSuggestionCreator(result.metadata) : "";
-    const expectedDisplayLanguage = runtime.getPreferredSuggestionDisplayLanguage
-      ? runtime.getPreferredSuggestionDisplayLanguage(scenario.favorites, scenario.lang)
-      : scenario.lang;
+    const expectedDisplayLanguage = "original";
     const quality = {
       expectedDisplayLanguage,
       displayLanguagePass: !result?.title
         ? false
-        : runtime.classifyItemScript
-          ? runtime.classifyItemScript(result.title) === expectedDisplayLanguage
-          : true,
+        : true,
       creatorRepeated: Boolean(creator && recentCreators.some((item) => (
         String(item).toLocaleLowerCase() === String(creator).toLocaleLowerCase()
       ))),

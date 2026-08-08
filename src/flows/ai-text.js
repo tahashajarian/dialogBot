@@ -40,7 +40,6 @@ const {
   toggleWatchlistItemWatched,
   promoteWatchlistItemToTopTen,
   getAiTasteFromUser,
-  getTasteProgressStatus,
   markAiTasteAutomaticCheckAttempted,
   markSectionTipShownForContext,
   syncAiTasteForSection,
@@ -68,8 +67,6 @@ const {
   getSectionListButtonLabel,
   getSectionLabel,
   getSectionListLabel,
-  getTasteLabelTitle,
-  getTasteLabelStyleHint,
   getSuggestionActionPrompt,
 } = require("../services/ai-section");
 const {
@@ -377,45 +374,12 @@ function isAiTextState(state = "") {
   );
 }
 
-async function resolveSectionTasteContext({ ctx, lang, section, topTenItems }) {
-  const progress = getTasteProgressStatus(section, topTenItems.length);
-  let taste = getAiTasteFromUser(ctx.user, section);
-
-  if (progress.labelReady && !taste.labelKey) {
-    const syncResult = await syncAiTasteForSection(ctx.userId, section);
-    if (syncResult.ok) {
-      taste = syncResult.taste;
-    }
-  }
-
-  if (!progress.labelReady) {
-    return {
-      progress,
-      taste: { labelKey: "", confidence: 0, sampleCount: progress.count },
-      labelTitle: "",
-      styleHint: "",
-    };
-  }
-
-  const labelKey = taste?.labelKey || "";
-  const labelTitle = labelKey ? getTasteLabelTitle(messages, lang, section, labelKey) : "";
-  const styleHint = labelKey ? getTasteLabelStyleHint(messages, lang, section, labelKey) : "";
-
-  return {
-    progress,
-    taste,
-    labelTitle,
-    styleHint,
-  };
-}
-
 async function sendSingleSectionSuggestion({
   ctx,
   lang,
   section,
   topTenItems,
   watchlistItems,
-  tasteStyleHint,
   userText = "",
   paidSuggestion = null,
 }) {
@@ -427,14 +391,12 @@ async function sendSingleSectionSuggestion({
   const recentSuggestionCreators = getAiRecentSuggestionCreatorsFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
-  const watchlistCreators = getAiListItemsFromUser(ctx.user, section, "watchlist")
-    .map((entry) => extractSuggestionCreator(entry?.metadata || ""))
-    .filter(Boolean);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
     ...recentSuggestionItems,
     ...rejectedSuggestionItems,
+    ...likedSuggestionItems,
   ].map((entry) => ({
     title: typeof entry === "string" ? entry : String(entry?.title || "").trim(),
   })).filter((entry) => entry.title);
@@ -499,11 +461,8 @@ async function sendSingleSectionSuggestion({
     watchlistItems: getPromptWatchlistItems(watchlistItems),
     recentSuggestionItems,
     rejectedSuggestionItems,
-    likedSuggestionItems,
     recentSuggestionCreators,
     blockedSuggestionItems,
-    watchlistCreators,
-    tasteStyleHint,
   });
 
   if (placeholder.isSettled()) {
@@ -1159,12 +1118,6 @@ async function handleAiText(ctx, lang, text, state) {
       return ctx.reply(getNeedTopTenMessage(lang, suggestContextSection), aiSectionKeyboardForSection(lang, suggestContextSection));
     }
 
-    const tasteContext = await resolveSectionTasteContext({
-      ctx,
-      lang,
-      section: suggestContextSection,
-      topTenItems,
-    });
     await updateUserState(ctx.userId, `ai_chat_${suggestContextSection}`);
     await clearAiPendingInputPrompt(ctx);
     setSuggestionMood(ctx.userId, suggestContextSection, userText);
@@ -1174,7 +1127,6 @@ async function handleAiText(ctx, lang, text, state) {
       section: suggestContextSection,
       topTenItems,
       watchlistItems: getAiListTitlesFromUser(ctx.user, suggestContextSection, "watchlist"),
-      tasteStyleHint: tasteContext.styleHint,
       userText,
     });
   }
@@ -1209,12 +1161,6 @@ async function handleAiText(ctx, lang, text, state) {
           );
         }
 
-        const tasteContext = await resolveSectionTasteContext({
-          ctx,
-          lang,
-          section,
-          topTenItems,
-        });
         setSuggestionMood(ctx.userId, section, userText);
         return sendSingleSectionSuggestion({
           ctx,
@@ -1222,7 +1168,6 @@ async function handleAiText(ctx, lang, text, state) {
           section,
           topTenItems,
           watchlistItems: getAiListTitlesFromUser(ctx.user, section, "watchlist"),
-          tasteStyleHint: tasteContext.styleHint,
           userText,
         });
       }

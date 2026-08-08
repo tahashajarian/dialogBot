@@ -37,6 +37,7 @@ function escapeRegExp(value) {
 
 function normalizeSeparators(text) {
   return String(text || "")
+    .replace(/(?:\u200c|\u200d|\u2060|\ufeff)/g, " ")
     .replace(/[‐‑‒–—―]+/g, " ")
     .replace(/[:|/\\]+/g, " ")
     .replace(/\b(by|from)\b/gi, " ");
@@ -46,6 +47,8 @@ function normalizeAiInput(value) {
   let normalized = normalizeSeparators(value)
     .toLowerCase()
     .normalize("NFKD")
+    .replace(/(?:ي|ى)/g, "ی")
+    .replace(/ك/g, "ک")
     .replace(/[\u0300-\u036f]/g, " ")
     .trim();
 

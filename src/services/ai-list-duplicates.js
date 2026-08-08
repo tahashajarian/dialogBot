@@ -90,11 +90,17 @@ function getAiListDuplicateMatch(title, items = []) {
   for (const entry of items) {
     const existingTitle = entry?.title || entry;
     const normalizedExisting = normalizeAiInput(existingTitle);
+    const existingIdentityTitle = String(existingTitle || "").split(/\s+[—–]\s+/u)[0];
+    const normalizedExistingIdentity = normalizeAiInput(existingIdentityTitle);
     const existingTokens = tokenizeNormalizedInput(normalizedExisting);
     const existingCompact = compactText(normalizedExisting);
     if (!normalizedExisting || !existingCompact) continue;
 
-    if (normalizedTitle === normalizedExisting || titleCompact === existingCompact) {
+    if (
+      normalizedTitle === normalizedExisting
+      || titleCompact === existingCompact
+      || normalizedTitle === normalizedExistingIdentity
+    ) {
       return { item: entry, score: 100, type: "exact" };
     }
 

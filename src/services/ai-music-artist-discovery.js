@@ -1,5 +1,5 @@
 const { getAiConfig } = require("../config");
-const { getClient, requestSuggestionText } = require("./ai-client");
+const { getClient, requestFastSuggestionText } = require("./ai-client");
 const { logger } = require("./logger");
 
 const ARTIST_DISCOVERY_TIMEOUT_MS = 5500;
@@ -24,7 +24,7 @@ async function discoverAdjacentMusicArtists({
   savedCreators = [],
 }, {
   config = getAiConfig(),
-  requestText: requestTextImpl = requestSuggestionText,
+  requestText: requestTextImpl = requestFastSuggestionText,
   client,
 } = {}) {
   const openai = client || getClient(config);
@@ -53,7 +53,7 @@ async function discoverAdjacentMusicArtists({
         `Recent creators: ${recentCreators.join(" | ") || "None"}`,
         `Saturated saved creators: ${savedCreators.join(" | ") || "None"}`,
       ].join("\n"),
-    });
+    }, (result) => parseArtistDiscovery(result?.text).length > 0);
     return parseArtistDiscovery(response.text);
   } catch (error) {
     logger.warn("Adjacent music artist discovery failed", { name: error?.name || "Error" });

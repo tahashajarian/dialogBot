@@ -27,6 +27,21 @@ test("detects movie typos in all sections", () => {
   assert.ok(match.score >= 88);
 });
 
+test("detects Persian joiner and character variants", () => {
+  assert.equal(
+    getAiListDuplicateMatch("سن پطرزبورگ", [{ title: "سن‌پطرزبورگ" }])?.type,
+    "exact",
+  );
+  assert.equal(
+    getAiListDuplicateMatch("كيارستمي", [{ title: "کیارستمی" }])?.type,
+    "exact",
+  );
+  assert.equal(
+    getAiListDuplicateMatch("کفرناحوم", [{ title: "کفرناحوم — نادین لبکی" }])?.type,
+    "exact",
+  );
+});
+
 test("detects one-token typos with stricter short threshold", () => {
   const items = [{ title: "Metallica" }];
 

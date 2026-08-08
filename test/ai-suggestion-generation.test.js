@@ -55,18 +55,13 @@ test("shared suggestion generation does not retry provider failures", async () =
   assert.equal(result.reason, "capacity_busy");
 });
 
-test("production book path retrieves and ranks catalogue candidates in the favorites language", async () => {
-  let retrievalRequest;
-  let rankingRequest;
+test("production book path generates ranked identities and verifies them in order", async () => {
+  const verified = [];
   const candidates = [{
-    title: "ملکوت",
-    author: "بهرام صادقی",
-    source: "google_books",
-    sourceId: "book-1",
-  }, {
-    title: "تهوع", author: "ژان پل سارتر", source: "open_library", sourceId: "book-2",
-  }, {
-    title: "ملکوت دیگر", author: "نویسنده دیگر", source: "open_library", sourceId: "book-3",
+    originalTitle: "ملکوت",
+    originalAuthor: "بهرام صادقی",
+    mood: "تلخ",
+    reason: "فروپاشی روانی و وهم اجتماعی؛ تلخ و فشرده.",
   }];
   const result = await generateUsableSuggestion(baseRequest({
     section: "books",
@@ -74,18 +69,61 @@ test("production book path retrieves and ranks catalogue candidates in the favor
     topTenItems: ["بوف کور — صادق هدایت", "سمفونی مردگان — عباس معروفی", "آبشوران — علی‌اشرف درویشیان"],
     recentSuggestionCreators: ["فردینان سلین"],
   }), {
-    retrieveBooks: async (request) => { retrievalRequest = request; return candidates; },
-    rankBooks: async (request) => {
-      rankingRequest = request;
-      return { ok: true, candidate: candidates[0], mood: "تلخ", reason: "فروپاشی روانی و وهم اجتماعی؛ تلخ و فشرده." };
+    generateBooks: async () => ({ ok: true, candidates }),
+    verifyBook: async (candidate) => {
+      verified.push(candidate.originalTitle);
+      return {
+        ok: true,
+        candidate,
+        canonicalTitle: candidate.originalTitle,
+        canonicalAuthors: [candidate.originalAuthor],
+        aliases: [candidate.originalTitle],
+        authorAliases: [candidate.originalAuthor],
+        source: "open_library",
+        sourceId: "/works/OL1W",
+      };
     },
   });
-  assert.equal(retrievalRequest.displayLanguage, "fa");
-  assert.deepEqual(retrievalRequest.excludedCreators, ["فردینان سلین"]);
-  assert.equal(rankingRequest.displayLanguage, "fa");
+  assert.deepEqual(verified, ["ملکوت"]);
   assert.equal(result.title, "ملکوت");
   assert.equal(result.metadata, "Author: بهرام صادقی");
   assert.equal(result.sourceTitle, "ملکوت");
+});
+
+test("book verification can reach the fifth ranked candidate", async () => {
+  const candidates = Array.from({ length: 5 }, (_, index) => ({
+    originalTitle: `Book ${index + 1}`,
+    originalAuthor: `Author ${index + 1}`,
+    reason: "A closely related literary work with a distinct voice and setting.",
+  }));
+  const verified = [];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    topTenItems: ["Favorite One", "Favorite Two", "Favorite Three"],
+  }), {
+    generateBooks: async () => ({ ok: true, candidates }),
+    verifyBook: async (candidate) => {
+      verified.push(candidate.originalTitle);
+      if (candidate.originalTitle !== "Book 5") {
+        return { ok: false, reason: "catalog_unverified" };
+      }
+      return {
+        ok: true,
+        candidate,
+        canonicalTitle: candidate.originalTitle,
+        canonicalAuthors: [candidate.originalAuthor],
+        aliases: [candidate.originalTitle],
+        authorAliases: [candidate.originalAuthor],
+        source: "wikidata",
+        sourceId: "QBOOK5",
+      };
+    },
+    findDuplicate: () => null,
+  });
+
+  assert.deepEqual(verified, ["Book 1", "Book 2", "Book 3", "Book 4", "Book 5"]);
+  assert.equal(result.ok, true);
+  assert.equal(result.title, "Book 5");
 });
 
 test("production movie path requires catalogue verification", async () => {
@@ -105,7 +143,37 @@ test("production movie path requires catalogue verification", async () => {
   assert.equal(result.metadata, "Director: Wim Wenders");
 });
 
-test("production movie path rechecks localized aliases and creators after verification", async () => {
+test("movie candidates are verified in parallel and the highest-ranked survivor wins", async () => {
+  let active = 0;
+  let maxActive = 0;
+  const result = await generateUsableSuggestion(baseRequest({
+    topTenItems: ["Persona", "Stalker", "Cache"],
+  }), {
+    requestSuggestion: async () => ({
+      ok: true,
+      candidates: [
+        { ok: true, title: "First Choice", metadata: "Director: A", reason: "Moral tension and patient framing; austere and precise." },
+        { ok: true, title: "Second Choice", metadata: "Director: B", reason: "Moral tension and patient framing; austere and precise." },
+      ],
+    }),
+    verifyMovie: async (suggestion) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      return suggestion.title === "First Choice"
+        ? { ok: false, reason: "catalog_unverified" }
+        : { ok: true, suggestion };
+    },
+  });
+
+  assert.equal(maxActive, 2);
+  assert.equal(result.title, "Second Choice");
+  assert.equal(result.diagnostics.selectedCandidateRank, 2);
+  assert.equal(result.diagnostics.verifiedCandidates, 1);
+});
+
+test("production movie path rechecks verified aliases and creators", async () => {
   let requestedCount = 0;
   const result = await generateUsableSuggestion(baseRequest({
     section: "movies",
@@ -124,16 +192,21 @@ test("production movie path rechecks localized aliases and creators after verifi
         ],
       };
     },
-    verifyMovie: async (suggestion) => ({ ok: true, suggestion }),
-    resolveMovieDisplay: async ({ title }) => ({
-      localizedTitle: title === "Capharnaum" ? "کفرناحوم" : title === "The Salesman" ? "فروشنده" : "دزدان فروشگاه",
-      localizedCreator: title === "Capharnaum" ? "نادین لبکی" : title === "The Salesman" ? "اصغر فرهادی" : "هیروکازو کورئیدا",
+    verifyMovie: async (suggestion) => ({
+      ok: true,
+      suggestion: {
+        ...suggestion,
+        aliases: suggestion.title === "Capharnaum" ? ["کفرناحوم"] : [],
+        metadata: suggestion.title === "The Salesman"
+          ? "Director: اصغر فرهادی"
+          : suggestion.metadata,
+      },
     }),
   });
 
   assert.equal(requestedCount, 5);
   assert.equal(result.ok, true);
-  assert.equal(result.title, "دزدان فروشگاه");
+  assert.equal(result.title, "Shoplifters");
   assert.equal(result.sourceTitle, "Shoplifters");
 });
 
@@ -156,11 +229,10 @@ test("explicit comedy requests skip candidates whose reason has no comedy eviden
       verified.push(suggestion.title);
       return { ok: true, suggestion };
     },
-    resolveMovieDisplay: async () => ({ localizedTitle: "فول مانتی", localizedCreator: "پیتر کاتانیو" }),
   });
 
   assert.deepEqual(verified, ["The Full Monty"]);
-  assert.equal(result.title, "فول مانتی");
+  assert.equal(result.title, "The Full Monty");
 });
 
 test("movie display omits an original title identical to its localized title", () => {
@@ -255,7 +327,7 @@ test("music uses retrieved real candidates and keeps only title and artist ident
 
   assert.equal(rankInputs.length, 1);
   assert.deepEqual(rankInputs[0].favorites, ["بهت قول میدم محسن یگانه"]);
-  assert.deepEqual(rankInputs[0].rejectedSuggestions, ["فاصله‌ها — احسان خواجه‌امیری"]);
+  assert.equal(rankInputs[0].rejectedSuggestions, undefined);
   assert.equal(result.title, "Gole Yakh");
   assert.equal(result.metadata, "Artist: Kourosh Yaghmaei");
   assert.equal(result.sourceTitle, "Gole Yakh");
@@ -300,7 +372,7 @@ test("music returns a bounded failure when retrieval or ranking has no usable ca
   assert.equal(result.reason, "no_catalog_candidates");
 });
 
-test("book suggestions use only the verified catalogue display identity", async () => {
+test("book suggestions keep the verified requested original identity", async () => {
   const generationInputs = [];
   const verified = [];
   const candidate = {
@@ -338,9 +410,9 @@ test("book suggestions use only the verified catalogue display identity", async 
 
   assert.equal(generationInputs.length, 1);
   assert.equal(verified[0].entry, candidate);
-  assert.equal(verified[0].options.displayLanguage, "fa");
-  assert.equal(result.title, "جای خالی سلوچ");
-  assert.equal(result.metadata, "Author: محمود دولت‌آبادی");
+  assert.equal(verified[0].options.displayLanguage, "original");
+  assert.equal(result.title, "Missing Soluch");
+  assert.equal(result.metadata, "Author: Mahmoud Dowlatabadi");
   assert.equal(result.sourceTitle, "Missing Soluch");
   assert.equal(result.sourceAuthor, "Mahmoud Dowlatabadi");
   assert.equal(result.source, "open_library");
@@ -432,6 +504,43 @@ test("book duplicate checks use verified edition aliases after verification", as
   assert.equal(result.reason, "duplicate_suggestion");
 });
 
+test("translated book aliases block a Favorite and continue to the next verified candidate", async () => {
+  const candidates = [{
+    originalTitle: "The Stranger",
+    originalAuthor: "Albert Camus",
+    reason: "نثر موجز و بی‌عاطفه؛ بیگانگی فردی و داوری اجتماعی.",
+  }, {
+    originalTitle: "Pedro Páramo",
+    originalAuthor: "Juan Rulfo",
+    reason: "روایت مردگان و دهکده‌ای متروک؛ فشرده و وهم‌آلود.",
+  }];
+  const result = await generateUsableSuggestion(baseRequest({
+    section: "books",
+    lang: "fa",
+    topTenItems: ["بیگانه — آلبر کامو"],
+    blockedSuggestionItems: [{ title: "بیگانه — آلبر کامو" }],
+  }), {
+    generateBooks: async () => ({ ok: true, candidates }),
+    verifyBook: async (candidate) => ({
+      ok: true,
+      candidate,
+      canonicalTitle: candidate.originalTitle,
+      canonicalAuthors: [candidate.originalAuthor],
+      aliases: candidate.originalTitle === "The Stranger"
+        ? ["The Stranger", "بیگانه"]
+        : ["Pedro Páramo"],
+      authorAliases: candidate.originalAuthor === "Albert Camus"
+        ? ["Albert Camus", "آلبر کامو"]
+        : ["Juan Rulfo"],
+      source: "wikidata",
+      sourceId: candidate.originalTitle,
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.title, "Pedro Páramo");
+});
+
 test("book generation receives saved and recent books only as hard exclusions", async () => {
   const inputs = [];
   await generateUsableSuggestion(baseRequest({
@@ -449,11 +558,11 @@ test("book generation receives saved and recent books only as hard exclusions", 
     findDuplicate: () => null,
   });
 
-  assert.deepEqual(inputs[0].likedSuggestions, ["کتاب خوانده‌شده و پسندیده"]);
-  assert.deepEqual(inputs[0].hardExclusions, ["کتاب ذخیره‌شده", "پیشنهاد اخیر", "کتاب ردشده"]);
+  assert.equal(inputs[0].likedSuggestions, undefined);
+  assert.deepEqual(inputs[0].hardExclusions, ["Known", "کتاب ذخیره‌شده", "پیشنهاد اخیر", "کتاب ردشده"]);
 });
 
-test("Persian-dominant book lists resolve a verified original identity for Persian display", async () => {
+test("Persian interface does not translate a verified foreign book identity", async () => {
   let verifyCalls = 0;
   const result = await generateUsableSuggestion(baseRequest({
     section: "books",
@@ -470,7 +579,7 @@ test("Persian-dominant book lists resolve a verified original identity for Persi
     }),
     verifyBook: async (candidate, options) => {
       verifyCalls += 1;
-      assert.equal(options.displayLanguage, "fa");
+      assert.equal(options.displayLanguage, "original");
       return {
         ok: true,
         candidate,
@@ -481,21 +590,17 @@ test("Persian-dominant book lists resolve a verified original identity for Persi
         displayAuthor: "Isabel Allende",
       };
     },
-    resolveBookDisplay: async () => ({
-      localizedTitle: "خانه ارواح",
-      localizedCreator: "ایزابل آلنده",
-    }),
     findDuplicate: () => null,
   });
 
   assert.equal(verifyCalls, 1);
   assert.equal(result.ok, true);
-  assert.equal(result.title, "خانه ارواح");
-  assert.equal(result.metadata, "Author: ایزابل آلنده");
+  assert.equal(result.title, "The House of the Spirits");
+  assert.equal(result.metadata, "Author: Isabel Allende");
   assert.equal(result.sourceTitle, "The House of the Spirits");
 });
 
-test("Persian books use a verified original identity only when localization is the sole blocker", async () => {
+test("Persian books use a verified original identity without localization", async () => {
   const candidate = {
     originalTitle: "The Opposing Shore",
     originalAuthor: "Julien Gracq",
@@ -520,22 +625,19 @@ test("Persian books use a verified original identity only when localization is t
       source: "open_library",
       sourceId: "/works/OL1W",
     }),
-    resolveBookDisplay: async () => ({ localizedTitle: "", localizedCreator: "" }),
     findDuplicate: () => null,
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.title, "The Opposing Shore");
   assert.equal(result.metadata, "Author: Julien Gracq");
-  assert.equal(result.displayLanguageFallback, true);
+  assert.equal(Boolean(result.displayLanguageFallback), false);
 });
 
 test("a different verified work by a Favorite author is the final book fallback", async () => {
   const candidate = {
-    originalTitle: "Three Drops of Blood",
-    originalAuthor: "Sadegh Hedayat",
-    localizedTitle: "سه قطره خون",
-    localizedAuthor: "صادق هدایت",
+    originalTitle: "سه قطره خون",
+    originalAuthor: "صادق هدایت",
     mood: "تیره",
     reason: "روایت‌های وهم‌آلود و روان‌پریشانه؛ تیره و فشرده.",
   };
@@ -564,10 +666,8 @@ test("a different verified work by a Favorite author is the final book fallback"
 
 test("a recently suggested book author remains blocked from final fallback", async () => {
   const candidate = {
-    originalTitle: "Three Drops of Blood",
-    originalAuthor: "Sadegh Hedayat",
-    localizedTitle: "سه قطره خون",
-    localizedAuthor: "صادق هدایت",
+    originalTitle: "سه قطره خون",
+    originalAuthor: "صادق هدایت",
     reason: "روایت‌های وهم‌آلود و روان‌پریشانه؛ تیره و فشرده.",
   };
   const result = await generateUsableSuggestion(baseRequest({
@@ -617,12 +717,12 @@ test("Persian movie suggestions display localized identity and reject cross-lang
   });
 
   assert.ok(duplicateChecks.length >= 1);
-  assert.ok(duplicateChecks.every((title) => title === "خانه دوست کجاست"));
+  assert.ok(duplicateChecks.includes("خانه دوست کجاست"));
   assert.equal(result.ok, false);
   assert.equal(result.reason, "duplicate_suggestion");
 });
 
-test("Persian movie suggestions show Persian title and director when not duplicated", async () => {
+test("movie suggestions ignore model-supplied translated display fields", async () => {
   const result = await generateUsableSuggestion(baseRequest({ section: "movies", lang: "fa", topTenItems: ["جدایی نادر از سیمین", "طعم گیلاس", "هامون"] }), {
     requestSuggestion: async () => ({
       ok: true,
@@ -636,9 +736,9 @@ test("Persian movie suggestions show Persian title and director when not duplica
     findDuplicate: () => null,
   });
 
-  assert.equal(result.title, "کلوزآپ");
-  assert.equal(result.metadata, "Director: عباس کیارستمی");
-  assert.equal(result.originalTitle, "Close-Up");
+  assert.equal(result.title, "Close-Up");
+  assert.equal(result.metadata, "Director: Abbas Kiarostami");
+  assert.equal(result.originalTitle, "");
 });
 
 test("English movie suggestions keep original title and director", async () => {
@@ -682,7 +782,7 @@ test("Persian UI with Latin-script movie favorites keeps original movie identity
     findDuplicate: () => null,
   });
 
-  assert.equal(requests[0].displayLanguage, "en");
+  assert.equal(requests[0].displayLanguage, "original");
   assert.equal(result.title, "Enemy");
   assert.equal(result.metadata, "Director: Denis Villeneuve");
 });
@@ -721,7 +821,7 @@ test("Persian UI with Latin-script book favorites keeps verified original displa
   });
 
   assert.equal(Object.hasOwn(generationInputs[0], "displayLanguage"), false);
-  assert.equal(verificationInputs[0].displayLanguage, "en");
+  assert.equal(verificationInputs[0].displayLanguage, "original");
   assert.equal(result.title, "The Remains of the Day");
   assert.equal(result.metadata, "Author: Kazuo Ishiguro");
 });
@@ -748,12 +848,12 @@ test("Persian UI with Latin-script music favorites asks ranker for original disp
     findDuplicate: () => null,
   });
 
-  assert.equal(rankInputs[0].displayLanguage, "en");
+  assert.equal(Object.hasOwn(rankInputs[0], "displayLanguage"), false);
   assert.equal(result.title, "All Mine");
   assert.equal(result.metadata, "Artist: Portishead");
 });
 
-test("English UI with Persian-script favorites prefers verified Persian display identity", async () => {
+test("interface language and Favorite script do not rewrite verified identities", async () => {
   const movieRequests = [];
   const movie = await generateUsableSuggestion(baseRequest({
     section: "movies",
@@ -775,9 +875,9 @@ test("English UI with Persian-script favorites prefers verified Persian display 
     findDuplicate: () => null,
   });
 
-  assert.equal(movieRequests[0].displayLanguage, "fa");
-  assert.equal(movie.title, "کلوزآپ");
-  assert.equal(movie.metadata, "Director: عباس کیارستمی");
+  assert.equal(movieRequests[0].displayLanguage, "original");
+  assert.equal(movie.title, "Close-Up");
+  assert.equal(movie.metadata, "Director: Abbas Kiarostami");
 
   const bookGenerationInputs = [];
   const bookVerificationInputs = [];
@@ -813,9 +913,9 @@ test("English UI with Persian-script favorites prefers verified Persian display 
   });
 
   assert.equal(Object.hasOwn(bookGenerationInputs[0], "displayLanguage"), false);
-  assert.equal(bookVerificationInputs[0].displayLanguage, "fa");
-  assert.equal(book.title, "جای خالی سلوچ");
-  assert.equal(book.metadata, "Author: محمود دولت‌آبادی");
+  assert.equal(bookVerificationInputs[0].displayLanguage, "original");
+  assert.equal(book.title, "Missing Soluch");
+  assert.equal(book.metadata, "Author: Mahmoud Dowlatabadi");
 });
 
 test("movie pair checks receive the bounded verification timeout", async () => {
@@ -953,8 +1053,8 @@ test("movie duplicate filtering uses localized title plus director and continues
 
   assert.deepEqual(verified, ["Mother"]);
   assert.equal(result.ok, true);
-  assert.equal(result.title, "مادر");
-  assert.equal(result.metadata, "Director: بونگ جون-هو");
+  assert.equal(result.title, "Mother");
+  assert.equal(result.metadata, "Director: Bong Joon-ho");
 });
 
 test("movie self-reported duplicates are skipped without failing the whole batch", async () => {

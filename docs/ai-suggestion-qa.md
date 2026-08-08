@@ -46,7 +46,7 @@ npm.cmd run qa:suggestions:web -- --no-open
 The runner:
 
 - reads AI credentials and model settings from `.env`;
-- uses the production AI-plus-Open-Library book flow, movie flow, and retrieval-first music services;
+- uses the production AI-plus-Open-Library/Wikidata book flow, movie flow, and retrieval-first music services;
 - does not start the bot;
 - does not write to MongoDB;
 - does not consume user suggestion quotas or Stars;

@@ -1,11 +1,12 @@
 const { URL, URLSearchParams } = require("url");
 const { logger } = require("./logger");
-const { chooseOpenLibraryResult } = require("./open-library-suggestion-verifier");
 
 const OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json";
-const OPEN_LIBRARY_BASE_URL = "https://openlibrary.org";
 const OPEN_LIBRARY_TIMEOUT_MS = 4500;
-const OPEN_LIBRARY_USER_AGENT = "MuzeBot/1.0 (https://t.me/HeyMuzeBot)";
+function getOpenLibraryUserAgent() {
+  const contact = String(process.env.OPEN_LIBRARY_CONTACT_EMAIL || "").trim();
+  return `MuzeBot/1.0 (${contact || "https://t.me/HeyMuzeBot"})`;
+}
 const MAX_VERIFIED_ALIASES = 100;
 
 function cleanText(value, maxLength = 180) {
@@ -18,7 +19,8 @@ function hasPersianScript(value) {
 
 function normalizeAliasKey(value) {
   return cleanText(value)
-    .normalize("NFKC")
+    .normalize("NFKD")
+    .replace(/\p{Mark}/gu, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
@@ -53,6 +55,34 @@ function choosePersianAuthor(values) {
     })[0] || "";
 }
 
+function isDisallowedBookRecordTitle(value) {
+  return /\b(?:study guide|study notes?|notes?|summary|analysis|criticism|companion|workbook|coles notes?|cliffs?notes?)\b/i
+    .test(String(value || ""));
+}
+
+function chooseExactBookResult(docs, requestedTitle, requestedAuthor) {
+  const titleKey = normalizeAliasKey(requestedTitle);
+  const authorKey = normalizeAliasKey(requestedAuthor);
+  if (!titleKey || !authorKey || isDisallowedBookRecordTitle(requestedTitle)) return null;
+  return (docs || []).find((doc) => {
+    if (isDisallowedBookRecordTitle(doc?.title)) return false;
+    const titles = [
+      doc?.title,
+      ...(doc?.editions?.docs || []).map((edition) => edition?.title),
+    ];
+    const hasExactSafeTitle = titles.some((title) => (
+      !isDisallowedBookRecordTitle(title)
+      && normalizeAliasKey(title) === titleKey
+    ));
+    if (!hasExactSafeTitle) return false;
+    const authors = [
+      ...(doc?.author_name || []),
+      ...(doc?.author_alternative_name || []),
+    ];
+    return authors.some((author) => normalizeAliasKey(author) === authorKey);
+  }) || null;
+}
+
 async function fetchOpenLibraryJson(url, { fetchImpl, timeoutMs }) {
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
@@ -60,7 +90,7 @@ async function fetchOpenLibraryJson(url, { fetchImpl, timeoutMs }) {
     const response = await fetchImpl(new URL(url), {
       headers: {
         accept: "application/json",
-        "user-agent": OPEN_LIBRARY_USER_AGENT,
+        "user-agent": getOpenLibraryUserAgent(),
       },
       ...(controller ? { signal: controller.signal } : {}),
     });
@@ -81,18 +111,6 @@ async function fetchOpenLibraryJson(url, { fetchImpl, timeoutMs }) {
   } finally {
     if (timer) clearTimeout(timer);
   }
-}
-
-async function getVerifiedEditionAliases(workKey, options) {
-  const cleanWorkKey = String(workKey || "").trim();
-  if (!/^\/works\/OL\d+W$/i.test(cleanWorkKey)) return [];
-  const params = new URLSearchParams({ limit: String(MAX_VERIFIED_ALIASES) });
-  const response = await fetchOpenLibraryJson(
-    `${OPEN_LIBRARY_BASE_URL}${cleanWorkKey}/editions.json?${params}`,
-    options,
-  );
-  if (!response.ok) return [];
-  return uniqueTextValues((response.data?.entries || []).map((entry) => entry?.title));
 }
 
 async function verifyOpenLibraryBookCandidate(candidate, {
@@ -129,7 +147,7 @@ async function verifyOpenLibraryBookCandidate(candidate, {
   }
 
   const docs = searchResponse.data?.docs || [];
-  const result = chooseOpenLibraryResult(docs, requestedTitle, requestedAuthor);
+  const result = chooseExactBookResult(docs, requestedTitle, requestedAuthor);
   if (!result) {
     return {
       ok: false,
@@ -154,10 +172,7 @@ async function verifyOpenLibraryBookCandidate(candidate, {
   const preferredEditionAliases = uniqueTextValues(
     (result.editions?.docs || []).map((edition) => edition?.title),
   );
-  const editionAliases = uniqueTextValues([
-    ...preferredEditionAliases,
-    ...await getVerifiedEditionAliases(result.key, { fetchImpl, timeoutMs }),
-  ]);
+  const editionAliases = preferredEditionAliases;
   const aliases = uniqueTextValues([
     canonicalTitle,
     requestedTitle,
@@ -185,5 +200,7 @@ async function verifyOpenLibraryBookCandidate(candidate, {
 }
 
 module.exports = {
+  chooseExactBookResult,
+  isDisallowedBookRecordTitle,
   verifyOpenLibraryBookCandidate,
 };

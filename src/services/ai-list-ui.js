@@ -414,9 +414,7 @@ function formatAiLimitMessage(lang, key) {
 function localizeSuggestionMetadata(lang, metadata, section = "") {
   let value = String(metadata || "").trim();
 
-  if (section === "movies") {
-    value = value.replace(/^(?:Director|Creator|Author)\s*:/i, "Director:");
-  } else if (section === "books") {
+  if (section === "books") {
     value = value.replace(/^(?:Director|Creator|Author)\s*:/i, "Author:");
   } else if (section === "music") {
     value = value.replace(/^(?:Artist|Author|Creator)\s*:/i, "Artist:");

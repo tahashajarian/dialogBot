@@ -50,7 +50,7 @@ The listener must show `127.0.0.1:27017`, not `0.0.0.0:27017` or
 ☐ Prepare:
 - `BOT_TOKEN`;
 - `MONGO_URI` and `MONGO_DB_NAME`;
-- AI provider `API_BASE_URL`, `API_KEY`, `MODEL_NAME`, and embedding model;
+- AI provider `API_BASE_URL`, `API_KEY`, main `MODEL_NAME`, optional `FAST_MODEL_NAME`, and embedding model;
 - bot username/deep-link URL;
 - a strong random `ACCOUNT_DELETION_SECRET` stored in the server secret manager or environment file;
 - an optional strong `ADMIN_DASHBOARD_TOKEN`;
@@ -190,9 +190,11 @@ TELEGRAM_PROXY_URL=
 API_BASE_URL=replace_with_ai_api_base
 API_KEY=replace_with_ai_key
 MODEL_NAME=gpt-4o-mini
+FAST_MODEL_NAME=
 EMBEDDING_MODEL=text-embedding-3-small
 AI_SUGGESTION_PROVIDER=auto
 AI_TIMEOUT_MS=20000
+OPEN_LIBRARY_CONTACT_EMAIL=replace_with_contact_email
 
 CACHE_ENABLED=true
 ENABLE_SEMANTIC_MATCHING=true

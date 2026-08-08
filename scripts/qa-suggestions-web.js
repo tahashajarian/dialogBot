@@ -125,10 +125,15 @@ function createQaWebServer({ runtimeFactory = getRuntimeDependencies } = {}) {
     }
 
     if (request.method === "GET" && requestUrl.pathname === "/api/health") {
+      const aiConfig = runtimeFactory().getAiConfig();
       sendJson(response, 200, {
         ok: true,
         apiConfigured: Boolean(process.env.OPENAI_API_KEY || process.env.API_KEY),
         mode: "local-read-only-qa",
+        models: {
+          main: aiConfig.model,
+          fast: aiConfig.fastModel,
+        },
       });
       return;
     }
@@ -167,6 +172,10 @@ function createQaWebServer({ runtimeFactory = getRuntimeDependencies } = {}) {
           profile: scenario.id,
           variants: scenarios.map((item) => item.variant || "full-account"),
           startedAt: new Date().toISOString(),
+          models: {
+            main: aiConfig.model,
+            fast: aiConfig.fastModel,
+          },
         });
 
         const results = [];

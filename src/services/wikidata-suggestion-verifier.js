@@ -4,6 +4,7 @@ const {
   extractYear,
   normalizeCatalogueTitle,
 } = require("./catalogue-normalization");
+const { extractSuggestionCreator } = require("./ai-suggestion-quality");
 
 const WIKIDATA_API_URL = "https://www.wikidata.org/w/api.php";
 const WIKIDATA_TIMEOUT_MS = 5000;
@@ -19,6 +20,15 @@ const SERIES_INSTANCE_IDS = new Set([
   "Q5398426", // television series
   "Q1259759", // miniseries
   "Q15416", // television program
+]);
+const BOOK_INSTANCE_IDS = new Set([
+  "Q571", // book
+  "Q7725634", // literary work
+  "Q8261", // novel
+  "Q149537", // novella
+  "Q1279564", // short story collection
+  "Q25379", // play
+  "Q482", // poetry
 ]);
 
 function getEntityClaimIds(entity, property) {
@@ -75,6 +85,10 @@ function getEntityMediaType(entity) {
   if (instances.some((id) => MOVIE_INSTANCE_IDS.has(id))) return "movie";
   if (instances.some((id) => SERIES_INSTANCE_IDS.has(id))) return "tv";
   return "";
+}
+
+function isBookEntity(entity) {
+  return getEntityClaimIds(entity, "P31").some((id) => BOOK_INSTANCE_IDS.has(id));
 }
 
 function chooseWikidataEntity(entities, title, metadata = "") {
@@ -198,6 +212,26 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
   }
   const creatorResult = await getWikidataEntities(creatorIds.slice(0, 2), options);
   if (!creatorResult.ok) return creatorResult;
+  const requestedCreator = extractSuggestionCreator(suggestion?.metadata || "");
+  const creatorNames = creatorIds.flatMap((id) => (
+    getEntityNames(creatorResult.entities?.[id])
+  ));
+  if (!creatorIds.length || !creatorNames.length) {
+    return {
+      ok: false,
+      reason: "catalog_unverified",
+      qualityIssue: "catalog_missing_metadata",
+    };
+  }
+  if (requestedCreator && !creatorNames.some((name) => (
+    normalizeCatalogueTitle(name) === normalizeCatalogueTitle(requestedCreator)
+  ))) {
+    return {
+      ok: false,
+      reason: "catalog_unverified",
+      qualityIssue: "catalog_creator_mismatch",
+    };
+  }
   const creators = creatorIds
     .map((id) => creatorResult.entities?.[id]?.labels?.en?.value
       || creatorResult.entities?.[id]?.labels?.fa?.value)
@@ -211,7 +245,8 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
       || genreResult.entities?.[id]?.labels?.fa?.value
   )).filter(Boolean);
   const year = getEntityYears(entity)[0] || "";
-  const title = getEntityDisplayTitle(entity, suggestion?.title);
+  const title = String(suggestion?.title || "").trim()
+    || getEntityDisplayTitle(entity, suggestion?.title);
   if (!title || !creators.length) {
     return {
       ok: false,
@@ -221,17 +256,81 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
   }
 
   const creatorLabel = mediaType === "movie" ? "Director" : "Creator";
+  const displayCreators = requestedCreator ? [requestedCreator] : creators;
   return {
     ok: true,
     verified: true,
     suggestion: {
       ...suggestion,
       title,
-      metadata: [year, `${creatorLabel}: ${creators.join(", ")}`].filter(Boolean).join(" · "),
+      metadata: [year, `${creatorLabel}: ${displayCreators.join(", ")}`].filter(Boolean).join(" · "),
       mediaType,
       wikidataId: entity.id,
       catalogGenres,
+      aliases: getEntityNames(entity),
     },
+  };
+}
+
+async function verifyWikidataBookCandidate(candidate, options = {}) {
+  const requestedTitle = String(candidate?.originalTitle || candidate?.title || "").trim();
+  const requestedAuthor = String(candidate?.originalAuthor || candidate?.author || "").trim();
+  if (!requestedTitle || !requestedAuthor) {
+    return { ok: false, reason: "catalog_unverified", qualityIssue: "catalog_missing_metadata" };
+  }
+  const searchLanguage = /[\u0600-\u06ff]/u.test(requestedTitle) ? "fa" : "en";
+  const search = await fetchWikidata({
+    action: "wbsearchentities",
+    search: requestedTitle,
+    language: searchLanguage,
+    uselang: searchLanguage,
+    type: "item",
+    limit: "10",
+  }, options);
+  if (!search.ok) return search;
+  const ids = (search.data?.search || []).map((entry) => entry?.id).filter(Boolean);
+  const entityResult = await getWikidataEntities(ids, options);
+  if (!entityResult.ok) return entityResult;
+  const entities = addSearchNamesToEntities(entityResult.entities, search.data?.search);
+  const normalizedTitle = normalizeCatalogueTitle(requestedTitle);
+  const exactTitleEntities = Object.values(entities).filter((entry) => (
+    !entry?.missing
+    && !getEntityMediaType(entry)
+    && getEntityNames(entry).some((name) => normalizeCatalogueTitle(name) === normalizedTitle)
+  ));
+  if (!exactTitleEntities.length) {
+    return { ok: false, reason: "catalog_unverified", qualityIssue: "catalog_title_mismatch" };
+  }
+  const orderedEntities = [...exactTitleEntities].sort((left, right) => (
+    Number(isBookEntity(right)) - Number(isBookEntity(left))
+  ));
+  const authorIds = [...new Set(orderedEntities.flatMap((entry) => (
+    getEntityClaimIds(entry, "P50").slice(0, 4)
+  )))];
+  const authorResult = await getWikidataEntities(authorIds, options);
+  if (!authorResult.ok) return authorResult;
+  const normalizedAuthor = normalizeCatalogueTitle(requestedAuthor);
+  const entity = orderedEntities.find((entry) => getEntityClaimIds(entry, "P50")
+    .slice(0, 4)
+    .some((id) => getEntityNames(authorResult.entities?.[id])
+      .some((name) => normalizeCatalogueTitle(name) === normalizedAuthor)));
+  if (!entity) {
+    return { ok: false, reason: "catalog_unverified", qualityIssue: "catalog_creator_mismatch" };
+  }
+  const matchedAuthorIds = getEntityClaimIds(entity, "P50").slice(0, 4);
+  const authorNames = matchedAuthorIds.flatMap((id) => getEntityNames(authorResult.entities?.[id]));
+  return {
+    ok: true,
+    verified: true,
+    candidate,
+    source: "wikidata",
+    sourceId: entity.id,
+    canonicalTitle: requestedTitle,
+    canonicalAuthors: [requestedAuthor],
+    aliases: getEntityNames(entity),
+    authorAliases: authorNames,
+    displayTitle: requestedTitle,
+    displayAuthor: requestedAuthor,
   };
 }
 
@@ -239,5 +338,7 @@ module.exports = {
   addSearchNamesToEntities,
   chooseWikidataEntity,
   getEntityMediaType,
+  isBookEntity,
+  verifyWikidataBookCandidate,
   verifyWikidataSuggestion,
 };

@@ -271,7 +271,8 @@ test("creator Favorites expand discovery instead of returning only obvious creat
   assert.match(instruction, /also applies when that creator's works appear in liked-and-already-consumed items/);
   assert.match(instruction, /Never describe a work as similar or close to a person/);
   assert.match(instruction, /never use a creator's name as the target of a comparison/);
-  assert.match(instruction, /Saved-for-later items are neutral/);
+  assert.match(instruction, /only evidence of the user's taste/);
+  assert.match(instruction, /exclusions only/);
 });
 
 test("suggestion reasons describe shared qualities without naming Favorites", () => {
@@ -411,6 +412,19 @@ test("Persian suggestions keep searchable names but localize metadata and explan
   );
 });
 
+test("Persian series suggestions preserve the creator label", () => {
+  const message = formatSuggestionResultMessage(
+    "fa",
+    "Severance",
+    "هویت دوپاره و راز سازمانی؛ سرد و دلهره‌آور.",
+    "",
+    "Creator: Dan Erickson",
+    { section: "movies" },
+  );
+  assert.match(message, /سازنده: Dan Erickson/);
+  assert.doesNotMatch(message, /کارگردان: Dan Erickson/);
+});
+
 test("Persian suggestion reasons read naturally as standalone saved comments", () => {
   const parsed = parseSingleSuggestionResponse(
     "Ask the Dust\n1939 · Author: John Fante\nتلخیِ صمیمی و صدای بی‌پرده‌اش به سلیقه‌ات در فانته و پالپ می‌خورد.",
@@ -419,6 +433,23 @@ test("Persian suggestion reasons read naturally as standalone saved comments", (
   assert.equal(
     parsed.reason,
     "تلخیِ صمیمی و صدای بی‌پرده‌اش به فانته و پالپ می‌خورد.",
+  );
+});
+
+test("Persian media reasons reject embedded English wording", () => {
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      lang: "fa",
+      reason: "ایده‌محوری فلسفی و جهان‌سازی دقیق؛ خلاق و unsettling.",
+    }),
+    "mixed_language_reason",
+  );
+  assert.equal(
+    getMediaSuggestionQualityIssue({
+      lang: "fa",
+      reason: "ایده‌محوری فلسفی و جهان‌سازی دقیق؛ خلاق و اضطراب‌آور.",
+    }),
+    "",
   );
 });
 
@@ -496,11 +527,9 @@ test("Movies & Series suggestions define metadata for both formats", () => {
   assert.match(getSingleSuggestionDetailInstruction("music"), /Do not include album, year, label, rating/);
   assert.match(instruction, /Creator/);
   assert.match(modeInstruction, /movies and TV\/streaming series/);
-  assert.match(modeInstruction, /explicitly asks for a movie or series, honor it/);
-  assert.match(modeInstruction, /dominant cluster/);
-  assert.match(modeInstruction, /national cinema or language/);
-  assert.match(modeInstruction, /Do not jump to an unrelated genre/);
-  assert.match(modeInstruction, /malformed, ambiguous, or isolated Favorite/);
+  assert.match(modeInstruction, /Infer national cinema, language, genre/);
+  assert.match(modeInstruction, /strongest repeated patterns in Favorites/);
+  assert.match(modeInstruction, /unless the current request explicitly asks for something different/);
 });
 
 test("suggestion reality gate rejects fabricated-looking outputs", () => {

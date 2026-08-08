@@ -136,6 +136,7 @@ test("config normalizes defaults and allowlist usernames", () => {
 
   assert.equal(config.dbName, "bot");
   assert.equal(config.aiModel, "gpt-4o-mini");
+  assert.equal(config.aiFastModel, "");
   assert.equal(config.embeddingModel, "text-embedding-3-small");
   assert.deepEqual([...config.allowedUsernames], ["alice", "bob"]);
   assert.equal(config.moderation.reportBanThreshold, 5);
@@ -191,6 +192,7 @@ test("ai config can be used without runtime bot credentials", () => {
     OPENAI_API_KEY: "ai-key",
     API_BASE_URL: "https://api.openai.com/v1",
     OPENAI_MODEL: "test-model",
+    FAST_MODEL_NAME: "test-fast-model",
     AI_TIMEOUT_MS: "1234",
   });
 
@@ -198,6 +200,7 @@ test("ai config can be used without runtime bot credentials", () => {
     apiKey: "ai-key",
     baseUrl: "https://api.openai.com/v1",
     model: "test-model",
+    fastModel: "test-fast-model",
     embeddingModel: "text-embedding-3-small",
     suggestionProvider: "auto",
     timeoutMs: 1234,

@@ -48,7 +48,7 @@ test("book candidate parser rejects entries without exact original identity", ()
   assert.deepEqual(candidates, []);
 });
 
-test("book candidate parser retains Persian display identity only for Persian output", () => {
+test("book candidate parser ignores model-supplied translated display identity", () => {
   const input = JSON.stringify([{
     originalTitle: "Hunger",
     originalAuthor: "Knut Hamsun",
@@ -58,8 +58,8 @@ test("book candidate parser retains Persian display identity only for Persian ou
     reason: "فقر و فروپاشی روانی؛ عصبی و فرساینده.",
   }]);
   const [candidate] = parseBookCandidates(input, { favorites: [], lang: "fa" });
-  assert.equal(candidate.localizedTitle, "گرسنگی");
-  assert.equal(candidate.localizedAuthor, "کنوت هامسون");
+  assert.equal(candidate.originalTitle, "Hunger");
+  assert.equal(Object.hasOwn(candidate, "localizedTitle"), false);
   const [englishCandidate] = parseBookCandidates(input, { favorites: [], lang: "en" });
   assert.equal(Object.hasOwn(englishCandidate, "localizedTitle"), false);
 });
@@ -93,12 +93,14 @@ test("book generation asks AI only for original identity and treats saved items 
 
   assert.equal(result.ok, true);
   assert.equal(requests[0].config.timeoutMs, 20000);
-  assert.match(requests[0].instructions, /originalTitle, originalAuthor, localizedTitle, localizedAuthor, mood, reason/);
+  assert.match(requests[0].instructions, /originalTitle, originalAuthor, mood, reason/);
+  assert.doesNotMatch(requests[0].instructions, /localizedTitle/);
   assert.match(requests[0].instructions, /Never translate, localize, transliterate, rename/);
-  assert.match(requests[0].instructions, /Saved-for-later items are neutral hard exclusions/);
+  assert.match(requests[0].instructions, /only positive taste evidence/);
+  assert.match(requests[0].instructions, /exclusion only/);
   assert.match(requests[0].instructions, /soft direction, not an exact subtype requirement/);
-  assert.match(requests[0].input, /Explicitly liked and read: کتاب خوانده‌شده/);
-  assert.match(requests[0].input, /Hard exclusions — saved for later and recent: کتاب ذخیره‌شده/);
+  assert.doesNotMatch(requests[0].input, /Explicitly liked and read/);
+  assert.match(requests[0].input, /Hard exclusions — saved, recent, liked, and rejected: کتاب ذخیره‌شده/);
   assert.equal(result.candidates[0].originalTitle, "The Grapes of Wrath");
   assert.equal(Object.hasOwn(result.candidates[0], "title"), false);
 });

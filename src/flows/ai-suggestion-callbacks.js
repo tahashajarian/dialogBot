@@ -11,13 +11,11 @@ const {
 const {
   addAiRecentSuggestion,
   consumeAiSuggestionQuota,
-  getAiListItemsFromUser,
   getAiListTitlesFromUser,
   getAiRecentSuggestionTitlesFromUser,
   getAiRecentSuggestionCreatorsFromUser,
   getAiRejectedSuggestionTitlesFromUser,
   getAiLikedSuggestionTitlesFromUser,
-  getAiTasteFromUser,
   refundAiSuggestionQuota,
   updateUserState,
 } = require("../services/users");
@@ -28,7 +26,7 @@ const {
 } = require("../services/ai-suggestion-quality");
 const { generateUsableSuggestion } = require("../services/ai-suggestion-generation");
 const { startAiPlaceholder } = require("../services/ai-placeholder");
-const { getSuggestionActionPrompt, getTasteLabelStyleHint } = require("../services/ai-section");
+const { getSuggestionActionPrompt } = require("../services/ai-section");
 const {
   setPendingSuggestion,
   clearPendingSuggestion,
@@ -114,21 +112,15 @@ async function sendFollowupSuggestion({
   const recentSuggestionCreators = getAiRecentSuggestionCreatorsFromUser(ctx.user, section);
   const rejectedSuggestionItems = getAiRejectedSuggestionTitlesFromUser(ctx.user, section);
   const likedSuggestionItems = getAiLikedSuggestionTitlesFromUser(ctx.user, section);
-  const watchlistCreators = getAiListItemsFromUser(ctx.user, section, "watchlist")
-    .map((entry) => extractSuggestionCreator(entry?.metadata || ""))
-    .filter(Boolean);
   const blockedSuggestionItems = [
     ...topTenItems,
     ...watchlistItems,
     ...recentSuggestionItems,
     ...rejectedSuggestionItems,
+    ...likedSuggestionItems,
   ].map((entry) => ({
     title: typeof entry === "string" ? entry : String(entry?.title || "").trim(),
   })).filter((entry) => entry.title);
-  const taste = getAiTasteFromUser(ctx.user, section);
-  const tasteStyleHint = taste?.labelKey
-    ? getTasteLabelStyleHint(messages, lang, section, taste.labelKey)
-    : "";
 
   const restoreSuggestionMode = async () => {
     await updateUserState(ctx.userId, `ai_suggest_context_${section}`);
@@ -193,11 +185,8 @@ async function sendFollowupSuggestion({
     watchlistItems: getPromptWatchlistItems(watchlistItems),
     recentSuggestionItems,
     rejectedSuggestionItems,
-    likedSuggestionItems,
     recentSuggestionCreators,
     blockedSuggestionItems,
-    watchlistCreators,
-    tasteStyleHint,
   });
 
   if (placeholder.isSettled()) {

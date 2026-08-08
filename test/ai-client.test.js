@@ -6,9 +6,39 @@ const {
   classifyAiProviderError,
   extractAiResponseText,
   extractAiTokenUsage,
+  requestFastSuggestionText,
   requestSuggestionText,
   withAiTimeout,
 } = require("../src/services/ai-client");
+
+test("fast suggestion requests retry unusable output once with the main model", async () => {
+  const models = [];
+  const openai = {
+    responses: {
+      create: async ({ model }) => {
+        models.push(model);
+        return { output_text: model === "fast-model" ? "bad" : "usable" };
+      },
+    },
+  };
+
+  const result = await requestFastSuggestionText(openai, {
+    config: {
+      model: "main-model",
+      fastModel: "fast-model",
+      suggestionProvider: "responses",
+      timeoutMs: 1000,
+    },
+    instructions: "test",
+    input: "test",
+    recordEvent: () => {},
+  }, (response) => response?.text === "usable");
+
+  assert.deepEqual(models, ["fast-model", "main-model"]);
+  assert.equal(result.text, "usable");
+  assert.equal(result.modelRole, "main");
+  assert.equal(result.fastFallback, true);
+});
 
 test("AI provider errors distinguish billing, auth, rate limits, and timeouts", () => {
   assert.equal(classifyAiProviderError({ status: 402 }).category, "payment_required");
@@ -148,7 +178,7 @@ test("requestSuggestionText records provider health without changing result", as
   assert.equal(events[0].reason, "empty_output");
   assert.equal(events[1].ok, true);
   assert.equal(events[1].provider, "responses");
-  assert.deepEqual(events[1].metadata, { inputTokens: 12, outputTokens: 4, totalTokens: 16 });
+  assert.deepEqual(events[1].metadata, { modelRole: "main", inputTokens: 12, outputTokens: 4, totalTokens: 16 });
 });
 
 test("requestSuggestionText can use only chat completions", async () => {

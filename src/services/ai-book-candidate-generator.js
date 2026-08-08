@@ -23,11 +23,6 @@ function compactContext(items) {
     .slice(-MAX_CONTEXT_ITEMS);
 }
 
-function normalizePersianIdentity(value, maxLength) {
-  const clean = String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
-  return clean && /[\u0600-\u06ff]/u.test(clean) && !/[A-Za-z]/.test(clean) ? clean : "";
-}
-
 function normalizeCandidate(value, { favorites, lang = "" }) {
   const originalTitle = String(value?.originalTitle || value?.original_title || "")
     .trim()
@@ -43,19 +38,13 @@ function normalizeCandidate(value, { favorites, lang = "" }) {
   const qualityIssue = getMediaSuggestionQualityIssue({
     reason,
     excludedReferenceItems: favorites,
+    lang,
   });
   if (qualityIssue) return null;
 
-  const localizedTitle = lang === "fa"
-    ? normalizePersianIdentity(value?.localizedTitle || value?.localized_title, 80)
-    : "";
-  const localizedAuthor = lang === "fa"
-    ? normalizePersianIdentity(value?.localizedAuthor || value?.localized_author, 100)
-    : "";
   return {
     originalTitle,
     originalAuthor,
-    ...(localizedTitle && localizedAuthor ? { localizedTitle, localizedAuthor } : {}),
     mood,
     reason,
   };
@@ -95,10 +84,7 @@ async function generateBookCandidates({
   lang,
   userText = "",
   favorites = [],
-  likedSuggestions = [],
-  rejectedSuggestions = [],
   hardExclusions = [],
-  tasteStyleHint = "",
   requestTimeoutMs = null,
 }, {
   config = getAiConfig(),
@@ -119,28 +105,23 @@ async function generateBookCandidates({
   };
   const instructions = [
     `Return only a valid JSON array with exactly ${BOOK_CANDIDATE_COUNT} real, established, widely catalogued book candidates, ordered from strongest to weakest match.`,
-    lang === "fa"
-      ? "Each object must contain exactly these string fields: originalTitle, originalAuthor, localizedTitle, localizedAuthor, mood, reason."
-      : "Each object must contain exactly these string fields: originalTitle, originalAuthor, mood, reason.",
+    "Each object must contain exactly these string fields: originalTitle, originalAuthor, mood, reason.",
     "Use the official original-language title and the author's established catalogue name. Never translate, localize, transliterate, rename, merge, approximate, or invent a title or author.",
     "Only use real, published books. The originalTitle and originalAuthor pair must be exact enough for an external catalogue search. Never attribute a real title to the wrong author.",
-    "Favorites and explicitly liked books are positive taste evidence. Saved-for-later items are neutral hard exclusions, not evidence that the user likes them. Rejected books are negative evidence.",
+    "Favorites and the current request are the only positive taste evidence. Every other supplied history item is an exclusion only and must not influence taste.",
     "Treat broad genre, mood, and taste wording as a soft direction, not an exact subtype requirement, unless the request explicitly says only/exclusively/فقط. Build an adjacent, varied shortlist connected through concrete qualities such as voice, atmosphere, structure, themes, setting, or reading experience; do not make all candidates near-identical in genre or premise.",
     "Never return a favorite, saved, recent, or rejected book, including the same work under a translated, transliterated, alternate, or edition title.",
     "Never return a book by an author represented in Favorites unless the current request explicitly asks for that author. Use those authors only as taste evidence for discovering adjacent writers.",
     "The reason must describe the selected book itself using concrete, well-known qualities. Never infer plot or mood from the title alone. Never mention the user, their taste, Favorites, matching, AI, or verification.",
     lang === "fa"
-      ? "Write mood and reason in concise natural Persian. Keep the reason to at most 16 words and prefer two concrete parts separated by «؛». Keep originalTitle and originalAuthor in their official catalogue form. localizedTitle and localizedAuthor must be the confidently established Persian publication title and conventional Persian author spelling; never create a literal translation, and use empty strings when uncertain."
+      ? "Write mood and reason in concise natural Persian. Keep the reason to at most 16 words and prefer two concrete parts separated by «؛». Keep originalTitle and originalAuthor in their official original form; Persian originals stay Persian and non-Persian books use their official English/international identity."
       : "Write mood and reason in concise natural English.",
     `Use well-established books so all ${BOOK_CANDIDATE_COUNT} identities can be externally verified. If none are certain, return an empty JSON array. No markdown, commentary, or extra keys.`,
   ].join(" ");
   const input = [
     `Request: ${String(userText || "Suggest one book").trim()}`,
-    `Taste direction: ${String(tasteStyleHint || "").trim() || "None"}`,
     `Favorites: ${compactContext(favorites).join(" | ") || "None"}`,
-    `Explicitly liked and read: ${compactContext(likedSuggestions).join(" | ") || "None"}`,
-    `Rejected: ${compactContext(rejectedSuggestions).join(" | ") || "None"}`,
-    `Hard exclusions — saved for later and recent: ${compactContext(hardExclusions).join(" | ") || "None"}`,
+    `Hard exclusions — saved, recent, liked, and rejected: ${compactContext(hardExclusions).join(" | ") || "None"}`,
   ].join("\n");
 
   try {
