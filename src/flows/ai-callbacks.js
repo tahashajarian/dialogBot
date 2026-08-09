@@ -30,6 +30,7 @@ const {
   aiSuggestionLimitKeyboard,
   aiSuggestionNeedTopTenKeyboard,
   aiSuggestionAddedOptionsKeyboard,
+  aiSuggestionListFullKeyboard,
   aiListManageMenuKeyboard,
   aiListRemoveItemsKeyboard,
   aiListCancelAddKeyboard,
@@ -1106,7 +1107,16 @@ async function handleAiCallback(ctx, lang, helpers) {
 
       if (!result.ok) {
         if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
-        if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiWatchlistLimitReached"), aiListManageMenuKeyboard(lang, section, "watchlist"));
+        if (result.reason === "limit") {
+          await setNavigationMode(ctx, `ai_suggestion_next:${section}`);
+          if (ctx.user) ctx.user.navigationMode = `ai_suggestion_next:${section}`;
+          const actionMessage = await ctx.reply(
+            formatAiLimitMessage(lang, "aiWatchlistLimitReached"),
+            aiSuggestionListFullKeyboard(lang, section),
+          );
+          await rememberAiActionMessage(ctx, `suggest_next:${section}`, actionMessage);
+          return actionMessage;
+        }
         logger.warn("AI suggestion save failed", {
           section,
           reason: result.reason || "unknown",

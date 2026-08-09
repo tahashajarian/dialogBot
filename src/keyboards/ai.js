@@ -351,6 +351,22 @@ function aiListManageMenuKeyboard(lang, section, listType, {
   return { reply_markup: { keyboard: rows, resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 
+function aiSuggestionListFullKeyboard(lang, section) {
+  const listLabel = getSectionListLabel(messages, lang, section);
+  return { reply_markup: { keyboard: [
+    [
+      {
+        text: messages[lang].aiSuggestionGoToListButton.replace("{listName}", listLabel),
+      },
+    ],
+    [
+      {
+        text: messages[lang].aiSuggestionAnotherButton,
+      },
+    ],
+  ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
+}
+
 function aiWatchlistCardKeyboard(lang, section, {
   filter = "all",
   page = 0,
@@ -542,6 +558,7 @@ module.exports = {
   aiSuggestionNeedTopTenKeyboard,
   aiSuggestionContextCancelKeyboard,
   aiSuggestionAddedOptionsKeyboard,
+  aiSuggestionListFullKeyboard,
   aiListManageMenuKeyboard,
   aiWatchlistCardKeyboard,
   aiListRemoveItemsKeyboard,

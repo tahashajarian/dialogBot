@@ -33,6 +33,7 @@ const {
   aiSectionKeyboardForSection,
   aiSuggestionAddKeyboard,
   aiSuggestionAddedOptionsKeyboard,
+  aiSuggestionListFullKeyboard,
   aiSuggestionNextKeyboard,
   aiListCancelAddKeyboard,
   aiListManageMenuKeyboard,
@@ -2218,6 +2219,7 @@ test("the 101st manual For Later item returns to the remembered list page", asyn
 
 test("a full For Later list keeps the AI suggestion card actionable", async () => {
   const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
   const replies = [];
   const deleted = [];
   const items = Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index + 1}` }));
@@ -2239,6 +2241,7 @@ test("a full For Later list keeps the AI suggestion card actionable", async () =
     },
   };
   User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async () => ({});
   setPendingSuggestion(ctx.userId, "movies", "Movie 101", "A reason");
 
   try {
@@ -2250,6 +2253,7 @@ test("a full For Later list keeps the AI suggestion card actionable", async () =
     });
   } finally {
     User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
   assert.deepEqual(deleted, []);
@@ -2259,8 +2263,15 @@ test("a full For Later list keeps the AI suggestion card actionable", async () =
       .replaceAll("{watchlistLimit}", String(operationalLimits.aiWatchlistItems)),
   );
   assert.equal(ctx.user.state, "ai_chat_movies");
-  assert.equal(ctx.user.navigationMode, "ai_suggestion_result:movies");
+  assert.equal(ctx.user.navigationMode, "ai_suggestion_next:movies");
   assert.equal(ctx.user.aiLists.movies.watchlist.length, 100);
+  assert.deepEqual(
+    replies.at(-1).extra,
+    aiSuggestionListFullKeyboard("en", "movies"),
+  );
+  const fullListButtons = replies.at(-1).extra.reply_markup.keyboard.flat();
+  assert.equal(fullListButtons.length, 2);
+  assert.doesNotMatch(fullListButtons.map((button) => button.text).join("\n"), /Add to/i);
 });
 
 test("Interests editor shares the paged onboarding chip catalog", () => {

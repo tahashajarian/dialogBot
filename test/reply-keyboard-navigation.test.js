@@ -537,6 +537,8 @@ test("post-save and post-reject suggestion actions replace the old result mode",
 
   const rejected = { mode: "ai_suggestion_next:movies", state: "ai_chat_movies", user: { lang: "fa" } };
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, rejected).callbackData, `${callBacks.aiSectionAnotherSuggestion}movies`);
+  const fullListText = messages.fa.aiSuggestionGoToListButton.replace("{listName}", require("../src/services/ai-section").getSectionListLabel(messages, "fa", "movies"));
+  assert.equal(resolveReplyKeyboardAction(fullListText, rejected).callbackData, `${callBacks.aiListManageShow}movies:watchlist`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAddToListButton.replace("{listName}", "x"), rejected), null);
 });
 

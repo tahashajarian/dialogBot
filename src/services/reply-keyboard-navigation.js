@@ -444,6 +444,10 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   if (suggestionNextMatch) {
     const section = suggestionNextMatch[1];
     entries.push(["aiSuggestionAnotherButton", `${callBacks.aiSectionAnotherSuggestion}${section}`], ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageMenu}${section}:top_ten`]);
+    for (const lang of [user?.lang].filter((value) => messages[value])) {
+      const listText = messages[lang].aiSuggestionGoToListButton.replace("{listName}", getSectionListLabel(messages, lang, section));
+      entries.push([listText, `${callBacks.aiListManageShow}${section}:watchlist`]);
+    }
   }
   if (suggestionAddedMatch) {
     const section = suggestionAddedMatch[1];

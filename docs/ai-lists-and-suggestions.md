@@ -337,6 +337,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `○` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
+- If saving a suggestion fails because the For Later list is full, keep the suggestion card, show the concise configured-limit message, and replace the unusable save controls with only Go to the concrete For Later list and Another suggestion. Do not record the suggestion as saved, liked, or rejected, and do not open the list automatically.
 - Saving a suggestion as already watched/listened/read/done should use that same three-destination follow-up keyboard and the current section-aware For Later name; do not use legacy `watchlist` wording.
 
 ## Stars Milestones
