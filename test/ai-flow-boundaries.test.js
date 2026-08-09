@@ -782,6 +782,22 @@ test("media favorites do not show preliminary taste labels before all 10 are com
   }
 });
 
+test("completed Favorites label headings name their section", () => {
+  const cases = [
+    ["movies", "فیلم و سریال"],
+    ["music", "موسیقی"],
+    ["books", "کتاب‌ها"],
+  ];
+
+  for (const [_section, sectionLabel] of cases) {
+    const text = messages.fa.aiTopTenManageInlineEntryComplete
+      .replace("{section}", sectionLabel)
+      .replace("{label}", "نمونه");
+    assert.match(text, new RegExp(`🏷 برچسب بخش ${sectionLabel}: نمونه`));
+    assert.doesNotMatch(text, /برچسب سلیقه‌ات/);
+  }
+});
+
 test("canceling AI list comment returns to the refreshed list manager", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
   const deletedIds = [];

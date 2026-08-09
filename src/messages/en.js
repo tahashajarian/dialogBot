@@ -477,7 +477,7 @@ module.exports = {
     aiListManageEmptyEntry: "👩‍🦳 Your {listName} is empty.\n\nKeep things here that you want to come back to later.\n\n💡 Add the first item.",
     aiTopTenManageInlineEntry: "👩‍🦳❤️ Your favorites shape your taste.\n\n💡 Complete all 10 for a more accurate label.",
     aiTopTenManagePeopleHint: "💡 This label helps surface discussions and people closer to your taste.",
-    aiTopTenManageInlineEntryComplete: "👩‍🦳❤️ Your 10 favorites are complete.\n\n🏷 Your taste label: {label}\n\n💡 To add a comment or remove an item, tap the command beside its title.",
+    aiTopTenManageInlineEntryComplete: "👩‍🦳❤️ Your 10 favorites are complete.\n\n🏷 {section} label: {label}\n\n💡 To add a comment or remove an item, tap the command beside its title.",
     aiTopTenManageInlineEntryCompleteSuggested: "👩‍🦳❤️ Your 10 favorites are complete.\n\n🏷 Your label suggestions are ready.\n💡 Use the Taste label button to choose one.",
     aiTopTenManageInlineEntryCompleteNoLabel: "👩‍🦳❤️ Your 10 favorites are complete.\n\n💡 Use the Taste label button to choose your label.",
     aiFavoritesIntro: "👩‍🦳 Add things you genuinely love. I use these choices to understand your taste and show better suggestions, people, and discussions.\n\n💡 Start with 3 favorites; you can build up to {goal} later.",

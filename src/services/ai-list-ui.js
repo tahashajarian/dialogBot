@@ -382,7 +382,9 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
   if (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) {
     const labelTitle = getTasteLabelTitle(messages, lang, section, taste.labelKey);
     const label = formatTasteWithStoredEmoji(section, taste, labelTitle);
-    return messages[lang].aiTopTenManageInlineEntryComplete.replace("{label}", label);
+    return messages[lang].aiTopTenManageInlineEntryComplete
+      .replace("{section}", getSectionLabel(messages, lang, section))
+      .replace("{label}", label);
   }
   if (taste.classificationStatus === "suggested" && taste.suggestedLabelKeys?.length) {
     return messages[lang].aiTopTenManageInlineEntryCompleteSuggested;
