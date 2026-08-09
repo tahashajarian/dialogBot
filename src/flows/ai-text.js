@@ -1003,21 +1003,24 @@ async function handleAiText(ctx, lang, text, state) {
       const savedText = messages[lang].aiListSaved
         .replace("{item}", item)
         .replace("{listName}", listLabel);
+      if (listIsFull) {
+        return openAiListManager(ctx, lang, section, listType, {
+          prefix: [
+            savedText,
+            formatAiLimitMessage(lang, "aiWatchlistLimitReached"),
+          ].join("\n\n"),
+          filter: "all",
+          page: 0,
+        });
+      }
       const saved = await ctx.reply(
         [
           savedText,
-          listIsFull
-            ? formatAiLimitMessage(lang, "aiWatchlistLimitReached")
-            : messages[lang].aiListManageAddNextPrompt,
+          messages[lang].aiListManageAddNextPrompt,
         ].join("\n\n"),
-        listIsFull
-          ? aiListManageMenuKeyboard(lang, section, listType, {
-            hasItems: result.items.length > 0,
-            itemCount: result.items.length,
-          })
-          : getContinuousAddKeyboard(lang, section, listType, result.items),
+        getContinuousAddKeyboard(lang, section, listType, result.items),
       );
-      if (!listIsFull) await rememberAiPendingInputPrompt(ctx, saved);
+      await rememberAiPendingInputPrompt(ctx, saved);
       return saved;
     }
 

@@ -2159,10 +2159,13 @@ test("the final For Later save announces the dynamic limit without asking for an
   const savedReply = replies.at(-1);
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
   assert.match(savedReply.text, new RegExp(`full \\(${limit}/${limit}\\)`));
+  assert.match(savedReply.text, /Final Movie/);
+  assert.match(savedReply.text, /1\. ○ <code>Final Movie<\/code>/);
   assert.doesNotMatch(savedReply.text, /Send the next title here/);
+  assert.equal(savedReply.extra.parse_mode, "HTML");
   assert.equal(
-    savedReply.extra.reply_markup.keyboard.flat()
-      .some((button) => button.text === messages.en.aiListManageAddLaterMovies),
+    replies.some((reply) => reply.extra?.reply_markup?.keyboard?.flat()
+      .some((button) => button.text === messages.en.aiListManageAddLaterMovies)),
     true,
   );
 });
