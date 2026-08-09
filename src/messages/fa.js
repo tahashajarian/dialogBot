@@ -621,7 +621,7 @@ module.exports = {
     aiListAlreadyExists: "👩‍🦳 این مورد قبلا ثبت شده.",
     aiListDuplicateMatch: "👩‍🦳 این مورد به «{item}» شبیهه و قبلا ثبت شده.",
     aiListNotFound: "این مورد داخل لیست نبود.",
-    aiWatchlistLimitReached: "لیستت کامل شده ({watchlistLimit}/{watchlistLimit}). برای افزودن مورد جدید، یکی از همین لیست رو حذف کن.",
+    aiWatchlistLimitReached: "👩‍🦳 لیستت کامل شده ({watchlistLimit}/{watchlistLimit}).",
     aiTopTenLimitReached: "👩‍🦳 فهرست محبوب‌هات کامله ({topTenLimit}/{topTenLimit}). برای افزودن مورد جدید، اول یکی از محبوب‌هات رو حذف کن.",
     aiTopTenLimitReachedHere: "👩‍🦳 محبوب‌های این بخش کامل شده ({topTenLimit}/{topTenLimit}).\n\n💡 برای افزودن مورد جدید، اول یکی از محبوب‌هات رو حذف کن.",
     aiListSaveFailed: "👩‍🦳 الان نتونستم این مورد رو ذخیره کنم. دوباره امتحان کن.",

@@ -621,7 +621,7 @@ module.exports = {
     aiListAlreadyExists: "👩‍🦳 This item is already in your list.",
     aiListDuplicateMatch: "👩‍🦳 This looks like \"{item}\", which is already saved.",
     aiListNotFound: "This item was not found in your list.",
-    aiWatchlistLimitReached: "Your list is full ({watchlistLimit}/{watchlistLimit}). Remove one item from this list to add a new one.",
+    aiWatchlistLimitReached: "👩‍🦳 Your list is full ({watchlistLimit}/{watchlistLimit}).",
     aiTopTenLimitReached: "👩‍🦳 Your favorites are full ({topTenLimit}/{topTenLimit}). Remove one favorite before adding a new one.",
     aiTopTenLimitReachedHere: "👩‍🦳 Your favorites in this section are full ({topTenLimit}/{topTenLimit}).\n\n💡 Remove one favorite before adding a new one.",
     aiListSaveFailed: "👩‍🦳 I couldn’t save this item right now. Please try again.",

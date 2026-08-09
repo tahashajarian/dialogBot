@@ -18,6 +18,7 @@ const {
 const User = require("../src/models/user");
 const AiPaidSuggestion = require("../src/models/ai-paid-suggestion");
 const { starEconomy } = require("../src/services/star-settings");
+const { operationalLimits } = require("../src/services/operational-limits");
 const { promoteWatchlistItemToTopTen } = require("../src/services/users");
 const { buildAiAssistantMenuMessage } = require("../src/services/ai-list-ui");
 const { sendAiAssistantHub } = require("../src/flows/ai-hub");
@@ -2091,6 +2092,79 @@ test("watchlist add flow stays open for the next item", async () => {
   assert.equal(buttons.some((button) => button.text === messages.en.aiListManageAddBackToList), true);
   assert.equal(buttons.some((button) => button.text === messages.en.cancelEdit), false);
   assert.deepEqual(ctx.user.aiLists.movies.watchlist.map((entry) => entry.title), ["Arrival"]);
+});
+
+test("a full For Later list keeps Add visible but does not enter add mode", async () => {
+  const limit = operationalLimits.aiWatchlistItems;
+  const items = Array.from({ length: limit }, (_, index) => ({ title: `Movie ${index + 1}` }));
+  const replies = [];
+  const ctx = {
+    callbackData: `${callBacks.aiListManageAdd}movies:watchlist`,
+    userId: 779,
+    user: {
+      userId: 779,
+      state: "ai_manage_movies_watchlist",
+      aiLists: { movies: { watchlist: items, topTen: [] } },
+    },
+    answerCb: async () => true,
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+
+  await handleAiCallback(ctx, "fa", {});
+
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.equal(
+    replies[0].text,
+    messages.fa.aiWatchlistLimitReached
+      .replaceAll("{watchlistLimit}", String(limit)),
+  );
+  assert.equal(
+    replies[0].extra.reply_markup.keyboard.flat()
+      .some((button) => button.text === messages.fa.aiListManageAddLaterMovies),
+    true,
+  );
+});
+
+test("the final For Later save announces the dynamic limit without asking for another title", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const limit = operationalLimits.aiWatchlistItems;
+  const items = Array.from({ length: limit - 1 }, (_, index) => ({ title: `Movie ${index + 1}` }));
+  const replies = [];
+  const ctx = {
+    userId: 7791,
+    user: {
+      userId: 7791,
+      state: "ai_manage_movies_watchlist_add_input",
+      aiLists: { movies: { watchlist: items, topTen: [] } },
+    },
+    reply: async (text, extra) => {
+      replies.push({ text, extra });
+      return { message_id: replies.length };
+    },
+  };
+  User.findOne = async () => ctx.user;
+  User.findOneAndUpdate = async () => ({});
+
+  try {
+    await handleAiText(ctx, "en", "Final Movie", ctx.user.state);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+
+  const savedReply = replies.at(-1);
+  assert.equal(ctx.user.state, "ai_manage_movies_watchlist");
+  assert.match(savedReply.text, new RegExp(`full \\(${limit}/${limit}\\)`));
+  assert.doesNotMatch(savedReply.text, /Send the next title here/);
+  assert.equal(
+    savedReply.extra.reply_markup.keyboard.flat()
+      .some((button) => button.text === messages.en.aiListManageAddLaterMovies),
+    true,
+  );
 });
 
 test("the 101st manual For Later item returns to the remembered list page", async () => {

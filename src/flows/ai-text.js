@@ -1004,7 +1004,12 @@ async function handleAiText(ctx, lang, text, state) {
         .replace("{item}", item)
         .replace("{listName}", listLabel);
       const saved = await ctx.reply(
-        [savedText, listIsFull ? "" : messages[lang].aiListManageAddNextPrompt].filter(Boolean).join("\n\n"),
+        [
+          savedText,
+          listIsFull
+            ? formatAiLimitMessage(lang, "aiWatchlistLimitReached")
+            : messages[lang].aiListManageAddNextPrompt,
+        ].join("\n\n"),
         listIsFull
           ? aiListManageMenuKeyboard(lang, section, listType, {
             hasItems: result.items.length > 0,

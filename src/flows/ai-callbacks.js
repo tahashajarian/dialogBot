@@ -693,6 +693,18 @@ async function handleAiCallback(ctx, lang, helpers) {
     const [section = "", rawListType = ""] = payload.split(":");
     const listType = normalizeAiListTypeToken(rawListType);
     if (!section || !listType) return ctx.reply(messages[lang].unknownAction);
+    const currentItems = getAiListItemsFromUser(ctx.user, section, listType);
+    if (
+      listType === "watchlist"
+      && currentItems.length >= operationalLimits.aiWatchlistItems
+    ) {
+      return ctx.reply(
+        formatAiLimitMessage(lang, "aiWatchlistLimitReached"),
+        aiListManageMenuKeyboard(lang, section, listType, {
+          itemCount: currentItems.length,
+        }),
+      );
+    }
 
     const addInputState = `ai_manage_${section}_${toAiManageStateListType(listType)}_add_input`;
     await updateUserState(ctx.userId, addInputState);
@@ -700,7 +712,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     await setNavigationMode(ctx, `ai_list:${section}:${listType}`);
     if (ctx.user) ctx.user.navigationMode = `ai_list:${section}:${listType}`;
     const isInterestTopTen = section === "random" && listType === "topTen";
-    const currentItems = isInterestTopTen
+    const interestItems = isInterestTopTen
       ? getAiListItemsFromUser(ctx.user, "random", "topTen")
       : [];
     const trackedListMessageId = Number(ctx.user?.aiLastListMessageId);
@@ -711,7 +723,7 @@ async function handleAiCallback(ctx, lang, helpers) {
     const prompt = await ctx.reply(
       getAiListAddPrompt(lang, section, listType),
       isInterestTopTen
-        ? aiInterestTopTenChipKeyboard(lang, currentItems.map((entry) => entry.title))
+        ? aiInterestTopTenChipKeyboard(lang, interestItems.map((entry) => entry.title))
         : aiListCancelAddKeyboard(lang, section, listType),
     );
     await rememberAiPendingInputPrompt(ctx, prompt);

@@ -39,6 +39,7 @@
 
 ## Watchlist
 
+- A full For Later list keeps its Add action visible. Tapping Add at the configured limit must keep the manager state and show the concise full-list message instead of opening input mode. Saving the final available slot shows the same configured-limit message and does not ask for another title.
 - Watchlist/list rendering should always show the section-aware status marker (`✔️` done or `○` not done), including first entry and post-mutation refreshes.
 - For Later lists render newest entries first. Visible ordering must not change the stable full-list indexes used by item commands.
 - Paginated For Later rows keep continuous visible numbering across pages (1–5, 6–10, and so on), including filtered views.
