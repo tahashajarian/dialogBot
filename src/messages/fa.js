@@ -607,7 +607,6 @@ module.exports = {
     aiSuggestionFromTopTenButton: "✨ بریم",
     aiSuggestionContextPrompt: "👩‍🦳 خیلی کوتاه بنویس دنبال چه نوع، حال‌وهوا یا ژانری هستی.\nمثلا: تلخ، شاد، عجیب.\n\n👇",
     aiSuggestionContextTooLong: "👩‍🦳 یکم کوتاه‌ترش کن؛ نوع، حال‌وهوا یا ژانر باید حداکثر ۸۰ کاراکتر باشه. یا روی «بریم» بزن.",
-    aiSuggestionListFull: "لیستت پره ({watchlistLimit}/{watchlistLimit}). برای افزودن مورد جدید، یکی رو حذف کن.",
     aiSuggestionFallbackTitle: "پیشنهاد ویژه",
     aiSuggestionExpired: "👩‍🦳 این پیشنهاد منقضی شده. دوباره پیشنهاد بگیر.",
     aiSuggestionHourlyLimit: "👩‍🦳 سهم پیشنهادهای این بخش فعلا تموم شده ({suggestionLimit} تا در هر {suggestionWindowMinutes} دقیقه).\nحدود {minutes} دقیقه دیگه دوباره امتحان کن.",

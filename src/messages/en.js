@@ -607,7 +607,6 @@ module.exports = {
     aiSuggestionFromTopTenButton: "✨ Suggest now",
     aiSuggestionContextPrompt: "👩‍🦳 Briefly say what type, mood, or genre you’re looking for.\nFor example: dark, cheerful, strange.\n\n👇",
     aiSuggestionContextTooLong: "👩‍🦳 Make it a little shorter; the type, mood, or genre must be at most 80 characters. Or tap “Suggest now”.",
-    aiSuggestionListFull: "Your list is full ({watchlistLimit}/{watchlistLimit}). Remove one item first.",
     aiSuggestionFallbackTitle: "Quick pick",
     aiSuggestionExpired: "👩‍🦳 That suggestion expired. Get a new one.",
     aiSuggestionHourlyLimit: "👩‍🦳 You used this section's free suggestions ({suggestionLimit} per {suggestionWindowMinutes} minutes).\nTry again for free in about {minutes} minutes.",

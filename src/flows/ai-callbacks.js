@@ -1106,7 +1106,7 @@ async function handleAiCallback(ctx, lang, helpers) {
 
       if (!result.ok) {
         if (result.reason === "exists") return ctx.reply(getDuplicateListMessage(lang, result), aiSuggestionAddKeyboard(lang, section));
-        if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiSuggestionListFull"), aiListManageMenuKeyboard(lang, section, "watchlist"));
+        if (result.reason === "limit") return ctx.reply(formatAiLimitMessage(lang, "aiWatchlistLimitReached"), aiListManageMenuKeyboard(lang, section, "watchlist"));
         logger.warn("AI suggestion save failed", {
           section,
           reason: result.reason || "unknown",

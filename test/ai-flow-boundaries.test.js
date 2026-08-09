@@ -2253,7 +2253,11 @@ test("a full For Later list keeps the AI suggestion card actionable", async () =
   }
 
   assert.deepEqual(deleted, []);
-  assert.match(replies.at(-1).text, /full \(100\/100\)/);
+  assert.equal(
+    replies.at(-1).text,
+    messages.en.aiWatchlistLimitReached
+      .replaceAll("{watchlistLimit}", String(operationalLimits.aiWatchlistItems)),
+  );
   assert.equal(ctx.user.state, "ai_chat_movies");
   assert.equal(ctx.user.navigationMode, "ai_suggestion_result:movies");
   assert.equal(ctx.user.aiLists.movies.watchlist.length, 100);
