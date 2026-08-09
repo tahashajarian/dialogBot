@@ -789,7 +789,7 @@ test("completed Favorites label headings name their section", () => {
     ["books", "کتاب‌ها"],
   ];
 
-  for (const [_section, sectionLabel] of cases) {
+  for (const [sectionLabel] of cases) {
     const text = messages.fa.aiTopTenManageInlineEntryComplete
       .replace("{section}", sectionLabel)
       .replace("{label}", "نمونه");
