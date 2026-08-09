@@ -572,6 +572,7 @@ async function openAiListManager(ctx, lang, section, listType, {
   page = null,
   replaceCard = false,
   includeManageTip = false,
+  refreshReplyKeyboard = false,
 } = {}) {
   const previousMode = String(ctx.user?.navigationMode || "");
   const previousState = String(ctx.user?.state || "");
@@ -647,7 +648,7 @@ async function openAiListManager(ctx, lang, section, listType, {
     const tipKey = hasInlineControls
       ? "aiListManageUseButtonsTipWithInline"
       : "aiListManageUseButtonsTip";
-    if (!alreadyInThisManager || previousState !== nextState) {
+    if (refreshReplyKeyboard || !alreadyInThisManager || previousState !== nextState) {
       await ctx.reply(messages[lang][tipKey], replyKeyboard);
     }
     const watchlistText = formatAiListTelegramText(includeManageTip
@@ -1011,6 +1012,7 @@ async function handleAiText(ctx, lang, text, state) {
           ].join("\n\n"),
           filter: "all",
           page: 0,
+          refreshReplyKeyboard: true,
         });
       }
       const saved = await ctx.reply(

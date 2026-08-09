@@ -2139,6 +2139,7 @@ test("the final For Later save announces the dynamic limit without asking for an
     user: {
       userId: 7791,
       state: "ai_manage_movies_watchlist_add_input",
+      navigationMode: "ai_list:movies:watchlist",
       aiLists: { movies: { watchlist: items, topTen: [] } },
     },
     reply: async (text, extra) => {
