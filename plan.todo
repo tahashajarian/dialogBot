@@ -2,7 +2,7 @@
 
 ## Do before deployment
 
-- [ ] Add the new environment variables to the server configuration:
+- [x] Add the new environment variables to the server configuration:
   - `FAST_MODEL_NAME`
   - `OPEN_LIBRARY_CONTACT_EMAIL` (recommended, not required for startup)
 
