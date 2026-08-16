@@ -395,15 +395,15 @@ test("suggestion save buttons name the concrete section list", () => {
   const booksAddedButtons = keyboardButtons(aiSuggestionAddedOptionsKeyboard("fa", "books"));
   const rejectedButtons = keyboardButtons(aiSuggestionNextKeyboard("fa", "movies"));
 
-  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵📋 listen later list");
-  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 لیست «بعدا می‌خونم»");
+  assert.equal(musicAddButtons[0].text, "➕ Save to 🎵📋 Music Library");
+  assert.equal(booksAddedButtons[1].text, "رفتن به 📚📋 آرشیو کتاب");
   assert.equal(booksAddedButtons[2].text, "❤️ رفتن به لیست «محبوب‌ها»");
   assert.equal(rejectedButtons[1].text, "❤️ رفتن به لیست «محبوب‌ها»");
-  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "📚📋 read later list"), "👩‍🦳 Saved to 📚📋 read later list.");
-  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 لیست «بعدا گوش می‌دم»"), "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد.");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 لیست «بعدا می‌بینم» ذخیره شد. (دیده‌شده)");
-  assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 لیست «بعدا گوش می‌دم» ذخیره شد. (گوش‌داده‌شده)");
-  assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 لیست «بعدا می‌خونم» ذخیره شد. (خوانده‌شده)");
+  assert.equal(messages.en.aiSuggestionAdded.replace("{listName}", "🎵📋 Music Library"), "👩‍🦳 Saved to 🎵📋 Music Library.");
+  assert.equal(messages.fa.aiSuggestionAdded.replace("{listName}", "🎵📋 آرشیو موسیقی"), "👩‍🦳 در 🎵📋 آرشیو موسیقی ذخیره شد.");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMovies, "👩‍🦳 در 🎬📋 آرشیو فیلم ذخیره شد. (دیده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneMusic, "👩‍🦳 در 🎵📋 آرشیو موسیقی ذخیره شد. (گوش‌داده‌شده)");
+  assert.equal(messages.fa.aiSuggestionAddedDoneBooks, "👩‍🦳 در 📚📋 آرشیو کتاب ذخیره شد. (خوانده‌شده)");
   assert.doesNotMatch(messages.fa.aiSuggestionChooseAction, /حالا|بعدش/);
   assert.doesNotMatch(messages.fa.aiSuggestionNextGuidance, /حالا/);
 });
@@ -1719,7 +1719,7 @@ test("empty AI watchlist manager uses an intentional empty-state message", async
   const labels = buttons.map((button) => button.text);
 
   assert.match(managerReply.text, /هنوز خالیه/);
-  assert.match(managerReply.text, /بعدا سراغشون بری/);
+  assert.match(managerReply.text, /وضعیتشون رو پیگیری می‌کنی/);
   assert.match(managerReply.text, /اولین مورد/);
   assert.equal(labels.includes(messages.fa.aiListManageAddLaterMusic), true);
   assert.equal(buttons.some((button) => button.callback_data === `${callBacks.aiListManageShow}music:watchlist`), false);
@@ -2104,7 +2104,7 @@ test("watchlist add flow stays open for the next item", async () => {
   const buttons = savedReply.extra.reply_markup.keyboard.flat();
 
   assert.equal(ctx.user.state, "ai_manage_movies_watchlist_add_input");
-  assert.match(savedReply.text, /Saved "Arrival" to 🎬📋 watch later/);
+  assert.match(savedReply.text, /Saved "Arrival" to 🎬📋 Movie Library/);
   assert.match(savedReply.text, /Send the next title here/);
   assert.doesNotMatch(savedReply.text, /1\. Arrival/);
   assert.doesNotMatch(savedReply.text, /Star|⭐/);

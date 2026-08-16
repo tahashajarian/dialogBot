@@ -526,7 +526,7 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
   const listActivityRows = (snapshot.lists || []).map((row) => ({
     label: row.label,
     value: (Number(row.topTenItems) || 0) + (Number(row.watchlistItems) || 0),
-    note: `${formatNumber(row.topTenItems)} Favorites · ${formatNumber(row.watchlistItems)} For Later`,
+    note: `${formatNumber(row.topTenItems)} Favorites · ${formatNumber(row.watchlistItems)} Library`,
   }));
   const performanceRows = [...(health?.performance?.routes || [])]
     .sort((a, b) => (Number(b.p95DurationMs) || 0) - (Number(a.p95DurationMs) || 0))

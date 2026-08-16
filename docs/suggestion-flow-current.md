@@ -5,7 +5,7 @@ This file summarizes the current production contract so future changes do not re
 ## Taste evidence and model routing
 
 - Favorites in the active media section are the only positive taste evidence used to select or rank suggestions.
-- For Later, recent, liked, and rejected history may prevent repeats, but must not steer taste or ranking. Taste badges must not influence suggestions.
+- Archive/Library, recent, liked, and rejected history may prevent repeats, but must not steer taste or ranking. Taste badges must not influence suggestions.
 - `MODEL_NAME` / `OPENAI_MODEL` is the main model for movie generation and fallback book generation. `FAST_MODEL_NAME` / `OPENAI_FAST_MODEL` is the fast model for bounded ranking, adjacent-artist discovery, and short explanations; it falls back to the main model when unset.
 - An unusable fast-model result is retried once with the main model.
 
@@ -13,7 +13,7 @@ This file summarizes the current production contract so future changes do not re
 
 - AI returns one ordered batch of five established official original book identities. Keeping the JSON batch compact avoids truncation and filler duplicates.
 - Each fallback candidate contains an official original title/author pair and remains ineligible until that pair is verified.
-- Favorites and the optional current request are the only taste evidence. Read Later, recent, liked/read, and rejected books are hard exclusions only.
+- Favorites and the optional current request are the only taste evidence. Book Library, recent, liked/read, and rejected books are hard exclusions only.
 - Code removes known canonical duplicates before verification, then checks verified catalogue aliases across languages.
 - Code checks at most the first five non-duplicate candidates in order, stopping at the first verified result or the existing deadline. Open Library verifies each exact title-author pair first; strict Wikidata verification is the fallback when Open Library is unavailable or has no matching record. Only an exact title and author relationship from either source may be displayed.
 - Open Library title matching is exact after punctuation, case, and accent normalization across the work title and its returned edition titles. Combined-title records, study guides, notes, summaries, analysis, criticism, companions, and workbooks cannot verify the requested book.
@@ -49,7 +49,7 @@ Series suggestions return verified television/streaming series or miniseries onl
 - AI ranks only retrieved candidates and writes mood plus the standalone description; it must not invent or rewrite title/artist.
 - Display the selected catalogue title and artist unchanged. Persian originals stay Persian; non-Persian music uses its official English/international catalogue identity.
 - Persian artist discovery may use international-catalogue spellings for search, but it may not rewrite, translate, or transliterate the selected identity.
-- Favorite artists guide discovery. Recent creators, For Later works, liked/listened works, and exact rejected display/source identities are exclusions only; they must not steer musical taste.
+- Favorite artists guide discovery. Recent creators, Archive/Library works, liked/listened works, and exact rejected display/source identities are exclusions only; they must not steer musical taste.
 - Do not display album, year, rating, label, or other catalogue metadata.
 
 ## Placeholder

@@ -32,7 +32,7 @@ test("Stars overview uses live settings and a self-only balance", () => {
     paidExtraDiscussionCost: 8,
   });
   assert.match(text, /Balance: 18/);
-  assert.match(text, /Watch Later, Listen Later, and Read Later lists do not award Stars/);
+  assert.match(text, /Movie, Series, Music, and Book Libraries do not award Stars/);
   assert.doesNotMatch(text, /Watchlists|playlists|reading lists are free/);
   assert.doesNotMatch(text, /Build the first/);
   operationalLimits.ownedDiscussionHardLimit = previousHardLimit;

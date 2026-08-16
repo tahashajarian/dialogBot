@@ -26,7 +26,7 @@ test("limit messages use the startup-loaded values", () => {
     assert.match(suggestion, /about 37 minutes/);
 
     const rules = formatOperationalLimitsText(messages.en.helpRulesText);
-    assert.match(rules, /Favorites per section: 12; For Later list: 150; saved profiles: 75/);
+    assert.match(rules, /Favorites per section: 12; Library per section: 150; saved profiles: 75/);
     assert.match(rules, /new user adds \d+ Interests/);
     assert.match(rules, /Open discussions you can create without Stars: 1; each additional one can be activated with \d+ Stars, up to 3 total/);
     assert.match(rules, /Discussion messages: 45 per 15 minutes/);

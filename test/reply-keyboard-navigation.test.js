@@ -382,9 +382,10 @@ test("a saved No-label shortlist remains reviewable after the list drops below 1
   }).callbackData, `${callBacks.aiTasteReview}music`);
 });
 
-test("For Later Add works after entering from a saved suggestion", () => {
+test("Archive and Library Add buttons work after entering from a saved suggestion", () => {
   for (const [lang, section, key] of [
     ["en", "movies", "aiListManageAddLaterMovies"],
+    ["en", "series", "aiListManageAddLaterSeries"],
     ["fa", "music", "aiListManageAddLaterMusic"],
     ["fa", "books", "aiListManageAddLaterBooks"],
   ]) {
@@ -395,6 +396,26 @@ test("For Later Add works after entering from a saved suggestion", () => {
       user,
     });
     assert.equal(result.callbackData, `${callBacks.aiListManageAdd}${section}:watchlist`);
+  }
+});
+
+test("renamed Archive and Library navigation buttons remain section-scoped", () => {
+  const sections = [
+    ["movies", "Movies"],
+    ["series", "Series"],
+    ["music", "Music"],
+    ["books", "Books"],
+  ];
+
+  for (const lang of ["fa", "en"]) {
+    for (const [section, suffix] of sections) {
+      const result = resolveReplyKeyboardAction(messages[lang][`aiSectionListButton${suffix}`], {
+        mode: `ai_list:${section}:topTen`,
+        state: `ai_manage_${section}_top_ten`,
+        user: { lang, aiLists: { [section]: { watchlist: [{ title: "Test" }] } } },
+      });
+      assert.equal(result.callbackData, `${callBacks.aiListManageMenu}${section}:watchlist`);
+    }
   }
 });
 

@@ -42,10 +42,10 @@ test("typing an item returns Movie, Series, Music, and Book choices without butt
   assert.deepEqual(
     answers[0].results.map((result) => result.title),
     [
-      "🎬 Save “Dune” to Movies",
-      "📺 Save “Dune” to Series",
-      "🎵 Save “Dune” to Music",
-      "📚 Save “Dune” to Books",
+    "🎬 Save “Dune” to Movie Library",
+    "📺 Save “Dune” to Series Library",
+    "🎵 Save “Dune” to Music Library",
+    "📚 Save “Dune” to Book Library",
     ],
   );
   for (const result of answers[0].results) {
@@ -57,10 +57,10 @@ test("typing an item returns Movie, Series, Music, and Book choices without butt
     assert.equal(result.input_message_content.entities[0].url, "https://t.me/hey_muze_test_bot");
     assert.deepEqual(result.input_message_content.link_preview_options, { is_disabled: true });
   }
-  assert.match(answers[0].results[0].input_message_content.message_text, /save in the Movies list/);
-  assert.match(answers[0].results[1].input_message_content.message_text, /save in the Series list/);
-  assert.match(answers[0].results[2].input_message_content.message_text, /save in the Music list/);
-  assert.match(answers[0].results[3].input_message_content.message_text, /save in the Books list/);
+  assert.match(answers[0].results[0].input_message_content.message_text, /save in the Movie Library/);
+  assert.match(answers[0].results[1].input_message_content.message_text, /save in the Series Library/);
+  assert.match(answers[0].results[2].input_message_content.message_text, /save in the Music Library/);
+  assert.match(answers[0].results[3].input_message_content.message_text, /save in the Book Library/);
 });
 
 test("empty query is intentionally blank and performs no user lookup", async () => {
@@ -128,9 +128,9 @@ test("inline query hides only sections whose own For Later list is full", async 
   assert.deepEqual(
     answers[0].results.map((result) => result.title),
     [
-      "📺 Save “Dune” to Series",
-      "🎵 Save “Dune” to Music",
-      "📚 Save “Dune” to Books",
+    "📺 Save “Dune” to Series Library",
+    "🎵 Save “Dune” to Music Library",
+    "📚 Save “Dune” to Book Library",
     ],
   );
 });
@@ -150,7 +150,7 @@ test("chosen result is bound to its user, section, and normalized query", () => 
 test("open-bot footer validates the username and uses safe text-link entities", () => {
   assert.equal(normalizeBotUsername("@hey_muze_test_bot"), "hey_muze_test_bot");
   assert.equal(normalizeBotUsername("bad username"), "");
-  const titleText = "✅ Added “<b>Dune</b>” to Watch Later.";
+  const titleText = "✅ Added “<b>Dune</b>” to Movie Library.";
   const content = buildInlineConfirmationContent({
     text: titleText,
     lang: "en",

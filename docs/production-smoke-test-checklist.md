@@ -33,9 +33,9 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Lists And Suggestions
 
-- Add one item to the Movies Watch Later list; confirmation uses Watch Later/watched wording.
-- Add one item to the Music Listen Later list; confirmation uses Listen Later/listened wording.
-- Add one item to the Books Read Later list; confirmation uses Read Later/read wording.
+- Add one item to the Movies Movie Library; confirmation uses Movie Library/watched wording.
+- Add one item to the Music Music Library; confirmation uses Music Library/listened wording.
+- Add one item to the Books Book Library; confirmation uses Book Library/read wording.
 - Add one profile Interest; confirmation uses interests wording and the flow remains under Profile, not the Lists hub.
 - Add Top 10 items in each section and confirm post-save continuation prompts carry the Muze marker.
 - Star progress hints use section-aware names and never say "regular list" or "normal list".
@@ -86,7 +86,7 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Favorites First Visit
 
-- The first My favorites hub response distinguishes Favorites from Watch/Listen/Read Later, retains the three-item suggestion and ten-item taste-label guidance, and mentions People/discussion relevance.
+- The first My favorites hub response distinguishes Favorites from media Libraries, retains the three-item suggestion and ten-item taste-label guidance, and mentions People/discussion relevance.
 - The second visit, internal Back navigation, restart, and another device do not repeat the first-visit tip; normal manager controls remain immediately usable.
 
 ## Stars Spending Switches

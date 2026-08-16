@@ -24,7 +24,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
 - `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
-- `src/flows/inline-list-capture.js`: isolated Telegram inline-query choices, bound selection validation, and direct-or-pending For Later capture.
+- `src/flows/inline-list-capture.js`: isolated Telegram inline-query choices, bound selection validation, and direct-or-pending Archive/Library capture.
 - `src/services/inline-list-users.js`: small short-lived account/language lookup cache used only by inline mode.
 - `src/services/pending-inline-lists.js` and `src/models/pending-inline-list.js`: bounded, expiring pre-onboarding selections and revision-safe silent import.
 - `docs/analytics-dashboard.md`: how to run and protect the local analytics dashboard.
@@ -120,7 +120,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/models/account-deletion.js`: deletion progress, unique tombstone identity, and keyed anti-abuse fingerprint.
 - `docs/account-deletion.md`: deletion, retention, retry, and recreation contract.
 
-- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps for invitation guidance, Active Discussions browsing, Favorites, the For Later inline-capture tip, and People.
+- `src/models/user.js`: user schema and profile/discussion/people/saved-profile fields, including independent `sectionTipsShownAt` timestamps for invitation guidance, Active Discussions browsing, Favorites, the Archive/Library inline-capture tip, and People.
 - `src/services/users.js`: stable user-service facade and centralized AI-list access/mutations.
 - `src/services/user-core.js`: core user lookup and generic field/state updates, re-exported through `src/services/users.js`.
 - `src/services/user-section-tips.js`: whitelisted, atomic section-tip first-write helpers and exposure analytics, re-exported through `src/services/users.js`.
@@ -132,7 +132,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/profile-sharing.js`: static shareable-profile banner delivery and in-place Back-to-own-profile restoration where Telegram supports it.
 - `src/services/profile-sharing.js`: first-person, caption-safe public taste teaser shaping and complete-media-Favorites eligibility.
 - `src/flows/profile-favorites.js`: source-aware public Favorites hub/section callbacks and Back-to-profile restoration.
-- `src/services/profile-favorites-ui.js`: public Movies/Series/Music/Books Favorites and stored taste-label rendering; excludes every For Later list.
+- `src/services/profile-favorites-ui.js`: public Movies/Series/Music/Books Favorites and stored taste-label rendering; excludes every Archive/Library list.
 - `src/services/public-profile-navigation.js`: public-profile mode parsing plus capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/saved-profile-message-state.js`: remembered Saved Profiles, People, profile-discussion, and viewed-profile message state plus safe retirement.
@@ -243,7 +243,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - New Advanced Search preview rule: keep it in the People flow/UI with no charging; any future entitlement/filter service must compose with `src/services/people-discovery.js`.
 - New AI callback action: `src/flows/ai-callbacks.js`; suggestion-generation callback orchestration: `src/flows/ai-suggestion-callbacks.js`.
 - New AI rendering/copy helper: `src/services/ai-list-ui.js`.
-- New inline For Later capture behavior: `src/flows/inline-list-capture.js`; account/language caching: `src/services/inline-list-users.js`; pre-onboarding staging/import: `src/services/pending-inline-lists.js`.
+- New inline Archive/Library capture behavior: `src/flows/inline-list-capture.js`; account/language caching: `src/services/inline-list-users.js`; pre-onboarding staging/import: `src/services/pending-inline-lists.js`.
 - New paid extra suggestion rule: `src/services/ai-paid-suggestions.js`; AI flows should only offer it after free quota exhaustion and explicit confirmation.
 - New AI list mutation or taste helper: `src/services/users.js`.
 
