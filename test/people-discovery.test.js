@@ -308,7 +308,7 @@ test("people discovery UI shows the localized shared taste label", () => {
     sharedTasteLabels: [{ section: "movies", labelKey: "sci_fi_fan" }],
   }], { showSharedSections: true });
 
-  assert.match(text, /فیلم و سریال: 🛸 علمی‌تخیلی‌باز/);
+  assert.match(text, /فیلم: 🛸 سای‌فای‌گیک/);
   assert.doesNotMatch(text, /sci_fi_fan/);
 });
 
@@ -776,7 +776,7 @@ test("taste matching ignores spacing and conservatively accepts nearby spelling 
   assert.equal(areTasteItemsEquivalent("علی", "علي"), true);
 });
 
-test("user schema indexes all three taste-label discovery lookups", () => {
+test("user schema indexes all four taste-label discovery lookups", () => {
   const indexNames = User.schema.indexes().map(([, options]) => options.name);
 
   assert.ok(indexNames.includes("people_movies_taste_label_candidates"));

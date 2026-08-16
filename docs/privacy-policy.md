@@ -28,7 +28,7 @@ Muze may receive or store:
 - Optional location information: latitude, longitude, accuracy, derived city,
   and sharing time when you explicitly send a location and that feature is
   enabled. Do not share precise location if you do not want Muze to store it.
-- Taste information: Movies, Music, Books, Interests, Top 10 items, later lists,
+- Taste information: Movies, Series, Music, Books, Interests, Top 10 items, later lists,
   comments, completion status, taste labels, rejected/recent AI suggestions,
   and optional suggestion context or mood.
 - Social information: public profile and discussion codes, saved-profile codes,

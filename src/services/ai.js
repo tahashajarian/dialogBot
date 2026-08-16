@@ -34,9 +34,19 @@ function getModeInstruction(mode, lang) {
 
   if (mode === "movies") {
     return [
-      "Subject is movies and TV/streaming series.",
-      "Recommend the movies or series that best fit the Favorites and current request.",
+      "Subject is feature films and movies only, never television or streaming series.",
+      "Recommend the movie that best fits the Favorites and current request.",
       "Infer national cinema, language, genre, themes, mood, pacing, and style directly from the strongest repeated patterns in Favorites.",
+      "Stay inside those strongest repeated patterns unless the current request explicitly asks for something different.",
+      `Reply in ${language}. Keep it short and useful.`,
+    ].join(" ");
+  }
+
+  if (mode === "series") {
+    return [
+      "Subject is television/streaming series and miniseries only, never feature films or television movies.",
+      "Recommend the series that best fits the Favorites and current request.",
+      "Infer genre, themes, mood, pacing, episode structure, and style from the strongest repeated patterns in Favorites.",
       "Stay inside those strongest repeated patterns unless the current request explicitly asks for something different.",
       `Reply in ${language}. Keep it short and useful.`,
     ].join(" ");
@@ -304,7 +314,9 @@ async function getAiSingleSuggestion({
         ? 'For music, use the official original catalogue title and artist. Persian originals stay Persian; otherwise use the official English/international identity. Never translate or transliterate them.'
         : "",
       mode === "movies"
-        ? 'For movies and series, use the exact official title in its original language in "title" and its real director or creator in "metadata". If the original title is Persian, write it in Persian. Otherwise use the official English or international title. Never translate a foreign title into Persian and do not add localizedTitle or localizedCreator fields.'
+        ? 'For movies, use the exact official title in its original language in "title" and its real director in "metadata". Never return a series. If the original title is Persian, write it in Persian. Otherwise use the official English or international title. Never translate a foreign title into Persian and do not add localizedTitle or localizedCreator fields.'
+        : mode === "series"
+          ? 'For series, use the exact official title in its original language in "title" and its real creator in "metadata". Never return a movie. If the original title is Persian, write it in Persian. Otherwise use the official English or international title. Never translate a foreign title into Persian and do not add localizedTitle or localizedCreator fields.'
         : "",
       "Before answering, internally check that the title and creator belong to the same real item.",
       "Be factually certain: never invent or approximate titles, creators, tools, channels, or resources.",
@@ -317,7 +329,7 @@ async function getAiSingleSuggestion({
           ? "Keep book titles and author names in their official original identity. Write only mood and reason in Persian."
           : mode === "music"
             ? "Keep song titles and artist names in their official original identity. Write only mood and reason in Persian."
-            : mode === "movies"
+            : mode === "movies" || mode === "series"
               ? "Keep every movie title in its original language: Persian originals in Persian and foreign originals in their official English/international form. Write the entire reason naturally in Persian with no English words."
               : "Keep exact official titles and proper names in their original form for searchability. Write line 2 labels and all of line 3 in Persian; source names such as IMDb may stay Latin.")
         : "",

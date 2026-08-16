@@ -92,7 +92,7 @@ The exact amounts are admin-editable. The values below are recommended launch de
 
 ### List And Top 10 Milestones
 
-- The four eligible sections are movies, music, books, and broad interests (`random` internally).
+- The five eligible sections are movies, series, music, books, and broad interests (`random` internally).
 - Watchlists, playlists, and reading lists are free organization surfaces and do not award Stars.
 - The first-3 TopTen reward is once per section, not once per item.
 - The full Top 10 reward is once per section and may be earned after the first-3 reward.
@@ -265,7 +265,7 @@ Recommended launch default:
 
 ### Taste-Label Recheck
 
-The first arrival at all 10 Movies, Music, or Books Favorites makes one automatic free-check attempt, and the first successful classification remains free if that attempt fails. Later retries are user-triggered. Users may switch freely among the latest saved shortlist, choose No label, or request another AI classification for the configured price, recommended as 10 Stars per recheck.
+The first arrival at all 10 Movies, Series, Music, or Books Favorites makes one automatic free-check attempt, and the first successful classification remains free if that attempt fails. Later retries are user-triggered. Users may switch freely among the latest saved shortlist, choose No label, or request another AI classification for the configured price, recommended as 10 Stars per recheck.
 
 The recheck action is visible only while that section contains exactly 10 current Favorites and the master economy, spending, and dashboard `Paid taste-label rechecks` switches are enabled. It works for either an active confirmed label or a saved No-label choice. It first shows the current cost and balance and requires explicit confirmation. Confirmation revalidates the dashboard switch, current price, exact ordered-list fingerprint, and snapshotted current choice before spending with reason `ai_taste_label_recheck`. Every confirmed recheck is a separate spend. If the provider fails or returns unusable output, refund the linked spend idempotently and retain the existing choice. A usable result presents up to three ranked specific labels plus the broad section fallback; the existing label or No-label choice remains active until the user taps one option.
 

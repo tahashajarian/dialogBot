@@ -17,7 +17,7 @@ test("inline query treats the complete text as the item title", () => {
   assert.equal(parseInlineListTitle(""), "");
 });
 
-test("typing an item returns Movie, Music, and Book choices without buttons", async () => {
+test("typing an item returns Movie, Series, Music, and Book choices without buttons", async () => {
   const answers = [];
   const ctx = {
     inlineQuery: {
@@ -42,19 +42,25 @@ test("typing an item returns Movie, Music, and Book choices without buttons", as
   assert.deepEqual(
     answers[0].results.map((result) => result.title),
     [
-      "🎬 Save “Dune” to Watch Later",
-      "🎵 Save “Dune” to Listen Later",
-      "📚 Save “Dune” to Read Later",
+      "🎬 Save “Dune” to Movies",
+      "📺 Save “Dune” to Series",
+      "🎵 Save “Dune” to Music",
+      "📚 Save “Dune” to Books",
     ],
   );
   for (const result of answers[0].results) {
     assert.equal(result.type, "article");
+    assert.equal(Object.hasOwn(result, "description"), false);
     assert.equal(Object.hasOwn(result, "reply_markup"), false);
     assert.match(result.input_message_content.message_text, /Dune/);
     assert.match(result.input_message_content.message_text, /Open Muze$/);
     assert.equal(result.input_message_content.entities[0].url, "https://t.me/hey_muze_test_bot");
     assert.deepEqual(result.input_message_content.link_preview_options, { is_disabled: true });
   }
+  assert.match(answers[0].results[0].input_message_content.message_text, /save in the Movies list/);
+  assert.match(answers[0].results[1].input_message_content.message_text, /save in the Series list/);
+  assert.match(answers[0].results[2].input_message_content.message_text, /save in the Music list/);
+  assert.match(answers[0].results[3].input_message_content.message_text, /save in the Books list/);
 });
 
 test("empty query is intentionally blank and performs no user lookup", async () => {
@@ -84,7 +90,7 @@ test("people without an account receive choices while banned accounts do not", a
     allowQuery: () => true,
     getUser: async () => null,
   });
-  assert.equal(inactiveAnswers[0].results.length, 3);
+  assert.equal(inactiveAnswers[0].results.length, 4);
   assert.match(inactiveAnswers[0].results[0].input_message_content.message_text, /^Sent/);
 
   const bannedAnswers = [];
@@ -112,6 +118,7 @@ test("inline query hides only sections whose own For Later list is full", async 
         movies: {
           watchlist: Array.from({ length: 100 }, (_, index) => ({ title: `Movie ${index}` })),
         },
+        series: { watchlist: [] },
         music: { watchlist: [] },
         books: { watchlist: [] },
       },
@@ -121,8 +128,9 @@ test("inline query hides only sections whose own For Later list is full", async 
   assert.deepEqual(
     answers[0].results.map((result) => result.title),
     [
-      "🎵 Save “Dune” to Listen Later",
-      "📚 Save “Dune” to Read Later",
+      "📺 Save “Dune” to Series",
+      "🎵 Save “Dune” to Music",
+      "📚 Save “Dune” to Books",
     ],
   );
 });

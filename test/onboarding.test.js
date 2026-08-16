@@ -60,11 +60,12 @@ test("welcome copy and controls match the Favorites-first onboarding", () => {
   );
 });
 
-test("onboarding category picker contains only the three media sections", () => {
+test("onboarding category picker contains the four media sections", () => {
   for (const lang of ["fa", "en"]) {
     const labels = onboardingSectionsKeyboard(lang).reply_markup.keyboard.flat().map(({ text }) => text);
     assert.deepEqual(labels, [
       messages[lang].aiSuggestMovies,
+      messages[lang].aiSuggestSeries,
       messages[lang].aiSuggestMusic,
       messages[lang].aiSuggestBooks,
     ]);
@@ -122,6 +123,7 @@ test("typing at category selection reuses the existing button guidance", async (
     replies[0].extra.reply_markup.keyboard.flat().map(({ text }) => text),
     [
       messages.en.aiSuggestMovies,
+      messages.en.aiSuggestSeries,
       messages.en.aiSuggestMusic,
       messages.en.aiSuggestBooks,
     ],
@@ -352,7 +354,7 @@ test("finishing later completes onboarding, preserves Favorites, and continues a
   assert.equal(user.navigationMode, "global");
   assert.equal(user.aiLists.books.topTen[0].title, "بوف کور");
   assert.match(replies[0].text, /^🏠 خانه\n\n👩‍🦳/);
-  assert.match(replies[0].text, /💡 با اضافه‌کردن ۲ مورد دیگه به بخش «📚 کتاب‌ها»/);
+  assert.match(replies[0].text, /💡 با اضافه‌کردن ۲ مورد دیگه به بخش «📚 کتاب»/);
   assert.match(replies[0].text, /می‌تونی از «🎬🎵📚 محبوب‌های من» ادامه بدی/);
   assert.deepEqual(sharedProfiles, ["u_SHARED"]);
   assert.equal(user.pendingProfileShareCode, "");
@@ -436,7 +438,9 @@ test("Favorites prompts request concrete works without encouraging creator entri
     assert.match(messages[lang].aiMovieFavoritesAddPrompt, /^👩‍🦳 🎬/);
     assert.match(messages[lang].aiMusicFavoritesAddPrompt, /^👩‍🦳 🎵/);
     assert.match(messages[lang].aiBookFavoritesAddPrompt, /^👩‍🦳 📚/);
-    assert.match(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /فیلم یا سریال/ : /movie or series/);
+    assert.match(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /فیلم/ : /movie/);
+    assert.doesNotMatch(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /سریال/ : /series/);
+    assert.match(messages[lang].aiSeriesFavoritesAddPrompt, lang === "fa" ? /سریال/ : /series/);
     assert.match(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /کتاب/ : /book/);
     assert.doesNotMatch(messages[lang].aiMovieFavoritesAddPrompt, lang === "fa" ? /کارگردان/ : /director/);
     assert.doesNotMatch(messages[lang].aiBookFavoritesAddPrompt, lang === "fa" ? /نویسنده/ : /author/);

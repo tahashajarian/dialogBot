@@ -21,17 +21,18 @@ function aiAssistantKeyboard(lang) {
   return { reply_markup: { keyboard: [
     [
       {
-        text: messages[lang].aiSuggestMovies,
+        text: messages[lang].aiSuggestMusic,
       },
-    ],
-    [
       {
         text: messages[lang].aiSuggestBooks,
       },
     ],
     [
       {
-        text: messages[lang].aiSuggestMusic,
+        text: messages[lang].aiSuggestMovies,
+      },
+      {
+        text: messages[lang].aiSuggestSeries,
       },
     ],
     [
@@ -67,15 +68,17 @@ function aiSectionKeyboard(lang) {
 function aiSectionKeyboardForSection(lang, section) {
   const listButtonText = section === "movies"
     ? messages[lang].aiSectionListButtonMovies
+    : section === "series"
+      ? messages[lang].aiSectionListButtonSeries
     : section === "music"
       ? messages[lang].aiSectionListButtonMusic
       : section === "books"
         ? messages[lang].aiSectionListButtonBooks
         : messages[lang].aiSectionListButtonRandom;
-  const topTenButtonText = ["movies", "music", "books"].includes(section)
+  const topTenButtonText = ["movies", "series", "music", "books"].includes(section)
     ? `${getSectionEmoji(section)} ${messages[lang].aiSectionTopTenButton}`
     : messages[lang].aiSectionTopTenButton;
-  const suggestButtonText = ["movies", "music", "books"].includes(section)
+  const suggestButtonText = ["movies", "series", "music", "books"].includes(section)
     ? `${getSectionEmoji(section)} ${messages[lang].aiSectionSuggestButton}`
     : messages[lang].aiSectionSuggestButton;
 
@@ -119,7 +122,9 @@ function aiSuggestionAddKeyboard(lang, section) {
       ? messages[lang].aiSuggestionAddDoneButtonBooks
       : section === "random"
         ? messages[lang].aiSuggestionAddDoneButtonRandom
-        : messages[lang].aiSuggestionAddDoneButtonMovies;
+        : section === "series"
+          ? messages[lang].aiSuggestionAddDoneButtonSeries
+          : messages[lang].aiSuggestionAddDoneButtonMovies;
 
   return { reply_markup: { keyboard: [
     [
@@ -167,6 +172,7 @@ function aiSuggestionNextKeyboard(lang, _section) {
 function aiSuggestionLimitKeyboard(lang, section) {
   const sectionCallbacks = {
     movies: callBacks.aiSuggestMovies,
+    series: callBacks.aiSuggestSeries,
     music: callBacks.aiSuggestMusic,
     books: callBacks.aiSuggestBooks,
     random: callBacks.aiSuggestRandom,
@@ -282,18 +288,21 @@ function aiListManageMenuKeyboard(lang, section, listType, {
 } = {}) {
   const rows = [];
   const canAdd = !(listType === "topTen" && itemCount >= operationalLimits.aiTopTenItems);
-  const isMediaSection = ["movies", "music", "books"].includes(section);
+  const isMediaSection = ["movies", "series", "music", "books"].includes(section);
 
   const getAddButtonText = () => {
     if (!isMediaSection) return messages[lang].aiListManageAdd;
     if (listType === "watchlist") {
       if (section === "movies") return messages[lang].aiListManageAddLaterMovies;
+      if (section === "series") return messages[lang].aiListManageAddLaterSeries;
       if (section === "music") return messages[lang].aiListManageAddLaterMusic;
       return messages[lang].aiListManageAddLaterBooks;
     }
     const firstKey = section === "movies" ? "aiFavoritesAddFirstMovies"
+      : section === "series" ? "aiFavoritesAddFirstSeries"
       : section === "music" ? "aiFavoritesAddFirstMusic" : "aiFavoritesAddFirstBooks";
     const anotherKey = section === "movies" ? "aiFavoritesAddAnotherMovies"
+      : section === "series" ? "aiFavoritesAddAnotherSeries"
       : section === "music" ? "aiFavoritesAddAnotherMusic" : "aiFavoritesAddAnotherBooks";
     if (itemCount === 0) return messages[lang][firstKey];
     return messages[lang][anotherKey]
@@ -312,6 +321,8 @@ function aiListManageMenuKeyboard(lang, section, listType, {
   if (listType === "topTen" && isMediaSection) {
     const listButtonText = section === "movies"
       ? messages[lang].aiSectionListButtonMovies
+      : section === "series"
+        ? messages[lang].aiSectionListButtonSeries
       : section === "music"
         ? messages[lang].aiSectionListButtonMusic
         : messages[lang].aiSectionListButtonBooks;

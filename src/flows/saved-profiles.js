@@ -429,7 +429,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
   const isEmpty = pageItems.length === 0;
   const showLanguageFilter = (result.availableLanguages || []).length > 1;
-  const mediaFavoritesFull = ["movies", "music", "books"].every((section) => (
+  const mediaFavoritesFull = ["movies", "series", "music", "books"].every((section) => (
     getAiListItemsFromUser(ctx.user, section, "topTen").length >= operationalLimits.aiTopTenItems
   ));
   return {

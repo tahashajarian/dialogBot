@@ -12,6 +12,11 @@ const AI_SECTION_BANNERS = Object.freeze({
     localSource: MOVIES_SECTION_BANNER_PATH,
     configuredFileId: process.env.MOVIES_SECTION_BANNER_FILE_ID,
   },
+  series: {
+    bannerKey: "series_section_v1",
+    localSource: path.join(__dirname, "../../assets/series-section-banner.jpg"),
+    configuredFileId: process.env.SERIES_SECTION_BANNER_FILE_ID,
+  },
   music: {
     bannerKey: "music_section_v2",
     localSource: MUSIC_SECTION_BANNER_PATH,
@@ -184,7 +189,7 @@ async function enterAiSection(ctx, lang, section, helpers) {
   await helpers.deleteCallbackMessageIfPossible?.(ctx);
   await rememberAiSectionEntryMessage(ctx, null);
   const titleText = `${getSectionEmoji(section)} ${getSectionLabel(messages, lang, section)}`;
-  const bannerSeenKey = ["movies", "music", "books"].includes(section)
+  const bannerSeenKey = ["movies", "series", "music", "books"].includes(section)
     ? `${section}Banner`
     : "";
   const banner = bannerSeenKey && !hasSectionTipBeenShown(ctx.user, bannerSeenKey)
@@ -310,7 +315,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiTasteRetry)) {
     await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTasteRetry, "").trim();
-    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "series", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
     return sendTasteLabelReview(ctx, lang, section, {
       withPlaceholder: true,
       placeholderMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
@@ -321,7 +326,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiTasteReview)) {
     await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTasteReview, "").trim();
-    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "series", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
     const taste = getAiTasteFromUser(ctx.user, section);
     const retryFailed = taste.classificationStatus === "needs_choice" && !taste.freeClassificationUsedAt;
     const withPlaceholder = shouldShowTasteReviewPlaceholder(taste);
@@ -342,7 +347,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiTasteChoose)) {
     await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTasteChoose, "").trim();
-    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "series", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
     const taste = getAiTasteFromUser(ctx.user, section);
     if (!taste.suggestedLabelKeys.length) return sendTasteLabelReview(ctx, lang, section, {
       replaceMessage: ctx.callbackMessageId ? { message_id: ctx.callbackMessageId } : null,
@@ -419,7 +424,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   if (data.startsWith(callBacks.aiTopTenInsight)) {
     await ctx.answerCb?.();
     const section = data.replace(callBacks.aiTopTenInsight, "").trim();
-    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "series", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
 
     const items = getAiListItemsFromUser(ctx.user, section, "topTen");
     await helpers.deleteCallbackMessageIfPossible(ctx);
@@ -1146,6 +1151,7 @@ async function handleAiCallback(ctx, lang, helpers) {
   }
 
   if (data === callBacks.aiSuggestMovies) return enterAiSection(ctx, lang, "movies", helpers);
+  if (data === callBacks.aiSuggestSeries) return enterAiSection(ctx, lang, "series", helpers);
   if (data === callBacks.aiSuggestMusic) return enterAiSection(ctx, lang, "music", helpers);
   if (data === callBacks.aiSuggestBooks) return enterAiSection(ctx, lang, "books", helpers);
   if (data === callBacks.aiSuggestRandom) {

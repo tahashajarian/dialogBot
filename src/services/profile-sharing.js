@@ -14,7 +14,7 @@ const SHARE_INTEREST_LIMIT = 5;
 const SHARE_PROFILE_MIN_FAVORITES = 3;
 const SHARE_VALUE_MAX_LENGTH = 52;
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
-const MEDIA_SECTIONS = Object.freeze(["movies", "music", "books"]);
+const MEDIA_SECTIONS = Object.freeze(["movies", "series", "music", "books"]);
 
 function compactShareValue(value, maxLength = SHARE_VALUE_MAX_LENGTH) {
   const normalized = String(value || "").trim().replace(/\s+/g, " ");

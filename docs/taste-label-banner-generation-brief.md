@@ -61,18 +61,18 @@ The goal of this round is to approve:
 
 Do not generate the remaining images until these three are approved. After approval, treat the approved visual system as locked.
 
-## Batch A — Movies & Series
+## Batch A — Movies
 
-1. `movies_sci_fi_fan.jpg` — Sci-Fi Fan 🛸  
+1. `movies_sci_fi_fan.jpg` — Sci-Fi Geek 🛸
    A mysterious speculative observatory: a distant ringed planet, elegant spacecraft silhouette, artificial-intelligence light patterns, and a lone figure facing a luminous future. Vast, intelligent, and quietly awe-inspiring.
 
 2. `movies_action_junkie.jpg` — Action Junkie 💥  
    A kinetic cinematic moment with a speeding vehicle or anonymous adventurer crossing a fractured golden path, flying sparks, dramatic diagonal movement, and a controlled amber burst. Energetic without resembling a specific action franchise.
 
-3. `movies_drama_lover.jpg` — Drama Lover 🎭  
+3. `movies_drama_lover.jpg` — Dramatic 🎭
    Two anonymous figures separated by light and shadow on an abstract stage-like space, with layered curtains, emotional distance, and restrained theatrical symbolism. Intimate, human, and character-driven.
 
-4. `movies_mystery_fan.jpg` — Mystery & Thriller Fan 🔎  
+4. `movies_mystery_fan.jpg` — Detective 🔎
    A shadowed investigator-like silhouette following a glowing clue through intersecting corridors, fragmented evidence shapes, fog, and a golden thread connecting hidden details. Suspenseful and cerebral, not graphic.
 
 5. `movies_comedy_fan.jpg` — Comedy Fan 😄  
@@ -81,13 +81,13 @@ Do not generate the remaining images until these three are approved. After appro
 6. `movies_horror_fan.jpg` — Horror Fan 🕯️  
    A solitary candle illuminating an impossible doorway in a dark atmospheric interior, elongated shadows, subtle supernatural shapes, and cold teal darkness. Beautiful dread, psychological tension, no gore.
 
-7. `movies_romance_fan.jpg` — Romance Fan 💌  
+7. `movies_romance_fan.jpg` — Romantic 💌
    Two distant figures connected by a delicate glowing line beneath a cinematic night sky, with an unfolding letter-like shape and warm reflected light. Tender, bittersweet, and sophisticated rather than sugary.
 
-8. `movies_fantasy_fan.jpg` — Fantasy Fan 🐉  
+8. `movies_fantasy_fan.jpg` — Dreamwalker 🐉
    A traveler entering a mythic landscape of floating ruins, a distant original dragon silhouette, a luminous gateway, and constellations shaped like forgotten legends. Majestic and magical without referencing an existing franchise.
 
-9. `movies_animation_lover.jpg` — Animation Lover ✨  
+9. `movies_animation_lover.jpg` — Animation Fan 🎨
    A world in the act of being animated: painted forms, stop-motion-like objects, hand-drawn golden motion paths, and expressive shapes transforming into life. Imaginative, experimental, and polished.
 
 10. `movies_documentary_viewer.jpg` — Documentary Viewer 🎥  
@@ -113,10 +113,10 @@ Do not generate the remaining images until these three are approved. After appro
 16. `music_punk.jpg` — Punk ⚡  
     A rebellious underground performance expressed through torn geometric textures, angular movement, rough poster-like layers without readable writing, and an electric golden bolt. Urgent, DIY, imperfect, and bold.
 
-17. `music_pop_lover.jpg` — Pop Lover 🎤  
+17. `music_pop_lover.jpg` — Pop Fan 🎤
     A radiant microphone-like focal object surrounded by polished rhythmic circles, melodic light, dancing silhouettes, and restrained coral accents. Catchy, bright, celebratory, and stylish—not plastic or overly pink.
 
-18. `music_hiphop_head.jpg` — Hip-Hop Head 🎧  
+18. `music_hiphop_head.jpg` — Hip-Hop Head 🔥
     A night-city rhythm scene with an original anonymous performer, turntable or headphones, layered beat grids, street geometry, and confident golden pulse lines. Contemporary and authentic without stereotypes or brand references.
 
 19. `music_electronic_fan.jpg` — Electronic Fan 🎛️  
@@ -160,7 +160,7 @@ Do not generate the remaining images until these three are approved. After appro
 31. `books_midnight_philosopher.jpg` — Midnight Philosopher 🧠  
     A solitary reader under a midnight sky, surrounded by impossible stairways, celestial diagrams, mirrors, and a small golden light of inquiry. Existential, contemplative, and intellectually spacious.
 
-32. `books_amateur_psychoanalyst.jpg` — Amateur Psychoanalyst 🪞  
+32. `books_amateur_psychoanalyst.jpg` — Psychoanalyst 🪞
     A thoughtful figure facing a fragmented mirror whose reflections reveal layered emotions, memories, and relationship patterns, connected by subtle golden lines. Introspective and humane, avoiding clinical or disturbing imagery.
 
 33. `books_truth_seeker.jpg` — Truth Seeker 💡  
@@ -192,3 +192,6 @@ After the three style tests:
    - Each label remains visually distinguishable
    - No copyrighted or recognizable characters
    - Good readability when viewed at mobile width
+## Batch A2 — Series
+
+Create a matching Series banner using the 📺 section identity. Keep it visually distinct from Movies and avoid platform or franchise branding.

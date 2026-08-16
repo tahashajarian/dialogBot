@@ -15,6 +15,7 @@ const SECTION_TIP_KEYS = Object.freeze([
   "peopleBanner",
   "discussionsBanner",
   "moviesBanner",
+  "seriesBanner",
   "musicBanner",
   "booksBanner",
 ]);

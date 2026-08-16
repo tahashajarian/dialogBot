@@ -205,6 +205,15 @@ async function verifyWikidataSuggestion(suggestion, options = {}) {
   }
 
   const mediaType = getEntityMediaType(entity);
+  const requestedSection = String(options.section || "").trim();
+  if ((requestedSection === "movies" && mediaType !== "movie")
+    || (requestedSection === "series" && mediaType !== "tv")) {
+    return {
+      ok: false,
+      reason: "catalog_wrong_media_type",
+      qualityIssue: "catalog_wrong_media_type",
+    };
+  }
   const creatorProperty = mediaType === "movie" ? "P57" : "P170";
   let creatorIds = getEntityClaimIds(entity, creatorProperty);
   if (!creatorIds.length && mediaType === "tv") {

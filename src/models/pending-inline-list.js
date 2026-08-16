@@ -4,7 +4,7 @@ const PendingInlineListItemSchema = new mongoose.Schema({
   section: {
     type: String,
     required: true,
-    enum: ["movies", "music", "books"],
+    enum: ["movies", "series", "music", "books"],
   },
   title: { type: String, required: true, maxlength: 80 },
   key: { type: String, required: true, maxlength: 64 },

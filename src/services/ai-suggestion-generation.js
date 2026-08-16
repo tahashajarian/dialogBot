@@ -444,7 +444,8 @@ async function generateUsableSuggestion({
     };
   }
 
-  const maxAttempts = section === "movies" && blockedSuggestionItems.length >= MOVIE_EXTENDED_HISTORY_THRESHOLD
+  const isScreenSection = section === "movies" || section === "series";
+  const maxAttempts = isScreenSection && blockedSuggestionItems.length >= MOVIE_EXTENDED_HISTORY_THRESHOLD
     ? AI_SUGGESTION_MAX_BATCHES + 1
     : AI_SUGGESTION_MAX_BATCHES;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -470,9 +471,9 @@ async function generateUsableSuggestion({
       rejectedSuggestionItems: [],
       recentSuggestionCreators,
       personalized: true,
-      candidateCount: section === "movies" ? 5 : AI_SUGGESTION_BATCH_SIZE,
+      candidateCount: isScreenSection ? 5 : AI_SUGGESTION_BATCH_SIZE,
       displayLanguage,
-      requestTimeoutMs: section === "movies"
+      requestTimeoutMs: isScreenSection
         ? Math.min(MOVIE_GENERATION_TIMEOUT_MS, remainingBeforeGeneration)
         : remainingBeforeGeneration,
     });
@@ -495,7 +496,7 @@ async function generateUsableSuggestion({
     }
 
     diagnostics.generatedCandidates += candidates.length;
-    const movieVerifications = section === "movies"
+    const movieVerifications = isScreenSection
       ? await Promise.all(candidates.map(async (candidate) => {
         const displayCandidate = simplifyMediaSuggestion(candidate, section, displayLanguage);
         const duplicate = findDuplicate(displayCandidate.title, blockedSuggestionItems)
@@ -516,11 +517,12 @@ async function generateUsableSuggestion({
             timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
           })
           : verifyMovie(candidate, {
+            section,
             timeoutMs: Math.min(MOVIE_PAIR_CHECK_TIMEOUT_MS, remainingBeforeVerification),
           });
       }))
       : [];
-    if (section === "movies") {
+    if (isScreenSection) {
       diagnostics.verifiedCandidates += movieVerifications.filter((result) => result?.ok).length;
     }
     for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
@@ -541,10 +543,10 @@ async function generateUsableSuggestion({
             ? findDuplicate(suggestionResult.title, blockedSuggestionItems)
             : null
         )
-        || (section === "movies"
+        || (isScreenSection
           ? getMovieIdentityDuplicate(suggestionResult, displaySuggestion, blockedSuggestionItems)
           : null)
-        || (section === "movies" && movieReasonReportsDuplicate(suggestionResult.reason)
+        || (isScreenSection && movieReasonReportsDuplicate(suggestionResult.reason)
           ? { type: "self_reported_duplicate" }
           : null);
       if (duplicate) {
@@ -557,7 +559,7 @@ async function generateUsableSuggestion({
       // Duplicate checks are intentionally done before the extra movie pair
       // check. A large real watchlist should not spend time verifying titles
       // that are already known to be unusable.
-      if (section === "movies") {
+      if (isScreenSection) {
         const relevanceIssue = getMovieRequestRelevanceIssue(userText, suggestionResult.reason);
         if (relevanceIssue) {
           suggestionResult = { ok: false, reason: "irrelevant_suggestion", qualityIssue: relevanceIssue };

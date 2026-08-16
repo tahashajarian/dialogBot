@@ -74,7 +74,7 @@ test("shareable profile caption uses first-person copy and the profile emoji", (
 
   assert.match(caption, /^✨ پروفایل من در میوز 🎶/);
   assert.match(caption, /پروفایل و محبوب‌های من 🎶 رو در میوز ببین:/);
-  assert.match(caption, /🎬 فیلم و سریال: Movie 1/);
+  assert.match(caption, /🎬 فیلم: Movie 1/);
   assert.match(caption, /🎵 موسیقی: Song 1/);
   assert.doesNotMatch(caption, /ساخته‌شده با میوز/);
   assert.doesNotMatch(caption, /طاها|Taha/);
@@ -93,7 +93,7 @@ test("shareable profile favorite rows use their section emojis in English", () =
 
   const caption = buildShareableProfileCaption({ user, lang: "en", link: "https://example.com/profile" });
 
-  assert.match(caption, /🎬 Movies & Series: Pulp Fiction/);
+  assert.match(caption, /🎬 Movies: Pulp Fiction/);
   assert.match(caption, /🎵 Music: For Whom the Bell Tolls/);
   assert.match(caption, /📚 Books: The Blind Owl/);
   assert.doesNotMatch(caption, /Made with Muze/);
@@ -152,9 +152,9 @@ test("public Favorites sections omit the artificial title-width divider", () => 
 
   const hub = buildPublicFavoritesHubText(user, "en");
   const section = buildPublicFavoritesSectionText(user, "en", "movies");
-  assert.match(hub, /Ali's favorites\n\n🎬 Movies & Series — 1/);
+  assert.match(hub, /Ali's favorites\n\n🎬 Movies — 1/);
   assert.doesNotMatch(hub, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
-  assert.match(section, /favorite Movies & Series\n\n💡 To copy an item name, just tap its title\.\n\n1\..+Up/);
+  assert.match(section, /favorite Movies\n\n💡 To copy an item name, just tap its title\.\n\n1\..+Up/);
   assert.doesNotMatch(section, /━━━━━━━━━━━━━━━━━━━━━━━━━━━━/);
 });
 

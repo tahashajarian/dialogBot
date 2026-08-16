@@ -7,6 +7,9 @@ const AI_SUGGESTION_BATCH_SIZE = 3;
 const AI_SUGGESTION_MAX_BATCHES = 2;
 const AI_RECENT_SUGGESTION_CREATORS_LIMIT = 5;
 const AI_SUGGESTION_CONTEXT_MAX_CHARS = 80;
+const AI_SECTIONS = Object.freeze(["movies", "series", "music", "books", "random"]);
+const AI_MEDIA_SECTIONS = Object.freeze(["movies", "series", "music", "books"]);
+const AI_TASTE_SECTIONS = Object.freeze(["movies", "series", "music", "books"]);
 
 module.exports = {
   AI_WATCHLIST_LIMIT,
@@ -18,4 +21,7 @@ module.exports = {
   AI_RECENT_SUGGESTION_CREATORS_LIMIT,
   AI_SUGGESTION_CONTEXT_MAX_CHARS,
   AI_WATCHLIST_PROMPT_LIMIT,
+  AI_SECTIONS,
+  AI_MEDIA_SECTIONS,
+  AI_TASTE_SECTIONS,
 };

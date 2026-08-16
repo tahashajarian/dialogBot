@@ -22,7 +22,7 @@ async function verifyAiMediaPair({
   requestText = requestSuggestionText,
   client,
 } = {}) {
-  if (!new Set(["movies", "music"]).has(section)) {
+  if (!new Set(["movies", "series", "music"]).has(section)) {
     return { ok: true, verdict: "not_needed" };
   }
 
@@ -46,7 +46,11 @@ async function verifyAiMediaPair({
   if (!openai) return { ok: true, verdict: "unavailable" };
 
   try {
-    const kind = section === "movies" ? "movie or series" : "released song";
+    const kind = section === "movies"
+      ? "movie and director"
+      : section === "series"
+        ? "series and creator"
+        : "released song";
     const result = await requestText(openai, {
       userId,
       config: effectiveConfig,

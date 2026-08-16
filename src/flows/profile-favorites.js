@@ -23,7 +23,7 @@ const PROFILE_FAVORITE_SOURCES = new Set([
   "shared",
   "direct",
 ]);
-const PROFILE_FAVORITE_SECTIONS = new Set(["movies", "music", "books"]);
+const PROFILE_FAVORITE_SECTIONS = new Set(["movies", "series", "music", "books"]);
 
 function isProfileFavoritesCallback(data = "") {
   return data === callBacks.profileFavoritesClose

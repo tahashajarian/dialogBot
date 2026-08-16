@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const AiPaidSuggestionSchema = new mongoose.Schema({
   publicCode: { type: String, required: true, unique: true, index: true },
   userId: { type: Number, required: true, index: true },
-  section: { type: String, required: true, enum: ["movies", "music", "books", "random"] },
+  section: { type: String, required: true, enum: ["movies", "series", "music", "books", "random"] },
   userText: { type: String, default: "" },
   status: {
     type: String,

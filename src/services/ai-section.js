@@ -12,6 +12,18 @@ function getAiSectionFromState(state) {
   }
 
   if (
+    state === "ai_chat_series" ||
+    state === "ai_manage_series_watchlist" ||
+    state === "ai_manage_series_top_ten" ||
+    state === "ai_manage_series_watchlist_add_input" ||
+    state === "ai_manage_series_top_ten_add_input" ||
+    state === "ai_manage_series_watchlist_comment_input" ||
+    state === "ai_manage_series_top_ten_comment_input"
+  ) {
+    return "series";
+  }
+
+  if (
     state === "ai_chat_music" ||
     state === "ai_manage_music_watchlist" ||
     state === "ai_manage_music_top_ten" ||
@@ -52,6 +64,7 @@ function getAiSectionFromState(state) {
 
 function getSectionLabel(messages, lang, section) {
   if (section === "movies") return messages[lang].aiSectionNameMovies;
+  if (section === "series") return messages[lang].aiSectionNameSeries;
   if (section === "music") return messages[lang].aiSectionNameMusic;
   if (section === "books") return messages[lang].aiSectionNameBooks;
   return messages[lang].aiSectionNameRandom;
@@ -59,6 +72,7 @@ function getSectionLabel(messages, lang, section) {
 
 function getSectionEmoji(section) {
   if (section === "movies") return "🎬";
+  if (section === "series") return "📺";
   if (section === "music") return "🎵";
   if (section === "books") return "📚";
   if (section === "random") return "🌿";
@@ -67,6 +81,7 @@ function getSectionEmoji(section) {
 
 function getSectionListButtonLabel(messages, lang, section) {
   if (section === "movies") return messages[lang].aiSectionListButtonMovies;
+  if (section === "series") return messages[lang].aiSectionListButtonSeries;
   if (section === "music") return messages[lang].aiSectionListButtonMusic;
   if (section === "books") return messages[lang].aiSectionListButtonBooks;
   return messages[lang].aiSectionListButtonRandom;
@@ -74,6 +89,7 @@ function getSectionListButtonLabel(messages, lang, section) {
 
 function getSectionListLabel(messages, lang, section) {
   if (section === "movies") return messages[lang].aiSectionListLabelMovies;
+  if (section === "series") return messages[lang].aiSectionListLabelSeries;
   if (section === "music") return messages[lang].aiSectionListLabelMusic;
   if (section === "books") return messages[lang].aiSectionListLabelBooks;
   return messages[lang].aiSectionListLabelRandom;
@@ -81,6 +97,7 @@ function getSectionListLabel(messages, lang, section) {
 
 const SECTION_MESSAGE_SUFFIXES = {
   movies: "Movies",
+  series: "Series",
   music: "Music",
   books: "Books",
   random: "Random",
@@ -109,7 +126,7 @@ const TASTE_LABEL_EMOJIS = {
     post_rocker: "🌌",
     punk: "⚡",
     pop_lover: "🎤",
-    hiphop_head: "🎧",
+    hiphop_head: "🔥",
     electronic_fan: "🎛️",
     classical_listener: "🎼",
     jazz_head: "🎷",
@@ -126,10 +143,25 @@ const TASTE_LABEL_EMOJIS = {
     horror_fan: "🕯️",
     romance_fan: "💌",
     fantasy_fan: "🐉",
-    animation_lover: "✨",
+    animation_lover: "🎨",
     documentary_viewer: "🎥",
     cinephile: "🎞️",
     movie_buff: "🎬",
+  },
+  series: {
+    sci_fi_fan: "🛸",
+    action_fan: "💥",
+    drama_lover: "🎭",
+    mystery_fan: "🔎",
+    comedy_fan: "😄",
+    sitcom_fan: "🛋️",
+    horror_fan: "🕯️",
+    romance_fan: "💌",
+    fantasy_fan: "🐉",
+    animation_lover: "🎨",
+    documentary_viewer: "📹",
+    miniseries_lover: "⏳",
+    series_buff: "📺",
   },
   books: {
     novel_reader: "📖",

@@ -17,6 +17,7 @@ function getAiListAddPrompt(lang, section, listType) {
       : messages[lang].aiMusicListManageAddPrompt;
   }
   if (listType === "topTen" && section === "movies") return messages[lang].aiMovieFavoritesAddPrompt;
+  if (listType === "topTen" && section === "series") return messages[lang].aiSeriesFavoritesAddPrompt;
   if (listType === "topTen" && section === "books") return messages[lang].aiBookFavoritesAddPrompt;
   return messages[lang].aiListManageAddPrompt;
 }

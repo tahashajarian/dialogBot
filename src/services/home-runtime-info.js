@@ -14,7 +14,7 @@ const HOME_RUNTIME_KEYS = new Map([
   ["وضعیت", "status"],
   ["diagnostics", "diagnostics"],
 ]);
-const MEDIA_SECTIONS = ["movies", "music", "books"];
+const MEDIA_SECTIONS = ["movies", "series", "music", "books"];
 
 function normalizeHomeRuntimeKey(text) {
   const normalized = String(text || "").trim().toLowerCase();
@@ -115,6 +115,7 @@ function buildHomeStatusReply(lang, facts) {
   const copy = messages[lang] || messages.fa;
   return replacePlaceholders(copy.homeStatusAnswer, {
     movies: facts.favoriteCounts.movies,
+    series: facts.favoriteCounts.series,
     music: facts.favoriteCounts.music,
     books: facts.favoriteCounts.books,
     goal: operationalLimits.aiTopTenItems,
@@ -152,6 +153,7 @@ function buildHomeDiagnosticsReply(
     navigation: String(user?.navigationMode || "global"),
     discussions: facts.discussions === null ? copy.homeRuntimeUnknown : facts.discussions.length,
     movies: facts.favoriteCounts.movies,
+    series: facts.favoriteCounts.series,
     music: facts.favoriteCounts.music,
     books: facts.favoriteCounts.books,
     saved: facts.savedProfiles,

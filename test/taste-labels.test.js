@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const messages = require("../src/messages");
-const { getTasteLabelTitle } = require("../src/services/ai-section");
+const { getTasteLabelEmoji, getTasteLabelTitle } = require("../src/services/ai-section");
 const {
   TASTE_LABEL_CATALOG,
   TASTE_CLASSIFIER_VERSION,
@@ -31,27 +31,36 @@ test("media taste labels use broad Persian and English category names", () => {
     music: {
       metalhead: ["متال‌هد", "Metalhead"], rocker: ["راکر", "Rocker"], post_rocker: ["پست‌راکر", "Post-Rocker"],
       punk: ["پانک", "Punk"],
-      pop_lover: ["پاپ‌باز", "Pop Lover"], hiphop_head: ["هیپ‌هاپ‌هد", "Hip-Hop Head"],
+      pop_lover: ["پاپ‌فن", "Pop Fan"], hiphop_head: ["هیپ‌هاپ‌هد", "Hip-Hop Head"],
       electronic_fan: ["الکترونیک‌باز", "Electronic Fan"], classical_listener: ["کلاسیک‌باز", "Classical Listener"],
       jazz_head: ["جزباز", "Jazz Head"], indie_spirit: ["روح‌ایندی", "Indie Spirit"],
       traditional_fan: ["سنتی‌باز", "Traditional Music Fan"],
       music_buff: ["موزیک‌باز", "Music Buff"],
     },
     movies: {
-      sci_fi_fan: ["علمی‌تخیلی‌باز", "Sci-Fi Fan"], action_junkie: ["اکشن‌باز", "Action Junkie"],
-      drama_lover: ["درام‌باز", "Drama Lover"], mystery_fan: ["معما و تریلر", "Mystery & Thriller Fan"],
-      comedy_fan: ["کمدی‌باز", "Comedy Fan"], horror_fan: ["ترسناک‌باز", "Horror Fan"],
-      romance_fan: ["عاشقانه‌باز", "Romance Fan"], fantasy_fan: ["فانتزی‌باز", "Fantasy Fan"],
-      animation_lover: ["انیمیشن‌باز", "Animation Lover"], documentary_viewer: ["مستندبین", "Documentary Viewer"],
+      sci_fi_fan: ["سای‌فای‌گیک", "Sci-Fi Geek"], action_junkie: ["اکشن‌باز", "Action Junkie"],
+      drama_lover: ["دراماتیک", "Dramatic"], mystery_fan: ["کارآگاه", "Detective"],
+      comedy_fan: ["کمدی‌فن", "Comedy Fan"], horror_fan: ["ترسناک‌باز", "Horror Fan"],
+      romance_fan: ["رمانتیک", "Romantic"], fantasy_fan: ["خیال‌گرد", "Dreamwalker"],
+      animation_lover: ["انیمیشن‌فن", "Animation Fan"], documentary_viewer: ["مستندبین", "Documentary Viewer"],
       cinephile: ["سینه‌فیل", "Cinephile"], movie_buff: ["فیلم‌باز", "Movie Buff"],
+    },
+    series: {
+      sci_fi_fan: ["سای‌فای‌گیک", "Sci-Fi Geek"], action_fan: ["اکشن‌باز", "Action Junkie"],
+      drama_lover: ["دراماتیک", "Dramatic"], mystery_fan: ["کارآگاه", "Detective"],
+      comedy_fan: ["کمدی‌فن", "Comedy Fan"], sitcom_fan: ["سیتکام‌فن", "Sitcom Fan"],
+      horror_fan: ["ترسناک‌باز", "Horror Fan"], romance_fan: ["رمانتیک", "Romantic"],
+      fantasy_fan: ["خیال‌گرد", "Dreamwalker"],
+      animation_lover: ["انیمیشن‌فن", "Animation Fan"], documentary_viewer: ["مستندبین", "Documentary Viewer"],
+      miniseries_lover: ["مینی‌سریال‌فن", "Miniseries Fan"], series_buff: ["سریال‌باز", "Series Buff"],
     },
     books: {
       novel_reader: ["رمان‌خوان", "Novel Reader"], old_soul: ["روح قدیمی", "Old Soul"],
       fantasy_dreamer: ["خیال‌پرداز", "Fantasy Dreamer"], sci_fi_explorer: ["کاوشگر علمی‌تخیلی", "Sci-Fi Explorer"],
       born_detective: ["کارآگاه بالفطره", "Natural Detective"], hopeless_romantic: ["رمانتیک درمان‌ناپذیر", "Hopeless Romantic"],
       midnight_philosopher: ["فیلسوف نیمه‌شب", "Midnight Philosopher"],
-      amateur_psychoanalyst: ["روان‌کاو آماتور", "Amateur Psychoanalyst"], truth_seeker: ["حقیقت‌یاب", "Truth Seeker"],
-      poetic_soul: ["شاعرانه", "Poetic Soul"],
+      amateur_psychoanalyst: ["روان‌کاو", "Psychoanalyst"], truth_seeker: ["حقیقت‌یاب", "Truth Seeker"],
+      poetic_soul: ["روح شاعر", "Poetic Soul"],
       book_buff: ["کتاب‌باز", "Book Buff"],
     },
   };
@@ -221,6 +230,12 @@ test("AI taste suggestions require a choice and failures offer retry or a return
   assert.ok(fallbackCallbacks.includes(`${callBacks.aiTasteConfirm}books:book_buff`));
   assert.ok(!fallbackCallbacks.includes(`${callBacks.aiTasteConfirm}books:novel_reader`));
   assert.doesNotMatch(alreadyUsed.text, /✨/);
+});
+
+test("animation labels use an identity emoji distinct from suggestion actions", () => {
+  assert.equal(getTasteLabelEmoji("movies", "animation_lover"), "🎨");
+  assert.equal(getTasteLabelEmoji("series", "animation_lover"), "🎨");
+  assert.notEqual(getTasteLabelEmoji("series", "animation_lover"), "✨");
 });
 
 test("taste review shows waiting only when its first AI result still needs generation", () => {

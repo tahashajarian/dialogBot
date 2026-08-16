@@ -4,7 +4,7 @@ const UserTasteIndexSchema = new mongoose.Schema({
   userId: { type: Number, required: true },
   section: {
     type: String,
-    enum: ["movies", "music", "books", "random"],
+    enum: ["movies", "series", "music", "books", "random"],
     required: true,
   },
   items: { type: [String], default: [] },

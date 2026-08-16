@@ -5,7 +5,7 @@ const { operationalLimits } = require("./operational-limits");
 
 const PENDING_INLINE_ITEM_LIMIT = 10;
 const PENDING_INLINE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const INLINE_LIST_SECTIONS = new Set(["movies", "music", "books"]);
+const INLINE_LIST_SECTIONS = new Set(["movies", "series", "music", "books"]);
 
 function normalizePendingSelection({ userId, section, title } = {}) {
   const normalizedUserId = Number(userId);

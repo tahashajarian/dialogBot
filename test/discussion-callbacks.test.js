@@ -1196,7 +1196,7 @@ test("taste-label discussion rules show earned media labels directly", () => {
   ]);
   const buttons = keyboard.reply_markup.keyboard.flat();
 
-  assert.equal(buttons[0].text, "🎬 Movies & Series · 🎞️ Cinephile");
+  assert.equal(buttons[0].text, "🎬 Movies · 🎞️ Cinephile");
   assert.equal(buttons[1].text, "📚 Books · 📖 Novel Reader");
   assert.ok(!buttons.some((button) => button.text === messages.en.aiSuggestRandom));
   assert.equal(validateJoinRulePayload({
@@ -1237,7 +1237,7 @@ test("choosing a taste-label join rule skips the section picker", async () => {
     assert.equal(cards[0].text, messages.en.discussionChooseTasteLabel);
     assert.deepEqual(
       cards[0].keyboard.reply_markup.keyboard.slice(0, 2).flat().map((button) => button.text),
-      ["🎬 Movies & Series · 🎞️ Cinephile", "📚 Books · 📖 Novel Reader"],
+      ["🎬 Movies · 🎞️ Cinephile", "📚 Books · 📖 Novel Reader"],
     );
     assert.equal(ctx.user.discussionDraftJoinRule.type, "taste_label");
   } finally {

@@ -49,7 +49,7 @@ Keep the router files thin:
 - `src/flows/hub-callbacks.js` owns Home, Guide, own-Profile entry, Favorites entry, and Discussions hub callback execution.
 - `src/flows/language-callbacks.js` owns language picker/open/close/set behavior, including onboarding-language continuation.
 - `src/flows/ai-text.js` owns AI text states for section chat, list management, comments, and suggestion-context prompts.
-- `src/flows/ai-hub.js` owns delivery of the single Movies, Music & Books / Favorites hub banner card.
+- `src/flows/ai-hub.js` owns delivery of the single Movies, Series, Music & Books / Favorites hub banner card.
 - `src/flows/ai-callbacks.js` owns AI callback routes and AI section/list callback actions.
 - `src/flows/ai-callback-routing.js` owns AI callback recognition, list/filter token normalization, and state-scoped suggestion validation.
 - `src/flows/ai-suggestion-callbacks.js` owns suggestion quota consumption, paid fallback/refunds, provider retry and duplicate rejection, placeholder completion, and suggestion-result state transitions.
@@ -59,7 +59,7 @@ Keep the router files thin:
 - `src/flows/profile-callbacks.js` owns inline profile-picker routing, legacy settings-callback compatibility, and own-profile card restoration.
 - `src/flows/public-profile-callbacks.js` owns other-user profile view/save/unsave/close callbacks and their source-aware return navigation.
 - `src/flows/profile-sharing.js` owns share-card delivery and Back-to-own-profile restoration; `src/services/profile-sharing.js` owns caption shaping and media-Favorites eligibility.
-- `src/flows/profile-favorites.js` owns inline browsing of another user's public Movies/Music/Books Favorites; `src/services/profile-favorites-ui.js` owns its caption-safe text shaping.
+- `src/flows/profile-favorites.js` owns inline browsing of another user's public Movies/Series/Music/Books Favorites; `src/services/profile-favorites-ui.js` owns its caption-safe text shaping.
 - `src/services/public-profile-navigation.js` owns public-profile source-mode parsing and capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js` owns the people hub, its durable first-visit guidance, people-discovery callbacks, saved-profile commands/callback helpers, public-profile viewing by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/saved-profile-message-state.js` owns remembered Saved Profiles, People, and public-profile message identifiers and their safe retirement rules.

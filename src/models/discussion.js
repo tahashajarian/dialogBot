@@ -16,7 +16,7 @@ const DiscussionJoinRuleSchema = new mongoose.Schema({
     default: "open",
     required: true,
   },
-  section: { type: String, enum: ["", "movies", "music", "books", "random"], default: "" },
+  section: { type: String, enum: ["", "movies", "series", "music", "books", "random"], default: "" },
   tasteLabelKey: { type: String, default: "" },
   itemTitle: { type: String, default: "" },
   itemAliases: { type: [String], default: [] },

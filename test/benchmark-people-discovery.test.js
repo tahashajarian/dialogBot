@@ -21,7 +21,7 @@ test("People benchmark reports deterministic percentiles", () => {
 
 test("People benchmark users have indexed discoverable taste data", () => {
   const entry = buildBenchmarkUser(3);
-  assert.equal(entry.indexes.length, 4);
+  assert.equal(entry.indexes.length, 5);
   assert.equal(entry.user.aiLists.movies.topTen.length, 6);
   assert.equal(entry.indexes.every((index) => index.itemCount >= 3), true);
 });

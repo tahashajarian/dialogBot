@@ -26,7 +26,13 @@ This file summarizes the current production contract so future changes do not re
 - A catalogue pool is not sufficient by itself: the ranker may decline the entire pool when evidence does not support the request. Never fall back to the first retrieved record or attach a generic reason to an unranked book.
 - If both Open Library and Wikidata are unavailable or neither confirms the exact pair, show no suggestion. A second model call must never serve as identity verification.
 
-## Movies and series
+## Movies
+
+Movie suggestions return verified films only and identify the director.
+
+## Series
+
+Series suggestions return verified television/streaming series or miniseries only and identify the creator.
 
 - AI generates bounded candidate batches ordered from strongest to weakest relevance.
 - Duplicate and request checks run before verification. Remaining candidates are verified in parallel, and the highest-ranked generated candidate that survives every safeguard is selected without another model call.

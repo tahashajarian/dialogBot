@@ -218,6 +218,7 @@ test("section-tip state defaults independently and rejects unknown keys", async 
     peopleBanner: null,
     discussionsBanner: null,
     moviesBanner: null,
+    seriesBanner: null,
     musicBanner: null,
     booksBanner: null,
   });
@@ -239,6 +240,17 @@ test("section-tip state defaults independently and rejects unknown keys", async 
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
   assert.equal(called, false);
+});
+
+test("Series lists default independently while legacy Movies remain Movies", () => {
+  const user = new User({
+    userId: 654,
+    aiLists: { movies: { topTen: [{ title: "Arrival" }] } },
+  });
+  assert.deepEqual(getAiListItemsFromUser(user, "movies", "topTen").map((item) => item.title), ["Arrival"]);
+  assert.deepEqual(getAiListItemsFromUser(user, "series", "topTen"), []);
+  assert.deepEqual(user.aiRecentSuggestions.series, []);
+  assert.equal(user.aiTaste.series.labelKey, "");
 });
 
 test("markSectionTipShown atomically sets only a missing stable tip key", async () => {

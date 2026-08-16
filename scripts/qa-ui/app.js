@@ -1,7 +1,7 @@
 const STORAGE_KEY = "muzeSuggestionLab.customProfiles.v1";
 const DRAFT_KEY = "muzeSuggestionLab.lastDraft.v1";
 
-const sectionIcons = { books: "📚", movies: "🎬", music: "🎵" };
+const sectionIcons = { books: "📚", movies: "🎬", series: "📺", music: "🎵" };
 const state = {
   presets: [],
   customProfiles: [],

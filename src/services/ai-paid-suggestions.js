@@ -17,7 +17,7 @@ function isPaidSuggestionsAvailable() {
 async function createPaidSuggestionQuote(userId, section, { userText = "", now = new Date() } = {}) {
   if (!isPaidSuggestionsAvailable()) return { ok: false, reason: "disabled" };
   const normalizedSection = String(section || "").trim();
-  if (!["movies", "music", "books", "random"].includes(normalizedSection)) {
+  if (!["movies", "series", "music", "books", "random"].includes(normalizedSection)) {
     return { ok: false, reason: "invalid_section" };
   }
   const quote = await AiPaidSuggestion.create({

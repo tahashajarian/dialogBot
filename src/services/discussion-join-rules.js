@@ -3,7 +3,7 @@ const { getAiListDuplicateMatch } = require("./ai-list-duplicates");
 const { operationalLimits } = require("./operational-limits");
 
 const DISCUSSION_JOIN_RULE_TYPES = ["open", "top_ten_completed", "taste_label", "top_ten_item"];
-const DISCUSSION_JOIN_RULE_SECTIONS = ["movies", "music", "books", "random"];
+const DISCUSSION_JOIN_RULE_SECTIONS = ["movies", "series", "music", "books", "random"];
 
 function validateJoinRulePayload(joinRule = {}) {
   const type = String(joinRule.type || "open");

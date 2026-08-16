@@ -294,7 +294,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       discussionJoinRuleKeyboard(lang, options),
     );
   };
-  const getEarnedTasteLabels = () => ["movies", "music", "books"]
+  const getEarnedTasteLabels = () => ["movies", "series", "music", "books"]
     .map((section) => ({ section, labelKey: getAiTasteFromUser(ctx.user, section).labelKey }))
     .filter((entry) => entry.labelKey);
   const showTasteLabelPicker = async () => {
@@ -561,7 +561,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
       return showTasteLabelPicker();
     }
 
-    const sections = ["movies", "music", "books", "random"];
+    const sections = ["movies", "series", "music", "books", "random"];
     if (type === "top_ten_item") {
       const hasItem = sections.some((section) => {
         const topTen = getAiListItemsFromUser(ctx.user, section, "topTen");
@@ -663,7 +663,7 @@ async function handleDiscussionCreateCallback(ctx, lang, helpers) {
     await ctx.answerCb?.();
     const payload = data.replace(callBacks.discussionCreateSelectTaste, "");
     const [section = "", tasteLabelKey = ""] = payload.split(":");
-    if (!["movies", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
+    if (!["movies", "series", "music", "books"].includes(section)) return ctx.reply(messages[lang].unknownAction);
     const currentTaste = getAiTasteFromUser(ctx.user, section);
     if (!currentTaste.labelKey || currentTaste.labelKey !== tasteLabelKey) {
       return showTasteLabelPicker();

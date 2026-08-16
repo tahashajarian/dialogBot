@@ -3,6 +3,7 @@ const { getAiSuggestionCallbackSection } = require("../services/callback-contrac
 
 const AI_CALLBACK_PREFIXES = Object.freeze([
   callBacks.aiSuggestMovies,
+  callBacks.aiSuggestSeries,
   callBacks.aiSuggestMusic,
   callBacks.aiSuggestBooks,
   callBacks.aiSuggestRandom,

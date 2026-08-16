@@ -95,6 +95,7 @@ function validateProfileName(name, maxLength) {
 function getFinalTasteLabels(user, lang, messages) {
   const sections = [
     { key: "movies", icon: "🎬" },
+    { key: "series", icon: "📺" },
     { key: "music", icon: "🎵" },
     { key: "books", icon: "📚" },
   ];
@@ -192,6 +193,7 @@ function getAiTopTenCount(user, section) {
   const modernItems = user?.aiLists?.[section]?.topTen;
   const legacyKey = {
     movies: "aiTopTenMovies",
+    series: "aiTopTenSeries",
     music: "aiTopTenMusic",
     books: "aiTopTenBooks",
     random: "aiTopTenRandom",
@@ -219,7 +221,7 @@ function buildOwnProfileGrowthHint(user, lang, messages) {
       .replace("{remaining}", Math.max(1, firstGoal - interestsCount).toLocaleString(lang === "fa" ? "fa-IR" : "en-US"));
   }
 
-  const mediaSection = ["movies", "music", "books"].find((section) => getAiTopTenCount(user, section) < firstGoal);
+  const mediaSection = ["movies", "series", "music", "books"].find((section) => getAiTopTenCount(user, section) < firstGoal);
   if (mediaSection) {
     const sectionLabel = getSectionLabel(messages, lang, mediaSection);
     return messages[lang].profileGrowthHintTopTen

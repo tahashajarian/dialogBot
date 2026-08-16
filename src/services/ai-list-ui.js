@@ -62,6 +62,7 @@ function getSectionLabelWithEmoji(messages, lang, section) {
 
 function getAiListCommandSectionToken(section) {
   if (section === "movies") return "mv";
+  if (section === "series") return "sr";
   if (section === "music") return "mu";
   if (section === "books") return "bk";
   if (section === "random") return "in";
@@ -70,7 +71,7 @@ function getAiListCommandSectionToken(section) {
 
 function getStatusActionLabels(lang, section) {
   const copy = messages[lang] || messages.en;
-  if (section === "movies") {
+  if (section === "movies" || section === "series") {
     return {
       on: copy.aiListActionMarkWatched,
       off: copy.aiListActionMarkNotWatched,
@@ -220,7 +221,7 @@ function withAiSectionTitle(lang, section, body) {
   return `${heading}\n\n${body}`;
 }
 
-const AI_MEDIA_SECTIONS = ["movies", "music", "books"];
+const AI_MEDIA_SECTIONS = ["movies", "series", "music", "books"];
 
 function hasReachedAiFavoritesCount(user, count) {
   return AI_MEDIA_SECTIONS.some(
@@ -245,6 +246,7 @@ function buildTopTenListMessage({ ctx, lang, section }) {
   const sectionLabel = getSectionLabelWithEmoji(messages, lang, section);
   const topTenEntries = localizeAiListItemsForDisplay(getAiListItemsFromUser(ctx.user, section, "topTen"), section, lang);
   const favoritesTitleKey = section === "movies" ? "aiFavoritesTitleMovies"
+    : section === "series" ? "aiFavoritesTitleSeries"
     : section === "music" ? "aiFavoritesTitleMusic"
       : section === "books" ? "aiFavoritesTitleBooks" : "aiTopTenTitle";
   const title = messages[lang][favoritesTitleKey].replace("{section}", sectionLabel);
@@ -340,7 +342,7 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
     : getAiListItemsFromUser(ctx.user, section, "topTen");
   const count = topTenItems.length;
   const goal = operationalLimits.aiTopTenItems;
-  const isMediaSection = ["movies", "music", "books"].includes(section);
+  const isMediaSection = ["movies", "series", "music", "books"].includes(section);
   const earnedTaste = getAiTasteFromUser(ctx.user, section);
   const withEarnedTaste = (text) => {
     if (!["confirmed", "confirmed_review"].includes(earnedTaste.classificationStatus) || !earnedTaste.labelKey) return text;
@@ -361,7 +363,9 @@ async function getTopTenManageEntryMessage(ctx, lang, section, topTenItemsOverri
       ? "aiSuggestionTargetBooks"
       : section === "music"
         ? "aiSuggestionTargetMusic"
-        : "aiSuggestionTargetMovies";
+        : section === "series"
+          ? "aiSuggestionTargetSeries"
+          : "aiSuggestionTargetMovies";
     return withEarnedTaste(messages[lang].aiFavoritesEarlyProgress
       .replace("{count}", String(count))
       .replace("{remaining}", String(3 - count))
@@ -530,7 +534,7 @@ async function buildTopTenSavedMessage({
 
   const responseParts = [savedText];
 
-  if (["movies", "music", "books"].includes(section) && count === 3) {
+  if (["movies", "series", "music", "books"].includes(section) && count === 3) {
     responseParts.push(
       messages[lang].aiFavoritesUnlockedProgress
         .replace("{count}", String(count))
@@ -543,7 +547,7 @@ async function buildTopTenSavedMessage({
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }
 
-  if (["movies", "music", "books"].includes(section) && includeCompletionPrompt) {
+  if (["movies", "series", "music", "books"].includes(section) && includeCompletionPrompt) {
     responseParts.push(messages[lang].aiTasteCompletionReady);
     return responseParts.join(TASTE_RESPONSE_BLOCK_SEPARATOR);
   }

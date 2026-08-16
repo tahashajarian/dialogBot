@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const AiTasteRecheckSchema = new mongoose.Schema({
   publicCode: { type: String, required: true, unique: true, index: true },
   userId: { type: Number, required: true, index: true },
-  section: { type: String, required: true, enum: ["movies", "music", "books"] },
+  section: { type: String, required: true, enum: ["movies", "series", "music", "books"] },
   status: {
     type: String,
     enum: ["pending", "spending", "completed", "refunded", "cancelled"],

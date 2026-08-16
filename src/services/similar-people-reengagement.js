@@ -177,7 +177,7 @@ async function flushSimilarPeopleReengagement({
   const UserModel = deps.User || User;
   const inactiveDays = getInactiveDays();
   const users = await UserModel.find(inactiveCandidateQuery(now, inactiveDays))
-    .select("userId lang lastActiveAt similarPeopleLastNotifiedAt savedProfileCodes peopleLanguageFilter aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+    .select("userId lang lastActiveAt similarPeopleLastNotifiedAt savedProfileCodes peopleLanguageFilter aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistSeries aiTopTenSeries aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .sort({ lastActiveAt: 1 })
     .limit(CANDIDATE_SCAN_LIMIT)
     .lean();
@@ -230,7 +230,7 @@ async function getSimilarPeopleReengagementPreview({
   const [inactiveCount, users] = await Promise.all([
     UserModel.countDocuments(query),
     UserModel.find(query)
-      .select("userId lang lastActiveAt similarPeopleLastNotifiedAt savedProfileCodes peopleLanguageFilter aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+      .select("userId lang lastActiveAt similarPeopleLastNotifiedAt savedProfileCodes peopleLanguageFilter aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistSeries aiTopTenSeries aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
       .sort({ lastActiveAt: 1 })
       .limit(CANDIDATE_SCAN_LIMIT)
       .lean(),

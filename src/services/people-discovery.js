@@ -26,7 +26,7 @@ const {
 const PEOPLE_DISCOVERY_PAGE_SIZE = PAGINATION.peopleDiscoveryPageSize;
 const PEOPLE_DISCOVERY_MIN_SHARED_ITEMS = 2;
 const PEOPLE_DISCOVERY_SCAN_LIMIT = 200;
-const PEOPLE_DISCOVERY_TASTE_LABEL_SECTIONS = Object.freeze(["movies", "music", "books"]);
+const PEOPLE_DISCOVERY_TASTE_LABEL_SECTIONS = Object.freeze(["movies", "series", "music", "books"]);
 const PEOPLE_DISCOVERY_SCORE_BAND_SIZE = 5;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -352,7 +352,7 @@ async function findPeopleBySharedTaste(viewer, {
     showProfileInPeopleDiscovery: { $ne: false },
     ...(candidateCreatedAfter ? { createdAt: { $gt: candidateCreatedAfter } } : {}),
   })
-    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang createdAt aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
+    .select("userId publicProfileCode firstName profileName profileEmoji gender age lang createdAt aiLists aiTaste aiWatchlistMovies aiTopTenMovies aiWatchlistSeries aiTopTenSeries aiWatchlistMusic aiTopTenMusic aiWatchlistBooks aiTopTenBooks aiWatchlistRandom aiTopTenRandom")
     .limit(resultLimit)
     .lean();
 

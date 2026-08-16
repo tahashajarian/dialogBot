@@ -46,7 +46,7 @@ const ONBOARDING_FAVORITES_PREFIX = "onboarding_favorites:";
 const ONBOARDING_COMPLETE_PREFIX = "onboarding_complete:";
 const TASTE_SETUP_STATE = "onboarding_taste_setup_interests";
 const ONBOARDING_GOAL = 3;
-const MEDIA_SECTIONS = new Set(["movies", "music", "books"]);
+const MEDIA_SECTIONS = new Set(["movies", "series", "music", "books"]);
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
 const MUZE_WELCOME_BANNER_PATH = path.join(
   __dirname,
@@ -74,7 +74,7 @@ function isOnboardingInProgress(user) {
 function shouldOfferOnboarding(user, now = new Date()) {
   if (!user || Number(user.onboardingVersion) >= ONBOARDING_VERSION) return false;
   if (isOnboardingInProgress(user)) return true;
-  const hasListActivity = ["movies", "music", "books", "random"].some((section) => (
+  const hasListActivity = ["movies", "series", "music", "books", "random"].some((section) => (
     getAiListItemsFromUser(user, section, "topTen").length > 0
     || getAiListItemsFromUser(user, section, "watchlist").length > 0
   ));

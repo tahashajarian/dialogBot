@@ -13,7 +13,7 @@ const CALLBACK_DOMAINS = Object.freeze(new Set([
   "profile",
   "saved",
 ]));
-const AI_SECTIONS = Object.freeze(new Set(["movies", "music", "books", "random"]));
+const AI_SECTIONS = Object.freeze(new Set(["movies", "series", "music", "books", "random"]));
 
 /**
  * @typedef {Object} ParsedCallbackData

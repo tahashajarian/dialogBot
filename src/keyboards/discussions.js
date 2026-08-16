@@ -525,6 +525,7 @@ function discussionSectionKeyboard(lang, prefix, {
 } = {}) {
   const rows = [
     [{ text: messages[lang].aiSuggestMovies, callback_data: `${prefix}movies` }],
+    [{ text: messages[lang].aiSuggestSeries, callback_data: `${prefix}series` }],
     [{ text: messages[lang].aiSuggestMusic, callback_data: `${prefix}music` }],
     [{ text: messages[lang].aiSuggestBooks, callback_data: `${prefix}books` }],
     [{ text: messages[lang].aiSuggestRandom, callback_data: `${prefix}random` }],

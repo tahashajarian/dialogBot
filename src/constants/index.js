@@ -39,6 +39,7 @@ module.exports = {
     onboardingTasteSetupStart: "onboarding:taste-setup:start",
     onboardingTasteSetupDismiss: "onboarding:taste-setup:dismiss",
     aiSuggestMovies: "ai:suggest:movies",
+    aiSuggestSeries: "ai:suggest:series",
     aiSuggestMusic: "ai:suggest:music",
     aiSuggestBooks: "ai:suggest:books",
     aiSuggestRandom: "ai:suggest:random",

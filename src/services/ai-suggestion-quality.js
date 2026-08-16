@@ -117,13 +117,14 @@ function getSuggestionRealityIssue({ mode, title, metadata = "", reason }) {
   const genericCreatorTerms = {
     books: new Set(["book", "novel", "author", "writer", "کتاب", "رمان", "نویسنده"]),
     movies: new Set(["movie", "film", "series", "director", "creator", "فیلم", "سریال", "کارگردان", "سازنده"]),
+    series: new Set(["series", "show", "creator", "سریال", "مجموعه", "سازنده", "خالق"]),
     music: new Set(["music", "song", "track", "album", "artist", "band", "singer", "موسیقی", "آهنگ", "ترک", "آلبوم", "هنرمند", "خواننده", "گروه"]),
   };
   if (normalizedCreator && genericCreatorTerms[mode]?.has(normalizedCreator)) {
     return "generic_creator_metadata";
   }
 
-  if (mode === "movies") {
+  if (mode === "movies" || mode === "series") {
     const movieMetadata = cleanMetadata || cleanTitle.match(/\(([^)]+)\)\s*$/)?.[1] || "";
     const creatorText = movieMetadata
       .replace(/(?:\b(?:18|19|20)\d{2}\b|(?:۱۸|۱۹|۲۰)[۰-۹]{2})/g, "")
@@ -323,9 +324,17 @@ function getSingleSuggestionDetailInstruction(mode) {
   if (mode === "movies") {
     return [
       "For a movie, line 1 must be only the exact title; line 2 must identify only the director. Do not include year, rating, distributor, or extra metadata.",
-      "For a series, line 1 must be only the exact title; line 2 must identify only the creator. Do not include year, rating, platform, or extra metadata.",
-      "Never use generic values such as Movie, Film, Series, Director, or Creator as the person's name.",
+      "Never return a television or streaming series.",
+      "Never use generic values such as Movie, Film, or Director as the person's name.",
           ].join(" ");
+  }
+
+  if (mode === "series") {
+    return [
+      "For a series, line 1 must be only the exact title; line 2 must identify only the creator. Do not include year, rating, platform, or extra metadata.",
+      "Never return a feature film or television movie.",
+      "Never use generic values such as Series, Show, or Creator as the person's name.",
+    ].join(" ");
   }
 
   if (mode === "music") {

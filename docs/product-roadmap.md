@@ -66,7 +66,7 @@ About (en):
 Build taste lists, get suggestions, and find people and discussions around what you like.
 
 Description (fa):
-با میوز برای فیلم، موسیقی و کتاب لیست و تاپ ۱۰ بساز، علاقه‌مندی‌هایت را روی پروفایل ثبت کن، پیشنهاد بگیر، آدم‌هایی با انتخاب‌های مشترک پیدا کن و وارد گفت‌وگوهای مرتبط شو.
+با میوز برای فیلم، سریال، موسیقی و کتاب لیست و تاپ ۱۰ بساز، علاقه‌مندی‌هایت را روی پروفایل ثبت کن، پیشنهاد بگیر، آدم‌هایی با انتخاب‌های مشترک پیدا کن و وارد گفت‌وگوهای مرتبط شو.
 
 Description (en):
 Build movie, music, and book lists and Top 10s, add interests to your profile, get suggestions, browse people, optionally unlock people with shared choices, and join relevant discussions.

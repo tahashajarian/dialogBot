@@ -2,7 +2,7 @@ const { earnStars, hasStarTransaction } = require("./stars");
 const { starEconomy } = require("./star-settings");
 const { logger } = require("./logger");
 
-const AI_SECTIONS = new Set(["movies", "music", "books", "random"]);
+const AI_SECTIONS = new Set(["movies", "series", "music", "books", "random"]);
 
 function hasText(value) {
   return Boolean(String(value || "").trim());

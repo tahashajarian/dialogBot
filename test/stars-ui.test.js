@@ -41,8 +41,8 @@ test("Stars overview uses live settings and a self-only balance", () => {
   assert.match(text, /Taste-label recheck: 10 Stars/);
   assert.match(text, /Discussion boost: 12 Stars/);
   assert.match(text, /Open discussions owned without Stars: 1; each additional one activates with 8 Stars \(up to 3 total\)/);
-  assert.match(text, /First 4 favorites in each of Movies, Music, and Books: 3/);
-  assert.match(text, /All 9 favorites in each of Movies, Music, and Books: 7/);
+  assert.match(text, /First 4 favorites in each of Movies, Series, Music, and Books: 3/);
+  assert.match(text, /All 9 favorites in each of Movies, Series, Music, and Books: 7/);
   assert.doesNotMatch(text, /Top 10/);
   assert.match(text, /2-person discussion: 6 Stars/);
   assert.match(text, /40-person discussion: 14 Stars/);

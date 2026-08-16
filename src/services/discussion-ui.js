@@ -166,7 +166,7 @@ function getDiscussionDiscoveryScore(user, discussion, { now = new Date(), saved
 function getDiscussionDiscoveryTier(discussion) {
   if (!discussion.isJoinable) return 0;
   const joinRule = discussion.joinRule || { type: "open" };
-  if (joinRule.type === "top_ten_item" && ["movies", "music", "books"].includes(joinRule.section)) return 4;
+  if (joinRule.type === "top_ten_item" && ["movies", "series", "music", "books"].includes(joinRule.section)) return 4;
   if (joinRule.type === "taste_label") return 3;
   if (joinRule.type === "top_ten_item" && joinRule.section === "random") return 2;
   return 1;

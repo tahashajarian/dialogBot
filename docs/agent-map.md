@@ -132,7 +132,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/flows/profile-sharing.js`: static shareable-profile banner delivery and in-place Back-to-own-profile restoration where Telegram supports it.
 - `src/services/profile-sharing.js`: first-person, caption-safe public taste teaser shaping and complete-media-Favorites eligibility.
 - `src/flows/profile-favorites.js`: source-aware public Favorites hub/section callbacks and Back-to-profile restoration.
-- `src/services/profile-favorites-ui.js`: public Movies/Music/Books Favorites and stored taste-label rendering; excludes every For Later list.
+- `src/services/profile-favorites-ui.js`: public Movies/Series/Music/Books Favorites and stored taste-label rendering; excludes every For Later list.
 - `src/services/public-profile-navigation.js`: public-profile mode parsing plus capture/restoration of the reply-keyboard mode beneath profile child cards.
 - `src/flows/saved-profiles.js`: people hub callbacks and first-visit guidance, people-discovery navigation, saved-profile commands/callback helpers, public-profile rendering by code, list message tracking, and stale public-profile card cleanup.
 - `src/flows/saved-profile-message-state.js`: remembered Saved Profiles, People, profile-discussion, and viewed-profile message state plus safe retirement.

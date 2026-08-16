@@ -51,6 +51,13 @@ function labels(key) {
   return localized.length ? localized : [normalizeReplyButtonText(key)];
 }
 
+const MEDIA_SECTION_MESSAGE_KEYS = Object.freeze({
+  movies: Object.freeze({ addFirst: "aiFavoritesAddFirstMovies", addAnother: "aiFavoritesAddAnotherMovies", addLater: "aiListManageAddLaterMovies", list: "aiSectionListButtonMovies", done: "aiSuggestionAddDoneButtonMovies" }),
+  series: Object.freeze({ addFirst: "aiFavoritesAddFirstSeries", addAnother: "aiFavoritesAddAnotherSeries", addLater: "aiListManageAddLaterSeries", list: "aiSectionListButtonSeries", done: "aiSuggestionAddDoneButtonSeries" }),
+  music: Object.freeze({ addFirst: "aiFavoritesAddFirstMusic", addAnother: "aiFavoritesAddAnotherMusic", addLater: "aiListManageAddLaterMusic", list: "aiSectionListButtonMusic", done: "aiSuggestionAddDoneButtonMusic" }),
+  books: Object.freeze({ addFirst: "aiFavoritesAddFirstBooks", addAnother: "aiFavoritesAddAnotherBooks", addLater: "aiListManageAddLaterBooks", list: "aiSectionListButtonBooks", done: "aiSuggestionAddDoneButtonBooks" }),
+});
+
 function getPublicProfileOverlayReturnMode(mode = "", user = null) {
   const normalizedMode = String(mode || "");
   const source = normalizedMode.match(
@@ -94,7 +101,7 @@ const ONBOARDING_DESTINATION_RECOVERY = [
 ];
 const BY_MODE = {
   [MODES.LANGUAGE]: [["🇮🇷 فارسی", callBacks.langSetFa], ["🇬🇧 English", callBacks.langSetEn], ["onboardingMainMenuButton", callBacks.menuMain]],
-  [MODES.FAVORITES]: [["aiSuggestMovies", callBacks.aiSuggestMovies], ["aiSuggestMusic", callBacks.aiSuggestMusic], ["aiSuggestBooks", callBacks.aiSuggestBooks], ["onboardingMainMenuButton", callBacks.menuMain]],
+  [MODES.FAVORITES]: [["aiSuggestMovies", callBacks.aiSuggestMovies], ["aiSuggestSeries", callBacks.aiSuggestSeries], ["aiSuggestMusic", callBacks.aiSuggestMusic], ["aiSuggestBooks", callBacks.aiSuggestBooks], ["onboardingMainMenuButton", callBacks.menuMain]],
   [MODES.DISCUSSIONS]: [["discussionActiveList", callBacks.discussionListActive], ["discussionInvitations", callBacks.discussionInvitations], ["discussionCreate", callBacks.discussionCreateStart], ["discussionMyList", callBacks.discussionListMine], ["onboardingMainMenuButton", callBacks.menuMain]],
   [MODES.PEOPLE]: [["peopleDiscover", callBacks.peopleDiscover], ["savedProfiles", callBacks.savedProfiles], ["advancedSearchButton", callBacks.peopleAdvancedSearch], ["onboardingMainMenuButton", callBacks.menuMain]],
   [MODES.PROFILE]: [["profileEditName", callBacks.profileEditName], ["profileEditAge", callBacks.profileEditAge], ["profileAddPhoto", callBacks.profileEditPhoto], ["profileEditPhoto", callBacks.profileEditPhoto], ["profileResetPhoto", callBacks.profileResetPhoto], ["profileEditCity", callBacks.profileEditCity], ["profileEditGender", callBacks.profileEditGender], ["profileEditBio", callBacks.profileEditBio], ["profileEditInterests", callBacks.profileEditInterests], ["profileMoreSettings", callBacks.profileSettings], ["profileEditLocation", callBacks.profileEditLocation], ["profilePrivacySafetyButton", callBacks.profilePrivacy], ["onboardingMainMenuButton", callBacks.profileBack]],
@@ -142,6 +149,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   if (state === "onboarding_sections" && mode === "onboarding_sections") {
     const actions = [
       ["aiSuggestMovies", `${callBacks.onboardingSection}movies`],
+      ["aiSuggestSeries", `${callBacks.onboardingSection}series`],
       ["aiSuggestMusic", `${callBacks.onboardingSection}music`],
       ["aiSuggestBooks", `${callBacks.onboardingSection}books`],
     ];
@@ -173,7 +181,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     if (normalized === normalizeReplyButtonText(messages[lang].onboardingTasteSetupLaterButton)) return { callbackData: callBacks.onboardingTasteSetupDismiss, key: "onboardingTasteSetupLaterButton" };
     return null;
   }
-  const onboardingCompleteMode = String(mode).match(/^onboarding_complete:(movies|music|books)$/);
+  const onboardingCompleteMode = String(mode).match(/^onboarding_complete:(movies|series|music|books)$/);
   if (onboardingCompleteMode && state === "idle") {
     const actions = [
       ["onboardingSuggestionButton", `${callBacks.onboardingSuggestion}${onboardingCompleteMode[1]}`],
@@ -193,9 +201,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     });
     if (inheritedAction) return inheritedAction;
   }
-  const aiListMatch = String(mode).match(/^ai_list:(movies|music|books|random):(topTen|watchlist)$/);
+  const aiListMatch = String(mode).match(/^ai_list:(movies|series|music|books|random):(topTen|watchlist)$/);
   const aiListAddStateMatch = String(state).match(
-    /^ai_manage_(movies|music|books|random)_(top_ten|watchlist)_add_input$/,
+    /^ai_manage_(movies|series|music|books|random)_(top_ten|watchlist)_add_input$/,
   );
   if (aiListAddStateMatch) {
     const section = aiListAddStateMatch[1];
@@ -213,13 +221,13 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       };
     }
   }
-  const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|music|books):topTen$/);
-  const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/);
-  const suggestionModeMatch = String(mode).match(/^ai_suggestion_mode:(movies|music|books|random)$/);
-  const suggestionResultMatch = String(mode).match(/^ai_suggestion_result:(movies|music|books|random)$/);
-  const suggestionNextMatch = String(mode).match(/^ai_suggestion_next:(movies|music|books|random)$/);
-  const suggestionAddedMatch = String(mode).match(/^ai_suggestion_added:(movies|music|books|random)$/);
-  const suggestionContextMatch = String(mode).match(/^ai_suggestion_context:(movies|music|books|random)$/);
+  const aiListCompletionMatch = String(mode).match(/^ai_list_completion:(movies|series|music|books):topTen$/);
+  const aiListFilterMatch = String(mode).match(/^ai_list_filter:(movies|series|music|books|random):(watched|not_watched)$/);
+  const suggestionModeMatch = String(mode).match(/^ai_suggestion_mode:(movies|series|music|books|random)$/);
+  const suggestionResultMatch = String(mode).match(/^ai_suggestion_result:(movies|series|music|books|random)$/);
+  const suggestionNextMatch = String(mode).match(/^ai_suggestion_next:(movies|series|music|books|random)$/);
+  const suggestionAddedMatch = String(mode).match(/^ai_suggestion_added:(movies|series|music|books|random)$/);
+  const suggestionContextMatch = String(mode).match(/^ai_suggestion_context:(movies|series|music|books|random)$/);
   const discussionListMatch = String(mode).match(/^discussion_list:(active|mine):(\d+):(\d+):(all|joinable):([a-z]+)$/);
   const invitationListMatch = String(mode).match(/^discussion_invitations:(\d+):(\d+)$/);
   const discussionLanguageMatch = String(mode).match(/^discussion_language:(all|joinable):(fa|en|all)$/);
@@ -229,7 +237,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   const savedProfilesMatch = String(mode).match(/^saved_profiles:(\d+):(\d+)$/);
   const publicProfileMatch = String(mode).match(/^public_profile:(saved|people|shared|direct|discussion_members|invitations|restrictions):(u_[A-Z0-9]+):(\d+):(saved|unsaved):(0|1)$/);
   const profileDiscussionsMatch = String(mode).match(/^profile_discussions:(saved|people|shared|direct|discussion_members|invitations|restrictions):(u_[A-Z0-9]+):(\d+)$/);
-  const profileFavoritesMatch = String(mode).match(/^profile_favorites:(saved|people|discussion_members|invitations|restrictions|shared|direct):(\d+):(u_[A-Z0-9]+):(hub|movies|music|books)$/);
+  const profileFavoritesMatch = String(mode).match(/^profile_favorites:(saved|people|discussion_members|invitations|restrictions|shared|direct):(\d+):(u_[A-Z0-9]+):(hub|movies|series|music|books)$/);
   const profileUnsaveConfirmMatch = String(mode).match(/^profile_unsave_confirm:(list|saved|people):(u_[A-Z0-9]+):(\d+)$/);
   const peopleResultsMatch = String(mode).match(/^people_discovery_results:(\d+):(\d+)$/);
   const profileRestrictionsMatch = String(mode).match(/^profile_invitation_restrictions:(\d+):(\d+)$/);
@@ -371,7 +379,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       );
     } else {
     const isEditState = state.endsWith("_edit") || mode === "discussion_create_capacity";
-    const itemMode = String(mode).match(/^discussion_create_item:(movies|music|books|random)$/);
+    const itemMode = String(mode).match(/^discussion_create_item:(movies|series|music|books|random)$/);
     const isTasteLabelsMode = mode === "discussion_create_taste_labels";
     let discussionBackCallback = callBacks.discussionCreatePreview;
     if (isEditState) discussionBackCallback = callBacks.discussionCreatePreview;
@@ -401,9 +409,9 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     }
     if (mode === "discussion_create_language") entries.push([`🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`✓ 🇮🇷 ${messages[user?.lang || "fa"].discussionLanguagePersian}`, `${callBacks.discussionCreateSetLanguage}fa`], [`🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], [`✓ 🇬🇧 ${messages[user?.lang || "fa"].discussionLanguageEnglish}`, `${callBacks.discussionCreateSetLanguage}en`], ["discussionBack", callBacks.discussionCreateLanguageBack]);
     if (mode === "discussion_create_capacity") for (const capacity of getSelectableDiscussionCapacities()) entries.push([formatCapacityOptionLabel(capacity, user?.lang || "fa"), `${callBacks.discussionCreateSetCapacity}${capacity}`], [`✅ ${formatCapacityOptionLabel(capacity, user?.lang || "fa")}`, `${callBacks.discussionCreateSetCapacity}${capacity}`]);
-    if (mode === "discussion_create_section") entries.push(["aiSuggestMovies", `${callBacks.discussionCreateRuleSection}movies`], ["aiSuggestMusic", `${callBacks.discussionCreateRuleSection}music`], ["aiSuggestBooks", `${callBacks.discussionCreateRuleSection}books`], ["aiSuggestRandom", `${callBacks.discussionCreateRuleSection}random`], ["discussionBack", callBacks.discussionCreateBackToJoinRule]);
+    if (mode === "discussion_create_section") entries.push(["aiSuggestMovies", `${callBacks.discussionCreateRuleSection}movies`], ["aiSuggestSeries", `${callBacks.discussionCreateRuleSection}series`], ["aiSuggestMusic", `${callBacks.discussionCreateRuleSection}music`], ["aiSuggestBooks", `${callBacks.discussionCreateRuleSection}books`], ["aiSuggestRandom", `${callBacks.discussionCreateRuleSection}random`], ["discussionBack", callBacks.discussionCreateBackToJoinRule]);
     if (isTasteLabelsMode) {
-      for (const section of ["movies", "music", "books"]) {
+      for (const section of ["movies", "series", "music", "books"]) {
         const labelKey = getAiTasteFromUser(user, section).labelKey;
         if (!labelKey) continue;
         entries.push([
@@ -421,9 +429,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
   }
   if (validAiListFilterState) {
     const section = aiListFilterMatch[1];
-    const addKey = section === "movies" ? "aiListManageAddLaterMovies"
-      : section === "music" ? "aiListManageAddLaterMusic"
-        : section === "books" ? "aiListManageAddLaterBooks" : "aiListManageAdd";
+    const addKey = MEDIA_SECTION_MESSAGE_KEYS[section]?.addLater || "aiListManageAdd";
     entries.push(
       [addKey, `${callBacks.aiListManageAdd}${section}:watchlist`],
       ["aiSuggestionGoToFavoritesButton", `${callBacks.aiListManageBack}${section}`],
@@ -438,7 +444,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
     const lang = messages[user?.lang] ? user.lang : "fa";
     const addText = messages[lang].aiSuggestionAddToListButton.replace("{listName}", getSectionListLabel(messages, lang, section));
     entries.push([addText, `${callBacks.aiSectionAddSuggestion}${section}`]);
-    const doneKey = section === "music" ? "aiSuggestionAddDoneButtonMusic" : section === "books" ? "aiSuggestionAddDoneButtonBooks" : section === "random" ? "aiSuggestionAddDoneButtonRandom" : "aiSuggestionAddDoneButtonMovies";
+    const doneKey = MEDIA_SECTION_MESSAGE_KEYS[section]?.done || "aiSuggestionAddDoneButtonRandom";
     entries.push([doneKey, `${callBacks.aiSectionAddSuggestionDone}${section}`], ["aiSuggestionRejectButton", `${callBacks.aiSectionRejectSuggestion}${section}`]);
   }
   if (suggestionNextMatch) {
@@ -494,14 +500,14 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       entries.push(["aiListManageAddBackToList", `${callBacks.aiListManageCancelAdd}${section}:${token}:back`]);
     }
     if (state === `${expectedAiState}_comment_input`) entries.push(["cancelEdit", `${callBacks.aiListManageCancelComment}${section}:${token}`]);
-    const addKeys = listType === "watchlist"
-      ? [section === "movies" ? "aiListManageAddLaterMovies" : section === "music" ? "aiListManageAddLaterMusic" : "aiListManageAddLaterBooks"]
-      : [section === "movies" ? "aiFavoritesAddFirstMovies" : section === "music" ? "aiFavoritesAddFirstMusic" : "aiFavoritesAddFirstBooks",
-        section === "movies" ? "aiFavoritesAddAnotherMovies" : section === "music" ? "aiFavoritesAddAnotherMusic" : "aiFavoritesAddAnotherBooks"];
+    const sectionKeys = MEDIA_SECTION_MESSAGE_KEYS[section];
+    const addKeys = sectionKeys
+      ? (listType === "watchlist" ? [sectionKeys.addLater] : [sectionKeys.addFirst, sectionKeys.addAnother])
+      : ["aiListManageAdd"];
     if (state === expectedAiState) for (const key of addKeys) entries.push([key, `${callBacks.aiListManageAdd}${section}:${token}`]);
     if (state === expectedAiState && listType === "topTen" && section !== "random") {
-      if (getAiListItemsFromUser(user, section, "watchlist").length > 0) {
-        entries.push([section === "movies" ? "aiSectionListButtonMovies" : section === "music" ? "aiSectionListButtonMusic" : "aiSectionListButtonBooks", `${callBacks.aiListManageMenu}${section}:watchlist`]);
+      if (sectionKeys && getAiListItemsFromUser(user, section, "watchlist").length > 0) {
+        entries.push([sectionKeys.list, `${callBacks.aiListManageMenu}${section}:watchlist`]);
       }
       const suggestionLangs = messages[user?.lang] ? [user.lang] : ["fa", "en"];
       const isSuggestionButton = suggestionLangs.some((candidateLang) => (
@@ -513,7 +519,7 @@ function resolveReplyKeyboardAction(text, { mode = "", state = "idle", activeDis
       entries.push(["aiSectionSuggestButton", `${callBacks.aiSectionSuggestMenu}${section}`]);
       const taste = user?.aiTaste?.[section] || {};
       if (
-        ["movies", "music", "books"].includes(section) &&
+        ["movies", "series", "music", "books"].includes(section) &&
         (
         getAiListItemsFromUser(user, section, "topTen").length >= operationalLimits.aiTopTenItems ||
         (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) ||

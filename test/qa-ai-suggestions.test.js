@@ -80,7 +80,7 @@ test("QA account variants cover early, full, and clean-history states", () => {
 test("QA scenario validation rejects unsupported section and missing favorites", () => {
   assert.throws(
     () => normalizeScenario({ section: "games", lang: "fa", favorites: ["x"] }),
-    /section must be books, movies, or music/,
+    /section must be books, movies, series, or music/,
   );
   assert.throws(
     () => normalizeScenario({ section: "books", lang: "fa", favorites: [] }),

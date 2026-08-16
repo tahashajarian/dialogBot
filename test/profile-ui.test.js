@@ -128,6 +128,7 @@ test("profile growth hints name one concrete missing field", () => {
     aiLists: {
       random: { topTen: threeItems },
       movies: { topTen: threeItems },
+      series: { topTen: threeItems },
       music: { topTen: threeItems },
       books: { topTen: threeItems },
     },
@@ -209,7 +210,7 @@ test("profile Interests never render a legacy Interests taste label", () => {
   }, "en", messages, { isOwnProfile: false });
 
   assert.match(text, /🌿 Interests/);
-  assert.match(text, /🎬 Movies & Series: 🎭 Drama/);
+  assert.match(text, /🎬 Movies: 🎭 Drama/);
   assert.doesNotMatch(text, /Gamer|🌿 Interests: 🎮/);
 });
 
@@ -223,8 +224,8 @@ test("hidden Favorites keep taste labels visible to the owner but not public vie
 
   const ownText = buildProfileText(profileUser, "en", messages, { isOwnProfile: true });
   const publicText = buildProfileText(profileUser, "en", messages, { isOwnProfile: false });
-  assert.match(ownText, /🎬 Movies & Series: 🎭 Drama/);
-  assert.doesNotMatch(publicText, /🏷 Taste labels|🎬 Movies & Series: 🎭 Drama/);
+  assert.match(ownText, /🎬 Movies: 🎭 Drama/);
+  assert.doesNotMatch(publicText, /🏷 Taste labels|🎬 Movies: 🎭 Drama/);
 });
 
 test("buildProfileText shows compact interests preview", () => {

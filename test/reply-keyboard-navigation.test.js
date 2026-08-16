@@ -280,6 +280,7 @@ test("Favorites list-manager actions retain trusted section and list context", (
   assert.equal(resolveReplyKeyboardAction(messages.en.aiFavoritesAddFirstMovies, { mode: "ai_list:books:topTen", state: "ai_manage_books_top_ten" }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten" }).callbackData, `${callBacks.aiListManageAdd}movies:top_ten`);
   assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstMovies, { mode: "ai_list:movies:topTen", state: "ai_manage_movies_top_ten_add_input" }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.aiFavoritesAddFirstSeries, { mode: "ai_list:series:topTen", state: "ai_manage_series_top_ten" }).callbackData, `${callBacks.aiListManageAdd}series:top_ten`);
   const listButton = messages.en.aiSectionListButtonMovies;
   const emptyWatchlist = {
     mode: "ai_list:movies:topTen",
@@ -300,7 +301,7 @@ test("Favorites list-manager actions retain trusted section and list context", (
 test("every visible Favorites manager button resolves in its exact section", () => {
   const { aiListManageMenuKeyboard } = require("../src/keyboards");
   for (const lang of ["en", "fa"]) {
-    for (const section of ["movies", "music", "books"]) {
+    for (const section of ["movies", "series", "music", "books"]) {
       const user = {
         lang,
         aiLists: {
@@ -398,7 +399,7 @@ test("For Later Add works after entering from a saved suggestion", () => {
 });
 
 test("Back inside a media list becomes Home after returning to Favorites", () => {
-  for (const section of ["movies", "music", "books"]) {
+  for (const section of ["movies", "series", "music", "books"]) {
     const manager = resolveReplyKeyboardAction(messages.en.aiBack, { mode: `ai_list:${section}:topTen`, state: `ai_manage_${section}_top_ten` });
     assert.equal(manager.callbackData, `${callBacks.aiListManageBack}${section}`);
   }
@@ -489,8 +490,8 @@ test("suggestion source selection uses section-scoped bottom actions", () => {
 });
 
 test("suggestion result Save, Done, and Reject buttons work in every media section", () => {
-  const doneKeys = { movies: "aiSuggestionAddDoneButtonMovies", music: "aiSuggestionAddDoneButtonMusic", books: "aiSuggestionAddDoneButtonBooks" };
-  for (const section of ["movies", "music", "books"]) {
+  const doneKeys = { movies: "aiSuggestionAddDoneButtonMovies", series: "aiSuggestionAddDoneButtonSeries", music: "aiSuggestionAddDoneButtonMusic", books: "aiSuggestionAddDoneButtonBooks" };
+  for (const section of ["movies", "series", "music", "books"]) {
     const mode = `ai_suggestion_result:${section}`;
     const state = `ai_chat_${section}`;
     const listName = require("../src/services/ai-section").getSectionListLabel(messages, "en", section);
@@ -526,7 +527,7 @@ test("suggestion result buttons win over a stale mood-entry state", () => {
 });
 
 test("post-save and post-reject suggestion actions replace the old result mode", () => {
-  for (const section of ["movies", "music", "books"]) {
+  for (const section of ["movies", "series", "music", "books"]) {
     // Save for later and already watched/listened/read intentionally enter this same mode.
     const added = { mode: `ai_suggestion_added:${section}`, state: `ai_chat_${section}`, user: { lang: "fa" } };
     assert.equal(resolveReplyKeyboardAction(messages.fa.aiSuggestionAnotherButton, added).callbackData, `${callBacks.aiSectionAnotherSuggestion}${section}`);

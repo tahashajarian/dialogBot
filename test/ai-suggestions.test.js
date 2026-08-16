@@ -517,19 +517,24 @@ test("suggestion context removes accidental list numbering without changing nume
   assert.equal(normalizeContextItem("12 Angry Men — Sidney Lumet"), "12 Angry Men — Sidney Lumet");
 });
 
-test("Movies & Series suggestions define metadata for both formats", () => {
+test("Movies and Series suggestions define separate format-strict metadata", () => {
   const instruction = getSingleSuggestionDetailInstruction("movies");
+  const seriesInstruction = getSingleSuggestionDetailInstruction("series");
   const modeInstruction = getModeInstruction("movies", "en");
+  const seriesModeInstruction = getModeInstruction("series", "en");
   assert.match(instruction, /For a movie/);
-  assert.match(instruction, /For a series/);
+  assert.doesNotMatch(instruction, /For a series/);
+  assert.match(seriesInstruction, /For a series/);
   assert.match(instruction, /Do not include year, rating/);
   assert.match(getSingleSuggestionDetailInstruction("books"), /Do not include a year, rating/);
   assert.match(getSingleSuggestionDetailInstruction("music"), /Do not include album, year, label, rating/);
-  assert.match(instruction, /Creator/);
-  assert.match(modeInstruction, /movies and TV\/streaming series/);
+  assert.match(seriesInstruction, /Creator/);
+  assert.match(modeInstruction, /movies only/);
+  assert.match(seriesModeInstruction, /series and miniseries only/);
   assert.match(modeInstruction, /Infer national cinema, language, genre/);
   assert.match(modeInstruction, /strongest repeated patterns in Favorites/);
   assert.match(modeInstruction, /unless the current request explicitly asks for something different/);
+  assert.match(seriesModeInstruction, /unless the current request explicitly asks for something different/);
 });
 
 test("suggestion reality gate rejects fabricated-looking outputs", () => {

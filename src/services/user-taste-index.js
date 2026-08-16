@@ -6,7 +6,7 @@ const { canonicalizeInterestChipTitle } = require("./interest-chips");
 const { mapWithConcurrency } = require("./bounded-concurrency");
 const { buildTasteMatchKeys, countSharedTasteItems } = require("./taste-item-matching");
 
-const AI_TASTE_INDEX_SECTIONS = ["movies", "music", "books", "random"];
+const AI_TASTE_INDEX_SECTIONS = ["movies", "series", "music", "books", "random"];
 const AI_TASTE_INDEX_LIST_TYPES = ["topTen", "watchlist"];
 const AI_TASTE_INDEX_MIN_SHARED_ITEMS = 3;
 const TASTE_INDEX_READINESS_CACHE_TTL_MS = 60 * 1000;
@@ -28,6 +28,7 @@ function invalidateTasteIndexReadinessCache() {
 }
 const LEGACY_FIELDS = {
   movies: { watchlist: "aiWatchlistMovies", topTen: "aiTopTenMovies" },
+  series: { watchlist: "aiWatchlistSeries", topTen: "aiTopTenSeries" },
   music: { watchlist: "aiWatchlistMusic", topTen: "aiTopTenMusic" },
   books: { watchlist: "aiWatchlistBooks", topTen: "aiTopTenBooks" },
   random: { watchlist: "aiWatchlistRandom", topTen: "aiTopTenRandom" },

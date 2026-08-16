@@ -8,7 +8,7 @@ const { findPeopleBySharedTaste } = require("../src/services/people-discovery");
 const { invalidateTasteIndexReadinessCache } = require("../src/services/user-taste-index");
 
 const BENCHMARK_USER_ID_START = -700000000;
-const SECTIONS = ["movies", "music", "books", "random"];
+const SECTIONS = ["movies", "series", "music", "books", "random"];
 const CATALOG_SIZE = 250;
 
 function numberArg(argv, name, fallback) {

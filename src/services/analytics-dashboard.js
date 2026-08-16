@@ -28,7 +28,7 @@ const { reconcileStarBalances } = require("./stars");
 const { getTasteIndexHealth } = require("./user-taste-index");
 const { getSimilarPeopleReengagementPreview } = require("./similar-people-reengagement");
 
-const SECTIONS = ["movies", "music", "books", "random"];
+const SECTIONS = ["movies", "series", "music", "books", "random"];
 const SECTION_LABELS = {
   movies: "Movies",
   music: "Music",

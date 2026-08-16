@@ -63,7 +63,7 @@ The Discussions hub uses a compact reply keyboard: Active Discussions with Invit
 - Muze-created rooms use the same join, full-room, and acknowledgment behavior as user-created rooms, while recognized language-specific starter rooms use the 100-member capacity exception above.
 - The first successful Active Discussions list response includes one compact explanation of relevance ordering and join requirements. It uses its own `activeDiscussions` durable tip state, separate from invitation guidance, so existing users receive the new explanation once. Every populated Active Discussions page, including filters and pagination, also keeps a shorter permanent line explaining that the `/d_CODE` Join command enters the room directly and that an unmet condition produces exact guidance. This list command is not an invitation preview; shared links and invitations retain their separate explicit preview flow. The richer first-visit explanation does not repeat.
 - Do not label the general Free Discussion as “Start here”; its open join-rule row already communicates availability and ranking may place it anywhere. Bot starter hints appear only when they add personalized context: a profile Interest unlocked that room, or a locked room names the Interest the user is missing.
-- **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
+- **Smart discovery sorting**: Active discussion lists keep the existing `فقط قابل ورودها` / joinable toggle and use strict viewer-relevance tiers: a matching Movies/Series/Music/Books item, then a matching taste label, then a matching profile Interest, then other joinable rooms, then locked/full rooms. Boosts, saved creators, freshness, starter-room help, recent activity, and available capacity order comparable rooms inside a tier; they never move a less-relevant room above a more-relevant tier. This helps relevant and new rooms surface without adding another discovery mode.
 - When a user tries to enter a locked room from a discussion list or a `/d_CODE` command, show a standalone inline `👍 Got it` / `👍 متوجه شدم` notice. The notice should name the exact unlock path for the rule, such as `Movies, Music, Books -> Music -> complete all 10 favorites`. Keep the current reply keyboard and its navigation mode unchanged; acknowledgment only deletes the notice and does not navigate or rebuild the list.
 
 ## Non-Goals For MVP
@@ -161,7 +161,7 @@ Flow:
 
 1. Ask for title.
 2. Ask who can join.
-3. If the rule is taste label, skip section selection and show the creator's existing Movies, Music, and Books labels together in one picker; each row names both its section and label. If none exist, explain that completing 10 Favorites in any media section is required. Profile Interests never generate or appear as labels.
+3. If the rule is taste label, skip section selection and show the creator's existing Movies, Series, Music, and Books labels together in one picker; each row names both its section and label. If none exist, explain that completing 10 Favorites in any media section is required. Profile Interests never generate or appear as labels.
 4. If the rule is specific interest/item, show/select one of creator's TopTen items and verify selection.
 5. Ask for description last.
 6. If the rule is open, require a description before preview.
@@ -1246,7 +1246,7 @@ Empty-state behavior:
 Insufficient-list-data state:
 
 ```text
-👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۲ انتخاب به یکی از بخش‌های فیلم، موسیقی و کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
+👩‍🦳🤷‍♀️ برای دیدن آدم‌ها، اول حداقل ۲ انتخاب به یکی از بخش‌های فیلم، سریال، موسیقی و کتاب یا علاقه‌مندی‌های پروفایلت اضافه کن.
 ```
 
 ### Advanced Search Preview

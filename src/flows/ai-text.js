@@ -124,9 +124,9 @@ const {
   refundPaidSuggestion,
 } = require("../services/ai-paid-suggestions");
 
-const AI_MANAGE_STATE_PATTERN = /^ai_manage_(movies|music|books|random)_(watchlist|top_ten)(?:_(add_input|comment_input))?$/;
-const AI_SUGGEST_CONTEXT_STATE_PATTERN = /^ai_suggest_context_(movies|music|books|random)$/;
-const AI_SUGGEST_GENERATING_STATE_PATTERN = /^ai_suggest_generating_(movies|music|books|random)$/;
+const AI_MANAGE_STATE_PATTERN = /^ai_manage_(movies|series|music|books|random)_(watchlist|top_ten)(?:_(add_input|comment_input))?$/;
+const AI_SUGGEST_CONTEXT_STATE_PATTERN = /^ai_suggest_context_(movies|series|music|books|random)$/;
+const AI_SUGGEST_GENERATING_STATE_PATTERN = /^ai_suggest_generating_(movies|series|music|books|random)$/;
 
 function normalizeKeyboardText(value) {
   return String(value || "")
@@ -138,7 +138,7 @@ function normalizeKeyboardText(value) {
 
 function getActiveWatchlistFilter(ctx, section) {
   const match = String(ctx.user?.navigationMode || "").match(
-    /^ai_list_filter:(movies|music|books|random):(watched|not_watched)$/,
+    /^ai_list_filter:(movies|series|music|books|random):(watched|not_watched)$/,
   );
   return match?.[1] === section ? match[2] : "all";
 }
@@ -186,7 +186,7 @@ function isAiSectionTopTenText(text) {
   const labels = [
     messages.fa.aiSectionTopTenButton,
     messages.en.aiSectionTopTenButton,
-    ...["movies", "music", "books"].flatMap((section) => [
+    ...["movies", "series", "music", "books"].flatMap((section) => [
       `${getSectionEmoji(section)} ${messages.fa.aiSectionTopTenButton}`,
       `${getSectionEmoji(section)} ${messages.en.aiSectionTopTenButton}`,
     ]),
@@ -203,7 +203,7 @@ function isAiSectionSuggestText(text) {
   const labels = [
     messages.fa.aiSectionSuggestButton,
     messages.en.aiSectionSuggestButton,
-    ...["movies", "music", "books"].flatMap((section) => [
+    ...["movies", "series", "music", "books"].flatMap((section) => [
       `${getSectionEmoji(section)} ${messages.fa.aiSectionSuggestButton}`,
       `${getSectionEmoji(section)} ${messages.en.aiSectionSuggestButton}`,
     ]),
@@ -222,7 +222,7 @@ function isSuggestionControlText(text) {
       messages[candidateLang].aiSuggestionAnotherButton,
       messages[candidateLang].aiSuggestionGoToFavoritesButton,
     );
-    for (const section of ["movies", "music", "books", "random"]) {
+    for (const section of ["movies", "series", "music", "books", "random"]) {
       const listLabel = getSectionListLabel(messages, candidateLang, section);
       labels.push(
         messages[candidateLang].aiSuggestionAddToListButton.replace("{listName}", listLabel),
@@ -326,7 +326,7 @@ function parseAiListActionCommand(text = "") {
   }
 
   const matched = String(text || "").trim().match(
-    /^\/(done|undone|top10|comment|remove)_(movies|music|books|random)_(list|top)_(\d+)$/i,
+    /^\/(done|undone|top10|comment|remove)_(movies|series|music|books|random)_(list|top)_(\d+)$/i,
   );
   if (!matched) return null;
   const action = matched[1].toLowerCase();
@@ -615,7 +615,7 @@ async function openAiListManager(ctx, lang, section, listType, {
   });
   const showInlineCaptureTip = (
     listType === "watchlist"
-    && ["movies", "music", "books"].includes(section)
+    && ["movies", "series", "music", "books"].includes(section)
     && !ctx.user?.sectionTipsShownAt?.forLaterInline
   );
   const inlineCaptureTip = showInlineCaptureTip
@@ -628,7 +628,7 @@ async function openAiListManager(ctx, lang, section, listType, {
     itemCount: items.length,
     hasWatchlistItems: getAiListItemsFromUser(ctx.user, section, "watchlist").length > 0,
     hasTasteLabel: (() => {
-      if (!["movies", "music", "books"].includes(section)) return false;
+      if (!["movies", "series", "music", "books"].includes(section)) return false;
       const taste = getAiTasteFromUser(ctx.user, section);
       return (["confirmed", "confirmed_review"].includes(taste.classificationStatus) && taste.labelKey) ||
         (taste.classificationStatus === "skipped" && taste.suggestedLabelKeys.length > 0);
@@ -947,13 +947,13 @@ async function handleAiText(ctx, lang, text, state) {
         : getAiManageState(section, listType, "add_input");
       await updateUserState(ctx.userId, nextState);
       if (ctx.user) ctx.user.state = nextState;
-      if (listIsFull && !isWatchlist && ["movies", "music", "books"].includes(section)) {
+      if (listIsFull && !isWatchlist && ["movies", "series", "music", "books"].includes(section)) {
         await setNavigationMode(ctx, `ai_list_completion:${section}:topTen`);
       }
 
       if (!isWatchlist) {
         let automaticTasteAttempt = null;
-        const isCompletedMediaFavorites = listIsFull && ["movies", "music", "books"].includes(section);
+        const isCompletedMediaFavorites = listIsFull && ["movies", "series", "music", "books"].includes(section);
         if (isCompletedMediaFavorites) {
           const taste = getAiTasteFromUser(ctx.user, section);
           if (shouldStartAutomaticTasteCheck(taste)) {

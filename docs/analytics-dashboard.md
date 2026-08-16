@@ -81,7 +81,7 @@ process restarts.
   update plus a stable five-percent baseline sample
 - total, new, onboarded, named, active, saved-profile, and banned users
 - Top 10 and watchlist activity per section
-- users with 3+ items and full Top 10s, plus unlocked taste labels for Movies, Music, and Books only
+- users with 3+ items and full Top 10s, plus unlocked taste labels for Movies, Series, Music, and Books only
 - discussion counts, open/closed rooms, bot starter rooms, members, messages,
   reports, and recent activity
 - invitation status counts

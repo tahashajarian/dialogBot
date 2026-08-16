@@ -2,8 +2,8 @@
 
 ## Sections
 
-- AI assistant/List menu includes the media sections only: Movies & Series, Music, and Books. The internal key remains `movies`; both movies and series use the same Favorites, For Later, taste, matching, and discussion-rule data without migration.
-- On each user's first successful visit, the main Movies, Music & Books / Favorites hub is one photo card using `assets/favorites-hub-banner.jpg`, with the existing localized hub copy as its caption and normal controls beneath it. Later visits are text-only so Telegram chat history and shared media do not accumulate repeated banners. Persist the per-user banner timestamp only after successful photo delivery; a failed photo attempt falls back to the complete text hub and remains eligible for retry. Banner delivery uses the shared Mongo-backed Telegram `file_id` cache; `FAVORITES_HUB_BANNER_FILE_ID` is only an optional seed.
+- AI assistant/List menu includes four independent media sections: Movies, Series, Music, and Books. The stable internal keys are `movies`, `series`, `music`, and `books`. Historical `movies` data is treated as Movies; it is never copied or reclassified into Series.
+- On each user's first successful visit, the main Movies, Series, Music & Books / Favorites hub is one photo card using `assets/favorites-hub-banner.jpg`, with the existing localized hub copy as its caption and normal controls beneath it. Later visits are text-only so Telegram chat history and shared media do not accumulate repeated banners. Persist the per-user banner timestamp only after successful photo delivery; a failed photo attempt falls back to the complete text hub and remains eligible for retry. Banner delivery uses the shared Mongo-backed Telegram `file_id` cache; `FAVORITES_HUB_BANNER_FILE_ID` is only an optional seed.
 - Interests are edited from Profile and the separate optional Interests wizard, not shown as a fourth button inside the Lists hub or collected by first-run onboarding.
 - The internal `random` section stores profile Interests and should be treated as user-facing `🌿 علاقه‌مندی‌ها` / `🌿 Interests`, not as a leftover miscellaneous bucket.
 - `🌿 علاقه‌مندی‌ها` should feel first-class in Profile for users who are not strongly into movies, music, or books.
@@ -15,8 +15,8 @@
 - Media section actions should carry the active section emoji for orientation. User-facing secondary-list names should explicitly identify themselves as lists: Movies `Watch Later list`, Music `Listen Later list`, and Books `Read Later list`. Persian uses the natural first-person names `لیست «بعدا می‌بینم»`, `لیست «بعدا گوش می‌دم»`, and `لیست «بعدا می‌خونم»`.
 - Empty media Favorites should explain that these are things the user genuinely loves, that three unlock suggestions, and that the list can grow to the configured TopTen limit.
 - Favorites manager copy and its Add button should progress through empty, early (one or two), unlocked (three through limit-minus-one), and complete states. Advanced benefits should be introduced after the user starts rather than front-loaded into the empty state.
-- Media Favorites guidance asks for concrete works: a movie or series, a song or album, or a book. Keep the existing section and Add buttons rather than introducing a type picker. Existing creator entries remain stored, and creator-shaped input is not migrated or newly hard-rejected; suggestion safeguards must continue handling it safely. For Later lists and generated suggestions remain concrete works.
-- Media Favorites add prompts request the corresponding concrete work forms above, one item per message. Clearly titled music audio remains accepted. Movies and series require no extra type-selection step.
+- Media Favorites guidance asks for concrete works: a movie, a series, a song or album, or a book. Movies and Series are selected as independent sections; there is no per-item media-type picker. Existing creator entries remain stored, and creator-shaped input is not migrated or newly hard-rejected; suggestion safeguards must continue handling it safely. For Later lists and generated suggestions remain concrete works.
+- Media Favorites add prompts request the corresponding concrete work forms above, one item per message. Clearly titled music audio remains accepted.
 - The Persian entry action is the action noun `گرفتن پیشنهاد`. After the user enters that flow, the contextual continue action remains the shorter `✨ بریم`; avoid `پیشنهاد بده`, which sounds like the user should submit a recommendation.
 - Free-form text in AI section/manage states should not trigger AI suggestions; reply with guidance to use the active card buttons.
 - There is no plain section hub; stray text in a section should point back to the active card actions for add, list, or suggestion.
@@ -49,7 +49,7 @@
   - books: read
   - random: done
 - Per-item status command labels should use this same section-aware wording, not a generic "done" label for every section.
-- Movies and series share watched/not-watched status. Season or episode progress remains optional free-form comment text in the MVP.
+- Movies and Series each use watched/not-watched status in their independent lists. Season or episode progress remains optional free-form comment text in the MVP.
 - Watchlist list text should include per-item command links for:
   - status toggle
   - add comment / update comment, depending on whether the item already has a comment
@@ -72,7 +72,7 @@
 
 ## TopTen
 
-Media taste labels are suggested only after all 10 Favorites are complete. The bot sends the complete section list, including optional comments, to the configured AI provider and asks for up to three meaningful section-label keys ordered from strongest to weaker match. The code must not contain title, creator, author, artist, or alias dictionaries for media classification. Provider output is accepted only as compact structured data containing allowlisted keys. Unknown titles must not become genre evidence merely from how their words sound, look, or are spelled; when most entries cannot be recognized or understood from their comments, the provider should return no specific matches. The application appends the section's broad Book Buff, Movie Buff, or Music Buff fallback as the final choice, for at most four label choices total.
+Media taste labels are suggested only after all 10 Favorites are complete. The bot sends the complete section list, including optional comments, to the configured AI provider and asks for up to three meaningful section-label keys ordered from strongest to weaker match. The code must not contain title, creator, author, artist, or alias dictionaries for media classification. Provider output is accepted only as compact structured data containing allowlisted keys. Unknown titles must not become genre evidence merely from how their words sound, look, or are spelled; when most entries cannot be recognized or understood from their comments, the provider should return no specific matches. The application appends the section's broad Book Buff, Movie Buff, Series Buff, or Music Buff fallback as the final choice, for at most four label choices total.
 
 An AI shortlist is not an active label until the user taps one choice. Selecting a ranked option confirms it in one tap and returns to the refreshed Favorites list; `No label` does the same without a badge. A result may also include one optional, factual sentence about the shared pattern across the choices. Keep it to 5–18 words and 120 characters, describe the list rather than the user's personality, and show it only when at least one specific label matches and the provider supplies at least four exact recognized titles as hidden evidence. Wrong-language, multiline, malformed, weakly evidenced, fallback-only, or overlong insights are discarded without failing the badge result. Later, `Change label` reopens only that latest saved shortlist, marks the active choice with the same plain `✓` used by Interest pickers, and includes an inline Close action that deletes only the picker card. The full label catalog is never offered for arbitrary selection, and the server rejects labels outside the saved shortlist. Whenever the first uncached label check requires a provider call—including after the 10th Favorite is promoted from For Later—the bot edits one placeholder through honest still-waiting messages and never claims that completion is near. Cached, confirmed, and previously generated results open immediately without a loading sequence. When the first AI check is unavailable or returns invalid output, show `Try again` and `Back to list`; explain that the completed Favorites list keeps its `Taste label` reply-keyboard action so the user can retry later. A failed provider call does not consume the first successful free check. Suggestions and profiles continue to use the actual Favorites data; the label is an optional identity/discovery badge rather than an objective verdict.
 
@@ -84,9 +84,10 @@ The stable internal keys keep these approved user-facing titles:
 
 | Section | Persian | English |
 | --- | --- | --- |
-| Music | `🤘 متال‌هد`, `🎸 راکر`, `🌌 پست‌راکر`, `⚡ پانک`, `🎤 پاپ‌باز`, `🎧 هیپ‌هاپ‌هد`, `🎛️ الکترونیک‌باز`, `🎼 کلاسیک‌باز`, `🎷 جزباز`, `🌙 روح‌ایندی`, `🪕 سنتی‌باز`, `🎧 موزیک‌باز` | `Metalhead`, `Rocker`, `Post-Rocker`, `Punk`, `Pop Lover`, `Hip-Hop Head`, `Electronic Fan`, `Classical Listener`, `Jazz Head`, `Indie Spirit`, `Traditional Music Fan`, `Music Buff` |
-| Movies | `🛸 علمی‌تخیلی‌باز`, `💥 اکشن‌باز`, `🎭 درام‌باز`, `🔎 معما و تریلر`, `😄 کمدی‌باز`, `🕯️ ترسناک‌باز`, `💌 عاشقانه‌باز`, `🐉 فانتزی‌باز`, `✨ انیمیشن‌باز`, `🎥 مستندبین`, `🎞️ سینه‌فیل`, `🎬 فیلم‌باز` | `Sci-Fi Fan`, `Action Junkie`, `Drama Lover`, `Mystery & Thriller Fan`, `Comedy Fan`, `Horror Fan`, `Romance Fan`, `Fantasy Fan`, `Animation Lover`, `Documentary Viewer`, `Cinephile`, `Movie Buff` |
-| Books | `📖 رمان‌خوان`, `📜 روح قدیمی`, `🐉 خیال‌پرداز`, `🪐 کاوشگر علمی‌تخیلی`, `🔎 کارآگاه بالفطره`, `💌 رمانتیک درمان‌ناپذیر`, `🧠 فیلسوف نیمه‌شب`, `🪞 روان‌کاو آماتور`, `💡 حقیقت‌یاب`, `✒️ شاعرانه`, `📚 کتاب‌باز` | `Novel Reader`, `Old Soul`, `Fantasy Dreamer`, `Sci-Fi Explorer`, `Natural Detective`, `Hopeless Romantic`, `Midnight Philosopher`, `Amateur Psychoanalyst`, `Truth Seeker`, `Poetic Soul`, `Book Buff` |
+| Music | `🤘 متال‌هد`, `🎸 راکر`, `🌌 پست‌راکر`, `⚡ پانک`, `🎤 پاپ‌فن`, `🔥 هیپ‌هاپ‌هد`, `🎛️ الکترونیک‌باز`, `🎼 کلاسیک‌باز`, `🎷 جزباز`, `🌙 روح‌ایندی`, `🪕 سنتی‌باز`, `🎧 موزیک‌باز` | `Metalhead`, `Rocker`, `Post-Rocker`, `Punk`, `Pop Fan`, `Hip-Hop Head`, `Electronic Fan`, `Classical Listener`, `Jazz Head`, `Indie Spirit`, `Traditional Music Fan`, `Music Buff` |
+| Movies | `🛸 سای‌فای‌گیک`, `💥 اکشن‌باز`, `🎭 دراماتیک`, `🔎 کارآگاه`, `😄 کمدی‌فن`, `🕯️ ترسناک‌باز`, `💌 رمانتیک`, `🐉 خیال‌گرد`, `🎨 انیمیشن‌فن`, `🎥 مستندبین`, `🎞️ سینه‌فیل`, `🎬 فیلم‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Dramatic`, `Detective`, `Comedy Fan`, `Horror Fan`, `Romantic`, `Dreamwalker`, `Animation Fan`, `Documentary Viewer`, `Cinephile`, `Movie Buff` |
+| Series | `🛸 سای‌فای‌گیک`, `💥 اکشن‌باز`, `🎭 دراماتیک`, `🔎 کارآگاه`, `😄 کمدی‌فن`, `🛋️ سیتکام‌فن`, `🕯️ ترسناک‌باز`, `💌 رمانتیک`, `🐉 خیال‌گرد`, `🎨 انیمیشن‌فن`, `📹 مستندبین`, `⏳ مینی‌سریال‌فن`, `📺 سریال‌باز` | `Sci-Fi Geek`, `Action Junkie`, `Dramatic`, `Detective`, `Comedy Fan`, `Sitcom Fan`, `Horror Fan`, `Romantic`, `Dreamwalker`, `Animation Fan`, `Documentary Viewer`, `Miniseries Fan`, `Series Buff` |
+| Books | `📖 رمان‌خوان`, `📜 روح قدیمی`, `🐉 خیال‌پرداز`, `🪐 کاوشگر علمی‌تخیلی`, `🔎 کارآگاه بالفطره`, `💌 رمانتیک درمان‌ناپذیر`, `🧠 فیلسوف نیمه‌شب`, `🪞 روان‌کاو`, `💡 حقیقت‌یاب`, `✒️ روح شاعر`, `📚 کتاب‌باز` | `Novel Reader`, `Old Soul`, `Fantasy Dreamer`, `Sci-Fi Explorer`, `Natural Detective`, `Hopeless Romantic`, `Midnight Philosopher`, `Psychoanalyst`, `Truth Seeker`, `Poetic Soul`, `Book Buff` |
 
 Changing display titles must not rename internal label keys because stored profiles and discussion join rules depend on those keys.
 
@@ -233,7 +234,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 
 ## Media Taste Labels
 
-- Movies, Music, and Books taste labels are stored in `aiTaste.{section}` with:
+- Movies, Series, Music, and Books taste labels are stored in `aiTaste.{section}` with:
   - `labelKey`
   - ranked suggested label keys
   - the optional evidence-gated shortlist insight
@@ -245,7 +246,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
   - first-free-check and confirmation timestamps
   - updated time
 - Derive translated label titles at render time.
-- Movies, Music, and Books unlock suggestions after 3 TopTen items without showing a preliminary label. Their taste label appears only after all 10 favorites are complete.
+- Movies, Series, Music, and Books unlock suggestions after 3 TopTen items without showing a preliminary label. Their taste label appears only after all 10 favorites are complete.
 - Reclassify an unconfirmed result only when a completed TopTen fingerprint or classifier version changes. Lists below 10 clear pending suggestions but retain user-confirmed labels.
 - The first completed-list classification is free. Later user-requested rechecks use the explicit paid confirmation/refund flow described above and are offered only when the list has exactly 10 items and the dashboard-controlled feature is available.
 
@@ -308,9 +309,9 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - The suggestion action prompt explains all three outcomes with section-specific wording: Save adds the item to the relevant For Later list; watched/listened/read records the completed item; No prevents that identity from being suggested again. None of these outcomes becomes taste evidence.
 - Watched/listened/read feedback remains stored for product history but is only a future hard exclusion. It must not silently add the item to Favorites or influence suggestion taste. Saved-for-later and rejected items are also exclusions only.
 - Expired Save, completed, or reject actions return directly to that section's Favorites manager with the expiry notice included; they must not leave dead suggestion controls active.
-- Media suggestion results keep the title separate from identifying metadata. Movies and series show director/creator, music shows artist/band, and books show author. Year, rating, album, publisher, platform, and other optional metadata are not required or displayed. The saved list title remains clean, while the short AI description remains its saved comment.
+- Media suggestion results keep the title separate from identifying metadata. Movies show a director, Series show a creator, Music shows an artist/band, and Books show an author. Year, rating, album, publisher, platform, and other optional metadata are not required or displayed. The saved list title remains clean, while the short AI description remains its saved comment.
 - Preserve the verified movie identity label: movies show Director and series show Creator, localized as `کارگردان` and `سازنده` in Persian.
-- Movies, Music, and Books all display the verified official original identity. Persian originals remain Persian; non-Persian works use their official English/international title and creator spelling. Favorites script, interface language, and mood/request never rewrite identity. Catalogue aliases across languages are retained only for duplicate checks and rejection history.
+- Movies, Series, Music, and Books all display the verified official original identity. Persian originals remain Persian; non-Persian works use their official English/international title and creator spelling. Favorites script, interface language, and mood/request never rewrite identity. Catalogue aliases across languages are retained only for duplicate checks and rejection history.
 - Books request five ranked official original title-author identities using Favorites and the optional current request. Read Later, recent, liked/read, and rejected books are exclusions only. Code checks at most the first five candidates in order, stopping at the first verified result or the existing deadline: Open Library first, then strict Wikidata fallback. Either source must confirm the exact title-author relationship. Google Books and model-only verification are not used. Year is not required or displayed.
 - Open Library verification requires an exact normalized title and author. Combined records and study-guide/notes/summary/analysis/criticism/companion/workbook titles are rejected, then Wikidata may verify the actual work and supply cross-language aliases for duplicate protection.
 - Movies are not translated for display. Wikidata labels and aliases are still checked across languages against Favorites, For Later, liked, recent, and rejected items so a translated saved title cannot bypass duplicate protection.
@@ -333,7 +334,7 @@ Profile Interests do not generate taste labels. They appear directly on the prof
 - Favorite-author diversity is a preference rather than an absolute book failure condition. After exhausting verified new-author candidates, a different verified unsaved work by a Favorite author may be used. Recently suggested authors remain strictly blocked unless explicitly requested. QA exports mark this last resort with `favoriteAuthorFallback`.
 - Treat `UNSURE` in any structured candidate field—title, metadata, or reason—as a retryable rejected candidate. It must never appear in a user-facing suggestion.
 - Cache only catalogue-derived identity and metadata in a bounded in-memory cache: successful verification for six hours and exact catalogue mismatches for fifteen minutes. Never cache catalogue outages or user context, and always keep the current candidate's user-specific reason.
-- The Movies & Series suggestion flow has no additional type picker. It may recommend either format based on Favorites, while an optional short request such as "series only" or "movie only" must be honored.
+- Movie suggestions must return only verified films. Series suggestions must return only verified television/streaming series or miniseries. Wikidata entity type is enforced before display, so a result from the wrong format is retried rather than shown.
 - Suggestion cards that link to both stored destinations should name them as actions: `Go to {For Later list}` and `Go to favorites`, rather than using an ambiguous generic Back/List label.
 - For Later navigation and list titles use the section emoji plus `📋` (`🎬📋`, `🎵📋`, `📚📋`). Keep `🗂` for discussions and use `✔️` / `○` only for item status.
 - After saving a suggestion to the section list, the follow-up card should offer another suggestion, the concrete section list, and Back to the section TopTen manager.
@@ -355,11 +356,11 @@ The Stars economy rewards list completion without charging for normal list use. 
 
 ## Inline For Later Capture
 
-Telegram inline mode provides a narrow capture entry point for the three media For Later lists. It does not add Favorites/TopTen or Interests.
+Telegram inline mode provides a narrow capture entry point for the four media For Later lists. It does not add Favorites/TopTen or Interests.
 
 - The user types the item directly after the bot username, for example `@MuzeBot Dune`.
 - The Guide explains this under `Quick save to a list` / `ذخیره سریع در لیست`, using the runtime bot username with the configured `BOT_USERNAME` as fallback. The first Movies, Music, or Books For Later manager opened after rollout also appends one compact inline-capture tip; `sectionTipsShownAt.forLaterInline` is marked only after that list card is delivered successfully.
-- A non-empty query returns exactly three choices: save to Watch Later, Listen Later, or Read Later. An empty query returns no hint or result.
+- A non-empty query returns exactly four section-named choices: save to Movies, Series, Music, or Books. Omit repetitive gray result descriptions. The selected item still enters that section's For Later list, while its compact confirmation uses the same section-list wording as the chosen result. An empty query returns no hint or result.
 - Selecting a result sends a small visible confirmation into the current chat; it does not redirect the user away from the chat. Existing users save immediately through `addAiListItem`.
 - Keep confirmation copy minimal. Telegram provides native inline-bot attribution, and one localized text-link footer may explicitly open the bot for users who want their full lists. Build it from the validated runtime bot username, use message entities rather than parse mode, and disable link previews.
 - Inline answers are personal and uncached. Result identifiers are bound to the Telegram user, selected section, and normalized query; malformed, copied, or altered selections change nothing.

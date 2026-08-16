@@ -76,6 +76,39 @@ test("Wikidata matching requires an exact media title and recognizes movies and 
   );
 });
 
+test("Wikidata enforces separate Movie and Series sections", async () => {
+  const dark = {
+    id: "Q526306",
+    labels: { en: { value: "Dark" } },
+    aliases: {},
+    claims: {
+      P31: [claim("P31", "Q5398426")],
+      P170: [claim("P170", "QCREATOR")],
+    },
+  };
+  const fetchImpl = async (url) => {
+    const parsed = new URL(url);
+    if (parsed.searchParams.get("action") === "wbsearchentities") {
+      const title = parsed.searchParams.get("search");
+      return jsonResponse({ search: [{ id: title === "Dark" ? dark.id : perfectDays.id, label: title }] });
+    }
+    const ids = parsed.searchParams.get("ids");
+    const entity = ids === dark.id ? dark : perfectDays;
+    return jsonResponse({ entities: { [entity.id]: entity } });
+  };
+
+  const seriesAsMovie = await verifyWikidataSuggestion(
+    { title: "Dark", metadata: "Creator: Baran bo Odar" },
+    { section: "movies", fetchImpl },
+  );
+  const movieAsSeries = await verifyWikidataSuggestion(
+    { title: "Perfect Days", metadata: "Director: Wim Wenders" },
+    { section: "series", fetchImpl },
+  );
+  assert.equal(seriesAsMovie.reason, "catalog_wrong_media_type");
+  assert.equal(movieAsSeries.reason, "catalog_wrong_media_type");
+});
+
 test("Wikidata verification rejects a movie paired with the wrong creator", async () => {
   const fetchImpl = async (url) => {
     const action = new URL(url).searchParams.get("action");

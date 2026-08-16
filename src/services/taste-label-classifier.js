@@ -2,14 +2,15 @@ const crypto = require("crypto");
 const { getAiConfig } = require("../config");
 const { getClient, requestSuggestionText } = require("./ai-client");
 
-const TASTE_CLASSIFIER_VERSION = 6;
+const TASTE_CLASSIFIER_VERSION = 8;
 const MAX_AI_TASTE_MATCHES = 3;
 const MAX_TASTE_SHORTLIST_SIZE = 4;
 const MIN_TASTE_INSIGHT_EVIDENCE = 4;
 const MAX_TASTE_INSIGHT_LENGTH = 120;
-const MEDIA_TASTE_SECTIONS = new Set(["movies", "music", "books"]);
+const MEDIA_TASTE_SECTIONS = new Set(["movies", "series", "music", "books"]);
 const MIXED_TASTE_LABEL_BY_SECTION = Object.freeze({
   movies: "movie_buff",
+  series: "series_buff",
   music: "music_buff",
   books: "book_buff",
 });
@@ -17,17 +18,32 @@ const MIXED_TASTE_LABEL_BY_SECTION = Object.freeze({
 const TASTE_LABEL_CATALOG = Object.freeze({
   movies: Object.freeze({
     sci_fi_fan: "science fiction, technology, space, dystopias, artificial intelligence, and speculative futures",
-    action_junkie: "action, adventure, martial arts, chases, survival, and high-energy movies or series",
+    action_junkie: "action, adventure, martial arts, chases, survival, and high-energy films",
     drama_lover: "emotional, social, psychological, family, and character-driven dramas",
     mystery_fan: "crime, mystery, detective stories, psychological thrillers, conspiracies, and suspense",
     comedy_fan: "comedy, satire, parody, absurd humor, romantic comedy, and dark comedy",
-    horror_fan: "horror, supernatural fear, slashers, body horror, psychological terror, and disturbing movies or series",
+    horror_fan: "horror, supernatural fear, slashers, body horror, psychological terror, and disturbing films",
     romance_fan: "romance, relationships, intimacy, heartbreak, and love stories",
     fantasy_fan: "fantasy, mythology, magical worlds, folklore, and supernatural adventures",
     animation_lover: "anime, family animation, adult animation, stop-motion, and experimental animation",
-    documentary_viewer: "documentary movies or series, biographies, investigations, social issues, and nonfiction screen works",
+    documentary_viewer: "documentary films, biographies, investigations, social issues, and nonfiction cinema",
     cinephile: "classic and world cinema, auteur films, arthouse, influential directors, and film history",
-    movie_buff: "a broad and varied movie-and-series taste with no single clearly dominant screen direction",
+    movie_buff: "a broad and varied movie taste with no single clearly dominant cinematic direction",
+  }),
+  series: Object.freeze({
+    sci_fi_fan: "science-fiction series about technology, space, dystopias, artificial intelligence, and speculative futures",
+    action_fan: "action, adventure, martial arts, chases, survival, and high-energy series",
+    drama_lover: "emotional, social, psychological, family, and character-driven drama series",
+    mystery_fan: "crime, mystery, detective stories, psychological thrillers, conspiracies, and suspense series",
+    comedy_fan: "non-sitcom comedy series, satire, parody, absurd humor, romantic comedy, comedy-drama, and dark comedy",
+    sitcom_fan: "sitcoms and episodic situation comedies centered on families, friends, workplaces, or recurring ensembles",
+    horror_fan: "horror, supernatural fear, psychological terror, and disturbing series",
+    romance_fan: "romance, relationships, intimacy, heartbreak, and serialized love stories",
+    fantasy_fan: "fantasy, mythology, magical worlds, folklore, and supernatural series",
+    animation_lover: "anime and animated series for families or adults",
+    documentary_viewer: "documentary series, biographies, investigations, social issues, and nonfiction television",
+    miniseries_lover: "limited series and miniseries with compact, complete stories",
+    series_buff: "a broad and varied series taste with no single clearly dominant direction",
   }),
   music: Object.freeze({
     metalhead: "metal and its subgenres",
@@ -177,7 +193,7 @@ async function classifyMediaTaste(section, items, {
   const list = cleanItems
     .map((entry, index) => `${index + 1}. ${entry.title}${entry.comment ? ` — ${entry.comment}` : ""}`)
     .join("\n");
-  const subject = section === "movies" ? "movies and series" : section;
+  const subject = section === "movies" ? "movies" : section;
   const request = await requestText(client, {
     userId,
     config,

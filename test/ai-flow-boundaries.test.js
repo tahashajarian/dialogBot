@@ -409,7 +409,7 @@ test("suggestion save buttons name the concrete section list", () => {
 });
 
 test("suggestion action prompt stays minimal because the reply keyboard names each action", () => {
-  for (const section of ["Movies", "Music", "Books"]) {
+  for (const section of ["Movies", "Series", "Music", "Books"]) {
     assert.equal(messages.fa[`aiSuggestionChooseAction${section}`], "👱‍♀️ یکی رو انتخاب کن:");
     assert.equal(messages.en[`aiSuggestionChooseAction${section}`], "👱‍♀️ Choose one:");
   }
@@ -607,8 +607,10 @@ test("music add flow accepts meaningful audio titles and rejects untitled media"
 test("Favorites prompts request concrete works while titled music audio remains accepted", () => {
   assert.equal(getAiListAddPrompt("en", "music", "topTen"), messages.en.aiMusicFavoritesAddPrompt);
   assert.equal(getAiListAddPrompt("fa", "books", "topTen"), messages.fa.aiBookFavoritesAddPrompt);
-  assert.match(getAiListAddPrompt("en", "movies", "topTen"), /movie or series/);
-  assert.match(getAiListAddPrompt("fa", "movies", "topTen"), /فیلم یا سریال/);
+  assert.match(getAiListAddPrompt("en", "movies", "topTen"), /movie/);
+  assert.doesNotMatch(getAiListAddPrompt("en", "movies", "topTen"), /series/);
+  assert.match(getAiListAddPrompt("fa", "series", "topTen"), /سریال/);
+  assert.doesNotMatch(getAiListAddPrompt("fa", "series", "topTen"), /فیلم/);
   assert.doesNotMatch(messages.en.aiMovieFavoritesAddPrompt, /director/);
   assert.doesNotMatch(messages.en.aiMusicFavoritesAddPrompt, /artist|band/);
   assert.doesNotMatch(messages.en.aiBookFavoritesAddPrompt, /author/);
@@ -786,7 +788,7 @@ test("completed Favorites label headings name their section", () => {
   const cases = [
     ["movies", "فیلم و سریال"],
     ["music", "موسیقی"],
-    ["books", "کتاب‌ها"],
+    ["books", "کتاب"],
   ];
 
   for (const [sectionLabel] of cases) {
@@ -2555,7 +2557,7 @@ test("media favorites guidance progresses from first pick to suggestion unlock a
   assert.match(empty, /Start with 3 favorites/);
   assert.match(early, /2\/3 favorites/);
   assert.match(early, /Add 1 more/);
-  assert.match(early, /movie or series suggestions/);
+  assert.match(early, /movie suggestions/);
   assert.match(unlocked, /Suggestions unlocked/);
   assert.match(unlocked, /3\/10/);
   assert.doesNotMatch(unlocked, /Current label|Movie Buff/);

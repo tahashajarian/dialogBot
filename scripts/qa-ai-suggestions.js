@@ -50,8 +50,8 @@ function normalizeScenario(raw, sourceLabel = "custom") {
   const favorites = Array.isArray(raw?.favorites)
     ? raw.favorites.map((entry) => String(entry || "").trim()).filter(Boolean)
     : [];
-  if (!["books", "movies", "music"].includes(section)) {
-    throw new Error(`${sourceLabel}: section must be books, movies, or music.`);
+  if (!["books", "movies", "series", "music"].includes(section)) {
+    throw new Error(`${sourceLabel}: section must be books, movies, series, or music.`);
   }
   if (!["fa", "en"].includes(lang)) {
     throw new Error(`${sourceLabel}: lang must be fa or en.`);

@@ -17,6 +17,7 @@ const inlineQueryUsage = new Map();
 
 const INLINE_SECTIONS = Object.freeze([
   { section: "movies", token: "m" },
+  { section: "series", token: "s" },
   { section: "music", token: "u" },
   { section: "books", token: "b" },
 ]);
@@ -73,7 +74,7 @@ function buildInlineResultId(userId, section, title) {
 }
 
 function parseChosenInlineSelection(resultId, userId, query) {
-  const matched = String(resultId || "").match(/^ils:([mub]):([a-f0-9]{16})$/);
+  const matched = String(resultId || "").match(/^ils:([msub]):([a-f0-9]{16})$/);
   if (!matched) return { ok: false, reason: "invalid_result" };
   const section = SECTION_BY_TOKEN.get(matched[1]);
   const title = parseInlineListTitle(query);
@@ -127,7 +128,6 @@ function buildInlineSaveResults({
     type: "article",
     id: buildInlineResultId(userId, section, title),
     title: messages[lang][`inlineCaptureResult_${section}`].replace("{item}", visibleTitle),
-    description: messages[lang].inlineCaptureResultDescription,
     input_message_content: buildInlineConfirmationContent({
       text: messages[lang][`inlineCaptureConfirmation_${section}`].replace("{item}", title),
       lang,

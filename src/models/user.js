@@ -16,6 +16,7 @@ const AiSectionListsSchema = new mongoose.Schema({
 
 const AiListsSchema = new mongoose.Schema({
   movies: { type: AiSectionListsSchema, default: () => ({}) },
+  series: { type: AiSectionListsSchema, default: () => ({}) },
   music: { type: AiSectionListsSchema, default: () => ({}) },
   books: { type: AiSectionListsSchema, default: () => ({}) },
   random: { type: AiSectionListsSchema, default: () => ({}) },
@@ -40,12 +41,14 @@ const AiTasteSectionSchema = new mongoose.Schema({
 
 const AiTasteSchema = new mongoose.Schema({
   movies: { type: AiTasteSectionSchema, default: () => ({}) },
+  series: { type: AiTasteSectionSchema, default: () => ({}) },
   music: { type: AiTasteSectionSchema, default: () => ({}) },
   books: { type: AiTasteSectionSchema, default: () => ({}) },
 }, { _id: false });
 
 const AiRecentSuggestionsSchema = new mongoose.Schema({
   movies: { type: [String], default: [] },
+  series: { type: [String], default: [] },
   music: { type: [String], default: [] },
   books: { type: [String], default: [] },
   random: { type: [String], default: [] },
@@ -53,12 +56,14 @@ const AiRecentSuggestionsSchema = new mongoose.Schema({
 
 const AiRecentSuggestionCreatorsSchema = new mongoose.Schema({
   movies: { type: [String], default: [] },
+  series: { type: [String], default: [] },
   music: { type: [String], default: [] },
   books: { type: [String], default: [] },
 }, { _id: false });
 
 const AiRejectedSuggestionsSchema = new mongoose.Schema({
   movies: { type: [String], default: [] },
+  series: { type: [String], default: [] },
   music: { type: [String], default: [] },
   books: { type: [String], default: [] },
   random: { type: [String], default: [] },
@@ -66,6 +71,7 @@ const AiRejectedSuggestionsSchema = new mongoose.Schema({
 
 const AiSuggestionUsageSchema = new mongoose.Schema({
   movies: { type: [Date], default: [] },
+  series: { type: [Date], default: [] },
   music: { type: [Date], default: [] },
   books: { type: [Date], default: [] },
   random: { type: [Date], default: [] },
@@ -85,6 +91,7 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
   peopleBanner: { type: Date, default: null },
   discussionsBanner: { type: Date, default: null },
   moviesBanner: { type: Date, default: null },
+  seriesBanner: { type: Date, default: null },
   musicBanner: { type: Date, default: null },
   booksBanner: { type: Date, default: null },
 }, { _id: false });
@@ -216,6 +223,8 @@ const UserSchema = new mongoose.Schema({
   aiSuggestionUsage: { type: AiSuggestionUsageSchema, default: () => ({}) },
   aiWatchlistMovies: { type: [String], default: [] },
   aiTopTenMovies: { type: [String], default: [] },
+  aiWatchlistSeries: { type: [String], default: [] },
+  aiTopTenSeries: { type: [String], default: [] },
   aiWatchlistMusic: { type: [String], default: [] },
   aiTopTenMusic: { type: [String], default: [] },
   aiWatchlistBooks: { type: [String], default: [] },
@@ -290,7 +299,7 @@ UserSchema.index(
   { similarPeopleNotificationsEnabled: 1, bannedAt: 1, lastActiveAt: 1, similarPeopleLastNotifiedAt: 1 },
   { name: "similar_people_reengagement_candidates" },
 );
-for (const section of ["movies", "music", "books"]) {
+for (const section of ["movies", "series", "music", "books"]) {
   UserSchema.index(
     {
       [`aiTaste.${section}.labelKey`]: 1,

@@ -83,11 +83,12 @@ function normalizeAiListItems(items = []) {
   return normalized;
 }
 
-const AI_SECTIONS = ["movies", "music", "books", "random"];
+const AI_SECTIONS = ["movies", "series", "music", "books", "random"];
 const AI_SUGGESTION_QUOTA_LIMIT = 10;
 const AI_SUGGESTION_QUOTA_WINDOW_MS = 60 * 60 * 1000;
 const LEGACY_FIELDS = {
   movies: { watchlist: "aiWatchlistMovies", topTen: "aiTopTenMovies" },
+  series: { watchlist: "aiWatchlistSeries", topTen: "aiTopTenSeries" },
   music: { watchlist: "aiWatchlistMusic", topTen: "aiTopTenMusic" },
   books: { watchlist: "aiWatchlistBooks", topTen: "aiTopTenBooks" },
   random: { watchlist: "aiWatchlistRandom", topTen: "aiTopTenRandom" },
@@ -176,7 +177,7 @@ async function addAiRecentSuggestion(
   const updated = [...withoutDuplicate, cleanTitle].slice(-maxItems);
   const cleanCreator = normalizeAiListItem(creator);
   let updatedCreators = getAiRecentSuggestionCreatorsFromUser(user, section);
-  if (cleanCreator && ["movies", "music", "books"].includes(section)) {
+  if (cleanCreator && ["movies", "series", "music", "books"].includes(section)) {
     updatedCreators = [
       ...updatedCreators.filter((entry) => entry.toLowerCase() !== cleanCreator.toLowerCase()),
       cleanCreator,
@@ -184,7 +185,7 @@ async function addAiRecentSuggestion(
   }
   await updateUserFields(userId, {
     [`aiRecentSuggestions.${section}`]: updated,
-    ...(cleanCreator && ["movies", "music", "books"].includes(section)
+    ...(cleanCreator && ["movies", "series", "music", "books"].includes(section)
       ? { [`aiRecentSuggestionCreators.${section}`]: updatedCreators }
       : {}),
   });
