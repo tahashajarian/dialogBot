@@ -287,10 +287,14 @@ function onboardingInterestsKeyboard(lang, selectedTitles = [], page = 0) {
 
 function onboardingSectionsKeyboard(lang) {
   return replyKeyboardFromActions([
-    [{ text: messages[lang].aiSuggestMovies, callback_data: `${callBacks.onboardingSection}movies` }],
-    [{ text: messages[lang].aiSuggestSeries, callback_data: `${callBacks.onboardingSection}series` }],
-    [{ text: messages[lang].aiSuggestMusic, callback_data: `${callBacks.onboardingSection}music` }],
-    [{ text: messages[lang].aiSuggestBooks, callback_data: `${callBacks.onboardingSection}books` }],
+    [
+      { text: messages[lang].aiSuggestMusic, callback_data: `${callBacks.onboardingSection}music` },
+      { text: messages[lang].aiSuggestBooks, callback_data: `${callBacks.onboardingSection}books` },
+    ],
+    [
+      { text: messages[lang].aiSuggestMovies, callback_data: `${callBacks.onboardingSection}movies` },
+      { text: messages[lang].aiSuggestSeries, callback_data: `${callBacks.onboardingSection}series` },
+    ],
   ]);
 }
 

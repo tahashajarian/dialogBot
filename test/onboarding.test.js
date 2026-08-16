@@ -62,12 +62,11 @@ test("welcome copy and controls match the Favorites-first onboarding", () => {
 
 test("onboarding category picker contains the four media sections", () => {
   for (const lang of ["fa", "en"]) {
-    const labels = onboardingSectionsKeyboard(lang).reply_markup.keyboard.flat().map(({ text }) => text);
-    assert.deepEqual(labels, [
-      messages[lang].aiSuggestMovies,
-      messages[lang].aiSuggestSeries,
-      messages[lang].aiSuggestMusic,
-      messages[lang].aiSuggestBooks,
+    const rows = onboardingSectionsKeyboard(lang).reply_markup.keyboard
+      .map((row) => row.map(({ text }) => text));
+    assert.deepEqual(rows, [
+      [messages[lang].aiSuggestMusic, messages[lang].aiSuggestBooks],
+      [messages[lang].aiSuggestMovies, messages[lang].aiSuggestSeries],
     ]);
     assert.match(messages[lang].onboardingSectionPrompt, /^👩‍🦳/);
   }
@@ -120,12 +119,10 @@ test("typing at category selection reuses the existing button guidance", async (
   }, "en");
   assert.equal(replies[0].text, messages.en.sectionTextUseBottomButtons);
   assert.deepEqual(
-    replies[0].extra.reply_markup.keyboard.flat().map(({ text }) => text),
+    replies[0].extra.reply_markup.keyboard.map((row) => row.map(({ text }) => text)),
     [
-      messages.en.aiSuggestMovies,
-      messages.en.aiSuggestSeries,
-      messages.en.aiSuggestMusic,
-      messages.en.aiSuggestBooks,
+      [messages.en.aiSuggestMusic, messages.en.aiSuggestBooks],
+      [messages.en.aiSuggestMovies, messages.en.aiSuggestSeries],
     ],
   );
 });
@@ -217,38 +214,45 @@ test("music onboarding resolves audio titles and formats structured duplicates",
   assert.doesNotMatch(replies[0].text, /\[object Object\]/);
 });
 
-test("category action enters the chosen Favorites input state with the regular prompt", async () => {
+test("every category action enters its matching Favorites state and prompt", async () => {
   const originalUpdate = User.findOneAndUpdate;
   User.findOneAndUpdate = async () => ({});
-  const replies = [];
-  const ctx = {
-    userId: 9,
-    callbackData: `${callBacks.onboardingSection}movies`,
-    user: {
-      userId: 9,
-      lang: "en",
-      state: "onboarding_sections",
-      aiLists: { movies: { topTen: [] } },
-    },
-    answerCb: async () => {},
-    reply: async (text, extra) => {
-      replies.push({ text, extra });
-      return { message_id: 99 };
-    },
-    editMessageText: async (_messageId, text, extra) => {
-      replies[0] = { text, extra };
-      return { message_id: 99 };
-    },
-  };
   try {
-    await handleOnboardingCallback(ctx, "en", {});
+    for (const [section, promptKey] of [
+      ["movies", "aiMovieFavoritesAddPrompt"],
+      ["series", "aiSeriesFavoritesAddPrompt"],
+      ["music", "aiMusicFavoritesAddPrompt"],
+      ["books", "aiBookFavoritesAddPrompt"],
+    ]) {
+      const replies = [];
+      const ctx = {
+        userId: 9,
+        callbackData: `${callBacks.onboardingSection}${section}`,
+        user: {
+          userId: 9,
+          lang: "en",
+          state: "onboarding_sections",
+          aiLists: { [section]: { topTen: [] } },
+        },
+        answerCb: async () => {},
+        reply: async (text, extra) => {
+          replies.push({ text, extra });
+          return { message_id: 99 };
+        },
+        editMessageText: async (_messageId, text, extra) => {
+          replies[0] = { text, extra };
+          return { message_id: 99 };
+        },
+      };
+      await handleOnboardingCallback(ctx, "en", {});
+      assert.equal(ctx.user.state, `onboarding_favorites:${section}`);
+      assert.equal(ctx.user.navigationMode, `onboarding_favorites:${section}`);
+      assert.equal(replies[0].text, messages.en[promptKey]);
+      assert.deepEqual(replies[0].extra, onboardingFavoritesInlineKeyboard("en"));
+    }
   } finally {
     User.findOneAndUpdate = originalUpdate;
   }
-  assert.equal(ctx.user.state, "onboarding_favorites:movies");
-  assert.equal(ctx.user.navigationMode, "onboarding_favorites:movies");
-  assert.equal(replies[0].text, messages.en.aiMovieFavoritesAddPrompt);
-  assert.deepEqual(replies[0].extra, onboardingFavoritesInlineKeyboard("en"));
 });
 
 test("before the first Favorite the only onboarding input control returns to sections", () => {

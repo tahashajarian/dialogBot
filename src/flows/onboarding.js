@@ -153,11 +153,12 @@ async function sendOnboardingInputPrompt(ctx, text, keyboard) {
 }
 
 function getFavoritesPrompt(lang, section) {
-  const key = section === "movies"
-    ? "aiMovieFavoritesAddPrompt"
-    : section === "music"
-      ? "aiMusicFavoritesAddPrompt"
-      : "aiBookFavoritesAddPrompt";
+  const key = {
+    movies: "aiMovieFavoritesAddPrompt",
+    series: "aiSeriesFavoritesAddPrompt",
+    music: "aiMusicFavoritesAddPrompt",
+    books: "aiBookFavoritesAddPrompt",
+  }[section];
   return messages[lang][key];
 }
 
