@@ -22,6 +22,7 @@ const {
   shouldOfferOnboarding,
 } = require("../src/flows/onboarding");
 const User = require("../src/models/user");
+const { buildOnboardingWelcome } = require("../src/flows/language-callbacks");
 
 test("onboarding is offered only to recent empty or already-started accounts", () => {
   const now = new Date("2026-06-13T10:00:00.000Z");
@@ -58,6 +59,14 @@ test("welcome copy and controls match the Favorites-first onboarding", () => {
     onboardingLanguageKeyboard().reply_markup.keyboard.flat().map((button) => button.text),
     ["🇮🇷 فارسی", "🇬🇧 English"],
   );
+});
+
+test("one onboarding welcome source supports optional names in both languages", () => {
+  assert.equal(buildOnboardingWelcome({}, "fa"), messages.fa.onboardingWelcome);
+  assert.equal(buildOnboardingWelcome({}, "en"), messages.en.onboardingWelcome);
+  assert.match(buildOnboardingWelcome({ firstName: "طاها" }, "fa"), /^👩‍🦳 سلام طاها، من میوزم\./);
+  assert.match(buildOnboardingWelcome({ firstName: "Taha" }, "en"), /^👩‍🦳 Hi Taha, I’m Muze\./);
+  assert.match(buildOnboardingWelcome({ firstName: "Taha" }, "en"), /movies, music, and books/);
 });
 
 test("onboarding category picker contains the four media sections", () => {

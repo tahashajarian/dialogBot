@@ -35,9 +35,11 @@ async function replyUnknown(ctx, lang) {
 
 function buildOnboardingWelcome(user, lang) {
   const userName = String(user?.profileName || user?.firstName || "").trim().replace(/\s+/g, " ");
-  return userName
-    ? messages[lang].onboardingWelcomeWithName.replace("{name}", userName)
-    : messages[lang].onboardingWelcome;
+  if (!userName) return messages[lang].onboardingWelcome;
+  const greeting = lang === "fa"
+    ? `👩‍🦳 سلام ${userName}، من میوزم.`
+    : `👩‍🦳 Hi ${userName}, I’m Muze.`;
+  return messages[lang].onboardingWelcome.replace(/^👩‍🦳[^\n]+/, greeting);
 }
 
 async function handleLanguageCallback(ctx, lang, {
@@ -95,4 +97,4 @@ async function handleLanguageCallback(ctx, lang, {
   return ctx.reply(messages[selected].mainMenu, mainMenuKeyboard(selected));
 }
 
-module.exports = { handleLanguageCallback, isLanguageCallback };
+module.exports = { buildOnboardingWelcome, handleLanguageCallback, isLanguageCallback };
