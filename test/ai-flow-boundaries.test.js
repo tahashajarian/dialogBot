@@ -13,6 +13,7 @@ const {
   isAiSectionTopTenText,
   isAiTextState,
   openAiListManager,
+  parseAiListActionCommand,
   shouldStartAutomaticTasteCheck,
 } = require("../src/flows/ai-text");
 const User = require("../src/models/user");
@@ -364,6 +365,30 @@ test("AI text state predicate recognizes only AI-owned text states", () => {
   assert.equal(isAiTextState("editing_name"), false);
   assert.equal(isAiTextState("discussion_create_title"), false);
   assert.equal(isAiTextState("idle"), false);
+});
+
+test("Series list command links resolve every compact action to the Series list", () => {
+  assert.deepEqual(parseAiListActionCommand("/dn_sr_l_1"), {
+    action: "done", section: "series", listType: "watchlist", itemIndex: 0,
+  });
+  assert.deepEqual(parseAiListActionCommand("/cm_sr_l_2"), {
+    action: "comment", section: "series", listType: "watchlist", itemIndex: 1,
+  });
+  assert.deepEqual(parseAiListActionCommand("/rm_sr_l_3"), {
+    action: "remove", section: "series", listType: "watchlist", itemIndex: 2,
+  });
+  assert.deepEqual(parseAiListActionCommand("/un_sr_l_4"), {
+    action: "undone", section: "series", listType: "watchlist", itemIndex: 3,
+  });
+  assert.deepEqual(parseAiListActionCommand("/tt_sr_l_5"), {
+    action: "top10", section: "series", listType: "watchlist", itemIndex: 4,
+  });
+  assert.deepEqual(parseAiListActionCommand("/cm_sr_t_6"), {
+    action: "comment", section: "series", listType: "topTen", itemIndex: 5,
+  });
+  assert.deepEqual(parseAiListActionCommand("/rm_sr_t_7"), {
+    action: "remove", section: "series", listType: "topTen", itemIndex: 6,
+  });
 });
 
 test("AI text button predicates accept localized keyboard labels", () => {
@@ -2438,6 +2463,37 @@ test("AI list UI renders top-ten badges, watched badges, and comments", () => {
   assert.doesNotMatch(rendered, /🏆/);
   assert.match(rendered, /2\. ○ Foundation/);
   assert.match(rendered, /✨ reread\n\n────────────────────────\n\n2\. ○ Foundation/);
+});
+
+test("every rendered media list command round-trips through the command parser", () => {
+  for (const section of ["movies", "series", "music", "books"]) {
+    const ctx = {
+      user: {
+        aiLists: {
+          [section]: {
+            topTen: [{ title: "Favorite" }],
+            watchlist: [
+              { title: "Pending", watched: false },
+              { title: "Completed", watched: true },
+            ],
+          },
+        },
+      },
+    };
+    for (const [listType, rendered] of [
+      ["topTen", buildTopTenListMessage({ ctx, lang: "en", section })],
+      ["watchlist", buildWatchlistMessage({ ctx, lang: "en", section })],
+    ]) {
+      const commands = rendered.match(/\/(?:dn|un|tt|cm|rm)_[a-z]+_[lt]_\d+/g) || [];
+      assert.ok(commands.length > 0, `${section} ${listType} should render commands`);
+      for (const command of commands) {
+        const parsed = parseAiListActionCommand(command);
+        assert.ok(parsed, `${command} should parse`);
+        assert.equal(parsed.section, section);
+        assert.equal(parsed.listType, listType);
+      }
+    }
+  }
 });
 
 test("AI list UI treats unmarked legacy comments as AI explanations", () => {

@@ -57,10 +57,10 @@ test("typing an item returns Movie, Series, Music, and Book choices without butt
     assert.equal(result.input_message_content.entities[0].url, "https://t.me/hey_muze_test_bot");
     assert.deepEqual(result.input_message_content.link_preview_options, { is_disabled: true });
   }
-  assert.match(answers[0].results[0].input_message_content.message_text, /save in the Movie Library/);
-  assert.match(answers[0].results[1].input_message_content.message_text, /save in the Series Library/);
-  assert.match(answers[0].results[2].input_message_content.message_text, /save in the Music Library/);
-  assert.match(answers[0].results[3].input_message_content.message_text, /save in the Book Library/);
+  assert.match(answers[0].results[0].input_message_content.message_text, /for your Movie Library/);
+  assert.match(answers[0].results[1].input_message_content.message_text, /for your Series Library/);
+  assert.match(answers[0].results[2].input_message_content.message_text, /for your Music Library/);
+  assert.match(answers[0].results[3].input_message_content.message_text, /for your Book Library/);
 });
 
 test("empty query is intentionally blank and performs no user lookup", async () => {

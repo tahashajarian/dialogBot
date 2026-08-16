@@ -301,7 +301,7 @@ function parseAiManageState(state) {
 
 function parseAiListActionCommand(text = "") {
   const compactMatched = String(text || "").trim().match(
-    /^\/(dn|un|tt|cm|rm)_(mv|mu|bk|in)_(l|t)_(\d+)$/i,
+    /^\/(dn|un|tt|cm|rm)_(mv|sr|mu|bk|in)_(l|t)_(\d+)$/i,
   );
   if (compactMatched) {
     const actionMap = {
@@ -313,6 +313,7 @@ function parseAiListActionCommand(text = "") {
     };
     const sectionMap = {
       mv: "movies",
+      sr: "series",
       mu: "music",
       bk: "books",
       in: "random",
@@ -1216,6 +1217,7 @@ async function handleAiText(ctx, lang, text, state) {
 
 module.exports = {
   handleAiText,
+  parseAiListActionCommand,
   promptSuggestionMode,
   openAiListManager,
   formatAiCommentPrompt,

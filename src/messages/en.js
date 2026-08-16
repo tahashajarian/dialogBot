@@ -1031,9 +1031,9 @@ module.exports = {
     inlineCaptureResult_series: "📺 Save “{item}” to Series Library",
     inlineCaptureResult_music: "🎵 Save “{item}” to Music Library",
     inlineCaptureResult_books: "📚 Save “{item}” to Book Library",
-    inlineCaptureConfirmation_movies: "Sent “{item}” to Muze to save in the Movie Library.",
-    inlineCaptureConfirmation_series: "Sent “{item}” to Muze to save in the Series Library.",
-    inlineCaptureConfirmation_music: "Sent “{item}” to Muze to save in the Music Library.",
-    inlineCaptureConfirmation_books: "Sent “{item}” to Muze to save in the Book Library.",
+    inlineCaptureConfirmation_movies: "Sent “{item}” to Muze for your Movie Library.",
+    inlineCaptureConfirmation_series: "Sent “{item}” to Muze for your Series Library.",
+    inlineCaptureConfirmation_music: "Sent “{item}” to Muze for your Music Library.",
+    inlineCaptureConfirmation_books: "Sent “{item}” to Muze for your Book Library.",
     inlineCaptureOpenBot: "Open Muze"
   };
