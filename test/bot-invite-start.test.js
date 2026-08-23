@@ -1351,11 +1351,12 @@ test("saved profile discussions include visible active discussion without duplic
   assert.match(replies[0].text, /🟢 Active room/);
   assert.doesNotMatch(replies[0].text, /Current discussion — Active room/);
   assert.match(replies[0].text, /Other room/);
+  assert.match(replies[0].text, /\/d_OTHER/);
   assert.equal(replies[0].text.match(/Active room/g)?.length, 2);
   const callbacks = replies[0].extra.reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
   assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_active`).length, 0);
-  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_other`).length, 1);
-  assert.ok(callbacks.includes(`${callBacks.profileDiscussionsBack}u_3HNU`));
+  assert.equal(callbacks.filter((callback) => callback === `${callBacks.discussionOpen}disc_other`).length, 0);
+  assert.ok(!callbacks.includes(`${callBacks.profileDiscussionsBack}u_3HNU`));
   assert.equal(callbacks.at(-1), callBacks.profileDiscussionsClose);
   assert.equal(replies[0].extra.reply_markup.keyboard, undefined);
 });

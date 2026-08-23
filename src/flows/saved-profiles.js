@@ -73,7 +73,6 @@ const {
 } = require("../services/discussion-invitation-mutes");
 const {
   buildDiscussionListText,
-  getDiscussionDisplayTitle,
 } = require("../services/discussion-ui");
 const {
   clearPeopleListMessage,
@@ -98,6 +97,7 @@ const {
 const { isSavedProfilesCallback } = require("./saved-profiles-routing");
 
 const {
+  findVisibleProfileDiscussionCounts,
   findVisibleProfileDiscussionUserIds,
   hasVisibleProfileDiscussions,
 } = require("../services/profile-discussions");
@@ -426,7 +426,20 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   }));
   const combinedItems = [...discoveryItems, ...savedDiscoveryItems];
   const paged = paginatePeopleDiscovery(combinedItems, page);
-  const pageItems = await ensurePeopleDiscoveryCodes(paged.items);
+  const preparedPageItems = await ensurePeopleDiscoveryCodes(paged.items);
+  const pageUserIds = preparedPageItems
+    .map((entry) => Number(entry.userId))
+    .filter((userId) => Number.isFinite(userId));
+  const pageUsers = pageUserIds.length
+    ? await User.find({ userId: { $in: pageUserIds } })
+      .select("userId activeDiscussionId showActiveDiscussionOnProfile")
+      .lean()
+    : [];
+  const discussionCounts = await findVisibleProfileDiscussionCounts(pageUsers);
+  const pageItems = preparedPageItems.map((entry) => ({
+    ...entry,
+    visibleDiscussionCount: discussionCounts.get(Number(entry.userId)) || 0,
+  }));
   const isEmpty = pageItems.length === 0;
   const showLanguageFilter = (result.availableLanguages || []).length > 1;
   const mediaFavoritesFull = ["movies", "series", "music", "books"].every((section) => (
@@ -822,7 +835,6 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
   ].join("\n\n");
 
   const discussionSections = [];
-  const visibleDiscussions = [];
   let hasAny = false;
 
   if (target.showActiveDiscussionOnProfile && target.activeDiscussionId) {
@@ -836,13 +848,12 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
       for (const discussion of decorated) {
         discussion.isCurrentForProfileOwner = true;
       }
-      visibleDiscussions.push(...decorated);
       discussionSections.push(buildDiscussionListText(
         messages,
         lang,
         messages[lang].savedProfileActiveDiscussionTitle,
         decorated,
-        { includeActions: false },
+        { includeActions: true, joinableActionsOnly: true },
       ));
     }
   }
@@ -861,26 +872,24 @@ async function renderSavedProfileDiscussions(ctx, lang, code, options = {}) {
       if (String(discussion._id || "") === String(target.activeDiscussionId || "")) {
         discussion.isCurrentForProfileOwner = true;
       }
-      if (!visibleDiscussions.some((visible) => String(visible._id || "") === String(discussion._id || ""))) {
-        visibleDiscussions.push(discussion);
-      }
     }
     discussionSections.push(buildDiscussionListText(
       messages,
       lang,
       messages[lang].savedProfileCreatedDiscussionsTitle,
       decorated,
-      { includeActions: false },
+      { includeActions: true, joinableActionsOnly: true },
     ));
   }
 
   const text = hasAny
     ? buildProfileDiscussionSectionsText(titleText, discussionSections)
     : messages[lang].savedProfileNoDiscussions.replace("{name}", name);
-  const keyboard = profileDiscussionsInlineKeyboard(lang, profileCode, visibleDiscussions.map((discussion) => ({
-    ...discussion,
-    displayTitle: getDiscussionDisplayTitle(messages, lang, discussion),
-  })));
+  const keyboard = profileDiscussionsInlineKeyboard(
+    lang,
+    profileCode,
+    { showBack: options.showBack !== false },
+  );
   const sent = await editProfileSurfaceCard(ctx, text, keyboard);
   const sentMessageId = getMessageId(sent) || null;
   if (ctx.user) {

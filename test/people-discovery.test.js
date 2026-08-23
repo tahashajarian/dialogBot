@@ -397,6 +397,18 @@ test("people discovery title shows the full result count", () => {
   assert.match(text, /See people \(7\)/);
 });
 
+test("people discovery shows the localized visible discussion count without another action", () => {
+  const text = buildPeopleDiscoveryText(messages, "fa", [{
+    code: "u_AB12",
+    name: "طاها",
+    isSaved: false,
+    visibleDiscussionCount: 2,
+  }]);
+
+  assert.match(text, /💬 گفت‌وگوهای فعال \(۲\)/);
+  assert.doesNotMatch(text, /\/ds_AB12/);
+});
+
 test("public profile action tip mentions only available actions", () => {
   assert.equal(
     getPublicProfileActionsTip("fa", {

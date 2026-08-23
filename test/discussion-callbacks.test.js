@@ -131,7 +131,7 @@ test("a current profile discussion is labeled in text and has no action button",
   assert.match(text, /🟢 Current discussion — Shared Room/);
 
   decorated.displayTitle = "Shared Room";
-  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1", [decorated])
+  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1")
     .reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
   assert.deepEqual(callbacks, [
     `${callBacks.profileDiscussionsBack}u_A1`,
@@ -139,27 +139,36 @@ test("a current profile discussion is labeled in text and has no action button",
   ]);
 });
 
-test("profile discussions offer Join only for rooms whose rule the viewer satisfies", () => {
-  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1", [
-    {
-      _id: "locked-room",
-      title: "Locked room",
-      displayTitle: "Locked room",
-      isJoinable: false,
-    },
-    {
-      _id: "open-room",
-      title: "Open room",
-      displayTitle: "Open room",
-      isJoinable: true,
-    },
-  ]).reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
+test("profile discussion navigation keeps room actions in the list text", () => {
+  const callbacks = profileDiscussionsInlineKeyboard("en", "u_A1")
+    .reply_markup.inline_keyboard.flat().map((button) => button.callback_data);
 
   assert.deepEqual(callbacks, [
-    `${callBacks.discussionOpen}open-room`,
     `${callBacks.profileDiscussionsBack}u_A1`,
     callBacks.profileDiscussionsClose,
   ]);
+});
+
+test("profile discussion text links only rooms the viewer can enter", () => {
+  const text = buildDiscussionListText(messages, "en", "Discussions", [
+    {
+      publicDiscussionCode: "d_LOCKED",
+      title: "Locked room",
+      memberUserIds: [],
+      joinRule: { type: "open" },
+      isJoinable: false,
+    },
+    {
+      publicDiscussionCode: "d_OPEN",
+      title: "Open room",
+      memberUserIds: [],
+      joinRule: { type: "open" },
+      isJoinable: true,
+    },
+  ], { joinableActionsOnly: true });
+
+  assert.doesNotMatch(text, /\/d_LOCKED/);
+  assert.match(text, /Join.*\/d_OPEN/);
 });
 
 test("opening the current room from a member profile does not run join logic or redraw the room", async () => {

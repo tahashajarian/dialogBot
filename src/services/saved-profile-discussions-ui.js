@@ -44,22 +44,14 @@ function buildProfileDiscussionReturnType(profileCode, { source = "saved", peopl
     : `${source}:${code}`;
 }
 
-function profileDiscussionsInlineKeyboard(lang, profileCode, discussions = []) {
-  const rows = discussions
-    .filter((discussion) => discussion.listAction !== "current" && discussion.isJoinable === true)
-    .map((discussion) => {
-      const actionLabel = discussion.listAction === "leave"
-        ? messages[lang].discussionOpenButton
-        : messages[lang].discussionInviteJoinButton;
-      return [{
-        text: `${actionLabel}: ${String(discussion.displayTitle || discussion.title || "-").slice(0, 40)}`,
-        callback_data: `${callBacks.discussionOpen}${discussion._id}`,
-      }];
-    });
-  rows.push([{
-    text: messages[lang].discussionBack,
-    callback_data: `${callBacks.profileDiscussionsBack}${profileCode}`,
-  }]);
+function profileDiscussionsInlineKeyboard(lang, profileCode, { showBack = true } = {}) {
+  const rows = [];
+  if (showBack) {
+    rows.push([{
+      text: messages[lang].discussionBack,
+      callback_data: `${callBacks.profileDiscussionsBack}${profileCode}`,
+    }]);
+  }
   rows.push([{
     text: messages[lang].discussionShareClose,
     callback_data: callBacks.profileDiscussionsClose,
@@ -68,7 +60,7 @@ function profileDiscussionsInlineKeyboard(lang, profileCode, discussions = []) {
 }
 
 function profileDiscussionBackKeyboard(lang, profileCode) {
-  return profileDiscussionsInlineKeyboard(lang, profileCode, []);
+  return profileDiscussionsInlineKeyboard(lang, profileCode);
 }
 
 function markCurrentProfileDiscussions(user, discussions = []) {

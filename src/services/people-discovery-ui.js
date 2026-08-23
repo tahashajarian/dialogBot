@@ -110,6 +110,13 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
         .map((shared) => `🎯 ${formatSharedLine(messages, lang, shared)}`),
     ].slice(0, 2).join("\n") : "";
     const nameLine = formatProfileListNameLine(lang, entry);
+    const discussionCount = Math.max(0, Number(entry.visibleDiscussionCount) || 0);
+    const discussionLine = discussionCount > 0
+      ? messages[lang].peopleDiscoverProfileDiscussionCount.replace(
+        "{count}",
+        formatListIndex(lang, discussionCount),
+      )
+      : "";
     const actions = [viewAction, saveAction].filter(Boolean).join("\n\n");
 
     const itemIndex = entry.isSaved ? nextSavedIndex++ : nextDiscoveryIndex++;
@@ -117,6 +124,7 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
       `${formatListIndex(lang, itemIndex)}.`,
       nameLine,
       sharedLines,
+      discussionLine,
     ].filter(Boolean).join("\n");
     const row = [details, actions].filter(Boolean).join("\n\n");
     const previous = items[index - 1];

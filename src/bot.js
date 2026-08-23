@@ -732,7 +732,7 @@ async function handleUpdate(ctx) {
   if (/^\/(?:discussions|ds)_(u_)?[a-z0-9]+$/i.test(text)) {
     const raw = text.replace(/^\/(?:discussions|ds)_/i, "");
     const code = normalizePublicProfileCode(raw.startsWith("u_") ? raw : `u_${raw}`);
-    return renderSavedProfileDiscussions(ctx, lang, code);
+    return renderSavedProfileDiscussions(ctx, lang, code, { showBack: false });
   }
 
   if (/^\/inviter_u_[a-z0-9]+$/i.test(text)) {

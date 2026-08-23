@@ -323,6 +323,7 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
   startIndex = 0,
   totalCount = discussions.length,
   includeActions = true,
+  joinableActionsOnly = false,
   headerTip = "",
 } = {}) {
   if (!discussions.length) {
@@ -341,8 +342,13 @@ function buildDiscussionListText(messages, lang, title, discussions = [], {
     const leaveLabel = lang === "fa" ? "خروج" : "Leave";
     const closeLabel = lang === "fa" ? "بستن" : "Close";
     const boostLabel = messages[lang].discussionBoostActionLabel || messages[lang].discussionBoostButton;
-    const openLink =
-      code ? buildDiscussionActionLine(lang, joinLabel, `/${code}`) : "";
+    const canShowOpenLink = code && (
+      !joinableActionsOnly
+      || (entry.isJoinable === true && entry.listAction !== "current")
+    );
+    const openLink = canShowOpenLink
+      ? buildDiscussionActionLine(lang, joinLabel, `/${code}`)
+      : "";
     const boostAction =
       entry.listAction === "close" && code && !entry.isBoosted && isDiscussionBoostAvailable()
         ? buildDiscussionActionLine(lang, boostLabel, `/boost_${code.slice(2)}`)
