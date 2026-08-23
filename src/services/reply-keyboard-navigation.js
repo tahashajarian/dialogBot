@@ -84,7 +84,7 @@ function getPublicProfileOverlayReturnMode(mode = "", user = null) {
 
 const GLOBAL = [
   ["aiAssistant", callBacks.aiAssistant], ["discussions", callBacks.discussions],
-  ["people", callBacks.people], ["mainMenuMe", callBacks.profile], ["help", callBacks.help], ["language", callBacks.language],
+  ["people", callBacks.people], ["mainMenuMe", callBacks.profile],
 ];
 const GUIDE_GLOBAL_RECOVERY = [
   ["profileStarsButton", callBacks.profileStars],

@@ -103,7 +103,6 @@ function mainMenuKeyboard(lang) {
   return { reply_markup: { keyboard: [
     [{ text: messages[lang].aiAssistant }, { text: messages[lang].discussions }],
     [{ text: messages[lang].people }, { text: messages[lang].mainMenuMe }],
-    [{ text: messages[lang].help }, { text: messages[lang].language }],
   ], resize_keyboard: true, one_time_keyboard: false, is_persistent: true, selective: true } };
 }
 

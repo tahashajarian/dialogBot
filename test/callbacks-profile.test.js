@@ -2602,7 +2602,7 @@ test("AI inline back leaves a Home footprint before a fresh card", async () => {
   assert.deepEqual(edits, []);
   assert.deepEqual(
     keyboardButtons(replies[0].extra).some((button) => button.text === messages.fa.language),
-    true,
+    false,
   );
 });
 

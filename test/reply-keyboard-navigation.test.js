@@ -22,11 +22,13 @@ test("global reply navigation resolves both languages with Telegram direction ma
   assert.equal(normalizeReplyButtonText("  A   B  "), "A B");
 });
 
-test("Home restores bot-language switching as a global bottom action", () => {
+test("Home omits Guide and language while their commands remain available", () => {
   const { mainMenuKeyboard } = require("../src/keyboards");
   const labels = mainMenuKeyboard("fa").reply_markup.keyboard.flat().map((button) => button.text);
-  assert.ok(labels.includes(messages.fa.language));
-  assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.GLOBAL, state: "idle", user: { lang: "fa" } }).callbackData, callBacks.language);
+  assert.equal(labels.includes(messages.fa.help), false);
+  assert.equal(labels.includes(messages.fa.language), false);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.help, { mode: MODES.GLOBAL, state: "idle", user: { lang: "fa" } }), null);
+  assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.GLOBAL, state: "idle", user: { lang: "fa" } }), null);
   assert.equal(resolveReplyKeyboardAction(messages.fa.language, { mode: MODES.DISCUSSIONS, state: "idle", user: { lang: "fa" } }), null);
 });
 
