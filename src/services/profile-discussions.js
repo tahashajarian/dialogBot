@@ -58,34 +58,27 @@ async function findVisibleProfileDiscussionCounts(users = []) {
     }
   }
 
-  if (activeById.size) {
-    const activeDiscussions = await runLeanQuery(Discussion.find({
-      _id: { $in: [...activeById.keys()] },
-      status: "open",
-    }), "_id") || [];
-    for (const discussion of activeDiscussions) {
-      const discussionId = String(discussion?._id || "");
-      for (const userId of activeById.get(discussionId) || []) {
-        const discussionIds = discussionIdsByUserId.get(userId) || new Set();
-        discussionIds.add(discussionId);
-        discussionIdsByUserId.set(userId, discussionIds);
-      }
-    }
-  }
-
   const userIds = normalizedUsers
     .filter((user) => user.showActiveDiscussionOnProfile)
     .map((user) => Number(user.userId));
   if (!userIds.length) return new Map();
-  const createdDiscussions = await runLeanQuery(Discussion.find({
-    creatorUserId: { $in: userIds },
+  const clauses = [{ creatorUserId: { $in: userIds } }];
+  if (activeById.size) clauses.push({ _id: { $in: [...activeById.keys()] } });
+  const visibleDiscussions = await runLeanQuery(Discussion.find({
     status: "open",
+    $or: clauses,
   }), "_id creatorUserId") || [];
-  for (const [index, discussion] of createdDiscussions.entries()) {
+  for (const [index, discussion] of visibleDiscussions.entries()) {
+    const discussionId = String(discussion?._id || `visible:${index}`);
+    for (const userId of activeById.get(discussionId) || []) {
+      const discussionIds = discussionIdsByUserId.get(userId) || new Set();
+      discussionIds.add(discussionId);
+      discussionIdsByUserId.set(userId, discussionIds);
+    }
     const userId = Number(discussion?.creatorUserId);
-    if (!Number.isFinite(userId)) continue;
+    if (!Number.isFinite(userId) || !userIds.includes(userId)) continue;
     const discussionIds = discussionIdsByUserId.get(userId) || new Set();
-    discussionIds.add(String(discussion?._id || `created:${userId}:${index}`));
+    discussionIds.add(discussionId);
     discussionIdsByUserId.set(userId, discussionIds);
   }
   return new Map(

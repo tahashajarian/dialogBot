@@ -30,6 +30,11 @@ const {
 } = require("../src/services/people-discovery-ui");
 const { areTasteItemsEquivalent } = require("../src/services/taste-item-matching");
 const {
+  buildPeopleDiscoveryCacheKey,
+  clearPeopleDiscoveryCache,
+  getPeopleDiscoverySnapshot,
+} = require("../src/services/people-discovery-cache");
+const {
   getPublicProfileActionsTip,
   handleSavedProfilesCallback,
   sendPeopleHub,
@@ -50,6 +55,90 @@ function userWithMusic(userId, items, extra = {}) {
     ...extra,
   };
 }
+
+test("people discovery cache reuses pagination work and follows viewer changes", async () => {
+  clearPeopleDiscoveryCache();
+  const user = userWithMusic(1, ["Arrival", "Dune"]);
+  let loads = 0;
+  const load = async () => ({ load: ++loads });
+
+  const first = await getPeopleDiscoverySnapshot(user, "fa", load, { now: 1000 });
+  const second = await getPeopleDiscoverySnapshot(user, "fa", load, { now: 2000 });
+  assert.equal(first.load, 1);
+  assert.equal(second.load, 1);
+  assert.equal(loads, 1);
+
+  user.savedProfileCodes = ["u_A1"];
+  const changed = await getPeopleDiscoverySnapshot(user, "fa", load, { now: 2000 });
+  assert.equal(changed.load, 2);
+  assert.notEqual(
+    buildPeopleDiscoveryCacheKey(userWithMusic(1, ["Arrival", "Dune"]), "fa"),
+    buildPeopleDiscoveryCacheKey(user, "fa"),
+  );
+  const refreshed = await getPeopleDiscoverySnapshot(user, "fa", load, {
+    now: 2000,
+    forceRefresh: true,
+  });
+  assert.equal(refreshed.load, 3);
+  clearPeopleDiscoveryCache();
+});
+
+test("people discovery cache shares one in-flight calculation", async () => {
+  clearPeopleDiscoveryCache();
+  const user = userWithMusic(1, ["Arrival", "Dune"]);
+  let loads = 0;
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  const load = async () => {
+    loads += 1;
+    await pending;
+    return { ok: true };
+  };
+
+  const first = getPeopleDiscoverySnapshot(user, "fa", load, { now: 1000 });
+  const second = getPeopleDiscoverySnapshot(user, "fa", load, { now: 1000 });
+  await Promise.resolve();
+  assert.equal(loads, 1);
+  release();
+  assert.deepEqual(await first, { ok: true });
+  assert.deepEqual(await second, { ok: true });
+  clearPeopleDiscoveryCache();
+});
+
+test("people discovery cache reports miss, in-flight, hit, and refresh states", async () => {
+  clearPeopleDiscoveryCache();
+  const user = userWithMusic(1, ["Arrival", "Dune"]);
+  const statuses = [];
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  const load = async () => {
+    await pending;
+    return { ok: true };
+  };
+
+  const first = getPeopleDiscoverySnapshot(user, "fa", load, {
+    now: 1000,
+    onStatus: (status) => statuses.push(status),
+  });
+  const second = getPeopleDiscoverySnapshot(user, "fa", load, {
+    now: 1000,
+    onStatus: (status) => statuses.push(status),
+  });
+  release();
+  await Promise.all([first, second]);
+  await getPeopleDiscoverySnapshot(user, "fa", load, {
+    now: 1001,
+    onStatus: (status) => statuses.push(status),
+  });
+  await getPeopleDiscoverySnapshot(user, "fa", load, {
+    now: 1001,
+    forceRefresh: true,
+    onStatus: (status) => statuses.push(status),
+  });
+
+  assert.deepEqual(statuses, ["miss", "inflight", "hit", "refresh"]);
+  clearPeopleDiscoveryCache();
+});
 
 test("indexed shared-item and taste-label discovery queries start concurrently", async () => {
   const started = [];

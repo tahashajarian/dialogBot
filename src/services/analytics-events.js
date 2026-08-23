@@ -17,6 +17,7 @@ const EVENT_NAMES = Object.freeze({
   suggestionRequested: "suggestion_requested",
   suggestionSaved: "suggestion_saved",
   peopleDiscoveryQueried: "people_discovery_queried",
+  peopleDiscoveryPerformance: "people_discovery_performance",
   discussionListOpened: "discussion_list_opened",
   discussionJoined: "discussion_joined",
   discussionCreated: "discussion_created",
@@ -69,6 +70,12 @@ const SAFE_METADATA_KEYS = new Set([
   "destination",
   "tipKey",
   "discussionId",
+  "cacheStatus",
+  "discoveryMode",
+  "durationMs",
+  "snapshotMs",
+  "profileMs",
+  "discussionMs",
 ]);
 const THROTTLE_CACHE_LIMIT = 1000;
 const throttleCache = new Map();

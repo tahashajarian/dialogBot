@@ -24,7 +24,7 @@ const {
   updateProfileField,
   updateUserFields,
 } = require("../services/users");
-const { EVENT_NAMES, trackEvent } = require("../services/analytics-events");
+const { EVENT_NAMES, trackEvent, trackThrottledEvent } = require("../services/analytics-events");
 const { sendBannerPhoto } = require("../services/banner-media");
 const {
   buildProfileText,
@@ -101,6 +101,7 @@ const {
   findVisibleProfileDiscussionUserIds,
   hasVisibleProfileDiscussions,
 } = require("../services/profile-discussions");
+const { getPeopleDiscoverySnapshot } = require("../services/people-discovery-cache");
 
 function getProfileCompletionFieldLine(messages, lang, field) {
   if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
@@ -368,6 +369,7 @@ async function sendSavedProfilesList(ctx, lang, codes = [], page = 0, { send = n
 }
 
 async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } = {}) {
+  void warmPeopleDiscoverySnapshot(ctx.user || {}).catch(() => null);
   await setStableNavigationState(ctx, "people");
   await forgetSavedProfilesListMessage(ctx);
   await forgetPeopleListMessage(ctx);
@@ -404,19 +406,42 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
   return sent;
 }
 
-async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
-  const languageFilter = getEffectivePeopleLanguageFilter(ctx.user);
-  const minSharedItems = getPeopleDiscoveryMinSharedItems();
+async function loadPeopleDiscoverySnapshot(user, languageFilter) {
   const [result, savedItems] = await Promise.all([
-    findPeopleBySharedTaste(ctx.user || {}, { languageFilter }),
+    findPeopleBySharedTaste(user, { languageFilter, track: false }),
     buildSavedProfileListItems({
-      codes: ctx.user?.savedProfileCodes || [],
+      codes: user?.savedProfileCodes || [],
       normalizePublicProfileCode,
       findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
         .select("userId publicProfileCode profileName firstName profileEmoji gender age")
         .lean(),
     }),
   ]);
+  return { result, savedItems };
+}
+
+function warmPeopleDiscoverySnapshot(user) {
+  const languageFilter = getEffectivePeopleLanguageFilter(user);
+  return getPeopleDiscoverySnapshot(
+    user,
+    languageFilter,
+    () => loadPeopleDiscoverySnapshot(user, languageFilter),
+  );
+}
+
+async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = false } = {}) {
+  const startedAt = Date.now();
+  const languageFilter = getEffectivePeopleLanguageFilter(ctx.user);
+  const minSharedItems = getPeopleDiscoveryMinSharedItems();
+  let cacheStatus = "unknown";
+  const snapshotStartedAt = Date.now();
+  const { result, savedItems } = await getPeopleDiscoverySnapshot(
+    ctx.user || {},
+    languageFilter,
+    () => loadPeopleDiscoverySnapshot(ctx.user || {}, languageFilter),
+    { forceRefresh, onStatus: (status) => { cacheStatus = status; } },
+  );
+  const snapshotMs = Date.now() - snapshotStartedAt;
   const discoveryItems = (result.items || []).filter((entry) => !entry.isSaved);
   const savedDiscoveryItems = savedItems.map((entry) => ({
     ...entry,
@@ -430,13 +455,28 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const pageUserIds = preparedPageItems
     .map((entry) => Number(entry.userId))
     .filter((userId) => Number.isFinite(userId));
+  const profileStartedAt = Date.now();
   const pageUsers = pageUserIds.length
     ? await User.find({ userId: { $in: pageUserIds } })
-      .select("userId activeDiscussionId showActiveDiscussionOnProfile")
+      .select("userId bannedAt showProfileInPeopleDiscovery activeDiscussionId showActiveDiscussionOnProfile")
       .lean()
     : [];
-  const discussionCounts = await findVisibleProfileDiscussionCounts(pageUsers);
-  const pageItems = preparedPageItems.map((entry) => ({
+  const profileMs = Date.now() - profileStartedAt;
+  const currentUsersById = new Map(pageUsers.map((user) => [Number(user.userId), user]));
+  const currentPageItems = preparedPageItems.filter((entry) => {
+    const current = currentUsersById.get(Number(entry.userId));
+    if (!current) return false;
+    return entry.isSaved || (!current.bannedAt && current.showProfileInPeopleDiscovery !== false);
+  });
+  if (!forceRefresh && currentPageItems.length !== preparedPageItems.length) {
+    return buildPeopleDiscoveryPage(ctx, lang, page, { forceRefresh: true });
+  }
+  const discussionStartedAt = Date.now();
+  const discussionCounts = await findVisibleProfileDiscussionCounts(
+    currentPageItems.map((entry) => currentUsersById.get(Number(entry.userId))),
+  );
+  const discussionMs = Date.now() - discussionStartedAt;
+  const pageItems = currentPageItems.map((entry) => ({
     ...entry,
     visibleDiscussionCount: discussionCounts.get(Number(entry.userId)) || 0,
   }));
@@ -445,6 +485,29 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0) {
   const mediaFavoritesFull = ["movies", "series", "music", "books"].every((section) => (
     getAiListItemsFromUser(ctx.user, section, "topTen").length >= operationalLimits.aiTopTenItems
   ));
+  void trackEvent({
+    name: EVENT_NAMES.peopleDiscoveryQueried,
+    userId: ctx.userId,
+    source: "people_discovery",
+    metadata: { mode: "taste", resultCount: pageItems.length, page: paged.page },
+  });
+  void trackThrottledEvent({
+    throttleKey: `people-discovery-performance:${ctx.userId}:${cacheStatus}`,
+    throttleMs: 60 * 1000,
+    name: EVENT_NAMES.peopleDiscoveryPerformance,
+    userId: ctx.userId,
+    source: "people_discovery",
+    metadata: {
+      cacheStatus,
+      discoveryMode: result.discoveryMode || "unknown",
+      durationMs: Date.now() - startedAt,
+      snapshotMs,
+      profileMs,
+      discussionMs,
+      page: paged.page,
+      resultCount: pageItems.length,
+    },
+  });
   return {
     page: paged.page,
     totalPages: paged.totalPages,

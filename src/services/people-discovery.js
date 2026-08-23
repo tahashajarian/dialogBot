@@ -267,7 +267,7 @@ async function findPeopleBySharedTaste(viewer, {
     && !Object.keys(viewerTasteLabels).length
   ) {
     if (track) trackPeopleDiscovery(viewer, { mode: "taste", resultCount: 0, reason: "not_enough_data" });
-    return { ok: false, reason: "not_enough_data", items: [] };
+    return { ok: false, reason: "not_enough_data", items: [], discoveryMode: "insufficient_data" };
   }
 
   const savedCodes = new Set((viewer?.savedProfileCodes || []).map((code) => String(code || "").toLowerCase()).filter(Boolean));
@@ -343,6 +343,7 @@ async function findPeopleBySharedTaste(viewer, {
       ok: true,
       items: limitedItems,
       availableLanguages: languageResult.availableLanguages,
+      discoveryMode: "indexed",
     };
   }
 
@@ -398,6 +399,7 @@ async function findPeopleBySharedTaste(viewer, {
     ok: true,
     items: sortedItems,
     availableLanguages: languageResult.availableLanguages,
+    discoveryMode: "legacy_fallback",
   };
 }
 

@@ -144,6 +144,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `docs/similar-people-reengagement.md`: source of truth for similar-people re-engagement eligibility, privacy, copy, and delivery.
 - `src/services/people-taste-matches.js`: legacy people entitlement helpers kept only for compatibility with old callbacks/data; do not use for the current free People entry.
 - `src/services/people-discovery-ui.js`: people-discovery list text and callback predicate helpers.
+- `src/services/people-discovery-cache.js`: bounded short-lived per-viewer discovery snapshots, concurrent-load deduplication, and cache-state reporting used for non-blocking People-hub prewarm and fast pagination while page profiles are revalidated live.
 - `src/services/saved-profiles.js`: saved-profile bookmark mutation rules.
   - save/unsave public profile codes
   - enforce saved-profile cap
