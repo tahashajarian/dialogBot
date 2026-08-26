@@ -31,13 +31,6 @@ may use `Authorization: Bearer <token>`.
 
 ## High priority: application protections
 
-- [x] Require a signed dashboard session for settings-changing requests when a
-  token is configured, while retaining an automatically protected local session
-  for tokenless localhost development.
-- [x] Remove dashboard query-string token authentication and add CSRF
-  validation.
-- [x] Add dashboard security headers: Content Security Policy,
-  `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy`.
 - [ ] Add explicit trusted-proxy configuration if the dashboard is ever bound
   directly to a non-loopback interface behind a reverse proxy.
 - [ ] Require dashboard authentication even on localhost for settings-changing
@@ -45,10 +38,6 @@ may use `Authorization: Bearer <token>`.
 - [ ] Increase newly generated public profile codes from four characters to at
   least 10–12 cryptographically random characters. Continue accepting existing
   short codes for compatibility.
-- [x] Rate-limit repeated direct profile-code lookups and record aggregate
-  blocked scanning attempts without logging submitted profile codes or data.
-- [x] Add a general per-Telegram-user update rate limit before database access,
-  in addition to duplicate-tap and feature-specific limits.
 - [ ] If beta access restrictions are used, authorize immutable numeric
   Telegram user IDs rather than usernames, which can change ownership.
 
@@ -58,29 +47,14 @@ may use `Authorization: Bearer <token>`.
   required SSH access through the host firewall.
 - [ ] Never expose MongoDB publicly. Use a least-privilege database account,
   TLS, and server/IP restrictions.
-- [x] Validate that `ACCOUNT_DELETION_SECRET` is strong and independent from
-  `BOT_TOKEN` and the AI API key in production.
-- [x] Require a dashboard token of at least 32 characters whenever the
-  dashboard starts with `NODE_ENV=production`.
-- [x] Make `ACCOUNT_DELETION_SECRET` mandatory in production instead of falling
-  back to `BOT_TOKEN`.
-- [x] Reject plain-HTTP remote AI/API endpoints; allow HTTP only for explicit
-  localhost development.
 - [ ] Run the bot and dashboard as a dedicated non-root service account.
 - [ ] Add compatible systemd sandboxing such as `ProtectSystem=strict`,
   `ProtectHome=true`, `PrivateDevices=true`, and narrow writable paths.
 
 ## Maintenance and supply chain
 
-- [x] Configure Dependabot for reviewed npm and GitHub Actions updates.
-- [x] Enable the dependency graph, Dependabot vulnerability and malware alerts,
-  security updates, and grouped security updates in repository settings.
 - [ ] Run `npm audit` and the full test suite before production deployments.
-- [x] Configure Gitleaks CI scanning with the full Git history available.
 - [ ] Review the first full-history Gitleaks result after pushing these workflows.
-- [x] Pin GitHub Actions to reviewed commit SHAs rather than mutable version
-  tags.
-- [x] Run ESLint as part of the normal CI validation.
 - GitHub CodeQL/code scanning is unavailable for this private repository under
   its current GitHub plan, so it is intentionally not a required check.
 - [ ] Deploy reviewed commits/tags with `npm ci --omit=dev`.
@@ -92,8 +66,6 @@ may use `Authorization: Bearer <token>`.
 - [ ] Restrict and periodically review access to production logs and backups.
 - [ ] Fill the ownership, support, incident-response, appeal, and retention
   placeholders in `docs/moderation-runbook.md` and `docs/privacy-policy.md`.
-- [ ] Add an audited operator procedure/tool for reviewing and reversing false
-  automatic bans.
 
 ## Current positive checks
 
@@ -103,4 +75,12 @@ may use `Authorization: Bearer <token>`.
 - Callback and navigation authorization have extensive automated coverage.
 - User inputs have length and quality validation.
 - Update-error logging avoids full message text and full callback payloads.
+- False automatic bans can be reversed only through the authenticated,
+  CSRF-protected dashboard flow and every attempted mutation has a durable audit record.
+- Dashboard settings use signed sessions, CSRF validation, hardened response
+  headers, and no query-string tokens.
+- Production configuration enforces independent strong secrets and rejects
+  remote plain-HTTP API endpoints.
+- General updates and direct profile-code lookups are rate-limited.
+- Dependabot, Gitleaks, pinned GitHub Actions, and ESLint CI are configured.
 - `npm audit` reported zero known dependency vulnerabilities on 2026-07-23.

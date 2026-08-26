@@ -18,6 +18,7 @@ const {
   refreshBotAppearance,
   getBotAppearanceState,
 } = require("./bot-appearance");
+const { getModerationAdminSnapshot } = require("./moderation-admin");
 const {
   EVENT_NAMES,
   countEventsByName,
@@ -104,7 +105,7 @@ function buildUserDashboardAggregation({ since24h, since7d, fullListSize }) {
   }
 
   return [
-    { $project: { createdAt: 1, onboardingCompletedAt: 1, onboardingSkippedAt: 1, profileName: 1, bannedAt: 1, activeDiscussionId: 1, savedProfileCodes: 1, starBalance: 1, aiTaste: 1, ...countFields } },
+    { $project: { createdAt: 1, lastActiveAt: 1, onboardingCompletedAt: 1, onboardingSkippedAt: 1, profileName: 1, bannedAt: 1, activeDiscussionId: 1, savedProfileCodes: 1, starBalance: 1, aiTaste: 1, ...countFields } },
     {
       $facet: {
         summary: [{
@@ -113,6 +114,24 @@ function buildUserDashboardAggregation({ since24h, since7d, fullListSize }) {
             total: { $sum: 1 },
             new24h: { $sum: { $cond: [{ $gte: ["$createdAt", since24h] }, 1, 0] } },
             new7d: { $sum: { $cond: [{ $gte: ["$createdAt", since7d] }, 1, 0] } },
+            d1Eligible: { $sum: { $cond: [{ $lte: ["$createdAt", since24h] }, 1, 0] } },
+            d1Retained: {
+              $sum: {
+                $cond: [{ $and: [
+                  { $lte: ["$createdAt", since24h] },
+                  { $gte: ["$lastActiveAt", { $add: ["$createdAt", 24 * 60 * 60 * 1000] }] },
+                ] }, 1, 0],
+              },
+            },
+            d7Eligible: { $sum: { $cond: [{ $lte: ["$createdAt", since7d] }, 1, 0] } },
+            d7Retained: {
+              $sum: {
+                $cond: [{ $and: [
+                  { $lte: ["$createdAt", since7d] },
+                  { $gte: ["$lastActiveAt", { $add: ["$createdAt", 7 * 24 * 60 * 60 * 1000] }] },
+                ] }, 1, 0],
+              },
+            },
             onboardingCompleted: { $sum: { $cond: [{ $ne: [{ $ifNull: ["$onboardingCompletedAt", null] }, null] }, 1, 0] } },
             onboardingSkipped: { $sum: { $cond: [{ $ne: [{ $ifNull: ["$onboardingSkippedAt", null] }, null] }, 1, 0] } },
             namedProfiles: {
@@ -149,6 +168,10 @@ function normalizeUserDashboardMetrics(rows = []) {
       total: Number(summary.total) || 0,
       new24h: Number(summary.new24h) || 0,
       new7d: Number(summary.new7d) || 0,
+      d1Eligible: Number(summary.d1Eligible) || 0,
+      d1Retained: Number(summary.d1Retained) || 0,
+      d7Eligible: Number(summary.d7Eligible) || 0,
+      d7Retained: Number(summary.d7Retained) || 0,
       onboardingCompleted: Number(summary.onboardingCompleted) || 0,
       onboardingSkipped: Number(summary.onboardingSkipped) || 0,
       namedProfiles: Number(summary.namedProfiles) || 0,
@@ -463,6 +486,10 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       total: 0,
       new24h: 0,
       new7d: 0,
+      d1Eligible: 0,
+      d1Retained: 0,
+      d7Eligible: 0,
+      d7Retained: 0,
       onboardingCompleted: 0,
       onboardingSkipped: 0,
       namedProfiles: 0,
@@ -503,6 +530,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     reconciliationMismatches: null,
     transactions: [],
   };
+  const emptyModeration = { bannedUsers: [], recentActions: [] };
   const [
     userMetrics,
     discussions,
@@ -512,6 +540,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     events,
     starMetrics,
     similarPeopleReengagement,
+    moderation,
   ] = await Promise.all([
     runMetricGroup("users", () => getUserDashboardMetrics({
       since24h,
@@ -536,6 +565,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
       nextBatchUsers: 0,
       nextBatchMatchingUsers: 0,
     }, diagnostics),
+    runMetricGroup("moderation", () => getModerationAdminSnapshot(), emptyModeration, diagnostics),
   ]);
 
   return {
@@ -553,6 +583,7 @@ async function getAnalyticsSnapshot({ now = new Date() } = {}) {
     discussions,
     similarPeopleReengagement,
     invitations: invitationStatusCounts,
+    moderation,
     stars: {
       outstanding: userMetrics.outstandingStars,
       earners: starMetrics.earners,

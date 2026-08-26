@@ -15,6 +15,7 @@ const AnalyticsEvent = require("../models/analytics-event");
 const StarTransaction = require("../models/star-transaction");
 const StarReferralLink = require("../models/star-referral-link");
 const StarReferralClaim = require("../models/star-referral-claim");
+const ModerationAction = require("../models/moderation-action");
 const { resolveAccountDeletionSecret } = require("../config");
 
 function identityFingerprint(userId) {
@@ -99,6 +100,13 @@ async function anonymizeReferralClaimInvitees(userId, tombstoneUserId) {
   }
 }
 
+async function anonymizeModerationActions(userId, tombstoneUserId) {
+  return ModerationAction.updateMany(
+    { targetUserId: Number(userId) },
+    { $set: { targetUserId: Number(tombstoneUserId), reason: "Account deleted" } },
+  );
+}
+
 async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
   const normalized = Number(userId);
   const operation = await prepareDeletion(normalized);
@@ -148,6 +156,7 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
     await StarReferralClaim.updateMany({ inviterUserId: normalized }, { $set: { inviterUserId: tombstone } });
     await anonymizeReferralClaimInvitees(normalized, tombstone);
     await DiscussionBoost.updateMany({ creatorUserId: normalized }, { $set: { creatorUserId: tombstone } });
+    await anonymizeModerationActions(normalized, tombstone);
     await User.deleteOne({ userId: normalized });
     await AccountDeletion.updateOne({ _id: operation._id }, { $set: { status: "complete", step: "complete", completedAt: new Date() } });
     return { ok: true, tombstoneUserId: tombstone };
@@ -158,6 +167,7 @@ async function deleteAccount({ userId, notifyOwnedDiscussionMembers } = {}) {
 }
 
 module.exports = {
+  anonymizeModerationActions,
   anonymizeStarTransactions,
   anonymizeReferralClaimInvitees,
   claimAccountRestart,

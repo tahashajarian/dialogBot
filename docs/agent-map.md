@@ -22,6 +22,7 @@ Use this map before changing code. It explains where behavior belongs so future 
 - `src/services/home-runtime-info.js`: exact Home-only runtime keys, verified personal status summary, and sanitized support diagnostics.
 - `src/services/callback-contracts.js`: shared callback payload parsing, route labels, field allowlists, and Telegram byte-limit contract.
 - `src/services/analytics-dashboard.js` and `scripts/analytics-dashboard.js`: Mongo snapshot metrics and the local admin dashboard.
+- `src/services/moderation-admin.js` and `src/models/moderation-action.js`: bounded ban-review reads and durable audited unban operations used by the protected dashboard.
 - `src/services/operational-limits.js` and `src/models/app-setting.js`: cached, Mongo-backed global product limits editable from the dashboard.
 - `src/services/operational-health.js` and `src/models/operational-event.js`: lightweight bot heartbeat and AI API health events for the dashboard.
 - `src/flows/inline-list-capture.js`: isolated Telegram inline-query choices, bound selection validation, and direct-or-pending Archive/Library capture.

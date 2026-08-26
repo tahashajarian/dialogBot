@@ -39,10 +39,9 @@ Important limitations:
 - A room retains only its latest 10 messages. Evidence can disappear as new
   messages arrive, and Telegram-delivered copies can differ from current MongoDB
   state.
-- The repository currently has no supported operator unban command or appeal
-  interface. Do not improvise direct database edits during an incident. Before
-  public launch, approve an engineering-reviewed unban/appeal procedure or add
-  a small audited administrative tool.
+- The authenticated analytics dashboard has an audited unban tool in its
+  Moderation section. It requires CSRF validation, a review reason, and an
+  explicit `UNBAN` confirmation. Do not improvise direct database edits.
 - Automatic report thresholds are signals, not proof. Coordinated false reports
   are possible and must be considered during review.
 
@@ -128,9 +127,10 @@ Publish one support route in the privacy policy and bot profile. For an appeal:
    when practical.
 3. Review report coordination, available room context, prior incidents, and the
    automatic threshold action.
-4. Document uphold/reverse/escalate. Do not promise restoration until a supported
-   unban mechanism has completed successfully.
-5. If a ban is reversed, remove only the ban state through the approved tool;
+4. Document uphold/reverse/escalate. For a reversal, use Dashboard → Manage →
+   Moderation, select the banned user, enter the case/review reason, and type
+   `UNBAN` exactly.
+5. Confirm the audited action reports `applied`. The tool removes only ban state;
    do not restore old room membership, invitations, or messages automatically.
 
 ## Privacy And Evidence Handling
@@ -190,7 +190,7 @@ Follow-up owner/date:
 - Fill and publish all contacts and response targets in this runbook.
 - Choose and publish the minimum-age position in the privacy policy.
 - Approve retention periods for analytics, backups, and incident records.
-- Approve an appeal path and supported unban procedure.
+- Publish the support/appeal route and assign authorized dashboard reviewers.
 - Decide whether report reasons/evidence snapshots are needed before scaling
   beyond the private beta.
 - Confirm the privacy policy and moderation process with qualified advisers for

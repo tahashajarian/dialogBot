@@ -1,9 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Readable } = require("stream");
+const { URLSearchParams } = require("url");
 
 const { handleRequest } = require("../scripts/analytics-dashboard");
-const { createLoginAttemptLimiter } = require("../src/services/dashboard-security");
+const {
+  createCsrfToken,
+  createLoginAttemptLimiter,
+  getSessionFromRequest,
+} = require("../src/services/dashboard-security");
 
 const TOKEN = "test-dashboard-token-with-enough-entropy";
 
@@ -11,6 +16,7 @@ function request(path, {
   method = "GET",
   headers = {},
   body = "",
+  handlerOptions = {},
 } = {}) {
   const req = Readable.from(body ? [body] : []);
   req.url = path;
@@ -44,6 +50,7 @@ function request(path, {
       localMode: false,
       requireSecure: false,
       loginLimiter: createLoginAttemptLimiter(),
+      ...handlerOptions,
     }).catch(reject);
   });
 }
@@ -98,6 +105,39 @@ test("dashboard mutations reject a missing CSRF token before changing settings",
 
   assert.equal(response.statusCode, 403);
   assert.equal(response.body, "Invalid CSRF token.");
+});
+
+test("dashboard unban requires explicit confirmation and calls the audited service", async () => {
+  const login = await request("/login", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: `token=${encodeURIComponent(TOKEN)}`,
+  });
+  const cookie = login.headers["set-cookie"].split(";", 1)[0];
+  const session = getSessionFromRequest({ headers: { cookie } }, TOKEN);
+  const csrf = createCsrfToken(session, TOKEN);
+  let requestValue;
+  const response = await request("/moderation/unban", {
+    method: "POST",
+    headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      _csrf: csrf,
+      targetUserId: "42",
+      reason: "Reviewed false-positive reports",
+      confirmation: "UNBAN",
+    }).toString(),
+    handlerOptions: {
+      unban: async (value) => {
+        requestValue = value;
+        return { ok: true, actionId: "audit-1" };
+      },
+    },
+  });
+
+  assert.equal(response.statusCode, 303);
+  assert.equal(response.headers.location, "/?saved=unbanned");
+  assert.equal(requestValue.targetUserId, "42");
+  assert.equal(requestValue.actor, "analytics-dashboard");
 });
 
 test("remote dashboard requests require HTTPS", async () => {

@@ -12,6 +12,7 @@ const DiscussionBoostDelivery = require("../src/models/discussion-boost-delivery
 const DiscussionInvitation = require("../src/models/discussion-invitation");
 const DiscussionInvitationMute = require("../src/models/discussion-invitation-mute");
 const DiscussionOwnerJoinNotice = require("../src/models/discussion-owner-join-notice");
+const ModerationAction = require("../src/models/moderation-action");
 const OperationalEvent = require("../src/models/operational-event");
 const PeopleTasteUnlock = require("../src/models/people-taste-unlock");
 const PendingInlineList = require("../src/models/pending-inline-list");
@@ -33,6 +34,7 @@ const MODELS = [
   ["DiscussionInvitation", DiscussionInvitation],
   ["DiscussionInvitationMute", DiscussionInvitationMute],
   ["DiscussionOwnerJoinNotice", DiscussionOwnerJoinNotice],
+  ["ModerationAction", ModerationAction],
   ["OperationalEvent", OperationalEvent],
   ["PeopleTasteUnlock", PeopleTasteUnlock],
   ["PendingInlineList", PendingInlineList],

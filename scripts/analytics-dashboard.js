@@ -38,6 +38,7 @@ const {
 const {
   updateBotAppearance,
 } = require("../src/services/bot-appearance");
+const { unbanUser } = require("../src/services/moderation-admin");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
@@ -517,6 +518,39 @@ function renderBotAppearanceForm(values = {}, action = "/bot-appearance", {
   </form>`;
 }
 
+function renderModerationAdmin(moderation = {}, { saved = "", csrfToken = "" } = {}) {
+  const bannedUsers = moderation.bannedUsers || [];
+  const actions = moderation.recentActions || [];
+  const notice = saved === "unbanned"
+    ? `<div class="notice success">User unbanned. Previous rooms, invitations, and messages were not restored.</div>`
+    : saved === "unban-error"
+      ? `<div class="notice error">Unban was not applied. Confirm the user is still banned and the review reason is complete.</div>`
+      : "";
+  const form = bannedUsers.length ? `<form method="post" action="/moderation/unban" class="limits-form">
+    ${csrfField(csrfToken)}
+    <fieldset>
+      <legend>Reverse a reviewed ban</legend>
+      <div class="limit-grid">
+        <label class="setting-field"><span class="setting-label">Banned user</span>
+          <select name="targetUserId" required>${bannedUsers.map((user) => `<option value="${escapeHtml(user.userId)}">${escapeHtml(user.displayName || "Unnamed")} · ${escapeHtml(user.publicProfileCode || "no code")} · ${escapeHtml(user.userId)}</option>`).join("")}</select>
+        </label>
+        <label class="setting-field"><span class="setting-label">Review reason</span>
+          <small>Record why the ban is being reversed. Minimum 10 characters.</small>
+          <input type="text" name="reason" minlength="10" maxlength="500" required />
+        </label>
+        <label class="setting-field"><span class="setting-label">Confirmation</span>
+          <small>Type UNBAN exactly. Memberships and invitations will not be restored.</small>
+          <input type="text" name="confirmation" pattern="UNBAN" autocomplete="off" required />
+        </label>
+      </div>
+    </fieldset>
+    <div class="form-actions"><button type="submit">Unban selected user</button></div>
+  </form>` : `<p class="muted">No banned users.</p>`;
+  const bannedTable = bannedUsers.length ? `<table><thead><tr><th>User</th><th>Banned</th><th>Source</th><th>Reports</th></tr></thead><tbody>${bannedUsers.map((user) => `<tr><td>${escapeHtml(user.displayName || "Unnamed")}<br><span class="muted">${escapeHtml(user.publicProfileCode || "no code")} · ${escapeHtml(user.userId)}</span></td><td>${escapeHtml(user.bannedAt ? new Date(user.bannedAt).toLocaleString() : "")}</td><td>${escapeHtml(user.banSource || user.banReason || "unknown")}</td><td>${formatNumber(user.uniqueReports)}</td></tr>`).join("")}</tbody></table>` : "";
+  const actionTable = actions.length ? `<table><thead><tr><th>Time</th><th>User</th><th>Status</th><th>Reason</th></tr></thead><tbody>${actions.map((action) => `<tr><td>${escapeHtml(new Date(action.createdAt).toLocaleString())}</td><td>${escapeHtml(action.targetUserId)}</td><td>${escapeHtml(action.status)}</td><td>${escapeHtml(action.reason)}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">No moderation actions recorded.</p>`;
+  return `${notice}${form}<div class="chart-table-grid"><div class="panel"><h3>Current bans</h3>${bannedTable}</div><div class="panel"><h3>Recent audited actions</h3>${actionTable}</div></div>`;
+}
+
 function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = false } = {}) {
   const { users, discussions, health } = snapshot;
   const similarPeople = snapshot.similarPeopleReengagement || {};
@@ -811,6 +845,10 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
     cacheTtlSeconds: snapshot.botAppearanceCacheTtlSeconds,
     csrfToken,
   }), { note: "bot-authored message marker", view: "manage" })}
+      ${collapsibleSection("Moderation", renderModerationAdmin(snapshot.moderation, {
+    saved,
+    csrfToken,
+  }), { note: "bans and audited reversals", view: "manage" })}
       ${collapsibleSection("Star Economy", renderStarSettingsForm(snapshot.starSettings, "/star-settings", {
     updatedAt: snapshot.starSettingsUpdatedAt,
     saved: saved === "stars",
@@ -952,6 +990,8 @@ function renderDashboard(snapshot, { saved = "", csrfToken = "", showLogout = fa
       ${card("Total Users", users.total)}
       ${card("New 24h", users.new24h)}
       ${card("New 7d", users.new7d)}
+      ${textCard("D1 Retention", users.d1Eligible ? percent(users.d1Retained / users.d1Eligible) : "—", `${formatNumber(users.d1Retained)} of ${formatNumber(users.d1Eligible)} eligible users`)}
+      ${textCard("D7 Retention", users.d7Eligible ? percent(users.d7Retained / users.d7Eligible) : "—", `${formatNumber(users.d7Retained)} of ${formatNumber(users.d7Eligible)} eligible users`)}
       ${card("Onboarding Complete", users.onboardingCompleted)}
       ${card("Onboarding Skipped", users.onboardingSkipped)}
       ${card("Named Profiles", users.namedProfiles)}
@@ -1164,6 +1204,7 @@ async function handleRequest(req, res, {
   localMode = false,
   requireSecure = false,
   loginLimiter,
+  unban = unbanUser,
 }) {
   const url = new URL(req.url || "/", "http://localhost");
 
@@ -1229,7 +1270,7 @@ async function handleRequest(req, res, {
     );
   }
 
-  const mutationRoutes = new Set(["/limits", "/star-settings", "/bot-appearance", "/logout"]);
+  const mutationRoutes = new Set(["/limits", "/star-settings", "/bot-appearance", "/moderation/unban", "/logout"]);
   if (mutationRoutes.has(url.pathname)) {
     if (req.method !== "POST") {
       res.setHeader("allow", "POST");
@@ -1257,6 +1298,16 @@ async function handleRequest(req, res, {
       await updateStarSettings(form, { actor: "analytics-dashboard" });
       invalidateAnalyticsSnapshotCache();
       return redirect(res, "/?saved=stars");
+    }
+    if (url.pathname === "/moderation/unban") {
+      if (form.confirmation !== "UNBAN") return redirect(res, "/?saved=unban-error");
+      const result = await unban({
+        targetUserId: form.targetUserId,
+        reason: form.reason,
+        actor: "analytics-dashboard",
+      });
+      invalidateAnalyticsSnapshotCache();
+      return redirect(res, result.ok ? "/?saved=unbanned" : "/?saved=unban-error");
     }
     await updateBotAppearance(form, { actor: "analytics-dashboard" });
     invalidateAnalyticsSnapshotCache();

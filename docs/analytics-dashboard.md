@@ -80,6 +80,7 @@ process restarts.
   loaded user-document size for the last 24 hours; this includes every slow
   update plus a stable five-percent baseline sample
 - total, new, onboarded, named, active, saved-profile, and banned users
+- rolling D1 and D7 retention, counting only cohorts old enough to reach each threshold
 - Top 10 and watchlist activity per section
 - users with 3+ items and full Top 10s, plus unlocked taste labels for Movies, Series, Music, and Books only
 - discussion counts, open/closed rooms, bot starter rooms, members, messages,
@@ -131,6 +132,14 @@ Implemented behavior:
 - never provide an unaudited direct balance overwrite form
 
 The dashboard also reports aggregate Star ledger totals, outstanding balances, earners/spenders, qualified referrals, active boosts, and wallet reconciliation mismatches. Product events cover reward/spend activity, boost delivery and responses, and Advanced Search preview/notification interest. Analytics remains privacy-light and does not include message text, list item text, private profile values, sensitive filter values, or payment credentials.
+
+The Manage view includes Moderation. It lists current bans and recent audited
+moderation actions. An unban requires a selected currently banned user, a review
+reason of at least 10 characters, CSRF validation, and typing `UNBAN` exactly.
+The operation clears only `bannedAt`, `banReason`, and `banSource`; it does not
+restore room membership, invitations, or messages, and it preserves report
+history. Run `npm run create:indexes` after deploying this feature so the
+`ModerationAction` audit indexes are present.
 
 The dashboard page auto-refreshes every 60 seconds so admin-visible metrics stay current while being watched. It skips the automatic reload after a settings form has been edited, so unsaved admin input is not lost.
 

@@ -320,27 +320,6 @@ Search all call sites rather than assuming this list is exhaustive. In particula
 11. Manually smoke-test Persian, English, and `all` on page zero and later pages; creation; public invites; stored invitations; My discussions; starter rooms; and interface-language changes.
 12. Roll out while watching active-list result counts, empty states, joins, and recommendation delivery by language. Do not log discussion text.
 
-## Implementation Checklist for a Future Agent
-
-The implementing agent should complete these in order and not mark the task done early:
-
-- [x] Read `AGENTS.md`, `docs/discussions.md`, this specification, `docs/bot-ux.md`, and `docs/architecture.md`.
-- [x] Inspect the current dirty worktree and preserve unrelated user changes.
-- [x] Locate every creation, list, starter, invitation, boost, and rendering call site listed above.
-- [x] Implement and test the focused language helpers.
-- [x] Add compatible model fields without breaking legacy documents.
-- [x] Thread immutable room language through every creation/draft path.
-- [x] Add preview/header/list labels in both languages.
-- [x] Add a compact active-list language button whose picker edits the same message, with no Apply step and backward-compatible callback parsing.
-- [x] Filter in the database before limit/ranking/pagination.
-- [x] Keep My discussions and direct/invited access unfiltered.
-- [x] Make starter rooms language-specific and safely handle legacy starters.
-- [x] Apply language eligibility to automated invitations and boost recommendations.
-- [x] Add dry-run/apply backfill tooling; operators must review dry-run counts before applying.
-- [x] Add unit, integration, migration, and regression coverage.
-- [x] Update source-of-truth documentation to implemented status.
-- [x] Run the full validation suite and report exact results plus any migration/operator steps.
-
 ## Explicit Non-Goals
 
 - Automatic language detection.

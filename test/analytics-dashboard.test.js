@@ -136,11 +136,13 @@ test("dashboard user aggregation returns only compact facets", () => {
   assert.deepEqual(Object.keys(pipeline[1].$facet), ["summary", "lists"]);
   assert.equal(JSON.stringify(pipeline).includes("$aiLists.movies.topTen"), true);
   assert.equal(JSON.stringify(pipeline).includes("$aiTopTenMovies"), true);
+  assert.equal(JSON.stringify(pipeline).includes("d1Retained"), true);
+  assert.equal(JSON.stringify(pipeline).includes("$lastActiveAt"), true);
 });
 
 test("dashboard user aggregation normalization preserves metric shape", () => {
   const result = normalizeUserDashboardMetrics([{
-    summary: [{ total: 2, namedProfiles: 1, outstandingStars: 7 }],
+    summary: [{ total: 2, namedProfiles: 1, outstandingStars: 7, d1Eligible: 2, d1Retained: 1, d7Eligible: 1, d7Retained: 1 }],
     lists: [{
       moviesTopTenItems: 10,
       moviesWatchlistItems: 2,
@@ -154,6 +156,10 @@ test("dashboard user aggregation normalization preserves metric shape", () => {
   assert.equal(result.users.total, 2);
   assert.equal(result.users.namedProfiles, 1);
   assert.equal(result.outstandingStars, 7);
+  assert.equal(result.users.d1Eligible, 2);
+  assert.equal(result.users.d1Retained, 1);
+  assert.equal(result.users.d7Eligible, 1);
+  assert.equal(result.users.d7Retained, 1);
   assert.deepEqual(section(result.lists, "movies"), {
     section: "movies",
     label: "Movies",
@@ -217,6 +223,10 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
       total: 10,
       new24h: 1,
       new7d: 3,
+      d1Eligible: 8,
+      d1Retained: 4,
+      d7Eligible: 5,
+      d7Retained: 1,
       onboardingCompleted: 7,
       onboardingSkipped: 1,
       namedProfiles: 6,
@@ -246,6 +256,22 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
       usersWithTasteLabel: 1,
     }],
     invitations: [],
+    moderation: {
+      bannedUsers: [{
+        userId: 42,
+        publicProfileCode: "u_TEST",
+        displayName: "Review Me",
+        bannedAt: "2026-07-20T12:00:00.000Z",
+        banSource: "auto_reports",
+        uniqueReports: 5,
+      }],
+      recentActions: [{
+        targetUserId: 41,
+        status: "applied",
+        reason: "Reviewed false positive",
+        createdAt: "2026-07-19T12:00:00.000Z",
+      }],
+    },
     events: {
       funnel7d: [{ key: "Started", count: 8, users: 6 }],
       last24h: [],
@@ -316,6 +342,13 @@ test("dashboard renders accessible visual summaries alongside exact tables", () 
   assert.match(html, /class="bar-chart" role="img"/);
   assert.match(html, /role="progressbar"/);
   assert.match(html, /Product Journey/);
+  assert.match(html, /D1 Retention/);
+  assert.match(html, /50%/);
+  assert.match(html, /D7 Retention/);
+  assert.match(html, /20%/);
+  assert.match(html, /action="\/moderation\/unban"/);
+  assert.match(html, /Review Me/);
+  assert.match(html, /Recent audited actions/);
   assert.match(html, /Route p95 latency comparison/);
   assert.match(html, /VPS Health/);
   assert.match(html, /Similar People Rollout Preview/);

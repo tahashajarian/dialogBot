@@ -1088,19 +1088,10 @@ Persian:
 
 ## Testing Checklist
 
-Stars-specific invitation tests are required in addition to the existing checklist:
-
-- [ ] Sending, opening, or viewing an invitation does not award Stars.
-- [ ] Stored invitation reward occurs only after successful acceptance/join.
-- [ ] A-to-B awards at most once across different discussions and repeated joins.
-- [ ] B-to-A can independently award once.
-- [ ] Simultaneous/repeated accept callbacks create one membership result and one reward.
-- [ ] Bot starter and boost recommendation sources never reward inviters.
-- [ ] Invitation Star reward idempotency is enforced atomically per directed inviter/invitee pair.
-- [ ] Attributable outside links do not expose raw IDs.
-- [ ] Repeated `/start`, language selection retries, cleared chat, old accounts, and self-referrals cannot duplicate/steal referral attribution.
-- [ ] One new invitee qualifies at most one outside inviter after the configured milestone.
-- [ ] Legacy public discussion links continue to preview and join without attribution rewards.
+Automated invitation and referral tests cover non-rewarding views, reward only
+after successful acceptance/join, directed-pair idempotency, concurrent accepts,
+excluded bot/boost sources, opaque outside attribution, replay/self-referral
+protection, single-referrer qualification, and legacy public-link compatibility.
 
 Service tests:
 
