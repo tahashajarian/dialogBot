@@ -164,6 +164,11 @@ Visible discussions opened from a public-profile card edit that same text or pho
 
 ## Existing Profile Fields
 
+- `muzeUserId` is Muze's immutable platform-independent user identity. It is
+  generated for new accounts and remains optional until legacy users are
+  backfilled. Telegram routing and existing relationships continue to use the
+  numeric `userId` during this migration.
+
 - language
 - name
 - city

@@ -354,6 +354,7 @@ test("getOrCreateUser creates users from alternate name fields", async () => {
   assert.equal(call.update.$set.username, "taha");
   assert.equal(call.update.$set.firstName, "Taha");
   assert.equal(call.update.$setOnInsert.profileName, "");
+  assert.match(call.update.$setOnInsert.muzeUserId, /^[0-9a-f-]{36}$/);
   assert.equal(call.update.$setOnInsert.profileNameConfirmedAt, null);
   assert.equal(call.options.upsert, true);
   assert.equal(call.options.maxTimeMS, 2500);

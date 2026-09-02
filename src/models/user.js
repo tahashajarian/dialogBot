@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { generateMuzeUserId } = require("../services/muze-user-identity");
 
 const AiListItemSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -98,6 +99,7 @@ const SectionTipsShownAtSchema = new mongoose.Schema({
 
 const UserSchema = new mongoose.Schema({
   userId: { type: Number, required: true, unique: true },
+  muzeUserId: { type: String, default: generateMuzeUserId, immutable: true },
   username: String,
   firstName: String,
   profileName: String,
@@ -259,6 +261,15 @@ const UserSchema = new mongoose.Schema({
   state: { type: String, default: "idle" },
   createdAt: { type: Date, default: Date.now },
 });
+
+UserSchema.index(
+  { muzeUserId: 1 },
+  {
+    name: "muzeUserId_unique_when_present",
+    unique: true,
+    partialFilterExpression: { muzeUserId: { $type: "string" } },
+  },
+);
 
 UserSchema.index(
   { publicProfileCode: 1 },

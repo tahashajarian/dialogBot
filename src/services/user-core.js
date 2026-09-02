@@ -1,5 +1,6 @@
 const User = require("../models/user");
 const { sanitizeProfileNameCandidate } = require("./profile");
+const { generateMuzeUserId } = require("./muze-user-identity");
 
 const PROFILE_NAME_MAX_LENGTH = 30;
 const RECENT_JOINED_DISCUSSION_LIMIT = 3;
@@ -34,6 +35,7 @@ async function getOrCreateUser(from) {
       $set: setFields,
       $setOnInsert: {
         userId: source.id,
+        muzeUserId: generateMuzeUserId(),
         profileName: "",
         profileNameConfirmedAt: null,
         age: null,

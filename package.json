@@ -26,6 +26,8 @@
     "validate:production-config": "node ./scripts/validate-production-config.js",
     "validate:production-dashboard": "node ./scripts/validate-production-config.js --dashboard",
     "create:indexes": "node ./scripts/create-indexes.js",
+    "identity:backfill:dry": "node ./scripts/backfill-muze-user-ids.js",
+    "identity:backfill": "node ./scripts/backfill-muze-user-ids.js --apply",
     "clear:user-data:dry": "node ./scripts/clear-user-data.js --dry-run",
     "clear:user-data": "node ./scripts/clear-user-data.js",
     "seed:people": "node ./scripts/seed-people-test-data.js",
