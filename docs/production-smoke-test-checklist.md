@@ -86,7 +86,7 @@ Use this before launch, after deploys, and after changes that touch onboarding, 
 
 ## Favorites First Visit
 
-- The first My favorites hub response distinguishes Favorites from media Libraries, retains the three-item suggestion and ten-item taste-label guidance, and mentions People/discussion relevance.
+- The first My Lists hub response distinguishes Favorites from media Libraries, retains the three-item suggestion and ten-item taste-label guidance, and mentions People/discussion relevance.
 - The second visit, internal Back navigation, restart, and another device do not repeat the first-visit tip; normal manager controls remain immediately usable.
 
 ## Stars Spending Switches

@@ -510,7 +510,7 @@ test("locked discussion list join text explains the exact unlock path", () => {
 
   assert.match(text, /موسیقی/);
   assert.match(text, /Metalhead|متال/);
-  assert.match(text, /محبوب‌های من 🎬🎵📚 ←/);
+  assert.match(text, /لیست‌های من 🎬🎵📚 ←/);
   assert.match(text, /۱۰ انتخاب محبوب/);
   assert.match(text, /لیست گفت‌وگوها/);
 });

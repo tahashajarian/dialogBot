@@ -368,7 +368,7 @@ test("finishing later completes onboarding, preserves Favorites, and continues a
   assert.equal(user.aiLists.books.topTen[0].title, "بوف کور");
   assert.match(replies[0].text, /^🏠 خانه\n\n👩‍🦳/);
   assert.match(replies[0].text, /💡 با اضافه‌کردن ۲ مورد دیگه به بخش «📚 کتاب»/);
-  assert.match(replies[0].text, /می‌تونی از «🎬🎵📚 محبوب‌های من» ادامه بدی/);
+  assert.match(replies[0].text, /می‌تونی از «🎬🎵📚 لیست‌های من» ادامه بدی/);
   assert.deepEqual(sharedProfiles, ["u_SHARED"]);
   assert.equal(user.pendingProfileShareCode, "");
   assert.deepEqual(retiredMarkups, [{ messageId: 88, markup: { inline_keyboard: [] } }]);
