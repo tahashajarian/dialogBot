@@ -2123,6 +2123,7 @@ test("people hub opens discovery and saved profile choices", async () => {
       lang: "fa",
       firstName: "A",
       profileName: "A",
+      savedProfileCodes: ["u_A1"],
       showActiveDiscussionOnProfile: false,
     },
     answerCb: async () => true,
