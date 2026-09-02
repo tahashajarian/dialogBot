@@ -552,10 +552,12 @@ test("People nearby guidance appears below the results title", () => {
 
 test("People hub keeps one people discovery entry", () => {
   const hidden = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
-  const visible = peopleHubKeyboard("fa").reply_markup.keyboard.flat();
+  const visible = peopleHubKeyboard("fa", { hasSavedProfiles: true }).reply_markup.keyboard.flat();
 
   assert.ok(!hidden.some((button) => button.text === messages.fa.peopleTasteMatches));
   assert.ok(!visible.some((button) => button.text === messages.fa.peopleTasteMatches));
+  assert.ok(!hidden.some((button) => button.text === messages.fa.savedProfiles));
+  assert.ok(visible.some((button) => button.text === messages.fa.savedProfiles));
   assert.equal(visible[0].text, messages.fa.peopleDiscover);
 });
 
@@ -742,15 +744,11 @@ test("people discovery empty state uses inline action and Close", () => {
   ]);
 });
 
-test("people discovery explains where saved profiles remain when discovery is exhausted", () => {
-  const savedOnlyIntro = formatPeopleDiscoveryRequirementText(
-    messages.fa.peopleDiscoverNoMoreNew,
-    "fa",
-    2,
-  );
-  assert.match(savedOnlyIntro, /حداقل ۲ انتخاب مشترک در یک بخش/);
-  assert.match(savedOnlyIntro, /برچسب سلیقه‌ی یکسان/);
-  assert.match(savedOnlyIntro, /منوی آدم‌ها/);
+test("people discovery preserves matching guidance and mentions saved profiles only when present", () => {
+  assert.match(messages.fa.peopleDiscoverNoMoreNew, /دکمه‌ی پایین/);
+  assert.match(messages.fa.peopleDiscoverNoMoreNew, /حداقل.*برچسب سلیقه/);
+  assert.match(messages.fa.peopleDiscoverNoMoreNewEmpty, /حداقل.*برچسب سلیقه/);
+  assert.doesNotMatch(messages.fa.peopleDiscoverNoMoreNewEmpty, /ذخیره/);
 });
 
 test("people discovery shows language filtering only for multilingual candidates", () => {

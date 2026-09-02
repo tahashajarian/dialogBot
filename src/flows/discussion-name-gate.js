@@ -93,7 +93,10 @@ async function restoreDiscussionNameSourceKeyboard(ctx, lang, pendingEntry) {
     return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));
   }
   if (source === "open_saved") {
-    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang));
+    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang, {
+      hasSavedProfiles: Array.isArray(ctx.user?.savedProfileCodes)
+        && ctx.user.savedProfileCodes.length > 0,
+    }));
   }
   if (source !== "join") return null;
 
@@ -106,7 +109,10 @@ async function restoreDiscussionNameSourceKeyboard(ctx, lang, pendingEntry) {
     }));
   }
   if (/^(?:people|saved_profiles|public_profile|profile_discussions)/.test(mode)) {
-    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang));
+    return ctx.reply(messages[lang].people, peopleHubKeyboard(lang, {
+      hasSavedProfiles: Array.isArray(ctx.user?.savedProfileCodes)
+        && ctx.user.savedProfileCodes.length > 0,
+    }));
   }
   if (/^discussions?$|^discussion_/.test(mode)) {
     return ctx.reply(messages[lang].discussionsMenu, discussionsMenuKeyboard(lang));

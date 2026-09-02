@@ -33,11 +33,9 @@ function savedProfilesListKeyboard(lang, items = []) {
   return inlineKeyboard(rows);
 }
 
-function peopleHubKeyboard(lang) {
-  const rows = [
-    [{ text: messages[lang].peopleDiscover }],
-    [{ text: messages[lang].savedProfiles }],
-  ];
+function peopleHubKeyboard(lang, { hasSavedProfiles = false } = {}) {
+  const rows = [[{ text: messages[lang].peopleDiscover }]];
+  if (hasSavedProfiles) rows.push([{ text: messages[lang].savedProfiles }]);
   if (starEconomy.advancedSearchPreviewEnabled) {
     rows.push([{ text: messages[lang].advancedSearchButton }]);
   }

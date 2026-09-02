@@ -39,7 +39,10 @@ function getStableReplyKeyboardRecovery(ctx, lang) {
   ) {
     return {
       text: messages[lang].peopleMenu,
-      keyboard: peopleHubKeyboard(lang),
+      keyboard: peopleHubKeyboard(lang, {
+        hasSavedProfiles: Array.isArray(ctx.user?.savedProfileCodes)
+          && ctx.user.savedProfileCodes.length > 0,
+      }),
     };
   }
   if (mode === "favorites" || mode.startsWith("ai_")) {

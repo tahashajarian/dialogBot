@@ -387,7 +387,9 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
     && !hasValidLocation(ctx.user?.location)
     && !hasSectionTipBeenShown(ctx.user, "peopleNearbyLocation");
   const text = buildPeopleHubText(messages, lang, { showFirstVisitTip, showNearbyLocationTip });
-  const keyboard = peopleHubKeyboard(lang);
+  const hasSavedProfiles = Array.isArray(ctx.user?.savedProfileCodes)
+    && ctx.user.savedProfileCodes.length > 0;
+  const keyboard = peopleHubKeyboard(lang, { hasSavedProfiles });
   const shouldShowBanner = !hasSectionTipBeenShown(ctx.user, "peopleBanner");
   let sent;
   if (send || !shouldShowBanner) {
@@ -519,7 +521,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
         ? formatPeopleDiscoveryRequirementText(
           hasSavedProfiles
             ? messages[lang].peopleDiscoverNoMoreNew
-            : messages[lang].peopleDiscoverNoMatches,
+            : messages[lang].peopleDiscoverNoMoreNewEmpty,
           lang,
           minSharedItems,
         )

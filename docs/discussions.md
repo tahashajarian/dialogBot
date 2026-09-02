@@ -1212,7 +1212,7 @@ People hub:
 👥 آدم‌ها
 
 👀 دیدن آدم‌ها
-🔖 ذخیره‌شده‌ها
+[🔖 ذخیره‌شده‌ها — only when at least one profile is saved]
 🔙 برگشت
 ```
 
@@ -1228,7 +1228,7 @@ Discovery rules:
 - Matching uses movies, music, books, and broad interests list data.
 - Exclude the viewer, banned users, users without a display name, and users whose `showProfileInPeopleDiscovery` value is explicitly `false`. A missing value remains visible for backward compatibility.
 - See People has the same compact Persian, English, or All language-filter interaction as Active Discussions. Its default follows the viewer's current interface language until they explicitly choose a filter; an explicit choice is remembered separately and pagination preserves it. Show the `Language (current choice)` filter only when the eligible new-profile pool contains more than one selected Muze interface language. When every eligible new profile uses the same language, hide the redundant filter and show those profiles regardless of a previously remembered choice. The filter changes only new See People discovery, resets results to page zero, and never restricts Saved Profiles, discussion/member surfaces, invitations, or direct profile codes. Show each new result's compact language flag only under `All`, where mixed-language results need disambiguation.
-- See People shows only eligible new profiles. Saved Profiles remain a separate People-hub destination and are never appended to discovery results. If no new profiles are currently available, explain that discovery is exhausted and point users to the persistent Saved Profiles action in the People menu without rendering those profiles again.
+- See People shows only eligible new profiles. Saved Profiles remain a separate People-hub destination and are never appended to discovery results. Show the Saved Profiles bottom button only when the user has at least one saved profile. If no new profiles are available, keep the message short; mention the bottom Saved Profiles button only when it is present.
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
 - Apply the visibility filter in both indexed hydration and fallback scans before result counts, pagination, analytics, or public-code generation. Turning visibility off does not delete taste-index rows, and it does not prevent that user from browsing See People.
 - Do not expose private profile fields or private discussion membership.
