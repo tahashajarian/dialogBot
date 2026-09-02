@@ -16,7 +16,7 @@ The MVP described here is implemented. The current code supports:
 - one active room per user; joining another room requires leaving the current room first
 - live text delivery with last-10-message context and runtime-only native reply mapping
 - shareable invite links with a revalidated preview before joining
-- stored saved-profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
+- stored profile invitations with an invitation inbox, daily invite limit, and inviter mute controls
 - paginated member lists using the same gender, name, and optional age line as People discovery; public-profile viewing, private saved profiles, taste-based people discovery, and saved-profile discussion discovery
 - member reporting, creation/message limits, and opt-in active-discussion profile visibility
 - Persian and English instances of four Muze-created starter definitions, marked only with `👩‍🦳`: one open room, two rooms gated by popular Interests TopTen items, and one room gated by the Music Metalhead badge
@@ -1228,7 +1228,7 @@ Discovery rules:
 - Matching uses movies, music, books, and broad interests list data.
 - Exclude the viewer, banned users, users without a display name, and users whose `showProfileInPeopleDiscovery` value is explicitly `false`. A missing value remains visible for backward compatibility.
 - See People has the same compact Persian, English, or All language-filter interaction as Active Discussions. Its default follows the viewer's current interface language until they explicitly choose a filter; an explicit choice is remembered separately and pagination preserves it. Show the `Language (current choice)` filter only when the eligible new-profile pool contains more than one selected Muze interface language. When every eligible new profile uses the same language, hide the redundant filter and show those profiles regardless of a previously remembered choice. The filter changes only new See People discovery, resets results to page zero, and never restricts Saved Profiles, discussion/member surfaces, invitations, or direct profile codes. Show each new result's compact language flag only under `All`, where mixed-language results need disambiguation.
-- After eligible new profiles, append the viewer's Saved Profiles as a clearly labeled section. Saved Profiles are not reclassified or counted as new matches, are not restricted by the See People language filter, and are deduplicated from the new-profile section. If no new profiles are currently available but saved profiles exist, explain that discovery is exhausted, keep showing the saved section, and offer a clearly labeled Favorites action: add more while any media section has space, or view Favorites when all three are full.
+- See People shows only eligible new profiles. Saved Profiles remain a separate People-hub destination and are never appended to discovery results. If no new profiles are currently available, explain that discovery is exhausted and point users to the persistent Saved Profiles action in the People menu without rendering those profiles again.
 - A user without a public profile code remains eligible; create the code lazily only when that user appears on the visible page.
 - Apply the visibility filter in both indexed hydration and fallback scans before result counts, pagination, analytics, or public-code generation. Turning visibility off does not delete taste-index rows, and it does not prevent that user from browsing See People.
 - Do not expose private profile fields or private discussion membership.
@@ -1261,7 +1261,7 @@ V1 may show `🎛 Advanced Search` as a locked/unavailable entry. The filters an
 
 ### Saved Profiles
 
-Saved profiles are a lightweight private bookmark layer connected to discussion profile viewing and people discovery.
+Saved profiles are a lightweight private bookmark layer connected to discussion profile viewing and people discovery. Saving is not required to invite someone directly from a profile opened through See People.
 
 Recommended behavior:
 
@@ -1291,6 +1291,8 @@ If already saved:
 🔙 برگشت
 ```
 
+Profiles opened from See People or Saved Profiles show `📨 Invite to my discussion` only when the viewer owns at least one open discussion that does not already contain the target. The action lists only the viewer's created open discussions; the creator need not currently be an active member. A target may be invited while they do not yet meet the room's join condition, but the invitation never bypasses that condition. Back from the picker and from the sent confirmation restores the exact profile card, source, page, saved state, and actions. Direct People-profile invitations use source `people_profile`; Saved Profile invitations use `saved_profile`.
+
 If the saved user has at least one visible/open discussion, add the discussion action above remove:
 
 ```text
@@ -1316,17 +1318,17 @@ Saved profiles inside the people hub:
 حذف از ذخیره‌شده‌ها 👈 /rm_9Q4M
 ```
 
-Saved-profile lists should use text command links for view/discussions/remove actions, not per-profile buttons. Show `/ds_CODE` only when the saved user has at least one visible/open discussion. Once a profile is opened from Saved Profiles or See People, its profile-level Save/Remove and visible-discussions actions are inline and bound to the exact profile code and saved state, followed by a Close action that deletes only the profile card. Discussion-member profile cards keep their separate inline Save/Remove-saved/Close behavior and refresh in place after either saved-state mutation.
+See People and Saved Profiles lists show only the text command link that opens each profile. Legacy `/save_CODE`, `/ds_CODE`, `/rm_CODE`, and `/iv_CODE` commands remain accepted for retained Telegram history, but new list cards do not render them. Once a profile is opened, its available Favorites, visible-discussions, creator-owned invitation, Save/Remove, and Close actions are inline and bound to the exact profile and source page. Discussion-member profile cards keep their separate inline Save/Remove-saved/Close behavior.
 Saved-profile pagination uses inline Previous/Next actions bound to the exact page and a final Close that deletes only the list card. The People-hub bottom keyboard remains visible and actionable.
-Removing a saved profile normally requires an inline confirmation bound to the exact profile, source, and source page. When Delete starts from an inline public-profile card, replace that card's action buttons with Confirm/Cancel in place; Cancel restores the same profile actions without sending another card. Discussion-member cards are the compact exception: Remove-saved acts immediately and refreshes that same card back to Save without confirmation or another message. Invitation profile cards remain in place after confirmed removal. Command/list removal may use a separate confirmation card. Stale confirmation callbacks are ignored.
-After Save—whether triggered by `/save_CODE` directly on See People results or from the opened profile—return to the same See People results page instead of rendering the profile. After confirming removal from a viewed profile, return to the same source list page; only Cancel returns to the profile.
+Save and Remove-saved are one-tap toggle actions on every inline public-profile card. Either action refreshes that same identity-bound card without a confirmation or separate status message. Legacy command/list removal may still use a separate confirmation card, and stale confirmation callbacks are ignored.
+Saving from a See People profile edits that same profile card to its saved state without closing it. Closing a newly saved People profile refreshes the exact discovery page so the saved person is no longer presented as new. After confirmed removal, return to the same source list page; Cancel restores the profile.
 Ordinary People results and Saved Profiles lists are edited only for inline pagination and deleted only when their Close action is tapped; navigating onward merely forgets their tracking state. Public-profile previews and their visible-discussion views use inline actions with delete-only Close. Safety-sensitive invitation and discussion-member inline cards retain explicit cleanup/Close behavior.
 The visible-discussions view opened from a Saved Profiles or See People profile edits the same profile card, including photo captions, and provides inline Join actions plus Back and Close. Back restores the same profile card and retains its original source page; Close deletes only the card. The `/ds_CODE` list-command entry sends a new inline card because the bot cannot edit a user-authored command message.
-When opening a profile from the saved list, leave the list card in history and render the profile with Remove, visible discussions when available, and a delete-only Close. Saving or removing from a list confirms by name and returns to the list instead of re-rendering the profile.
+When opening a profile from the saved list, leave the list card in history and render the profile with Remove, visible discussions when available, and a delete-only Close. Removing refreshes the same profile card to Save; closing it returns to the refreshed saved list where that person is no longer present.
 
 ### Viewing Discussions From Saved Profiles
 
-Users can view discussions of people in their saved profiles list via `/ds_CODE` command when that command is shown. Manually typed/stale `/ds_CODE` commands may still open the discussions view and show the empty state if no visible discussions remain.
+Users open a saved profile first, then use its inline discussions action when visible. Manually typed or retained `/ds_CODE` commands remain supported and may show the empty state if no visible discussions remain.
 
 The discussions view shows:
 - Title with user's name: `💬 گفت‌وگوهای {name}`

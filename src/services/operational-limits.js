@@ -25,8 +25,8 @@ const LIMIT_DEFINITIONS = Object.freeze({
   discussionMessageWindowMinutes: { label: "Discussion message window (minutes)", group: "Discussions", default: 10, min: 1, max: 10080 },
   discussionMessageBurstSeconds: { label: "Minimum seconds between messages", group: "Discussions", default: 1, min: 0, max: 3600 },
   discussionMaxMembers: { label: "Maximum members per discussion", group: "Discussions", default: 20, min: 2, max: 10000 },
-  directInvitationsPerWindow: { label: "In-bot saved-profile invitations / window", description: "Applies only to stored user-to-user invites inside the bot; public share links are unlimited.", group: "Invitations", default: 3, min: 1, max: 10000 },
-  directInvitationWindowHours: { label: "In-bot invitation window (hours)", description: "Rolling window for stored saved-profile invitations only.", group: "Invitations", default: 24, min: 1, max: 8760 },
+  directInvitationsPerWindow: { label: "In-bot profile invitations / window", description: "Applies to stored user-to-user invites inside the bot; public share links are unlimited.", group: "Invitations", default: 3, min: 1, max: 10000 },
+  directInvitationWindowHours: { label: "In-bot invitation window (hours)", description: "Rolling window for stored profile invitations.", group: "Invitations", default: 24, min: 1, max: 8760 },
 });
 
 const operationalLimits = Object.fromEntries(

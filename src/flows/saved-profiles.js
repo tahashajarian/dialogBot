@@ -3,7 +3,6 @@ const path = require("node:path");
 const User = require("../models/user");
 const Discussion = require("../models/discussion");
 const { formatOperationalLimitsText } = require("../services/operational-limits-ui");
-const { operationalLimits } = require("../services/operational-limits");
 const {
   inlineKeyboard,
   advancedSearchPreviewKeyboard,
@@ -19,7 +18,6 @@ const {
 const { callBacks } = require("../constants");
 const {
   hasSectionTipBeenShown,
-  getAiListItemsFromUser,
   markSectionTipShownForContext,
   updateProfileField,
   updateUserFields,
@@ -102,6 +100,7 @@ const {
   hasVisibleProfileDiscussions,
 } = require("../services/profile-discussions");
 const { getPeopleDiscoverySnapshot } = require("../services/people-discovery-cache");
+const { listOwnedDiscussionsForProfileInvite } = require("../services/discussion-invitations");
 
 function getProfileCompletionFieldLine(messages, lang, field) {
   if (field === "name") return `👤 ${messages[lang].profileCompletenessFieldName}`;
@@ -154,6 +153,7 @@ function getPublicProfileActionKeyboard(lang, code, {
   isSaved = false,
   hasDiscussions = false,
   hasFavorites = false,
+  canInvite = false,
   fromDiscussionMembers = false,
   source = "",
   sourcePage = 0,
@@ -162,6 +162,7 @@ function getPublicProfileActionKeyboard(lang, code, {
     isSaved,
     hasDiscussions,
     hasFavorites,
+    canInvite,
     source: source || (fromDiscussionMembers ? "discussion_members" : fromSavedList ? "saved" : "people"),
     sourcePage,
     peopleMode: peopleReturnMode,
@@ -232,11 +233,18 @@ function parseProfileUnsaveConfirmMode(mode = "") {
 async function refreshSavedPublicProfileCard(ctx, lang, code, profileContext, {
   isSaved = true,
 } = {}) {
-  if (!profileContext || !["shared", "direct", "discussion_members", "invitations"].includes(profileContext.source)) {
+  if (!profileContext || !["people", "saved", "shared", "direct", "discussion_members", "invitations"].includes(profileContext.source)) {
     return false;
   }
   const target = await User.findOne({ publicProfileCode: normalizePublicProfileCode(code) });
   if (!target) return false;
+  if (["people", "saved"].includes(profileContext.source)) {
+    return sendPublicProfileByCode(ctx, lang, code, {
+      fromPeopleList: profileContext.source === "people",
+      fromSavedList: profileContext.source === "saved",
+      editCurrent: true,
+    });
+  }
   const isInvitationProfile = profileContext.source === "invitations";
   const hasRestriction = isInvitationProfile
     ? await hasInvitationMute({
@@ -407,17 +415,8 @@ async function sendPeopleHub(ctx, lang, { send = null, removeKeyboard = false } 
 }
 
 async function loadPeopleDiscoverySnapshot(user, languageFilter) {
-  const [result, savedItems] = await Promise.all([
-    findPeopleBySharedTaste(user, { languageFilter, track: false }),
-    buildSavedProfileListItems({
-      codes: user?.savedProfileCodes || [],
-      normalizePublicProfileCode,
-      findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
-        .select("userId publicProfileCode profileName firstName profileEmoji gender age")
-        .lean(),
-    }),
-  ]);
-  return { result, savedItems };
+  const result = await findPeopleBySharedTaste(user, { languageFilter, track: false });
+  return { result };
 }
 
 function warmPeopleDiscoverySnapshot(user) {
@@ -435,7 +434,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
   const minSharedItems = getPeopleDiscoveryMinSharedItems();
   let cacheStatus = "unknown";
   const snapshotStartedAt = Date.now();
-  const { result, savedItems } = await getPeopleDiscoverySnapshot(
+  const { result } = await getPeopleDiscoverySnapshot(
     ctx.user || {},
     languageFilter,
     () => loadPeopleDiscoverySnapshot(ctx.user || {}, languageFilter),
@@ -443,14 +442,9 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
   );
   const snapshotMs = Date.now() - snapshotStartedAt;
   const discoveryItems = (result.items || []).filter((entry) => !entry.isSaved);
-  const savedDiscoveryItems = savedItems.map((entry) => ({
-    ...entry,
-    isSaved: true,
-    sharedSections: [],
-    sharedTasteLabels: [],
-  }));
-  const combinedItems = [...discoveryItems, ...savedDiscoveryItems];
-  const paged = paginatePeopleDiscovery(combinedItems, page);
+  const hasSavedProfiles = Array.isArray(ctx.user?.savedProfileCodes)
+    && ctx.user.savedProfileCodes.length > 0;
+  const paged = paginatePeopleDiscovery(discoveryItems, page);
   const preparedPageItems = await ensurePeopleDiscoveryCodes(paged.items);
   const pageUserIds = preparedPageItems
     .map((entry) => Number(entry.userId))
@@ -466,7 +460,7 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
   const currentPageItems = preparedPageItems.filter((entry) => {
     const current = currentUsersById.get(Number(entry.userId));
     if (!current) return false;
-    return entry.isSaved || (!current.bannedAt && current.showProfileInPeopleDiscovery !== false);
+    return !current.bannedAt && current.showProfileInPeopleDiscovery !== false;
   });
   if (!forceRefresh && currentPageItems.length !== preparedPageItems.length) {
     return buildPeopleDiscoveryPage(ctx, lang, page, { forceRefresh: true });
@@ -482,9 +476,6 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
   }));
   const isEmpty = pageItems.length === 0;
   const showLanguageFilter = (result.availableLanguages || []).length > 1;
-  const mediaFavoritesFull = ["movies", "series", "music", "books"].every((section) => (
-    getAiListItemsFromUser(ctx.user, section, "topTen").length >= operationalLimits.aiTopTenItems
-  ));
   void trackEvent({
     name: EVENT_NAMES.peopleDiscoveryQueried,
     userId: ctx.userId,
@@ -512,17 +503,11 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
     page: paged.page,
     totalPages: paged.totalPages,
     isEmpty,
-    text: combinedItems.length
+    text: discoveryItems.length
       ? buildPeopleDiscoveryText(messages, lang, pageItems, {
         startIndex: paged.startIndex,
         totalCount: discoveryItems.length,
-        intro: discoveryItems.length
-          ? messages[lang].peopleDiscoverIntro
-          : formatPeopleDiscoveryRequirementText(
-            messages[lang].peopleDiscoverNoMoreNew,
-            lang,
-            minSharedItems,
-          ),
+        intro: messages[lang].peopleDiscoverIntro,
         emptyText: formatPeopleDiscoveryRequirementText(
           messages[lang].peopleDiscoverNoMatches,
           lang,
@@ -532,7 +517,9 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
       })
       : result.ok
         ? formatPeopleDiscoveryRequirementText(
-          messages[lang].peopleDiscoverNoMatches,
+          hasSavedProfiles
+            ? messages[lang].peopleDiscoverNoMoreNew
+            : messages[lang].peopleDiscoverNoMatches,
           lang,
           minSharedItems,
         )
@@ -547,8 +534,6 @@ async function buildPeopleDiscoveryPage(ctx, lang, page = 0, { forceRefresh = fa
         page: paged.page,
         totalPages: paged.totalPages,
         showLists: false,
-        showFavoritesAction: discoveryItems.length === 0 && savedDiscoveryItems.length > 0,
-        favoritesFull: mediaFavoritesFull,
         languageFilter,
         showLanguageFilter,
       }),
@@ -578,7 +563,7 @@ async function buildSavedProfilePage(codes = [], page = 0) {
     findUsersByCodes: (normalizedCodes) => User.find({ publicProfileCode: { $in: normalizedCodes } })
       .select("userId publicProfileCode profileName firstName profileEmoji activeDiscussionId showActiveDiscussionOnProfile")
       .lean(),
-    findDiscussionUserIds: findVisibleProfileDiscussionUserIds,
+    findDiscussionCounts: findVisibleProfileDiscussionCounts,
   });
   return paginateSavedProfiles(items, page);
 }
@@ -601,12 +586,12 @@ async function saveProfileByCode(ctx, lang, code, { fromDiscussionMembers = fals
   const saved = await addSavedProfileCode(ctx.userId, code);
   if (!saved.ok) {
     if (saved.reason === "exists") {
+      if (publicProfileContext) {
+        return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext);
+      }
       if (shouldReturnToPeopleList) {
         await ctx.reply(messages[lang].savedProfileAlreadySaved);
         return sendPeopleDiscoveryList(ctx, lang, peopleSourcePage);
-      }
-      if (publicProfileContext) {
-        return refreshSavedPublicProfileCard(ctx, lang, code, publicProfileContext);
       }
       if (fromDiscussionMembers) return ctx.reply(messages[lang].savedProfileAlreadySaved);
       if (shouldRefreshProfileAfterSave(ctx)) {
@@ -781,6 +766,9 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     : source === "people" ? peoplePage
       : source === "restrictions" ? restrictionPage
         : 0;
+  const canInvite = !isOwnProfile && ["people", "saved"].includes(source)
+    ? (await listOwnedDiscussionsForProfileInvite(ctx.userId, target.userId)).length > 0
+    : false;
   const hasRestriction = !isOwnProfile && (fromInvitationList || fromInvitationPreview || fromRestrictionList)
     ? await hasInvitationMute({
       muterUserId: ctx.userId,
@@ -827,6 +815,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
       isSaved: isSavedProfile,
       hasDiscussions,
       hasFavorites,
+      canInvite,
       fromDiscussionMembers,
       source,
       sourcePage,
@@ -844,6 +833,7 @@ async function sendPublicProfileByCode(ctx, lang, rawCode, { fromSavedList = fal
     canSave: !isOwnProfile && !isSavedProfile && !fromInvitationPreview && !fromRestrictionList,
     isSaved: !isOwnProfile && isSavedProfile && !fromInvitationPreview && !fromRestrictionList,
     hasFavorites,
+    canInvite,
     hasDiscussions,
   });
   const footerText = [

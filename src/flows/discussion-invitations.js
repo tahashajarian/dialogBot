@@ -7,6 +7,8 @@ const {
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
+  discussionInviteProfilePickerKeyboard,
+  discussionInviteProfileReturnKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationNoticeKeyboard,
   discussionInvitationPreviewKeyboard,
@@ -34,6 +36,7 @@ const {
   getInvitationForUser,
   isOwnerReentryInvitation,
   listEligibleDiscussionsForInvite,
+  listOwnedDiscussionsForProfileInvite,
   listReceivedInvitations,
   markInvitationsSeen,
   markInvitationAccepted,
@@ -75,6 +78,19 @@ const { paginateItems } = require("../services/pagination");
 const { parsePublicProfileNavigationMode } = require("../services/public-profile-navigation");
 
 const INVITATIONS_PAGE_SIZE = 5;
+const PROFILE_INVITE_MODE_PATTERN = /^profile_invite_picker:(people|saved):(\d+):(u_[A-Z0-9]+)$/;
+
+function parseProfileInviteMode(mode = "") {
+  const match = String(mode).match(PROFILE_INVITE_MODE_PATTERN);
+  return match ? { source: match[1], page: Number(match[2]) || 0, code: match[3] } : null;
+}
+
+async function setProfileInviteMode(ctx, { source, page, code }) {
+  const mode = `profile_invite_picker:${source}:${Number(page) || 0}:${code}`;
+  if (ctx.user) ctx.user.navigationMode = mode;
+  await updateProfileField(ctx.userId, "navigationMode", mode);
+  return mode;
+}
 
 function getMessageId(message) {
   return message?.message_id || message?.messageId;
@@ -231,6 +247,7 @@ async function createInvitationAndAck(ctx, lang, {
   source,
   destination,
   editCallbackMessageOrReply,
+  returnKeyboard = null,
 }) {
   const created = await createDiscussionInvitation({
     inviterUserId: ctx.userId,
@@ -239,7 +256,7 @@ async function createInvitationAndAck(ctx, lang, {
     source,
   });
 
-  const keyboard = discussionInvitationAckKeyboard(lang, destination);
+  const keyboard = returnKeyboard || discussionInvitationAckKeyboard(lang, destination);
   const send = editCallbackMessageOrReply || ((roomCtx, text, extra) => roomCtx.reply(text, extra));
   if (!created.ok) {
     const failureText = getInviteCreationFailureText(lang, created.reason, created);
@@ -248,7 +265,7 @@ async function createInvitationAndAck(ctx, lang, {
     return send(
       ctx,
       failureText,
-      isUnavailable ? discussionUnavailableAckKeyboard(lang) : keyboard,
+      returnKeyboard || (isUnavailable ? discussionUnavailableAckKeyboard(lang) : keyboard),
     );
   }
 
@@ -258,8 +275,40 @@ async function createInvitationAndAck(ctx, lang, {
     buildInvitationSentText(messages, lang, created.invitee, {
       restoresOwnerRemoval: created.restoresOwnerRemoval,
     }),
-    { reply_markup: { inline_keyboard: [] } },
+    returnKeyboard || { reply_markup: { inline_keyboard: [] } },
   );
+}
+
+async function showCreatorDiscussionPickerForProfile(ctx, lang, profileContext, {
+  editCallbackMessageOrReply,
+} = {}) {
+  const target = await User.findOne({ publicProfileCode: profileContext.code })
+    .select("userId profileName firstName publicProfileCode bannedAt showProfileInPeopleDiscovery")
+    .lean();
+  if (!target) return false;
+  if (profileContext.source === "people" && (target.bannedAt || target.showProfileInPeopleDiscovery === false)) {
+    return false;
+  }
+  if (profileContext.source === "saved") {
+    const savedCodes = Array.isArray(ctx.user?.savedProfileCodes) ? ctx.user.savedProfileCodes : [];
+    if (!savedCodes.some((entry) => normalizePublicProfileCode(entry) === profileContext.code)) return false;
+  }
+
+  const discussions = await listOwnedDiscussionsForProfileInvite(ctx.userId, target.userId);
+  if (!discussions.length) return false;
+  await Promise.all(discussions.map((discussion) => ensurePublicDiscussionCode(discussion)));
+  const keyboardDiscussions = discussions.map((discussion) => ({
+    ...(discussion.toObject?.() || discussion),
+    title: getDiscussionDisplayTitle(messages, lang, discussion),
+  }));
+  await setProfileInviteMode(ctx, profileContext);
+  const text = `${buildInviteDiscussionPickerText(messages, lang, target)}\n\n${
+    buildInviteDiscussionPickerList(messages, lang, discussions)
+  }`;
+  const keyboard = discussionInviteProfilePickerKeyboard(lang, profileContext.code, keyboardDiscussions);
+  return editCallbackMessageOrReply
+    ? editCallbackMessageOrReply(ctx, text, keyboard)
+    : ctx.reply(text, keyboard);
 }
 
 async function showDiscussionPickerForSavedProfile(ctx, lang, profileCode, {
@@ -463,6 +512,8 @@ function isDiscussionInvitationCallback(data = "") {
     data.startsWith(callBacks.discussionInviteSavedPage) ||
     data.startsWith(callBacks.discussionInviteSavedTarget) ||
     data.startsWith(callBacks.discussionInviteDiscussionTarget) ||
+    data.startsWith(callBacks.discussionInviteProfileOpen) ||
+    data === callBacks.discussionInviteProfileBack ||
     data === callBacks.discussionInvitationNoticeClose ||
     data.startsWith(callBacks.discussionInvitationMute) ||
     data.startsWith(callBacks.discussionInvitationMuteConfirm) ||
@@ -479,6 +530,45 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
   sendPublicProfileByCode,
 } = {}) {
   const data = ctx.callbackData || "";
+
+  if (data.startsWith(callBacks.discussionInviteProfileOpen)) {
+    const code = normalizePublicProfileCode(data.replace(callBacks.discussionInviteProfileOpen, ""));
+    const profileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
+    if (
+      !code
+      || !profileContext
+      || !["people", "saved"].includes(profileContext.source)
+      || profileContext.code !== code
+    ) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
+    }
+    const shown = await showCreatorDiscussionPickerForProfile(ctx, lang, profileContext, {
+      editCallbackMessageOrReply,
+    });
+    if (!shown) await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+    else await ctx.answerCb?.();
+    return shown;
+  }
+
+  if (data === callBacks.discussionInviteProfileBack) {
+    const inviteContext = parseProfileInviteMode(ctx.user?.navigationMode);
+    if (!inviteContext || !sendPublicProfileByCode) {
+      await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+      return false;
+    }
+    await ctx.answerCb?.();
+    const isSaved = (ctx.user?.savedProfileCodes || [])
+      .some((entry) => normalizePublicProfileCode(entry) === inviteContext.code);
+    const profileMode = `public_profile:${inviteContext.source}:${inviteContext.code}:${inviteContext.page}:${isSaved ? "saved" : "unsaved"}:0`;
+    if (ctx.user) ctx.user.navigationMode = profileMode;
+    await updateProfileField(ctx.userId, "navigationMode", profileMode);
+    return sendPublicProfileByCode(ctx, lang, inviteContext.code, {
+      fromPeopleList: inviteContext.source === "people",
+      fromSavedList: inviteContext.source === "saved",
+      editCurrent: true,
+    });
+  }
 
   if (data === callBacks.discussionInvitations) {
     await ctx.answerCb?.();
@@ -645,11 +735,37 @@ async function handleDiscussionInvitationCallback(ctx, lang, {
   }
 
   if (data.startsWith(callBacks.discussionInviteDiscussionTarget)) {
-    await ctx.answerCb?.();
     const payload = data.replace(callBacks.discussionInviteDiscussionTarget, "");
     const [profileCodeRaw = "", discussionCodeRaw = ""] = payload.split(":");
     const discussionCode = normalizePublicDiscussionCode(discussionCodeRaw);
     const discussion = discussionCode ? await findDiscussionByPublicCode(discussionCode) : null;
+    const profileInviteContext = parseProfileInviteMode(ctx.user?.navigationMode);
+    if (profileInviteContext) {
+      const target = await User.findOne({ publicProfileCode: profileInviteContext.code })
+        .select("userId isBanned showProfileInPeopleDiscovery")
+        .lean();
+      if (
+        normalizePublicProfileCode(profileCodeRaw) !== profileInviteContext.code
+        || !discussion
+        || Number(discussion.creatorUserId) !== Number(ctx.userId)
+        || !target
+        || target.isBanned
+        || (profileInviteContext.source === "people" && target.showProfileInPeopleDiscovery === false)
+      ) {
+        await ctx.answerCb?.(messages[lang].discussionInvitationUnavailable);
+        return false;
+      }
+      await ctx.answerCb?.();
+      return createInvitationAndAck(ctx, lang, {
+        profileCode: profileInviteContext.code,
+        discussionId: discussion._id,
+        source: profileInviteContext.source === "people" ? "people_profile" : "saved_profile",
+        destination: profileInviteContext.source,
+        editCallbackMessageOrReply,
+        returnKeyboard: discussionInviteProfileReturnKeyboard(lang),
+      });
+    }
+    await ctx.answerCb?.();
     return createInvitationAndAck(ctx, lang, {
       profileCode: normalizePublicProfileCode(profileCodeRaw),
       discussionId: discussion?._id || "",

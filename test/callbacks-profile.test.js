@@ -8,7 +8,6 @@ const { mainMenuKeyboard } = require("../src/keyboards");
 const {
   handleSavedProfilesCallback,
   requestUnsaveProfileConfirmation,
-  saveProfileCommand,
   savedProfilesLimitKeyboard,
   sendPublicProfileByCode,
 } = require("../src/flows/saved-profiles");
@@ -24,6 +23,19 @@ const {
   sendProfilePrivacyStatus,
 } = require("../src/flows/profile-privacy");
 const { handleProfileSettingsOrEditCallback } = require("../src/flows/profile-callbacks");
+
+const originalGlobalDiscussionFind = Discussion.find;
+test.beforeEach(() => {
+  Discussion.find = (filter = {}) => {
+    if (filter.status === "open" && filter.creatorUserId !== undefined) {
+      return { sort: async () => [] };
+    }
+    return originalGlobalDiscussionFind.call(Discussion, filter);
+  };
+});
+test.afterEach(() => {
+  Discussion.find = originalGlobalDiscussionFind;
+});
 
 const keyboardButtons = (extra) => (
   extra?.reply_markup?.keyboard || extra?.reply_markup?.inline_keyboard || []
@@ -2360,10 +2372,10 @@ test("typed people profile code keeps inline people actions when only mode conte
 });
 
 test("saving from people profile refreshes profile with saved actions", async () => {
-  const originalFind = User.find;
   const originalFindOne = User.findOne;
   const originalFindOneAndUpdate = User.findOneAndUpdate;
-  const replies = [];
+  const edits = [];
+  const deleted = [];
   const updates = [];
 
   User.findOneAndUpdate = (query, update) => {
@@ -2371,7 +2383,7 @@ test("saving from people profile refreshes profile with saved actions", async ()
     return {
       lean: async () => ({
         userId: 1,
-        savedProfileCodes: ["u_A1"],
+        savedProfileCodes: update?.$pull ? [] : ["u_A1"],
       }),
     };
   };
@@ -2387,21 +2399,10 @@ test("saving from people profile refreshes profile with saved actions", async ()
     }
     return { userId: 1, savedProfileCodes: ["u_A1"] };
   };
-  User.find = () => ({
-    select: () => ({
-      lean: async () => [{
-        userId: 2,
-        publicProfileCode: "u_A1",
-        profileName: "Taste Match",
-        firstName: "Taste",
-      }],
-      limit: () => ({
-        lean: async () => [],
-      }),
-    }),
-  });
-
   const ctx = {
+    callbackData: `${callBacks.profileSaveByCode}u_A1`,
+    callbackMessageId: 44,
+    callbackMessage: { text: "profile card" },
     userId: 1,
     user: {
       userId: 1,
@@ -2412,28 +2413,41 @@ test("saving from people profile refreshes profile with saved actions", async ()
       peopleLastListMode: "taste",
       savedProfileCodes: [],
       publicProfileLastMessageId: 44,
+      navigationMode: "public_profile:people:u_A1:2:unsaved:0",
       showActiveDiscussionOnProfile: false,
     },
-    deleteMessage: async () => true,
-    reply: async (text, extra) => {
-      replies.push({ text, extra });
-      return { message_id: 101 };
+    answerCb: async () => true,
+    deleteMessage: async (messageId) => {
+      deleted.push(messageId);
+      return true;
     },
-    replyWithPhoto: async () => {
-      throw new Error("default profile should render as text");
+    editMessageText: async (messageId, text, extra) => {
+      edits.push({ messageId, text, extra });
+      return { message_id: messageId };
     },
+    reply: async () => assert.fail("saving from People should not send another message"),
+    replyWithPhoto: async () => assert.fail("saving from People should edit the existing card"),
   };
 
   try {
-    await saveProfileCommand(ctx, "en", "/save_A1");
+    await handleCallback(ctx);
+    ctx.callbackData = `${callBacks.profileUnsaveByCode}u_A1`;
+    await handleCallback(ctx);
   } finally {
-    User.find = originalFind;
     User.findOne = originalFindOne;
     User.findOneAndUpdate = originalFindOneAndUpdate;
   }
 
-  assert.deepEqual(ctx.user.savedProfileCodes, ["u_A1"]);
-  assert.ok(replies.some((entry) => /was saved/.test(entry.text)));
+  assert.deepEqual(ctx.user.savedProfileCodes, []);
+  assert.deepEqual(deleted, []);
+  assert.equal(edits.length, 2);
+  const savedCallbacks = keyboardButtons(edits[0].extra).map((button) => button.callback_data);
+  const removedCallbacks = keyboardButtons(edits[1].extra).map((button) => button.callback_data);
+  assert.ok(savedCallbacks.includes(`${callBacks.profileUnsaveByCode}u_A1`));
+  assert.ok(!savedCallbacks.some((callback) => callback.startsWith(callBacks.profileSaveByCode)));
+  assert.ok(removedCallbacks.includes(`${callBacks.profileSaveByCode}u_A1`));
+  assert.ok(!removedCallbacks.some((callback) => callback.startsWith(callBacks.profileUnsaveByCode)));
+  assert.equal(ctx.user.navigationMode, "public_profile:people:u_A1:2:unsaved:0");
   assert.ok(updates.some((entry) => entry.update.savedProfileCodes));
 });
 
@@ -2643,6 +2657,7 @@ test("saved profile back deletes viewed profile card and renders fresh list", as
 
 test("opening saved profile clears old list and previous profile before rendering profile", async () => {
   const originalFindOne = User.findOne;
+  const originalDiscussionFindOne = Discussion.findOne;
   const deletedIds = [];
   const replies = [];
 
@@ -2653,6 +2668,7 @@ test("opening saved profile clears old list and previous profile before renderin
     profileName: "Saved User",
     showActiveDiscussionOnProfile: true,
   });
+  Discussion.findOne = () => ({ lean: async () => null });
 
   const ctx = {
     userId: 1,
@@ -2683,6 +2699,7 @@ test("opening saved profile clears old list and previous profile before renderin
     await sendPublicProfileByCode(ctx, "en", "u_A1", { fromSavedList: true });
   } finally {
     User.findOne = originalFindOne;
+    Discussion.findOne = originalDiscussionFindOne;
   }
 
   assert.deepEqual(deletedIds, [55]);
@@ -2751,6 +2768,7 @@ test("inviter profile from a single notification has only Restrict and Close", a
 test("saved profile shows discussions action when user has an open discussion", async () => {
   const originalFindOneUser = User.findOne;
   const originalFindOneDiscussion = Discussion.findOne;
+  const originalFindDiscussion = Discussion.find;
   const replies = [];
 
   User.findOne = async () => ({
@@ -2764,6 +2782,14 @@ test("saved profile shows discussions action when user has an open discussion", 
     select: () => ({
       lean: async () => (Number(query.creatorUserId) === 2 ? { _id: "discussion-id" } : null),
     }),
+  });
+  Discussion.find = () => ({
+    sort: async () => [{
+      _id: "owned-discussion",
+      creatorUserId: 1,
+      memberUserIds: [1],
+      status: "open",
+    }],
   });
 
   const ctx = {
@@ -2790,10 +2816,12 @@ test("saved profile shows discussions action when user has an open discussion", 
   } finally {
     User.findOne = originalFindOneUser;
     Discussion.findOne = originalFindOneDiscussion;
+    Discussion.find = originalFindDiscussion;
   }
 
   const buttons = keyboardButtons(replies.at(-1).extra);
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileDiscussions));
+  assert.ok(buttons.some((button) => button.text === messages.en.profileInviteToDiscussion));
   assert.ok(buttons.some((button) => button.text === messages.en.savedProfileRemove));
 });
 

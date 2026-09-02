@@ -867,6 +867,7 @@ test("discussion message sender retries without a native reply when that deliver
 
 test("saved profile command keeps retained list history before opening profile", async () => {
   const originalFindOne = User.findOne;
+  const originalDiscussionFind = Discussion.find;
   const deleteAttempts = [];
   const replies = [];
 
@@ -875,6 +876,9 @@ test("saved profile command keeps retained list history before opening profile",
     publicProfileCode: "u_3HNU",
     firstName: "Saved User",
     profileName: "Saved User",
+  });
+  Discussion.find = () => ({
+    select: () => ({ lean: async () => [] }),
   });
 
   const ctx = {
@@ -908,6 +912,7 @@ test("saved profile command keeps retained list history before opening profile",
     await handleUpdate(ctx);
   } finally {
     User.findOne = originalFindOne;
+    Discussion.find = originalDiscussionFind;
   }
 
   assert.equal(deleteAttempts.includes(42), false);
@@ -918,6 +923,7 @@ test("saved profile command keeps retained list history before opening profile",
 
 test("a second retained saved-profile link keeps Remove after the first profile is closed", async () => {
   const originalFindOne = User.findOne;
+  const originalDiscussionFind = Discussion.find;
   const replies = [];
 
   User.findOne = async () => ({
@@ -925,6 +931,9 @@ test("a second retained saved-profile link keeps Remove after the first profile 
     publicProfileCode: "u_SECOND",
     firstName: "Second Saved User",
     profileName: "Second Saved User",
+  });
+  Discussion.find = () => ({
+    select: () => ({ lean: async () => [] }),
   });
 
   const ctx = {
@@ -955,6 +964,7 @@ test("a second retained saved-profile link keeps Remove after the first profile 
     await handleUpdate(ctx);
   } finally {
     User.findOne = originalFindOne;
+    Discussion.find = originalDiscussionFind;
   }
 
   const buttons = replies.at(-1).extra.reply_markup.inline_keyboard.flat();

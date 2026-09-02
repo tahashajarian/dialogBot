@@ -374,6 +374,28 @@ function discussionInviteDiscussionPickerKeyboard(lang, profileCode, discussions
   return inlineKeyboard(rows);
 }
 
+function discussionInviteProfilePickerKeyboard(lang, profileCode, discussions = []) {
+  const cleanProfileCode = String(profileCode || "").replace(/^u_/i, "");
+  const rows = discussions.map((discussion) => ([{
+    text: discussion.title || "-",
+    callback_data: `${callBacks.discussionInviteDiscussionTarget}u_${cleanProfileCode}:${discussion.publicDiscussionCode}`,
+  }]));
+  rows.push([{
+    text: messages[lang].profileInviteBackToProfile,
+    callback_data: callBacks.discussionInviteProfileBack,
+  }]);
+  return inlineKeyboard(rows);
+}
+
+function discussionInviteProfileReturnKeyboard(lang) {
+  return inlineKeyboard([[
+    {
+      text: messages[lang].profileInviteBackToProfile,
+      callback_data: callBacks.discussionInviteProfileBack,
+    },
+  ]]);
+}
+
 function discussionInvitationAckKeyboard(lang, destination = "invitations") {
   return inlineKeyboard([[
     {
@@ -715,6 +737,8 @@ module.exports = {
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
+  discussionInviteProfilePickerKeyboard,
+  discussionInviteProfileReturnKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationNoticeKeyboard,
   discussionInvitationPreviewKeyboard,

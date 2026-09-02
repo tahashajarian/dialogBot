@@ -29,6 +29,8 @@ const {
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
+  discussionInviteProfilePickerKeyboard,
+  discussionInviteProfileReturnKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationNoticeKeyboard,
   discussionInvitationPreviewKeyboard,
@@ -758,6 +760,7 @@ function profilePublicActionsKeyboard(lang, code, {
   isSaved = false,
   hasDiscussions = false,
   hasFavorites = false,
+  canInvite = false,
   source = "people",
   sourcePage = 0,
 } = {}) {
@@ -777,6 +780,13 @@ function profilePublicActionsKeyboard(lang, code, {
     rows.push([{
       text: messages[lang].savedProfileDiscussions,
       callback_data: `${callBacks.savedProfilesDiscussions}${source === "people" ? "browse" : source}:${normalizedCode}`,
+    }]);
+  }
+
+  if (canInvite && ["people", "saved"].includes(source)) {
+    rows.push([{
+      text: messages[lang].profileInviteToDiscussion,
+      callback_data: `${callBacks.discussionInviteProfileOpen}${normalizedCode}`,
     }]);
   }
 
@@ -928,6 +938,8 @@ module.exports = {
   discussionInviteSavedProfilesKeyboard,
   discussionInviteNoSavedProfilesKeyboard,
   discussionInviteDiscussionPickerKeyboard,
+  discussionInviteProfilePickerKeyboard,
+  discussionInviteProfileReturnKeyboard,
   discussionInvitationAckKeyboard,
   discussionInvitationNoticeKeyboard,
   discussionInvitationPreviewKeyboard,

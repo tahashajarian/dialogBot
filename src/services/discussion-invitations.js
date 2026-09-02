@@ -149,6 +149,19 @@ async function listEligibleDiscussionsForInvite(inviterUserId, inviteeUserId) {
   });
 }
 
+async function listOwnedDiscussionsForProfileInvite(creatorUserId, inviteeUserId) {
+  const query = Discussion.find({
+    status: "open",
+    creatorUserId: Number(creatorUserId),
+  });
+  if (!query?.sort) return [];
+  const discussions = await query.sort({ lastActivityAt: -1, updatedAt: -1, createdAt: -1 });
+
+  return discussions.filter((discussion) => (
+    !(discussion.memberUserIds || []).includes(Number(inviteeUserId))
+  ));
+}
+
 function isOwnerReentryInvitation(invitation, discussion, userId) {
   return Boolean(
     invitation?.restoresOwnerRemoval &&
@@ -179,7 +192,14 @@ async function createDiscussionInvitation({
   if (!inviter) return { ok: false, reason: "missing_user" };
   if (!invitee) return { ok: false, reason: "missing_invitee" };
   if (!discussion) return { ok: false, reason: "missing_discussion" };
-  if (!isProfileCodeSaved(inviter, normalizedProfileCode)) return { ok: false, reason: "not_saved" };
+  const normalizedSource = source === "saved_profile"
+    ? "saved_profile"
+    : source === "people_profile"
+      ? "people_profile"
+      : "room";
+  if (normalizedSource !== "people_profile" && !isProfileCodeSaved(inviter, normalizedProfileCode)) {
+    return { ok: false, reason: "not_saved" };
+  }
   if (Number(inviter.userId) === Number(invitee.userId)) return { ok: false, reason: "self_invite" };
   const muted = await hasInvitationMute({
     muterUserId: invitee.userId,
@@ -187,7 +207,9 @@ async function createDiscussionInvitation({
   });
   if (muted) return { ok: false, reason: "inviter_muted", discussion, invitee };
   if (discussion.status !== "open") return { ok: false, reason: "discussion_closed", discussion };
-  if (!(discussion.memberUserIds || []).includes(Number(inviter.userId))) {
+  const inviterIsOwner = Number(discussion.creatorUserId) === Number(inviter.userId);
+  const profileInvite = ["saved_profile", "people_profile"].includes(normalizedSource);
+  if (!(discussion.memberUserIds || []).includes(Number(inviter.userId)) && !(profileInvite && inviterIsOwner)) {
     return { ok: false, reason: "not_member", discussion };
   }
   if ((discussion.memberUserIds || []).includes(Number(invitee.userId))) {
@@ -240,7 +262,7 @@ async function createDiscussionInvitation({
     inviteePublicProfileCode: refreshedInvitee?.publicProfileCode || normalizedProfileCode,
     restoresOwnerRemoval,
     status: "pending",
-    source: source === "saved_profile" ? "saved_profile" : "room",
+    source: normalizedSource,
     createdAt: now,
   });
 
@@ -754,6 +776,7 @@ module.exports = {
   markSharedLinkInvitationAccepted,
   dedupeInvitationsByInviterAndDiscussion,
   listEligibleDiscussionsForInvite,
+  listOwnedDiscussionsForProfileInvite,
   listReceivedInvitations,
   markInvitationsSeen,
   getInvitationForUser,

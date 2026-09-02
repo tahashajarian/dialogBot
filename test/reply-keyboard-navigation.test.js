@@ -828,15 +828,17 @@ test("discussion-member profiles use one-tap Save/Remove and a source-specific C
 
 test("People and Saved profile previews use source-aware inline actions", () => {
   const { profilePublicActionsKeyboard } = require("../src/keyboards");
-  const peopleKeyboard = profilePublicActionsKeyboard("en", "u_A1", { source: "people", isSaved: false }).reply_markup;
+  const peopleKeyboard = profilePublicActionsKeyboard("en", "u_A1", { source: "people", isSaved: false, canInvite: true }).reply_markup;
   assert.deepEqual(peopleKeyboard.inline_keyboard.flat().map((button) => button.callback_data), [
+    `${callBacks.discussionInviteProfileOpen}u_A1`,
     `${callBacks.profileSaveByCode}u_A1`,
     callBacks.profileCloseDiscussionMember,
   ]);
 
-  const savedKeyboard = profilePublicActionsKeyboard("fa", "u_A1", { source: "saved", isSaved: true, hasDiscussions: true }).reply_markup;
+  const savedKeyboard = profilePublicActionsKeyboard("fa", "u_A1", { source: "saved", isSaved: true, hasDiscussions: true, canInvite: true }).reply_markup;
   assert.deepEqual(savedKeyboard.inline_keyboard.flat().map((button) => button.callback_data), [
     `${callBacks.savedProfilesDiscussions}saved:u_A1`,
+    `${callBacks.discussionInviteProfileOpen}u_A1`,
     `${callBacks.profileUnsaveByCode}u_A1`,
     callBacks.profileCloseDiscussionMember,
   ]);

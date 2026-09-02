@@ -162,6 +162,8 @@ module.exports = {
     profileDiscussionsBack: "profile:discussions:back:",
     profileDiscussionsClose: "profile:discussions:close",
     discussionInviteDiscussionTarget: "discussion:invite:discussion-target:",
+    discussionInviteProfileOpen: "discussion:invite:profile:",
+    discussionInviteProfileBack: "discussion:invite:profile-back",
     discussionInvitationNoticeClose: "discussion:invitation:notice-close",
     discussionInvitationPreview: "discussion:invitation:preview:",
     discussionInvitationPreviewAccept: "discussion:invitation:accept:",

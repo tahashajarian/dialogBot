@@ -1148,6 +1148,36 @@ test("discussion invitations create, count, dedupe, and accept cleanly", async (
   assert.equal(hiddenList.invitations.length, 0);
 });
 
+test("a creator can invite an unsaved People profile while outside their open discussion", async () => {
+  const discussion = await createOpenDiscussion(1, {
+    publicDiscussionCode: "d_PEOPLE",
+    memberUserIds: [],
+  });
+  await Promise.all([
+    createUser(1, { savedProfileCodes: [] }),
+    createUser(2, { publicProfileCode: "u_PEOPLE" }),
+  ]);
+
+  const direct = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_PEOPLE",
+    discussionId: discussion._id,
+    source: "people_profile",
+  });
+  assert.equal(direct.ok, true);
+  assert.equal(direct.invitation.source, "people_profile");
+
+  await DiscussionInvitation.deleteMany({ discussionId: discussion._id });
+  const savedOnly = await createDiscussionInvitation({
+    inviterUserId: 1,
+    inviteePublicProfileCode: "u_PEOPLE",
+    discussionId: discussion._id,
+    source: "saved_profile",
+  });
+  assert.equal(savedOnly.ok, false);
+  assert.equal(savedOnly.reason, "not_saved");
+});
+
 test("only a new owner invitation lets a removed member rejoin", async () => {
   const discussion = await createOpenDiscussion(1, {
     publicDiscussionCode: "d_REENTRY",

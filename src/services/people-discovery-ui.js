@@ -88,21 +88,11 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
   if (!items.length) return emptyText;
 
   const baseIndex = Math.max(0, Number(startIndex) || 0);
-  const discoveryCount = Math.max(0, Number(totalCount) || 0);
-  let nextDiscoveryIndex = Math.min(baseIndex, discoveryCount) + 1;
-  let nextSavedIndex = Math.max(0, baseIndex - discoveryCount) + 1;
   const rows = items.map((entry, index) => {
-    const shortCode = String(entry.code || "").replace(/^u_/i, "");
     const viewCommand = `/${entry.code}`;
-    const saveCommand = `/save_${shortCode}`;
     const viewAction = lang === "fa"
       ? `👁 ${messages[lang].peopleDiscoverViewProfile} 👈 ${viewCommand}`
       : `👁 ${messages[lang].peopleDiscoverViewProfile} 👉 ${viewCommand}`;
-    const saveAction = entry.isSaved
-      ? messages[lang].profileSavedButton
-      : lang === "fa"
-        ? `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👈 ${saveCommand}`
-        : `🔖 ${messages[lang].peopleDiscoverSaveProfile} 👉 ${saveCommand}`;
     const sharedLines = showSharedSections ? [
       ...(entry.sharedTasteLabels || [])
         .map((shared) => `🏷 ${formatTasteLabelMatchLine(messages, lang, shared)}`),
@@ -117,21 +107,15 @@ function buildPeopleDiscoveryText(messages, lang, items = [], {
         formatListIndex(lang, discussionCount),
       )
       : "";
-    const actions = [viewAction, saveAction].filter(Boolean).join("\n\n");
+    const actions = viewAction;
 
-    const itemIndex = entry.isSaved ? nextSavedIndex++ : nextDiscoveryIndex++;
     const details = [
-      `${formatListIndex(lang, itemIndex)}.`,
+      `${formatListIndex(lang, baseIndex + index + 1)}.`,
       nameLine,
       sharedLines,
       discussionLine,
     ].filter(Boolean).join("\n");
-    const row = [details, actions].filter(Boolean).join("\n\n");
-    const previous = items[index - 1];
-    const startsSavedSection = entry.isSaved && !previous?.isSaved;
-    return startsSavedSection
-      ? `${messages[lang].peopleDiscoverSavedSection}\n\n${row}`
-      : row;
+    return [details, actions].filter(Boolean).join("\n\n");
   });
 
   const countedTitle = `${title} (${formatListIndex(lang, totalCount)})`;

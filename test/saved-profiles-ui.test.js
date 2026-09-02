@@ -7,7 +7,6 @@ const {
   buildSavedProfileListItems,
   paginateSavedProfiles,
   buildSavedProfilesListText,
-  buildProfileSavedFooter,
   buildProfileDiscussionSectionsText,
 } = require("../src/services/saved-profiles-ui");
 const messages = require("../src/messages");
@@ -68,17 +67,19 @@ test("buildSavedProfileListItems shows the most recently saved profile first", a
   ]);
 });
 
-test("buildSavedProfilesListText separates rows and hides discussions without visible rooms", () => {
+test("buildSavedProfilesListText keeps list rows focused on opening profiles", () => {
   const text = buildSavedProfilesListText(messages, "en", [
-    { code: "u_A1", name: "Ali", hasDiscussions: true },
+    { code: "u_A1", name: "Ali", hasDiscussions: true, visibleDiscussionCount: 1 },
     { code: "u_B2", name: "Sara" },
   ]);
 
   assert.match(text, new RegExp(messages.en.savedProfilesTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(text, /Saved profiles \(2\)[\s\S]*Here you can see saved profiles and their active discussions[\s\S]*1\./);
+  assert.match(text, /Saved profiles \(2\)[\s\S]*Open a saved profile to see its available actions[\s\S]*1\./);
   assert.doesNotMatch(text, /Saved profiles \(2\)\n+━━━━━━━━/);
-  assert.match(text, /1\.\n👤 Ali\n\n👁 View this profile 👉 \/u_A1\n\n💬 View this user's discussions 👉 \/ds_A1\n\n🗑 Remove from saved 👉 \/rm_A1/);
-  assert.doesNotMatch(text, /\/ds_B2/);
+  assert.match(text, /1\.\n👤 Ali\n💬 Active discussions \(1\)\n\n👁 View this profile 👉 \/u_A1/);
+  assert.match(text, /Ali\n💬 Active discussions \(1\)/);
+  assert.doesNotMatch(text, /\/(?:ds|rm|iv)_A1/);
+  assert.doesNotMatch(text, /\/(?:ds|rm|iv)_B2/);
   assert.doesNotMatch(text, /Invite this user/);
   assert.match(text, /Ali[\s\S]*\n\n2\.\n👤 Sara/);
 });
@@ -100,15 +101,6 @@ test("paginateSavedProfiles keeps stable numbering across pages", () => {
   assert.match(text, /6\.\n👤 User 6/);
 });
 
-test("buildProfileSavedFooter shows saved status or save command", () => {
-  const savedFooter = buildProfileSavedFooter(messages, "en", "u_A1", true, { hasDiscussions: true });
-  assert.match(savedFooter, /🔖 Saved/);
-  assert.match(savedFooter, /\/ds_A1/);
-  assert.match(savedFooter, /\/rm_A1/);
-  assert.doesNotMatch(buildProfileSavedFooter(messages, "en", "u_A1", true), /\/ds_A1/);
-  assert.equal(buildProfileSavedFooter(messages, "en", "u_A1", false), "👩‍🦳 🔖 Save profile 👉 /save_A1");
-});
-
 test("buildSavedProfilesListText uses Persian digits in fa", () => {
   const text = buildSavedProfilesListText(messages, "fa", [
     { code: "u_A1", name: "Ali" },
@@ -119,12 +111,12 @@ test("buildSavedProfilesListText uses Persian digits in fa", () => {
   assert.match(text, /۲\./);
 });
 
-test("saved profiles section explains visible profiles, active discussions, and invitation location", () => {
+test("saved profiles section explains opening profiles and later invitations", () => {
   const fa = buildSavedProfilesListText(messages, "fa", [{ code: "u_A1", name: "علی" }]);
   const en = buildSavedProfilesListText(messages, "en", [{ code: "u_A1", name: "Ali" }]);
-  assert.match(fa, /پروفایل‌های ذخیره‌شده و گفت‌وگوهای فعالشون/);
-  assert.match(fa, /توی بخش گفت‌وگوها/);
-  assert.match(en, /saved profiles and their active discussions/);
+  assert.match(fa, /هر پروفایل ذخیره‌شده رو باز کن/);
+  assert.match(fa, /از بخش گفت‌وگوها/);
+  assert.match(en, /Open a saved profile/);
   assert.match(en, /from the Discussions section/);
 });
 

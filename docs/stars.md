@@ -132,6 +132,7 @@ Stored invitations and attributable discussion share links remain reusable, but 
 - Later A to B invitations never reward A again, even for another discussion.
 - B may separately earn once for a successful B to A invitation.
 - For stored saved-profile invitations, the target must still be saved when the invitation is created.
+- A direct invitation from a See People profile uses source `people_profile`, does not require saving, and is never eligible for the saved-profile directed-pair reward.
 - For stored invitations, award only after the join mutation succeeds and the invitation is atomically accepted.
 - For attributable discussion share links, award only after the invitee successfully joins from the shared discussion link.
 - Leaving, rejoining, reopening an accepted invitation, repeated callbacks, duplicate invitation rows, or changing discussions creates no additional reward.

@@ -8,6 +8,7 @@ const { clearDiscussionMembersMessage } = require("./discussions-callbacks");
 const {
   requestUnsaveProfileConfirmation,
   saveProfileByCode,
+  sendPeopleDiscoveryList,
   sendPublicProfileByCode,
   unsaveProfileByCode,
 } = require("./saved-profiles");
@@ -60,13 +61,14 @@ async function handlePublicProfileCallback(ctx, lang, { deleteCallbackMessageIfP
     const fromDiscussionMembers = raw.endsWith(":members");
     const code = raw.replace(/:members$/, "");
     const publicProfileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
-    const preserveProfileCard = ["shared", "direct", "discussion_members", "invitations"]
-      .includes(publicProfileContext?.source);
+    const preserveProfileCard = publicProfileContext?.code === code
+      && ["people", "saved", "shared", "direct", "discussion_members", "invitations"]
+        .includes(publicProfileContext.source);
     if (!fromDiscussionMembers && !preserveProfileCard && !ctx.isReplyKeyboardAction) {
       await deleteCallbackMessageIfPossible(ctx);
     }
     await ctx.answerCb?.();
-    const fromPeopleList = String(ctx.user?.navigationMode || "").startsWith("public_profile:people:");
+    const fromPeopleList = preserveProfileCard && publicProfileContext.source === "people";
     return saveProfileByCode(ctx, lang, code, {
       fromDiscussionMembers,
       fromPeopleList,
@@ -79,10 +81,14 @@ async function handlePublicProfileCallback(ctx, lang, { deleteCallbackMessageIfP
     const raw = data.replace(callBacks.profileUnsaveByCode, "");
     const fromDiscussionMembers = raw.endsWith(":members");
     const code = raw.replace(/:members$/, "");
-    if (fromDiscussionMembers) {
+    const publicProfileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
+    const preserveProfileCard = publicProfileContext?.code === code
+      && ["people", "saved", "shared", "direct", "discussion_members", "invitations"]
+        .includes(publicProfileContext.source);
+    if (fromDiscussionMembers || preserveProfileCard) {
       return unsaveProfileByCode(ctx, lang, code, {
         notify: false,
-        fromDiscussionMembers: true,
+        fromDiscussionMembers,
         preserveProfileCard: true,
       });
     }
@@ -90,10 +96,14 @@ async function handlePublicProfileCallback(ctx, lang, { deleteCallbackMessageIfP
   }
 
   if (data === callBacks.profileCloseDiscussionMember) {
+    const profileContext = parsePublicProfileNavigationMode(ctx.user?.navigationMode);
     await ctx.answerCb?.();
     if (!ctx.isReplyKeyboardAction) await deleteCallbackMessageIfPossible(ctx);
     await updateProfileField(ctx.userId, "publicProfileLastMessageId", null);
     if (ctx.user) ctx.user.publicProfileLastMessageId = null;
+    if (profileContext?.source === "people" && profileContext.isSaved) {
+      return sendPeopleDiscoveryList(ctx, lang, profileContext.page);
+    }
     await restorePublicProfileReturnNavigationMode(ctx);
     return true;
   }

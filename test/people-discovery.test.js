@@ -375,7 +375,7 @@ test("people discovery creates public codes only while preparing visible matches
   }
 });
 
-test("people discovery UI renders shared sections and save/view commands", () => {
+test("people discovery UI renders shared sections and only the profile command", () => {
   const text = buildPeopleDiscoveryText(messages, "fa", [{
     code: "u_AB12",
     name: "طاها",
@@ -386,7 +386,7 @@ test("people discovery UI renders shared sections and save/view commands", () =>
   assert.match(text, /دیدن آدم‌ها/);
   assert.match(text, /۴ مورد مشترک/);
   assert.match(text, /\/u_AB12/);
-  assert.match(text, /\/save_AB12/);
+  assert.doesNotMatch(text, /\/save_AB12/);
 });
 
 test("people discovery UI shows the localized shared taste label", () => {
@@ -460,13 +460,14 @@ test("people discovery omits profile language flags because the filter already s
   assert.doesNotMatch(mixed, /🇬🇧|🇮🇷/);
 });
 
-test("people discovery separates adjacent action commands to prevent mistaps", () => {
+test("people discovery keeps saving inside the opened profile", () => {
   const text = buildPeopleDiscoveryText(messages, "en", [{
     code: "u_A1",
     name: "Sara",
   }]);
 
-  assert.match(text, /Sara\n\n👁[\s\S]*\/u_A1\n\n🔖[\s\S]*\/save_A1/);
+  assert.match(text, /Sara\n\n👁[\s\S]*\/u_A1/);
+  assert.doesNotMatch(text, /\/save_A1/);
 });
 
 test("people discovery intro invites viewing and saving without privacy wording", () => {
@@ -741,22 +742,7 @@ test("people discovery empty state uses inline action and Close", () => {
   ]);
 });
 
-test("people discovery offers a clearer Favorites action when only saved people remain", () => {
-  const addButtons = peopleDiscoverListKeyboard("fa", { showFavoritesAction: true })
-    .reply_markup.inline_keyboard.flat();
-  const viewButtons = peopleDiscoverListKeyboard("fa", {
-    showFavoritesAction: true,
-    favoritesFull: true,
-  }).reply_markup.inline_keyboard.flat();
-
-  assert.ok(addButtons.some((button) => (
-    button.text === messages.fa.peopleDiscoverAddFavorites
-    && button.callback_data === callBacks.aiAssistant
-  )));
-  assert.ok(viewButtons.some((button) => (
-    button.text === messages.fa.peopleDiscoverViewFavorites
-    && button.callback_data === callBacks.aiAssistant
-  )));
+test("people discovery explains where saved profiles remain when discovery is exhausted", () => {
   const savedOnlyIntro = formatPeopleDiscoveryRequirementText(
     messages.fa.peopleDiscoverNoMoreNew,
     "fa",
@@ -764,6 +750,7 @@ test("people discovery offers a clearer Favorites action when only saved people 
   );
   assert.match(savedOnlyIntro, /حداقل ۲ انتخاب مشترک در یک بخش/);
   assert.match(savedOnlyIntro, /برچسب سلیقه‌ی یکسان/);
+  assert.match(savedOnlyIntro, /منوی آدم‌ها/);
 });
 
 test("people discovery shows language filtering only for multilingual candidates", () => {
@@ -778,38 +765,6 @@ test("people discovery shows language filtering only for multilingual candidates
 
   assert.equal(hiddenButtons.some((button) => button.callback_data?.startsWith(callBacks.peopleDiscoverLanguageOpen)), false);
   assert.equal(visibleButtons.some((button) => button.callback_data === `${callBacks.peopleDiscoverLanguageOpen}all`), true);
-});
-
-test("saved profiles are visibly separated at the end of People results", () => {
-  const text = buildPeopleDiscoveryText(messages, "fa", [
-    { code: "u_NEW", name: "New person", isSaved: false },
-    { code: "u_SAVED", name: "Saved person", isSaved: true },
-  ], {
-    showSharedSections: true,
-    totalCount: 1,
-  });
-
-  assert.match(text, new RegExp(messages.fa.peopleDiscoverSavedSection));
-  assert.match(text, /\(۱\)/);
-  assert.doesNotMatch(text, /\(۲\)/);
-  assert.match(text, /۱\.[\s\S]*New person/);
-  assert.match(text, new RegExp(`${messages.fa.peopleDiscoverSavedSection}\\n\\n۱\\.[\\s\\S]*Saved person`));
-  assert.ok(text.indexOf("New person") < text.indexOf(messages.fa.peopleDiscoverSavedSection));
-  assert.ok(text.indexOf(messages.fa.peopleDiscoverSavedSection) < text.indexOf("Saved person"));
-});
-
-test("saved profile numbering continues across later People pages", () => {
-  const text = buildPeopleDiscoveryText(messages, "en", [
-    { code: "u_SAVED_3", name: "Third saved", isSaved: true },
-    { code: "u_SAVED_4", name: "Fourth saved", isSaved: true },
-  ], {
-    startIndex: 7,
-    totalCount: 5,
-  });
-
-  assert.match(text, /See people \(5\)/);
-  assert.match(text, /3\.[\s\S]*Third saved/);
-  assert.match(text, /4\.[\s\S]*Fourth saved/);
 });
 
 test("People list Close only deletes the tapped card", async () => {
