@@ -1,7 +1,7 @@
 module.exports = {
   navigationFootprintMainMenu: "🏠 خانه",
   navigationFootprintProfile: "👤 پروفایل",
-  navigationFootprintTaste: "🎬📺🎵📚 فیلم، سریال، موسیقی و کتاب",
+  navigationFootprintTaste: "🎬🎵📚 لیست‌های من",
   navigationFootprintDiscussions: "💬 گفت‌وگوها",
   navigationFootprintPeople: "👥 آدم‌ها",
   navigationFootprintSavedProfiles: "🔖 ذخیره‌شده‌ها",
@@ -69,7 +69,7 @@ module.exports = {
     mainMenuMe: "👤 من",
     profile: "👤 پروفایل",
     aiAssistant: "🎬🎵📚 لیست‌های من",
-    aiAssistantTitle: "🎬📺🎵📚 فیلم، سریال، موسیقی و کتاب",
+    aiAssistantTitle: "🎬🎵📚 لیست‌های من",
     discussions: "💬 گفت‌وگوها",
     people: "👥 آدم‌ها",
     savedProfiles: "🔖 ذخیره‌شده‌ها",
