@@ -45,7 +45,7 @@
     "fuse.js": "^7.3.0",
     "https-proxy-agent": "^5.0.1",
     "mongoose": "^9.7.2",
-    "openai": "^6.37.0",
+    "openai": "^7.4.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
