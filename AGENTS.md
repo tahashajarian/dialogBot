@@ -3,6 +3,10 @@
 ## Project Overview
 
 - This repo contains a Telegram bot using Telegraf, Node.js, and MongoDB.
+- This is the Telegram-only repository. The standalone mobile product lives in
+  `C:\Users\shaja\Documents\Work\Muze-App` and is developed independently.
+- Never add mobile client/API code here or connect this bot to the mobile
+  database. Accounts, discussions, messages, and deployments are separate.
 - Main entry point: `src/index.js`.
 - Bot routing lives mainly in `src/bot.js` and `src/callbacks.js`.
 - Read focused docs before changing related behavior:

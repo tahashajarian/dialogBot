@@ -9,6 +9,14 @@ See [LICENSE](LICENSE).
 Muze is a bilingual Persian/English Telegram bot built with Node.js, Telegraf,
 MongoDB, and an OpenAI-compatible AI endpoint.
 
+## Repository scope
+
+This repository is the Telegram bot only. Mobile development has moved to the
+independent `Muze-App` repository (local path:
+`C:\Users\shaja\Documents\Work\Muze-App`). The two products do not share
+accounts, databases, discussions, messages, deployments, or runtime code.
+Do not add the React Native app or mobile API back to this repository.
+
 The bot combines:
 
 - public social profiles and private saved-profile bookmarks
@@ -38,7 +46,7 @@ Create `.env` with the variables below. Do not commit it.
 ```dotenv
 BOT_TOKEN=
 MONGO_URI=mongodb://127.0.0.1:27017
-MONGO_DB_NAME=bot
+MONGO_DB_NAME=muze_telegram
 
 # Optional custom Bot API root. Leave empty for normal Telegram Bot API.
 API_ROOT=

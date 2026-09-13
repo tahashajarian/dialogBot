@@ -1,5 +1,9 @@
 # Product Roadmap
 
+> Repository boundary: this roadmap applies only to the Telegram bot. The
+> standalone mobile product is planned and shipped from `Muze-App`; its users,
+> database, discussions, and releases are independent.
+
 Muze is deployed on Telegram with an active private beta. Analytics,
 D1/D7 retention, private nearby discovery, Stars, boosts, Advanced Search
 interest tracking, reporting, and an audited operator unban flow are implemented.

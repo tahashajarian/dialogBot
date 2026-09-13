@@ -18,6 +18,11 @@ Ordinary navigation is append-only chat history: converted destinations do not s
 
 ## Project Overview
 
+Repository boundary: this project contains only the Telegram bot. The mobile
+application and its API live in the separate `Muze-App` repository and use a
+different MongoDB database. There is no cross-platform identity linking,
+discussion/message delivery, synchronization, or shared deployment.
+
 - This repo contains a Telegram bot using Telegraf.
 - Runtime stack: Node.js and MongoDB.
 - MongoDB connections use bounded selection, connection, socket, pool-queue, and
@@ -164,10 +169,9 @@ Visible discussions opened from a public-profile card edit that same text or pho
 
 ## Existing Profile Fields
 
-- `muzeUserId` is Muze's immutable platform-independent user identity. It is
-  generated for new accounts and remains optional until legacy users are
-  backfilled. Telegram routing and existing relationships continue to use the
-  numeric `userId` during this migration.
+- `muzeUserId` is a retained internal compatibility field. It does not link a
+  Telegram account to the standalone mobile product. Telegram routing and all
+  relationships in this repository use numeric `userId`.
 
 - language
 - name
